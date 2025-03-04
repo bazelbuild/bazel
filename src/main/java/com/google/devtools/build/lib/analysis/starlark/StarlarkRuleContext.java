@@ -68,7 +68,7 @@ import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
 import com.google.devtools.build.lib.packages.BuildSetting;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.BuiltinRestriction;
-import com.google.devtools.build.lib.packages.ExecGroup;
+import com.google.devtools.build.lib.packages.DeclaredExecGroup;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.OutputFile;
@@ -152,18 +152,7 @@ public final class StarlarkRuleContext
    * This variable is used to expose the state of {@link
    * RuleContext#configurationMakeVariableContext} to the user via {@code ctx.var}.
    *
-   * <p>Computing this field causes a side-effect of initializing the Make var context with an empty
-   * list of additional MakeVariableSuppliers. Historically, this was fine for Starlark-defined
-   * rules, but became a problem when we started giving StarlarkRuleContexts to native rules (to
-   * sandwich them with {@code @_builtins}, for Starlarkification). The native rules would then
-   * compete with this default initialization for control over the Make var context.
-   *
-   * <p>To work around this, we now compute and cache the Dict of all Make vars lazily at the first
-   * call to {@code ctx.var}. If a native rule provides custom MakeVariableSuppliers (via {@link
-   * RuleContext#initConfigurationMakeVariableContext}) and also passes {@code ctx} to a
-   * Starlark-defined function that accesses {@code ctx.var}, then the call to {@code
-   * initConfigurationMakeVariableContext} must come first or else that call will throw a
-   * precondition exception.
+   * <p>Computing this field causes a side-effect of initializing the Make var context.
    *
    * <p>Note that StarlarkRuleContext can (for pathological user-written rules) survive the analysis
    * phase and be accessed concurrently. Nonetheless, it is still safe to initialize {@code ctx.var}
@@ -250,7 +239,7 @@ public final class StarlarkRuleContext
         } else if (type == BuildType.OUTPUT_LIST) {
           outputs.addOutput(attrName, artifacts);
         } else {
-          throw new AssertionError(
+          throw ruleContext.throwWithRuleError(
               String.format("Attribute %s has unexpected output type %s", attrName, type));
         }
       }
@@ -295,6 +284,16 @@ public final class StarlarkRuleContext
       this.splitAttributes = null;
       StarlarkAttributesCollection.Builder ruleBuilder =
           StarlarkAttributesCollection.builder(this, ruleContext.getRulePrerequisitesCollection());
+      try {
+        Dict<String, String> makeVariables =
+            ((AspectContext) ruleContext)
+                .getBaseTargetConfigurationMakeVariableContext()
+                .collectMakeVariables()
+                .buildImmutable();
+        ruleBuilder.putAllRuleVariables(makeVariables);
+      } catch (ExpansionException e) {
+        throw ruleContext.throwWithRuleError("Exception expanding template variables", e);
+      }
 
       for (Attribute attribute : rule.getAttributes()) {
         Object value = ruleContext.attributes().get(attribute.getName(), attribute.getType());
@@ -847,7 +846,7 @@ public final class StarlarkRuleContext
         ruleContext.getToolchainContexts();
 
     return toolchainContexts.getExecGroupNames().stream()
-        .filter(ExecGroup::isAutomatic)
+        .filter(DeclaredExecGroup::isAutomatic)
         .flatMap(
             execGroupName ->
                 toolchainContexts
@@ -945,10 +944,9 @@ public final class StarlarkRuleContext
       String attributeName, String command, Map<String, String> additionalSubstitutionsMap) {
     ConfigurationMakeVariableContext makeVariableContext =
         new ConfigurationMakeVariableContext(
-            ruleContext,
             ruleContext.getRule().getPackage(),
             ruleContext.getConfiguration(),
-            ImmutableList.of()) {
+            ruleContext.getDefaultTemplateVariableProviders()) {
           @Override
           public String lookupVariable(String variableName) throws ExpansionException {
             if (additionalSubstitutionsMap.containsKey(variableName)) {
@@ -993,8 +991,12 @@ public final class StarlarkRuleContext
     checkMutable("build_file_path");
     checkDeprecated("ctx.label.package + '/BUILD'", "ctx.build_file_path", getStarlarkSemantics());
 
-    Package pkg = ruleContext.getRule().getPackage();
-    return pkg.getSourceRoot().get().relativize(pkg.getBuildFile().getPath()).getPathString();
+    Package.Metadata pkgMetadata = ruleContext.getRule().getPackageMetadata();
+    return pkgMetadata
+        .sourceRoot()
+        .get()
+        .relativize(pkgMetadata.buildFilename().asPath())
+        .getPathString();
   }
 
   private static void checkDeprecated(String newApi, String oldApi, StarlarkSemantics semantics)

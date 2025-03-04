@@ -59,6 +59,11 @@ public class InputFile extends FileTarget {
     return pkg;
   }
 
+  @Override
+  public Package.Metadata getPackageMetadata() {
+    return pkg.getMetadata();
+  }
+
   public boolean isVisibilitySpecified() {
     return false;
   }
@@ -91,7 +96,7 @@ public class InputFile extends FileTarget {
    * <p>Prefer {@link #getExecPath} if possible.
    */
   public Path getPath() {
-    return pkg.getPackageDirectory().getRelative(label.getName());
+    return pkg.getMetadata().getPackageDirectory().getRelative(label.getName());
   }
 
   /**

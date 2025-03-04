@@ -59,9 +59,7 @@ import org.junit.Before;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Testing framework for tests which create configuration collections.
- */
+/** Testing framework for tests which create configuration collections. */
 @RunWith(JUnit4.class)
 public abstract class ConfigurationTestCase extends FoundationTestCase {
 
@@ -107,7 +105,6 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
     mockToolsConfig = new MockToolsConfig(rootDirectory);
     analysisMock.setupMockToolsRepository(mockToolsConfig);
     analysisMock.setupMockClient(mockToolsConfig);
-    analysisMock.setupMockWorkspaceFiles(directories.getEmbeddedBinariesRoot());
 
     PackageFactory pkgFactory =
         analysisMock
@@ -161,7 +158,6 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
 
     mockToolsConfig = new MockToolsConfig(rootDirectory);
     analysisMock.setupMockClient(mockToolsConfig);
-    analysisMock.setupMockWorkspaceFiles(directories.getEmbeddedBinariesRoot());
     fragmentFactory = new FragmentFactory();
   }
 

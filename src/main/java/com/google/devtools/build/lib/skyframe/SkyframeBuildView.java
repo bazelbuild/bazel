@@ -1365,7 +1365,7 @@ public final class SkyframeBuildView {
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> prerequisiteMap,
       ConfigConditions configConditions,
       @Nullable ToolchainCollection<ResolvedToolchainContext> toolchainContexts,
-      @Nullable NestedSet<Package> transitivePackages,
+      @Nullable NestedSet<Package.Metadata> transitivePackages,
       ExecGroupCollection.Builder execGroupCollectionBuilder)
       throws InterruptedException,
           ActionConflictException,

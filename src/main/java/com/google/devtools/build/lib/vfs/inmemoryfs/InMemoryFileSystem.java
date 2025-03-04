@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.util.OS;
-import com.google.devtools.build.lib.vfs.AbstractFileSystemWithCustomStat;
+import com.google.devtools.build.lib.vfs.AbstractFileSystem;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileAccessException;
 import com.google.devtools.build.lib.vfs.FileStatus;
@@ -55,7 +55,7 @@ import javax.annotation.Nullable;
  * to achieve.
  */
 @ThreadSafe
-public class InMemoryFileSystem extends AbstractFileSystemWithCustomStat {
+public class InMemoryFileSystem extends AbstractFileSystem {
 
   protected final Clock clock;
 

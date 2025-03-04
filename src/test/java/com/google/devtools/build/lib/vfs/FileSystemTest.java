@@ -50,6 +50,8 @@ import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.attribute.PosixFilePermission;
 import java.time.Instant;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.After;
@@ -1529,7 +1531,7 @@ public abstract class FileSystemTest {
 
   // Test renaming
   @Test
-  public void testCanRenameToUnusedName() throws Exception {
+  public void testCanRenameFileToUnusedName() throws Exception {
     xFile.renameTo(xNothing);
     assertThat(xFile.exists()).isFalse();
     assertThat(xNothing.isFile()).isTrue();
@@ -1542,6 +1544,43 @@ public abstract class FileSystemTest {
     xFile.renameTo(otherFile); // succeeds
     assertThat(xFile.exists()).isFalse();
     assertThat(otherFile.isFile()).isTrue();
+  }
+
+  @Test
+  public void testCanRenameFileToExistingSymlink() throws Exception {
+    assumeTrue(testFS.supportsSymbolicLinksNatively(xLink.asFragment()));
+
+    Path symlink = absolutize("symlink");
+    createSymbolicLink(symlink, PathFragment.create("something"));
+    xFile.renameTo(symlink); // succeeds
+    assertThat(xFile.exists()).isFalse();
+    assertThat(symlink.isFile()).isTrue();
+  }
+
+  @Test
+  public void testCanRenameSymlinkToExistingFile() throws Exception {
+    assumeTrue(testFS.supportsSymbolicLinksNatively(xLink.asFragment()));
+
+    Path symlink = absolutize("symlink");
+    createSymbolicLink(symlink, PathFragment.create("something"));
+    symlink.renameTo(xFile); // succeeds
+    assertThat(symlink.exists(Symlinks.NOFOLLOW)).isFalse();
+    assertThat(xFile.isSymbolicLink()).isTrue();
+    assertThat(xFile.readSymbolicLink()).isEqualTo(PathFragment.create("something"));
+  }
+
+  @Test
+  public void testCanRenameSymlinkToExistingSymlink() throws Exception {
+    assumeTrue(testFS.supportsSymbolicLinksNatively(xLink.asFragment()));
+
+    Path symlink = absolutize("symlink");
+    createSymbolicLink(symlink, PathFragment.create("something"));
+    Path otherSymlink = absolutize("otherSymlink");
+    createSymbolicLink(otherSymlink, PathFragment.create("other"));
+    symlink.renameTo(otherSymlink); // succeeds
+    assertThat(symlink.exists(Symlinks.NOFOLLOW)).isFalse();
+    assertThat(otherSymlink.isSymbolicLink()).isTrue();
+    assertThat(otherSymlink.readSymbolicLink()).isEqualTo(PathFragment.create("something"));
   }
 
   @Test
@@ -1602,11 +1641,20 @@ public abstract class FileSystemTest {
   }
 
   @Test
-  public void testMoveOnNonExistingFileThrowsException() throws Exception {
+  public void testCantRenameNonExistingFile() throws Exception {
     Path nonExistingPath = absolutize("non-existing");
     Path targetPath = absolutize("does-not-matter");
     FileNotFoundException e =
         assertThrows(FileNotFoundException.class, () -> nonExistingPath.renameTo(targetPath));
+    assertThat(e).hasMessageThat().endsWith(" (No such file or directory)");
+  }
+
+  @Test
+  public void testCantRenameIntoNonExistingDir() throws Exception {
+    Path nonExistingPath = absolutize("non-existing");
+    Path targetPath = nonExistingPath.getChild("does-not-matter");
+    FileNotFoundException e =
+        assertThrows(FileNotFoundException.class, () -> xFile.renameTo(targetPath));
     assertThat(e).hasMessageThat().endsWith(" (No such file or directory)");
   }
 
@@ -2034,5 +2082,19 @@ public abstract class FileSystemTest {
   protected static void assumeUtf8CompatibleEncoding() {
     Charset sunJnuEncoding = Charset.forName(System.getProperty("sun.jnu.encoding"));
     assume().that(ImmutableList.of(UTF_8, ISO_8859_1)).contains(sunJnuEncoding);
+  }
+
+  @Test
+  public void testCreateTempDirectory() throws Exception {
+    Set<Path> tempDirs = new HashSet<>();
+    for (int i = 0; i < 10; i++) {
+      Path tempDir = workingDir.createTempDirectory("prefix" + i);
+      assertThat(tempDir.isDirectory()).isTrue();
+      assertThat(tempDir.isReadable()).isTrue();
+      assertThat(tempDir.isWritable()).isTrue();
+      assertThat(tempDir.getBaseName()).startsWith("prefix" + i);
+      assertThat(tempDirs).doesNotContain(tempDir);
+      tempDirs.add(tempDir);
+    }
   }
 }

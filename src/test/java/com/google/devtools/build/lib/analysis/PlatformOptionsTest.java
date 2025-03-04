@@ -18,6 +18,7 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.util.OptionsTestCase;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.config.PlatformMappingKey;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.OptionsParsingException;
@@ -32,6 +33,7 @@ public final class PlatformOptionsTest extends OptionsTestCase<PlatformOptions> 
   private static final String EXTRA_TOOLCHAINS_PREFIX = "--extra_toolchains=";
   private static final String PLATFORMS_PREFIX = "--platforms=";
   private static final String PLATFORM_MAPPINGS_PREFIX = "--platform_mappings=";
+  private static final String HOST_PLATFORM_PREFIX = "--host_platform=";
 
   @Override
   protected Class<PlatformOptions> getOptionsClass() {
@@ -113,5 +115,12 @@ public final class PlatformOptionsTest extends OptionsTestCase<PlatformOptions> 
     assertThrows(
         OptionsParsingException.class,
         () -> createWithPrefix(PLATFORM_MAPPINGS_PREFIX, "/a/b/platform_mappings"));
+  }
+
+  @Test
+  public void hostPlatformEmpty_default() throws Exception {
+    PlatformOptions options = createWithPrefix(HOST_PLATFORM_PREFIX, "");
+    assertThat(options.hostPlatform)
+        .isEqualTo(Label.parseCanonicalUnchecked(PlatformOptions.DEFAULT_HOST_PLATFORM));
   }
 }

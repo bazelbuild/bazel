@@ -33,7 +33,6 @@ public class TestConstants {
    * A list of all embedded binaries that go into the regular Bazel binary.
    */
   public static final ImmutableList<String> EMBEDDED_TOOLS = ImmutableList.of(
-      "build-runfiles",
       "linux-sandbox",
       "process-wrapper",
       "xcode-locator");

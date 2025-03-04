@@ -121,7 +121,7 @@ public final class LocationExpander {
             () -> LocationExpander.buildLocationMap(ruleContext, labelMap, allowData, true)),
         execPaths,
         ruleContext.getConfiguration().legacyExternalRunfiles(),
-        ruleContext.getRule().getPackage().getRepositoryMapping());
+        ruleContext.getRule().getPackageMetadata().repositoryMapping());
   }
 
   /**

@@ -525,10 +525,7 @@ public class ResourceManager implements ResourceEstimator {
     return waitingRequest.getResourceLatch();
   }
 
-  /**
-   * Release resources and process the queues of waiting threads. Return true when any new thread
-   * processed.
-   */
+  /** Release resources and process the queues of waiting threads. */
   private synchronized void release(ResourceRequest request, @Nullable Worker worker)
       throws IOException, InterruptedException {
     if (worker != null) {

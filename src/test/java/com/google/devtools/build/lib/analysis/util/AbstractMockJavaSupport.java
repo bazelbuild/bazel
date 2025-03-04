@@ -26,7 +26,6 @@ public abstract class AbstractMockJavaSupport {
         @Override
         public void setupRulesJava(
             MockToolsConfig config, Function<String, String> runfilesResolver) throws IOException {
-          config.create("rules_java_workspace/WORKSPACE", "workspace(name = 'rules_java')");
           config.create("rules_java_workspace/MODULE.bazel", "module(name = 'rules_java')");
           PathFragment rulesJavaRoot =
               PathFragment.create(runfilesResolver.apply("rules_java/java/defs.bzl"))

@@ -143,7 +143,7 @@ class NamedArtifactGroup implements BuildEvent {
    * unaltered.
    */
   static NestedSet<?> expandSet(CompletionContext ctx, NestedSet<?> artifacts) {
-    NestedSetBuilder<Object> res = new NestedSetBuilder<>(Order.STABLE_ORDER);
+    NestedSetBuilder<Object> res = NestedSetBuilder.newBuilder(Order.STABLE_ORDER);
     for (Object artifact : artifacts.getLeaves()) {
       if (artifact instanceof ExpandedArtifact) {
         res.add(artifact);

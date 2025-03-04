@@ -19,13 +19,11 @@ import static com.google.devtools.build.lib.testutil.TestConstants.WORKSPACE_NAM
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
-import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -57,28 +55,6 @@ public final class SymlinkTreeHelperTest {
   @Before
   public void setUp() throws Exception {
     outputRoot.getRoot().asPath().createDirectoryAndParents();
-  }
-
-  @Test
-  public void checkCreatedSpawn() {
-    Path execRoot = fs.getPath("/my/workspace");
-    Path inputManifestPath = execRoot.getRelative("input_manifest");
-    Path outputManifestPath = execRoot.getRelative("output/MANIFEST");
-    Path symlinkTreeRoot = execRoot.getRelative("output");
-    BinTools binTools =
-        BinTools.forUnitTesting(execRoot, ImmutableList.of(SymlinkTreeHelper.BUILD_RUNFILES));
-    Command command =
-        new SymlinkTreeHelper(
-                execRoot, inputManifestPath, outputManifestPath, symlinkTreeRoot, false, "__main__")
-            .createCommand(binTools, ImmutableMap.of());
-    assertThat(command.getEnvironment()).isEmpty();
-    assertThat(command.getWorkingDirectory()).isEqualTo(execRoot.getPathFile());
-    ImmutableList<String> commandLine = command.getArguments();
-    assertThat(commandLine).hasSize(4);
-    assertThat(commandLine.get(0)).endsWith(SymlinkTreeHelper.BUILD_RUNFILES);
-    assertThat(commandLine.get(1)).isEqualTo("--allow_relative");
-    assertThat(commandLine.get(2)).isEqualTo("input_manifest");
-    assertThat(commandLine.get(3)).isEqualTo("output");
   }
 
   @Test
@@ -128,14 +104,13 @@ public final class SymlinkTreeHelperTest {
   }
 
   @Test
-  public void createSymlinksDirectly(
-      @TestParameter TreeType treeType, @TestParameter boolean replace) throws Exception {
+  public void createSymlinks(@TestParameter TreeType treeType, @TestParameter boolean replace)
+      throws Exception {
     Path treeRoot = execRoot.getRelative("foo.runfiles");
     Path inputManifestPath = execRoot.getRelative("foo.runfiles_manifest");
     Path outputManifestPath = execRoot.getRelative("foo.runfiles/MANIFEST");
     SymlinkTreeHelper helper =
-        new SymlinkTreeHelper(
-            execRoot, inputManifestPath, outputManifestPath, treeRoot, false, WORKSPACE_NAME);
+        new SymlinkTreeHelper(inputManifestPath, outputManifestPath, treeRoot, WORKSPACE_NAME);
 
     Artifact file = ActionsTestUtil.createArtifact(outputRoot, "file");
     Artifact symlink = ActionsTestUtil.createUnresolvedSymlinkArtifact(outputRoot, "symlink");
@@ -164,7 +139,7 @@ public final class SymlinkTreeHelperTest {
         symlinkMap.put(PathFragment.create(WORKSPACE_NAME + "/file"), file);
         symlinkMap.put(PathFragment.create(WORKSPACE_NAME + "/symlink"), symlink);
 
-        helper.createRunfilesSymlinksDirectly(symlinkMap);
+        helper.createRunfilesSymlinks(symlinkMap);
       }
       case FILESET -> {
         HashMap<PathFragment, PathFragment> symlinkMap = new HashMap<>();
@@ -174,7 +149,7 @@ public final class SymlinkTreeHelperTest {
             PathFragment.create(WORKSPACE_NAME + "/symlink"),
             PathFragment.create("/path/to/target"));
 
-        helper.createFilesetSymlinksDirectly(symlinkMap);
+        helper.createFilesetSymlinks(symlinkMap);
       }
     }
 

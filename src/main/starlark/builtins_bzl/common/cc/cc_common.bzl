@@ -21,6 +21,9 @@ load(
 )
 load(":common/cc/cc_info.bzl", "CcInfo")
 load(":common/cc/cc_shared_library_hint_info.bzl", "CcSharedLibraryHintInfo")
+load(":common/cc/compile/compile.bzl", "compile")
+load(":common/cc/link/create_linking_context_from_compilation_outputs.bzl", "create_linking_context_from_compilation_outputs")
+load(":common/cc/link/link.bzl", "link")
 load(":common/cc/link/link_build_variables.bzl", "create_link_variables")
 
 cc_common_internal = _builtins.internal.cc_common
@@ -126,7 +129,11 @@ def _link(
     if emit_interface_shared_library == _UNBOUND:
         emit_interface_shared_library = False
 
-    return cc_common_internal.link(
+    if cc_toolchain._cpp_configuration.experimental_starlark_linking():
+        link_func = link
+    else:
+        link_func = cc_common_internal.link
+    return link_func(
         actions = actions,
         name = name,
         feature_configuration = feature_configuration,
@@ -570,7 +577,11 @@ def _create_linking_context_from_compilation_outputs(
     if test_only_target == _UNBOUND:
         test_only_target = False
 
-    return cc_common_internal.create_linking_context_from_compilation_outputs(
+    if cc_toolchain._cpp_configuration.experimental_starlark_linking():
+        linking_func = create_linking_context_from_compilation_outputs
+    else:
+        linking_func = cc_common_internal.create_linking_context_from_compilation_outputs
+    return linking_func(
         actions = actions,
         name = name,
         feature_configuration = feature_configuration,
@@ -742,7 +753,11 @@ def _compile(
     if has_tuple:
         cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
 
-    return cc_common_internal.compile(
+    if cc_toolchain._cpp_configuration.experimental_starlark_compiling():
+        compile_func = compile
+    else:
+        compile_func = cc_common_internal.compile
+    return compile_func(
         actions = actions,
         feature_configuration = feature_configuration,
         cc_toolchain = cc_toolchain,

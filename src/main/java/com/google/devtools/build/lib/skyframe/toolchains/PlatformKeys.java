@@ -265,6 +265,11 @@ record PlatformKeys(
   }
 
   @Nullable
+  PlatformInfo targetPlatformInfo() {
+    return platformInfo(targetPlatformKey);
+  }
+
+  @Nullable
   PlatformInfo platformInfo(ConfiguredTargetKey configuredTargetKey) {
     return platformInfos.get(configuredTargetKey);
   }

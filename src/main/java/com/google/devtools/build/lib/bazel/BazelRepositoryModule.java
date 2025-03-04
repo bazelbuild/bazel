@@ -250,7 +250,7 @@ public class BazelRepositoryModule extends BlazeModule {
         new SingleExtensionEvalFunction(directories, clientEnvironmentSupplier);
 
     if (builtinModules == null) {
-      builtinModules = ModuleFileFunction.getBuiltinModules(directories.getEmbeddedBinariesRoot());
+      builtinModules = ModuleFileFunction.getBuiltinModules();
     }
 
     moduleFileFunction =

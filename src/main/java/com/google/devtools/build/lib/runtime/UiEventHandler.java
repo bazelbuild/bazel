@@ -108,19 +108,18 @@ public final class UiEventHandler implements EventHandler {
   private final boolean debugAllEvents;
   private final UiStateTracker stateTracker;
   private final LocationPrinter locationPrinter;
-  private final boolean showProgress;
+  private volatile boolean showProgress;
   private final boolean progressInTermTitle;
   private final boolean showTimestamp;
   private final OutErr outErr;
   private final ImmutableSet<EventKind> filteredEventKinds;
-  private long progressRateLimitMillis;
-  private long minimalUpdateInterval;
+  private final long progressRateLimitMillis;
+  private final long minimalUpdateInterval;
   private long lastRefreshMillis;
   private long mustRefreshAfterMillis;
   private boolean dateShown;
   private int numLinesProgressBar;
   private boolean buildRunning;
-  // Number of open build even protocol transports.
   private boolean progressBarNeedsRefresh;
   private volatile boolean shutdown;
   private final AtomicReference<Thread> updateThread;
@@ -228,6 +227,39 @@ public final class UiEventHandler implements EventHandler {
     this.filteredEventKinds = options.getFilteredEventKinds();
     // The progress bar has not been updated yet.
     ignoreRefreshLimitOnce();
+  }
+
+  /**
+   * Disables progress, clearing the progress bar if it is currently shown.
+   *
+   * <p>This can be used to temporarily suppress progress. Call {@link #enableProgress} to show
+   * progress again.
+   *
+   * <p>If {@link UiOptions#showProgress} is false, or progress is already suppressed, returns
+   * false. If progress was enabled before this call, returns true.
+   */
+  public synchronized boolean disableProgress() throws IOException {
+    if (!showProgress) {
+      return false;
+    }
+    clearProgressBar();
+    terminal.flush();
+    showProgress = false;
+    return true;
+  }
+
+  /**
+   * Enables progress and writes the progress bar.
+   *
+   * <p>This is a no-op if progress is already enabled.
+   */
+  public synchronized void enableProgress() throws IOException {
+    if (showProgress) {
+      return;
+    }
+    showProgress = true;
+    addProgressBar();
+    terminal.flush();
   }
 
   /**
@@ -430,10 +462,7 @@ public final class UiEventHandler implements EventHandler {
     EventKind eventKind = event.getKind();
     if (quiet) {
       switch (eventKind) {
-        case ERROR -> {}
-        case FATAL -> {}
-        case STDOUT -> {}
-        case STDERR -> {}
+        case ERROR, FATAL, STDOUT, STDERR -> {}
         default -> {
           return;
         }
@@ -525,27 +554,15 @@ public final class UiEventHandler implements EventHandler {
 
   private void setEventKindColor(EventKind kind) throws IOException {
     switch (kind) {
-      case FATAL:
-      case ERROR:
-      case FAIL:
+      case FATAL, ERROR, FAIL -> {
         terminal.setTextColor(Color.RED);
         terminal.textBold();
-        break;
-      case WARNING:
-      case CANCELLED:
-        terminal.setTextColor(Color.MAGENTA);
-        break;
-      case INFO:
-        terminal.setTextColor(Color.GREEN);
-        break;
-      case DEBUG:
-        terminal.setTextColor(Color.YELLOW);
-        break;
-      case SUBCOMMAND:
-        terminal.setTextColor(Color.BLUE);
-        break;
-      default:
-        terminal.resetTerminal();
+      }
+      case WARNING, CANCELLED -> terminal.setTextColor(Color.MAGENTA);
+      case INFO -> terminal.setTextColor(Color.GREEN);
+      case DEBUG -> terminal.setTextColor(Color.YELLOW);
+      case SUBCOMMAND -> terminal.setTextColor(Color.BLUE);
+      default -> terminal.resetTerminal();
     }
   }
 
@@ -600,7 +617,7 @@ public final class UiEventHandler implements EventHandler {
   @Subscribe
   public synchronized void analysisComplete(AnalysisPhaseCompleteEvent event) {
     String analysisSummary = stateTracker.analysisComplete();
-    handle(Event.info(null, analysisSummary));
+    handle(Event.info(analysisSummary));
   }
 
   @Subscribe
@@ -881,11 +898,11 @@ public final class UiEventHandler implements EventHandler {
   public synchronized void buildEventTransportsAnnounced(AnnounceBuildEventTransportsEvent event) {
     stateTracker.buildEventTransportsAnnounced(event);
     if (debugAllEvents) {
-      String message = "Transports announced:";
+      StringBuilder message = new StringBuilder("Transports announced:");
       for (BuildEventTransport transport : event.transports()) {
-        message += " " + transport.name();
+        message.append(" ").append(transport.name());
       }
-      this.handle(Event.info(null, message));
+      this.handle(Event.info(message.toString()));
     }
   }
 
@@ -893,7 +910,7 @@ public final class UiEventHandler implements EventHandler {
   public void buildEventTransportClosed(BuildEventTransportClosedEvent event) {
     stateTracker.buildEventTransportClosed(event);
     if (debugAllEvents) {
-      this.handle(Event.info(null, "Transport " + event.transport().name() + " closed"));
+      this.handle(Event.info("Transport " + event.transport().name() + " closed"));
     }
 
     checkActivities();

@@ -21,12 +21,13 @@ import static com.google.devtools.build.lib.analysis.BaseRuleClasses.RUN_UNDER_E
 import static com.google.devtools.build.lib.analysis.BaseRuleClasses.RUN_UNDER_TARGET_CONFIG;
 import static com.google.devtools.build.lib.analysis.BaseRuleClasses.TIMEOUT_DEFAULT;
 import static com.google.devtools.build.lib.analysis.BaseRuleClasses.getTestRuntimeLabelList;
-import static com.google.devtools.build.lib.analysis.test.ExecutionInfo.DEFAULT_TEST_RUNNER_EXEC_GROUP;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.BuildType.LICENSE;
 import static com.google.devtools.build.lib.packages.BuiltinRestriction.allowlistEntry;
+import static com.google.devtools.build.lib.packages.RuleClass.DEFAULT_TEST_RUNNER_EXEC_GROUP;
+import static com.google.devtools.build.lib.packages.RuleClass.DEFAULT_TEST_RUNNER_EXEC_GROUP_NAME;
 import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 import static com.google.devtools.build.lib.packages.Type.INTEGER;
 import static com.google.devtools.build.lib.packages.Type.STRING;
@@ -67,6 +68,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.AllowlistChecker;
 import com.google.devtools.build.lib.packages.AllowlistChecker.LocationCheck;
+import com.google.devtools.build.lib.packages.AspectPropagationPredicate;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.StarlarkComputedDefaultTemplate;
 import com.google.devtools.build.lib.packages.AttributeTransitionData;
@@ -77,7 +79,7 @@ import com.google.devtools.build.lib.packages.BuiltinRestriction;
 import com.google.devtools.build.lib.packages.BuiltinRestriction.AllowlistEntry;
 import com.google.devtools.build.lib.packages.BzlInitThreadContext;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.MissingFragmentPolicy;
-import com.google.devtools.build.lib.packages.ExecGroup;
+import com.google.devtools.build.lib.packages.DeclaredExecGroup;
 import com.google.devtools.build.lib.packages.FunctionSplitTransitionAllowlist;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.StarlarkImplicitOutputsFunctionWithCallback;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.StarlarkImplicitOutputsFunctionWithMap;
@@ -118,7 +120,7 @@ import com.google.devtools.build.lib.util.Pair;
 import com.google.errorprone.annotations.FormatMethod;
 import com.google.errorprone.annotations.Keep;
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -171,6 +173,14 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
                           + " actual dependency")
                   .value(ImmutableList.of()))
           .add(
+              attr(RuleClass.EXEC_GROUP_COMPATIBLE_WITH_ATTR, BuildType.LABEL_LIST_DICT)
+                  .allowedFileTypes()
+                  .nonconfigurable("Used in toolchain resolution")
+                  .tool(
+                      "exec_group_compatible_with exists for constraint checking, not to create an"
+                          + " actual dependency")
+                  .value(ImmutableMap.of()))
+          .add(
               attr(RuleClass.TARGET_COMPATIBLE_WITH_ATTR, LABEL_LIST)
                   .mandatoryProviders(ConstraintValueInfo.PROVIDER.id())
                   // This should be configurable to allow for complex types of restrictions.
@@ -187,8 +197,9 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
           .removeAttribute(":action_listener")
           .removeAttribute("aspect_hints")
           .removeAttribute("toolchains")
-          .removeAttribute("exec_compatible_with")
-          .removeAttribute("target_compatible_with")
+          .removeAttribute(RuleClass.EXEC_COMPATIBLE_WITH_ATTR)
+          .removeAttribute(RuleClass.EXEC_GROUP_COMPATIBLE_WITH_ATTR)
+          .removeAttribute(RuleClass.TARGET_COMPATIBLE_WITH_ATTR)
           .removeAttribute("compatible_with")
           .removeAttribute("restricted_to")
           .removeAttribute("$config_dependencies")
@@ -302,7 +313,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
             // See similar definitions in BaseRuleClasses for context.
             .add(
                 attr(":run_under_exec_config", LABEL)
-                    .cfg(ExecutionTransitionFactory.createFactory())
+                    .cfg(ExecutionTransitionFactory.createFactory("test"))
                     .value(RUN_UNDER_EXEC_CONFIG)
                     .skipPrereqValidatorCheck())
             .add(
@@ -918,8 +929,8 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
     builder.addToolchainTypes(parseToolchainTypes(toolchains, labelConverter));
 
     if (execGroups != Starlark.NONE) {
-      Map<String, ExecGroup> execGroupDict =
-          Dict.cast(execGroups, String.class, ExecGroup.class, "exec_group");
+      Map<String, DeclaredExecGroup> execGroupDict =
+          Dict.cast(execGroups, String.class, DeclaredExecGroup.class, "exec_group");
       for (String group : execGroupDict.keySet()) {
         // TODO(b/151742236): document this in the param documentation.
         if (!StarlarkExecGroupCollection.isValidGroupName(group)) {
@@ -928,8 +939,9 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       }
       builder.addExecGroups(execGroupDict);
     }
-    if (test && !builder.hasExecGroup(DEFAULT_TEST_RUNNER_EXEC_GROUP)) {
-      builder.addExecGroup(DEFAULT_TEST_RUNNER_EXEC_GROUP);
+    if (test && !builder.hasExecGroup(DEFAULT_TEST_RUNNER_EXEC_GROUP_NAME)) {
+      builder.addExecGroups(
+          ImmutableMap.of(DEFAULT_TEST_RUNNER_EXEC_GROUP_NAME, DEFAULT_TEST_RUNNER_EXEC_GROUP));
     }
 
     if (!buildSetting.equals(Starlark.NONE) && !cfg.equals(Starlark.NONE)) {
@@ -1182,6 +1194,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       Sequence<?> requiredAspectProvidersArg,
       Sequence<?> providesArg,
       Sequence<?> requiredAspects,
+      Object rawPropagationPredicate,
       Sequence<?> fragments,
       Sequence<?> hostFragments,
       Sequence<?> toolchains,
@@ -1330,17 +1343,35 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
           "An aspect cannot simultaneously have required providers and apply to generating rules.");
     }
 
+    AspectPropagationPredicate propagationPredicate = null;
+    if (!Starlark.isNullOrNone(rawPropagationPredicate)) {
+      if (!(rawPropagationPredicate instanceof StarlarkFunction starlarkFunction)) {
+        throw Starlark.errorf(
+            "Expected a function in 'propagation_predicate' parameter, got '%s'.",
+            Starlark.type(propagationPredicate));
+      }
+
+      propagationPredicate =
+          new AspectPropagationPredicate(starlarkFunction, thread.getSemantics());
+    }
+
+    if (applyToGeneratingRules && propagationPredicate != null) {
+      throw Starlark.errorf(
+          "An aspect cannot simultaneously have a propagation predicate and apply to generating"
+              + " rules.");
+    }
+
     ImmutableSet<Label> execCompatibleWith =
         parseLabels(rawExecCompatibleWith, labelConverter, "exec_compatible_with");
 
     ImmutableSet<Label> toolchainsAspects =
         parseLabels(rawToolchainsAspects, labelConverter, "toolchains_aspects");
 
-    ImmutableMap<String, ExecGroup> execGroups = ImmutableMap.of();
+    ImmutableMap<String, DeclaredExecGroup> execGroups = ImmutableMap.of();
     if (rawExecGroups != Starlark.NONE) {
       execGroups =
           ImmutableMap.copyOf(
-              Dict.cast(rawExecGroups, String.class, ExecGroup.class, "exec_group"));
+              Dict.cast(rawExecGroups, String.class, DeclaredExecGroup.class, "exec_group"));
       for (String group : execGroups.keySet()) {
         // TODO(b/151742236): document this in the param documentation.
         if (!StarlarkExecGroupCollection.isValidGroupName(group)) {
@@ -1367,6 +1398,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
         StarlarkAttrModule.getStarlarkProviderIdentifiers(providesArg),
         requiredParams.build(),
         ImmutableSet.copyOf(Sequence.cast(requiredAspects, StarlarkAspect.class, "requires")),
+        propagationPredicate,
         ImmutableSet.copyOf(Sequence.cast(fragments, String.class, "fragments")),
         toolchainTypes,
         applyToGeneratingRules,
@@ -1979,7 +2011,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
   }
 
   @Override
-  public ExecGroup execGroup(
+  public DeclaredExecGroup execGroup(
       Sequence<?> toolchains, Sequence<?> execCompatibleWith, StarlarkThread thread)
       throws EvalException {
     LabelConverter labelConverter = LabelConverter.forBzlEvaluatingThread(thread);
@@ -1987,7 +2019,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
         parseToolchainTypes(toolchains, labelConverter);
     ImmutableSet<Label> constraints =
         parseLabels(execCompatibleWith, labelConverter, "exec_compatible_with");
-    return ExecGroup.builder()
+    return DeclaredExecGroup.builder()
         .toolchainTypes(toolchainTypes)
         .execCompatibleWith(constraints)
         .build();
@@ -2049,7 +2081,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
 
   private static ImmutableSet<ToolchainTypeRequirement> parseToolchainTypes(
       Sequence<?> rawToolchains, LabelConverter labelConverter) throws EvalException {
-    Map<Label, ToolchainTypeRequirement> toolchainTypes = new HashMap<>();
+    Map<Label, ToolchainTypeRequirement> toolchainTypes = new LinkedHashMap<>();
 
     for (Object rawToolchain : rawToolchains) {
       ToolchainTypeRequirement toolchainType = parseToolchainType(rawToolchain, labelConverter);

@@ -21,7 +21,7 @@ import java.io.IOException;
 /** Prefetches files to local disk. */
 public interface ActionInputPrefetcher {
   public static final ActionInputPrefetcher NONE =
-      (action, inputs, metadataProvider, priority) ->
+      (action, inputs, metadataProvider, priority, reason) ->
           // Do nothing.
           immediateVoidFuture();
 
@@ -49,6 +49,15 @@ public interface ActionInputPrefetcher {
     LOW,
   }
 
+  /** The reason for prefetching. */
+  enum Reason {
+    /** The requested files are needed as inputs to the given action. */
+    INPUTS,
+
+    /** The requested files are requested as outputs of the given action. */
+    OUTPUTS,
+  }
+
   /**
    * Initiates best-effort prefetching of all given inputs.
    *
@@ -60,5 +69,6 @@ public interface ActionInputPrefetcher {
       ActionExecutionMetadata action,
       Iterable<? extends ActionInput> inputs,
       InputMetadataProvider metadataProvider,
-      Priority priority);
+      Priority priority,
+      Reason reason);
 }

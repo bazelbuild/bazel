@@ -38,7 +38,6 @@ import com.google.devtools.build.lib.cmdline.BazelModuleKey;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.events.StoredEventHandler;
-import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.exec.util.TestExecutorBuilder;
 import com.google.devtools.build.lib.skyframe.WorkspaceStatusValue;
 import com.google.devtools.build.lib.util.io.FileOutErr;
@@ -96,8 +95,7 @@ public class BuildInfoFileWriteActionTest extends BuildViewTestCase {
 
   @Before
   public final void createExecutorAndContext() throws Exception {
-    BinTools binTools = BinTools.forUnitTesting(directories, analysisMock.getEmbeddedTools());
-    executor = new TestExecutorBuilder(fileSystem, directories, binTools).build();
+    executor = new TestExecutorBuilder(fileSystem, directories).build();
     context =
         new ActionExecutionContext(
             executor,

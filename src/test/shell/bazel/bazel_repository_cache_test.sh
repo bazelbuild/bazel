@@ -153,7 +153,7 @@ EOF
 
     cat > zoo/female.sh <<EOF
 #!/bin/sh
-../+_repo_rules+endangered/fox/male
+../+http_archive+endangered/fox/male
 EOF
     chmod +x zoo/female.sh
 fi
@@ -163,7 +163,7 @@ fi
   shutdown_server
   expect_log "$what_does_the_fox_say"
 
-  base_external_path=bazel-out/../external/+_repo_rules+endangered/fox
+  base_external_path=bazel-out/../external/+http_archive+endangered/fox
   assert_files_same ${base_external_path}/male ${base_external_path}/male_relative
   assert_files_same ${base_external_path}/male ${base_external_path}/male_absolute
 }

@@ -20,7 +20,7 @@ import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.StarlarkIndexable;
 import net.starlark.java.eval.StarlarkValue;
 
-/** Stores {@link com.google.devtools.build.lib.packages.ExecGroup}s available to a given rule. */
+/** Stores exec groups available to a given rule. */
 @StarlarkBuiltin(
     name = "ExecGroupCollection",
     category = DocCategory.BUILTIN,
@@ -28,10 +28,10 @@ import net.starlark.java.eval.StarlarkValue;
 public interface ExecGroupCollectionApi extends StarlarkValue, StarlarkIndexable {
 
   /**
-   * Stores information about a single ExecGroup. The StarlarkMethod functions in this module should
-   * be a subset of the StarlarkMethod functions available for the default exec group via {@link
-   * StarlarkRuleContextApi}. This allows a user to pass in a rule ctx to the same places that take
-   * an exec group ctx to have them operate on the default exec group.
+   * Stores information about a single exec group. The StarlarkMethod functions in this module
+   * should be a subset of the StarlarkMethod functions available for the default exec group via
+   * {@link StarlarkRuleContextApi}. This allows a user to pass in a rule ctx to the same places
+   * that take an exec group ctx to have them operate on the default exec group.
    */
   @StarlarkBuiltin(
       name = "ExecGroupContext",

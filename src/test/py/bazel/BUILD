@@ -306,7 +306,7 @@ py_test(
     name = "bazel_fetch_test",
     size = "medium",
     srcs = ["bzlmod/bazel_fetch_test.py"],
-    data = ["//tools/build_defs/repo:http_src"],
+    data = ["//tools/build_defs/repo:mock_srcs"],
     shard_count = 5,
     tags = [
         "requires-network",
@@ -321,7 +321,7 @@ py_test(
     name = "bazel_vendor_test",
     size = "large",
     srcs = ["bzlmod/bazel_vendor_test.py"],
-    data = ["//tools/build_defs/repo:http_src"],
+    data = ["//tools/build_defs/repo:mock_srcs"],
     shard_count = 5,
     tags = [
         "requires-network",

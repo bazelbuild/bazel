@@ -61,6 +61,7 @@ import com.google.devtools.build.lib.actions.FilesetOutputTree;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.LostInputsActionExecutionException;
 import com.google.devtools.build.lib.actions.PackageRootResolver;
+import com.google.devtools.build.lib.actions.RichArtifactData;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
@@ -433,8 +434,7 @@ public final class ActionExecutionFunction implements SkyFunction {
       ConsumedArtifactsTracker consumedArtifactsTracker,
       NestedSet<Artifact> allInputs,
       NestedSet<Artifact> schedulingDependencies,
-      InputDiscoveryState state)
-      throws InterruptedException {
+      InputDiscoveryState state) {
     ImmutableSet.Builder<SkyKey> result = ImmutableSet.builder();
 
     // Register the action's inputs and scheduling deps as "consumed" in the build.
@@ -675,7 +675,7 @@ public final class ActionExecutionFunction implements SkyFunction {
      *     from all derived inputs to know if they are remote or not during input discovery.
      */
     NestedSet<Artifact> getAllInputs(boolean prune) {
-      NestedSetBuilder<Artifact> builder = new NestedSetBuilder<>(Order.STABLE_ORDER);
+      NestedSetBuilder<Artifact> builder = NestedSetBuilder.newBuilder(Order.STABLE_ORDER);
       builder.addTransitive(defaultInputs);
 
       if (actionCacheInputs == null) {
@@ -818,8 +818,7 @@ public final class ActionExecutionFunction implements SkyFunction {
             ImmutableSet.copyOf(action.getOutputs()),
             skyframeActionExecutor.getXattrProvider(),
             tsgm.get(),
-            pathResolver,
-            skyframeActionExecutor.getExecRoot().asFragment());
+            pathResolver);
 
     // We only need to check the action cache if we haven't done it on a previous run.
     if (!state.hasCheckedActionCache()) {
@@ -838,13 +837,34 @@ public final class ActionExecutionFunction implements SkyFunction {
 
     if (state.token == null) {
       // We got a hit from the action cache -- no need to execute.
+      // Filesets are a special case: the actual "fileset artifact" can be the fileset output
+      // manifest or its output symlink tree. In the latter case, the symlink tree is created
+      // by a SymlinkTreeAction, then symlinked at the appropriate location using a SymlinkAction.
+      // In case of an action cache hit but a Skyframe miss, the resulting SkyValue needs to be
+      // populated with the pertinent FilesetOutputTree. SkyframeFilesetManifestAction cannot be
+      // cached in the action cache because if it was, the ActionExecutionValue would be created
+      // from metadata stored in the action cache and thus the associated FilesetOutputTree would
+      // not be present there. So that action is marked as "execute unconditionally" so that the
+      // FilesetOutputTree is always created, but we need to take special care for the other two
+      // actions: if they are action cache hits, the FilesetOutputTree needs to be forwarded from
+      // their inputs to their outputs.
+      //
+      // This is an awkward way to check whether this mechanism is necessary, but in practice,
+      // Filesets are only created by Fileset() so this is good enough.
+      RichArtifactData forwardedRichArtifactData;
+      if (action.getOutputs().size() == 1
+          && Iterables.getOnlyElement(action.getOutputs()).isFileset()) {
+        forwardedRichArtifactData = Iterables.getOnlyElement(state.topLevelFilesets.values());
+      } else {
+        forwardedRichArtifactData = null;
+      }
+
       checkState(
           !(action instanceof SkyframeAwareAction),
           "Error, we're not re-executing a "
               + "SkyframeAwareAction which should be re-executed unconditionally. Action: %s",
           action);
-      return ActionExecutionValue.createFromOutputMetadataStore(
-          outputMetadataStore, /* filesetOutput= */ FilesetOutputTree.EMPTY, action);
+      return ActionExecutionValue.create(outputMetadataStore, forwardedRichArtifactData, action);
     }
 
     outputMetadataStore.prepareForActionExecution();
@@ -893,8 +913,8 @@ public final class ActionExecutionFunction implements SkyFunction {
           .post(
               new DiscoveredInputsEvent(
                   SpawnMetrics.Builder.forOtherExec()
-                      .setParseTimeInMs((int) discoveredInputsDuration.toMillis())
-                      .setTotalTimeInMs((int) discoveredInputsDuration.toMillis())
+                      .setParseTime(discoveredInputsDuration)
+                      .setTotalTime(discoveredInputsDuration)
                       .build(),
                   action,
                   actionStartTime));
@@ -1299,7 +1319,7 @@ public final class ActionExecutionFunction implements SkyFunction {
             topLevelFilesets,
             input,
             value,
-            env);
+            MetadataConsumerForMetrics.NO_OP);
       } else if (!hasMissingInputs && input.hasKnownGeneratingAction()) {
         // Derived inputs are mandatory, but we did not detect any missing inputs. This is only
         // possible for indirect inputs (beneath an ArtifactNestedSetKey) when, between the time the

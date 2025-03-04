@@ -13,16 +13,28 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.auto.value.AutoValue;
+import com.google.auto.value.extension.memoized.Memoized;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
-import com.google.devtools.build.lib.actions.FilesetTraversalParams.DirectTraversalRoot;
+import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.Instantiator;
+import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.ExecutionPhaseSkyKey;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.errorprone.annotations.ForOverride;
+import java.util.Objects;
+import javax.annotation.Nullable;
 
 /** A request for {@link RecursiveFilesystemTraversalFunction}. */
 public abstract class TraversalRequest implements ExecutionPhaseSkyKey {
+
+  // TODO(cmita): This class is only implemented outside of tests by
+  // DirectoryArtifactTraversalRequest. These should probably be consolidated and simplified.
 
   /** The path to start the traversal from; may be a file, a directory or a symlink. */
   @VisibleForTesting
@@ -105,5 +117,82 @@ public abstract class TraversalRequest implements ExecutionPhaseSkyKey {
         .add("skipTestingForSubpackage", skipTestingForSubpackage())
         .add("errorInfo", errorInfo())
         .toString();
+  }
+
+  /** The root directory of a {@link TraversalRequest}. */
+  @AutoValue
+  abstract static class DirectTraversalRoot {
+
+    /**
+     * Returns the output Artifact corresponding to this traversal, if present. Only present when
+     * traversing a generated output.
+     */
+    @Nullable
+    public abstract Artifact getOutputArtifact();
+
+    /**
+     * Returns the root part of the full path.
+     *
+     * <p>This is typically the workspace root or some output tree's root (e.g. genfiles, binfiles).
+     */
+    public abstract Root getRootPart();
+
+    /**
+     * Returns the {@link #getRootPart() root}-relative part of the path.
+     *
+     * <p>This is typically the source directory under the workspace or the output file under an
+     * output directory.
+     */
+    public abstract PathFragment getRelativePart();
+
+    /** Returns a {@link Path} composed of the root and relative parts. */
+    public final Path asPath() {
+      return getRootPart().getRelative(getRelativePart());
+    }
+
+    /** Returns a {@link RootedPath} composed of the root and relative parts. */
+    public final RootedPath asRootedPath() {
+      return RootedPath.toRootedPath(getRootPart(), getRelativePart());
+    }
+
+    @Override
+    public final boolean equals(Object o) {
+      if (o == this) {
+        return true;
+      }
+      if (o instanceof DirectTraversalRoot that) {
+        return Objects.equals(this.getOutputArtifact(), that.getOutputArtifact())
+            && this.getRootPart().equals(that.getRootPart())
+            && this.getRelativePart().equals(that.getRelativePart());
+      }
+      return false;
+    }
+
+    @Memoized
+    @Override
+    public abstract int hashCode();
+
+    public static DirectTraversalRoot forFileOrDirectory(Artifact fileOrDirectory) {
+      return create(
+          fileOrDirectory.isSourceArtifact() ? null : fileOrDirectory,
+          fileOrDirectory.getRoot().getRoot(),
+          fileOrDirectory.getRootRelativePath());
+    }
+
+    public static DirectTraversalRoot forRootedPath(RootedPath rootedPath) {
+      return forRootAndPath(rootedPath.getRoot(), rootedPath.getRootRelativePath());
+    }
+
+    public static DirectTraversalRoot forRootAndPath(Root rootPart, PathFragment relativePart) {
+      return create(/* outputArtifact= */ null, rootPart, relativePart);
+    }
+
+    @Instantiator
+    @VisibleForSerialization
+    static DirectTraversalRoot create(
+        @Nullable Artifact outputArtifact, Root rootPart, PathFragment relativePart) {
+      return new AutoValue_TraversalRequest_DirectTraversalRoot(
+          outputArtifact, rootPart, relativePart);
+    }
   }
 }

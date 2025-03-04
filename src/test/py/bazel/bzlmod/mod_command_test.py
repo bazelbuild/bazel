@@ -455,14 +455,16 @@ class ModCommandTest(test_base.TestBase):
     self.assertRegex(stdout.pop(4), r'^  urls = \[".*"\],$')
     self.assertRegex(stdout.pop(4), r'^  integrity = ".*",$')
     self.assertRegex(stdout.pop(19), r'^  path = ".*",$')
-    # lines after 'Rule data_repo defined at (most recent call last):'
-    stdout.pop(32)
-    stdout.pop(42)
-    self.assertRegex(stdout.pop(47), r'^  urls = \[".*"\],$')
-    self.assertRegex(stdout.pop(47), r'^  integrity = ".*",$')
+    # lines after '# Rule local_repository defined at (most recent call last):'
+    stdout.pop(23)
+    # lines after '# Rule data_repo defined at (most recent call last):'
+    stdout.pop(34)
+    stdout.pop(45)
+    self.assertRegex(stdout.pop(50), r'^  urls = \[".*"\],$')
+    self.assertRegex(stdout.pop(50), r'^  integrity = ".*",$')
     # lines after '# Rule http_archive defined at (most recent call last):'
     stdout.pop(13)
-    stdout.pop(55)
+    stdout.pop(58)
     self.assertListEqual(
         stdout,
         [
@@ -491,35 +493,39 @@ class ModCommandTest(test_base.TestBase):
             ')',
             '# Rule ext+ instantiated at (most recent call last):',
             '#   <builtin> in <toplevel>',
+            '# Rule local_repository defined at (most recent call last):',
+            # pop(23)
             '',
             '## @my_repo3:',
             '# <builtin>',
             'data_repo(',
             '  name = "ext++ext+repo3",',
+            '  _original_name = "repo3",',
             '  data = "requested repo",',
             ')',
             '# Rule ext++ext+repo3 instantiated at (most recent call last):',
             '#   <builtin> in <toplevel>',
             '# Rule data_repo defined at (most recent call last):',
-            # pop(32)
+            # pop(34)
             '',
             '## @my_repo4:',
             '# <builtin>',
             'data_repo(',
             '  name = "ext++ext+repo4",',
+            '  _original_name = "repo4",',
             '  data = "requested repo",',
             ')',
             '# Rule ext++ext+repo4 instantiated at (most recent call last):',
             '#   <builtin> in <toplevel>',
             '# Rule data_repo defined at (most recent call last):',
-            # pop(42)
+            # pop(45)
             '',
             '## bar@2.0:',
             '# <builtin>',
             'http_archive(',
             '  name = "bar+",',
-            # pop(47) -- urls=[...]
-            # pop(47) -- integrity=...
+            # pop(50) -- urls=[...]
+            # pop(50) -- integrity=...
             '  strip_prefix = "",',
             '  remote_file_urls = {},',
             '  remote_file_integrity = {},',
@@ -529,7 +535,7 @@ class ModCommandTest(test_base.TestBase):
             '# Rule bar+ instantiated at (most recent call last):',
             '#   <builtin> in <toplevel>',
             '# Rule http_archive defined at (most recent call last):',
-            # pop(55)
+            # pop(58)
             '',
         ],
         'wrong output in the show query for module and extension-generated'
@@ -656,11 +662,11 @@ class ModCommandTest(test_base.TestBase):
     self.ScratchFile(
         'extension.bzl',
         [
-            'def _repo_rule_impl(ctx):',
+            'def impl(ctx):',
             '    ctx.file("WORKSPACE")',
             '    ctx.file("BUILD", "filegroup(name=\'lala\')")',
             '',
-            'repo_rule = repository_rule(implementation=_repo_rule_impl)',
+            'repo_rule = repository_rule(implementation=impl)',
             '',
             'def _ext1_impl(ctx):',
             '    print("ext1 is being evaluated")',
@@ -810,11 +816,11 @@ class ModCommandTest(test_base.TestBase):
     self.ScratchFile(
         'extension.bzl',
         [
-            'def _repo_rule_impl(ctx):',
+            'def impl(ctx):',
             '    ctx.file("WORKSPACE")',
             '    ctx.file("BUILD", "filegroup(name=\'lala\')")',
             '',
-            'repo_rule = repository_rule(implementation=_repo_rule_impl)',
+            'repo_rule = repository_rule(implementation=impl)',
             '',
             'def _ext_impl(ctx):',
             '    repo_rule(name="dep")',
@@ -854,11 +860,11 @@ class ModCommandTest(test_base.TestBase):
     self.ScratchFile(
         'extension.bzl',
         [
-            'def _repo_rule_impl(ctx):',
+            'def impl(ctx):',
             '    ctx.file("WORKSPACE")',
             '    ctx.file("BUILD", "filegroup(name=\'lala\')")',
             '',
-            'repo_rule = repository_rule(implementation=_repo_rule_impl)',
+            'repo_rule = repository_rule(implementation=impl)',
             '',
             'def _ext_impl(ctx):',
             '    repo_rule(name="dep")',
@@ -1007,11 +1013,11 @@ class ModCommandTest(test_base.TestBase):
     self.ScratchFile(
         'extension.bzl',
         [
-            'def _repo_rule_impl(ctx):',
+            'def impl(ctx):',
             '    ctx.file("WORKSPACE")',
             '    ctx.file("BUILD", "filegroup(name=\'lala\')")',
             '',
-            'repo_rule = repository_rule(implementation=_repo_rule_impl)',
+            'repo_rule = repository_rule(implementation=impl)',
             '',
             'def _ext1_impl(ctx):',
             '    print("ext1 is being evaluated")',
@@ -1146,11 +1152,11 @@ class ModCommandTest(test_base.TestBase):
     self.ScratchFile(
         'extension.bzl',
         [
-            'def _repo_rule_impl(ctx):',
+            'def impl(ctx):',
             '    ctx.file("WORKSPACE")',
             '    ctx.file("BUILD", "filegroup(name=\'lala\')")',
             '',
-            'repo_rule = repository_rule(implementation=_repo_rule_impl)',
+            'repo_rule = repository_rule(implementation=impl)',
             '',
             'def _ext_impl(ctx):',
             '    repo_rule(name="dep")',
@@ -1225,11 +1231,11 @@ class ModCommandTest(test_base.TestBase):
     self.ScratchFile(
         'extension.bzl',
         [
-            'def _repo_rule_impl(ctx):',
+            'def impl(ctx):',
             '    ctx.file("WORKSPACE")',
             '    ctx.file("BUILD", "filegroup(name=\'lala\')")',
             '',
-            'repo_rule = repository_rule(implementation=_repo_rule_impl)',
+            'repo_rule = repository_rule(implementation=impl)',
             '',
             'def _ext_impl(ctx):',
             '    repo_rule(name="dep")',

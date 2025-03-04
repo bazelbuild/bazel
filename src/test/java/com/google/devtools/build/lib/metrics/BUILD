@@ -67,6 +67,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/sandbox:cgroups_info",
         "//src/main/java/com/google/devtools/build/lib/sandbox/cgroups",
         "//src/main/java/com/google/devtools/build/lib/sandbox/cgroups/controller:v2",
+        "//src/main/java/com/google/devtools/build/lib/sandbox/cgroups/proto:cgroups_info_java_proto",
         "//src/test/java/com/google/devtools/build/lib/vfs/util",
         "//third_party:guava",
         "//third_party:junit4",

@@ -61,11 +61,7 @@ public class StandaloneModule extends BlazeModule {
     Path testTmpRoot =
         TestStrategy.getTmpRoot(env.getWorkspace(), env.getExecRoot(), executionOptions);
     TestActionContext testStrategy =
-        new StandaloneTestStrategy(
-            executionOptions,
-            testSummaryOptions,
-            env.getBlazeWorkspace().getBinTools(),
-            testTmpRoot);
+        new StandaloneTestStrategy(executionOptions, testSummaryOptions, testTmpRoot);
     registryBuilder.register(TestActionContext.class, testStrategy, "standalone");
     registryBuilder.register(
         TestActionContext.class, new ExclusiveTestStrategy(testStrategy), "exclusive");

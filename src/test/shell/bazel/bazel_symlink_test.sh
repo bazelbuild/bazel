@@ -785,7 +785,6 @@ function test_unresolved_symlink_as_input_local_inprocess() {
 
   setup_unresolved_symlink_as_input
   add_to_bazelrc build --spawn_strategy=local
-  add_to_bazelrc build --experimental_inprocess_symlink_creation
 
   bazel build //pkg:b && fail "symlink should not resolve"
 
@@ -909,7 +908,6 @@ function test_unresolved_symlink_as_runfile_local_inprocess() {
 
   setup_unresolved_symlink_as_runfile
   add_to_bazelrc build --spawn_strategy=local
-  add_to_bazelrc build --experimental_inprocess_symlink_creation
 
   bazel build //pkg:use_tool || fail "local build failed"
   # Keep the implicitly built //pkg:a around to make the symlink resolve

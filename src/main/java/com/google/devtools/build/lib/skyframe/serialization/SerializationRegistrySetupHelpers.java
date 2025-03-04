@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactCodecs;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
+import com.google.devtools.build.lib.actions.RunfilesArtifactValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMapImpl;
@@ -143,7 +144,7 @@ public final class SerializationRegistrySetupHelpers {
    * demand idiom</a>.
    */
   private static class AnalysisCachingCodecsHolder {
-    private static final ImmutableList<Class<?>> CONFIGURED_TARGET_CLASSES =
+    private static final ImmutableList<Class<?>> AUTOCODEC_CLASSES_FOR_VALUE_SHARING =
         ImmutableList.of(
             EnvironmentGroupConfiguredTarget.class,
             InputFileConfiguredTarget.class,
@@ -151,7 +152,8 @@ public final class SerializationRegistrySetupHelpers {
             OutputFileConfiguredTarget.class,
             PackageGroupConfiguredTarget.class,
             RuleConfiguredTarget.class,
-            AliasConfiguredTarget.class);
+            AliasConfiguredTarget.class,
+            RunfilesArtifactValue.class);
 
     private static final ImmutableList<ObjectCodec<?>> INSTANCE;
 
@@ -169,16 +171,15 @@ public final class SerializationRegistrySetupHelpers {
               .add(BuildOptions.valueSharingCodec())
               .addAll(ArtifactCodecs.VALUE_SHARING_CODECS);
 
-      for (Class<?> configuredTargetClass : CONFIGURED_TARGET_CLASSES) {
+      for (Class<?> classForValueSharing : AUTOCODEC_CLASSES_FOR_VALUE_SHARING) {
         try {
           // Looks up the AutoCodec implementations with reflection. Since the autocodec-plugin is
           // not marked with generates_api = True (to avoid build time impact) the actual AutoCodec
-          // classes are not visible as imports. The dependency on the respective ConfiguredTarget
-          // class ensures that the required target dependency exists. The corresponding AutoCodec
-          // class will be in the same jar file.
+          // classes are not visible as imports. The dependency on the respective class ensures that
+          // the required target dependency exists. The corresponding AutoCodec class will be in the
+          // same jar file.
           Constructor<?> autoCodecConstructor =
-              Class.forName(configuredTargetClass.getName() + "_AutoCodec")
-                  .getDeclaredConstructor();
+              Class.forName(classForValueSharing.getName() + "_AutoCodec").getDeclaredConstructor();
           autoCodecConstructor.setAccessible(true);
           builder.add(
               new ValueSharingAdapter<>(

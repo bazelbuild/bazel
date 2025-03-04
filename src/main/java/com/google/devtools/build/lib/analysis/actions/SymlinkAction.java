@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
-import com.google.devtools.build.lib.actions.FileArtifactValue.SymlinkToSourceFileArtifactValue;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -246,7 +245,15 @@ public final class SymlinkAction extends AbstractAction {
       }
     }
 
-    if (targetType != TargetType.FILESET) {
+    if (targetType == TargetType.FILESET) {
+      // Forward the Fileset metadata to the output artifact of this symlink: the metadata is
+      // created in an upstream (Google-specific) action, but the output of this action will appear
+      // on the inputs of actions that have the Fileset as an input. The Fileset metadata must be
+      // attached to that artifact so that the execution strategies of actions that take it as an
+      // input can recreate the Fileset.
+      actionExecutionContext.setRichArtifactData(
+          actionExecutionContext.getTopLevelFilesets().get(getPrimaryInput()));
+    } else {
       maybeInjectMetadata(this, actionExecutionContext);
     }
     return ActionResult.EMPTY;
@@ -368,7 +375,8 @@ public final class SymlinkAction extends AbstractAction {
           .injectFile(
               symlinkAction.getPrimaryOutput(),
               primaryInput instanceof SourceArtifact sourceArtifact
-                  ? SymlinkToSourceFileArtifactValue.toSourceArtifact(sourceArtifact, metadata)
+                  ? FileArtifactValue.createFromExistingWithResolvedPath(
+                      metadata, primaryInput.getPath().asFragment())
                   : metadata);
     }
   }
@@ -440,10 +448,8 @@ public final class SymlinkAction extends AbstractAction {
   }
 
   @Override
-  @Nullable
   public PlatformInfo getExecutionPlatform() {
-    // SymlinkAction is platform agnostic.
-    return null;
+    return PlatformInfo.EMPTY_PLATFORM_INFO;
   }
 
   @Override

@@ -14,9 +14,10 @@
 package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableList;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
@@ -27,7 +28,6 @@ import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
@@ -39,7 +39,6 @@ import com.google.devtools.build.lib.skyframe.ProjectValue;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.config.FlagSetValue;
 import com.google.devtools.build.skyframe.EvaluationResult;
-import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Collection;
 import java.util.Iterator;
@@ -75,11 +74,44 @@ public final class Project {
   private Project() {}
 
   /**
-   * Returns the canonical project file for a set of targets, or null if the targets have no
-   * canonical project file.
+   * The active PROJECT.scls for this build.
    *
-   * <p>"Canonical" means the single project file all targets resolve to after alias project files
-   * resolve: see {@link ProjectValue#actualProjectFile}.
+   * <p>For example, {@code $ bazel build //foo //bar //baz} could resolve to one, two, or three
+   * PROJECT.scls, or a mixed state where only some targets have PROJECT.scls.
+   *
+   * <p>Consuming code needs to determine if mixed states are valid. People often build multiple
+   * projects in a single invocation. We don't want to automatically break those builds if there's
+   * still a sound way to build them.
+   *
+   * @param projectFiles the PROJECT.scls active for this build
+   * @param partialProjectBuild true if some of this build's targets have PROJECT.scls and others
+   *     don't.
+   * @param differentProjectsDetails A descriptive message explaining how different targets resolve
+   *     to different PROJECT.scls. Consuming code can use this to provide helpful errors if it
+   *     determines the build isn't valid because of this.
+   */
+  public record ActiveProjects(
+      Set<Label> projectFiles, boolean partialProjectBuild, String differentProjectsDetails) {
+    public boolean isEmpty() {
+      return projectFiles.isEmpty();
+    }
+
+    /** User-friendly description of this build type, for consumer info/error messaging. */
+    public String buildType() {
+      if (projectFiles.size() > 1) {
+        return "multi-project build";
+      } else if (partialProjectBuild) {
+        return "build where only some targets have projects";
+      } else if (projectFiles.size() == 1) {
+        return "single-project build";
+      } else {
+        return "build with no projects";
+      }
+    }
+  }
+
+  /**
+   * Returns the canonical project files for a set of targets.
    *
    * <p>If a target matches multiple project files (like {@code a/PROJECT.scl} and {@code
    * a/b/PROJECT.scl}), only the innermost is considered.
@@ -87,19 +119,12 @@ public final class Project {
    * @param targets targets to resolve project files for
    * @param skyframeExecutor support for SkyFunctions that look up project files
    * @param eventHandler event handler
-   * @throws ProjectParseException on any of the following:
-   *     <ol>
-   *       <li>Some targets resolve to project files and some don't (so not every target is part of
-   *           a project)
-   *       <li>Some targets resolve to different project files after alias resolution. Alias
-   *           resolution means that if a project file sets {@code project = { "actual":
-   *           "//other:PROJECT.scl"}}, it's replaced by the file it references.
-   *     </ol>
+   * @throws ProjectResolutionException if project resolution fails for any reason
    */
   // TODO: b/324127375 - Support hierarchical project files: [foo/project.scl, foo/bar/project.scl].
   @Nullable
   @VisibleForTesting
-  public static Label getProjectFile(
+  public static ActiveProjects getProjectFiles(
       Collection<Label> targets,
       SkyframeExecutor skyframeExecutor,
       ExtendedEventHandler eventHandler)
@@ -115,7 +140,7 @@ public final class Project {
 
     if (targetsToProjectFiles.isEmpty()) {
       // None of the targets have project files.
-      return null;
+      return new ActiveProjects(ImmutableSet.<Label>of(), /* partialProjectBuild= */ false, "");
     }
     Set<Label> targetsWithNoProjectFiles =
         Sets.difference(ImmutableSet.copyOf(targets), targetsToProjectFiles.keySet());
@@ -156,11 +181,13 @@ public final class Project {
       Label projectFile = Iterables.getOnlyElement(canonicalProjectsToTargets.keySet());
       eventHandler.handle(
           Event.info(String.format("Reading project settings from %s.", projectFile)));
-      return projectFile;
+      return new ActiveProjects(ImmutableSet.of(projectFile), false, "");
     }
     // Either some targets resolve to different files or a distinct subset resolve to no files.
-    throw new ProjectResolutionException(
-        differentProjectFilesError(canonicalProjectsToTargets, targetsWithNoProjectFiles), null);
+    return new ActiveProjects(
+        canonicalProjectsToTargets.keySet(),
+        !canonicalProjectsToTargets.keySet().isEmpty() && !targetsWithNoProjectFiles.isEmpty(),
+        differentProjectFilesError(canonicalProjectsToTargets, targetsWithNoProjectFiles));
   }
 
   /**
@@ -170,9 +197,7 @@ public final class Project {
   private static String differentProjectFilesError(
       Map<Label, Collection<Label>> canonicalProjectsToTargets,
       Set<Label> targetsWithNoProjectFiles) {
-    StringBuilder msgBuilder =
-        new StringBuilder("This build doesn't support automatic project resolution. ")
-            .append("Targets have different project settings:");
+    StringBuilder msgBuilder = new StringBuilder("Targets have different project settings:");
     // Maximum number of "//foo:target -> //foo:PROJECT.scl" entries to show.
     final int maxToShow = 5;
 
@@ -265,44 +290,84 @@ public final class Project {
   }
 
   /**
-   * Applies {@link CoreOptions.sclConfig} to the top-level {@link BuildOptions}.
+   * Returns the build options to add to this invocation from its active project files and {@code
+   * --scl_config} setting.
    *
-   * <p>Given an existing PROJECT.scl file and an {@link CoreOptions.sclConfig}, the method creates
-   * a {@link SkyKey} containing the {@link PathFragment} of the scl file and the config name which
-   * is evaluated by the {@link FlagSetFunction}.
-   *
-   * @return {@link FlagSetValue} which has the effective top-level {@link BuildOptions} after
-   *     project file resolution.
+   * @param fromOptions input {@link BuildOptions}
+   * @param activeProjects the active project files for this build. An empty {@link Optional} means
+   *     at least one of this build's targets has no project file. If multiple project files are
+   *     active or some targets have project files and others don't, this method checks there's a
+   *     sound way to set the desired config and throws an {@link InvalidConfigurationException} if
+   *     not.
+   * @param sclConfig the {@link CoreOptions.sclConfig} to apply
+   * @param userOptions options that were set by users (vs. global bazelrcs), in name=value form
+   * @param configFlagDefinitions definitions of {@code --config=foo} for this build. Null or an
+   *     empty string means use the project-default config if set, otherwise no-op.
+   * @param enforceCanonicalConfigs if false, project-based flag resolution is disabled
+   * @param eventHandler handler for non-fatal project-parsing messaging
+   * @param skyframeExecutor executor for Skyframe evaluation
+   * @return the options to add to. Caller is responsible for modifying the original build options
+   *     with these additions.
+   * @throws InvalidConfigurationException if the desired {@code --scl_config} can't be applied in a
+   *     supported way
    */
-  public static FlagSetValue modifyBuildOptionsWithFlagSets(
-      Label projectFile,
-      BuildOptions targetOptions,
+  public static ImmutableSet<String> applySclConfig(
+      BuildOptions fromOptions,
+      Project.ActiveProjects activeProjects,
+      String sclConfig,
       ImmutableMap<String, String> userOptions,
       ConfigFlagDefinitions configFlagDefinitions,
       boolean enforceCanonicalConfigs,
       ExtendedEventHandler eventHandler,
       SkyframeExecutor skyframeExecutor)
       throws InvalidConfigurationException {
+    // Fail on mixed-project builds with explicit --scl_config settings. We could loosen this
+    // restriction if desired. For example, if all --scl_configs resolve to the same values.
+    if (!Strings.isNullOrEmpty(sclConfig)
+        && (activeProjects.projectFiles.size() > 1 || activeProjects.partialProjectBuild())) {
+      throw new InvalidConfigurationException(
+          "Can't set --scl_config for a %s. %s"
+              .formatted(activeProjects.buildType(), activeProjects.differentProjectsDetails),
+          Code.INVALID_BUILD_OPTIONS);
+    }
 
-    FlagSetValue.Key flagSetKey =
-        FlagSetValue.Key.create(
-            projectFile,
-            targetOptions.get(CoreOptions.class).sclConfig,
-            targetOptions,
-            userOptions,
-            configFlagDefinitions,
-            enforceCanonicalConfigs);
-
+    var flagSetKeys =
+        activeProjects.projectFiles.stream()
+            .map(
+                p ->
+                    FlagSetValue.Key.create(
+                        p,
+                        sclConfig,
+                        fromOptions,
+                        userOptions,
+                        configFlagDefinitions,
+                        enforceCanonicalConfigs))
+            .collect(toImmutableSet());
     EvaluationResult<SkyValue> result =
-        skyframeExecutor.evaluateSkyKeys(
-            eventHandler, ImmutableList.of(flagSetKey), /* keepGoing= */ false);
+        skyframeExecutor.evaluateSkyKeys(eventHandler, flagSetKeys, /* keepGoing= */ false);
     if (result.hasError()) {
       throw new InvalidConfigurationException(
           "Cannot parse options: " + result.getError().getException().getMessage(),
           Code.INVALID_BUILD_OPTIONS);
     }
-    FlagSetValue value = (FlagSetValue) result.get(flagSetKey);
+
+    // We can only have multiple configs if they're defaults configs (i.e. the build didn't set
+    // --scl_config). Permit this as long as they all produce the same value.
+    ImmutableSet<ImmutableSet<String>> uniqueConfigs =
+        result.values().stream()
+            .map(v -> ((FlagSetValue) v).getOptionsFromFlagset())
+            .collect(toImmutableSet());
+    if (uniqueConfigs.size() > 1
+        || (activeProjects.partialProjectBuild && !uniqueConfigs.iterator().next().isEmpty())) {
+      throw new InvalidConfigurationException(
+          "Mismatching default configs for a %s. %s"
+              .formatted(activeProjects.buildType(), activeProjects.differentProjectsDetails),
+          Code.INVALID_BUILD_OPTIONS);
+    }
+
+    FlagSetValue value = (FlagSetValue) result.values().iterator().next();
     value.getPersistentMessages().forEach(eventHandler::handle);
-    return value;
+    // Options from the selected project config.
+    return value.getOptionsFromFlagset();
   }
 }

@@ -15,7 +15,7 @@ package com.google.devtools.build.lib.packages;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
-import static com.google.devtools.build.lib.analysis.testing.ExecGroupSubject.assertThat;
+import static com.google.devtools.build.lib.analysis.testing.DeclaredExecGroupSubject.assertThat;
 import static com.google.devtools.build.lib.analysis.testing.RuleClassSubject.assertThat;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
@@ -542,7 +542,8 @@ public final class RuleClassTest extends PackageLoadingTestCase {
         Arrays.asList(
                 """
                 expected value of type 'list(label)' for attribute 'my-labellist-attr' \
-                of 'ruleA', but got \"foobar\" (string)""",
+                of 'ruleA', but got \"foobar\" (string)\
+                """,
                 "no such attribute 'bogus-attr' in 'ruleA' rule",
                 "missing value for mandatory attribute 'my-string-attr' in 'ruleA' rule",
                 "missing value for mandatory attribute 'my-label-attr' in 'ruleA' rule",
@@ -1060,7 +1061,7 @@ public final class RuleClassTest extends PackageLoadingTestCase {
         /* toolchainTypes= */ ImmutableSet.of(),
         /* toolchainResolutionMode= */ ToolchainResolutionMode.ENABLED,
         /* executionPlatformConstraints= */ ImmutableSet.of(),
-        /* execGroups= */ ImmutableMap.of(),
+        /* declaredExecGroups= */ ImmutableMap.of(),
         AutoExecGroupsMode.DYNAMIC,
         OutputFile.Kind.FILE,
         attributes.length > 0 && attributes[0].equals(RuleClass.NAME_ATTRIBUTE)
@@ -1190,7 +1191,7 @@ public final class RuleClassTest extends PackageLoadingTestCase {
   }
 
   @Test
-  public void testExecGroups() {
+  public void testDeclaredExecGroups() {
     RuleClass.Builder ruleClassBuilder =
         new RuleClass.Builder("ruleClass", RuleClassType.NORMAL, false)
             .factory(DUMMY_CONFIGURED_TARGET_FACTORY)
@@ -1203,17 +1204,19 @@ public final class RuleClassTest extends PackageLoadingTestCase {
     ruleClassBuilder.addExecGroups(
         ImmutableMap.of(
             "cherry",
-            ExecGroup.builder()
+            DeclaredExecGroup.builder()
                 .addToolchainType(ToolchainTypeRequirement.create(toolchain))
                 .execCompatibleWith(ImmutableSet.of(constraint))
                 .build()));
 
     RuleClass ruleClass = ruleClassBuilder.build();
 
-    assertThat(ruleClass.getExecGroups()).hasSize(1);
-    assertThat(ruleClass.getExecGroups().get("cherry")).hasToolchainType(toolchain);
-    assertThat(ruleClass.getExecGroups().get("cherry")).toolchainType(toolchain).isMandatory();
-    assertThat(ruleClass.getExecGroups().get("cherry")).hasExecCompatibleWith(constraint);
+    assertThat(ruleClass.getDeclaredExecGroups()).hasSize(1);
+    assertThat(ruleClass.getDeclaredExecGroups().get("cherry")).hasToolchainType(toolchain);
+    assertThat(ruleClass.getDeclaredExecGroups().get("cherry"))
+        .toolchainType(toolchain)
+        .isMandatory();
+    assertThat(ruleClass.getDeclaredExecGroups().get("cherry")).hasExecCompatibleWith(constraint);
   }
 
   @Test

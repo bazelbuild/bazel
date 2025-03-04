@@ -35,7 +35,6 @@ import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.events.StoredEventHandler;
-import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.exec.util.TestExecutorBuilder;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -68,7 +67,6 @@ public class TemplateExpansionActionTest extends FoundationTestCase {
   private Path output;
   private List<Substitution> substitutions;
   private BlazeDirectories directories;
-  private BinTools binTools;
   private final ActionKeyContext actionKeyContext = new ActionKeyContext();
 
   @Before
@@ -87,7 +85,6 @@ public class TemplateExpansionActionTest extends FoundationTestCase {
             scratch.resolve("/workspace"),
             /* defaultSystemJavabase= */ null,
             "mock-product-name");
-    binTools = BinTools.empty(directories);
   }
 
   private void createArtifacts(String template) throws Exception {
@@ -118,7 +115,7 @@ public class TemplateExpansionActionTest extends FoundationTestCase {
 
   @Test
   public void testExpansion() throws Exception {
-    Executor executor = new TestExecutorBuilder(fileSystem, directories, binTools).build();
+    Executor executor = new TestExecutorBuilder(fileSystem, directories).build();
     ActionResult unused = create().execute(createContext(executor));
     String content = new String(FileSystemUtils.readContentAsLatin1(output));
     String expected = Joiner.on('\n').join("key=foo", "value=bar");
@@ -222,7 +219,7 @@ public class TemplateExpansionActionTest extends FoundationTestCase {
 
   private void executeTemplateExpansion(String expected, List<Substitution> substitutions)
       throws Exception {
-    Executor executor = new TestExecutorBuilder(fileSystem, directories, binTools).build();
+    Executor executor = new TestExecutorBuilder(fileSystem, directories).build();
     ActionResult unused = createWithArtifact(substitutions).execute(createContext(executor));
     String actual = FileSystemUtils.readContent(output, StandardCharsets.UTF_8);
     assertThat(actual).isEqualTo(expected);

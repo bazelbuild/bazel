@@ -529,17 +529,31 @@ final class FileDependencyDeserializer {
     public ListenableFuture<NestedDependencies> apply(byte[] bytes) {
       try {
         var codedIn = CodedInputStream.newInstance(bytes);
+        int nestedCount = codedIn.readInt32();
         int fileCount = codedIn.readInt32();
         int listingCount = codedIn.readInt32();
-        int nestedCount = codedIn.readInt32();
         int sourceCount = codedIn.readInt32();
 
-        var elements = new FileSystemDependencies[fileCount + listingCount + nestedCount];
+        var elements = new FileSystemDependencies[nestedCount + fileCount + listingCount];
         var sources =
             sourceCount > 0 ? new FileDependencies[sourceCount] : NestedDependencies.EMPTY_SOURCES;
         var countdown = new PendingElementCountdown(elements, sources);
 
-        for (int i = 0; i < fileCount; i++) {
+        for (int i = 0; i < nestedCount; i++) {
+          var key = PackedFingerprint.readFrom(codedIn);
+          switch (getNestedDependencies(key)) {
+            case NestedDependencies dependencies:
+              elements[i] = dependencies;
+              break;
+            case FutureNestedDependencies future:
+              countdown.registerPendingElement();
+              Futures.addCallback(future, new WaitingForElement(i, countdown), directExecutor());
+              break;
+          }
+        }
+
+        int nestedAndFileCount = nestedCount + fileCount;
+        for (int i = nestedCount; i < nestedAndFileCount; i++) {
           String key = codedIn.readString();
           switch (getFileDependencies(key)) {
             case FileDependencies dependencies:
@@ -552,28 +566,14 @@ final class FileDependencyDeserializer {
           }
         }
 
-        int directCount = fileCount + listingCount;
-        for (int i = fileCount; i < directCount; i++) {
+        int total = nestedAndFileCount + listingCount;
+        for (int i = nestedAndFileCount; i < total; i++) {
           String key = codedIn.readString();
           switch (getListingDependencies(key)) {
             case ListingDependencies dependencies:
               elements[i] = dependencies;
               break;
             case FutureListingDependencies future:
-              countdown.registerPendingElement();
-              Futures.addCallback(future, new WaitingForElement(i, countdown), directExecutor());
-              break;
-          }
-        }
-
-        int total = directCount + nestedCount;
-        for (int i = directCount; i < total; i++) {
-          var key = PackedFingerprint.readFrom(codedIn);
-          switch (getNestedDependencies(key)) {
-            case NestedDependencies dependencies:
-              elements[i] = dependencies;
-              break;
-            case FutureNestedDependencies future:
               countdown.registerPendingElement();
               Futures.addCallback(future, new WaitingForElement(i, countdown), directExecutor());
               break;

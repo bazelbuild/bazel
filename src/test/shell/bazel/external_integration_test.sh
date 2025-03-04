@@ -144,7 +144,7 @@ EOF
 
     cat > zoo/female.sh <<EOF
 #!/bin/sh
-../+_repo_rules+endangered/fox/male
+../+http_archive+endangered/fox/male
 EOF
     chmod +x zoo/female.sh
 fi
@@ -154,7 +154,7 @@ fi
   kill_nc
   expect_log $what_does_the_fox_say
 
-  base_external_path=bazel-out/../external/+_repo_rules+endangered/fox
+  base_external_path=bazel-out/../external/+http_archive+endangered/fox
   assert_files_same ${base_external_path}/male ${base_external_path}/male_relative
   assert_files_same ${base_external_path}/male ${base_external_path}/male_absolute
   case "${PLATFORM}" in
@@ -221,7 +221,7 @@ http_archive(
 EOF
   bazel build @test_zstd_repo//...
 
-  base_external_path=bazel-out/../external/+_repo_rules+test_zstd_repo
+  base_external_path=bazel-out/../external/+http_archive+test_zstd_repo
   assert_contains "test content" "${base_external_path}/test_dir/test_file"
 }
 
@@ -237,7 +237,7 @@ http_archive(
 EOF
   bazel build @test_zstd_repo//...
 
-  base_external_path=bazel-out/../external/+_repo_rules+test_zstd_repo
+  base_external_path=bazel-out/../external/+http_archive+test_zstd_repo
   assert_contains "test content" "${base_external_path}/test_dir/test_file"
 }
 
@@ -326,7 +326,7 @@ function test_sha256_caching() {
 
 function test_cached_across_server_restart() {
   http_archive_helper zip_up
-  local marker_file=$(bazel info output_base)/external/\@+_repo_rules+endangered.marker
+  local marker_file=$(bazel info output_base)/external/\@+http_archive+endangered.marker
   echo "<MARKER>"
   cat "${marker_file}"
   echo "</MARKER>"
@@ -374,7 +374,7 @@ EOF
   kill_nc
   expect_log "Tra-la!"
   output_base=$(bazel info output_base)
-  jar_dir=$output_base/external/+_repo_rules+endangered/jar
+  jar_dir=$output_base/external/+http_jar+endangered/jar
   [[ -f ${jar_dir}/foo.jar ]] || fail "${jar_dir}/foo.jar not found"
 }
 
@@ -808,7 +808,7 @@ EOF
 
   cat > zoo/female.sh <<EOF
 #!/bin/sh
-cat ../+_repo_rules+endangered/fox/male
+cat ../+http_archive+endangered/fox/male
 EOF
   chmod +x zoo/female.sh
 
@@ -895,7 +895,7 @@ EOF
   touch BUILD
 
   bazel build @x//:catter &> $TEST_log || fail "Build failed"
-  assert_contains "abc" bazel-genfiles/external/+_repo_rules+x/catter.out
+  assert_contains "abc" bazel-genfiles/external/+http_archive+x/catter.out
 }
 
 function test_prefix_stripping_zip() {
@@ -926,7 +926,7 @@ EOF
   touch BUILD
 
   bazel build @x//:catter &> $TEST_log || fail "Build failed"
-  assert_contains "abc" bazel-genfiles/external/+_repo_rules+x/catter.out
+  assert_contains "abc" bazel-genfiles/external/+http_archive+x/catter.out
 }
 
 function test_prefix_stripping_existing_repo() {
@@ -956,7 +956,7 @@ http_archive(
 EOF
 
   bazel build @x//:catter &> $TEST_log || fail "Build failed"
-  assert_contains "abc" bazel-genfiles/external/+_repo_rules+x/catter.out
+  assert_contains "abc" bazel-genfiles/external/+http_archive+x/catter.out
 }
 
 function test_adding_prefix_zip() {
@@ -987,7 +987,7 @@ EOF
   touch BUILD
 
   bazel build @ws//:catter &> $TEST_log || fail "Build failed"
-  assert_contains "abc" bazel-genfiles/external/+_repo_rules+ws/catter.out
+  assert_contains "abc" bazel-genfiles/external/+http_archive+ws/catter.out
 }
 
 function test_adding_and_stripping_prefix_zip() {
@@ -1019,7 +1019,7 @@ EOF
   touch BUILD
 
   bazel build @ws//:catter &> $TEST_log || fail "Build failed"
-  assert_contains "abc" bazel-genfiles/external/+_repo_rules+ws/catter.out
+  assert_contains "abc" bazel-genfiles/external/+http_archive+ws/catter.out
 }
 
 function test_moving_build_file() {
@@ -1048,13 +1048,13 @@ genrule(
 EOF
 
   bazel build @x//:catter &> $TEST_log || fail "Build 1 failed"
-  assert_contains "abc" bazel-genfiles/external/+_repo_rules+x/catter.out
+  assert_contains "abc" bazel-genfiles/external/+http_archive+x/catter.out
   mv x.BUILD x.BUILD.new || fail "Moving x.BUILD failed"
   sed 's/x.BUILD/x.BUILD.new/g' MODULE.bazel > MODULE.bazel.tmp || \
     fail "Editing MODULE.bazel failed"
   mv MODULE.bazel.tmp MODULE.bazel
   bazel build @x//:catter &> $TEST_log || fail "Build 2 failed"
-  assert_contains "abc" bazel-genfiles/external/+_repo_rules+x/catter.out
+  assert_contains "abc" bazel-genfiles/external/+http_archive+x/catter.out
 }
 
 function test_changing_build_file() {
@@ -1093,12 +1093,12 @@ genrule(
 EOF
 
   bazel build @x//:catter || fail "Build 1 failed"
-  assert_contains "abc" bazel-genfiles/external/+_repo_rules+x/catter.out
+  assert_contains "abc" bazel-genfiles/external/+http_archive+x/catter.out
   sed 's/x.BUILD/x.BUILD.new/g' MODULE.bazel > MODULE.bazel.tmp || \
     fail "Editing MODULE.bazel failed"
   mv MODULE.bazel.tmp MODULE.bazel
   bazel build @x//:catter &> $TEST_log || fail "Build 2 failed"
-  assert_contains "def" bazel-genfiles/external/+_repo_rules+x/catter.out
+  assert_contains "def" bazel-genfiles/external/+http_archive+x/catter.out
 }
 
 function test_flip_flopping() {
@@ -1134,12 +1134,12 @@ EOF
   for i in $(seq 1 3); do
     cp local_ws MODULE.bazel
     bazel build @repo//:all &> $TEST_log || fail "Build failed"
-    test -L "$external_dir/+_repo_rules+repo" || fail "creating local symlink failed"
-    test -a "$external_dir/+_repo_rules+repo/bar" || fail "bar not found"
+    test -L "$external_dir/+local_repository+repo" || fail "creating local symlink failed"
+    test -a "$external_dir/+local_repository+repo/bar" || fail "bar not found"
     cp remote_ws MODULE.bazel
     bazel build @repo//:all &> $TEST_log || fail "Build failed"
-    test -d "$external_dir/+_repo_rules+repo" || fail "creating remote repo failed"
-    test -a "$external_dir/+_repo_rules+repo/foo" || fail "foo not found"
+    test -d "$external_dir/+http_archive+repo" || fail "creating remote repo failed"
+    test -a "$external_dir/+http_archive+repo/foo" || fail "foo not found"
   done
 
   shutdown_server
@@ -2408,7 +2408,7 @@ EOF
 
   bazel build //:it > "${TEST_log}" 2>&1 && fail "Expected failure" || :
 
-  expect_log '@@+_repo_rules+ext.*badargument'
+  expect_log '@@+http_archive+ext.*badargument'
 }
 
 function test_prefix_suggestions() {
@@ -2835,7 +2835,7 @@ EOF
   bazel build --experimental_merged_skyframe_analysis_execution //:foo \
     || fail 'Expected build to succeed with Skymeld'
 
-  test -h "$execroot/external/+_repo_rules+ext" || fail "Expected symlink to external repo."
+  test -h "$execroot/external/+http_archive+ext" || fail "Expected symlink to external repo."
 }
 
 function test_default_canonical_id_enabled() {

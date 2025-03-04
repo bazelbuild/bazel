@@ -118,6 +118,11 @@ public final class NestedSet<E> {
    */
   final Object children;
 
+  /** Returns a new builder. */
+  public static <E> NestedSetBuilder<E> builder(Order order) {
+    return NestedSetBuilder.newBuilder(order);
+  }
+
   /**
    * Optimized encoding of instance traversal metadata and set size, or the sentinel {@link
    * #NO_MEMO} for all leaf nodes and nodes whose successors are all leaf nodes.
@@ -156,18 +161,19 @@ public final class NestedSet<E> {
   }
 
   NestedSet(
-      Order order, Set<E> direct, Set<NestedSet<E>> transitive, InterruptStrategy interruptStrategy)
+      Order order,
+      Set<E> direct,
+      Collection<NestedSet<E>> transitive,
+      InterruptStrategy interruptStrategy)
       throws InterruptedException {
     // The iteration order of these collections is the order in which we add the items.
     Collection<E> directOrder = direct;
-    Collection<NestedSet<E>> transitiveOrder = transitive;
     // True if we visit the direct members before the transitive members.
     boolean preorder;
 
     switch (order) {
       case LINK_ORDER -> {
         directOrder = ImmutableList.copyOf(direct).reverse();
-        transitiveOrder = ImmutableList.copyOf(transitive).reverse();
         preorder = false;
       }
       case STABLE_ORDER, COMPILE_ORDER -> preorder = false;
@@ -201,7 +207,7 @@ public final class NestedSet<E> {
         alreadyInserted = direct;
       } else if ((pass == 1) == preorder && !transitive.isEmpty()) {
         CompactHashSet<E> hoisted = null;
-        for (NestedSet<E> subset : transitiveOrder) {
+        for (NestedSet<E> subset : transitive) {
           approxDepth = Math.max(approxDepth, 1 + subset.getApproxDepth());
           // If this is a deserialization future, this call blocks.
           Object c = subset.getChildrenInternal(interruptStrategy);

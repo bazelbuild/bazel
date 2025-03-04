@@ -666,11 +666,11 @@ public abstract sealed class PathFragment
   }
 
   /**
-   * Returns a new PathFragment formed by appending {@code newName} to the parent directory. Null is
-   * returned iff this method is called on a PathFragment with zero segments. If {@code newName}
-   * designates an absolute path, the value of {@code this} will be ignored and a PathFragment
-   * corresponding to {@code newName} will be returned. This behavior is consistent with the
-   * behavior of {@link #getRelative(String)}.
+   * Returns a {@link PathFragment} formed by appending {@code newName} to this {@link
+   * PathFragment}'s parent directory. If this {@link PathFragment} has zero segments, returns
+   * {@code null}. If {@code newName} is absolute, the value of {@code this} will be ignored and a
+   * {@link PathFragment} corresponding to {@code newName} will be returned. This is consistent with
+   * the behavior of {@link #getRelative(String)}.
    */
   @Nullable
   public PathFragment replaceName(String newName) {

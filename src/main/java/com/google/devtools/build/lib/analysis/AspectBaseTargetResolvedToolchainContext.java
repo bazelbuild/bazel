@@ -14,6 +14,9 @@
 
 package com.google.devtools.build.lib.analysis;
 
+import static com.google.common.base.Predicates.notNull;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -63,16 +66,27 @@ public abstract class AspectBaseTargetResolvedToolchainContext
 
       if (toolchainTarget instanceof MergedConfiguredTarget mergedConfiguredTarget) {
         // Only add the aspects providers from the toolchains that the aspects applied to.
+        TemplateVariableInfo templateVariableInfo =
+            (TemplateVariableInfo)
+                mergedConfiguredTarget
+                    .getBaseConfiguredTarget()
+                    .get(TemplateVariableInfo.PROVIDER.id());
         toolchainsBuilder.put(
             toolchainType,
             new ToolchainAspectsProviders(
-                mergedConfiguredTarget.getAspectsProviders(), mergedConfiguredTarget.getLabel()));
+                mergedConfiguredTarget.getAspectsProviders(),
+                templateVariableInfo,
+                mergedConfiguredTarget.getLabel()));
       } else {
         // Add empty providers for the toolchains that the aspects did not apply to.
+        TemplateVariableInfo templateVariableInfo =
+            (TemplateVariableInfo) toolchainTarget.get(TemplateVariableInfo.PROVIDER.id());
         toolchainsBuilder.put(
             toolchainType,
             new ToolchainAspectsProviders(
-                new TransitiveInfoProviderMapBuilder().build(), toolchainTarget.getLabel()));
+                new TransitiveInfoProviderMapBuilder().build(),
+                templateVariableInfo,
+                toolchainTarget.getLabel()));
       }
     }
     ImmutableMap<ToolchainTypeInfo, ToolchainAspectsProviders> toolchains =
@@ -102,6 +116,13 @@ public abstract class AspectBaseTargetResolvedToolchainContext
     return null;
   }
 
+  public ImmutableList<TemplateVariableInfo> templateVariableProviders() {
+    return toolchains().values().stream()
+        .map(ToolchainAspectsProviders::templateVariableProvider)
+        .filter(notNull())
+        .collect(toImmutableList());
+  }
+
   /**
    * A Starlark-indexable wrapper used to represent the providers of the aspects applied on the base
    * target toolchains.
@@ -110,10 +131,15 @@ public abstract class AspectBaseTargetResolvedToolchainContext
       implements StarlarkIndexable, Structure, ResolvedToolchainData {
 
     private final TransitiveInfoProviderMap aspectsProviders;
+    @Nullable private final TemplateVariableInfo templateVariableInfo;
     private final Label label;
 
-    private ToolchainAspectsProviders(TransitiveInfoProviderMap aspectsProviders, Label label) {
+    private ToolchainAspectsProviders(
+        TransitiveInfoProviderMap aspectsProviders,
+        @Nullable TemplateVariableInfo templateVariableInfo,
+        Label label) {
       this.aspectsProviders = aspectsProviders;
+      this.templateVariableInfo = templateVariableInfo;
       this.label = label;
     }
 
@@ -177,6 +203,11 @@ public abstract class AspectBaseTargetResolvedToolchainContext
     public String getErrorMessageForUnknownField(String field) {
       // Use the default error message.
       return null;
+    }
+
+    @Nullable
+    public TemplateVariableInfo templateVariableProvider() {
+      return this.templateVariableInfo;
     }
   }
 }

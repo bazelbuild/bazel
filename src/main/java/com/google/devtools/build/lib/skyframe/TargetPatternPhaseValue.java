@@ -45,6 +45,7 @@ public final class TargetPatternPhaseValue implements SkyValue {
 
   private final ImmutableSet<Label> targetLabels;
   @Nullable private final ImmutableSet<Label> testsToRunLabels;
+  private final ImmutableSet<Label> nonExpandedLabels;
   private final boolean hasError;
   private final boolean hasPostExpansionError;
   private final String workspaceName;
@@ -52,11 +53,13 @@ public final class TargetPatternPhaseValue implements SkyValue {
   TargetPatternPhaseValue(
       ImmutableSet<Label> targetLabels,
       ImmutableSet<Label> testsToRunLabels,
+      ImmutableSet<Label> nonExpandedLabels,
       boolean hasError,
       boolean hasPostExpansionError,
       String workspaceName) {
     this.targetLabels = targetLabels;
     this.testsToRunLabels = testsToRunLabels;
+    this.nonExpandedLabels = nonExpandedLabels;
     this.hasError = hasError;
     this.hasPostExpansionError = hasPostExpansionError;
     this.workspaceName = workspaceName;
@@ -85,6 +88,10 @@ public final class TargetPatternPhaseValue implements SkyValue {
       ExtendedEventHandler eventHandler, PackageManager packageManager)
       throws InterruptedException {
     return getTargetsFromLabels(targetLabels, eventHandler, packageManager);
+  }
+
+  public ImmutableSet<Label> getNonExpandedLabels() {
+    return nonExpandedLabels;
   }
 
   public ImmutableSet<Target> getTestsToRun(

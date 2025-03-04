@@ -556,8 +556,7 @@ public class FileSystemUtils {
 
   /**
    * Copies all dir trees under a given 'from' dir to location 'to', while overwriting all files in
-   * the potentially existing 'to'. Resolves symbolic links if {@code followSymlinks ==
-   * Symlinks#FOLLOW}. Otherwise copies symlinks as-is.
+   * the potentially existing 'to'. Symlinks are copied as-is.
    *
    * <p>The source and the destination must be non-overlapping, otherwise an
    * IllegalArgumentException will be thrown. This method cannot be used to copy a dir tree to a sub
@@ -568,22 +567,27 @@ public class FileSystemUtils {
    * occur. (e.g. read errors)
    */
   @ThreadSafe
-  public static void copyTreesBelow(Path from, Path to, Symlinks followSymlinks)
-      throws IOException {
+  public static void copyTreesBelow(Path from, Path to) throws IOException {
     if (to.startsWith(from)) {
       throw new IllegalArgumentException(to + " is a subdirectory of " + from);
     }
 
-    Collection<Path> entries = from.getDirectoryEntries();
-    for (Path entry : entries) {
-      Path toPath = to.getChild(entry.getBaseName());
-      if (!followSymlinks.toBoolean() && entry.isSymbolicLink()) {
-        FileSystemUtils.ensureSymbolicLink(toPath, entry.readSymbolicLink());
-      } else if (entry.isFile()) {
-        copyFile(entry, toPath);
-      } else {
-        toPath.createDirectory();
-        copyTreesBelow(entry, toPath, followSymlinks);
+    for (Dirent dirent : from.readdir(Symlinks.NOFOLLOW)) {
+      Path fromChild = from.getChild(dirent.getName());
+      Path toChild = to.getChild(dirent.getName());
+      switch (dirent.getType()) {
+        case FILE:
+          copyFile(fromChild, toChild);
+          break;
+        case SYMLINK:
+          FileSystemUtils.ensureSymbolicLink(toChild, fromChild.readSymbolicLink());
+          break;
+        case DIRECTORY:
+          toChild.createDirectory();
+          copyTreesBelow(fromChild, toChild);
+          break;
+        default:
+          throw new IOException("Don't know how to copy " + fromChild);
       }
     }
   }

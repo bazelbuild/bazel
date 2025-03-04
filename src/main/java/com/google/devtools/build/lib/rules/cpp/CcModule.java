@@ -370,16 +370,6 @@ public abstract class CcModule
     return (T) obj; // totally unsafe
   }
 
-  /** Converts an object that can be ether Depset or None into NestedSet. */
-  protected NestedSet<String> asStringNestedSet(Object o) throws Depset.TypeException {
-    Depset starlarkNestedSet = convertFromNoneable(o, /* defaultValue= */ (Depset) null);
-    if (starlarkNestedSet != null) {
-      return starlarkNestedSet.getSet(String.class);
-    } else {
-      return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
-    }
-  }
-
   /** Converts an object that can be either Sequence, or None into ImmutableList. */
   protected ImmutableList<String> asStringImmutableList(Object o) {
     Sequence<String> starlarkList =
@@ -666,20 +656,35 @@ public abstract class CcModule
           "Must pass at least one of the following parameters: static_library, pic_static_library, "
               + "dynamic_library and interface_library.");
     }
-    return LibraryToLink.builder()
-        .setLibraryIdentifier(CcLinkingOutputs.libraryIdentifierOf(notNullArtifactForIdentifier))
-        .setStaticLibrary(staticLibrary)
-        .setPicStaticLibrary(picStaticLibrary)
-        .setDynamicLibrary(dynamicLibrary)
-        .setResolvedSymlinkDynamicLibrary(resolvedSymlinkDynamicLibrary)
-        .setInterfaceLibrary(interfaceLibrary)
-        .setResolvedSymlinkInterfaceLibrary(resolvedSymlinkInterfaceLibrary)
-        .setObjectFiles(nopicObjects)
-        .setPicObjectFiles(picObjects)
-        .setAlwayslink(alwayslink)
-        .setMustKeepDebug(mustKeepDebug)
-        .setLtoCompilationContext(ltoCompilationContext)
-        .build();
+    var libraryToLinkBuilder =
+        LibraryToLink.builder()
+            .setLibraryIdentifier(
+                CcLinkingOutputs.libraryIdentifierOf(notNullArtifactForIdentifier))
+            .setStaticLibrary(staticLibrary)
+            .setPicStaticLibrary(picStaticLibrary)
+            .setDynamicLibrary(dynamicLibrary)
+            .setResolvedSymlinkDynamicLibrary(resolvedSymlinkDynamicLibrary)
+            .setInterfaceLibrary(interfaceLibrary)
+            .setResolvedSymlinkInterfaceLibrary(resolvedSymlinkInterfaceLibrary)
+            .setObjectFiles(nopicObjects)
+            .setPicObjectFiles(picObjects)
+            .setAlwayslink(alwayslink)
+            .setMustKeepDebug(mustKeepDebug)
+            .setLtoCompilationContext(ltoCompilationContext);
+
+    // When LTO is enabled, archives of static libraries with nopic objects need
+    // non-LTO backends.
+    if (ltoCompilationContext != null && staticLibrary != null && nopicObjects != null) {
+      libraryToLinkBuilder.setSharedNonLtoBackends(
+          CppLinkActionBuilder.createSharedNonLtoArtifacts(
+              CppLinkActionBuilder.newActionConstruction(starlarkActionFactory.getRuleContext()),
+              ltoCompilationContext,
+              featureConfiguration.getFeatureConfiguration(),
+              ccToolchainProvider,
+              /* usePicForLtoBackendActions= */ false,
+              nopicObjects));
+    }
+    return libraryToLinkBuilder.build();
   }
 
   private static void validateSymlinkPath(
@@ -1867,7 +1872,7 @@ public abstract class CcModule
     }
     List<CcLinkingContext> ccLinkingContexts =
         Sequence.cast(linkingContextsObjects, CcLinkingContext.class, "linking_contexts");
-    CcLinkingHelper helper =
+    CcLinkingHelper linkingHelper =
         new CcLinkingHelper(
                 name,
                 CppLinkActionBuilder.newActionConstruction(actions.getRuleContext()),
@@ -1893,11 +1898,11 @@ public abstract class CcModule
             .setTestOrTestOnlyTarget(convertFromNoneable(testOnlyTargetObject, false))
             .addLinkopts(Sequence.cast(userLinkFlags, String.class, "user_link_flags"));
     if (!asDict(variablesExtension).isEmpty()) {
-      helper.addVariableExtension(new UserVariablesExtension(asDict(variablesExtension)));
+      linkingHelper.addVariableExtension(new UserVariablesExtension(asDict(variablesExtension)));
     }
     try {
       ImmutableList<LibraryToLink> libraryToLink = ImmutableList.of();
-      CcLinkingOutputs ccLinkingOutputs = helper.link(compilationOutputs);
+      CcLinkingOutputs ccLinkingOutputs = linkingHelper.link(compilationOutputs);
       if (!ccLinkingOutputs.isEmpty()) {
         LibraryToLink rewrappedForAlwaysLink =
             ccLinkingOutputs.getLibraryToLink().toBuilder().setAlwayslink(alwayslink).build();
@@ -1910,7 +1915,7 @@ public abstract class CcModule
         libraryToLink = ImmutableList.of(rewrappedForAlwaysLink);
       }
       CcLinkingContext linkingContext =
-          helper.buildCcLinkingContextFromLibrariesToLink(
+          linkingHelper.buildCcLinkingContextFromLibrariesToLink(
               libraryToLink, CcCompilationContext.EMPTY);
       return Tuple.of(linkingContext, ccLinkingOutputs);
     } catch (RuleErrorException e) {
@@ -1953,6 +1958,7 @@ public abstract class CcModule
     // Allow direct access to cc_common.bzl and to C++ linking code that can't use cc_common.bzl
     // directly without creating a cycle.
     if (!label.getCanonicalForm().endsWith("_builtins//:common/cc/cc_common.bzl")
+        && !label.getCanonicalForm().contains("_builtins//:common/cc/compile")
         && !label.getCanonicalForm().contains("_builtins//:common/cc/link")) {
       throw Starlark.errorf(
           "cc_common_internal can only be used by cc_common.bzl in builtins, "
@@ -2021,6 +2027,44 @@ public abstract class CcModule
     }
   }
 
+  @StarlarkMethod(
+      name = "validate_starlark_compile_api_call",
+      documented = false,
+      useStarlarkThread = true,
+      parameters = {
+        @Param(
+            name = "actions",
+            doc = "<code>actions</code> object.",
+            positional = false,
+            named = true),
+        @Param(name = "include_prefix", documented = false, positional = false, named = true),
+        @Param(name = "strip_include_prefix", documented = false, positional = false, named = true),
+        @Param(
+            name = "additional_include_scanning_roots",
+            documented = false,
+            positional = false,
+            named = true,
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = Artifact.class)},
+            defaultValue = "unbound"),
+      })
+  public void validateStarlarkCompileApiCallFromStarlark(
+      StarlarkActionFactory actionFactory,
+      String includePrefix,
+      String stripIncludePrefix,
+      Sequence<?> additionalIncludeScanningRoots,
+      StarlarkThread thread)
+      throws EvalException {
+    isCalledFromStarlarkCcCommon(thread);
+    getSemantics()
+        .validateStarlarkCompileApiCall(
+            actionFactory,
+            thread,
+            includePrefix,
+            stripIncludePrefix,
+            additionalIncludeScanningRoots,
+            2); // stackDepth = 2 is the caller of Starlark implemented cc_common.compile().
+  }
+
   @Override
   @SuppressWarnings("unchecked")
   public Tuple compile(
@@ -2073,7 +2117,8 @@ public abstract class CcModule
             thread,
             includePrefix,
             stripIncludePrefix,
-            additionalIncludeScanningRoots);
+            additionalIncludeScanningRoots,
+            1); // stackDepth = 1 is the caller of native cc_common.compile().
 
     List<Artifact> includeScanningRoots =
         getAdditionalIncludeScanningRoots(additionalIncludeScanningRoots, thread);
@@ -2133,7 +2178,12 @@ public abstract class CcModule
         (language == Language.CPP) ? SourceCategory.CC : SourceCategory.CC_AND_OBJC;
     CcCommon common = new CcCommon(actions.getRuleContext());
     BuildConfigurationValue configuration = actions.getRuleContext().getConfiguration();
-    CcCompilationHelper helper =
+    List<String> includes =
+        starlarkIncludes instanceof Depset
+            ? Depset.cast(starlarkIncludes, String.class, "includes").toList()
+            : Sequence.cast(starlarkIncludes, String.class, "includes");
+
+    CcCompilationHelper compilationHelper =
         new CcCompilationHelper(
             actions.getRuleContext(),
             label,
@@ -2149,46 +2199,11 @@ public abstract class CcModule
             /* shouldProcessHeaders= */ CcToolchainProvider.shouldProcessHeaders(
                 featureConfiguration.getFeatureConfiguration(),
                 configuration.getFragment(CppConfiguration.class)));
-    boolean tuple =
-        (!sourcesUnchecked.isEmpty() && sourcesUnchecked.get(0) instanceof Tuple)
-            || (!moduleInterfacesUnchecked.isEmpty()
-                && moduleInterfacesUnchecked.get(0) instanceof Tuple)
-            || (!publicHeadersUnchecked.isEmpty() && publicHeadersUnchecked.get(0) instanceof Tuple)
-            || (!privateHeadersUnchecked.isEmpty()
-                && privateHeadersUnchecked.get(0) instanceof Tuple);
-    if (tuple) {
-      ImmutableList<Pair<Artifact, Label>> sources = convertSequenceTupleToPair(sourcesUnchecked);
-      ImmutableList<Pair<Artifact, Label>> moduleInterfaces =
-          convertSequenceTupleToPair(moduleInterfacesUnchecked);
-      ImmutableList<Pair<Artifact, Label>> publicHeaders =
-          convertSequenceTupleToPair(publicHeadersUnchecked);
-      ImmutableList<Pair<Artifact, Label>> privateHeaders =
-          convertSequenceTupleToPair(privateHeadersUnchecked);
-      helper
-          .addPublicHeaders(publicHeaders)
-          .addPrivateHeaders(privateHeaders)
-          .addSources(sources)
-          .addModuleInterfaceSources(moduleInterfaces);
-    } else {
-      List<Artifact> sources = Sequence.cast(sourcesUnchecked, Artifact.class, "srcs");
-      List<Artifact> moduleInterfaces =
-          Sequence.cast(moduleInterfacesUnchecked, Artifact.class, "module_interfaces");
-      List<Artifact> publicHeaders =
-          Sequence.cast(publicHeadersUnchecked, Artifact.class, "public_hdrs");
-      List<Artifact> privateHeaders =
-          Sequence.cast(privateHeadersUnchecked, Artifact.class, "private_hdrs");
-      helper
-          .addPublicHeaders(publicHeaders)
-          .addPrivateHeaders(privateHeaders)
-          .addSources(sources)
-          .addModuleInterfaceSources(moduleInterfaces);
-    }
-
-    List<String> includes =
-        starlarkIncludes instanceof Depset
-            ? Depset.cast(starlarkIncludes, String.class, "includes").toList()
-            : Sequence.cast(starlarkIncludes, String.class, "includes");
-    helper
+    compilationHelper
+        .addPublicHeaders(publicHeadersUnchecked)
+        .addPrivateHeaders(privateHeadersUnchecked)
+        .addSources(sourcesUnchecked)
+        .addModuleInterfaceSources(moduleInterfacesUnchecked)
         .addCcCompilationContexts(
             Sequence.cast(
                 ccCompilationContexts, CcCompilationContext.class, "compilation_contexts"))
@@ -2224,48 +2239,50 @@ public abstract class CcModule
         .setCodeCoverageEnabled(codeCoverageEnabled);
 
     if (textualHeadersObject instanceof NestedSet) {
-      helper.addPublicTextualHeaders((NestedSet<Artifact>) textualHeadersObject);
+      compilationHelper.addPublicTextualHeaders(
+          ((NestedSet<Artifact>) textualHeadersObject).toList());
     } else {
-      helper.addPublicTextualHeaders((List<Artifact>) textualHeadersObject);
+      compilationHelper.addPublicTextualHeaders((List<Artifact>) textualHeadersObject);
     }
     if (doNotGenerateModuleMap) {
-      helper.doNotGenerateModuleMap();
+      compilationHelper.doNotGenerateModuleMap();
     }
     if (moduleMap != null) {
-      helper.setCppModuleMap(moduleMap);
+      compilationHelper.setCppModuleMap(moduleMap);
     }
     if (coptsFilter != null) {
-      helper.setCoptsFilter(coptsFilter);
+      compilationHelper.setCoptsFilter(coptsFilter);
     }
     for (CppModuleMap additionalModuleMap : additionalModuleMaps) {
-      helper.registerAdditionalModuleMap(additionalModuleMap);
+      compilationHelper.registerAdditionalModuleMap(additionalModuleMap);
     }
     if (disallowNopicOutputs) {
-      helper.setGenerateNoPicAction(false);
+      compilationHelper.setGenerateNoPicAction(false);
     }
     if (disallowPicOutputs) {
-      helper.setGeneratePicAction(false);
-      helper.setGenerateNoPicAction(true);
+      compilationHelper.setGeneratePicAction(false);
+      compilationHelper.setGenerateNoPicAction(true);
     }
     if (!Strings.isNullOrEmpty(includePrefix)) {
-      helper.setIncludePrefix(includePrefix);
+      compilationHelper.setIncludePrefix(includePrefix);
     }
     if (!Strings.isNullOrEmpty(stripIncludePrefix)) {
-      helper.setStripIncludePrefix(stripIncludePrefix);
+      compilationHelper.setStripIncludePrefix(stripIncludePrefix);
     }
     if (!asDict(variablesExtension).isEmpty()) {
-      helper.addVariableExtension(new UserVariablesExtension(asDict(variablesExtension)));
+      compilationHelper.addVariableExtension(
+          new UserVariablesExtension(asDict(variablesExtension)));
     }
     if (purpose != null) {
-      helper.setPurpose(purpose);
+      compilationHelper.setPurpose(purpose);
     }
     ImmutableList<Artifact> separateModuleHeaders =
         asClassImmutableList(separateModuleHeadersObject);
-    helper.addSeparateModuleHeaders(separateModuleHeaders);
+    compilationHelper.addSeparateModuleHeaders(separateModuleHeaders);
 
     try {
       RuleContext ruleContext = actions.getRuleContext();
-      CompilationInfo compilationInfo = helper.compile(ruleContext);
+      CompilationInfo compilationInfo = compilationHelper.compile(ruleContext);
       return Tuple.of(
           compilationInfo.getCcCompilationContext(), compilationInfo.getCcCompilationOutputs());
     } catch (RuleErrorException e) {
@@ -2273,7 +2290,7 @@ public abstract class CcModule
     }
   }
 
-  private List<Artifact> getAdditionalIncludeScanningRoots(
+  private static List<Artifact> getAdditionalIncludeScanningRoots(
       Sequence<?> additionalIncludeScanningRoots, StarlarkThread thread) throws EvalException {
     if (!additionalIncludeScanningRoots.isEmpty()) {
       BazelModuleContext bazelModuleContext =
@@ -2368,7 +2385,7 @@ public abstract class CcModule
     ImmutableList<Artifact> linkerOutputs = asClassImmutableList(linkerOutputsObject);
     boolean shareableArtifacts = convertFromNoneable(useShareableArtifactFactory, false);
 
-    CcLinkingHelper helper =
+    CcLinkingHelper linkingHelper =
         new CcLinkingHelper(
                 name,
                 CppLinkActionBuilder.newActionConstruction(
@@ -2408,18 +2425,18 @@ public abstract class CcModule
             .setUseTestOnlyFlags(convertFromNoneable(useTestOnlyFlags, false))
             .addLinkerOutputs(linkerOutputs);
     if (staticLinkTargetType != null) {
-      helper.setShouldCreateDynamicLibrary(false).setStaticLinkType(staticLinkTargetType);
+      linkingHelper.setShouldCreateDynamicLibrary(false).setStaticLinkType(staticLinkTargetType);
     } else {
-      helper.setShouldCreateStaticLibraries(false).setDynamicLinkType(dynamicLinkTargetType);
+      linkingHelper.setShouldCreateStaticLibraries(false).setDynamicLinkType(dynamicLinkTargetType);
     }
     if (!asDict(variablesExtension).isEmpty()) {
-      helper.addVariableExtension(new UserVariablesExtension(asDict(variablesExtension)));
+      linkingHelper.addVariableExtension(new UserVariablesExtension(asDict(variablesExtension)));
     }
 
     CcCompilationOutputs compilationOutputs =
         convertFromNoneable(compilationOutputsObject, /* defaultValue= */ null);
     try {
-      return helper.link(
+      return linkingHelper.link(
           compilationOutputs != null ? compilationOutputs : CcCompilationOutputs.EMPTY);
     } catch (RuleErrorException e) {
       throw Starlark.errorf("%s", e.getMessage());
@@ -2666,12 +2683,5 @@ public abstract class CcModule
       throw Starlark.errorf("Passed function must be top-level functions.");
     }
     return new StarlarkDefinedLinkTimeLibrary(buildLibraryFunc, ImmutableMap.copyOf(dataSetsMap));
-  }
-
-  private ImmutableList<Pair<Artifact, Label>> convertSequenceTupleToPair(Sequence<?> sequenceTuple)
-      throws EvalException {
-    return Sequence.cast(sequenceTuple, Tuple.class, "files").stream()
-        .map(p -> Pair.of((Artifact) p.get(0), (Label) p.get(1)))
-        .collect(toImmutableList());
   }
 }

@@ -39,7 +39,7 @@ import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.CommonCommandOptions;
 import com.google.devtools.build.lib.runtime.commands.BuildCommand;
-import com.google.devtools.build.lib.runtime.commands.ExecRequestUtils;
+import com.google.devtools.build.lib.runtime.commands.PathToReplaceUtils;
 import com.google.devtools.build.lib.server.CommandProtos.EnvironmentVariable;
 import com.google.devtools.build.lib.server.CommandProtos.ExecRequest;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -357,18 +357,18 @@ public class MobileInstallCommand implements BlazeCommand {
       CommandEnvironment env, Path workingDir, ImmutableList<String> cmdLine) {
     return ExecRequest.newBuilder()
         .setShouldExec(true)
-        .setWorkingDirectory(ExecRequestUtils.bytes(workingDir.getPathString()))
-        .addAllArgv(cmdLine.stream().map(ExecRequestUtils::bytes).collect(toImmutableList()))
-        .addAllPathToReplace(ExecRequestUtils.getPathsToReplace(env))
+        .setWorkingDirectory(PathToReplaceUtils.bytes(workingDir.getPathString()))
+        .addAllArgv(cmdLine.stream().map(PathToReplaceUtils::bytes).collect(toImmutableList()))
+        .addAllPathToReplace(PathToReplaceUtils.getPathsToReplace(env))
         // TODO: b/333695932 - Shim for client run-support, remove once no longer needed.
         .addEnvironmentVariable(
             EnvironmentVariable.newBuilder()
-                .setName(ExecRequestUtils.bytes("BUILD_WORKING_DIRECTORY"))
-                .setValue(ExecRequestUtils.bytes(env.getWorkingDirectory().getPathString())))
+                .setName(PathToReplaceUtils.bytes("BUILD_WORKING_DIRECTORY"))
+                .setValue(PathToReplaceUtils.bytes(env.getWorkingDirectory().getPathString())))
         .addEnvironmentVariable(
             EnvironmentVariable.newBuilder()
-                .setName(ExecRequestUtils.bytes("BUILD_WORKSPACE_DIRECTORY"))
-                .setValue(ExecRequestUtils.bytes(env.getWorkspace().getPathString())))
+                .setName(PathToReplaceUtils.bytes("BUILD_WORKSPACE_DIRECTORY"))
+                .setValue(PathToReplaceUtils.bytes(env.getWorkspace().getPathString())))
         .build();
   }
 

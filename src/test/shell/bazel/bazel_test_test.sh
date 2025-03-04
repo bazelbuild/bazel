@@ -1073,9 +1073,9 @@ EOF
   bazel test --experimental_sibling_repository_layout @a//:x &> $TEST_log \
       || fail "expected success"
 
-  cp $(testlogs_dir +_repo_rules+a)/x/test.xml $TEST_log
-  expect_log "<testsuite name=\"+_repo_rules+a/x\""
-  expect_log "<testcase name=\"+_repo_rules+a/x\""
+  cp $(testlogs_dir +local_repository+a)/x/test.xml $TEST_log
+  expect_log "<testsuite name=\"+local_repository+a/x\""
+  expect_log "<testcase name=\"+local_repository+a/x\""
 }
 
 function test_xml_output_format() {

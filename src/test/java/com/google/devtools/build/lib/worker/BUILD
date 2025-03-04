@@ -135,7 +135,6 @@ java_library(
         "//src/test/java/com/google/devtools/build/lib/testutil:TestThread",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestUtils",
         "//src/test/java/com/google/devtools/build/lib/vfs/util",
-        "//third_party:apache_commons_pool2",
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party:junit4",

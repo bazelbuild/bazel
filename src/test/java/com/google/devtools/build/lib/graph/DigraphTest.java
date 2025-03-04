@@ -60,6 +60,11 @@ public class DigraphTest {
     }
 
     @Override
+    public Package.Metadata getPackageMetadata() {
+      return null;
+    }
+
+    @Override
     public String getTargetKind() {
       return null;
     }

@@ -72,6 +72,7 @@ import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
+import com.google.devtools.build.lib.packages.DeclaredExecGroup;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
@@ -497,7 +498,7 @@ final class AspectFunction implements SkyFunction {
       throw new AspectFunctionException(e);
     } catch (ConfiguredValueCreationException e) {
       throw new AspectFunctionException(e);
-    } catch (ToolchainException e) {
+    } catch (ToolchainException | InvalidExecGroupException e) {
       throw new AspectFunctionException(
           new AspectCreationException(
               e.getMessage(), new LabelCause(key.getLabel(), e.getDetailedExitCode())));
@@ -571,7 +572,7 @@ final class AspectFunction implements SkyFunction {
           TargetAndConfiguration targetAndConfiguration,
           ConfiguredTargetKey configuredTargetKey,
           Environment env)
-          throws InterruptedException, ToolchainException {
+          throws InterruptedException, ToolchainException, InvalidExecGroupException {
 
     // if the base target's toolchain contexts are already evaluated, return them.
     if (state.baseTargetUnloadedToolchainContexts != null || state.baseTargetHasNoToolchains) {
@@ -830,9 +831,10 @@ final class AspectFunction implements SkyFunction {
 
     boolean useAutoExecGroups = shouldUseAutoExecGroups(aspectDefinition, configuration);
     var processedExecGroups =
-        ExecGroupCollection.process(
+        DeclaredExecGroup.process(
             aspectDefinition.execGroups(),
             aspectDefinition.execCompatibleWith(),
+            /* execGroupExecWith= */ ImmutableMultimap.of(),
             aspectDefinition.getToolchainTypes(),
             useAutoExecGroups);
     // Note: `configuration.getOptions().hasNoConfig()` is handled early in #compute.
@@ -890,21 +892,15 @@ final class AspectFunction implements SkyFunction {
     ImmutableList<Label> aliasChain =
         baseConfiguredTarget.getProvider(AliasProvider.class).getAliasChain();
 
-    AspectKey actualKey;
+    ConfiguredTarget nextTarget = baseConfiguredTarget.getActualNoFollow();
+
     if (aliasChain.size() > 1) {
-      // If there is another alias in the chain, follows it, creating the next alias aspect.
-      actualKey =
-          buildAliasAspectKey(
-              originalKey, aliasChain.get(1), baseConfiguredTarget.getConfigurationKey());
-    } else {
-      // Otherwise, creates an aspect of the real configured target using its real configuration key
-      // which includes any transitions.
-      actualKey =
-          buildAliasAspectKey(
-              originalKey,
-              baseConfiguredTarget.getLabel(),
-              baseConfiguredTarget.getActual().getConfigurationKey());
+      Preconditions.checkState(aliasChain.get(1).equals(nextTarget.getOriginalLabel()));
     }
+
+    AspectKey actualKey =
+        buildAliasAspectKey(
+            originalKey, nextTarget.getOriginalLabel(), nextTarget.getConfigurationKey());
 
     return createAliasAspect(
         env, targetAndConfiguration.getTarget(), originalKey, aspect, actualKey, transitiveState);
@@ -926,10 +922,10 @@ final class AspectFunction implements SkyFunction {
       return null;
     }
 
-    NestedSet<Package> transitivePackages =
+    NestedSet<Package.Metadata> transitivePackages =
         storeTransitivePackages
-            ? NestedSetBuilder.<Package>stableOrder()
-                .add(originalTarget.getPackage())
+            ? NestedSetBuilder.<Package.Metadata>stableOrder()
+                .add(originalTarget.getPackageMetadata())
                 .addTransitive(transitiveState.transitivePackages())
                 .addTransitive(real.getTransitivePackages())
                 .build()

@@ -160,7 +160,9 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
                 ImmutableList.of(input1, input2),
                 ImmutableList.of(createForTesting(input1), createForTesting(input2)),
                 ImmutableList.of(tree),
-                ImmutableList.of((TreeArtifactValue) evaluateArtifactValue(tree))));
+                ImmutableList.of((TreeArtifactValue) evaluateArtifactValue(tree)),
+                ImmutableList.of(),
+                ImmutableList.of()));
   }
 
   /**

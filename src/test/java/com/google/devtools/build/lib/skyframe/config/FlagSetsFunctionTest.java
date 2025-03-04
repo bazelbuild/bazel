@@ -101,10 +101,6 @@ public final class FlagSetsFunctionTest extends BuildViewTestCase {
 
   @Test
   public void flagSetsFunction_returns_modified_buildOptions() throws Exception {
-    rewriteWorkspace(
-        """
-        workspace(name = "my_workspace")
-        """);
     scratch.file(
         "test/PROJECT.scl",
         """
@@ -137,10 +133,6 @@ public final class FlagSetsFunctionTest extends BuildViewTestCase {
   @Test
   public void given_unknown_sclConfig_flagSetsFunction_returns_original_buildOptions()
       throws Exception {
-    rewriteWorkspace(
-        """
-        workspace(name = "my_workspace")
-        """);
     scratch.file(
         "test/PROJECT.scl",
         """
@@ -192,10 +184,6 @@ public final class FlagSetsFunctionTest extends BuildViewTestCase {
 
   @Test
   public void invalidEnforcementPolicy_fails() throws Exception {
-    rewriteWorkspace(
-        """
-        workspace(name = "my_workspace")
-        """);
     scratch.file(
         "test/PROJECT.scl",
         """
@@ -659,7 +647,7 @@ project = {
             /* enforceCanonical= */ true);
 
     var thrown = assertThrows(Exception.class, () -> executeFunction(key));
-    assertThat(thrown).hasMessageThat().contains("Found ['--bar' (expanded from '--config=foo')]");
+    assertThat(thrown).hasMessageThat().contains("Found ['--config=foo']");
   }
 
   @Test

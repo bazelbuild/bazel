@@ -29,17 +29,6 @@ import com.google.devtools.build.skyframe.SkyKey;
  */
 public interface RemoteAnalysisCachingDependenciesProvider {
 
-  default boolean requiresBackendConnectivity() {
-    switch (mode()) {
-      case DOWNLOAD:
-      // fall through
-      case UPLOAD:
-        return true;
-      default:
-        return false;
-    }
-  }
-
   RemoteAnalysisCacheMode mode();
 
   /** Value of RemoteAnalysisCachingOptions#serializedFrontierProfile. */

@@ -18,7 +18,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.actions.ActionAnalysisMetadata.mergeMaps;
-import static com.google.devtools.build.lib.packages.ExecGroup.DEFAULT_EXEC_GROUP_NAME;
+import static com.google.devtools.build.lib.packages.DeclaredExecGroup.DEFAULT_EXEC_GROUP_NAME;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.CharMatcher;
@@ -373,7 +373,11 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       Fingerprint fp)
       throws CommandLineExpansionException, InterruptedException {
     fp.addString(GUID);
-    commandLines.addToFingerprint(actionKeyContext, artifactExpander, outputPathsMode, fp);
+    commandLines.addToFingerprint(
+        actionKeyContext,
+        artifactExpander,
+        PathMappers.getEffectiveOutputPathsMode(outputPathsMode, getMnemonic(), getExecutionInfo()),
+        fp);
     fp.addString(mnemonic);
     env.addTo(fp);
     fp.addStringMap(getExecutionInfo());
@@ -857,13 +861,16 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       return this;
     }
 
+    private static final Interner<ImmutableMap<String, String>> envInterner =
+        BlazeInterners.newWeakInterner();
+
     /**
      * Sets the map of environment variables. Do not use! This makes the builder ignore the 'default
      * shell environment', which is computed from the --action_env command line option.
      */
     @CanIgnoreReturnValue
     public Builder setEnvironment(Map<String, String> environment) {
-      this.environment = ImmutableMap.copyOf(environment);
+      this.environment = envInterner.intern(ImmutableMap.copyOf(environment));
       this.useDefaultShellEnvironment = false;
       return this;
     }

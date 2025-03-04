@@ -1613,6 +1613,7 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
   @Test
   public void remoteFilesExpiredBetweenBuilds_rerunGeneratingActions() throws Exception {
     // Arrange: Prepare workspace and populate remote cache
+    addOptions("--experimental_remote_cache_eviction_retries=0");
     write(
         "a/BUILD",
         """
@@ -1638,8 +1639,8 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
 
     // Populate remote cache
     buildTarget("//a:bar");
-    getOutputPath("a/foo.out").delete();
-    getOutputPath("a/bar.out").delete();
+    assertOutputDoesNotExist("a/foo.out");
+    assertOutputDoesNotExist("a/bar.out");
     getOutputBase().getRelative("action_cache").deleteTreesBelow();
     restartServer();
 
@@ -1648,6 +1649,7 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     addOptions("--experimental_remote_cache_ttl=0s");
     buildTarget("//a:bar");
     assertOutputDoesNotExist("a/foo.out");
+    assertValidOutputFile("a/bar.out", "foo" + lineSeparator() + "bar" + lineSeparator());
 
     // Evict blobs from remote cache
     evictAllBlobs();
@@ -1665,6 +1667,7 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
   @Test
   public void remoteTreeFilesExpiredBetweenBuilds_rerunGeneratingActions() throws Exception {
     // Arrange: Prepare workspace and populate remote cache
+    addOptions("--experimental_remote_cache_eviction_retries=0");
     write("BUILD");
     writeOutputDirRule();
     write(
@@ -1691,8 +1694,8 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
 
     // Populate remote cache
     buildTarget("//a:bar");
-    getOutputPath("a/foo.out").deleteTreesBelow();
-    getOutputPath("a/bar.out").delete();
+    assertThat(getOutputPath("a/foo.out").getDirectoryEntries()).isEmpty();
+    assertOutputDoesNotExist("a/bar.out");
     getOutputBase().getRelative("action_cache").deleteTreesBelow();
     restartServer();
 
@@ -1701,6 +1704,7 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     addOptions("--experimental_remote_cache_ttl=0s");
     buildTarget("//a:bar");
     assertOutputDoesNotExist("a/foo.out/file-inside");
+    assertValidOutputFile("a/bar.out", "file-inside\nbar" + lineSeparator());
 
     // Evict blobs from remote cache
     evictAllBlobs();

@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.starlarkdocextract;
 
+import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -54,21 +56,24 @@ public final class RuleInfoExtractor {
     RuleInfo.Builder ruleInfoBuilder = RuleInfo.newBuilder();
     // Record the name under which this symbol is made accessible, which may differ from the
     // symbol's exported name
-    ruleInfoBuilder.setRuleName(qualifiedName);
+    ruleInfoBuilder.setRuleName(internalToUnicode(qualifiedName));
     // ... but record the origin rule key for cross references.
-    OriginKey.Builder originKeyBuilder = OriginKey.newBuilder().setName(ruleClass.getName());
+    OriginKey.Builder originKeyBuilder =
+        OriginKey.newBuilder().setName(internalToUnicode(ruleClass.getName()));
     if (ruleClass.isStarlark()) {
       if (ruleClass.getStarlarkExtensionLabel() != null) {
         // Most common case: exported Starlark-defined rule class
         originKeyBuilder.setFile(
-            context.labelRenderer().render(ruleClass.getStarlarkExtensionLabel()));
+            internalToUnicode(
+                context.labelRenderer().render(ruleClass.getStarlarkExtensionLabel())));
       } else {
         // Unexported Starlark-defined rule class; this only possible for a repository rule. Fall
         // back to the rule definition environment label. (Note that we cannot unconditionally call
         // getRuleDefinitionEnvironmentLabel() because for an analysis test rule class, the rule
         // definition environment label is a dummy value; see b/366027483.)
         originKeyBuilder.setFile(
-            context.labelRenderer().render(ruleClass.getRuleDefinitionEnvironmentLabel()));
+            internalToUnicode(
+                context.labelRenderer().render(ruleClass.getRuleDefinitionEnvironmentLabel())));
       }
     } else {
       // Non-Starlark-defined rule class
@@ -77,7 +82,7 @@ public final class RuleInfoExtractor {
     ruleInfoBuilder.setOriginKey(originKeyBuilder.build());
 
     if (ruleClass.getStarlarkDocumentation() != null) {
-      ruleInfoBuilder.setDocString(ruleClass.getStarlarkDocumentation());
+      ruleInfoBuilder.setDocString(internalToUnicode(ruleClass.getStarlarkDocumentation()));
     }
 
     if (ruleClass.getRuleClassType() == RuleClassType.TEST) {

@@ -31,7 +31,10 @@ public abstract class FileTarget implements Target, FileType.HasFileType {
 
   /** Constructs a file with the given label, which must be in the given package. */
   FileTarget(Package pkg, Label label) {
-    Preconditions.checkArgument(label.getPackageFragment().equals(pkg.getNameFragment()));
+    Preconditions.checkArgument(
+        label
+            .getPackageFragment()
+            .equals(pkg.getMetadata().packageIdentifier().getPackageFragment()));
     this.label = label;
   }
 

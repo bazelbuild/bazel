@@ -79,7 +79,7 @@ and extract it", or "fetch a certain Maven artifact and make it available as a
 `java_import` target", or simply "symlink a local directory". Every repo is
 **defined** by calling a repo rule with an appropriate number of arguments.
 
-See [Repository rules](/extending/repo) for more information about how to write
+See [Repository rules](/external/repo) for more information about how to write
 your own repository rules.
 
 The most common repo rules by far are
@@ -181,6 +181,11 @@ rules, enabling them to perform actions like file I/O and sending network
 requests. Among other things, they allow Bazel to interact with other package
 management systems while also respecting the dependency graph built out of Bazel
 modules.
+
+### Advantages of Bzlmod {:#advantages-bzlmod}
+
+Bzlmod improves dependency resolution, ecosystem integration, build reliability
+and security ([see details](/external/migration#benefits-of-bzlmod)).
 
 ### External links on Bzlmod {:#external-links}
 

@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.starlarkdocextract;
 
+import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -23,6 +25,7 @@ import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.AttributeInfo;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.AttributeType;
+import com.google.devtools.build.lib.util.StringEncoding;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Consumer;
@@ -36,10 +39,12 @@ public final class AttributeInfoExtractor {
   static AttributeInfo buildAttributeInfo(ExtractorContext context, Attribute attribute) {
     AttributeInfo.Builder builder =
         AttributeInfo.newBuilder()
-            .setName(attribute.getPublicName())
+            .setName(internalToUnicode(attribute.getPublicName()))
             .setType(getAttributeType(context, attribute.getType(), attribute.getPublicName()))
             .setMandatory(attribute.isMandatory());
-    Optional.ofNullable(attribute.getDoc()).ifPresent(builder::setDocString);
+    Optional.ofNullable(attribute.getDoc())
+        .map(StringEncoding::internalToUnicode)
+        .ifPresent(builder::setDocString);
     if (!attribute.isConfigurable()) {
       builder.setNonconfigurable(true);
     }
@@ -57,7 +62,9 @@ public final class AttributeInfoExtractor {
     if (!attribute.isMandatory()) {
       try {
         Object defaultValue = Attribute.valueToStarlark(attribute.getDefaultValueUnchecked());
-        builder.setDefaultValue(context.labelRenderer().reprWithoutLabelConstructor(defaultValue));
+        builder.setDefaultValue(
+            StringEncoding.internalToUnicode(
+                context.labelRenderer().reprWithoutLabelConstructor(defaultValue)));
       } catch (InvalidStarlarkValueException e) {
         builder.setDefaultValue(UNREPRESENTABLE_VALUE);
       }
@@ -122,6 +129,8 @@ public final class AttributeInfoExtractor {
       return AttributeType.STRING_DICT;
     } else if (type.equals(Types.STRING_LIST_DICT)) {
       return AttributeType.STRING_LIST_DICT;
+    } else if (type.equals(BuildType.LABEL_LIST_DICT)) {
+      return AttributeType.LABEL_LIST_DICT;
     } else if (type.equals(BuildType.LABEL_DICT_UNARY)) {
       return AttributeType.LABEL_DICT_UNARY;
     } else if (type.equals(BuildType.OUTPUT)) {

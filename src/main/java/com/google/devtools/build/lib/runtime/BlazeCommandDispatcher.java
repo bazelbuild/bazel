@@ -38,7 +38,6 @@ import com.google.devtools.build.lib.buildtool.buildevent.ProfilerStartedEvent;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
@@ -247,7 +246,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
       BlazeCommandResult result;
       int attemptNumber = 0;
       Set<UUID> attemptedCommandIds = new HashSet<>();
-      BlazeCommandResult lastResult = null;
+      String buildRequestIdOverride = null;
       while (true) {
         attemptNumber += 1;
         try {
@@ -265,12 +264,14 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
                   commandExtensions,
                   attemptNumber,
                   attemptedCommandIds,
-                  lastResult,
+                  buildRequestIdOverride,
                   commandExtensionReporter);
           break;
         } catch (RemoteCacheTransientErrorException e) {
           attemptedCommandIds.add(e.getCommandId());
-          lastResult = e.getResult();
+          // Use a fixed build request ID across cache eviction retries to tie together the
+          // individual invocations, which all have different invocation IDs.
+          buildRequestIdOverride = e.getBuildRequestId();
         }
       }
       if (result.shutdown()) {
@@ -326,7 +327,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
       List<Any> commandExtensions,
       int attemptNumber,
       Set<UUID> attemptedCommandIds,
-      @Nullable BlazeCommandResult lastResult,
+      @Nullable String buildRequestIdOverride,
       CommandExtensionReporter commandExtensionReporter)
       throws RemoteCacheTransientErrorException {
     // Record the start time for the profiler. Do not put anything before this!
@@ -363,18 +364,11 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
             this::setShutdownReason,
             commandExtensionReporter,
             attemptNumber,
+            buildRequestIdOverride,
             parseResults.configFlagDefinitions());
 
-    if (!attemptedCommandIds.isEmpty()) {
-      if (attemptedCommandIds.contains(env.getCommandId())) {
-        outErr.printErrLn(
-            String.format(
-                "Failed to retry the build: invocation id `%s` has already been used.",
-                env.getCommandId()));
-        return Preconditions.checkNotNull(lastResult);
-      } else {
-        outErr.printErrLn("Found transient remote cache error, retrying the build...");
-      }
+    if (attemptNumber > 1) {
+      outErr.printErrLn("Found transient remote cache error, retrying the build...");
     }
 
     CommonCommandOptions commonOptions = options.getOptions(CommonCommandOptions.class);
@@ -508,10 +502,9 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
         boolean newStatsSummary =
             options.getOptions(ExecutionOptions.class) != null
                 && options.getOptions(ExecutionOptions.class).statsSummary;
-        EventHandler handler =
+        UiEventHandler handler =
             createEventHandler(outErr, eventHandlerOptions, quiet, env, newStatsSummary);
-        reporter.addHandler(handler);
-        env.getEventBus().register(handler);
+        env.setUiEventHandler(handler);
 
         // We register an ANSI-allowing handler associated with {@code handler} so that ANSI control
         // codes can be re-introduced later even if blaze is invoked with --color=no. This is useful
@@ -678,20 +671,38 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
       }
       options = optionHandler.getOptionsResult();
 
+      boolean includeResidueInRunBepEvent =
+          env.getOptions().getOptions(BuildEventProtocolOptions.class) != null
+              && env.getOptions()
+                  .getOptions(BuildEventProtocolOptions.class)
+                  .includeResidueInRunBepEvent;
       // Log the command line now that the modules have all had a change to register their listeners
       // to the event bus, and the flags have been re-parsed.
       CommandLineEvent originalCommandLineEvent =
           new CommandLineEvent.OriginalCommandLineEvent(
-              runtime, commandName, options, startupOptionsTaggedWithBazelRc);
+              runtime,
+              commandName,
+              options.getResidue(),
+              includeResidueInRunBepEvent,
+              options.asListOfExplicitOptions(),
+              options.getExplicitStarlarkOptions(
+                  CommandLineEvent.OriginalCommandLineEvent::commandLinePriority),
+              startupOptionsTaggedWithBazelRc);
       // If flagsets are applied, a CanonicalCommandLineEvent is also emitted by
       // BuildTool.buildTargets(). This is a duplicate event, and consumers are expected to
       // handle it correctly, by accepting the last event.
       CommandLineEvent canonicalCommandLineEvent =
-          new CommandLineEvent.CanonicalCommandLineEvent(runtime, commandName, options);
-      BuildEventProtocolOptions bepOptions =
-          env.getOptions().getOptions(BuildEventProtocolOptions.class);
+          new CommandLineEvent.CanonicalCommandLineEvent(
+              runtime,
+              commandName,
+              options.getResidue(),
+              includeResidueInRunBepEvent,
+              options.getExplicitStarlarkOptions(
+                  CommandLineEvent.OriginalCommandLineEvent::commandLinePriority),
+              options.getStarlarkOptions(),
+              options.asListOfCanonicalOptions());
       OriginalUnstructuredCommandLineEvent unstructuredServerCommandLineEvent;
-      if (commandName.equals("run") && !bepOptions.includeResidueInRunBepEvent) {
+      if (commandName.equals("run") && !includeResidueInRunBepEvent) {
         unstructuredServerCommandLineEvent =
             OriginalUnstructuredCommandLineEvent.REDACTED_UNSTRUCTURED_COMMAND_LINE_EVENT;
       } else {
@@ -732,7 +743,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
         var executionOptions =
             Preconditions.checkNotNull(options.getOptions(ExecutionOptions.class));
         if (attemptedCommandIds.size() < executionOptions.remoteRetryOnTransientCacheError) {
-          throw new RemoteCacheTransientErrorException(env.getCommandId(), newResult);
+          throw new RemoteCacheTransientErrorException(env.getBuildRequestId(), env.getCommandId());
         }
       }
 
@@ -781,20 +792,22 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
   }
 
   private static class RemoteCacheTransientErrorException extends IOException {
+    // Remains constant across retries.
+    private final String buildRequestId;
+    // Changes across retries.
     private final UUID commandId;
-    private final BlazeCommandResult result;
 
-    private RemoteCacheTransientErrorException(UUID commandId, BlazeCommandResult result) {
+    private RemoteCacheTransientErrorException(String buildRequestId, UUID commandId) {
+      this.buildRequestId = buildRequestId;
       this.commandId = commandId;
-      this.result = result;
+    }
+
+    public String getBuildRequestId() {
+      return buildRequestId;
     }
 
     public UUID getCommandId() {
       return commandId;
-    }
-
-    public BlazeCommandResult getResult() {
-      return result;
     }
   }
 

@@ -81,6 +81,7 @@ import java.util.Optional;
 import java.util.regex.Pattern;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.Printer;
@@ -1162,23 +1163,6 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
         ev.eval("ruleContext.runfiles(root_symlinks = {'sym1': ruleContext.files.srcs[0]})");
     assertThat(ImmutableList.of("a.txt"))
         .isEqualTo(ActionsTestUtil.baseArtifactNames(getRunfileArtifacts(result)));
-  }
-
-  @Test
-  public void testRunfilesSymlinkConflict() throws Exception {
-    // Two different artifacts mapped to same path in runfiles
-    setRuleContext(createRuleContext("//foo:foo"));
-    ev.exec("prefix = ruleContext.workspace_name + '/' if ruleContext.workspace_name else ''");
-    Object result =
-        ev.eval(
-            "ruleContext.runfiles(",
-            "  root_symlinks = {prefix + 'sym1': ruleContext.files.srcs[0]},",
-            "  symlinks = {'sym1': ruleContext.files.srcs[1]})");
-    Runfiles runfiles = (Runfiles) result;
-    reporter.removeHandler(failFastHandler); // So it doesn't throw an exception.
-    var unused =
-        runfiles.getRunfilesInputs(runfiles.eventRunfilesConflictReceiver(reporter, null), null);
-    assertContainsEvent("ERROR <no location>: overwrote runfile");
   }
 
   private static Iterable<Artifact> getRunfileArtifacts(Object runfiles) {
@@ -4154,5 +4138,12 @@ args.add_all(d, map_each = _map_each, uniquify = True)
     assertThat(a2).isNotNull();
     assertThat(a2.getRoot().getExecPathString())
         .matches(getRelativeOutputPath() + "/[\\w\\-]+\\-exec/bin");
+  }
+
+  @Test
+  public void testHashableProviders() throws Exception {
+    ev.execAndExport("p = provider()");
+    Dict<?, ?> dict = (Dict<?, ?>) ev.eval("{k: None for k in [DefaultInfo, p, DefaultInfo, p]}");
+    assertThat(dict.size()).isEqualTo(2);
   }
 }

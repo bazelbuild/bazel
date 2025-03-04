@@ -60,7 +60,6 @@ def _create_cc_toolchain_info(
         strip_executable,
         ld_executable,
         gcov_executable,
-        runtime_sysroot,
         tool_paths,
         solib_dir,
         fdo_context,
@@ -73,7 +72,6 @@ def _create_cc_toolchain_info(
         is_tool_configuration,
         is_sibling_repository_layout,
         stamp_binaries,
-        default_sysroot,
         builtin_include_files,
         build_variables_dict,
         build_variables,
@@ -120,7 +118,6 @@ def _create_cc_toolchain_info(
         strip_executable = strip_executable,
         ld_executable = ld_executable,
         gcov_executable = gcov_executable,
-        _runtime_sysroot = runtime_sysroot,
         _as_files = as_files,
         _ar_files = ar_files,
         _strip_files = strip_files,
@@ -150,7 +147,6 @@ def _create_cc_toolchain_info(
         _is_tool_configuration = is_tool_configuration,
         _is_sibling_repository_layout = is_sibling_repository_layout,
         _stamp_binaries = stamp_binaries,
-        _default_sysroot = default_sysroot,
         _static_runtime_lib_depset = static_runtime_lib_depset,
         _dynamic_runtime_lib_depset = dynamic_runtime_lib_depset,
         _compiler_files_without_includes = compiler_files_without_includes,
@@ -205,11 +201,6 @@ CcToolchainInfo, _ = provider(
         "strip_executable": "The path to the strip binary.",
         "ld_executable": "The path to the ld binary.",
         "gcov_executable": "The path to the gcov binary.",
-        "_runtime_sysroot": """
-            INTERNAL API, DO NOT USE!
-            Returns the runtime sysroot, where the dynamic linker and system libraries are found at
-            runtime. This is usually an absolute path. If the toolchain compiler does not
-            support sysroots then this method returns <code>None></code>.""",
         # Private fields used by Starlark.
         "_as_files": "INTERNAL API, DO NOT USE!",
         "_ar_files": "INTERNAL API, DO NOT USE!",
@@ -247,7 +238,6 @@ CcToolchainInfo, _ = provider(
         "_is_tool_configuration": "INTERNAL API, DO NOT USE!",
         "_is_sibling_repository_layout": "INTERNAL API, DO NOT USE!",
         "_stamp_binaries": "INTERNAL API, DO NOT USE!",
-        "_default_sysroot": "INTERNAL API, DO NOT USE!",
         "_static_runtime_lib_depset": "INTERNAL API, DO NOT USE!",
         "_dynamic_runtime_lib_depset": "INTERNAL API, DO NOT USE!",
         "_compiler_files_without_includes": "INTERNAL API, DO NOT USE!",

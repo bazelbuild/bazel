@@ -58,7 +58,7 @@ public final class ConfiguredTargetTransitivePackagesTest extends AnalysisTestCa
             skyframeExecutor, Label.parseCanonical(target), config);
     ImmutableSet<String> packageNames =
         ctValue.getTransitivePackages().toList().stream()
-            .map(pkg -> pkg.getPackageIdentifier().toString())
+            .map(pkgMetadata -> pkgMetadata.packageIdentifier().toString())
             .collect(toImmutableSet());
     assertThat(packageNames).containsAtLeastElementsIn(Sets.newHashSet(packages));
   }

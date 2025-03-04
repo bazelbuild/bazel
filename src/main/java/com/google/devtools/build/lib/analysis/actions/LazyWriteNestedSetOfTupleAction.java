@@ -49,8 +49,7 @@ public final class LazyWriteNestedSetOfTupleAction extends AbstractFileWriteActi
 
   @Override
   public DeterministicWriter newDeterministicWriter(ActionExecutionContext ctx) {
-    return out ->
-        out.write(StringUnsafe.getInstance().getInternalStringBytes(getContents(delimiter)));
+    return out -> out.write(StringUnsafe.getInternalStringBytes(getContents(delimiter)));
   }
 
   /** Computes the Action key for this action by computing the fingerprint for the file contents. */

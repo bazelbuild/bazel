@@ -14,10 +14,11 @@
 
 package com.google.devtools.build.lib.analysis;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.analysis.constraints.ConstraintConstants.OS_TO_CONSTRAINTS;
-import static com.google.devtools.build.lib.analysis.test.ExecutionInfo.DEFAULT_TEST_RUNNER_EXEC_GROUP;
-import static com.google.devtools.build.lib.packages.ExecGroup.DEFAULT_EXEC_GROUP_NAME;
+import static com.google.devtools.build.lib.packages.DeclaredExecGroup.DEFAULT_EXEC_GROUP_NAME;
+import static com.google.devtools.build.lib.packages.RuleClass.DEFAULT_TEST_RUNNER_EXEC_GROUP_NAME;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
@@ -67,7 +68,7 @@ import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy;
 import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
-import com.google.devtools.build.lib.packages.ExecGroup;
+import com.google.devtools.build.lib.packages.DeclaredExecGroup;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.OutputFile;
@@ -167,7 +168,10 @@ public class RuleContext extends TargetContext
   @Nullable private final ToolchainCollection<ResolvedToolchainContext> toolchainContexts;
   private final ExecGroupCollection execGroupCollection;
   @Nullable private final RequiredConfigFragmentsProvider requiredConfigFragments;
-  @Nullable private final NestedSet<Package> transitivePackagesForRunfileRepoMappingManifest;
+
+  @Nullable
+  private final NestedSet<Package.Metadata> transitivePackagesForRunfileRepoMappingManifest;
+
   private final List<Expander> makeVariableExpanders = new ArrayList<>();
 
   /** Map of exec group names to ActionOwners. */
@@ -434,7 +438,7 @@ public class RuleContext extends TargetContext
       testExecProperties = testExecutionPlatform.execProperties();
     } else {
       testExecutionPlatform = null;
-      testExecProperties = getExecGroups().getExecProperties(DEFAULT_TEST_RUNNER_EXEC_GROUP);
+      testExecProperties = getExecGroups().getExecProperties(DEFAULT_TEST_RUNNER_EXEC_GROUP_NAME);
     }
 
     ActionOwner actionOwner =
@@ -925,15 +929,46 @@ public class RuleContext extends TargetContext
     return getOwningPrerequisitesCollection(attributeName).getExecutablePrerequisite(attributeName);
   }
 
-  public void initConfigurationMakeVariableContext(
-      Iterable<? extends MakeVariableSupplier> makeVariableSuppliers) {
-    Preconditions.checkState(
-        configurationMakeVariableContext == null,
-        "Attempted to init an already initialized Make var context (did you call"
-            + " initConfigurationMakeVariableContext() after accessing ctx.var?)");
-    configurationMakeVariableContext =
-        new ConfigurationMakeVariableContext(
-            this, rule.getPackage(), getConfiguration(), makeVariableSuppliers);
+  ImmutableList<TemplateVariableInfo> fromAttributes(Iterable<String> attributeNames) {
+    // Get template variable providers from the attributes.
+    ImmutableList<TemplateVariableInfo> fromAttributes =
+        Streams.stream(attributeNames)
+            // Only process this attribute it if is present in the rule.
+            .filter(attrName -> this.attributes().has(attrName))
+            // Get the TemplateVariableInfo providers from this attribute.
+            .flatMap(
+                attrName -> this.getPrerequisites(attrName, TemplateVariableInfo.PROVIDER).stream())
+            .collect(toImmutableList());
+
+    return fromAttributes;
+  }
+
+  ImmutableList<TemplateVariableInfo> fromToolchains() {
+    if (this.getToolchainContexts() == null) {
+      return ImmutableList.of();
+    }
+
+    ImmutableList<TemplateVariableInfo> toolchainProviders =
+        this.getToolchainContexts().contextMap().values().stream()
+            .flatMap(context -> context.templateVariableProviders().stream())
+            .collect(toImmutableList());
+    return toolchainProviders;
+  }
+
+  // TODO(b/37567440): Remove when Starlark callers can be updated to get this from
+  // CcToolchainProvider. We should use CcCommon.CC_TOOLCHAIN_ATTRIBUTE_NAME, but we didn't want to
+  // pollute core with C++ specific constant.
+  protected static final ImmutableList<String> DEFAULT_MAKE_VARIABLE_ATTRIBUTES =
+      ImmutableList.of("toolchains", ":cc_toolchain", "$toolchains", "$cc_toolchain");
+
+  public ImmutableList<TemplateVariableInfo> getDefaultTemplateVariableProviders() {
+    ImmutableList<TemplateVariableInfo> ruleTemplateVariableInfo =
+        new ImmutableList.Builder<TemplateVariableInfo>()
+            .addAll(fromAttributes(DEFAULT_MAKE_VARIABLE_ATTRIBUTES))
+            .addAll(fromToolchains())
+            .build();
+
+    return ruleTemplateVariableInfo;
   }
 
   public Expander getExpander(TemplateContext templateContext) {
@@ -958,13 +993,13 @@ public class RuleContext extends TargetContext
    * Returns a cached context that maps Make variable names (string) to values (string) without any
    * extra {@link MakeVariableSupplier}.
    *
-   * <p>CAUTION: If there's no context, this will initialize the context with no
-   * MakeVariableSuppliers. Call {@link #initConfigurationMakeVariableContext} first if you want to
-   * register suppliers.
+   * <p>CAUTION: If there's no context, this will initialize the context.
    */
   public ConfigurationMakeVariableContext getConfigurationMakeVariableContext() {
     if (configurationMakeVariableContext == null) {
-      initConfigurationMakeVariableContext(ImmutableList.of());
+      configurationMakeVariableContext =
+          new ConfigurationMakeVariableContext(
+              rule.getPackage(), getConfiguration(), getDefaultTemplateVariableProviders());
     }
     return configurationMakeVariableContext;
   }
@@ -1095,7 +1130,7 @@ public class RuleContext extends TargetContext
     // type in its ResolvedToolchainContext (AEGs are created before toolchain context is resolved).
     String aliasName =
         toolchainContexts.getExecGroupNames().stream()
-            .filter(ExecGroup::isAutomatic)
+            .filter(DeclaredExecGroup::isAutomatic)
             .filter(
                 name -> {
                   ResolvedToolchainContext context = toolchainContexts.getToolchainContext(name);
@@ -1188,13 +1223,13 @@ public class RuleContext extends TargetContext
   }
 
   /**
-   * Returns the set of transitive packages. This is only intended to be used to create the repo
-   * mapping manifest for the runfiles tree. Can be null if transitive packages are not tracked (see
-   * {@link
+   * Returns the set of transitive package metadata. This is only intended to be used to create the
+   * repo mapping manifest for the runfiles tree. Can be null if transitive packages are not tracked
+   * (see {@link
    * com.google.devtools.build.lib.skyframe.SkyframeExecutor#shouldStoreTransitivePackagesInLoadingAndAnalysis}).
    */
   @Nullable
-  public NestedSet<Package> getTransitivePackagesForRunfileRepoMappingManifest() {
+  public NestedSet<Package.Metadata> getTransitivePackagesForRunfileRepoMappingManifest() {
     return transitivePackagesForRunfileRepoMappingManifest;
   }
 
@@ -1452,7 +1487,8 @@ public class RuleContext extends TargetContext
 
     private Supplier<IncrementalArtifactConflictFinder> conflictFinder = () -> null;
     @Nullable private RequiredConfigFragmentsProvider requiredConfigFragments;
-    @Nullable private NestedSet<Package> transitivePackagesForRunfileRepoMappingManifest;
+
+    @Nullable private NestedSet<Package.Metadata> transitivePackagesForRunfileRepoMappingManifest;
 
     @VisibleForTesting
     public Builder(
@@ -1527,7 +1563,8 @@ public class RuleContext extends TargetContext
         }
       }
 
-      return execGroupCollectionBuilder.build(toolchainContexts, rawExecProperties);
+      return execGroupCollectionBuilder.build(
+          toolchainContexts, rawExecProperties, getRule().getDisplayFormLabel());
     }
 
     private void checkAttributesNonEmpty(AttributeMap attributes) {
@@ -1668,7 +1705,7 @@ public class RuleContext extends TargetContext
 
     @CanIgnoreReturnValue
     public Builder setTransitivePackagesForRunfileRepoMappingManifest(
-        @Nullable NestedSet<Package> packages) {
+        @Nullable NestedSet<Package.Metadata> packages) {
       this.transitivePackagesForRunfileRepoMappingManifest = packages;
       return this;
     }
@@ -2052,7 +2089,7 @@ public class RuleContext extends TargetContext
       // to unconditionally check visibility. See
       // https://github.com/bazelbuild/bazel/issues/12669.
       ConfigSettingVisibilityPolicy configSettingVisibilityPolicy =
-          target.getPackage().getConfigSettingVisibilityPolicy();
+          target.getPackageMetadata().configSettingVisibilityPolicy();
       if (configSettingVisibilityPolicy != ConfigSettingVisibilityPolicy.LEGACY_OFF) {
 
         // Validate config conditions.

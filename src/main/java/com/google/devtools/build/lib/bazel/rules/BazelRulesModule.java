@@ -301,6 +301,14 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         help = "No-op")
     public boolean useNewWorkerPool;
+
+    @Option(
+        name = "host_crosstool_top",
+        defaultValue = "null",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op.")
+    public String hostCrosstoolTop;
   }
 
   /** This is where deprecated Bazel-specific options only used by the build command go to die. */

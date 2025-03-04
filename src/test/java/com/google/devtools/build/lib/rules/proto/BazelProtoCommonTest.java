@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.proto;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.prettyArtifactNames;
-import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 
 import com.google.common.truth.Correspondence;
 import com.google.devtools.build.lib.actions.ResourceSet;
@@ -24,10 +23,6 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
-import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.packages.StarlarkInfo;
-import com.google.devtools.build.lib.packages.StarlarkProvider;
-import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.util.MockProtoSupport;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.OS;
@@ -44,12 +39,6 @@ import org.junit.runner.RunWith;
 public class BazelProtoCommonTest extends BuildViewTestCase {
   private static final Correspondence<String, String> MATCHES_REGEX =
       Correspondence.from((a, b) -> Pattern.matches(b, a), "matches");
-
-  private static final StarlarkProviderIdentifier boolProviderId =
-      StarlarkProviderIdentifier.forKey(
-          new StarlarkProvider.Key(
-              keyForBuild(Label.parseCanonicalUnchecked("//foo:should_generate.bzl")),
-              "BoolProvider"));
 
   @Before
   public final void setup() throws Exception {
@@ -214,215 +203,6 @@ check_collocated = rule(_impl,
 """);
   }
 
-  // LINT.IfChange
-
-  /** Verifies basic usage of <code>proto_common.compile</code>. */
-  @Test
-  public void protoCommonCompile_basic() throws Exception {
-    scratch.file(
-        "bar/BUILD",
-        "load('@com_google_protobuf//bazel:proto_library.bzl', 'proto_library')",
-        "load('//foo:generate.bzl', 'compile_rule')",
-        "proto_library(name = 'proto', srcs = ['A.proto'])",
-        "compile_rule(name = 'simple', proto_dep = ':proto')");
-
-    ConfiguredTarget target = getConfiguredTarget("//bar:simple");
-
-    SpawnAction spawnAction = getGeneratingSpawnAction(getBinArtifact("out", target));
-    List<String> cmdLine = spawnAction.getRemainingArguments();
-    assertThat(cmdLine)
-        .comparingElementsUsing(MATCHES_REGEX)
-        .containsExactly(
-            "--plugin=bl?azel?-out/[^/]*-exec[^/]*/bin/third_party/x/plugin", "-I.", "bar/A.proto")
-        .inOrder();
-    assertThat(spawnAction.getMnemonic()).isEqualTo("MyMnemonic");
-    assertThat(spawnAction.getProgressMessage()).isEqualTo("Progress Message //bar:simple");
-  }
-
-  /** Verifies usage of proto_common.compile with no plugin specified by toolchain. */
-  @Test
-  public void protoCommonCompile_noPlugin() throws Exception {
-    scratch.file(
-        "bar/BUILD",
-        "load('@com_google_protobuf//bazel:proto_library.bzl', 'proto_library')",
-        "load('//foo:generate.bzl', 'compile_rule')",
-        "proto_library(name = 'proto', srcs = ['A.proto'])",
-        "compile_rule(name = 'simple', proto_dep = ':proto',",
-        "  toolchain = '//foo:toolchain_noplugin')");
-
-    ConfiguredTarget target = getConfiguredTarget("//bar:simple");
-
-    List<String> cmdLine =
-        getGeneratingSpawnAction(getBinArtifact("out", target)).getRemainingArguments();
-    assertThat(cmdLine)
-        .comparingElementsUsing(MATCHES_REGEX)
-        .containsExactly("-I.", "bar/A.proto")
-        .inOrder();
-  }
-
-  /**
-   * Verifies usage of <code>proto_common.compile</code> with <code>plugin_output</code> parameter
-   * set to file.
-   */
-  @Test
-  public void protoCommonCompile_withPluginOutput() throws Exception {
-    scratch.file(
-        "bar/BUILD",
-        "load('@com_google_protobuf//bazel:proto_library.bzl', 'proto_library')",
-        "load('//foo:generate.bzl', 'compile_rule')",
-        "proto_library(name = 'proto', srcs = ['A.proto'])",
-        "compile_rule(name = 'simple', proto_dep = ':proto', plugin_output = 'single')");
-    useConfiguration(
-        "--platforms=" + TestConstants.PLATFORM_LABEL,
-        "--experimental_platform_in_output_dir",
-        String.format(
-            "--experimental_override_name_platform_in_output_dir=%s=k8",
-            TestConstants.PLATFORM_LABEL));
-    ConfiguredTarget target = getConfiguredTarget("//bar:simple");
-
-    List<String> cmdLine =
-        getGeneratingSpawnAction(getBinArtifact("out", target)).getRemainingArguments();
-    assertThat(cmdLine)
-        .comparingElementsUsing(MATCHES_REGEX)
-        .containsExactly(
-            "--java_out=param1,param2:bl?azel?-out/k8-fastbuild/bin/bar/out",
-            "--plugin=bl?azel?-out/[^/]*-exec/bin/third_party/x/plugin",
-            "-I.",
-            "bar/A.proto")
-        .inOrder();
-  }
-
-  /**
-   * Verifies usage of <code>proto_common.compile</code> with <code>plugin_output</code> parameter
-   * set to directory.
-   */
-  @Test
-  public void protoCommonCompile_withDirectoryPluginOutput() throws Exception {
-    scratch.file(
-        "bar/BUILD",
-        "load('@com_google_protobuf//bazel:proto_library.bzl', 'proto_library')",
-        "load('//foo:generate.bzl', 'compile_rule')",
-        "proto_library(name = 'proto', srcs = ['A.proto'])",
-        "compile_rule(name = 'simple', proto_dep = ':proto', plugin_output = 'multiple')");
-    useConfiguration(
-        "--platforms=" + TestConstants.PLATFORM_LABEL,
-        "--experimental_platform_in_output_dir",
-        String.format(
-            "--experimental_override_name_platform_in_output_dir=%s=k8",
-            TestConstants.PLATFORM_LABEL));
-
-    ConfiguredTarget target = getConfiguredTarget("//bar:simple");
-
-    List<String> cmdLine =
-        getGeneratingSpawnAction(getBinArtifact("out", target)).getRemainingArguments();
-    assertThat(cmdLine)
-        .comparingElementsUsing(MATCHES_REGEX)
-        .containsExactly(
-            "--java_out=param1,param2:bl?azel?-out/k8-fastbuild/bin",
-            "--plugin=bl?azel?-out/[^/]*-exec/bin/third_party/x/plugin",
-            "-I.",
-            "bar/A.proto")
-        .inOrder();
-  }
-
-  /**
-   * Verifies usage of <code>proto_common.compile</code> with <code>additional_args</code>
-   * parameter.
-   */
-  @Test
-  public void protoCommonCompile_additionalArgs() throws Exception {
-    scratch.file(
-        "bar/BUILD",
-        "load('@com_google_protobuf//bazel:proto_library.bzl', 'proto_library')",
-        "load('//foo:generate.bzl', 'compile_rule')",
-        "proto_library(name = 'proto', srcs = ['A.proto'])",
-        "compile_rule(name = 'simple', proto_dep = ':proto', additional_args = ['--a', '--b'])");
-
-    ConfiguredTarget target = getConfiguredTarget("//bar:simple");
-
-    List<String> cmdLine =
-        getGeneratingSpawnAction(getBinArtifact("out", target)).getRemainingArguments();
-    assertThat(cmdLine)
-        .comparingElementsUsing(MATCHES_REGEX)
-        .containsExactly(
-            "--plugin=bl?azel?-out/[^/]*-exec[^/]*/bin/third_party/x/plugin",
-            "-I.",
-            "bar/A.proto",
-            "--a",
-            "--b")
-        .inOrder();
-  }
-
-  /**
-   * Verifies usage of <code>proto_common.compile</code> with <code>additional_tools</code>
-   * parameter.
-   */
-  @Test
-  public void protoCommonCompile_additionalTools() throws Exception {
-    scratch.file(
-        "bar/BUILD",
-        "load('@com_google_protobuf//bazel:proto_library.bzl', 'proto_library')",
-        "load('//foo:generate.bzl', 'compile_rule')",
-        "proto_library(name = 'proto', srcs = ['A.proto'])",
-        "cc_binary(name = 'tool1', srcs = ['tool1.cc'])",
-        "cc_binary(name = 'tool2', srcs = ['tool2.cc'])",
-        "compile_rule(name = 'simple', proto_dep = ':proto',",
-        "  additional_tools = [':tool1', ':tool2'])");
-
-    ConfiguredTarget target = getConfiguredTarget("//bar:simple");
-
-    SpawnAction spawnAction = getGeneratingSpawnAction(getBinArtifact("out", target));
-    assertThat(prettyArtifactNames(spawnAction.getTools()))
-        .containsAtLeast("bar/tool1", "bar/tool2", "third_party/x/plugin");
-  }
-
-  /**
-   * Verifies usage of <code>proto_common.compile</code> with <code>additional_tools</code>
-   * parameter and no plugin on the toolchain.
-   */
-  @Test
-  public void protoCommonCompile_additionalToolsNoPlugin() throws Exception {
-    scratch.file(
-        "bar/BUILD",
-        "load('@com_google_protobuf//bazel:proto_library.bzl', 'proto_library')",
-        "load('//foo:generate.bzl', 'compile_rule')",
-        "proto_library(name = 'proto', srcs = ['A.proto'])",
-        "cc_binary(name = 'tool1', srcs = ['tool1.cc'])",
-        "cc_binary(name = 'tool2', srcs = ['tool2.cc'])",
-        "compile_rule(name = 'simple',",
-        "  proto_dep = ':proto',",
-        "  additional_tools = [':tool1', ':tool2'],",
-        "  toolchain = '//foo:toolchain_noplugin',",
-        ")");
-
-    ConfiguredTarget target = getConfiguredTarget("//bar:simple");
-
-    SpawnAction spawnAction = getGeneratingSpawnAction(getBinArtifact("out", target));
-    assertThat(prettyArtifactNames(spawnAction.getTools()))
-        .containsAtLeast("bar/tool1", "bar/tool2");
-  }
-
-  /**
-   * Verifies usage of <code>proto_common.compile</code> with <code>additional_inputs</code>
-   * parameter.
-   */
-  @Test
-  public void protoCommonCompile_additionalInputs() throws Exception {
-    scratch.file(
-        "bar/BUILD",
-        "load('@com_google_protobuf//bazel:proto_library.bzl', 'proto_library')",
-        "load('//foo:generate.bzl', 'compile_rule')",
-        "proto_library(name = 'proto', srcs = ['A.proto'])",
-        "compile_rule(name = 'simple', proto_dep = ':proto',",
-        "  additional_inputs = [':input1.txt', ':input2.txt'])");
-
-    ConfiguredTarget target = getConfiguredTarget("//bar:simple");
-
-    SpawnAction spawnAction = getGeneratingSpawnAction(getBinArtifact("out", target));
-    assertThat(prettyArtifactNames(spawnAction.getInputs()))
-        .containsAtLeast("bar/input1.txt", "bar/input2.txt");
-  }
-
   /**
    * Verifies usage of <code>proto_common.compile</code> with <code>resource_set</code> parameter.
    */
@@ -443,105 +223,6 @@ check_collocated = rule(_impl,
     assertThat(spawnAction.getResourceSetOrBuilder().buildResourceSet(OS.LINUX, 2))
         .isEqualTo(ResourceSet.createWithRamCpu(25.3, 1));
   }
-
-  /** Verifies <code>--protocopts</code> are passed to command line. */
-  @Test
-  public void protoCommonCompile_protocOpts() throws Exception {
-    useConfiguration("--protocopt=--foo", "--protocopt=--bar");
-    scratch.file(
-        "bar/BUILD",
-        "load('@com_google_protobuf//bazel:proto_library.bzl', 'proto_library')",
-        "load('//foo:generate.bzl', 'compile_rule')",
-        "proto_library(name = 'proto', srcs = ['A.proto'])",
-        "compile_rule(name = 'simple', proto_dep = ':proto')");
-
-    ConfiguredTarget target = getConfiguredTarget("//bar:simple");
-
-    SpawnAction spawnAction = getGeneratingSpawnAction(getBinArtifact("out", target));
-    List<String> cmdLine = spawnAction.getRemainingArguments();
-    assertThat(cmdLine)
-        .comparingElementsUsing(MATCHES_REGEX)
-        .containsExactly(
-            "--plugin=bl?azel?-out/[^/]*-exec[^/]*/bin/third_party/x/plugin",
-            "-I.",
-            "--foo",
-            "--bar",
-            "bar/A.proto")
-        .inOrder();
-  }
-
-  /**
-   * Verifies <code>proto_common.compile</code> correctly handles direct generated <code>
-   * .proto</code> files.
-   */
-  @Test
-  public void protoCommonCompile_directGeneratedProtos() throws Exception {
-    scratch.file(
-        "bar/BUILD",
-        "load('@com_google_protobuf//bazel:proto_library.bzl', 'proto_library')",
-        "load('//foo:generate.bzl', 'compile_rule')",
-        "genrule(name = 'generate', srcs = ['A.txt'], cmd = '', outs = ['G.proto'])",
-        "proto_library(name = 'proto', srcs = ['A.proto', 'G.proto'])",
-        "compile_rule(name = 'simple', proto_dep = ':proto')");
-    useConfiguration(
-        "--platforms=" + TestConstants.PLATFORM_LABEL,
-        "--experimental_platform_in_output_dir",
-        String.format(
-            "--experimental_override_name_platform_in_output_dir=%s=k8",
-            TestConstants.PLATFORM_LABEL));
-
-    ConfiguredTarget target = getConfiguredTarget("//bar:simple");
-
-    SpawnAction spawnAction = getGeneratingSpawnAction(getBinArtifact("out", target));
-    List<String> cmdLine = spawnAction.getRemainingArguments();
-    assertThat(cmdLine)
-        .comparingElementsUsing(MATCHES_REGEX)
-        .containsExactly(
-            "--plugin=bl?azel?-out/[^/]*-exec/bin/third_party/x/plugin",
-            "-Ibl?azel?-out/k8-fastbuild/bin",
-            "-I.",
-            "bar/A.proto",
-            "bl?azel?-out/k8-fastbuild/bin/bar/G.proto")
-        .inOrder();
-  }
-
-  /**
-   * Verifies <code>proto_common.compile</code> correctly handles in-direct generated <code>
-   * .proto</code> files.
-   */
-  @Test
-  public void protoCommonCompile_inDirectGeneratedProtos() throws Exception {
-    scratch.file(
-        "bar/BUILD",
-        "load('@com_google_protobuf//bazel:proto_library.bzl', 'proto_library')",
-        "load('//foo:generate.bzl', 'compile_rule')",
-        "genrule(name = 'generate', srcs = ['A.txt'], cmd = '', outs = ['G.proto'])",
-        "proto_library(name = 'generated', srcs = ['G.proto'])",
-        "proto_library(name = 'proto', srcs = ['A.proto'], deps = [':generated'])",
-        "compile_rule(name = 'simple', proto_dep = ':proto')");
-
-    useConfiguration(
-        "--platforms=" + TestConstants.PLATFORM_LABEL,
-        "--experimental_platform_in_output_dir",
-        String.format(
-            "--experimental_override_name_platform_in_output_dir=%s=k8",
-            TestConstants.PLATFORM_LABEL));
-
-    ConfiguredTarget target = getConfiguredTarget("//bar:simple");
-
-    SpawnAction spawnAction = getGeneratingSpawnAction(getBinArtifact("out", target));
-    List<String> cmdLine = spawnAction.getRemainingArguments();
-    assertThat(cmdLine)
-        .comparingElementsUsing(MATCHES_REGEX)
-        .containsExactly(
-            "--plugin=bl?azel?-out/[^/]*-exec/bin/third_party/x/plugin",
-            "-Ibl?azel?-out/k8-fastbuild/bin",
-            "-I.",
-            "bar/A.proto")
-        .inOrder();
-  }
-
-  // LINT.ThenChange(@com_google_protobuf/bazel/tests/proto_common_compile_tests.bzl)
 
   /**
    * Verifies <code>proto_common.compile</code> correctly handles external <code>proto_library
@@ -625,57 +306,6 @@ check_collocated = rule(_impl,
         .inOrder();
     assertThat(spawnAction.getMnemonic()).isEqualTo("MyMnemonic");
     assertThat(spawnAction.getProgressMessage()).isEqualTo("My //bar:simple");
-  }
-
-  /** Verifies <code>proto_common.should_generate_code</code> call. */
-  @Test
-  public void shouldprotoCommonCompile_basic() throws Exception {
-    scratch.file(
-        "bar/BUILD",
-        "load('@com_google_protobuf//bazel:proto_library.bzl', 'proto_library')",
-        "load('//foo:should_generate.bzl', 'should_compile_rule')",
-        "proto_library(name = 'proto', srcs = ['A.proto'])",
-        "should_compile_rule(name = 'simple', proto_dep = ':proto')");
-
-    ConfiguredTarget target = getConfiguredTarget("//bar:simple");
-
-    StarlarkInfo boolProvider = (StarlarkInfo) target.get(boolProviderId);
-    assertThat(boolProvider.getValue("value", Boolean.class)).isTrue();
-  }
-
-  /** Verifies <code>proto_common.should_generate_code</code> call. */
-  @Test
-  public void shouldprotoCommonCompile_dontGenerate() throws Exception {
-    scratch.file(
-        "bar/BUILD",
-        "load('@com_google_protobuf//bazel:proto_library.bzl', 'proto_library')",
-        "load('//foo:should_generate.bzl', 'should_compile_rule')",
-        "should_compile_rule(name = 'simple', proto_dep = '//third_party/x:denied')");
-
-    ConfiguredTarget target = getConfiguredTarget("//bar:simple");
-
-    StarlarkInfo boolProvider = (StarlarkInfo) target.get(boolProviderId);
-    assertThat(boolProvider.getValue("value", Boolean.class)).isFalse();
-  }
-
-  /** Verifies <code>proto_common.should_generate_code</code> call. */
-  @Test
-  public void shouldprotoCommonCompile_mixed() throws Exception {
-    scratch.file(
-        "bar/BUILD",
-        "load('@com_google_protobuf//bazel:proto_library.bzl', 'proto_library')",
-        "load('//foo:should_generate.bzl', 'should_compile_rule')",
-        "should_compile_rule(name = 'simple', proto_dep = '//third_party/x:mixed')");
-
-    reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//bar:simple");
-
-    assertContainsEvent(
-        "The 'srcs' attribute of '@@//third_party/x:mixed' contains protos for which 'MyRule'"
-            + " shouldn't generate code (third_party/x/metadata.proto,"
-            + " third_party/x/descriptor.proto), in addition to protos for which it should"
-            + " (third_party/x/something.proto).\n"
-            + "Separate '@@//third_party/x:mixed' into 2 proto_library rules.");
   }
 
   /** Verifies <code>proto_common.declare_generated_files</code> call. */

@@ -82,6 +82,7 @@ public interface CppSemantics extends StarlarkValue {
       StarlarkThread thread,
       String includePrefix,
       String stripIncludePrefix,
-      Sequence<?> additionalIncludeScanningRoots)
+      Sequence<?> additionalIncludeScanningRoots,
+      int stackDepth)
       throws EvalException;
 }

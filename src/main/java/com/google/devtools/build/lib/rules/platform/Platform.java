@@ -94,6 +94,10 @@ public class Platform implements RuleConfiguredTargetFactory {
       platformBuilder.checkToolchainTypes(false);
     }
 
+    String missingToolchainErrorMessage =
+        ruleContext.attributes().get(PlatformRule.MISSING_TOOLCHAIN_ERROR_ATTR, Type.STRING);
+    platformBuilder.setMissingToolchainErrorMessage(missingToolchainErrorMessage);
+
     PlatformInfo platformInfo;
     try {
       platformInfo = platformBuilder.build();

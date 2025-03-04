@@ -19,6 +19,7 @@ import com.google.common.base.Joiner;
 import com.google.devtools.build.lib.query2.common.CommonQueryOptions;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.runtime.events.InputFileEvent;
 import com.google.devtools.build.lib.server.FailureDetails.Query;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -49,6 +50,8 @@ public final class QueryOptionHelper {
       // Works for absolute or relative query file.
       Path residuePath = env.getWorkingDirectory().getRelative(queryOptions.queryFile);
       try {
+        env.getEventBus()
+            .post(InputFileEvent.create(/* type= */ "query_file", residuePath.getFileSize()));
         query = new String(FileSystemUtils.readContent(residuePath), UTF_8);
       } catch (IOException unused) {
         throw new QueryException(

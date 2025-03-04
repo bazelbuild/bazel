@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.CompletionContext.ArtifactReceiver;
-import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
@@ -47,7 +46,7 @@ import org.mockito.InOrder;
 @RunWith(JUnit4.class)
 public final class CompletionContextTest {
   private static final FileArtifactValue DUMMY_METADATA =
-      RemoteFileArtifactValue.create(
+      FileArtifactValue.createForRemoteFile(
           /* digest= */ new byte[0], /* size= */ 0, /* locationIndex= */ 0);
 
   private final ActionInputMap inputMap = new ActionInputMap(BugReporter.defaultInstance(), 0);

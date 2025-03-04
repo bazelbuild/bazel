@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.AdvertisedProviderSet;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.AspectParameters;
+import com.google.devtools.build.lib.packages.AspectPropagationPredicate;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
 import com.google.devtools.build.lib.packages.Attribute.LateBoundDefault;
@@ -336,6 +337,71 @@ public class AspectDefinitionTest {
                 .getConfigurationFragmentPolicy()
                 .isLegalConfigurationFragment(TestFragment.class))
         .isTrue();
+  }
+
+  @Test
+  public void testAspectWithApplyToFiles_requiresProviders_fails() {
+    var throwable =
+        assertThrows(
+            IllegalStateException.class,
+            () ->
+                new AspectDefinition.Builder(TEST_ASPECT_CLASS)
+                    .applyToFiles(true)
+                    .requireStarlarkProviders(STARLARK_P1, STARLARK_P2)
+                    .build());
+    assertThat(throwable)
+        .hasMessageThat()
+        .contains("An aspect cannot simultaneously have required providers and apply to files.");
+  }
+
+  @Test
+  public void testAspectWithApplyToGeneratingRules_requiresProviders_fails() {
+    var throwable =
+        assertThrows(
+            IllegalStateException.class,
+            () ->
+                new AspectDefinition.Builder(TEST_ASPECT_CLASS)
+                    .applyToGeneratingRules(true)
+                    .requireStarlarkProviders(STARLARK_P1, STARLARK_P2)
+                    .build());
+    assertThat(throwable)
+        .hasMessageThat()
+        .contains(
+            "An aspect cannot simultaneously have required providers and apply to generating"
+                + " rules.");
+  }
+
+  @Test
+  public void testAspectWithApplyToFiles_hasPropagationPredicate_fails() {
+    var throwable =
+        assertThrows(
+            IllegalStateException.class,
+            () ->
+                new AspectDefinition.Builder(TEST_ASPECT_CLASS)
+                    .applyToFiles(true)
+                    .propagationPredicate(new AspectPropagationPredicate(null, null))
+                    .build());
+    assertThat(throwable)
+        .hasMessageThat()
+        .contains(
+            "An aspect cannot simultaneously have a propagation predicate and apply to files.");
+  }
+
+  @Test
+  public void testAspectWithApplyToGeneratingRules_hasPropagationPredicate_fails() {
+    var throwable =
+        assertThrows(
+            IllegalStateException.class,
+            () ->
+                new AspectDefinition.Builder(TEST_ASPECT_CLASS)
+                    .applyToGeneratingRules(true)
+                    .propagationPredicate(new AspectPropagationPredicate(null, null))
+                    .build());
+    assertThat(throwable)
+        .hasMessageThat()
+        .contains(
+            "An aspect cannot simultaneously have a propagation predicate and apply to generating"
+                + " rules.");
   }
 
   @StarlarkBuiltin(name = "test_fragment", doc = "test fragment")

@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.analysis.producers;
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.ExecGroupCollection;
-import com.google.devtools.build.lib.packages.ExecGroup;
+import com.google.devtools.build.lib.packages.DeclaredExecGroup;
 import com.google.devtools.build.lib.skyframe.toolchains.ToolchainContextKey;
 import javax.annotation.Nullable;
 
@@ -27,7 +27,7 @@ public abstract class UnloadedToolchainContextsInputs extends ExecGroupCollectio
   public abstract ToolchainContextKey targetToolchainContextKey();
 
   public static UnloadedToolchainContextsInputs create(
-      ImmutableMap<String, ExecGroup> processedExecGroups,
+      ImmutableMap<String, DeclaredExecGroup> processedExecGroups,
       @Nullable ToolchainContextKey targetToolchainContextKey) {
     return new AutoValue_UnloadedToolchainContextsInputs(
         processedExecGroups, targetToolchainContextKey);

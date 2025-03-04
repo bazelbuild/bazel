@@ -44,7 +44,6 @@ import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
 import com.google.devtools.build.lib.analysis.config.RunUnder.LabelRunUnder;
-import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.analysis.test.TestProvider;
 import com.google.devtools.build.lib.analysis.test.TestRunnerAction;
 import com.google.devtools.build.lib.analysis.test.TestStrategy;
@@ -102,7 +101,6 @@ import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.protobuf.ByteString;
 import java.io.IOException;
-import java.time.Duration;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -270,7 +268,9 @@ public class RunCommand implements BlazeCommand {
         ImmutableList.copyOf(targetAndArgs.subList(1, targetAndArgs.size()));
     RunCommandLine runCommandLine;
     try {
-      runCommandLine = getCommandLineInfo(env, builtTargets, options, argsFromResidue, testPolicy);
+      runCommandLine =
+          getCommandLineInfo(
+              env, builtTargets, options, argsFromResidue, runOptions.runEnvironment, testPolicy);
     } catch (RunCommandException e) {
       return e.result;
     }
@@ -284,10 +284,6 @@ public class RunCommand implements BlazeCommand {
       // In --batch, prioritize original client env-var values over those added by the c++ launcher.
       // Only necessary in --batch since the command runs as a subprocess of the java server.
       finalRunEnv.putAll(env.getClientEnv());
-    }
-
-    for (Map.Entry<String, String> entry : runOptions.runEnvironment) {
-      finalRunEnv.put(entry.getKey(), entry.getValue());
     }
 
     ExecRequest.Builder execRequest;
@@ -550,7 +546,7 @@ public class RunCommand implements BlazeCommand {
 
   private static ImmutableList<PathToReplace> getPathsToReplace(
       CommandEnvironment env, String testLogDir, boolean isTestTarget) {
-    ImmutableList<PathToReplace> pathsToReplace = ExecRequestUtils.getPathsToReplace(env);
+    ImmutableList<PathToReplace> pathsToReplace = PathToReplaceUtils.getPathsToReplace(env);
     if (isTestTarget) {
       return ImmutableList.<PathToReplace>builder()
           .addAll(pathsToReplace)
@@ -600,7 +596,7 @@ public class RunCommand implements BlazeCommand {
     return args.stream().map(s -> ByteString.copyFrom(s, ISO_8859_1)).collect(toImmutableList());
   }
 
-  private BlazeCommandResult handleScriptPath(
+  private static BlazeCommandResult handleScriptPath(
       RunOptions runOptions,
       ExecRequest.Builder execRequest,
       RunCommandLine runCommandLine,
@@ -640,6 +636,7 @@ public class RunCommand implements BlazeCommand {
       BuiltTargets builtTargets,
       OptionsParsingResult options,
       ImmutableList<String> argsFromResidue,
+      List<Map.Entry<String, String>> extraRunEnvironment,
       TestPolicy testPolicy)
       throws RunCommandException {
     if (builtTargets.targetToRun.getProvider(TestProvider.class) != null) {
@@ -660,6 +657,9 @@ public class RunCommand implements BlazeCommand {
     }
     TreeMap<String, String> runEnvironment = makeMutableRunEnvironment(env);
     actionEnvironment.resolve(runEnvironment, env.getClientEnv());
+    for (var entry : extraRunEnvironment) {
+      runEnvironment.put(entry.getKey(), entry.getValue());
+    }
 
     ImmutableList<String> argsFromBinary;
     try {
@@ -723,18 +723,11 @@ public class RunCommand implements BlazeCommand {
         tmpDirRoot.startsWith(env.getExecRoot())
             ? tmpDirRoot.relativeTo(env.getExecRoot())
             : tmpDirRoot.asFragment();
-    Duration timeout =
-        builtTargets
-            .configuration
-            .getFragment(TestConfiguration.class)
-            .getTestTimeout()
-            .get(testAction.getTestProperties().getTimeout());
     TreeMap<String, String> runEnvironment = makeMutableRunEnvironment(env);
     runEnvironment.putAll(
         testPolicy.computeTestEnvironment(
             testAction,
             env.getClientEnv(),
-            timeout,
             settings.getRunfilesDir().relativeTo(env.getExecRoot()),
             maybeRelativeTmpDir.getRelative(TestStrategy.getTmpDirName(testAction))));
 
@@ -959,10 +952,7 @@ public class RunCommand implements BlazeCommand {
     }
 
     try {
-      runfilesTreeUpdater.updateRunfiles(
-          ImmutableList.of(runfilesSupport.getRunfilesTree()),
-          /* env= */ ImmutableMap.of(),
-          /* outErr= */ null);
+      runfilesTreeUpdater.updateRunfiles(ImmutableList.of(runfilesSupport.getRunfilesTree()));
     } catch (ExecException | IOException e) {
       throw new RunfilesException(
           "Failed to create runfiles symlinks: " + e.getMessage(),

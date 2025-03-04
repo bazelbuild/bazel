@@ -1534,7 +1534,7 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
 
     scratch.overwriteFile("MODULE.bazel", "bazel_dep(name='rules_x',version='1.0')");
     registry.addModule(createModuleKey("rules_x", "1.0"), "module(name='rules_x', version='1.0')");
-    scratch.file("modules/rules_x+1.0/WORKSPACE");
+    scratch.file("modules/rules_x+1.0/REPO.bazel");
     scratch.file("modules/rules_x+1.0/BUILD");
     scratch.file(
         "modules/rules_x+1.0/defs.bzl",

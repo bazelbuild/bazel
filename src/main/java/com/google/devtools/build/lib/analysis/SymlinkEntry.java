@@ -23,10 +23,9 @@ import net.starlark.java.eval.Printer;
 /**
  * An entry in the runfiles map.
  *
- * <p>build-runfiles.cc enforces the following constraints: The PathFragment must not be an absolute
- * path, nor contain "..". Overlapping runfiles links are also refused. This is the case where you
- * ask to create a link to "foo" and also "foo/bar.txt". I.e. you're asking it to make "foo" both a
- * file (symlink) and a directory.
+ * <p>The PathFragment must not be an absolute path nor contain "..". Overlapping runfiles links are
+ * also refused. This is the case where you ask to create a link to "foo" and also "foo/bar.txt",
+ * i.e. you're asking it to make "foo" both a file (symlink) and a directory.
  *
  * <p>Links to directories are heavily discouraged.
  */

@@ -15,8 +15,8 @@
 package com.google.devtools.build.lib.actions;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
@@ -221,7 +221,7 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
   @Nullable private final FileSystem actionFileSystem;
   @Nullable private final Object skyframeDepsResult;
 
-  private FilesetOutputTree filesetOutput = FilesetOutputTree.EMPTY;
+  private RichArtifactData richArtifactData = null;
 
   private final ArtifactPathResolver pathResolver;
   private final DiscoveredModulesPruner discoveredModulesPruner;
@@ -432,17 +432,17 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
     return topLevelFilesets;
   }
 
-  public FilesetOutputTree getFilesetOutput() {
-    return filesetOutput;
+  public RichArtifactData getRichArtifactData() {
+    return richArtifactData;
   }
 
-  public void setFilesetOutput(FilesetOutputTree filesetOutput) {
-    checkState(
-        this.filesetOutput.isEmpty(),
-        "Unexpected reassignment of Fileset output from\n:%s to:\n%s",
-        this.filesetOutput,
-        filesetOutput);
-    this.filesetOutput = checkNotNull(filesetOutput);
+  public void setRichArtifactData(RichArtifactData richArtifactData) {
+    Preconditions.checkState(
+        this.richArtifactData == null,
+        String.format(
+            "rich artifact data was set twice, old=%s, new=%s",
+            this.richArtifactData, richArtifactData));
+    this.richArtifactData = richArtifactData;
   }
 
   @Override
@@ -452,10 +452,10 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
   }
 
   /**
-   * Report a subcommand event to this Executor's Reporter and, if action
-   * logging is enabled, post it on its EventBus.
+   * Report a subcommand event to this Executor's Reporter and, if action logging is enabled, post
+   * it on its EventBus.
    */
-  public void maybeReportSubcommand(Spawn spawn) {
+  public void maybeReportSubcommand(Spawn spawn, @Nullable String spawnRunner) {
     ShowSubcommands showSubcommands = executor.reportsSubcommands();
     if (!showSubcommands.shouldShowSubcommands) {
       return;
@@ -492,7 +492,8 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
             /* environmentVariablesToClear= */ null,
             getExecRoot().getPathString(),
             spawn.getConfigurationChecksum(),
-            spawn.getExecutionPlatformLabel());
+            spawn.getExecutionPlatformLabel(),
+            spawnRunner);
     getEventHandler().handle(Event.of(EventKind.SUBCOMMAND, null, "# " + reason + "\n" + message));
   }
 

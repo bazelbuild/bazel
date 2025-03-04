@@ -77,13 +77,21 @@ public class BuildRequestOptions extends OptionsBase {
   @Option(
       name = "experimental_async_execution",
       defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
       metadataTags = OptionMetadataTag.INCOMPATIBLE_CHANGE,
-      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS, OptionEffectTag.EXECUTION},
       help =
           "If set to true, Bazel is allowed to run action in a virtual thread. The number of"
               + " actions in flight is still capped with --jobs.")
   public boolean useAsyncExecution;
+
+  @Option(
+      name = "experimental_async_execution_max_concurrent_actions",
+      defaultValue = "5000",
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS, OptionEffectTag.EXECUTION},
+      help = "The number of maximum concurrent actions to run with async execution")
+  public int asyncExecutionMaxConcurrentActions;
 
   @Option(
       name = "progress_report_interval",

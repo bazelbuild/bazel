@@ -64,7 +64,7 @@ public final class RemoteConfiguredTargetValue implements ConfiguredTargetValue 
 
   @Nullable // Never serialized.
   @Override
-  public NestedSet<Package> getTransitivePackages() {
+  public NestedSet<Package.Metadata> getTransitivePackages() {
     return null;
   }
 

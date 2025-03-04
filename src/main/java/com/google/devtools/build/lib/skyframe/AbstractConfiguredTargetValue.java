@@ -30,10 +30,10 @@ abstract class AbstractConfiguredTargetValue<T extends ConfiguredTarget>
 
   // May be null after clearing; because transitive packages are not tracked; or after
   // deserialization.
-  @Nullable private transient NestedSet<Package> transitivePackages;
+  @Nullable private transient NestedSet<Package.Metadata> transitivePackages;
 
   AbstractConfiguredTargetValue(
-      T configuredTarget, @Nullable NestedSet<Package> transitivePackages) {
+      T configuredTarget, @Nullable NestedSet<Package.Metadata> transitivePackages) {
     this.configuredTarget = Preconditions.checkNotNull(configuredTarget);
     this.transitivePackages = transitivePackages;
   }
@@ -46,7 +46,7 @@ abstract class AbstractConfiguredTargetValue<T extends ConfiguredTarget>
 
   @Nullable
   @Override
-  public NestedSet<Package> getTransitivePackages() {
+  public NestedSet<Package.Metadata> getTransitivePackages() {
     return transitivePackages;
   }
 

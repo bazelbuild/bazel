@@ -149,7 +149,7 @@ public class ExtraActionTest extends FoundationTestCase {
         };
 
     BlazeExecutor testExecutor =
-        new TestExecutorBuilder(fileSystem, execRoot, null)
+        new TestExecutorBuilder(fileSystem, execRoot)
             .addStrategy(fakeSpawnStrategy, "fake")
             .setDefaultStrategies("fake")
             .build();

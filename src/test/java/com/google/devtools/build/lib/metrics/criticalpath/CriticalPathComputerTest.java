@@ -54,6 +54,7 @@ import com.google.devtools.build.lib.exec.util.FakeActionInputFileCache;
 import com.google.devtools.build.lib.skyframe.rewinding.ActionRewoundEvent;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.ManualClock;
+import com.google.devtools.build.lib.testutil.TestFileOutErr;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -1148,7 +1149,13 @@ public class CriticalPathComputerTest extends FoundationTestCase {
             action.getOutputs(),
             ResourceSet.ZERO);
     computer.spawnExecuted(
-        new SpawnExecutedEvent(spawn, new FakeActionInputFileCache(), spawnResult, Instant.now()));
+        new SpawnExecutedEvent(
+            spawn,
+            new FakeActionInputFileCache(),
+            new TestFileOutErr(),
+            spawnResult,
+            Instant.now(),
+            /* spawnIdentifier= */ "1"));
     if (completeAction) {
       computer.actionComplete(
           new ActionCompletionEvent(

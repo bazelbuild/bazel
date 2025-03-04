@@ -1564,7 +1564,8 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
         macro 'abc_x' is a direct recursive call of 'abc'. Macro instantiation traceback (most \
         recent call last):
         \tPackage //pkg, macro 'abc' of type //pkg:recursive_macro.bzl%recursive_macro
-        \tPackage //pkg, macro 'abc_x' of type //pkg:recursive_macro.bzl%recursive_macro""",
+        \tPackage //pkg, macro 'abc_x' of type //pkg:recursive_macro.bzl%recursive_macro\
+        """,
         """
         load(":recursive_macro.bzl", "recursive_macro")
         recursive_macro(
@@ -1582,7 +1583,8 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
         macro 'abc_x' is a direct recursive call of 'abc'. Macro instantiation traceback (most \
         recent call last):
         \tPackage //pkg, macro 'abc' of type //pkg:recursive_macro.bzl%recursive_macro
-        \tPackage //pkg, macro 'abc_x' of type //pkg:recursive_macro.bzl%recursive_macro""",
+        \tPackage //pkg, macro 'abc_x' of type //pkg:recursive_macro.bzl%recursive_macro\
+        """,
         """
         load(":recursive_macro.bzl", "recursive_macro")
         recursive_macro(
@@ -1633,7 +1635,8 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
         \tPackage //pkg, macro 'abc' of type //pkg:recursive_macro.bzl%main_macro
         \tPackage //pkg, macro 'abc' of type //pkg:recursive_macro.bzl%macro_A
         \tPackage //pkg, macro 'abc_B' of type //pkg:recursive_macro.bzl%macro_B
-        \tPackage //pkg, macro 'abc_B_A' of type //pkg:recursive_macro.bzl%macro_A""",
+        \tPackage //pkg, macro 'abc_B_A' of type //pkg:recursive_macro.bzl%macro_A\
+        """,
         """
         load(":recursive_macro.bzl", "main_macro")
         main_macro(name = "abc")
@@ -1755,6 +1758,82 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
     assertVisibilityIs(pkg.getTarget("foo"), "//other_pkg:__pkg__", "//pkg:__pkg__");
     // other_pkg doesn't propagate to bar, it only has its own instantiation location.
     assertVisibilityIs(pkg.getTarget("bar"), "//lib:__pkg__");
+  }
+
+  @Test
+  public void testImplicitVisibility_worksWithPackageDefaultVisibility() throws Exception {
+    enableMacrosAndUsePrivateVisibility();
+    scratch.file("lib/BUILD");
+    scratch.file(
+        "lib/macro.bzl",
+        """
+def _impl(name, visibility):
+    native.cc_library(name = name, visibility = native.package_default_visibility())
+my_macro = macro(implementation = _impl)
+""");
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load("//lib:macro.bzl", "my_macro")
+        package(default_visibility = ["//other_pkg:__pkg__"])
+
+        cc_library(name = "foo")
+        my_macro(name = "bar")
+        """);
+
+    Package pkg = loadPackageAndAssertSuccess("pkg");
+    assertVisibilityIs(pkg.getTarget("foo"), "//other_pkg:__pkg__", "//pkg:__pkg__");
+    // Package default visibility is propagated to bar via native.package_default_visibility()
+    // Visibility to the package where the macro is defined is propagated implicitly.
+    assertVisibilityIs(
+        pkg.getTarget("bar"), "//lib:__pkg__", "//other_pkg:__pkg__", "//pkg:__pkg__");
+  }
+
+  @Test
+  public void testPackageDefaultVisibility_playsWellWithPrivateVisibility() throws Exception {
+    enableMacrosAndUsePrivateVisibility();
+    scratch.file("lib/BUILD");
+    scratch.file(
+        "lib/macro.bzl",
+        """
+def _impl(name, visibility):
+    native.cc_library(name = name, visibility = native.package_default_visibility())
+my_macro = macro(implementation = _impl)
+""");
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load("//lib:macro.bzl", "my_macro")
+        package(default_visibility = ["//visibility:private"])
+
+        my_macro(name = "bar")
+        """);
+
+    Package pkg = loadPackageAndAssertSuccess("pkg");
+    assertVisibilityIs(pkg.getTarget("bar"), "//lib:__pkg__", "//pkg:__pkg__");
+  }
+
+  @Test
+  public void testPackageDefaultVisibility_succeedsIfNoDefaultVisibilitySet() throws Exception {
+    enableMacrosAndUsePrivateVisibility();
+    scratch.file("lib/BUILD");
+    scratch.file(
+        "lib/macro.bzl",
+        """
+def _impl(name, visibility):
+    native.cc_library(name = name, visibility = native.package_default_visibility())
+my_macro = macro(implementation = _impl)
+""");
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load("//lib:macro.bzl", "my_macro")
+
+        my_macro(name = "bar")
+        """);
+
+    Package pkg = loadPackageAndAssertSuccess("pkg");
+    assertVisibilityIs(pkg.getTarget("bar"), "//lib:__pkg__", "//pkg:__pkg__");
   }
 
   @Test

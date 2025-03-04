@@ -482,9 +482,6 @@ def cc_binary_impl(ctx, additional_linkopts, force_linkstatic = False):
     features = ctx.features
     features.append(linking_mode)
     disabled_features = ctx.disabled_features
-    if ctx.attr._is_test and cpp_config.incompatible_enable_cc_test_feature:
-        features.append("is_cc_test")
-        disabled_features.append("legacy_is_cc_test")
 
     feature_configuration = cc_common.configure_features(
         ctx = ctx,
@@ -832,7 +829,7 @@ be <code>main</code>.
     fragments = ["cpp"] + semantics.additional_fragments(),
     exec_groups = {
         "cpp_link": exec_group(toolchains = cc_helper.use_cpp_toolchain()),
-    } | semantics.extra_exec_groups,
+    },
     toolchains = cc_helper.use_cpp_toolchain() +
                  semantics.get_runtimes_toolchain(),
     provides = [CcInfo],

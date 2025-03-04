@@ -2,6 +2,7 @@
 
 load("@bazel_pip_dev_deps//:requirements.bzl", "requirement")
 load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
+load("@rules_java//java:java_binary.bzl", "java_binary")
 load("@rules_python//python:defs.bzl", "py_binary", "py_library")
 load("//src:build_defs.bzl", "transition_java_language_8_archive")
 load("//src:release_archive.bzl", "release_archive")
@@ -25,7 +26,6 @@ md5_cmd = "set -e -o pipefail && %s $(SRCS) | %s | %s > $@"
         "//src/main/java/com/google/devtools/build/lib/bazel:BazelServer_deploy.jar",
         "//src/main/java/net/starlark/java/eval:cpu_profiler",
         "//src/main/cpp:client",
-        "//src/main/tools:build-runfiles",
         "//src/main/tools:process-wrapper",
         "//src/main/tools:linux-sandbox",
         "//tools/osx:xcode-locator",
@@ -107,7 +107,6 @@ JAVA_TOOLS = [
                "//third_party/grpc/bazel:embedded_tools_srcs",
                "//third_party/ijar:embedded_zipper_sources",
                "//third_party/ijar:zipper",
-               "//third_party/java/j2objc:embedded_tools_srcs",
                "//third_party/py/abseil:srcs",
                "//third_party/zlib:embedded_tools",
                "//tools:embedded_tools_srcs",
@@ -171,6 +170,9 @@ filegroup(
         ],
         "//src/conditions:linux_s390x": [
             "@openjdk_linux_s390x_vanilla//file",
+        ],
+        "//src/conditions:linux_riscv64": [
+            "@openjdk_linux_riscv64_vanilla//file",
         ],
         "//conditions:default": [
             "@openjdk_linux_vanilla//file",
@@ -275,7 +277,6 @@ genrule(
         "//:platforms-srcs",
         # Non-ordered items follow:
         "//src/main/java/net/starlark/java/eval:cpu_profiler",
-        "//src/main/tools:build-runfiles",
         "//src/main/tools:process-wrapper",
         "//src/main/tools:linux-sandbox",
         "//tools/osx:xcode-locator",
@@ -442,6 +443,7 @@ genrule(
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:dist_jars",
         "//src/main/java/com/google/devtools/build/lib/bazel/debug:dist_jars",
         "//src/main/java/com/google/devtools/build/lib/packages/metrics:dist_jars",
+        "//src/main/java/com/google/devtools/build/lib/sandbox/cgroups/proto:dist_jars",
         "//src/main/java/com/google/devtools/build/lib/skyframe/proto:dist_jars",
         "//src/main/java/com/google/devtools/build/lib/starlarkdebug/proto:dist_jars",
         "//src/main/java/com/google/devtools/build/skyframe:dist_jars",
@@ -650,6 +652,7 @@ filegroup(
         "@rules_license//:WORKSPACE",
         "@rules_pkg//:WORKSPACE",
         "@rules_python//:WORKSPACE",
+        "@rules_shell//shell:rules_bzl",
         "@rules_testing//:LICENSE",
     ] + select({
         "//src/conditions:linux_x86_64": ["@remotejdk%s_linux//:WORKSPACE" % v for v in JDK_VERSIONS],
@@ -666,4 +669,11 @@ filegroup(
 bzl_library(
     name = "build_defs_bzl",
     srcs = ["build_defs.bzl"],
+)
+
+java_binary(
+    name = "CheckSunJnuEncoding",
+    srcs = ["CheckSunJnuEncoding.java"],
+    env = {"LC_CTYPE": "C.UTF-8"},
+    main_class = "CheckSunJnuEncoding",
 )

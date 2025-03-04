@@ -234,6 +234,7 @@ public final class BlazeWorkspace {
       Consumer<String> shutdownReasonConsumer,
       CommandExtensionReporter commandExtensionReporter,
       int attemptNumber,
+      @Nullable String buildRequestIdOverride,
       ConfigFlagDefinitions configFlagDefinitions) {
     quiescingExecutors.resetParameters(options);
     CommandEnvironment env =
@@ -255,6 +256,7 @@ public final class BlazeWorkspace {
             shutdownReasonConsumer,
             commandExtensionReporter,
             attemptNumber,
+            buildRequestIdOverride,
             configFlagDefinitions);
     skyframeExecutor.setClientEnv(env.getClientEnv());
     BuildRequestOptions buildRequestOptions = options.getOptions(BuildRequestOptions.class);

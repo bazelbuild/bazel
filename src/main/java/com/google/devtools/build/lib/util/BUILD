@@ -76,6 +76,7 @@ java_library(
     deps = [
         ":os",
         ":single_line_formatter",
+        ":string_encoding",
         ":util",
         "//third_party:error_prone_annotations",
         "//third_party:guava",
@@ -227,6 +228,7 @@ java_library(
         "LogHandlerQuerier.java",
         "LoggingUtil.java",
         "LongArrayList.java",
+        "MapCodec.java",
         "NetUtil.java",
         "OnDemandString.java",
         "OptionsUtils.java",
@@ -363,6 +365,7 @@ java_library(
     name = "custom_exit_code_publisher",
     srcs = ["CustomExitCodePublisher.java"],
     deps = [
+        "//third_party:flogger",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
@@ -460,4 +463,9 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//third_party:jsr305",
     ],
+)
+
+java_library(
+    name = "cleaner",
+    srcs = ["BazelCleaner.java"],
 )

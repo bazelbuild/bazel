@@ -37,6 +37,8 @@ import javax.annotation.Nullable;
 /**
  * Implementation of the WorkerPool.
  *
+ * <p>TODO(b/323880131): Remove documentation once we completely remove the legacy implementation.
+ *
  * <p>This implementation flattens this to have a single {@code WorkerKeyPool} for each worker key
  * (we don't need the indirection in referencing both mnemonic and worker key since the mnemonic is
  * part of the key). Additionally, it bakes in pool shrinking logic so that we can handle concurrent
@@ -56,18 +58,14 @@ public class WorkerPoolImpl implements WorkerPool {
 
   private final ImmutableMap<String, Integer> singleplexMaxInstances;
   private final ImmutableMap<String, Integer> multiplexMaxInstances;
-
-  private final WorkerOptions options;
-
   private final ConcurrentHashMap<WorkerKey, WorkerKeyPool> pools = new ConcurrentHashMap<>();
 
-  public WorkerPoolImpl(WorkerFactory factory, WorkerPoolConfig config, WorkerOptions options) {
+  public WorkerPoolImpl(WorkerFactory factory, WorkerPoolConfig config) {
     this.factory = factory;
     this.singleplexMaxInstances =
         getMaxInstances(config.getWorkerMaxInstances(), DEFAULT_MAX_SINGLEPLEX_WORKERS);
     this.multiplexMaxInstances =
         getMaxInstances(config.getWorkerMaxMultiplexInstances(), DEFAULT_MAX_MULTIPLEX_WORKERS);
-    this.options = options;
   }
 
   private static ImmutableMap<String, Integer> getMaxInstances(
@@ -242,11 +240,10 @@ public class WorkerPoolImpl implements WorkerPool {
               worker.getWorkerKey().getMnemonic(),
               worker.getWorkerId(),
               worker.getWorkerKey().hashCode());
-        } else if (options.shrinkWorkerPool) {
-          String msg = String.format("Postponing eviction of worker id: %s", worker.getWorkerId());
-          logger.atInfo().log("%s", msg);
-          worker.getStatus().maybeUpdateStatus(Status.PENDING_KILL_DUE_TO_MEMORY_PRESSURE);
         }
+        // TODO(b/323880131): Move postponing of invalidation from {@code WorkerLifecycleManager}
+        // here, since all we need to do is to update the statuses. We keep it like this for now
+        // to preserve the existing behavior.
       }
       return evictedWorkerIds;
     }
@@ -274,11 +271,13 @@ public class WorkerPoolImpl implements WorkerPool {
         while (!idleWorkers.isEmpty()) {
           // LIFO: It's better to re-use a worker as often as possible and keep it hot, in order to
           // profit from JIT optimizations as much as possible.
-          worker = idleWorkers.takeLast();
+          // This cannot be null because we already checked that the queue is not empty.
+          worker = idleWorkers.peekLast();
           // We need to validate with the passed in `key` rather than `worker.getWorkerKey()`
           // because the former can contain a different combined files hash if the files changed.
           if (factory.validateWorker(key, worker)) {
             acquired.incrementAndGet();
+            idleWorkers.remove(worker);
             break;
           }
           invalidateWorker(worker, /* shouldShrinkPool= */ false);
@@ -318,7 +317,14 @@ public class WorkerPoolImpl implements WorkerPool {
         return;
       }
 
-      activeSet.remove(worker);
+      if (activeSet.contains(worker)) {
+        activeSet.remove(worker);
+      } else {
+        throw new IllegalStateException(
+            String.format(
+                "Worker %s (id %d) is not in the active set",
+                worker.getWorkerKey().getMnemonic(), worker.getWorkerId()));
+      }
 
       PendingWorkerRequest pendingReq = waitingQueue.poll();
       if (pendingReq != null) {
@@ -339,7 +345,14 @@ public class WorkerPoolImpl implements WorkerPool {
       }
 
       // If it isn't idle, then we're destroying an active worker.
-      activeSet.remove(worker);
+      if (activeSet.contains(worker)) {
+        activeSet.remove(worker);
+      } else {
+        throw new IllegalStateException(
+            String.format(
+                "Worker %s (id %d) is not in the active set",
+                worker.getWorkerKey().getMnemonic(), worker.getWorkerId()));
+      }
 
       // We don't want to shrink the pool to 0.
       if (shouldShrinkPool && getEffectiveMax() > 1) {

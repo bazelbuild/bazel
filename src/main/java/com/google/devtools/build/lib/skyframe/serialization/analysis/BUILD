@@ -36,11 +36,21 @@ java_library(
 )
 
 java_library(
+    name = "frontier_violation_event",
+    srcs = [
+        "FrontierViolationEvent.java",
+    ],
+)
+
+java_library(
     name = "frontier_violation_checker",
-    srcs = ["FrontierViolationChecker.java"],
+    srcs = [
+        "FrontierViolationChecker.java",
+    ],
     deps = [
         ":dependencies_provider",
         ":event_listener",
+        ":frontier_violation_event",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_data",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_key",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
@@ -81,6 +91,9 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:filesystem_keys",
         "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_cluster",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/toolchains:registered_execution_platforms_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/toolchains:registered_toolchains_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/toolchains:toolchain_context_key",
         "//src/main/java/com/google/devtools/build/lib/util:TestType",
         "//src/main/java/com/google/devtools/build/lib/versioning:long_version_getter",
         "//src/main/java/com/google/devtools/build/skyframe",
@@ -101,6 +114,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_key",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/skyframe:filesystem_keys",
         "//src/main/java/com/google/devtools/build/lib/skyframe:rule_configured_target_value",
         "//src/main/java/com/google/devtools/build/lib/vfs",
@@ -141,7 +155,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:filesystem_keys",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//third_party:guava",
     ],
 )
 
@@ -157,6 +170,7 @@ java_library(
     deps = [
         ":file_dependency_key_support",
         ":value_or_future_map",
+        ":versioned_changes",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/concurrent:settable_future_keyed_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
@@ -169,6 +183,26 @@ java_library(
         "//third_party:guava",
         "//third_party:jsr305",
         "@com_google_protobuf//:protobuf_java",
+    ],
+)
+
+java_library(
+    name = "versioned_changes_validator",
+    srcs = [
+        "FileOpMatchMemoizingLookup.java",
+        "FileOpMatchResultTypes.java",
+        "NestedMatchMemoizingLookup.java",
+        "NestedMatchResultTypes.java",
+        "NoMatch.java",
+        "VersionedChangesValidator.java",
+    ],
+    deps = [
+        ":file_dependency_deserializer",
+        ":value_or_future_map",
+        ":versioned_changes",
+        "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/concurrent:settable_future_keyed_value",
+        "//third_party:guava",
     ],
 )
 
@@ -206,6 +240,15 @@ java_library(
 java_library(
     name = "client_id",
     srcs = ["ClientId.java"],
+)
+
+java_library(
+    name = "versioned_changes",
+    srcs = ["VersionedChanges.java"],
+    deps = [
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
 )
 
 java_library(

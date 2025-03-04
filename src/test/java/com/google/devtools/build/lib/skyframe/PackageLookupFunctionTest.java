@@ -352,10 +352,6 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
 
   @Test
   public void invisibleRepo_nonMain() throws Exception {
-    scratch.overwriteFile("WORKSPACE", "local_repository(name='local', path='local/repo')");
-    scratch.file("local/repo/WORKSPACE");
-    scratch.file("local/repo/BUILD");
-
     PackageLookupValue packageLookupValue =
         lookupPackage(
             PackageIdentifier.create(

@@ -111,6 +111,30 @@ public final class ArtifactNestedSetKey implements ExecutionPhaseSkyKey {
   }
 
   /**
+   * Augments the given rewind graph with all chains of {@link ArtifactNestedSetKey} nodes reachable
+   * from {@code failedKeyDeps} and non source artifacts in them.
+   *
+   * <p>The walk is terminated when a node is already in the rewind graph.
+   */
+  public static void addNestedSetChainsToRewindGraph(
+      MutableGraph<SkyKey> rewindGraph, ArtifactNestedSetKey key) {
+    if (rewindGraph.nodes().contains(key)) {
+      return;
+    }
+    for (Object child : key.children) {
+      if (child instanceof Artifact artifact) {
+        if (!artifact.isSourceArtifact()) {
+          rewindGraph.putEdge(key, Artifact.key(artifact));
+        }
+      } else {
+        ArtifactNestedSetKey nextNode = createInternal((Object[]) child);
+        addNestedSetChainsToRewindGraph(rewindGraph, nextNode);
+        rewindGraph.putEdge(key, nextNode);
+      }
+    }
+  }
+
+  /**
    * Augments the given rewind graph with paths from {@code failedKey} to {@code lostArtifacts}
    * discoverable by following the {@link ArtifactNestedSetKey} nodes in {@code failedKeyDeps}.
    *

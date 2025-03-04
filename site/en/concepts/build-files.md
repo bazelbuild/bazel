@@ -45,9 +45,6 @@ makes the interpretation of `BUILD` files hermetic — dependent only on a known
 set of inputs, which is essential for ensuring that builds are reproducible.
 For more details, see [Hermeticity](/basics/hermeticity).
 
-`BUILD` files should be written using only ASCII characters, although
-technically they are interpreted using the Latin-1 character set.
-
 Because `BUILD` files need to be updated whenever the dependencies of the
 underlying code change, they are typically maintained by multiple people on a
 team. `BUILD` file authors should comment liberally to document the role
@@ -148,3 +145,9 @@ for anyone to create new rules.
     </td>
   </tr>
 </table>
+
+## File encoding
+
+`BUILD` and `.bzl` files should be encoded in UTF-8, of which ASCII is a valid
+subset. Arbitrary byte sequences are currently allowed, but may stop being
+supported in the future.

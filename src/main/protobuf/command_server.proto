@@ -109,9 +109,9 @@ message ScriptPath {
   bytes script_contents = 2;
 }
 
-// Represents paths to replace to allow localization of an ExecRequest when the
-// build takes place on a different filesystem from where executing the
-// ExecRequest would occur.
+// Represents paths to replace to allow localization of an ExecRequest and an
+// InfoResponse when the build takes place on a different filesystem from where
+// executing the ExecRequest or running the info command would occur.
 //
 // In addition, the PathToReplace#Type enumeration is also reused to specify the
 // possible base directory for a redirect output. The redirect output will be
@@ -218,6 +218,23 @@ message ServerInfo {
 
   // Server response cookie.
   string response_cookie = 4;
+}
+
+// Describes a single blaze info command item.
+message InfoItem {
+  string key = 1;
+  bytes value = 2;
+}
+
+// Describes the results of a blaze info command.
+message InfoResponse {
+  // Paths to replace to allow localization of paths in info items when the
+  // build takes place on a different filesystem. This field is always present.
+  repeated PathToReplace path_to_replace = 1;
+
+  // Results of info items requested by the client. This field can be empty if
+  // all requested info keys are invalid.
+  repeated InfoItem info_item = 2;
 }
 
 service CommandServer {

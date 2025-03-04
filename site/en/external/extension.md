@@ -7,11 +7,11 @@ Book: /_book.yaml
 
 Module extensions allow users to extend the module system by reading input data
 from modules across the dependency graph, performing necessary logic to resolve
-dependencies, and finally creating repos by calling repo rules. These extensions
-have capabilities similar to repo rules, which enables them to perform file I/O,
-send network requests, and so on. Among other things, they allow Bazel to
-interact with other package management systems while also respecting the
-dependency graph built out of Bazel modules.
+dependencies, and finally creating repos by calling [repo
+rules](/external/repo). These extensions have capabilities similar to repo
+rules, which enables them to perform file I/O, send network requests, and so on.
+Among other things, they allow Bazel to interact with other package management
+systems while also respecting the dependency graph built out of Bazel modules.
 
 You can define module extensions in `.bzl` files, just like repo rules. They're
 not invoked directly; rather, each module specifies pieces of data called *tags*
@@ -69,12 +69,12 @@ unconditionally evaluates all module extensions.
 
 ## Extension definition
 
-You can define module extensions similarly to repo rules, using the
-[`module_extension`](/rules/lib/globals/bzl#module_extension) function. However,
-while repo rules have a number of attributes, module extensions have
-[`tag_class`es](/rules/lib/globals/bzl#tag_class), each of which has a number of
-attributes. The tag classes define schemas for tags used by this extension. For
-example, the "maven" extension above might be defined like this:
+You can define module extensions similarly to [repo rules](/external/repo),
+using the [`module_extension`](/rules/lib/globals/bzl#module_extension)
+function. However, while repo rules have a number of attributes, module
+extensions have [`tag_class`es](/rules/lib/globals/bzl#tag_class), each of which
+has a number of attributes. The tag classes define schemas for tags used by this
+extension. For example, the "maven" extension above might be defined like this:
 
 ```python
 # @rules_jvm_external//:extensions.bzl

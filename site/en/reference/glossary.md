@@ -510,7 +510,7 @@ Repo rules can access the internet or perform file I/O; the most common repo
 rule is `http_archive` to download an archive containing source files from the
 internet.
 
-**See also:** [Repo rule documentation](/extending/repo)
+**See also:** [Repo rule documentation](/external/repo)
 
 ### Reproducibility {:#reproducibility}
 

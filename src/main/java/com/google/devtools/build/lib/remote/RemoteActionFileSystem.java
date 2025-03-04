@@ -31,17 +31,16 @@ import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher.Priority;
+import com.google.devtools.build.lib.actions.ActionInputPrefetcher.Reason;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
-import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
-import com.google.devtools.build.lib.actions.FileArtifactValue.UnresolvedSymlinkArtifactValue;
 import com.google.devtools.build.lib.actions.FileStatusWithMetadata;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
-import com.google.devtools.build.lib.vfs.AbstractFileSystemWithCustomStat;
+import com.google.devtools.build.lib.vfs.AbstractFileSystem;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
@@ -98,7 +97,7 @@ import javax.annotation.Nullable;
  * sources, such as the same path existing in multiple underlying sources with different type or
  * contents.
  */
-public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat
+public class RemoteActionFileSystem extends AbstractFileSystem
     implements PathCanonicalizer.Resolver {
   private final PathFragment execRoot;
   private final PathFragment outputBase;
@@ -306,12 +305,8 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat
       return;
     }
     var metadata =
-        RemoteFileArtifactValue.createWithMaterializationData(
-            digest,
-            size,
-            /* locationIndex= */ 1,
-            expirationTime,
-            /* materializationExecPath= */ null);
+        FileArtifactValue.createForRemoteFileWithMaterializationData(
+            digest, size, /* locationIndex= */ 1, expirationTime);
     remoteOutputTree.injectFile(path, metadata);
   }
 
@@ -333,12 +328,13 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat
     // It's more efficient to stat unconditionally.
     //
     // The parent path has already been canonicalized, so FOLLOW_NONE is effectively the same as
-    // FOLLOW_PARENT, but much more efficient as it doesn't call stat recursively.
+    // FOLLOW_PARENT, but much more efficient as it doesn't call stat recursively. Likewise for
+    // readSymbolicLinkInternal instead of readSymbolicLink.
     var stat = statInternal(path, FollowMode.FOLLOW_NONE, StatSources.ALL);
     if (stat == null) {
       throw new FileNotFoundException(path.getPathString() + " (No such file or directory)");
     }
-    return stat.isSymbolicLink() ? readSymbolicLink(path) : null;
+    return stat.isSymbolicLink() ? readSymbolicLinkInternal(path) : null;
   }
 
   // Like resolveSymbolicLinks(), except that only the parent path is canonicalized.
@@ -527,13 +523,16 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat
 
   @Override
   protected PathFragment readSymbolicLink(PathFragment path) throws IOException {
-    path = resolveSymbolicLinksForParent(path);
+    return readSymbolicLinkInternal(resolveSymbolicLinksForParent(path));
+  }
 
+  // Like readSymbolicLink(), except that the parent path is assumed to be already canonical.
+  private PathFragment readSymbolicLinkInternal(PathFragment path) throws IOException {
     if (path.startsWith(execRoot)) {
       var execPath = path.relativeTo(execRoot);
       var metadata = inputArtifactData.getMetadata(execPath);
-      if (metadata instanceof UnresolvedSymlinkArtifactValue unresolvedSymlinkArtifactValue) {
-        return PathFragment.create(unresolvedSymlinkArtifactValue.getSymlinkTarget());
+      if (metadata != null && metadata.getType().isSymlink()) {
+        return PathFragment.create(metadata.getUnresolvedSymlinkTarget());
       }
       if (metadata != null) {
         // Other input artifacts are never symlinks.
@@ -701,12 +700,17 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat
 
       @Override
       public long getLastModifiedTime() {
-        return m.getModifiedTime();
+        try {
+          return m.getModifiedTime();
+        } catch (UnsupportedOperationException e) {
+          // Not every FileArtifactValue supports getModifiedTime.
+          return 0;
+        }
       }
 
       @Override
       public long getLastChangeTime() {
-        return m.getModifiedTime();
+        return getLastModifiedTime();
       }
 
       @Override
@@ -758,7 +762,11 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat
       }
       getFromFuture(
           inputFetcher.prefetchFiles(
-              action, ImmutableList.of(input), inputArtifactData, Priority.CRITICAL));
+              action,
+              ImmutableList.of(input),
+              inputArtifactData,
+              Priority.CRITICAL,
+              Reason.INPUTS));
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();
       throw new IOException(String.format("Received interrupt while fetching file '%s'", path), e);
@@ -932,10 +940,10 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat
     }
 
     protected void injectFile(PathFragment path, FileArtifactValue metadata) throws IOException {
+      checkArgument(metadata.isRemote(), "metadata is not remote: %s", metadata);
       createDirectoryAndParents(path.getParentDirectory());
       InMemoryContentInfo node = getOrCreateWritableInode(path);
-      // If a node was already existed and is not a remote file node (i.e. directory or symlink node
-      // ), throw an error.
+      // If a node already exists but is not a regular file, throw an error.
       if (!(node instanceof RemoteInMemoryFileInfo remoteInMemoryFileInfo)) {
         throw new IOException("Could not inject into " + node);
       }

@@ -168,10 +168,7 @@ def create_cc_link_actions(
 
         # Inputs from linking_contexts and toolchain:
         linkopts = linkopts,
-        # TODO(bazel-team): There is no practical difference in non-code inputs and additional linker
-        # inputs in CppLinkActionBuilder. So these should be merged. Even before that happens, it's
-        # totally fine for nonCodeLinkerInputs to contains precompiled libraries.
-        non_code_inputs = list(compilation_outputs.header_tokens()),
+        non_code_inputs = [],
         toolchain_libraries_type = "",
         toolchain_libraries_input = depset(),
 
@@ -208,6 +205,11 @@ def create_cc_link_actions(
             use_pic = use_pic_for_binaries
         else:
             use_pic = use_pic_for_dynamic_libs
+
+        # TODO(bazel-team): There is no practical difference in non-code inputs and additional linker
+        # inputs in CppLinkActionBuilder. So these should be merged. Even before that happens, it's
+        # totally fine for nonCodeLinkerInputs to contains precompiled libraries.
+        link_action_kwargs["non_code_inputs"] = list(compilation_outputs.header_tokens())
 
         dynamic_library, all_lto_artifacts, linker_output_artifact = \
             _create_dynamic_link_actions(

@@ -124,7 +124,7 @@ public class GenQuery implements RuleConfiguredTargetFactory {
             .withConversionContext(
                 Label.RepoContext.of(
                     ruleContext.getRepository(),
-                    ruleContext.getRule().getPackage().getRepositoryMapping()))
+                    ruleContext.getRule().getPackageMetadata().repositoryMapping()))
             .build();
     try {
       optionsParser.parse(ruleContext.attributes().get("opts", Types.STRING_LIST));
@@ -302,7 +302,7 @@ public class GenQuery implements RuleConfiguredTargetFactory {
               new TargetPattern.Parser(
                   PathFragment.EMPTY_FRAGMENT,
                   ruleContext.getRepository(),
-                  ruleContext.getRule().getPackage().getRepositoryMapping()),
+                  ruleContext.getRule().getPackageMetadata().repositoryMapping()),
               PathFragment.EMPTY_FRAGMENT,
               /* keepGoing= */ false,
               ruleContext.attributes().get("strict", Type.BOOLEAN),

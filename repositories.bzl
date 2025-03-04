@@ -78,15 +78,15 @@ def embedded_jdk_repositories():
     """OpenJDK distributions used to create a version of Bazel bundled with the OpenJDK."""
     http_file(
         name = "openjdk_linux_vanilla",
-        integrity = "sha256-rAFnZr8+a29vrXmSXwUQ7rgX6G8DgPvAioHSdU64kJI=",
+        integrity = "sha256-TarSS0WfoJ9lK92A4Qzn86b/zwGzxcQyUzzTGnL5Mnc=",
         downloaded_file_path = "zulu-linux-vanilla.tar.gz",
-        url = "https://cdn.azul.com/zulu/bin/zulu23.30.13-ca-jdk23.0.1-linux_x64.tar.gz",
+        url = "https://cdn.azul.com/zulu/bin/zulu23.32.11-ca-jdk23.0.2-linux_x64.tar.gz",
     )
     http_file(
         name = "openjdk_linux_aarch64_vanilla",
-        integrity = "sha256-YsWDS56XxBqVacn8HoiUhPL3bongmOyj5tSkN5RREW8=",
+        integrity = "sha256-2dsjD5JH1UwzYMmlh7UvajO5T8ppMjAq0Cu+L5Y2Yww=",
         downloaded_file_path = "zulu-linux-aarch64-vanilla.tar.gz",
-        url = "https://cdn.azul.com/zulu/bin/zulu23.30.13-ca-jdk23.0.1-linux_aarch64.tar.gz",
+        url = "https://cdn.azul.com/zulu/bin/zulu23.32.11-ca-jdk23.0.2-linux_aarch64.tar.gz",
     )
     http_file(
         name = "openjdk_linux_s390x_vanilla",
@@ -101,30 +101,36 @@ def embedded_jdk_repositories():
         url = "https://github.com/adoptium/temurin23-binaries/releases/download/jdk-23.0.1%2B11/OpenJDK23U-jdk_ppc64le_linux_hotspot_23.0.1_11.tar.gz",
     )
     http_file(
+        name = "openjdk_linux_riscv64_vanilla",
+        integrity = "sha256-gNe6uflhS9+TTGvEQQMb0f6tOuqF8WdwEjvYprzcUrY=",
+        downloaded_file_path = "adoptopenjdk-riscv64-vanilla.tar.gz",
+        url = "https://github.com/adoptium/temurin23-binaries/releases/download/jdk-23.0.1%2B11/OpenJDK23U-jdk_riscv64_linux_hotspot_23.0.1_11.tar.gz",
+    )
+    http_file(
         name = "openjdk_macos_x86_64_vanilla",
-        integrity = "sha256-aYyf1SKQGgO5wPb+fBfJg19s+qUVmHvemh6xDwXQtpc=",
+        integrity = "sha256-Ha2a94Z+QAc367voEEMXGo8Lw92vcvvu9ilbPR2+cow=",
         downloaded_file_path = "zulu-macos-vanilla.tar.gz",
-        url = "https://cdn.azul.com/zulu/bin/zulu23.30.13-ca-jdk23.0.1-macosx_x64.tar.gz",
+        url = "https://cdn.azul.com/zulu/bin/zulu23.32.11-ca-jdk23.0.2-macosx_x64.tar.gz",
     )
     http_file(
         name = "openjdk_macos_aarch64_vanilla",
-        integrity = "sha256-OIXfVgx6ipx3uALCLcGUbNLuEp2d/NdFWKj/npRZ5s8=",
+        integrity = "sha256-6Lzc1d0LrQsqOnHIPVAKi+jRLP9pEZiyc/FNJHtjURM=",
         downloaded_file_path = "zulu-macos-aarch64-vanilla.tar.gz",
-        url = "https://cdn.azul.com/zulu/bin/zulu23.30.13-ca-jdk23.0.1-macosx_aarch64.tar.gz",
+        url = "https://cdn.azul.com/zulu/bin/zulu23.32.11-ca-jdk23.0.2-macosx_aarch64.tar.gz",
     )
     http_file(
         name = "openjdk_win_vanilla",
-        integrity = "sha256-wnqLLUrcL778vxk874CEJJHs1pclQU0w5Z5RR2nzWMw=",
+        integrity = "sha256-bPld6PW11MWrZGBoEHlkViWaUjTpsXC5KHnSCu7Hms4=",
         downloaded_file_path = "zulu-win-vanilla.zip",
-        url = "https://cdn.azul.com/zulu/bin/zulu23.30.13-ca-jdk23.0.1-win_x64.zip",
+        url = "https://cdn.azul.com/zulu/bin/zulu23.32.11-ca-jdk23.0.2-win_x64.zip",
     )
 
     # Later version of the JDK for Windows ARM64 are not available yet.
     http_file(
         name = "openjdk_win_arm64_vanilla",
-        integrity = "sha256-9a1/U5900StiSMD9n0tBZFXc9oA5ALKOjRkFTz3Mbpg=",
+        integrity = "sha256-V8VoNVuX0ojxK3IHYNgCsaGcVemwcHpcKtdtNP2JPbg=",
         downloaded_file_path = "zulu-win-arm64.zip",
-        url = "https://cdn.azul.com/zulu/bin/zulu21.38.21-ca-jdk21.0.5-win_aarch64.zip",
+        url = "https://cdn.azul.com/zulu/bin/zulu21.40.17-ca-jdk21.0.6-win_aarch64.zip",
     )
 
 def _async_profiler_repos(ctx):

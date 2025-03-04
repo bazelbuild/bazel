@@ -46,6 +46,9 @@ import com.google.devtools.build.lib.skyframe.serialization.ProfileCollector;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.FrontierNodeVersion;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions.RemoteAnalysisCacheMode;
+import com.google.devtools.build.lib.skyframe.toolchains.RegisteredExecutionPlatformsValue;
+import com.google.devtools.build.lib.skyframe.toolchains.RegisteredToolchainsValue;
+import com.google.devtools.build.lib.skyframe.toolchains.ToolchainContextKey;
 import com.google.devtools.build.lib.versioning.LongVersionGetter;
 import com.google.devtools.build.skyframe.InMemoryGraph;
 import com.google.devtools.build.skyframe.InMemoryNodeEntry;
@@ -220,6 +223,27 @@ public final class FrontierSerializer {
     ACTIVE
   }
 
+  /**
+   * Iterates over the direct analysis deps of a node, and include them into the frontier if they've
+   * not been seen before.
+   */
+  private static void markAnalysisDirectDepsAsFrontierCandidates(
+      SkyKey key,
+      InMemoryGraph graph,
+      ConcurrentHashMap<SkyKey, SelectionMarking> selection,
+      Predicate<PackageIdentifier> matcher) {
+    graph
+        .getIfPresent(key)
+        .getDirectDeps()
+        .forEach(
+            depKey -> {
+              if (depKey instanceof ActionLookupKey alk
+                  && !matcher.test(alk.getLabel().getPackageIdentifier())) {
+                selection.putIfAbsent(depKey, FRONTIER_CANDIDATE);
+              }
+            });
+  }
+
   @VisibleForTesting
   static ImmutableMap<SkyKey, SelectionMarking> computeSelection(
       InMemoryGraph graph, Predicate<PackageIdentifier> matcher) {
@@ -261,10 +285,40 @@ public final class FrontierSerializer {
                   }
                   selection.putIfAbsent(artifactKey, FRONTIER_CANDIDATE);
                   break;
-                case SourceArtifact source:
+                case SourceArtifact ignored:
                   break; // Skips source artifacts because they are cheap to compute.
               }
             }
+            // Some of the analysis nodes reachable from platforms/toolchains SkyFunctions will not
+            // be reachable from the regular active analysis nodes traversal above. e.g. these are
+            // only reachable from flags, like --extra_execution_platforms.
+
+            // To further elaborate: the frontier contains the ActionLookupValue dependencies of
+            // active nodes. Since platform/toolchain deps are not ActionLookupValues, the frontier
+            // encountered with markActiveAndTraverseEdges does not contain their direct analysis
+            // deps. However, those deps should logically be part of the frontier because
+            // platform/toolchain nodes are not currently configured for serialization. To mitigate
+            // this, we serialize their ActionLookupValue dependencies when they are encountered.
+            //
+            // The following cases will include them in the frontier for serialization if they're
+            // not within the project's boundaries. They may also be induced as usual into the
+            // active set before/after with markActiveAndTraverseEdges, so this ad-hoc traversal is
+            // safe.
+            //
+            // Note that this unconditionally serializes all such deps whether they're reachable
+            // from an active analysis node, which may be more work than necessary.
+            //
+            // TODO: b/397197410 - consider a deeper analysis on the tradeoffs between just
+            // serializing the platform and toolchain SkyValues (and updating their respective
+            // SkyFunctions to use SkyValueRetriever), instead of serializing their direct
+            // dependencies here. Those SkyValues are entirely derived from the build configuration
+            // fragments, and the values themselves look relatively straightforward to serialize.
+            case RegisteredExecutionPlatformsValue.Key key ->
+                markAnalysisDirectDepsAsFrontierCandidates(key, graph, selection, matcher);
+            case RegisteredToolchainsValue.Key key ->
+                markAnalysisDirectDepsAsFrontierCandidates(key, graph, selection, matcher);
+            case ToolchainContextKey key ->
+                markAnalysisDirectDepsAsFrontierCandidates(key, graph, selection, matcher);
             default -> {}
           }
         });

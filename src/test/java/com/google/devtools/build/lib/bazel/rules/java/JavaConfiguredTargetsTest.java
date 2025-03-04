@@ -47,7 +47,7 @@ public final class JavaConfiguredTargetsTest extends BuildViewTestCase {
   @Parameter(2)
   public String targetCpu;
 
-  @Parameters
+  @Parameters(name = "{0}")
   public static List<Object[]> platformParameters() {
     return Arrays.asList(
         new Object[][] {
@@ -69,7 +69,12 @@ public final class JavaConfiguredTargetsTest extends BuildViewTestCase {
         targetCpu);
     super.useConfiguration(
         ObjectArrays.concat(
-            args, "--platforms=//" + PLATFORMS_PACKAGE_PATH + ":" + targetPlatform));
+            args,
+            new String[] {
+              "--platforms=//" + PLATFORMS_PACKAGE_PATH + ":" + targetPlatform,
+              "--extra_execution_platforms=//" + PLATFORMS_PACKAGE_PATH + ":" + targetPlatform
+            },
+            String.class));
   }
 
   @Test

@@ -44,7 +44,7 @@ public final class MacroInstance {
 
   // TODO: #19922 - If we want to save the cost of a field here, we can merge pkg and parent into a
   // single field of type Object, and walk up the parent hierarchy to answer getPackage() queries.
-  private final Package pkg;
+  private final Package.Metadata packageMetadata;
 
   @Nullable private final MacroInstance parent;
 
@@ -78,13 +78,13 @@ public final class MacroInstance {
   // storing internal-typed values (the way Rules do) instead of Starlark-typed values, or else just
   // making the constructor private and moving instantiateMacro() to this class.
   public MacroInstance(
-      Package pkg,
+      Package.Metadata packageMetadata,
       @Nullable MacroInstance parent,
       MacroClass macroClass,
       Map<String, Object> attrValues,
       int sameNameDepth)
       throws EvalException {
-    this.pkg = pkg;
+    this.packageMetadata = packageMetadata;
     this.parent = parent;
     this.macroClass = macroClass;
     this.attrValues = ImmutableMap.copyOf(attrValues);
@@ -93,9 +93,9 @@ public final class MacroInstance {
     Preconditions.checkArgument(macroClass.getAttributes().keySet().equals(attrValues.keySet()));
   }
 
-  /** Returns the package this instance was created in. */
-  public Package getPackage() {
-    return pkg;
+  /** Returns the Package.Metadata of the package in which this instance was created. */
+  public Package.Metadata getPackageMetadata() {
+    return packageMetadata;
   }
 
   /**

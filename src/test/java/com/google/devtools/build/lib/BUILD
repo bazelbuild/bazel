@@ -77,7 +77,6 @@ filegroup(
     name = "embedded_scripts",
     testonly = 1,
     data = [
-        "//src/main/tools:build-runfiles",
         "//src/main/tools:linux-sandbox",
         "//src/main/tools:process-wrapper",
     ],

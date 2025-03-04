@@ -19,6 +19,7 @@ import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.actions.FileStateType.SYMLINK;
+import static com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.sparselyAggregateWriteStatuses;
 import static com.google.devtools.build.lib.skyframe.serialization.analysis.FileDependencyKeySupport.DIRECTORY_KEY_DELIMITER;
 import static com.google.devtools.build.lib.skyframe.serialization.analysis.FileDependencyKeySupport.FILE_KEY_DELIMITER;
 import static com.google.devtools.build.lib.skyframe.serialization.analysis.FileDependencyKeySupport.MAX_KEY_LENGTH;
@@ -49,6 +50,7 @@ import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueServ
 import com.google.devtools.build.lib.skyframe.serialization.KeyBytesProvider;
 import com.google.devtools.build.lib.skyframe.serialization.PackedFingerprint;
 import com.google.devtools.build.lib.skyframe.serialization.StringKey;
+import com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.WriteStatus;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.InvalidationDataInfoOrFuture.FileDataInfo;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.InvalidationDataInfoOrFuture.FileDataInfoOrFuture;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.InvalidationDataInfoOrFuture.FileInvalidationDataInfo;
@@ -73,7 +75,6 @@ import com.google.protobuf.CodedOutputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.List;
 import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.concurrent.Callable;
@@ -206,6 +207,7 @@ final class FileDependencySerializer {
             /* rootedPath= */ rootedPath,
             /* parentRootedPath= */ parentRootedPath,
             /* realRootedPath= */ realRootedPath,
+            value.exists(),
             initialMtsv);
     return future.completeWith(
         Futures.transform(
@@ -223,19 +225,22 @@ final class FileDependencySerializer {
     private final RootedPath rootedPath;
     private final RootedPath parentRootedPath;
     private final RootedPath realRootedPath;
+    private final boolean exists;
 
     private final FileInvalidationData.Builder data = FileInvalidationData.newBuilder();
-    private final ArrayList<ListenableFuture<Void>> writeStatuses = new ArrayList<>();
+    private final ArrayList<WriteStatus> writeStatuses = new ArrayList<>();
     private long mtsv;
 
     private FileInvalidationDataUploader(
         RootedPath rootedPath,
         RootedPath parentRootedPath,
         RootedPath realRootedPath,
+        boolean exists,
         long initialMtsv) {
       this.rootedPath = rootedPath;
       this.parentRootedPath = parentRootedPath;
       this.realRootedPath = realRootedPath;
+      this.exists = exists;
       this.mtsv = initialMtsv;
     }
 
@@ -246,7 +251,7 @@ final class FileDependencySerializer {
       byte[] dataBytes = data.build().toByteArray();
       writeStatuses.add(fingerprintValueService.put(keyBytes, dataBytes));
       return new FileInvalidationDataInfo(
-          cacheKey, combineWriteStatuses(writeStatuses), mtsv, realRootedPath);
+          cacheKey, sparselyAggregateWriteStatuses(writeStatuses), exists, mtsv, realRootedPath);
     }
 
     /**
@@ -261,7 +266,7 @@ final class FileDependencySerializer {
         data.setParentMtsv(parentMtsv);
       }
       updateMtsvIfGreater(parentMtsv);
-      addWriteStatusUnlessSuccess(parent.writeStatus(), writeStatuses);
+      writeStatuses.add(parent.writeStatus());
     }
 
     /**
@@ -277,7 +282,7 @@ final class FileDependencySerializer {
      */
     private void addSymlinkParentInfo(FileInvalidationDataInfo parentInfo) {
       updateMtsvIfGreater(parentInfo.mtsv());
-      addWriteStatusUnlessSuccess(parentInfo.writeStatus(), writeStatuses);
+      writeStatuses.add(parentInfo.writeStatus());
     }
 
     private void updateMtsvIfGreater(long version) {
@@ -330,6 +335,7 @@ final class FileDependencySerializer {
           break;
         case FileInvalidationDataInfo parentReference:
           uploader.addParent(parentReference);
+          // If the parent folder doesn't exist, unresolvedLinkTarget will be null.
           realParentPath = parentReference.realPath();
           break;
       }
@@ -481,6 +487,10 @@ final class FileDependencySerializer {
           if (parentMtsv != LongVersionGetter.MINIMAL) {
             symlinkData.setParentMtsv(parentMtsv);
           }
+          if (!parentReference.exists()) {
+            // The parent folder doesn't exist so further resolution of the symlink is moot.
+            return immediateVoidFuture();
+          }
           resolvedParentRootedPath = parentReference.realPath();
           break;
       }
@@ -522,7 +532,7 @@ final class FileDependencySerializer {
     @Override
     public ListingInvalidationDataInfo apply(FileDataInfo info) {
       DirectoryListingInvalidationData.Builder data = DirectoryListingInvalidationData.newBuilder();
-      var writeStatuses = new ArrayList<ListenableFuture<Void>>();
+      var writeStatuses = new ArrayList<WriteStatus>();
       long mtsv = LongVersionGetter.MINIMAL;
       RootedPath realPath;
       switch (info) {
@@ -530,7 +540,7 @@ final class FileDependencySerializer {
           realPath = rootedPath;
           break;
         case FileInvalidationDataInfo fileInfo:
-          addWriteStatusUnlessSuccess(fileInfo.writeStatus(), writeStatuses);
+          writeStatuses.add(fileInfo.writeStatus());
           mtsv = fileInfo.mtsv();
           if (mtsv != LongVersionGetter.MINIMAL) {
             data.setFileMtsv(mtsv);
@@ -549,7 +559,8 @@ final class FileDependencySerializer {
       KeyBytesProvider keyBytes = getKeyBytes(cacheKey, data::setOverflowKey);
       byte[] dataBytes = data.build().toByteArray();
       writeStatuses.add(fingerprintValueService.put(keyBytes, dataBytes));
-      return new ListingInvalidationDataInfo(cacheKey, combineWriteStatuses(writeStatuses));
+      return new ListingInvalidationDataInfo(
+          cacheKey, sparselyAggregateWriteStatuses(writeStatuses));
     }
   }
 
@@ -613,7 +624,7 @@ final class FileDependencySerializer {
         new TreeMap<>();
     private final TreeSet<String> sourceFileKeys = new TreeSet<>();
 
-    private final ArrayList<ListenableFuture<Void>> writeStatuses = new ArrayList<>();
+    private final ArrayList<WriteStatus> writeStatuses = new ArrayList<>();
 
     private final ArrayList<FutureFileDataInfo> futureFileDataInfo = new ArrayList<>();
     private final ArrayList<FutureListingDataInfo> futureListingDataInfo = new ArrayList<>();
@@ -656,7 +667,7 @@ final class FileDependencySerializer {
       byte[] nodeBytes = computeNodeBytes();
       PackedFingerprint key = fingerprintValueService.fingerprint(nodeBytes);
       writeStatuses.add(fingerprintValueService.put(key, nodeBytes));
-      return new NodeInvalidationDataInfo(key, combineWriteStatuses(writeStatuses));
+      return new NodeInvalidationDataInfo(key, sparselyAggregateWriteStatuses(writeStatuses));
     }
 
     private void addFileKey(FileKey fileKey) {
@@ -676,7 +687,7 @@ final class FileDependencySerializer {
           break;
         case FileInvalidationDataInfo fileInfo:
           fileKeys.add(fileInfo.cacheKey());
-          addWriteStatusUnlessSuccess(fileInfo.writeStatus(), writeStatuses);
+          writeStatuses.add(fileInfo.writeStatus());
           break;
       }
     }
@@ -698,7 +709,7 @@ final class FileDependencySerializer {
           break;
         case ListingInvalidationDataInfo listingInfo:
           listingKeys.add(listingInfo.cacheKey());
-          addWriteStatusUnlessSuccess(listingInfo.writeStatus(), writeStatuses);
+          writeStatuses.add(listingInfo.writeStatus());
           break;
       }
     }
@@ -720,7 +731,7 @@ final class FileDependencySerializer {
           break;
         case NodeInvalidationDataInfo nodeInfo:
           nodeDependencies.put(nodeInfo.cacheKey(), nodeInfo);
-          addWriteStatusUnlessSuccess(nodeInfo.writeStatus(), writeStatuses);
+          writeStatuses.add(nodeInfo.writeStatus());
           break;
       }
     }
@@ -742,7 +753,7 @@ final class FileDependencySerializer {
           break;
         case FileInvalidationDataInfo fileInfo:
           sourceFileKeys.add(fileInfo.cacheKey());
-          addWriteStatusUnlessSuccess(fileInfo.writeStatus(), writeStatuses);
+          writeStatuses.add(fileInfo.writeStatus());
           break;
       }
     }
@@ -764,14 +775,14 @@ final class FileDependencySerializer {
      * of {@link NestedFileOpNodes} fingerprints. Its byte representation is specified as follows.
      *
      * <ol>
+     *   <li>The count of nested nodes, as a proto-encoded int.
      *   <li>The count of file keys, as a proto-encoded int.
      *   <li>The count of listing keys, as a proto-encoded int.
-     *   <li>The count of nested nodes, as a proto-encoded int.
      *   <li>The count of source file keys, as a proto-encoded int.
-     *   <li>Sorted and deduplicated, proto-encoded strings of the file keys.
-     *   <li>Sorted and deduplicated, proto-encoded strings of the listing keys.
      *   <li>Sorted and deduplicated, fingerprints of the {@link NestedFileOpNodes} byte
      *       representations.
+     *   <li>Sorted and deduplicated, proto-encoded strings of the file keys.
+     *   <li>Sorted and deduplicated, proto-encoded strings of the listing keys.
      *   <li>Sorted and deduplicated, proto-encoded strings of the source keys.
      * </ol>
      *
@@ -781,18 +792,18 @@ final class FileDependencySerializer {
       try {
         var bytesOut = new ByteArrayOutputStream();
         var codedOut = CodedOutputStream.newInstance(bytesOut);
+        codedOut.writeInt32NoTag(nodeDependencies.size());
         codedOut.writeInt32NoTag(fileKeys.size());
         codedOut.writeInt32NoTag(listingKeys.size());
-        codedOut.writeInt32NoTag(nodeDependencies.size());
         codedOut.writeInt32NoTag(sourceFileKeys.size());
+        for (PackedFingerprint fp : nodeDependencies.keySet()) {
+          fp.writeTo(codedOut);
+        }
         for (String key : fileKeys) {
           codedOut.writeStringNoTag(key);
         }
         for (String key : listingKeys) {
           codedOut.writeStringNoTag(key);
-        }
-        for (PackedFingerprint fp : nodeDependencies.keySet()) {
-          fp.writeTo(codedOut);
         }
         for (String key : sourceFileKeys) {
           codedOut.writeStringNoTag(key);
@@ -814,36 +825,6 @@ final class FileDependencySerializer {
     return exists
         ? versionGetter.getFilePathOrSymlinkVersion(path)
         : versionGetter.getNonexistentPathVersion(path);
-  }
-
-  /**
-   * Adds {@code writeStatus} to {@code writeStatuses} unless it was done successfully.
-   *
-   * <p>Clients will aggregate {@code writeStatuses} and a successful status is a noop.
-   */
-  private static void addWriteStatusUnlessSuccess(
-      ListenableFuture<Void> writeStatus, List<ListenableFuture<Void>> writeStatuses) {
-    if (!writeStatus.isDone()) {
-      writeStatuses.add(writeStatus);
-      return;
-    }
-    // Avoids adding the write status if it's already done and there are no errors.
-    //
-    // The error case is a bit inefficient because it creates a new exception, but is expected to
-    // be uncommon.
-    try {
-      var unused = Futures.getDone(writeStatus);
-    } catch (ExecutionException e) {
-      writeStatuses.add(writeStatus);
-    }
-  }
-
-  private static ListenableFuture<Void> combineWriteStatuses(
-      List<ListenableFuture<Void>> writeStatuses) {
-    if (writeStatuses.size() == 1) {
-      return writeStatuses.get(0);
-    }
-    return Futures.whenAllSucceed(writeStatuses).call(() -> null, directExecutor());
   }
 
   private KeyBytesProvider getKeyBytes(String cacheKey, Consumer<String> overflowConsumer) {

@@ -43,7 +43,8 @@ public final class RuleConfiguredTargetValue
   private final transient ImmutableList<ActionAnalysisMetadata> actions;
 
   public RuleConfiguredTargetValue(
-      RuleConfiguredTarget configuredTarget, @Nullable NestedSet<Package> transitivePackages) {
+      RuleConfiguredTarget configuredTarget,
+      @Nullable NestedSet<Package.Metadata> transitivePackages) {
     super(configuredTarget, transitivePackages);
     // These are specifically *not* copied to save memory.
     this.actions = configuredTarget.getActions();

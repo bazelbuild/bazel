@@ -294,7 +294,6 @@ bazel_fragments["CppOptions"] = fragment(
         "//command_line_option:host_copt",
         "//command_line_option:host_conlyopt",
         "//command_line_option:host_compiler",
-        "//command_line_option:host_crosstool_top",
         "//command_line_option:host_cxxopt",
         "//command_line_option:host_per_file_copt",
         "//command_line_option:host_grte_top",
@@ -317,7 +316,6 @@ bazel_fragments["CppOptions"] = fragment(
         "//command_line_option:strict_system_includes",
         "//command_line_option:experimental_use_cpp_compile_action_args_params_file",
         "//command_line_option:experimental_unsupported_and_brittle_include_scanning",
-        "//command_line_option:incompatible_enable_cc_test_feature",
         "//command_line_option:incompatible_use_cpp_compile_header_mnemonic",
         "//command_line_option:experimental_starlark_cc_import",
         "//command_line_option:incompatible_macos_set_install_name",
@@ -327,9 +325,10 @@ bazel_fragments["CppOptions"] = fragment(
         "//command_line_option:experimental_platform_cc_test",
         "//command_line_option:experimental_save_feature_state",
         "//command_line_option:experimental_use_llvm_covmap",
+        "//command_line_option:experimental_starlark_compiling",
+        "//command_line_option:experimental_starlark_linking",
     ],
     outputs = [
-        "//command_line_option:crosstool_top",
         "//command_line_option:compiler",
         "//command_line_option:grte_top",
         "//command_line_option:copt",
@@ -340,7 +339,6 @@ bazel_fragments["CppOptions"] = fragment(
         "//command_line_option:strip",
     ],
     func = lambda settings: {
-        "//command_line_option:crosstool_top": settings["//command_line_option:host_crosstool_top"],
         "//command_line_option:compiler": settings["//command_line_option:host_compiler"],
         "//command_line_option:grte_top": settings["//command_line_option:host_grte_top"],
         # TODO: Properly fix https://github.com/bazelbuild/bazel/issues/24545 with features.

@@ -79,6 +79,11 @@ function test_jdeps() {
 
   # Keep java.instrument for allocation_instrumenter, which is supplied by the user.
   echo "java.instrument" >> jdeps
+  # java.management is needed for JMX Beans, but for some reason ends up missing from
+  # the jdeps output in some cases, see
+  # https://github.com/bazelbuild/bazel/issues/12685
+  # See https://github.com/bazelbuild/bazel/issues/12685
+  echo "java.management" >> jdeps
 
   # Make the list sorted and unique and compare it with expected results.
   cat jdeps | \

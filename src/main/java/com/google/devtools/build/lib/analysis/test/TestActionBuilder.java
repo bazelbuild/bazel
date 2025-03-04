@@ -14,8 +14,8 @@
 
 package com.google.devtools.build.lib.analysis.test;
 
-import static com.google.devtools.build.lib.analysis.test.ExecutionInfo.DEFAULT_TEST_RUNNER_EXEC_GROUP;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
+import static com.google.devtools.build.lib.packages.RuleClass.DEFAULT_TEST_RUNNER_EXEC_GROUP_NAME;
 
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.analysis.ShToolchain;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.LazyWriteNestedSetOfTupleAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.test.TestProvider.TestParams;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -159,7 +160,7 @@ public final class TestActionBuilder {
     var execGroup =
         this.executionRequirements != null
             ? this.executionRequirements.getExecGroup()
-            : DEFAULT_TEST_RUNNER_EXEC_GROUP;
+            : DEFAULT_TEST_RUNNER_EXEC_GROUP_NAME;
     var owner = ruleContext.getActionOwner(execGroup);
     if (owner != null) {
       return owner;
@@ -363,7 +364,8 @@ public final class TestActionBuilder {
     ImmutableList.Builder<Artifact> coverageArtifacts = ImmutableList.builder();
     ImmutableList.Builder<ActionInput> testOutputs = ImmutableList.builder();
 
-    ActionOwner actionOwner = getTestActionOwner(testConfiguration.useTargetPlatformForTests());
+    ActionOwner actionOwner =
+        getTestActionOwner(config.getOptions().get(CoreOptions.class).useTargetPlatformForTests);
 
     // Use 1-based indices for user friendliness.
     for (int shard = 0; shard < shardRuns; shard++) {

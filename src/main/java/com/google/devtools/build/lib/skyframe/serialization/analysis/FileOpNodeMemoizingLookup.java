@@ -17,10 +17,12 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.skyframe.FileOpNodeOrFuture.EmptyFileOpNode.EMPTY_FILE_OP_NODE;
 
+import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.analysis.configuredtargets.InputFileConfiguredTarget;
+import com.google.devtools.build.lib.concurrent.QuiescingFuture;
 import com.google.devtools.build.lib.skyframe.AbstractNestedFileOpNodes;
 import com.google.devtools.build.lib.skyframe.FileKey;
 import com.google.devtools.build.lib.skyframe.FileOpNodeOrFuture;
@@ -31,9 +33,8 @@ import com.google.devtools.build.lib.skyframe.NonRuleConfiguredTargetValue;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.InMemoryGraph;
 import com.google.devtools.build.skyframe.SkyKey;
-import java.util.ArrayList;
 import java.util.HashSet;
-import java.util.concurrent.Callable;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 
@@ -92,33 +93,35 @@ final class FileOpNodeMemoizingLookup {
   }
 
   private FileOpNodeOrFuture populateFutureFileOpNode(FutureFileOpNode ownedFuture) {
-    var builder = new FileOpNodeBuilder();
+    var collector = new FileOpNodeCollector();
 
-    accumulateTransitiveFileSystemOperations(ownedFuture.key(), builder);
+    accumulateTransitiveFileSystemOperations(ownedFuture.key(), collector);
+    collector.notifyAllFuturesAdded();
 
-    if (!builder.hasFutures()) {
-      // This can be empty for certain functions, e.g., PRECOMPUTED, IGNORED_PACKAGE_PREFIXES and
-      // PARSED_FLAGS.
-      return ownedFuture.completeWith(builder.call());
+    if (collector.isDone()) {
+      try {
+        return ownedFuture.completeWith(Futures.getDone(collector));
+      } catch (ExecutionException e) {
+        return ownedFuture.failWith(e);
+      }
     }
-    return ownedFuture.completeWith(
-        Futures.whenAllSucceed(builder.futureNodes).call(builder, directExecutor()));
+    return ownedFuture.completeWith(collector);
   }
 
-  private void accumulateTransitiveFileSystemOperations(SkyKey key, FileOpNodeBuilder builder) {
+  private void accumulateTransitiveFileSystemOperations(SkyKey key, FileOpNodeCollector collector) {
     for (SkyKey dep : checkNotNull(graph.getIfPresent(key), key).getDirectDeps()) {
       switch (dep) {
         case FileOpNode immediateNode:
-          builder.addNode(immediateNode);
+          collector.addNode(immediateNode);
           break;
         default:
-          addNodeForKey(dep, builder);
+          addNodeForKey(dep, collector);
           break;
       }
     }
   }
 
-  private void addNodeForKey(SkyKey key, FileOpNodeBuilder builder) {
+  private void addNodeForKey(SkyKey key, FileOpNodeCollector collector) {
     if (key instanceof ActionLookupKey actionLookupKey) {
       var nodeEntry = checkNotNull(graph.getIfPresent(key), key);
       // If the corresponding value is an InputFileConfiguredTarget, it indicates an execution time
@@ -138,7 +141,7 @@ final class FileOpNodeMemoizingLookup {
           //
           // TODO: b/364831651 - for greater determinism, consider performing additional Skyframe
           // evaluations for these unused dependencies.
-          builder.addSource(fileKey);
+          collector.addSource(fileKey);
         }
       }
     }
@@ -149,47 +152,26 @@ final class FileOpNodeMemoizingLookup {
       case EMPTY_FILE_OP_NODE:
         break;
       case FileOpNode node:
-        builder.addNode(node);
+        collector.addNode(node);
         break;
       case FutureFileOpNode future:
-        builder.addFuture(future);
+        collector.addFuture(future);
         break;
     }
   }
 
-  private static class FileOpNodeBuilder implements Callable<FileOpNodeOrEmpty> {
-    private final HashSet<FileOpNode> nodes = new HashSet<>();
-
+  private static final class FileOpNodeCollector extends QuiescingFuture<FileOpNodeOrEmpty>
+      implements FutureCallback<FileOpNodeOrEmpty> {
+    private final Set<FileOpNode> nodes = ConcurrentHashMap.newKeySet();
     private final HashSet<FileKey> sourceFiles = new HashSet<>();
 
-    private final ArrayList<FutureFileOpNode> futureNodes = new ArrayList<>();
-
-    /** Called only after all futures in {@link #futureNodes} succeed. */
     @Override
-    public FileOpNodeOrEmpty call() {
-      for (FutureFileOpNode future : futureNodes) {
-        try {
-          addNode(Futures.getDone(future));
-        } catch (ExecutionException e) {
-          throw new IllegalStateException(
-              "unexpected exception, should only be called after success", e);
-        }
-      }
+    protected FileOpNodeOrEmpty getValue() {
       return AbstractNestedFileOpNodes.from(nodes, sourceFiles);
     }
 
-    private boolean hasFutures() {
-      return !futureNodes.isEmpty();
-    }
-
-    private void addNode(FileOpNodeOrEmpty nodeOrEmpty) {
-      switch (nodeOrEmpty) {
-        case EMPTY_FILE_OP_NODE:
-          break;
-        case FileOpNode node:
-          nodes.add(node);
-          break;
-      }
+    private void addNode(FileOpNode node) {
+      nodes.add(node);
     }
 
     private void addSource(FileKey sourceFile) {
@@ -197,7 +179,41 @@ final class FileOpNodeMemoizingLookup {
     }
 
     private void addFuture(FutureFileOpNode future) {
-      futureNodes.add(future);
+      increment();
+      Futures.addCallback(future, (FutureCallback<FileOpNodeOrEmpty>) this, directExecutor());
+    }
+
+    private void notifyAllFuturesAdded() {
+      decrement();
+    }
+
+    /**
+     * Implementation of {@link FutureCallback<FileOpNode>}.
+     *
+     * @deprecated do not call, only used for callback processing
+     */
+    @Deprecated
+    @Override
+    public void onSuccess(FileOpNodeOrEmpty nodeOrEmpty) {
+      switch (nodeOrEmpty) {
+        case EMPTY_FILE_OP_NODE:
+          break;
+        case FileOpNode node:
+          addNode(node);
+          break;
+      }
+      decrement();
+    }
+
+    /**
+     * Implementation of {@link FutureCallback<FileOpNode>}.
+     *
+     * @deprecated do not call, only used for callback processing
+     */
+    @Deprecated
+    @Override
+    public void onFailure(Throwable t) {
+      notifyException(t);
     }
   }
 }

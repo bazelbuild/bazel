@@ -91,6 +91,8 @@ final class FakeActionInputFileCache implements InputMetadataProvider {
             ImmutableList.of(),
             ImmutableList.of(),
             ImmutableList.of(),
+            ImmutableList.of(),
+            ImmutableList.of(),
             ImmutableList.of()));
     runfilesTrees.add(runfilesTree);
   }

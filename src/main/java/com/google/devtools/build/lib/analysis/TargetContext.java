@@ -91,7 +91,7 @@ public class TargetContext {
 
   public Label.PackageContext getPackageContext() {
     return Label.PackageContext.of(
-        getLabel().getPackageIdentifier(), target.getPackage().getRepositoryMapping());
+        getLabel().getPackageIdentifier(), target.getPackageMetadata().repositoryMapping());
   }
 
   /**

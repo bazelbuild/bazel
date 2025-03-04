@@ -84,18 +84,15 @@ public class StandaloneTestStrategy extends TestStrategy {
           .put("RUNFILES_DIR", TestPolicy.RUNFILES_DIR)
           .put("TEST_TMPDIR", TestPolicy.TEST_TMP_DIR)
           .put("RUN_UNDER_RUNFILES", "1")
-          .build();
+          .buildOrThrow();
 
   public static final TestPolicy DEFAULT_LOCAL_POLICY = new TestPolicy(ENV_VARS);
 
-  protected final Path tmpDirRoot;
+  private final Path tmpDirRoot;
 
   public StandaloneTestStrategy(
-      ExecutionOptions executionOptions,
-      TestSummaryOptions testSummaryOptions,
-      BinTools binTools,
-      Path tmpDirRoot) {
-    super(executionOptions, testSummaryOptions, binTools);
+      ExecutionOptions executionOptions, TestSummaryOptions testSummaryOptions, Path tmpDirRoot) {
+    super(executionOptions, testSummaryOptions);
     this.tmpDirRoot = tmpDirRoot;
   }
 
@@ -112,15 +109,15 @@ public class StandaloneTestStrategy extends TestStrategy {
         createEnvironment(
             actionExecutionContext, action, tmpDirRoot, executionOptions.splitXmlGeneration);
 
-    Map<String, String> executionInfo =
-        new TreeMap<>(action.getTestProperties().getExecutionInfo());
+    Map<String, String> executionInfo = new TreeMap<>(action.getExecutionInfo());
     if (!action.shouldAcceptCachedResult()) {
       // TODO(tjgq): We want to reject a previously cached result, but not prevent the result of the
       // current execution from being uploaded. We should introduce a separate execution requirement
       // for this.
       executionInfo.put(ExecutionRequirements.NO_CACHE, "");
     }
-    executionInfo.put(ExecutionRequirements.TIMEOUT, "" + getTimeout(action).toSeconds());
+    executionInfo.put(
+        ExecutionRequirements.TIMEOUT, Long.toString(action.getTimeout().toSeconds()));
 
     SimpleSpawn.LocalResourcesSupplier localResourcesSupplier =
         () ->
@@ -303,7 +300,7 @@ public class StandaloneTestStrategy extends TestStrategy {
       relativeTmpDir = tmpDir.asFragment();
     }
     return DEFAULT_LOCAL_POLICY.computeTestEnvironment(
-        action, clientEnv, getTimeout(action), runfilesDir.relativeTo(execRoot), relativeTmpDir);
+        action, clientEnv, runfilesDir.relativeTo(execRoot), relativeTmpDir);
   }
 
   private TestAttemptResult beginTestAttempt(
@@ -366,6 +363,12 @@ public class StandaloneTestStrategy extends TestStrategy {
       SpawnResult spawnResult, TestResultData.Builder result) {
     BuildEventStreamProtos.TestResult.ExecutionInfo.Builder executionInfo =
         BuildEventStreamProtos.TestResult.ExecutionInfo.newBuilder();
+
+    // The return of `SpawnResult#exitCode()` is noted to only be meaningful if the subprocess
+    // actually executed. In this position, `spawnResult.exitCode()` is always meaningful,
+    // because the code only runs if `spawnResult.setupSuccess()` is previously verified to
+    // be `true`.
+    executionInfo.setExitCode(spawnResult.exitCode());
 
     if (spawnResult.isCacheHit()) {
       result.setRemotelyCached(true);

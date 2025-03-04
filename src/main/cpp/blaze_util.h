@@ -99,6 +99,14 @@ void SetDebugLog(blaze_util::LoggingDetail detail);
 // This method observes the TEST_TMPDIR envvar.
 bool IsRunningWithinTest();
 
+// Gets the path to use for the file that Blaze's JVM creates to indicate it
+// observed an OOM.
+blaze_util::Path GetOOMFilePath(const blaze_util::Path& output_base);
+
+// Gets the path to use for the file that Blaze writes before it abruptly exits
+// and is unable to convey the exit code to use via the normal gRPC response.
+blaze_util::Path GetAbruptExitFilePath(const blaze_util::Path& output_base);
+
 // What WithEnvVar should do with an environment variable
 enum EnvVarAction { UNSET, SET };
 

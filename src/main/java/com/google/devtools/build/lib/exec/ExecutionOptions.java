@@ -30,7 +30,6 @@ import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
-import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingException;
@@ -533,17 +532,6 @@ public class ExecutionOptions extends OptionsBase {
   public boolean splitXmlGeneration;
 
   @Option(
-      name = "incompatible_remote_use_new_exit_code_for_lost_inputs",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.REMOTE,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          "If set to true, Bazel will use new exit code 39 instead of 34 if remote cache"
-              + "errors, including cache evictions, cause the build to fail.")
-  public boolean useNewExitCodeForLostInputs;
-
-  @Option(
       // TODO: when this flag is moved to non-experimental, rename it to a more general name
       // to reflect the new logic - it's not only about cache evictions.
       name = "experimental_remote_cache_eviction_retries",
@@ -554,12 +542,7 @@ public class ExecutionOptions extends OptionsBase {
           "The maximum number of attempts to retry if the build encountered a transient remote"
               + " cache error that would otherwise fail the build. Applies for example when"
               + " artifacts are evicted from the remote cache, or in certain cache failure"
-              + " conditions. A non-zero value will implicitly set"
-              + " --incompatible_remote_use_new_exit_code_for_lost_inputs to true. A new invocation"
-              + " id will be generated for each attempt. If you generate invocation id and provide"
-              + " it to Bazel with --invocation_id, you should not use this flag. Instead, set flag"
-              + " --incompatible_remote_use_new_exit_code_for_lost_inputs and check for the exit"
-              + " code 39.")
+              + " conditions. A new invocation id will be generated for each attempt.")
   public int remoteRetryOnTransientCacheError;
 
   /** An enum for specifying different formats of test output. */

@@ -195,13 +195,13 @@ def get_cc_toolchain_provider(ctx, attributes):
     runtime_solib_dir_base = attributes.runtime_solib_dir_base
     runtime_solib_dir = paths.get_relative(ctx.bin_dir.path, runtime_solib_dir_base)
     solib_directory = "_solib_" + toolchain_config_info.target_cpu()
-    default_sysroot = None
-    if toolchain_config_info.builtin_sysroot() != "":
-        default_sysroot = toolchain_config_info.builtin_sysroot()
-    if attributes.libc_top_label == None:
-        sysroot = default_sysroot
-    else:
+
+    if attributes.libc_top_label:
         sysroot = attributes.libc_top_label.package
+    elif toolchain_config_info.builtin_sysroot() != "":
+        sysroot = toolchain_config_info.builtin_sysroot()
+    else:
+        sysroot = None
 
     static_runtime_lib = attributes.static_runtime_lib
     if static_runtime_lib != None:
@@ -261,12 +261,6 @@ def get_cc_toolchain_provider(ctx, attributes):
         is_sibling_repository_layout = ctx.configuration.is_sibling_repository_layout(),
         stamp_binaries = ctx.configuration.stamp_binaries(),
         tool_paths = tool_paths,
-        default_sysroot = default_sysroot,
-        # The runtime sysroot should really be set from --grte_top. However, currently libc has
-        # no way to set the sysroot. The CROSSTOOL file does set the runtime sysroot, in the
-        # builtin_sysroot field. This implies that you can not arbitrarily mix and match
-        # Crosstool and libc versions, you must always choose compatible ones.
-        runtime_sysroot = default_sysroot,
         solib_dir = solib_directory,
         additional_make_variables = _additional_make_variables(toolchain_config_info.make_variables()),
         legacy_cc_flags_make_variable = _legacy_cc_flags_make_variable(toolchain_config_info.make_variables()),

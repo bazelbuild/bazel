@@ -31,9 +31,9 @@ WORKSPACE_REPOS = {
         "strip_prefix": "protobuf-29.0-rc3",
     },
     "rules_java": {
-        "archive": "rules_java-8.7.1.tar.gz",
-        "sha256": "52e7c1f297bb0c5bcbc79743922682071f6968738e73a2a039b92bad9278a469",
-        "urls": ["https://github.com/bazelbuild/rules_java/releases/download/8.7.1/rules_java-8.7.1.tar.gz"],
+        "archive": "rules_java-8.9.0.tar.gz",
+        "sha256": "8daa0e4f800979c74387e4cd93f97e576ec6d52beab8ac94710d2931c57f8d8b",
+        "urls": ["https://github.com/bazelbuild/rules_java/releases/download/8.9.0/rules_java-8.9.0.tar.gz"],
     },
     "bazel_skylib": {
         "archive": "bazel-skylib-1.6.1.tar.gz",
@@ -69,9 +69,9 @@ WORKSPACE_REPOS = {
         "urls": ["https://github.com/bazelbuild/rules_testing/releases/download/v0.6.0/rules_testing-v0.6.0.tar.gz"],
     },
     "remote_coverage_tools": {
-        "archive": "coverage_output_generator-v2.7.zip",
-        "sha256": "69fa4fdd887295e5a45e592352ad00ef6afa6a435d13e3f38f6ed338ded85dfd",
-        "urls": ["https://mirror.bazel.build/bazel_coverage_output_generator/releases/coverage_output_generator-v2.7.zip"],
+        "archive": "coverage_output_generator-v2.8.zip",
+        "sha256": "172be177db06b16632335f27d50cee0786fb1873df344852db71b2171cd6d996",
+        "urls": ["https://mirror.bazel.build/bazel_coverage_output_generator/releases/coverage_output_generator-v2.8.zip"],
     },
 }
 

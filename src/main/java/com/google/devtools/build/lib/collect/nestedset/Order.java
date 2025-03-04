@@ -50,7 +50,7 @@ import java.util.HashMap;
  * <p>The left-to-right pre-order-like ordering is implemented by running a right-to-left postorder
  * traversal and then reversing the result.
  *
- * <p>The reason naive left-to left-to-right preordering is not used here is that it does not handle
+ * <p>The reason naive left-to-right preordering is not used here is that it does not handle
  * diamond-like structures properly. For example, take the following structure (nesting downwards):
  *
  * <pre>

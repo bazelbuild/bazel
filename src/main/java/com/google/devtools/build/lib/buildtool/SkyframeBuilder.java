@@ -29,7 +29,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
-import com.google.devtools.build.lib.actions.RemoteArtifactChecker;
+import com.google.devtools.build.lib.actions.OutputChecker;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -106,7 +106,7 @@ public class SkyframeBuilder implements Builder {
       OptionsProvider options,
       @Nullable Range<Long> lastExecutionTimeRange,
       TopLevelArtifactContext topLevelArtifactContext,
-      RemoteArtifactChecker remoteArtifactChecker)
+      OutputChecker outputChecker)
       throws BuildFailedException, AbruptExitException, TestExecException, InterruptedException {
     BuildRequestOptions buildRequestOptions = options.getOptions(BuildRequestOptions.class);
     // TODO(bazel-team): Should use --experimental_fsvc_threads instead of the hardcoded constant
@@ -115,7 +115,7 @@ public class SkyframeBuilder implements Builder {
     boolean skyframeErrorHandlingRefactor =
         buildRequestOptions != null && buildRequestOptions.skyframeErrorHandlingRefactor;
     skyframeExecutor.detectModifiedOutputFiles(
-        modifiedOutputFiles, lastExecutionTimeRange, remoteArtifactChecker, fsvcThreads);
+        modifiedOutputFiles, lastExecutionTimeRange, outputChecker, fsvcThreads);
     try (SilentCloseable c = Profiler.instance().profile("configureActionExecutor")) {
       skyframeExecutor.configureActionExecutor(fileCache, actionInputPrefetcher);
     }

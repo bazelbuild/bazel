@@ -55,7 +55,7 @@ public record RegisteredExecutionPlatformsValue(
   /** {@link SkyKey} implementation used for {@link RegisteredExecutionPlatformsFunction}. */
   @AutoCodec
   @VisibleForSerialization
-  static class Key implements SkyKey {
+  public static class Key implements SkyKey {
     private static final SkyKeyInterner<Key> interner = SkyKey.newInterner();
 
     private final BuildConfigurationKey configurationKey;

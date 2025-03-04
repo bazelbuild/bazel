@@ -267,6 +267,11 @@ public class EnvironmentGroup implements Target {
   }
 
   @Override
+  public Package.Metadata getPackageMetadata() {
+    return containingPackage.getMetadata();
+  }
+
+  @Override
   public String getTargetKind() {
     return targetKind();
   }

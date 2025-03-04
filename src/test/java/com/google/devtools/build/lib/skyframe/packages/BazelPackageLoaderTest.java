@@ -66,7 +66,6 @@ public final class BazelPackageLoaderTest extends AbstractPackageLoaderTest {
     Path tools = embeddedBinaries.getRelative("embedded_tools");
     tools.getRelative("tools/cpp").createDirectoryAndParents();
     tools.getRelative("tools/osx").createDirectoryAndParents();
-    FileSystemUtils.writeIsoLatin1(tools.getRelative("WORKSPACE"), "");
     FileSystemUtils.writeIsoLatin1(tools.getRelative("MODULE.bazel"), "module(name='bazel_tools')");
     FileSystemUtils.writeIsoLatin1(tools.getRelative("tools/cpp/BUILD"), "");
     FileSystemUtils.writeIsoLatin1(
@@ -92,11 +91,18 @@ public final class BazelPackageLoaderTest extends AbstractPackageLoaderTest {
         "  pass");
     FileSystemUtils.writeIsoLatin1(
         tools.getRelative("tools/build_defs/repo/local.bzl"),
-        "def local_repository(**kwargs):",
-        "  pass",
-        "",
-        "def new_local_repository(**kwargs):",
-        "  pass");
+        """
+        def _local_repository_impl(rctx):
+          path = rctx.workspace_root.get_child(rctx.attr.path)
+          rctx.symlink(path, ".")
+        local_repository = repository_rule(
+            implementation = _local_repository_impl,
+            attrs = {"path": attr.string()},
+        )
+
+        def new_local_repository(**kwargs):
+          pass
+        """);
     FileSystemUtils.writeIsoLatin1(
         tools.getRelative("tools/build_defs/repo/utils.bzl"),
         "def maybe(repo_rule, name, **kwargs):",

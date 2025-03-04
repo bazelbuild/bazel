@@ -46,7 +46,7 @@ public sealed interface SingleToolchainResolutionDebugPrinter {
 
   void startToolchainResolution(Label toolchainType, Label targetPlatform);
 
-  void reportCompatibleTargetPlatform(Label toolchainLabel);
+  void reportCompatibleTargetPlatform(Label targetLabel, Label resolvedToolchainLabel);
 
   void reportSkippedExecutionPlatformSeen(Label executionPlatform);
 
@@ -63,7 +63,8 @@ public sealed interface SingleToolchainResolutionDebugPrinter {
       ConstraintCollection toolchainConstraints,
       boolean isTargetPlatform,
       PlatformInfo platform,
-      Label toolchainLabel,
+      Label targetLabel,
+      Label resolvedToolchainLabel,
       ImmutableSet<ConstraintSettingInfo> mismatchSettingsWithDefault);
 
   void reportDone(Label toolchainType);
@@ -83,7 +84,7 @@ public sealed interface SingleToolchainResolutionDebugPrinter {
     public void startToolchainResolution(Label toolchainType, Label targetPlatform) {}
 
     @Override
-    public void reportCompatibleTargetPlatform(Label toolchainLabel) {}
+    public void reportCompatibleTargetPlatform(Label targetLabel, Label resolvedToolchainLabel) {}
 
     @Override
     public void reportSkippedExecutionPlatformSeen(Label executionPlatform) {}
@@ -106,7 +107,8 @@ public sealed interface SingleToolchainResolutionDebugPrinter {
         ConstraintCollection toolchainConstraints,
         boolean isTargetPlatform,
         PlatformInfo platform,
-        Label toolchainLabel,
+        Label targetLabel,
+        Label resolvedToolchainLabel,
         ImmutableSet<ConstraintSettingInfo> mismatchSettingsWithDefault) {}
 
     @Override
@@ -173,11 +175,13 @@ public sealed interface SingleToolchainResolutionDebugPrinter {
     }
 
     @Override
-    public void reportCompatibleTargetPlatform(Label toolchainLabel) {
+    public void reportCompatibleTargetPlatform(Label targetLabel, Label resolvedToolchainLabel) {
       debugMessage(
           IndentLevel.TOOLCHAIN_LEVEL,
-          "Toolchain %s is compatible with target platform, searching for execution platforms:",
-          toolchainLabel);
+          "Toolchain %s (resolves to %s) is compatible with target platform, searching for"
+              + " execution platforms:",
+          targetLabel,
+          resolvedToolchainLabel);
     }
 
     @Override
@@ -225,11 +229,11 @@ public sealed interface SingleToolchainResolutionDebugPrinter {
             toolchainType,
             targetPlatform);
         resolvedToolchains.forEach(
-            (executionPlatformKey, toolchainLabel) ->
+            (executionPlatformKey, resolvedToolchainLabel) ->
                 debugMessage(
                     IndentLevel.TOOLCHAIN_LEVEL,
                     "Selected %s to run on execution platform %s",
-                    toolchainLabel,
+                    resolvedToolchainLabel,
                     executionPlatformKey.getLabel()));
       }
     }
@@ -239,7 +243,8 @@ public sealed interface SingleToolchainResolutionDebugPrinter {
         ConstraintCollection toolchainConstraints,
         boolean isTargetPlatform,
         PlatformInfo platform,
-        Label toolchainLabel,
+        Label targetLabel,
+        Label resolvedToolchainLabel,
         ImmutableSet<ConstraintSettingInfo> mismatchSettingsWithDefault) {
       if (!mismatchSettingsWithDefault.isEmpty()) {
         String mismatchValues =
@@ -262,8 +267,9 @@ public sealed interface SingleToolchainResolutionDebugPrinter {
         if (isTargetPlatform) {
           debugMessage(
               IndentLevel.TOOLCHAIN_LEVEL,
-              "Rejected toolchain %s%s",
-              toolchainLabel,
+              "Rejected toolchain %s (resolves to %s) %s",
+              targetLabel,
+              resolvedToolchainLabel,
               mismatchValues + missingSettings);
         } else {
           debugMessage(

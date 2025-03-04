@@ -35,15 +35,9 @@ import net.starlark.java.eval.Sequence;
  */
 @Immutable
 public final class ProtoInfo {
-  public static final ProtoInfoProvider PROVIDER = new ProtoInfoProvider();
 
   /** Provider class for {@link ProtoInfo} objects. */
   public static class ProtoInfoProvider extends StarlarkProviderWrapper<ProtoInfo> {
-
-    public ProtoInfoProvider() {
-      this(ProtoConstants.PROTO_INFO_KEY);
-    }
-
     public ProtoInfoProvider(BzlLoadValue.Key key) {
       super(key, "ProtoInfo");
     }

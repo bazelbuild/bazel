@@ -607,15 +607,6 @@ public class CppOptions extends FragmentOptions {
   public List<PerLabelOptions> perFileLtoBackendOpts;
 
   @Option(
-      name = "host_crosstool_top",
-      defaultValue = "null",
-      converter = LabelConverter.class,
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.NO_OP},
-      help = "No-op flag. Will be removed in a future release.")
-  public Label hostCrosstoolTop;
-
-  @Option(
       name = "host_copt",
       allowMultiple = true,
       defaultValue = "null",
@@ -898,17 +889,6 @@ public class CppOptions extends FragmentOptions {
   public boolean disableNoCopts;
 
   @Option(
-      name = "incompatible_enable_cc_test_feature",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          "When enabled, it switches Crosstool to use feature 'is_cc_test' rather than"
-              + " the link-time build variable of the same name.")
-  public boolean enableCcTestFeature;
-
-  @Option(
       name = "apple_generate_dsym",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
@@ -1088,6 +1068,28 @@ public class CppOptions extends FragmentOptions {
           "If enabled, a Starlark version of cc_test can be used which will use platform-based"
               + " toolchain() resolution to choose a test runner.")
   public boolean experimentalPlatformCcTest;
+
+  @Option(
+      name = "experimental_starlark_compiling",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {
+        OptionEffectTag.LOADING_AND_ANALYSIS,
+      },
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help = "If enabled, a Starlark version of compiling is used.")
+  public boolean experimentalStarlarkCompiling;
+
+  @Option(
+      name = "experimental_starlark_linking",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {
+        OptionEffectTag.LOADING_AND_ANALYSIS,
+      },
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help = "If enabled, a Starlark version of linking is used.")
+  public boolean experimentalStarlarkLinking;
 
   /** See {@link #targetLibcTopLabel} documentation. * */
   @Override

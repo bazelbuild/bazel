@@ -80,8 +80,8 @@ import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.FilesetOutputTree;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.MapBasedActionGraph;
+import com.google.devtools.build.lib.actions.OutputChecker;
 import com.google.devtools.build.lib.actions.PackageRoots;
-import com.google.devtools.build.lib.actions.RemoteArtifactChecker;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.ThreadStateReceiver;
 import com.google.devtools.build.lib.actions.UserExecException;
@@ -522,7 +522,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   private RemoteAnalysisCachingDependenciesProvider remoteAnalysisCachingDependenciesProvider =
       DisabledDependenciesProvider.INSTANCE;
 
-  /** Non-null only when analysis caching mode is download. */
+  /** Non-null only when analysis caching mode is upload/download. */
   @Nullable private ModifiedFileSet diffFromEvaluatingVersion;
 
   public void setRemoteAnalysisCachingDependenciesProvider(
@@ -774,8 +774,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             ruleClassProvider,
             shouldStoreTransitivePackagesInLoadingAndAnalysis(),
             this::getExistingPackage));
-    map.put(
-        SkyFunctions.BUILD_TOP_LEVEL_ASPECTS_DETAILS, new BuildTopLevelAspectsDetailsFunction());
+    map.put(SkyFunctions.BUILD_TOP_LEVEL_ASPECTS_DETAILS, new LoadTopLevelAspectsFunction());
     map.put(
         GenQueryDirectPackageProviderFactory.GENQUERY_SCOPE,
         GenQueryDirectPackageProviderFactory.FUNCTION);
@@ -857,7 +856,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     map.put(
         SkyFunctions.RECURSIVE_FILESYSTEM_TRAVERSAL,
         new RecursiveFilesystemTraversalFunction(syscallCache));
-    map.put(SkyFunctions.FILESET_ENTRY, new FilesetEntryFunction(directories::getExecRoot));
     map.put(
         SkyFunctions.ACTION_TEMPLATE_EXPANSION,
         new ActionTemplateExpansionFunction(actionKeyContext));
@@ -1732,7 +1730,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         evaluateSkyKeys(eventHandler, ImmutableList.of(mainRepositoryMappingKey));
     if (mainRepoMappingResult.hasError()) {
       throw new InvalidConfigurationException(
-          "Cannot find main repository mapping", Code.INVALID_BUILD_OPTIONS);
+          "Cannot find main repository mapping",
+          Code.INVALID_BUILD_OPTIONS,
+          mainRepoMappingResult.getError().getException());
     }
     RepositoryMappingValue mainRepositoryMappingValue =
         (RepositoryMappingValue) mainRepoMappingResult.get(mainRepositoryMappingKey);
@@ -2301,16 +2301,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   private PackageRoots getPackageRoots() {
     Root virtualSourceRoot = directories.getVirtualSourceRoot();
-    if (virtualSourceRoot == null) {
-      return new MapAsPackageRoots(collectPackageRoots());
-    }
-
-    // No need to plant symlinks when using virtual roots.
-    // TODO: b/290617036 - Reconsider this for local action support with virtual roots.
-    checkState(
-        !outputService.actionFileSystemType().shouldDoTopLevelOutputSetup(),
-        "Local actions are incompatible with virtual roots");
-    return new PackageRootsNoSymlinkCreation(virtualSourceRoot);
+    return virtualSourceRoot == null
+            || outputService == null
+            || outputService.actionFileSystemType().shouldDoTopLevelOutputSetup()
+        ? new MapAsPackageRoots(collectPackageRoots())
+        : new PackageRootsNoSymlinkCreation(checkNotNull(virtualSourceRoot));
   }
 
   @Nullable
@@ -2924,7 +2919,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   public abstract void detectModifiedOutputFiles(
       ModifiedFileSet modifiedOutputFiles,
       @Nullable Range<Long> lastExecutionTimeRange,
-      RemoteArtifactChecker remoteArtifactChecker,
+      OutputChecker outputChecker,
       int fsvcThreads)
       throws AbruptExitException, InterruptedException;
 
@@ -3249,13 +3244,14 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         executionProgressReceiver.evaluated(skyKey, state, newValue, newError, directDeps);
       }
 
-      // After a PACKAGE node is evaluated, all targets and the labels associated with this package
-      // should have been added to the InMemoryGraph. So it is safe to remove relevant labels from
-      // weak interner.
+      // After a PACKAGE node is freshly computed, all targets and the labels associated with this
+      // package should have been added to the InMemoryGraph. So it is safe to remove relevant
+      // labels from weak interner.
       LabelInterner labelInterner = Label.getLabelInterner();
       if (labelInterner.enabled()
           && skyKey.functionName().equals(SkyFunctions.PACKAGE)
-          && newValue != null) {
+          && newValue != null
+          && directDeps != null) {
         checkState(newValue instanceof PackageValue, newValue);
 
         Package pkg = ((PackageValue) newValue).getPackage();
@@ -3471,7 +3467,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
           var remoteAnalysisCachingOptions = options.getOptions(RemoteAnalysisCachingOptions.class);
           if (remoteAnalysisCachingOptions != null
-              && remoteAnalysisCachingOptions.mode.downloadForAnalysis()) {
+              && remoteAnalysisCachingOptions.mode.requiresBackendConnectivity()) {
             handleDiffsForRemoteAnalysisCaching(
                 diffAwarenessManager.getDiffFromEvaluatingVersion(
                     fileSystem, getPathForModifiedFileSet(pathEntry), ignoredPaths, options));

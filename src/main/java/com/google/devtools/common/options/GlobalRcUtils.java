@@ -21,6 +21,9 @@ public final class GlobalRcUtils {
 
   private GlobalRcUtils() {}
 
+  /* No global RC files in Bazel, so no global configs. */
+  public static final ImmutableList<String> ALLOWED_GLOBAL_CONFIGS = ImmutableList.of();
+
   private static final ImmutableList<String> GLOBAL_RC_FILES =
       ImmutableList.of(
           // LINT.IfChange

@@ -36,30 +36,35 @@ public final class PersistentMapTest {
     boolean updateJournal = true;
     boolean keepJournal = false;
 
+    private static final MapCodec<String, String> CODEC =
+        new MapCodec<String, String>() {
+          @Override
+          protected String readKey(DataInputStream in) throws IOException {
+            return in.readUTF();
+          }
+
+          @Override
+          protected String readValue(DataInputStream in) throws IOException {
+            return in.readUTF();
+          }
+
+          @Override
+          protected void writeKey(String key, DataOutputStream out) throws IOException {
+            out.writeUTF(key);
+          }
+
+          @Override
+          protected void writeValue(String value, DataOutputStream out) throws IOException {
+            out.writeUTF(value);
+          }
+        };
+
     PersistentStringMap(ConcurrentMap<String, String> map, Path mapFile, Path journalFile)
         throws IOException {
-      super(0x0, map, mapFile, journalFile);
+      super(0x0, CODEC, map, mapFile, journalFile);
       load();
     }
 
-    @Override
-    protected String readKey(DataInputStream in) throws IOException {
-      return in.readUTF();
-    }
-    @Override
-    protected String readValue(DataInputStream in) throws IOException {
-      return in.readUTF();
-    }
-    @Override
-    protected void writeKey(String key, DataOutputStream out)
-        throws IOException {
-      out.writeUTF(key);
-    }
-    @Override
-    protected void writeValue(String value, DataOutputStream out)
-        throws IOException {
-      out.writeUTF(value);
-    }
     @Override
     protected boolean updateJournal() {
       return updateJournal;
@@ -78,8 +83,9 @@ public final class PersistentMapTest {
 
   @Before
   public final void createFiles() throws Exception  {
-    mapFile = scratch.resolve("/tmp/map.txt");
-    journalFile = scratch.resolve("/tmp/journal.txt");
+    Path root = scratch.dir("/tmp");
+    mapFile = root.getChild("map.txt");
+    journalFile = root.getChild("journal.txt");
     createMap();
   }
 

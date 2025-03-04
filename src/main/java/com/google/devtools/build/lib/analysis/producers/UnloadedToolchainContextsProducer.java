@@ -13,10 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.producers;
 
-import static com.google.devtools.build.lib.packages.ExecGroup.DEFAULT_EXEC_GROUP_NAME;
+import static com.google.devtools.build.lib.packages.DeclaredExecGroup.DEFAULT_EXEC_GROUP_NAME;
 
 import com.google.devtools.build.lib.analysis.ToolchainCollection;
-import com.google.devtools.build.lib.packages.ExecGroup;
+import com.google.devtools.build.lib.packages.DeclaredExecGroup;
 import com.google.devtools.build.lib.skyframe.BaseTargetPrerequisitesSupplier;
 import com.google.devtools.build.lib.skyframe.toolchains.NoMatchingPlatformException;
 import com.google.devtools.build.lib.skyframe.toolchains.ToolchainContextKey;
@@ -112,7 +112,7 @@ public final class UnloadedToolchainContextsProducer implements StateMachine {
             .configurationKey(defaultToolchainContextKey.configurationKey())
             .debugTarget(defaultToolchainContextKey.debugTarget());
 
-    for (Map.Entry<String, ExecGroup> entry :
+    for (Map.Entry<String, DeclaredExecGroup> entry :
         unloadedToolchainContextsInputs.execGroups().entrySet()) {
       var execGroup = entry.getValue();
       var key =

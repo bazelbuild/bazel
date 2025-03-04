@@ -18,6 +18,9 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Comparators.max;
 import static com.google.common.collect.Comparators.min;
+import static com.google.devtools.build.lib.buildtool.BuildRequestOptions.MAX_JOBS;
+import static java.lang.Math.max;
+import static java.lang.Math.min;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -69,8 +72,8 @@ import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.LostInputsActionExecutionException;
 import com.google.devtools.build.lib.actions.NotifyOnActionCacheHit;
 import com.google.devtools.build.lib.actions.NotifyOnActionCacheHit.ActionCachedContext;
+import com.google.devtools.build.lib.actions.OutputChecker;
 import com.google.devtools.build.lib.actions.PackageRootResolver;
-import com.google.devtools.build.lib.actions.RemoteArtifactChecker;
 import com.google.devtools.build.lib.actions.ScanningActionEvent;
 import com.google.devtools.build.lib.actions.SpawnActionExecutionException;
 import com.google.devtools.build.lib.actions.SpawnResult;
@@ -140,10 +143,6 @@ import javax.annotation.Nullable;
 public final class SkyframeActionExecutor {
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
-
-  // Maximum concurrent actions for async execution.
-  // TODO(chiwang): Add a flag for this.
-  private static final int MAX_CONCURRENT_ACTIONS = 5000;
 
   private static final OutputMetadataStore THROWING_OUTPUT_METADATA_STORE_FOR_ACTIONFS =
       new OutputMetadataStore() {
@@ -343,10 +342,13 @@ public final class SkyframeActionExecutor {
             : null;
 
     if (buildRequestOptions.useSemaphoreForJobs || this.useAsyncExecution) {
+      var minActiveAction = buildRequestOptions.jobs;
+      var maxActiveAction =
+          this.useAsyncExecution
+              ? min(MAX_JOBS, buildRequestOptions.asyncExecutionMaxConcurrentActions)
+              : buildRequestOptions.jobs;
       this.actionConcurrencyMeter =
-          new ActionConcurrencyMeter(
-              buildRequestOptions.jobs,
-              this.useAsyncExecution ? MAX_CONCURRENT_ACTIONS : buildRequestOptions.jobs);
+          new ActionConcurrencyMeter(minActiveAction, max(minActiveAction, maxActiveAction));
     }
   }
 
@@ -687,7 +689,7 @@ public final class SkyframeActionExecutor {
     RemoteOptions remoteOptions;
     SortedMap<String, String> remoteDefaultProperties;
     EventHandler handler;
-    RemoteArtifactChecker remoteArtifactChecker = null;
+    OutputChecker outputChecker = null;
 
     if (cacheHitSemaphore != null) {
       try (SilentCloseable c = profiler.profile(ProfilerTask.ACTION_CHECK, "acquiring semaphore")) {
@@ -700,7 +702,7 @@ public final class SkyframeActionExecutor {
           remoteOptions != null
               ? remoteOptions.getRemoteDefaultExecProperties()
               : ImmutableSortedMap.of();
-      remoteArtifactChecker = outputService.getRemoteArtifactChecker();
+      outputChecker = outputService.getOutputChecker();
       handler =
           options.getOptions(BuildRequestOptions.class).explanationPath != null ? reporter : null;
       token =
@@ -714,7 +716,7 @@ public final class SkyframeActionExecutor {
               outputMetadataStore,
               artifactExpander,
               remoteDefaultProperties,
-              remoteArtifactChecker);
+              outputChecker);
 
       if (token == null) {
         boolean eventPosted = false;
@@ -756,7 +758,7 @@ public final class SkyframeActionExecutor {
                     outputMetadataStore,
                     artifactExpander,
                     remoteDefaultProperties,
-                    remoteArtifactChecker);
+                    outputChecker);
           }
         }
 
@@ -766,7 +768,7 @@ public final class SkyframeActionExecutor {
             checkOutputs(
                 action,
                 outputMetadataStore,
-                /* filesetOutputForMetrics= */ null,
+                /* actionExecutionContext= */ null,
                 /* isActionCacheHitForMetrics= */ true);
         if (!eventPosted) {
           eventHandler.post(
@@ -1258,7 +1260,7 @@ public final class SkyframeActionExecutor {
         if (!checkOutputs(
             action,
             outputMetadataStore,
-            actionExecutionContext.getFilesetOutput(),
+            actionExecutionContext,
             /* isActionCacheHitForMetrics= */ false)) {
           throw toActionExecutionException(
               "not all outputs were created or valid",
@@ -1329,16 +1331,8 @@ public final class SkyframeActionExecutor {
           fileOutErr,
           ErrorTiming.NO_ERROR);
 
-      FilesetOutputTree filesetOutput = actionExecutionContext.getFilesetOutput();
-      checkState(
-          filesetOutput.isEmpty() || action instanceof SkyframeAwareAction,
-          "Unexpected to find outputSymlinks set in an action which is not a SkyframeAwareAction."
-              + "\nAction: %s"
-              + "\nSymlinks: %s",
-          action,
-          filesetOutput);
-      return ActionExecutionValue.createFromOutputMetadataStore(
-          this.outputMetadataStore, filesetOutput, action);
+      return ActionExecutionValue.create(
+          this.outputMetadataStore, actionExecutionContext.getRichArtifactData(), action);
     }
 
     /**
@@ -1561,7 +1555,7 @@ public final class SkyframeActionExecutor {
   private boolean checkOutputs(
       Action action,
       OutputMetadataStore outputMetadataStore,
-      @Nullable FilesetOutputTree filesetOutputForMetrics,
+      ActionExecutionContext actionExecutionContext,
       boolean isActionCacheHitForMetrics)
       throws InterruptedException {
     boolean success = true;
@@ -1578,11 +1572,22 @@ public final class SkyframeActionExecutor {
               return false;
             }
 
+            // Actions implementing the mechanics of Fileset (SymlinkTreeAction and SymlinkAction)
+            // also have the fileset output tree in their ActionExecutionValue because they
+            // represent the fileset, but we want to count files in each Fileset only once. This
+            // check for checking whether this is the actual Fileset manifest action
+            // (SkyframeFilesetManifestAction) is the best I could come up with that doesn't cause
+            // too much collateral damage.
+            FilesetOutputTree filesetOutputTree =
+                action instanceof SkyframeAwareAction
+                    ? (FilesetOutputTree) actionExecutionContext.getRichArtifactData()
+                    : null;
+
             addOutputToMetrics(
                 output,
                 metadata,
                 outputMetadataStore,
-                filesetOutputForMetrics,
+                filesetOutputTree,
                 isActionCacheHitForMetrics,
                 action);
           } catch (IOException e) {

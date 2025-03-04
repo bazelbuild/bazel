@@ -601,9 +601,9 @@ EOF
 }
 
 function test_download_toplevel_test_rule() {
-  # Test that when using --remote_download_toplevel with bazel test only
-  # the test.log and test.xml file are downloaded but not the test binary.
-  # However when building a test then the test binary should be downloaded.
+  # Test that using --remote_download_toplevel downloads test.log and test.xml
+  # for a test or coverage command, but the test binary is only downloaded for
+  # a build command.
 
   mkdir -p a
   cat > a/BUILD <<EOF
@@ -618,29 +618,34 @@ EOF
 int main() { std::cout << "Hello test!" << std::endl; return 0; }
 EOF
 
-  # When invoking bazel test only test.log and test.xml should be downloaded.
   bazel test \
     --remote_executor=grpc://localhost:${worker_port} \
     --remote_download_toplevel \
-    //a:test >& $TEST_log || fail "Failed to test //a:test with remote execution"
+    //a:test >& $TEST_log || fail "Expected success"
 
-  (! [[ -f bazel-bin/a/test ]]) \
-  || fail "Expected test binary bazel-bin/a/test to not be downloaded"
+  assert_exists bazel-testlogs/a/test/test.log
+  assert_exists bazel-testlogs/a/test/test.xml
+  assert_not_exists bazel-bin/a/test
 
-  [[ -f bazel-testlogs/a/test/test.log ]] \
-  || fail "Expected toplevel output bazel-testlogs/a/test/test.log to be downloaded"
+  rm -rf bazel-out
 
-  [[ -f bazel-testlogs/a/test/test.xml ]] \
-  || fail "Expected toplevel output bazel-testlogs/a/test/test.log to be downloaded"
+  bazel coverage \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --remote_download_toplevel \
+    //a:test >& $TEST_log || fail "Expected success"
 
-  # When invoking bazel build the test binary should be downloaded.
+  assert_exists bazel-testlogs/a/test/test.log
+  assert_exists bazel-testlogs/a/test/test.xml
+  assert_not_exists bazel-bin/a/test
+
+  rm -rf bazel-out
+
   bazel build \
     --remote_executor=grpc://localhost:${worker_port} \
     --remote_download_toplevel \
-    //a:test >& $TEST_log || fail "Failed to build //a:test with remote execution"
+    //a:test >& $TEST_log || fail "Expected success"
 
-  ([[ -f bazel-bin/a/test ]]) \
-  || fail "Expected test binary bazel-bin/a/test to be downloaded"
+  assert_exists bazel-bin/a/test
 }
 
 function do_test_non_test_toplevel_targets() {
@@ -2068,17 +2073,31 @@ EOF
 
   echo "updated bar" > a/bar.in
 
-  # Incremental build triggers remote cache eviction error and Bazel tries to
-  # retry the build but failed because the invocation id is the same.
+  # Incremental build triggers remote cache eviction error and Bazel retries
+  # the build with a new invocation ID
   bazel build \
       --invocation_id=91648f28-6081-4af7-9374-cdfd3cd36ef2 \
       --remote_executor=grpc://localhost:${worker_port} \
       --remote_download_minimal \
       --experimental_remote_cache_eviction_retries=1 \
-      //a:bar >& $TEST_log && fail "Expected build to fail"
+      --build_event_text_file=bes.txt \
+      //a:bar >& $TEST_log || fail "Failed to build"
 
   expect_log 'Failed to fetch blobs because they do not exist remotely.'
-  expect_log 'Failed to retry the build: invocation id `91648f28-6081-4af7-9374-cdfd3cd36ef2` has already been used.'
+  expect_log "Found transient remote cache error, retrying the build..."
+
+  local invocation_ids=$(grep "Invocation ID:" $TEST_log)
+  local first_id=$(echo "$invocation_ids" | head -n 1)
+  if [[ "$first_id" != *"Invocation ID: 91648f28-6081-4af7-9374-cdfd3cd36ef2" ]]; then
+    fail "Expected fixed invocation ID to be preserved for the first invocation, got: $first_id"
+  fi
+  local second_id=$(echo "$invocation_ids" | tail -n 1)
+  if [[ "$second_id" == "$first_id" ]]; then
+    fail "Expected second invocation ID to be different from the fixed invocation ID"
+  fi
+
+  cat bes.txt | tr '\n' ' ' > $TEST_log
+  expect_log "uuid: \"${second_id#INFO: Invocation ID: }\""
 }
 
 function test_download_toplevel_symlinks_runfiles() {

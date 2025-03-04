@@ -88,7 +88,6 @@ import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.ShellEscaper;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
-import com.google.devtools.build.lib.vfs.IORuntimeException;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -98,6 +97,7 @@ import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import com.google.protobuf.ByteString;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.UncheckedIOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -190,7 +190,13 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
    */
   private NestedSet<Artifact> discoveredModules = null;
 
-  /** Used modules that are not transitively used through other topLevelModules. */
+  /**
+   * Used modules that are not transitively used through other topLevelModules. This field can be
+   * written and read concurrently, please use {@link #getTopLevelModules} and {@link
+   * #setTopLevelModules} for accessing it.
+   *
+   * <p>We choose synchronized methods over {@code AtomicReference} to avoid the memory overhead.
+   */
   private NestedSet<Artifact> topLevelModules;
 
   private ParamFileActionInput paramFileActionInput;
@@ -453,6 +459,14 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
         .build();
   }
 
+  private synchronized void setTopLevelModules(NestedSet<Artifact> value) {
+    this.topLevelModules = value;
+  }
+
+  private synchronized NestedSet<Artifact> getTopLevelModules() {
+    return this.topLevelModules;
+  }
+
   /** Returns the results of include scanning. */
   @Nullable
   private NestedSet<Artifact> findUsedHeaders(
@@ -472,14 +486,61 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
 
         Collections.sort(includes, Artifact.EXEC_PATH_COMPARATOR);
         return NestedSetBuilder.wrap(Order.STABLE_ORDER, includes);
-      } catch (IORuntimeException e) {
+      } catch (UncheckedIOException e) {
         throw new EnvironmentalExecException(
-            e.getCauseIOException(),
+            e.getCause(),
             createFailureDetail("Find used headers failure", Code.FIND_USED_HEADERS_IO_EXCEPTION));
       }
     } catch (ExecException e) {
       throw ActionExecutionException.fromExecException(e, "include scanning", this);
     }
+  }
+
+  /** Finds used modules based on results of include scanning. */
+  @Nullable
+  private Set<DerivedArtifact> findUsedModules(Set<Artifact> usedHeaders) {
+    if (!useHeaderModules) {
+      return null;
+    }
+    boolean separate =
+        getPrimaryOutput().equals(ccCompilationContext.getSeparateHeaderModule(usePic));
+    return ccCompilationContext.computeUsedModules(usePic, usedHeaders, separate);
+  }
+
+  /** Results of C++ module discovery. */
+  final record CppDiscoveredModules(
+      NestedSet<Artifact> transitivelyUsed, NestedSet<Artifact> topLevel) {}
+
+  /**
+   * Computes the minimal set of modules required for the compilation, based on all used modules
+   * that the include scanner found.
+   */
+  @Nullable
+  private CppDiscoveredModules findMinimalSetOfRequiredModules(
+      ActionExecutionContext actionExecutionContext, Set<DerivedArtifact> usedModules)
+      throws ActionExecutionException, InterruptedException {
+    ImmutableMap<Artifact, NestedSet<Artifact>> transitivelyUsedModules =
+        computeTransitivelyUsedModules(
+            actionExecutionContext.getEnvironmentForDiscoveringInputs(), usedModules);
+    if (transitivelyUsedModules == null) {
+      return null;
+    }
+
+    Set<Artifact> topLevel =
+        actionExecutionContext
+            .getDiscoveredModulesPruner()
+            .computeTopLevelModules(this, usedModules, transitivelyUsedModules);
+
+    NestedSetBuilder<Artifact> topLevelModulesBuilder = NestedSetBuilder.stableOrder();
+    NestedSetBuilder<Artifact> discoveredModulesBuilder = NestedSetBuilder.stableOrder();
+    for (Artifact module : topLevel) {
+      topLevelModulesBuilder.add(module);
+      discoveredModulesBuilder.addTransitive(transitivelyUsedModules.get(module));
+    }
+
+    NestedSet<Artifact> topLevelModules = topLevelModulesBuilder.build();
+    discoveredModulesBuilder.addTransitive(topLevelModules);
+    return new CppDiscoveredModules(discoveredModulesBuilder.buildInterruptibly(), topLevelModules);
   }
 
   // TODO(b/213594908): Remove this method from Action interface once CppCompileAction is immutable.
@@ -556,13 +617,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       if (additionalInputs == null) {
         return null;
       }
-
-      if (useHeaderModules) {
-        boolean separate =
-            getPrimaryOutput().equals(ccCompilationContext.getSeparateHeaderModule(usePic));
-        usedModules =
-            ccCompilationContext.computeUsedModules(usePic, additionalInputs.toSet(), separate);
-      }
+      usedModules = findUsedModules(additionalInputs.toSet());
     }
 
     if (usedModules == null) {
@@ -575,32 +630,18 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       return additionalInputs;
     }
 
-    ImmutableMap<Artifact, NestedSet<Artifact>> transitivelyUsedModules =
-        computeTransitivelyUsedModules(
-            actionExecutionContext.getEnvironmentForDiscoveringInputs(), usedModules);
-    if (transitivelyUsedModules == null) {
+    CppDiscoveredModules requiredModules =
+        findMinimalSetOfRequiredModules(actionExecutionContext, usedModules);
+    if (requiredModules == null) {
       return null;
     }
-
-    Set<Artifact> topLevel =
-        actionExecutionContext
-            .getDiscoveredModulesPruner()
-            .computeTopLevelModules(this, usedModules, transitivelyUsedModules);
-
-    NestedSetBuilder<Artifact> topLevelModulesBuilder = NestedSetBuilder.stableOrder();
-    NestedSetBuilder<Artifact> discoveredModulesBuilder = NestedSetBuilder.stableOrder();
-    for (Artifact module : topLevel) {
-      topLevelModulesBuilder.add(module);
-      discoveredModulesBuilder.addTransitive(transitivelyUsedModules.get(module));
-    }
-    topLevelModules = topLevelModulesBuilder.build();
-    discoveredModulesBuilder.addTransitive(topLevelModules);
-    NestedSet<Artifact> discoveredModules = discoveredModulesBuilder.buildInterruptibly();
-
+    setTopLevelModules(requiredModules.topLevel());
     additionalInputs =
-        NestedSetBuilder.fromNestedSet(additionalInputs).addTransitive(discoveredModules).build();
+        NestedSetBuilder.fromNestedSet(additionalInputs)
+            .addTransitive(requiredModules.transitivelyUsed())
+            .build();
     if (getPrimaryOutput().isFileType(CppFileTypes.CPP_MODULE)) {
-      this.discoveredModules = discoveredModules;
+      this.discoveredModules = requiredModules.transitivelyUsed();
     }
     usedModules = null;
     return additionalInputs;
@@ -1141,8 +1182,9 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       // Ideally the same thing would be done in both cases, but as is, we just overestimate modules
       // in the latter case using the inputs from the action cache.
       // Note that this breaks the invariant that Actions are immutable after the analysis phase.
-      if (shouldScanIncludes && topLevelModules != null) {
-        return calculateModuleVariable(topLevelModules);
+      NestedSet<Artifact> modules = shouldScanIncludes ? getTopLevelModules() : null;
+      if (modules != null) {
+        return calculateModuleVariable(modules);
       } else {
         return calculateModuleVariable(getInputs());
       }
@@ -1743,12 +1785,40 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       if (includeScanningHeaderData == null) {
         return null;
       }
-      return findUsedHeaders(
-          actionExecutionContext,
-          includeScanningHeaderData
-              .setSystemIncludeDirs(getSystemIncludeDirs())
-              .setCmdlineIncludes(getCmdlineIncludes(getCompilerOptions()))
-              .build());
+      NestedSet<Artifact> usedHeaders =
+          findUsedHeaders(
+              actionExecutionContext,
+              includeScanningHeaderData
+                  .setSystemIncludeDirs(getSystemIncludeDirs())
+                  .setCmdlineIncludes(getCmdlineIncludes(getCompilerOptions()))
+                  .build());
+      if (usedHeaders == null) {
+        return null;
+      }
+
+      Set<DerivedArtifact> usedModules = findUsedModules(usedHeaders.toSet());
+      if (usedModules == null) {
+        return usedHeaders;
+      }
+      CppDiscoveredModules requiredModules =
+          findMinimalSetOfRequiredModules(actionExecutionContext, usedModules);
+      if (requiredModules == null) {
+        return null;
+      }
+      // Update state used when forming the command line.
+      setTopLevelModules(requiredModules.topLevel());
+
+      // Note that we do not update discoveredModules here even though it would allow to avoid
+      // waste by sharing work with action execution (see discoverInputs).
+      //
+      // discoveredModules is stored only for compile actions that produce PCMs, but we need
+      // them for all actions involving modules to correctly compute results of this function.
+      // However, storing them for all actions would waste memory.
+      // We instead choose to make this function more expensive and let the people using shadowed
+      // actions and extra action pay the cost.
+      return NestedSetBuilder.fromNestedSet(usedHeaders)
+          .addTransitive(requiredModules.transitivelyUsed())
+          .build();
     } catch (CommandLineExpansionException e) {
       String message =
           String.format(

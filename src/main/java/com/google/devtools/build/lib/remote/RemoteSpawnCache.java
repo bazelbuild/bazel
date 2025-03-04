@@ -150,9 +150,9 @@ final class RemoteSpawnCache implements SpawnCache {
             fetchTime.stop();
             totalTime.stop();
             spawnMetrics
-                .setFetchTimeInMs((int) fetchTime.elapsed().toMillis())
-                .setTotalTimeInMs((int) totalTime.elapsed().toMillis())
-                .setNetworkTimeInMs((int) action.getNetworkTime().getDuration().toMillis());
+                .setFetchTime(fetchTime.elapsed())
+                .setTotalTime(totalTime.elapsed())
+                .setNetworkTime(action.getNetworkTime().getDuration());
             SpawnResult spawnResult =
                 createSpawnResult(
                     digestUtil,
@@ -194,9 +194,9 @@ final class RemoteSpawnCache implements SpawnCache {
           }
           if (previousResult != null) {
             spawnMetrics
-                .setFetchTimeInMs((int) fetchTime.elapsed().toMillis())
-                .setTotalTimeInMs((int) totalTime.elapsed().toMillis())
-                .setNetworkTimeInMs((int) action.getNetworkTime().getDuration().toMillis());
+                .setFetchTime(fetchTime.elapsed())
+                .setTotalTime(totalTime.elapsed())
+                .setNetworkTime(action.getNetworkTime().getDuration());
             SpawnMetrics buildMetrics = spawnMetrics.build();
             return SpawnCache.success(
                 new SpawnResult.DelegateSpawnResult(previousResult) {

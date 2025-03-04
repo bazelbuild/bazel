@@ -172,7 +172,7 @@ public abstract sealed class CommandLines {
   public void addToFingerprint(
       ActionKeyContext actionKeyContext,
       @Nullable ArtifactExpander artifactExpander,
-      CoreOptions.OutputPathsMode outputPathsMode,
+      CoreOptions.OutputPathsMode effectiveOutputPathsMode,
       Fingerprint fingerprint)
       throws CommandLineExpansionException, InterruptedException {
     ImmutableList<CommandLineAndParamFileInfo> commandLines = unpack();
@@ -180,7 +180,7 @@ public abstract sealed class CommandLines {
       CommandLine commandLine = pair.commandLine;
       ParamFileInfo paramFileInfo = pair.paramFileInfo;
       commandLine.addToFingerprint(
-          actionKeyContext, artifactExpander, outputPathsMode, fingerprint);
+          actionKeyContext, artifactExpander, effectiveOutputPathsMode, fingerprint);
       if (paramFileInfo != null) {
         addParamFileInfoToFingerprint(paramFileInfo, fingerprint);
       }

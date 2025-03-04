@@ -14,13 +14,10 @@
 
 package com.google.devtools.build.lib.rules.proto;
 
-import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuiltins;
-
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import javax.annotation.Nullable;
@@ -36,11 +33,6 @@ import net.starlark.java.eval.StarlarkList;
 @AutoValue
 public abstract class ProtoLangToolchainProvider {
   private static final String PROVIDER_NAME = "ProtoLangToolchainInfo";
-  private static final StarlarkProvider.Key builtinProtoLangToolchainKey =
-      new StarlarkProvider.Key(
-          keyForBuiltins(
-              Label.parseCanonicalUnchecked("@_builtins//:common/proto/proto_common.bzl")),
-          PROVIDER_NAME);
 
   public static final StarlarkProvider.Key protobufProtoLangToolchainKey =
       new StarlarkProvider.Key(ProtoConstants.PROTO_LANG_TOOLCHAIN_INFO, PROVIDER_NAME);
@@ -71,10 +63,7 @@ public abstract class ProtoLangToolchainProvider {
   public abstract String mnemonic();
 
   public static ProtoLangToolchainProvider get(TransitiveInfoCollection prerequisite) {
-    StarlarkInfo provider = (StarlarkInfo) prerequisite.get(builtinProtoLangToolchainKey);
-    if (provider == null) {
-      provider = (StarlarkInfo) prerequisite.get(protobufProtoLangToolchainKey);
-    }
+    StarlarkInfo provider = (StarlarkInfo) prerequisite.get(protobufProtoLangToolchainKey);
     return wrapStarlarkProviderWithNativeProvider(provider);
   }
 

@@ -61,13 +61,13 @@ public final class SymlinkTreeStrategyTest extends BuildViewTestCase {
   }
 
   @Test
-  public void outputServiceInteraction() throws Exception {
+  public void withOutputService() throws Exception {
     ActionExecutionContext context = mock(ActionExecutionContext.class);
     OutputService outputService = mock(OutputService.class);
     StoredEventHandler eventHandler = new StoredEventHandler();
 
     when(context.getContext(SymlinkTreeActionContext.class))
-        .thenReturn(new SymlinkTreeStrategy(outputService, getExecRoot(), null, "__main__"));
+        .thenReturn(new SymlinkTreeStrategy(outputService, getExecRoot(), "__main__"));
     when(context.getInputPath(any())).thenAnswer((i) -> ((Artifact) i.getArgument(0)).getPath());
     when(context.getPathResolver()).thenReturn(ArtifactPathResolver.IDENTITY);
     when(context.getEventHandler()).thenReturn(eventHandler);
@@ -107,7 +107,7 @@ public final class SymlinkTreeStrategyTest extends BuildViewTestCase {
             outputManifest,
             /* repoMappingManifest= */ null,
             ActionEnvironment.EMPTY,
-            RunfileSymlinksMode.EXTERNAL,
+            RunfileSymlinksMode.CREATE,
             "workspace");
 
     action.execute(context);
@@ -124,14 +124,14 @@ public final class SymlinkTreeStrategyTest extends BuildViewTestCase {
   }
 
   @Test
-  public void inprocessSymlinkCreation() throws Exception {
+  public void withoutOutputService() throws Exception {
     ActionExecutionContext context = mock(ActionExecutionContext.class);
     OutputService outputService = mock(OutputService.class);
     StoredEventHandler eventHandler = new StoredEventHandler();
 
     when(context.getExecRoot()).thenReturn(getExecRoot());
     when(context.getContext(SymlinkTreeActionContext.class))
-        .thenReturn(new SymlinkTreeStrategy(outputService, getExecRoot(), null, "__main__"));
+        .thenReturn(new SymlinkTreeStrategy(outputService, null, "__main__"));
     when(context.getInputPath(any())).thenAnswer((i) -> ((Artifact) i.getArgument(0)).getPath());
     when(context.getEventHandler()).thenReturn(eventHandler);
     when(outputService.canCreateSymlinkTree()).thenReturn(false);
@@ -163,7 +163,7 @@ public final class SymlinkTreeStrategyTest extends BuildViewTestCase {
             outputManifest,
             /* repoMappingManifest= */ null,
             ActionEnvironment.EMPTY,
-            RunfileSymlinksMode.INTERNAL,
+            RunfileSymlinksMode.CREATE,
             "workspace");
 
     action.execute(context);

@@ -78,15 +78,6 @@ public sealed class JavaInfo extends NativeInfo
 
   @SerializationConstant public static final JavaInfoProvider PROVIDER = new JavaInfoProvider();
 
-  // Ideally we would check if the target has a JavaInfo, but this check predates the Starlark
-  // sandwich and consumers depend on this returning `false` for java_binary/java_test targets. When
-  // these are in Starlark, this check will need to exclude the latter targets by checking for
-  // `JavaInfo._is_binary`
-  public static boolean isJavaLibraryesqueTarget(TransitiveInfoCollection target)
-      throws RuleErrorException {
-    return JavaInfo.getCompilationArgsProvider(target).isPresent();
-  }
-
   public static NestedSet<Artifact> transitiveRuntimeJars(TransitiveInfoCollection target)
       throws RuleErrorException {
     return transformStarlarkDepsetApi(target, JavaInfo::getTransitiveRuntimeJars);

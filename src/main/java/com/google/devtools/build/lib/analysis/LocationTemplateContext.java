@@ -85,7 +85,7 @@ final class LocationTemplateContext implements TemplateContext {
             () -> LocationExpander.buildLocationMap(ruleContext, labelMap, allowData, collectSrcs)),
         execPaths,
         ruleContext.getConfiguration().legacyExternalRunfiles(),
-        ruleContext.getRule().getPackage().getRepositoryMapping(),
+        ruleContext.getRule().getPackageMetadata().repositoryMapping(),
         windowsPath,
         ruleContext.getWorkspaceName());
   }

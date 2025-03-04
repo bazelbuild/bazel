@@ -129,11 +129,8 @@ import com.google.protobuf.ByteString;
 import com.google.protobuf.ExtensionRegistry;
 import com.google.protobuf.Message;
 import io.grpc.Status.Code;
-import io.reactivex.rxjava3.annotations.NonNull;
 import io.reactivex.rxjava3.core.Scheduler;
 import io.reactivex.rxjava3.core.Single;
-import io.reactivex.rxjava3.core.SingleObserver;
-import io.reactivex.rxjava3.disposables.Disposable;
 import io.reactivex.rxjava3.schedulers.Schedulers;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -160,6 +157,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.Phaser;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
@@ -1160,6 +1158,15 @@ public class RemoteExecutionService {
     return new DirectoryMetadata(filesBuilder.build(), symlinksBuilder.build());
   }
 
+  // The Tree message representing an empty directory.
+  private static final Tree EMPTY_DIRECTORY =
+      Tree.newBuilder().setRoot(Directory.getDefaultInstance()).build();
+
+  static {
+    // See logic in parseActionResultMetadata below.
+    Preconditions.checkState(EMPTY_DIRECTORY.toByteString().size() == 2);
+  }
+
   static ActionResultMetadata parseActionResultMetadata(
       CombinedCache combinedCache,
       DigestUtil digestUtil,
@@ -1173,13 +1180,25 @@ public class RemoteExecutionService {
         Maps.newHashMapWithExpectedSize(result.getOutputDirectoriesCount());
     for (OutputDirectory dir : result.getOutputDirectoriesList()) {
       var outputPath = dir.getPath();
-      dirMetadataDownloads.put(
-          remotePathResolver.outputPathToLocalPath(unicodeToInternal(outputPath)),
-          Futures.transformAsync(
-              combinedCache.downloadBlob(context, outputPath, dir.getTreeDigest()),
-              (treeBytes) ->
-                  immediateFuture(Tree.parseFrom(treeBytes, ExtensionRegistry.getEmptyRegistry())),
-              directExecutor()));
+      var localPath = remotePathResolver.outputPathToLocalPath(unicodeToInternal(outputPath));
+      if (dir.getTreeDigest().getSizeBytes() == 2) {
+        // A valid Tree message contains at least a non-empty root field. The only way for a Tree
+        // message to have a size of 2 bytes is if the root field is the only non-empty field and
+        // the Directory message in the root field is empty, which corresponds to one byte for the
+        // LEN tag and field number and one byte for the zero-length varint. Since empty tree
+        // artifacts are relatively common (e.g., as the undeclared test output directory), we avoid
+        // downloading these messages here.
+        dirMetadataDownloads.put(localPath, immediateFuture(EMPTY_DIRECTORY));
+      } else {
+        dirMetadataDownloads.put(
+            localPath,
+            Futures.transformAsync(
+                combinedCache.downloadBlob(context, outputPath, dir.getTreeDigest()),
+                (treeBytes) ->
+                    immediateFuture(
+                        Tree.parseFrom(treeBytes, ExtensionRegistry.getEmptyRegistry())),
+                directExecutor()));
+      }
     }
 
     waitForBulkTransfer(dirMetadataDownloads.values(), /* cancelRemainingOnInterrupt= */ true);
@@ -1645,7 +1664,7 @@ public class RemoteExecutionService {
         try {
           if (outputArtifact.isDirectory()) {
             tmpPath.createDirectory();
-            FileSystemUtils.copyTreesBelow(sourcePath, tmpPath, Symlinks.NOFOLLOW);
+            FileSystemUtils.copyTreesBelow(sourcePath, tmpPath);
           } else if (outputArtifact.isSymlink()) {
             FileSystemUtils.ensureSymbolicLink(tmpPath, sourcePath.readSymbolicLink());
           } else {
@@ -1795,45 +1814,33 @@ public class RemoteExecutionService {
 
     if (remoteOptions.remoteCacheAsync
         && !action.getSpawn().getResourceOwner().mayModifySpawnOutputsAfterExecution()) {
-      Single.using(
-              combinedCache::retain,
-              combinedCache ->
-                  buildUploadManifestAsync(action, spawnResult)
-                      .flatMap(
-                          manifest ->
-                              manifest.uploadAsync(
-                                  action.getRemoteActionExecutionContext(),
-                                  combinedCache,
-                                  reporter)),
-              CombinedCache::release)
-          .subscribeOn(scheduler)
-          .subscribe(
-              new SingleObserver<ActionResult>() {
-                long startTime = 0;
-
-                @Override
-                public void onSubscribe(@NonNull Disposable d) {
-                  backgroundTaskPhaser.register();
-                  startTime = Profiler.nanoTimeMaybe();
-                }
-
-                @Override
-                public void onSuccess(@NonNull ActionResult actionResult) {
-                  Profiler.instance()
-                      .completeTask(startTime, ProfilerTask.UPLOAD_TIME, "upload outputs");
-                  backgroundTaskPhaser.arriveAndDeregister();
-                  onUploadComplete.run();
-                }
-
-                @Override
-                public void onError(@NonNull Throwable e) {
-                  Profiler.instance()
-                      .completeTask(startTime, ProfilerTask.UPLOAD_TIME, "upload outputs");
-                  backgroundTaskPhaser.arriveAndDeregister();
-                  reportUploadError(e);
-                  onUploadComplete.run();
-                }
-              });
+      AtomicLong startTime = new AtomicLong();
+      var unused =
+          Single.using(
+                  () -> {
+                    backgroundTaskPhaser.register();
+                    CombinedCache cache = combinedCache.retain();
+                    startTime.set(Profiler.nanoTimeMaybe());
+                    return cache;
+                  },
+                  combinedCache ->
+                      buildUploadManifestAsync(action, spawnResult)
+                          .flatMap(
+                              manifest ->
+                                  manifest.uploadAsync(
+                                      action.getRemoteActionExecutionContext(),
+                                      combinedCache,
+                                      reporter)),
+                  cacheResource -> {
+                    Profiler.instance()
+                        .completeTask(startTime.get(), ProfilerTask.UPLOAD_TIME, "upload outputs");
+                    backgroundTaskPhaser.arriveAndDeregister();
+                    onUploadComplete.run();
+                    cacheResource.release();
+                  },
+                  /* eager= */ false)
+              .subscribeOn(scheduler)
+              .subscribe(result -> {}, this::reportUploadError);
     } else {
       try (SilentCloseable c =
           Profiler.instance().profile(ProfilerTask.UPLOAD_TIME, "upload outputs")) {

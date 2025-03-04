@@ -57,7 +57,6 @@ import com.google.devtools.build.lib.actions.BuildConfigurationEvent;
 import com.google.devtools.build.lib.actions.DiscoveredModulesPruner;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
-import com.google.devtools.build.lib.actions.FilesetOutputTree;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.PackageRootResolver;
 import com.google.devtools.build.lib.actions.RunfilesArtifactValue;
@@ -70,6 +69,7 @@ import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnActionTemplate;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
+import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -236,10 +236,10 @@ public final class ActionsTestUtil {
   public static ActionExecutionValue createActionExecutionValue(
       ImmutableMap<Artifact, FileArtifactValue> artifactData,
       ImmutableMap<Artifact, TreeArtifactValue> treeArtifactData) {
-    return ActionExecutionValue.createFromOutputMetadataStore(
+    return ActionExecutionValue.create(
         artifactData,
         treeArtifactData,
-        FilesetOutputTree.EMPTY,
+        /* richArtifactData= */ null,
         /* discoveredModules= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER));
   }
 
@@ -381,7 +381,7 @@ public final class ActionsTestUtil {
               BuildEventStreamProtos.BuildEventId.getDefaultInstance(),
               BuildEventStreamProtos.BuildEvent.getDefaultInstance()),
           /* isToolConfiguration= */ false,
-          /* executionPlatform= */ null,
+          /* executionPlatform= */ PlatformInfo.EMPTY_PLATFORM_INFO,
           /* aspectDescriptors= */ ImmutableList.of(),
           /* execProperties= */ ImmutableMap.of());
 

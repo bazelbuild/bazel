@@ -357,7 +357,8 @@ public class BlazeServerStartupOptions extends OptionsBase {
               + "messages and logging")
   public String productName;
 
-  // TODO(ulfjack): Make this a command option.
+  // TODO: b/231429363 - Make this startup option default off before safely removing all its
+  // references from the depot in six months.
   @Option(
       name = "write_command_log",
       defaultValue = "true", // NOTE: only for documentation, value is always passed by the client.

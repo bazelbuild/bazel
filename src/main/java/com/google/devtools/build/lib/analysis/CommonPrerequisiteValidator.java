@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.packages.FunctionSplitTransitionAllowlist;
 import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.MacroInstance;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
-import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
@@ -173,13 +172,13 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
   // MacroInstance.
   private boolean isVisibleToDeclaration(
       ConfiguredTargetAndData prerequisite, Object consumingDeclaration) {
-    Package pkg;
+    PackageIdentifier consumingDeclarationPkg;
     @Nullable MacroInstance declaringMacro;
     if (consumingDeclaration instanceof Rule target) {
-      pkg = target.getPackage();
+      consumingDeclarationPkg = target.getPackageMetadata().packageIdentifier();
       declaringMacro = target.getDeclaringMacro();
     } else if (consumingDeclaration instanceof MacroInstance macroInstance) {
-      pkg = macroInstance.getPackage();
+      consumingDeclarationPkg = macroInstance.getPackageMetadata().packageIdentifier();
       declaringMacro = macroInstance.getParent();
     } else {
       throw new IllegalArgumentException(
@@ -205,7 +204,7 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
             // Macro's location.
             ? declaringMacro.getMacroClass().getDefiningBzlLabel().getPackageIdentifier()
             // BUILD file's location.
-            : pkg.getPackageIdentifier();
+            : consumingDeclarationPkg;
 
     return isVisibleToLocation(prerequisite, ruleTargetLocation);
   }

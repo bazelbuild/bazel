@@ -33,7 +33,6 @@ java_library(
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party:junit4",
-        "//third_party:mockito",
         "//third_party:truth",
         "//third_party/pprof:profile_java_proto",
         "@com_google_protobuf//:protobuf_java",
@@ -84,5 +83,82 @@ java_test(
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
+    ],
+)
+
+java_test(
+    name = "VersionedChangesTest",
+    srcs = ["VersionedChangesTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:versioned_changes",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
+    name = "FileSystemDependenciesTest",
+    srcs = ["FileSystemDependenciesTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:file_dependency_deserializer",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:versioned_changes",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
+    name = "FileOpMatchMemoizingLookupTest",
+    srcs = ["FileOpMatchMemoizingLookupTest.java"],
+    deps = [
+        ":controllable_file_dependencies",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:file_dependency_deserializer",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:versioned_changes",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:versioned_changes_validator",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+        "@maven//:com_google_testparameterinjector_test_parameter_injector",
+    ],
+)
+
+java_test(
+    name = "NestedMatchMemoizingLookupTest",
+    srcs = ["NestedMatchMemoizingLookupTest.java"],
+    deps = [
+        ":controllable_file_dependencies",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:file_dependency_deserializer",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:versioned_changes",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:versioned_changes_validator",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+        "@maven//:com_google_testparameterinjector_test_parameter_injector",
+    ],
+)
+
+java_test(
+    name = "VersionedChangesValidatorTest",
+    srcs = ["VersionedChangesValidatorTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:file_dependency_deserializer",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:versioned_changes",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:versioned_changes_validator",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+        "@maven//:com_google_testparameterinjector_test_parameter_injector",
+    ],
+)
+
+java_library(
+    name = "controllable_file_dependencies",
+    srcs = ["ControllableFileDependencies.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:file_dependency_deserializer",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:versioned_changes",
+        "//third_party:guava",
     ],
 )

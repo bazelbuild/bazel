@@ -13,17 +13,15 @@
 // limitations under the License.
 package com.google.devtools.build.lib.exec;
 
-import static com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.RunfileSymlinksMode.SKIP;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.base.Throwables;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.RunfilesTree;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.RunfileSymlinksMode;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.util.OS;
-import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.DigestUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -47,7 +45,6 @@ import javax.annotation.concurrent.ThreadSafe;
 @ThreadSafe
 public class RunfilesTreeUpdater {
   private final Path execRoot;
-  private final BinTools binTools;
   private final XattrProvider xattrProvider;
 
   /**
@@ -62,19 +59,16 @@ public class RunfilesTreeUpdater {
       new ConcurrentHashMap<>();
 
   public static RunfilesTreeUpdater forCommandEnvironment(CommandEnvironment env) {
-    return new RunfilesTreeUpdater(
-        env.getExecRoot(), env.getBlazeWorkspace().getBinTools(), env.getXattrProvider());
+    return new RunfilesTreeUpdater(env.getExecRoot(), env.getXattrProvider());
   }
 
-  public RunfilesTreeUpdater(Path execRoot, BinTools binTools, XattrProvider xattrProvider) {
+  public RunfilesTreeUpdater(Path execRoot, XattrProvider xattrProvider) {
     this.execRoot = execRoot;
-    this.binTools = binTools;
     this.xattrProvider = xattrProvider;
   }
 
   /** Creates or updates input runfiles trees for a spawn. */
-  public void updateRunfiles(
-      Iterable<RunfilesTree> runfilesTrees, ImmutableMap<String, String> env, OutErr outErr)
+  public void updateRunfiles(Iterable<RunfilesTree> runfilesTrees)
       throws ExecException, IOException, InterruptedException {
     for (RunfilesTree tree : runfilesTrees) {
       PathFragment runfilesDir = tree.getExecPath();
@@ -88,7 +82,7 @@ public class RunfilesTreeUpdater {
       if (priorFuture == null) {
         // We are the first attempt; update the runfiles tree and mark the future complete.
         try {
-          updateRunfilesTree(tree, env, outErr);
+          updateRunfilesTree(tree);
           freshFuture.complete(null);
         } catch (Exception e) {
           freshFuture.completeExceptionally(e);
@@ -112,9 +106,7 @@ public class RunfilesTreeUpdater {
     }
   }
 
-  private void updateRunfilesTree(
-      RunfilesTree tree, ImmutableMap<String, String> env, OutErr outErr)
-      throws IOException, ExecException, InterruptedException {
+  private void updateRunfilesTree(RunfilesTree tree) throws IOException, ExecException {
     Path runfilesDir = execRoot.getRelative(tree.getExecPath());
     Path inputManifest =
         execRoot.getRelative(RunfilesSupport.inputManifestExecPath(tree.getExecPath()));
@@ -133,7 +125,7 @@ public class RunfilesTreeUpdater {
       // which we must not treat as up to date, but we also don't want to unnecessarily rebuild the
       // runfiles directory all the time. Instead, check for the presence of the first runfile in
       // the manifest. If it is present, we can be certain that the previous mode wasn't SKIP.
-      if (tree.getSymlinksMode() != SKIP
+      if (tree.getSymlinksMode() == RunfileSymlinksMode.CREATE
           && !outputManifest.isSymbolicLink()
           && Arrays.equals(
               DigestUtils.getDigestWithManualFallback(outputManifest, xattrProvider),
@@ -151,21 +143,13 @@ public class RunfilesTreeUpdater {
     }
 
     SymlinkTreeHelper helper =
-        new SymlinkTreeHelper(
-            execRoot,
-            inputManifest,
-            outputManifest,
-            runfilesDir,
-            /* filesetTree= */ false,
-            tree.getWorkspaceName());
+        new SymlinkTreeHelper(inputManifest, outputManifest, runfilesDir, tree.getWorkspaceName());
 
-    switch (tree.getSymlinksMode()) {
-      case SKIP -> helper.clearRunfilesDirectory();
-      case EXTERNAL -> helper.createSymlinksUsingCommand(binTools, env, outErr);
-      case INTERNAL -> {
-        helper.createRunfilesSymlinksDirectly(tree.getMapping());
-        outputManifest.createSymbolicLink(inputManifest);
-      }
+    if (tree.getSymlinksMode() == RunfileSymlinksMode.CREATE) {
+      helper.createRunfilesSymlinks(tree.getMapping());
+      outputManifest.createSymbolicLink(inputManifest);
+    } else {
+      helper.clearRunfilesDirectory();
     }
   }
 

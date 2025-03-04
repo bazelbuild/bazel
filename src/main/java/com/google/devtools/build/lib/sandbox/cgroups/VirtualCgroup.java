@@ -31,6 +31,8 @@ import com.google.devtools.build.lib.sandbox.cgroups.controller.v1.LegacyCpu;
 import com.google.devtools.build.lib.sandbox.cgroups.controller.v1.LegacyMemory;
 import com.google.devtools.build.lib.sandbox.cgroups.controller.v2.UnifiedCpu;
 import com.google.devtools.build.lib.sandbox.cgroups.controller.v2.UnifiedMemory;
+import com.google.devtools.build.lib.sandbox.cgroups.proto.CgroupsInfoProtos.CgroupControllerInfo;
+import com.google.devtools.build.lib.sandbox.cgroups.proto.CgroupsInfoProtos.CgroupsInfo;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -66,6 +68,8 @@ public abstract class VirtualCgroup implements Cgroup {
   @Override
   public abstract ImmutableSet<Path> paths();
 
+  public abstract CgroupsInfo cgroupsInfo();
+
   private final Queue<VirtualCgroup> children = new ConcurrentLinkedQueue<>();
 
   public static VirtualCgroup getInstance() {
@@ -89,7 +93,7 @@ public abstract class VirtualCgroup implements Cgroup {
   }
 
   public static final VirtualCgroup NULL =
-      new AutoValue_VirtualCgroup(null, null, ImmutableSet.of());
+      new AutoValue_VirtualCgroup(null, null, ImmutableSet.of(), CgroupsInfo.getDefaultInstance());
 
   static VirtualCgroup createRoot() throws IOException {
     return createRoot(PROC_SELF_MOUNTS_PATH, PROC_SELF_CGROUP_PATH);
@@ -118,6 +122,7 @@ public abstract class VirtualCgroup implements Cgroup {
     Controller.Memory memory = null;
     Controller.Cpu cpu = null;
     ImmutableSet.Builder<Path> paths = ImmutableSet.builder();
+    CgroupsInfo.Builder cgroupsInfo = CgroupsInfo.newBuilder();
 
     for (Mount m : mounts) {
       if (memory != null && cpu != null) {
@@ -139,7 +144,14 @@ public abstract class VirtualCgroup implements Cgroup {
           logger.atInfo().log(
               "Due to the no internal processes rule, using cgroup %s instead.", cgroup);
         }
-        if (!cgroup.toFile().canWrite()) {
+        boolean isCgroupWritable = cgroup.toFile().canWrite();
+        cgroupsInfo.addCgroupControllers(
+            CgroupControllerInfo.newBuilder()
+                .setPath(cgroup.toString())
+                .setIsWritable(isCgroupWritable)
+                .setVersion(CgroupControllerInfo.Version.V2)
+                .build());
+        if (!isCgroupWritable) {
           logger.atInfo().log("Found non-writable cgroup v2 at %s", cgroup);
           continue;
         }
@@ -173,7 +185,14 @@ public abstract class VirtualCgroup implements Cgroup {
             continue;
           }
           Path cgroup = m.path().resolve(Path.of("/").relativize(h.path()));
-          if (!cgroup.toFile().canWrite()) {
+          boolean isCgroupWritable = cgroup.toFile().canWrite();
+          cgroupsInfo.addCgroupControllers(
+              CgroupControllerInfo.newBuilder()
+                  .setPath(cgroup.toString())
+                  .setIsWritable(isCgroupWritable)
+                  .setVersion(CgroupControllerInfo.Version.V1)
+                  .build());
+          if (!isCgroupWritable) {
             logger.atInfo().log("Found non-writable cgroup v1 at %s", cgroup);
             continue;
           }
@@ -200,13 +219,16 @@ public abstract class VirtualCgroup implements Cgroup {
       }
     }
 
-    return new AutoValue_VirtualCgroup(cpu, memory, paths.build());
+    return new AutoValue_VirtualCgroup(cpu, memory, paths.build(), cgroupsInfo.build());
   }
 
   @VisibleForTesting
   public static VirtualCgroup create(
-      Controller.Cpu cpu, Controller.Memory memory, ImmutableSet<Path> paths) {
-    return new AutoValue_VirtualCgroup(cpu, memory, paths);
+      Controller.Cpu cpu,
+      Controller.Memory memory,
+      ImmutableSet<Path> paths,
+      CgroupsInfo cgroupsInfo) {
+    return new AutoValue_VirtualCgroup(cpu, memory, paths, cgroupsInfo);
   }
 
   @Override
@@ -227,7 +249,11 @@ public abstract class VirtualCgroup implements Cgroup {
       cpu = cpu().child(name);
       paths.add(cpu.getPath());
     }
-    VirtualCgroup child = new AutoValue_VirtualCgroup(cpu, memory, paths.build());
+    // We don't create the CgroupsInfo for the child cgroups. Theoretically, when the root cgroup is
+    // user-writable, then the child cgroups are also user-writable. We can revisit this if we
+    // observe strange behaviors in the future.
+    VirtualCgroup child =
+        new AutoValue_VirtualCgroup(cpu, memory, paths.build(), CgroupsInfo.getDefaultInstance());
     this.children.add(child);
     return child;
   }

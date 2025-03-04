@@ -322,7 +322,8 @@ class PyRunfilesLibraryTest(test_base.TestBase):
 
     _, stdout, _ = self.RunBazel(['run', '@other_repo//other_pkg:binary'])
     self.assertIn(
-        "in external/other_repo/other_pkg/binary.py: '+_repo_rules+other_repo'",
+        'in external/other_repo/other_pkg/binary.py:'
+        " '+local_repository+other_repo'",
         stdout,
     )
     self.assertIn('in pkg/library.py: \'\'', stdout)
@@ -331,7 +332,8 @@ class PyRunfilesLibraryTest(test_base.TestBase):
         ['test', '@other_repo//other_pkg:test', '--test_output=streamed']
     )
     self.assertIn(
-        "in external/other_repo/other_pkg/test.py: '+_repo_rules+other_repo'",
+        'in external/other_repo/other_pkg/test.py:'
+        " '+local_repository+other_repo'",
         stdout,
     )
     self.assertIn('in pkg/library.py: \'\'', stdout)

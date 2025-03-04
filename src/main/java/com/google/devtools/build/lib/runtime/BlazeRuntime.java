@@ -77,6 +77,8 @@ import com.google.devtools.build.lib.runtime.CommandDispatcher.LockingMode;
 import com.google.devtools.build.lib.runtime.CommandDispatcher.UiVerbosity;
 import com.google.devtools.build.lib.runtime.InstrumentationOutputFactory.DestinationRelativeTo;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
+import com.google.devtools.build.lib.sandbox.cgroups.VirtualCgroup;
+import com.google.devtools.build.lib.sandbox.cgroups.proto.CgroupsInfoProtos.CgroupsInfo;
 import com.google.devtools.build.lib.server.CommandProtos.EnvironmentVariable;
 import com.google.devtools.build.lib.server.CommandProtos.ExecRequest;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -195,7 +197,6 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
   private final String productName;
   private final BuildEventArtifactUploaderFactoryMap buildEventArtifactUploaderFactoryMap;
   private final ActionKeyContext actionKeyContext;
-  private final ImmutableMap<String, AuthHeadersProvider> authHeadersProviderMap;
   @Nullable private final RepositoryRemoteExecutorFactory repositoryRemoteExecutorFactory;
 
   // Workspace state (currently exactly one workspace per server)
@@ -206,6 +207,8 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
   @SuppressWarnings("unused")
   @Nullable
   private final FileSystemLock installBaseLock;
+
+  private final CgroupsInfo cgroupsInfo;
 
   private BlazeRuntime(
       FileSystem fileSystem,
@@ -228,7 +231,6 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       Iterable<BlazeCommand> commands,
       String productName,
       BuildEventArtifactUploaderFactoryMap buildEventArtifactUploaderFactoryMap,
-      ImmutableMap<String, AuthHeadersProvider> authHeadersProviderMap,
       RepositoryRemoteExecutorFactory repositoryRemoteExecutorFactory,
       InstrumentationOutputFactory instrumentationOutputFactory,
       FileSystemLock installBaseLock) {
@@ -258,11 +260,10 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
         new CommandNameCacheImpl(commandMap));
     this.productName = productName;
     this.buildEventArtifactUploaderFactoryMap = buildEventArtifactUploaderFactoryMap;
-    this.authHeadersProviderMap =
-        Preconditions.checkNotNull(authHeadersProviderMap, "authHeadersProviderMap");
     this.repositoryRemoteExecutorFactory = repositoryRemoteExecutorFactory;
     this.instrumentationOutputFactory = instrumentationOutputFactory;
     this.installBaseLock = installBaseLock;
+    this.cgroupsInfo = VirtualCgroup.getInstance().cgroupsInfo();
   }
 
   public BlazeWorkspace initWorkspace(BlazeDirectories directories, BinTools binTools)
@@ -577,13 +578,12 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
    *
    * @param moduleClass a class or interface that we want to match to a module
    * @param <T> the type of the module's class
-   * @return a module that is an instance of this class or interface
+   * @return a module that is an instance of the given class or interface
    */
-  @SuppressWarnings("unchecked")
   public <T> T getBlazeModule(Class<T> moduleClass) {
     for (BlazeModule module : blazeModules) {
       if (moduleClass.isInstance(module)) {
-        return (T) module;
+        return moduleClass.cast(module);
       }
     }
     return null;
@@ -1435,6 +1435,9 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
 
     CustomExitCodePublisher.setAbruptExitStatusFileDir(
         serverDirectories.getOutputBase().getPathString());
+    // Delete the previous file, if any, in case this server is reusing an existing output base
+    // from a previous server that had an abrupt exit.
+    CustomExitCodePublisher.maybeDeleteAbruptExitStatusFile();
 
     BlazeDirectories directories =
         new BlazeDirectories(
@@ -1566,17 +1569,16 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     return buildEventArtifactUploaderFactoryMap;
   }
 
-  /** Returns a map of all registered {@link AuthHeadersProvider}s. */
-  public ImmutableMap<String, AuthHeadersProvider> getAuthHeadersProvidersMap() {
-    return authHeadersProviderMap;
-  }
-
   public RepositoryRemoteExecutorFactory getRepositoryRemoteExecutorFactory() {
     return repositoryRemoteExecutorFactory;
   }
 
   public InstrumentationOutputFactory getInstrumentationOutputFactory() {
     return instrumentationOutputFactory;
+  }
+
+  public CgroupsInfo getCgroupsInfo() {
+    return cgroupsInfo;
   }
 
   /**
@@ -1712,7 +1714,6 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
               serverBuilder.getCommands(),
               productName,
               serverBuilder.getBuildEventArtifactUploaderMap(),
-              serverBuilder.getAuthHeadersProvidersMap(),
               serverBuilder.getRepositoryRemoteExecutorFactory(),
               serverBuilder.createInstrumentationOutputFactory(),
               installBaseLock);

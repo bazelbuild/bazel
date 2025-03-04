@@ -419,7 +419,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       ConfigConditions configConditions,
       @Nullable ToolchainCollection<ResolvedToolchainContext> toolchainContexts,
       ExecGroupCollection.Builder execGroupCollectionBuilder,
-      @Nullable NestedSet<Package> transitivePackages)
+      @Nullable NestedSet<Package.Metadata> transitivePackages)
       throws ConfiguredValueCreationException, InterruptedException, ActionConflictException {
     Target target = ctgValue.getTarget();
     BuildConfigurationValue configuration = ctgValue.getConfiguration();

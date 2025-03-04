@@ -768,13 +768,16 @@ public final class Starlark {
   public static Object call(
       StarlarkThread thread, Object fn, List<Object> args, Map<String, Object> kwargs)
       throws EvalException, InterruptedException {
-    Object[] named = new Object[2 * kwargs.size()];
-    int i = 0;
-    for (Map.Entry<String, Object> e : kwargs.entrySet()) {
-      named[i++] = e.getKey();
-      named[i++] = Starlark.checkValid(e.getValue());
+    StarlarkCallable callable = getStarlarkCallable(thread, fn);
+    StarlarkCallable.ArgumentProcessor argumentProcessor =
+        requestArgumentProcessor(thread, callable);
+    for (Object arg : args) {
+      argumentProcessor.addPositionalArg(arg);
     }
-    return fastcall(thread, fn, args.toArray(), named);
+    for (Map.Entry<String, Object> e : kwargs.entrySet()) {
+      argumentProcessor.addNamedArg(e.getKey(), Starlark.checkValid(e.getValue()));
+    }
+    return callViaArgumentProcessor(thread, callable, argumentProcessor);
   }
 
   /**
@@ -794,9 +797,8 @@ public final class Starlark {
   // StarlarkCallable implementations that currently implement fastcall, plus a default
   // implementation in StarlarkCallable that forwards to StarlarkCallable.call().
   public static Object fastcall(
-      StarlarkThread thread, Object fn, Object[] positional, Object[] named)
+      StarlarkThread thread, StarlarkCallable callable, Object[] positional, Object[] named)
       throws EvalException, InterruptedException {
-    StarlarkCallable callable = getStarlarkCallable(thread, fn);
 
     // LINT.IfChange(fastcall)
     thread.push(callable);
@@ -830,9 +832,11 @@ public final class Starlark {
    * stack) may be retrieved using {@link Throwable#getCause}.
    */
   public static Object callViaArgumentProcessor(
-      StarlarkThread thread, StarlarkCallable.ArgumentProcessor argumentProcessor)
+      StarlarkThread thread,
+      StarlarkCallable callable,
+      StarlarkCallable.ArgumentProcessor argumentProcessor)
       throws EvalException, InterruptedException {
-    thread.push(argumentProcessor.getCallable());
+    thread.push(callable);
     try {
       return argumentProcessor.call(thread);
     } catch (UncheckedEvalException | UncheckedEvalError ex) {
@@ -862,10 +866,9 @@ public final class Starlark {
    * Starlark call stack rather than the Java call stack. The original throwable (and the Java call
    * stack) may be retrieved using {@link Throwable#getCause}.
    */
-  public static Object positionalOnlyCall(StarlarkThread thread, Object fn, Object... positional)
+  public static Object positionalOnlyCall(
+      StarlarkThread thread, StarlarkCallable callable, Object... positional)
       throws EvalException, InterruptedException {
-    StarlarkCallable callable = getStarlarkCallable(thread, fn);
-
     // LINT.IfChange(positionalOnlyCall)
     thread.push(callable);
     try {
@@ -885,7 +888,7 @@ public final class Starlark {
     // LINT.ThenChange(:fastcall)
   }
 
-  private static StarlarkCallable getStarlarkCallable(StarlarkThread thread, Object fn)
+  static StarlarkCallable getStarlarkCallable(StarlarkThread thread, Object fn)
       throws EvalException {
     StarlarkCallable callable;
     if (fn instanceof StarlarkCallable starlarkCallable) {
@@ -902,16 +905,9 @@ public final class Starlark {
     return callable;
   }
 
-  @Nullable
   public static StarlarkCallable.ArgumentProcessor requestArgumentProcessor(
-      StarlarkThread thread, Object fn) {
-    // Note: Once BuiltinFunction also implements requestArgumentProcessor, this method body should
-    // be replaced by
-    // return getStarlarkCallable(thread, fn).requestArgumentProcessor(thread);
-    if (fn instanceof StarlarkCallable starlarkCallable) {
-      return starlarkCallable.requestArgumentProcessor(thread);
-    }
-    return null;
+      StarlarkThread thread, StarlarkCallable callable) throws EvalException {
+    return callable.requestArgumentProcessor(thread);
   }
 
   /**
