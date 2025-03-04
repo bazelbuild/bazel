@@ -101,6 +101,7 @@ function test_determinism()  {
       --check_direct_dependencies=error \
       --lockfile_mode=update \
       --override_repository=$(cat derived/maven/MAVEN_CANONICAL_REPO_NAME)=derived/maven \
+      --override_repository=$(cat derived/maven/PROTOBUF_MAVEN_CANONICAL_REPO_NAME)=derived/maven \
       --nostamp \
       //src:bazel &> $TEST_log || fail "First build failed"
     assert_exists "${output_base_1}/java.log"
@@ -125,6 +126,7 @@ function test_determinism()  {
       --check_direct_dependencies=error \
       --lockfile_mode=update \
       --override_repository=$(cat derived/maven/MAVEN_CANONICAL_REPO_NAME)=derived/maven \
+      --override_repository=$(cat derived/maven/PROTOBUF_MAVEN_CANONICAL_REPO_NAME)=derived/maven \
       --nostamp \
       //src:bazel &> $TEST_log || fail "Second build failed"
     assert_exists "${output_base_2}/java.log"

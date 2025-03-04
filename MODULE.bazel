@@ -41,7 +41,7 @@ bazel_dep(name = "apple_support", version = "1.18.1")
 bazel_dep(name = "rules_cc", version = "0.0.17")
 
 # repo_name needs to be used, until WORKSPACE mode is to be supported in bazel_tools
-bazel_dep(name = "protobuf", version = "29.0", repo_name = "com_google_protobuf")
+bazel_dep(name = "protobuf", version = "29.3", repo_name = "com_google_protobuf")
 
 # TODO: wyv@ - add remoteapis to the BCR
 bazel_dep(name = "remoteapis", version = "")
