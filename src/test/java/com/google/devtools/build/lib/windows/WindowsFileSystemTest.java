@@ -398,28 +398,38 @@ public class WindowsFileSystemTest {
     Path dirViaJunction = testUtil.createVfsPath(fs, "junc");
     Path fileViaJunction = testUtil.createVfsPath(fs, "junc\\hello.txt");
 
-    assertThat(dir.isWritable()).isTrue();
+    assertWritable(dir);
     dir.setWritable(false); // no-op
-    assertThat(dir.isWritable()).isTrue();
+    assertWritable(dir);
     dir.setWritable(true); // no-op
-    assertThat(dir.isWritable()).isTrue();
+    assertWritable(dir);
 
-    assertThat(dirViaJunction.isWritable()).isTrue();
+    assertWritable(dirViaJunction);
     dirViaJunction.setWritable(false); // no-op
-    assertThat(dirViaJunction.isWritable()).isTrue();
+    assertWritable(dirViaJunction);
     dirViaJunction.setWritable(true); // no-op
-    assertThat(dirViaJunction.isWritable()).isTrue();
+    assertWritable(dirViaJunction);
 
-    assertThat(file.isWritable()).isTrue();
+    assertWritable(file);
     file.setWritable(false);
-    assertThat(file.isWritable()).isFalse();
+    assertNotWritable(file);
     file.setWritable(true);
-    assertThat(file.isWritable()).isTrue();
+    assertWritable(file);
 
     assertThat(fileViaJunction.isWritable()).isTrue();
     fileViaJunction.setWritable(false);
-    assertThat(fileViaJunction.isWritable()).isFalse();
+    assertNotWritable(fileViaJunction);
     fileViaJunction.setWritable(true);
-    assertThat(fileViaJunction.isWritable()).isTrue();
+    assertWritable(fileViaJunction);
+  }
+
+  private static void assertWritable(Path path) throws Exception {
+    assertThat(path.isWritable()).isTrue();
+    assertThat(path.stat().getPermissions()).isEqualTo(0755);
+  }
+
+  private static void assertNotWritable(Path path) throws Exception {
+    assertThat(path.isWritable()).isFalse();
+    assertThat(path.stat().getPermissions()).isEqualTo(0555);
   }
 }

@@ -42,6 +42,16 @@ public class UnixFileSystemTest extends SymlinkAwareFileSystemTest {
   // Most tests are just inherited from FileSystemTest.
 
   @Test
+  public void testPermissions() throws Exception {
+    Path file = absolutize("file");
+    FileSystemUtils.createEmptyFile(file);
+    for (int mask = 0; mask <= 0777; mask++) {
+      file.chmod(mask);
+      assertThat(file.stat().getPermissions()).isEqualTo(mask);
+    }
+  }
+
+  @Test
   public void testCircularSymlinkFound() throws Exception {
     Path linkA = absolutize("link-a");
     Path linkB = absolutize("link-b");

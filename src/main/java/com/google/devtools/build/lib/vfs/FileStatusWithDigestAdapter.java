@@ -79,4 +79,9 @@ public class FileStatusWithDigestAdapter implements FileStatusWithDigest {
   public long getNodeId() throws IOException {
     return stat.getNodeId();
   }
+
+  @Override
+  public int getPermissions() {
+    return stat.getPermissions();
+  }
 }
