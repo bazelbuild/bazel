@@ -5,7 +5,6 @@
 >
 <assemblyIdentity
     name="turbine_direct_graal"
-    version="1.0.0"
     type="win32"
 />
 <description>Turbine</description>
