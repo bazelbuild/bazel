@@ -34,8 +34,6 @@ int wmain(int argc, wchar_t *argv[]) {
     new_manifest.append(buf, n);
   }
 
-  fwprintf(stderr, L"%hs\n", new_manifest.c_str());
-
   HANDLE update_handle = BeginUpdateResourceW(argv[1], false);
   if (!update_handle) {
     fwprintf(stderr, L"Error opening file %ls for update: %d\n", argv[1],

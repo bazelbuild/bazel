@@ -90,6 +90,7 @@ genrule(
     cmd = select({
         "@platforms//os:windows": """\
 cp $(location :turbine_direct_graal_unpatched) $@
+chmod +w $@
 cat $(location turbine_direct_graal.manifest) | $(location //src:write_manifest) $@
 """,
         "//conditions:default": "cp $< $@",
