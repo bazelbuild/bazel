@@ -1,5 +1,5 @@
 load("@rules_graalvm//graalvm:defs.bzl", "native_image")
-load("@rules_java//java:defs.bzl", "java_binary")
+load("@rules_java//java:defs.bzl", "java_binary", "java_library")
 
 package(
     default_applicable_licenses = ["//:license"],
@@ -27,7 +27,7 @@ java_binary(
 )
 
 native_image(
-    name = "turbine_direct_graal",
+    name = "turbine_direct_graal_unpatched",
     executable_name = select({
         # TODO(cushon): restore .exe suffix on windows
         # see https://github.com/sgammon/rules_graalvm/issues/324
@@ -72,6 +72,32 @@ native_image(
     # This provides libz.a on Linux instead of the host system.
     static_zlib = "//third_party/zlib",
     deps = [":turbine_deps"],
+)
+
+# On Windows, add an app manifest to the binary to force it to run with a UTF-8
+# code page. It is built with one, but without the app manifest it will not be
+# able to use UTF-8 for filesystem operations.
+# https://github.com/oracle/graal/issues/10237
+genrule(
+    name = "turbine_direct_graal",
+    srcs = [
+        ":turbine_direct_graal_unpatched",
+    ] + select({
+        "@platforms//os:windows": ["turbine_direct_graal.manifest"],
+        "//conditions:default": [],
+    }),
+    outs = ["turbine_direct_graal"],
+    cmd = select({
+        "@platforms//os:windows": """\
+cp $< $@
+cat $(location turbine_direct_graal.manifest) | $(location //src:write_manifest) $@
+""",
+        "//conditions:default": "cp $< $@",
+    }),
+    tools = select({
+        "@platforms//os:windows": ["//src:write_manifest"],
+        "//conditions:default": [],
+    }),
 )
 
 # Run with -c opt.
