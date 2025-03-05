@@ -133,6 +133,8 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
@@ -244,6 +246,8 @@ public final class SkyframeActionExecutor {
   private OutputService outputService;
   private boolean finalizeActions;
   private boolean rewindingEnabled;
+  // Non-null if rewinding is enabled.
+  @Nullable private ReadWriteLock rewindingLock;
   private boolean invocationRetriesEnabled;
   private final Supplier<ImmutableList<Root>> sourceRootSupplier;
 
@@ -326,6 +330,9 @@ public final class SkyframeActionExecutor {
     // Cache some option values for performance, since we consult them on every action.
     this.finalizeActions = buildRequestOptions.finalizeActions;
     this.rewindingEnabled = buildRequestOptions.rewindLostInputs;
+    if (this.rewindingEnabled) {
+      this.rewindingLock = new ReentrantReadWriteLock();
+    }
     this.invocationRetriesEnabled =
         options.getOptions(ExecutionOptions.class).remoteRetryOnTransientCacheError > 0;
     this.outputService = checkNotNull(outputService);
@@ -455,6 +462,7 @@ public final class SkyframeActionExecutor {
       this.actionConcurrencyMeter.stop();
       this.actionConcurrencyMeter = null;
     }
+    this.rewindingLock = null;
   }
 
   /**
@@ -1065,8 +1073,16 @@ public final class SkyframeActionExecutor {
         }
 
         boolean lostInputs = false;
+        boolean unlockRewindingLock = false;
 
         try {
+          if (mustAcquireExclusiveRewindingLock(action)) {
+            try (SilentCloseable d =
+                profiler.profile(ProfilerTask.ACTION_LOCK, "action.acquireWriteLockForRewinding")) {
+              rewindingLock.writeLock().lockInterruptibly();
+              unlockRewindingLock = true;
+            }
+          }
           ActionStartedEvent event = new ActionStartedEvent(action, actionStartTimeNanos);
           if (statusReporter != null) {
             statusReporter.updateStatus(event);
@@ -1110,9 +1126,28 @@ public final class SkyframeActionExecutor {
         } catch (ActionExecutionException e) {
           return ActionStepOrResult.of(e);
         } finally {
+          if (unlockRewindingLock) {
+            rewindingLock.writeLock().unlock();
+          }
           notifyActionCompletion(env.getListener(), !lostInputs);
         }
       }
+    }
+
+    private boolean mustAcquireExclusiveRewindingLock(Action action) {
+      // If the action file system requires eager preparation, which generally means that it deletes
+      // its outputs, a rewound action may interfere with any action that consumes its existing
+      // (non-lost) outputs. This needs to be avoided by acquiring an exclusive lock.
+      // TODO: Make most actions able to skip preparation on any file system and only use this lock
+      //  for the remaining actions.
+      return mustAcquireSharedRewindingLock() && wasRewound(action);
+    }
+
+    private boolean mustAcquireSharedRewindingLock() {
+      // When rewinding is generally enabled, actions may be rewound at any time, including while
+      // non-rewound actions that consume their outputs are already executing. We thus need to
+      // acquire a shared lock even before any action has been rewound.
+      return rewindingLock != null && actionFileSystemType().shouldDoEagerActionPrep();
     }
 
     private String getOwnerLabelAsString(Action action) {
@@ -1198,7 +1233,18 @@ public final class SkyframeActionExecutor {
       try (SilentCloseable c = profiler.profile(ProfilerTask.INFO, "Action.execute")) {
         checkForUnsoundDirectoryInputs(action, actionExecutionContext.getInputMetadataProvider());
 
-        result = action.execute(actionExecutionContext);
+        boolean unlockRewindingLock = false;
+        if (mustAcquireSharedRewindingLock()) {
+          rewindingLock.readLock().lockInterruptibly();
+          unlockRewindingLock = true;
+        }
+        try {
+          result = action.execute(actionExecutionContext);
+        } finally {
+          if (unlockRewindingLock) {
+            rewindingLock.readLock().unlock();
+          }
+        }
 
         // An action's result (or intermediate state) may have been affected by lost inputs. If an
         // action filesystem is used, it may know whether inputs were lost. We should fail fast if
