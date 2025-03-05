@@ -450,11 +450,7 @@ final class AspectFunction implements SkyFunction {
       try {
         baseTargetToolchainContexts =
             getBaseTargetToolchainContexts(
-                baseTargetUnloadedToolchainContexts,
-                aspect,
-                target,
-                topologicalAspectPath,
-                depValueMap);
+                baseTargetUnloadedToolchainContexts, aspect, target, depValueMap);
       } catch (MergingException e) {
         env.getListener().handle(Event.error(target.getLocation(), e.getMessage()));
         throw new AspectFunctionException(
@@ -515,11 +511,9 @@ final class AspectFunction implements SkyFunction {
           ToolchainCollection<UnloadedToolchainContext> baseTargetUnloadedToolchainContexts,
           Aspect aspect,
           Target target,
-          ImmutableList<Aspect> aspectsPath,
           OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> depValueMap)
           throws MergingException {
-    if (baseTargetUnloadedToolchainContexts == null
-        || !canAspectsPropagateToToolchains(aspectsPath, target)) {
+    if (baseTargetUnloadedToolchainContexts == null) {
       return null;
     }
     String description =
@@ -611,24 +605,6 @@ final class AspectFunction implements SkyFunction {
     // base target's toolchain contexts are evaluated in this iteration without requiring a
     // Skyframe restart.
     return Pair.of(state.baseTargetUnloadedToolchainContexts, false);
-  }
-
-  /**
-   * Returns true if it is possible to propagate the aspects to the target's toolchains based on the
-   * conditions:
-   *
-   * <p>The base target is a rule.
-   *
-   * <p>At least one of the aspects in the aspects path propagates to toolchains.
-   */
-  private static boolean canAspectsPropagateToToolchains(
-      ImmutableList<Aspect> topologicalAspectPath, Target baseTarget) {
-    if (!baseTarget.isRule()) {
-      return false;
-    }
-
-    return topologicalAspectPath.stream()
-        .anyMatch(aspect -> aspect.getDefinition().propagatesToToolchains());
   }
 
   /** Populates {@code state.execGroupCollection} as a side effect. */

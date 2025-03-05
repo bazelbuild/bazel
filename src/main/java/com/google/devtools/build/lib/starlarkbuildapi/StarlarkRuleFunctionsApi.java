@@ -815,23 +815,31 @@ declared.
                     + " analysis phase for each application of an aspect to a target."),
         @Param(
             name = "attr_aspects",
-            allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
+            allowedTypes = {
+              @ParamType(type = Sequence.class, generic1 = String.class),
+              @ParamType(type = StarlarkFunction.class)
+            },
             named = true,
             defaultValue = "[]",
             doc =
-                "List of attribute names. The aspect propagates along dependencies specified in "
-                    + "the attributes of a target with these names. Common values here include "
-                    + "<code>deps</code> and <code>exports</code>. The list can also contain a "
-                    + "single string <code>\"*\"</code> to propagate along all dependencies of a "
-                    + "target."),
+                "Accepts a list of attribute names or [Experimental] a function that returns the"
+                    + " list of attribute names. The aspect propagates along dependencies specified"
+                    + " in the attributes of a target with these names. Common values here include"
+                    + " <code>deps</code> and <code>exports</code>. The list can also contain a"
+                    + " single string <code>\"*\"</code> to propagate along all dependencies of a"
+                    + " target."),
         @Param(
             name = "toolchains_aspects",
-            allowedTypes = {@ParamType(type = Sequence.class, generic1 = Object.class)},
+            allowedTypes = {
+              @ParamType(type = Sequence.class, generic1 = Object.class),
+              @ParamType(type = StarlarkFunction.class)
+            },
             named = true,
             defaultValue = "[]",
             doc =
-                "List of toolchain types. The aspect propagates to target"
-                    + " toolchains which match these toolchain types."),
+                "Accepts a list of toolchain types or [Experimental] a function that returns the"
+                    + " list of toolchain types. The aspect propagates to target toolchains which"
+                    + " match these toolchain types."),
         @Param(
             name = "attrs",
             allowedTypes = {
@@ -1014,8 +1022,8 @@ declared.
       useStarlarkThread = true)
   StarlarkAspectApi aspect(
       StarlarkFunction implementation,
-      Sequence<?> attributeAspects,
-      Sequence<?> toolchainsAspects,
+      Object attributeAspects,
+      Object toolchainsAspects,
       Dict<?, ?> attrs,
       Sequence<?> requiredProvidersArg,
       Sequence<?> requiredAspectProvidersArg,

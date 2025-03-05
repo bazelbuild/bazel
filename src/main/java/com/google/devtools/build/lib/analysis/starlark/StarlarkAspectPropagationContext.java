@@ -18,9 +18,12 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.analysis.DependencyKind;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
+import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.StructProvider;
@@ -28,6 +31,7 @@ import com.google.devtools.build.lib.starlarkbuildapi.StarlarkAspectPropagationC
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkAspectPropagationContextApi.QualifiedRuleKindApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkAspectPropagationContextApi.RuleAttributeApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
+import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkValue;
 
@@ -61,6 +65,19 @@ public final record StarlarkAspectPropagationContext(
     return new StarlarkAspectPropagationContext(
         aspectPublicParams,
         new StarlarkAspectPropagationRule(label, qualifiedRuleKind, ruleAttributes));
+  }
+
+  /**
+   * Creates a {@link StarlarkAspectPropagationContext} for {@code attr_aspects} and {@code
+   * toolchains_aspects}.
+   */
+  public static StarlarkAspectPropagationContext createForPropagationEdges(
+      Aspect aspect,
+      Rule rule,
+      ConfiguredAttributeMapper attributeMap,
+      OrderedSetMultimap<DependencyKind, Label> dependencyLabels) {
+    // TODO(b/394400334): Implement this.
+    return null;
   }
 
   @Override

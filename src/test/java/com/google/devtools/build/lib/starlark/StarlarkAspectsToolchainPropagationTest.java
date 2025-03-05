@@ -1348,7 +1348,7 @@ public final class StarlarkAspectsToolchainPropagationTest extends AnalysisTestC
         """
         AspectProvider = provider()
         def _impl(target, ctx):
-          print(ctx.rule.toolchains['//rule:toolchain_type_1'])
+          print(ctx.rule.toolchains['//rule:toolchain_type_1'][AspectProvider])
           return [AspectProvider(value = [])]
 
         non_toolchain_aspect = aspect(
@@ -1377,7 +1377,9 @@ public final class StarlarkAspectsToolchainPropagationTest extends AnalysisTestC
     assertThrows(
         ViewCreationFailedException.class,
         () -> update(ImmutableList.of("//test:defs.bzl%non_toolchain_aspect"), "//test:t1"));
-    assertContainsEvent("Error: Toolchains are not valid in this context");
+    assertContainsEvent(
+        "Error: <ToolchainAspectsProviders for toolchain target: //toolchain:foo> doesn't contain"
+            + " declared provider 'AspectProvider'");
   }
 
   @Test
@@ -1388,7 +1390,7 @@ public final class StarlarkAspectsToolchainPropagationTest extends AnalysisTestC
         """
         AspectProvider = provider()
         def _impl(target, ctx):
-          print(ctx.rule.exec_groups['gp'])
+          print(ctx.rule.exec_groups['gp'].toolchains['//rule:toolchain_type_1'][AspectProvider])
           return [AspectProvider(value = [])]
 
         non_toolchain_aspect = aspect(
@@ -1417,7 +1419,9 @@ public final class StarlarkAspectsToolchainPropagationTest extends AnalysisTestC
     assertThrows(
         ViewCreationFailedException.class,
         () -> update(ImmutableList.of("//test:defs.bzl%non_toolchain_aspect"), "//test:t1"));
-    assertContainsEvent("Error: exec_groups are not valid in this context");
+    assertContainsEvent(
+        "Error: <ToolchainAspectsProviders for toolchain target: //toolchain:foo> doesn't contain"
+            + " declared provider 'AspectProvider'");
   }
 
   @Test

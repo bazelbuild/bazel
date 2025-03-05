@@ -458,10 +458,13 @@ java_library(
     name = "starlark_aspect_propagation_context",
     srcs = ["starlark/StarlarkAspectPropagationContext.java"],
     deps = [
+        ":dependency_kind",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/packages:configured_attribute_mapper",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/core",
+        "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/net/starlark/java/eval",
         "//third_party:guava",
     ],

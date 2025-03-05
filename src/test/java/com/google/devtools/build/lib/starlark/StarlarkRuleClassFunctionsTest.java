@@ -57,6 +57,7 @@ import com.google.devtools.build.lib.packages.AdvertisedProviderSet;
 import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.AspectClass;
 import com.google.devtools.build.lib.packages.AspectParameters;
+import com.google.devtools.build.lib.packages.AspectPropagationEdgesSupplier.FixedListSupplier;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.DeclaredExecGroup;
@@ -2646,10 +2647,10 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         "my_aspect = aspect(_impl, attr_aspects=['srcs', 'data'])");
 
     StarlarkDefinedAspect myAspect = (StarlarkDefinedAspect) ev.lookup("my_aspect");
-    assertThat(myAspect.getAttributeAspects()).containsExactly("srcs", "data");
-    assertThat(myAspect.getDefinition(AspectParameters.EMPTY).propagateAlong("srcs")).isTrue();
-    assertThat(myAspect.getDefinition(AspectParameters.EMPTY).propagateAlong("data")).isTrue();
-    assertThat(myAspect.getDefinition(AspectParameters.EMPTY).propagateAlong("other")).isFalse();
+    var attrAspects = myAspect.getAttributeAspects();
+
+    assertThat(attrAspects).isInstanceOf(FixedListSupplier.class);
+    assertThat(((FixedListSupplier<String>) attrAspects).getList()).containsExactly("srcs", "data");
   }
 
   @Test
@@ -2661,8 +2662,40 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         "my_aspect = aspect(_impl, attr_aspects=['*'])");
 
     StarlarkDefinedAspect myAspect = (StarlarkDefinedAspect) ev.lookup("my_aspect");
-    assertThat(myAspect.getAttributeAspects()).containsExactly("*");
-    assertThat(myAspect.getDefinition(AspectParameters.EMPTY).propagateAlong("foo")).isTrue();
+    var attrAspects = myAspect.getAttributeAspects();
+
+    assertThat(attrAspects).isInstanceOf(FixedListSupplier.class);
+    assertThat(((FixedListSupplier<String>) attrAspects).getList()).containsExactly("*");
+  }
+
+  @Test
+  public void aspectEmptyAttrs() throws Exception {
+    evalAndExport(
+        ev,
+        "def _impl(target, ctx):", //
+        "   pass",
+        "my_aspect = aspect(_impl, attr_aspects=[])");
+
+    StarlarkDefinedAspect myAspect = (StarlarkDefinedAspect) ev.lookup("my_aspect");
+    var attrAspects = myAspect.getAttributeAspects();
+
+    assertThat(attrAspects).isInstanceOf(FixedListSupplier.class);
+    assertThat(((FixedListSupplier<String>) attrAspects).getList()).isEmpty();
+  }
+
+  @Test
+  public void aspectDefaultAttrs() throws Exception {
+    evalAndExport(
+        ev,
+        "def _impl(target, ctx):", //
+        "   pass",
+        "my_aspect = aspect(_impl)");
+
+    StarlarkDefinedAspect myAspect = (StarlarkDefinedAspect) ev.lookup("my_aspect");
+    var attrAspects = myAspect.getAttributeAspects();
+
+    assertThat(attrAspects).isInstanceOf(FixedListSupplier.class);
+    assertThat(((FixedListSupplier<String>) attrAspects).getList()).isEmpty();
   }
 
   @Test
@@ -3038,6 +3071,24 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         "def _impl(target, ctx):",
         "   pass",
         "aspect(_impl, attr_aspects=['*', 'foo'])");
+  }
+
+  @Test
+  public void invalidAttrAspectsType() throws Exception {
+    ev.checkEvalErrorContains(
+        "'attr_aspects' got value of type 'string', want 'sequence or function'",
+        "def _impl(target, ctx):",
+        "   pass",
+        "aspect(_impl, attr_aspects='foo')");
+  }
+
+  @Test
+  public void invalidToolchainsAspectsType() throws Exception {
+    ev.checkEvalErrorContains(
+        "'toolchains_aspects' got value of type 'string', want 'sequence or function'",
+        "def _impl(target, ctx):",
+        "   pass",
+        "aspect(_impl, toolchains_aspects='foo')");
   }
 
   @Test
@@ -5306,12 +5357,33 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         """);
 
     StarlarkDefinedAspect aspect = (StarlarkDefinedAspect) ev.lookup("my_aspect");
-    assertThat(aspect).isNotNull();
-    assertThat(aspect.getToolchainsAspects()).hasSize(2);
-    assertThat(aspect.getToolchainsAspects())
+    var toolchainsAspects = aspect.getToolchainsAspects();
+
+    assertThat(toolchainsAspects).isInstanceOf(FixedListSupplier.class);
+    assertThat(((FixedListSupplier<Label>) toolchainsAspects).getList()).hasSize(2);
+    assertThat(((FixedListSupplier<Label>) toolchainsAspects).getList())
         .containsExactly(
             Label.parseCanonicalUnchecked("//toolchains:type1"),
             Label.parseCanonicalUnchecked("//toolchains:type2"));
+  }
+
+  @Test
+  public void toolchainsAspectsDefault_emptyList() throws Exception {
+    evalAndExport(
+        ev,
+        """
+        def _aspect_impl(target, ctx):
+            return []
+        my_aspect = aspect(
+            implementation = _aspect_impl,
+        )
+        """);
+
+    StarlarkDefinedAspect aspect = (StarlarkDefinedAspect) ev.lookup("my_aspect");
+    var toolchainsAspects = aspect.getToolchainsAspects();
+
+    assertThat(toolchainsAspects).isInstanceOf(FixedListSupplier.class);
+    assertThat(((FixedListSupplier<Label>) toolchainsAspects).getList()).isEmpty();
   }
 
   @Test

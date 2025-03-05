@@ -48,10 +48,13 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
   private final StarlarkCallable implementation;
   // @Nullable rather than Optional for the sake of serialization.
   @Nullable private final String documentation;
-  private final ImmutableList<String> attributeAspects;
 
-  // Toolchain types for which the aspect will propagate to matching resolved toolchains.
-  private final ImmutableSet<Label> toolchainsAspects;
+  // Supplier of the attributes to which the aspect will propagate.
+  private final AspectPropagationEdgesSupplier<String> attributeAspects;
+
+  // Supplier of the toolchains types for which the aspect will propagate to matching resolved
+  // toolchains.
+  private final AspectPropagationEdgesSupplier<Label> toolchainsAspects;
 
   private final ImmutableList<Attribute> attributes;
   private final ImmutableList<ImmutableSet<StarlarkProviderIdentifier>> requiredProviders;
@@ -82,8 +85,8 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
   public StarlarkDefinedAspect(
       StarlarkCallable implementation,
       Optional<String> documentation,
-      ImmutableList<String> attributeAspects,
-      ImmutableSet<Label> toolchainsAspects,
+      AspectPropagationEdgesSupplier<String> attributeAspects,
+      AspectPropagationEdgesSupplier<Label> toolchainsAspects,
       ImmutableList<Attribute> attributes,
       ImmutableList<ImmutableSet<StarlarkProviderIdentifier>> requiredProviders,
       ImmutableList<ImmutableSet<StarlarkProviderIdentifier>> requiredAspectProviders,
@@ -130,14 +133,17 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
     return Optional.ofNullable(documentation);
   }
 
-  /** Returns the names of rule attributes along which the aspect will propagate. */
-  public ImmutableList<String> getAttributeAspects() {
+  /** Returns the supplier of the attributes to which the aspect will propagate. */
+  public AspectPropagationEdgesSupplier<String> getAttributeAspects() {
     return attributeAspects;
   }
 
-  /** Returns toolchain types to which resolved toolchains the aspect can propagate. */
+  /**
+   * Returns the supplier of the toolchain types to which resolved toolchains the aspect can
+   * propagate.
+   */
   @VisibleForTesting
-  public ImmutableSet<Label> getToolchainsAspects() {
+  public AspectPropagationEdgesSupplier<Label> getToolchainsAspects() {
     return toolchainsAspects;
   }
 
@@ -186,8 +192,6 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
     this.aspectClassOrIdentityToken = new StarlarkAspectClass(owner, name);
   }
 
-  private static final ImmutableList<String> ALL_ATTR_ASPECTS = ImmutableList.of("*");
-
   /**
    * The <code>AspectDefinition</code> is a function of the aspect's parameters, so we can cache
    * that.
@@ -209,14 +213,9 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
   private AspectDefinition buildDefinition(AspectParameters aspectParams) {
     AspectDefinition.Builder builder =
         new AspectDefinition.Builder((StarlarkAspectClass) aspectClassOrIdentityToken);
-    if (ALL_ATTR_ASPECTS.equals(attributeAspects)) {
-      builder.propagateAlongAllAttributes();
-    } else {
-      for (String attributeAspect : attributeAspects) {
-        builder.propagateAlongAttribute(attributeAspect);
-      }
-    }
+    builder.propagateToAttributes(attributeAspects);
     builder.propagateToToolchainsTypes(toolchainsAspects);
+
     for (Attribute attribute : attributes) {
       Attribute attr = attribute; // Might be reassigned.
       if (!aspectParams.getAttribute(attr.getName()).isEmpty()) {

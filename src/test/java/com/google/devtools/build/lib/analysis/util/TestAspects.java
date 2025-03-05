@@ -43,6 +43,8 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -50,10 +52,12 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.AspectParameters;
+import com.google.devtools.build.lib.packages.AspectPropagationEdgesSupplier;
 import com.google.devtools.build.lib.packages.Attribute.AllowedValueSet;
 import com.google.devtools.build.lib.packages.Attribute.LabelListLateBoundDefault;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.LabelConverter;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
@@ -70,6 +74,7 @@ import java.io.Serializable;
 import java.util.List;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.syntax.Location;
 
 /**
@@ -497,11 +502,11 @@ public class TestAspects {
             .buildExported(new StarlarkProvider.Key(keyForBuild(FAKE_LABEL), "AspectProvider"));
 
     private String depAttr;
-    private Label toolChainType;
+    private String toolchainType;
 
-    public DepsVisitingFileAspect(String depAttr, String toolChainType) {
+    public DepsVisitingFileAspect(String depAttr, String toolchainType) {
       this.depAttr = depAttr;
-      this.toolChainType = Label.parseCanonicalUnchecked(toolChainType);
+      this.toolchainType = toolchainType;
     }
 
     @Override
@@ -525,7 +530,7 @@ public class TestAspects {
 
     @Override
     public String getName() {
-      return String.format("%s_%s_%s", super.getName(), depAttr, toolChainType.getCanonicalForm());
+      return String.format("%s_%s_%s", super.getName(), depAttr, toolchainType);
     }
 
     @Override
@@ -533,8 +538,8 @@ public class TestAspects {
       AspectDefinition.Builder aspectDefinition =
           new AspectDefinition.Builder(this)
               .applyToFiles(true)
-              .propagateAlongAttribute(depAttr)
-              .propagateToToolchainsTypes(ImmutableSet.of(toolChainType));
+              .propagateToAttributes(createAttrAspects(ImmutableList.of(depAttr)))
+              .propagateToToolchainsTypes(createToolchainsAspects(ImmutableList.of(toolchainType)));
 
       return aspectDefinition.build();
     }
@@ -574,8 +579,8 @@ public class TestAspects {
   public static final AttributeAspect ATTRIBUTE_ASPECT = new AttributeAspect();
   private static final AspectDefinition ATTRIBUTE_ASPECT_DEFINITION =
       new AspectDefinition.Builder(ATTRIBUTE_ASPECT)
-      .propagateAlongAttribute("foo")
-      .build();
+          .propagateToAttributes(createAttrAspects(ImmutableList.of("foo")))
+          .build();
 
   /**
    * An aspect that propagates along all attributes.
@@ -590,7 +595,7 @@ public class TestAspects {
   public static final NativeAspectClass ALL_ATTRIBUTES_ASPECT = new AllAttributesAspect();
   private static final AspectDefinition ALL_ATTRIBUTES_ASPECT_DEFINITION =
       new AspectDefinition.Builder(ALL_ATTRIBUTES_ASPECT)
-          .propagateAlongAllAttributes()
+          .propagateToAttributes(createAttrAspects(ImmutableList.of("*")))
           .build();
 
   /** An aspect that propagates along all attributes and has a tool dependency. */
@@ -606,7 +611,7 @@ public class TestAspects {
       new AllAttributesWithToolAspect();
   private static final AspectDefinition ALL_ATTRIBUTES_WITH_TOOL_ASPECT_DEFINITION =
       new AspectDefinition.Builder(ALL_ATTRIBUTES_WITH_TOOL_ASPECT)
-          .propagateAlongAllAttributes()
+          .propagateToAttributes(createAttrAspects(ImmutableList.of("*")))
           .add(
               attr("$tool", BuildType.LABEL)
                   .allowedFileTypes(FileTypeSet.ANY_FILE)
@@ -736,7 +741,7 @@ public class TestAspects {
     public AspectDefinition getDefinition(AspectParameters aspectParameters) {
       AspectDefinition.Builder builder =
           new AspectDefinition.Builder(PARAMETRIZED_DEFINITION_ASPECT)
-              .propagateAlongAttribute("foo");
+              .propagateToAttributes(createAttrAspects(ImmutableList.of("foo")));
       ImmutableCollection<String> baz = aspectParameters.getAttribute("baz");
       if (baz != null) {
         try {
@@ -786,7 +791,7 @@ public class TestAspects {
   private static final AspectDefinition ASPECT_REQUIRING_PROVIDER_DEFINITION =
       new AspectDefinition.Builder(ASPECT_REQUIRING_PROVIDER)
           .requireStarlarkProviders(StarlarkProviderIdentifier.forKey(REQUIRED_PROVIDER_KEY))
-          .propagateAlongAttribute("foo")
+          .propagateToAttributes(createAttrAspects(ImmutableList.of("foo")))
           .build();
   private static final AspectDefinition ASPECT_REQUIRING_PROVIDER_SETS_DEFINITION =
       new AspectDefinition.Builder(ASPECT_REQUIRING_PROVIDER_SETS)
@@ -823,8 +828,8 @@ public class TestAspects {
   public static final WarningAspect WARNING_ASPECT = new WarningAspect();
   private static final AspectDefinition WARNING_ASPECT_DEFINITION =
       new AspectDefinition.Builder(WARNING_ASPECT)
-      .propagateAlongAttribute("bar")
-      .build();
+          .propagateToAttributes(createAttrAspects(ImmutableList.of("bar")))
+          .build();
 
   /**
    * An aspect that raises an error.
@@ -852,8 +857,31 @@ public class TestAspects {
   public static final ErrorAspect ERROR_ASPECT = new ErrorAspect();
   private static final AspectDefinition ERROR_ASPECT_DEFINITION =
       new AspectDefinition.Builder(ERROR_ASPECT)
-      .propagateAlongAttribute("bar")
-      .build();
+          .propagateToAttributes(createAttrAspects(ImmutableList.of("bar")))
+          .build();
+
+  private static AspectPropagationEdgesSupplier<String> createAttrAspects(
+      ImmutableList<String> attrAspects) {
+    try {
+      return AspectPropagationEdgesSupplier.createForAttrAspects(
+          StarlarkList.immutableCopyOf(attrAspects), /* thread= */ null);
+    } catch (EvalException e) {
+      throw new IllegalStateException(e);
+    }
+  }
+
+  private static AspectPropagationEdgesSupplier<Label> createToolchainsAspects(
+      ImmutableList<String> toolchainsAspects) {
+    try {
+      return AspectPropagationEdgesSupplier.createForToolchainsAspects(
+          StarlarkList.immutableCopyOf(toolchainsAspects),
+          /* thread= */ null,
+          new LabelConverter(
+              PackageIdentifier.createInMainRepo("quux"), RepositoryMapping.ALWAYS_FALLBACK));
+    } catch (EvalException e) {
+      throw new IllegalStateException(e);
+    }
+  }
 
   /**
    * An aspect that advertises but fails to provide providers.

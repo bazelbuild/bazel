@@ -13,13 +13,16 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.producers;
 
+import static com.google.devtools.build.lib.analysis.AspectResolutionHelpers.computeAttributeAspects;
 import static com.google.devtools.build.lib.analysis.AspectResolutionHelpers.computePropagatingAspects;
+import static com.google.devtools.build.lib.analysis.AspectResolutionHelpers.computeToolchainsAspects;
 import static com.google.devtools.build.lib.analysis.producers.DependencyError.isSecondErrorMoreImportant;
 import static java.util.Arrays.asList;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.analysis.DependencyKind;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
@@ -86,6 +89,9 @@ public final class DependencyMapProducer implements StateMachine, DependencyProd
    */
   private final ConfiguredTargetAndData[][] results;
 
+  private ImmutableMultimap<Aspect, String> computedAttributeAspects;
+  private ImmutableMultimap<Aspect, Label> computedToolchainsAspects;
+
   private DependencyError lastError;
 
   public DependencyMapProducer(
@@ -96,6 +102,8 @@ public final class DependencyMapProducer implements StateMachine, DependencyProd
     this.dependencyLabels = dependencyLabels;
     this.sink = sink;
     this.results = new ConfiguredTargetAndData[dependencyLabels.size()][];
+    this.computedAttributeAspects = null;
+    this.computedToolchainsAspects = null;
   }
 
   private static boolean isForDependencyResolution(DependencyKind dependencyKind) {
@@ -258,6 +266,8 @@ public final class DependencyMapProducer implements StateMachine, DependencyProd
               : computePropagatingAspects(
                   kind,
                   parameters.aspects(),
+                  this.computedAttributeAspects,
+                  this.computedToolchainsAspects,
                   parameters.associatedRule(),
                   parameters.baseTargetToolchainContexts());
       for (var label : entry.getValue()) {
@@ -299,11 +309,34 @@ public final class DependencyMapProducer implements StateMachine, DependencyProd
 
   @Override
   public StateMachine step(Tasks tasks) throws InterruptedException {
+    computeAspectPropagationEdges();
     return attributeResolutionStep(tasks, true, this::evaluateMaterializersIfNeeded);
   }
 
   private StateMachine evaluateMaterializersIfNeeded(Tasks tasks) throws InterruptedException {
     return attributeResolutionStep(tasks, false, this::buildAndEmitResult);
+  }
+
+  /** Computes the aspects' propagation attribute names and toolchain types. */
+  private void computeAspectPropagationEdges() {
+    if (parameters.aspects().isEmpty()) {
+      return;
+    }
+
+    this.computedAttributeAspects =
+        computeAttributeAspects(
+            parameters.aspects(),
+            parameters.target(),
+            parameters.attributeMap(),
+            this.dependencyLabels,
+            parameters.eventHandler());
+    this.computedToolchainsAspects =
+        computeToolchainsAspects(
+            parameters.aspects(),
+            parameters.target(),
+            parameters.attributeMap(),
+            this.dependencyLabels,
+            parameters.eventHandler());
   }
 
   @Override
