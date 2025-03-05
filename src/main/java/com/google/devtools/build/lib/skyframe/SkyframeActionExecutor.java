@@ -1076,23 +1076,27 @@ public final class SkyframeActionExecutor {
         boolean unlockRewindingLock = false;
 
         try {
-          if (mustAcquireExclusiveRewindingLock(action)) {
-            try (SilentCloseable d =
-                profiler.profile(ProfilerTask.ACTION_LOCK, "action.acquireWriteLockForRewinding")) {
-              rewindingLock.writeLock().lockInterruptibly();
-              unlockRewindingLock = true;
-            }
-          }
           ActionStartedEvent event = new ActionStartedEvent(action, actionStartTimeNanos);
           if (statusReporter != null) {
             statusReporter.updateStatus(event);
           }
           env.getListener().post(event);
+          if (mustAcquireExclusiveRewindingLock(action)) {
+            try (SilentCloseable d =
+                profiler.profile(ProfilerTask.ACTION_LOCK, "action.acquireWriteLockForRewinding")) {
+              rewindingLock.writeLock().lockInterruptibly();
+              System.err.println("Acquired exclusive rewinding lock for " + action);
+              unlockRewindingLock = true;
+              outputService.cancelTasks(action);
+            }
+          }
           if (actionFileSystemType().shouldDoEagerActionPrep()) {
             try (SilentCloseable d = profiler.profile(ProfilerTask.INFO, "action.prepare")) {
               // This call generally deletes any files at locations that are declared outputs of the
               // action, although some actions perform additional work, while others intentionally
               // keep previous outputs in place.
+              System.err.println(
+                  "Deleting outputs of " + action + (wasRewound(action) ? " (rewound)" : ""));
               action.prepare(
                   actionExecutionContext.getExecRoot(),
                   actionExecutionContext.getPathResolver(),
@@ -1127,6 +1131,7 @@ public final class SkyframeActionExecutor {
           return ActionStepOrResult.of(e);
         } finally {
           if (unlockRewindingLock) {
+            System.err.println("Released exclusive rewinding lock for " + action);
             rewindingLock.writeLock().unlock();
           }
           notifyActionCompletion(env.getListener(), !lostInputs);
@@ -1236,12 +1241,14 @@ public final class SkyframeActionExecutor {
         boolean unlockRewindingLock = false;
         if (mustAcquireSharedRewindingLock()) {
           rewindingLock.readLock().lockInterruptibly();
+          System.err.println("Acquired shared rewinding lock for " + action);
           unlockRewindingLock = true;
         }
         try {
           result = action.execute(actionExecutionContext);
         } finally {
           if (unlockRewindingLock) {
+            System.err.println("Released shared rewinding lock for " + action);
             rewindingLock.readLock().unlock();
           }
         }
