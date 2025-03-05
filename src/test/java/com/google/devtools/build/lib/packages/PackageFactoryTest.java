@@ -86,7 +86,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
   @Test
   public void testCreatePackage() throws Exception {
     scratch.file("pkgname/BUILD", "# empty build file ");
-    Package pkg = loadPackage("pkgname");
+    Package pkg = getPackage("pkgname");
     assertThat(pkg.getName()).isEqualTo("pkgname");
     assertThat(Sets.newHashSet(pkg.getTargets(Rule.class))).isEmpty();
   }
@@ -95,7 +95,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
   public void testBadRuleName() throws Exception {
     reporter.removeHandler(failFastHandler);
     scratch.file("badrulename/BUILD", "cc_library(name = 3)");
-    Package pkg = loadPackage("badrulename");
+    Package pkg = getPackage("badrulename");
     assertContainsEvent("cc_library 'name' attribute must be a string");
     assertThat(pkg.containsErrors()).isTrue();
   }
@@ -104,7 +104,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
   public void testNoRuleName() throws Exception {
     reporter.removeHandler(failFastHandler);
     scratch.file("badrulename/BUILD", "cc_library()");
-    Package pkg = loadPackage("badrulename");
+    Package pkg = getPackage("badrulename");
     assertContainsEvent("cc_library rule has no 'name' attribute");
     assertThat(pkg.containsErrors()).isTrue();
   }
@@ -114,7 +114,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
     // This is a "shallow" syntactic error: failure to form the
     // PackageIdentifier that is the real argument to loadPackage.
     LabelSyntaxException e =
-        assertThrows(LabelSyntaxException.class, () -> loadPackage("not even a legal/.../label"));
+        assertThrows(LabelSyntaxException.class, () -> getPackage("not even a legal/.../label"));
     assertThat(e).hasMessageThat().contains("invalid package name 'not even a legal/.../label'");
   }
 
@@ -123,7 +123,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
     reporter.removeHandler(failFastHandler);
     scratch.file(
         "googledata/cafe/BUILD", "exports_files(['houseads/house_ads:ca-aol_parenting_html'])");
-    Package pkg = loadPackage("googledata/cafe");
+    Package pkg = getPackage("googledata/cafe");
     assertContainsEvent("target names may not contain ':'");
     assertThat(pkg.getTargets(FileTarget.class).toString())
         .doesNotContain("houseads/house_ads:ca-aol_parenting_html");
@@ -158,7 +158,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
   private boolean isValidPackageName(String packageName) throws Exception {
     // Write a license decl just in case it's a third_party package:
     scratch.file(packageName + "/BUILD", "licenses(['notice'])");
-    Package pkg = loadPackage(packageName);
+    Package pkg = getPackage(packageName);
     return !pkg.containsErrors();
   }
 
@@ -172,7 +172,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
         cc_library(name='has_dupe', deps=[':dep', ':dep'])
         """);
 
-    Package pkg = loadPackage("has_dupe");
+    Package pkg = getPackage("has_dupe");
     assertContainsEvent(
         "Label '//has_dupe:dep' is duplicated in the 'deps' attribute of rule 'has_dupe'");
     assertThat(pkg.containsErrors()).isTrue();
@@ -188,7 +188,8 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
     reporter.removeHandler(failFastHandler);
     scratch.file(
         "fruit/orange/BUILD", "genrule(name='orange', srcs=[], outs=['a', 'a/b'], cmd='')");
-    loadPackage("fruit/orange");
+    Package pkg = getPackage("fruit/orange");
+    assertThat(pkg.containsErrors()).isTrue();
     assertContainsEvent("rule 'orange' has conflicting output files 'a/b' and 'a");
   }
 
@@ -197,7 +198,8 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
     reporter.removeHandler(failFastHandler);
     scratch.file(
         "fruit/orange/BUILD", "genrule(name='orange', srcs=[], outs=['a/b', 'a'], cmd='')");
-    loadPackage("fruit/orange");
+    Package pkg = getPackage("fruit/orange");
+    assertThat(pkg.containsErrors()).isTrue();
     assertContainsEvent("rule 'orange' has conflicting output files 'a' and 'a/b");
   }
 
@@ -210,7 +212,8 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
         genrule(name='kiwi1', srcs=[], outs=['a'], cmd='')
         genrule(name='kiwi2', srcs=[], outs=['a/b'], cmd='')
         """);
-    loadPackage("fruit/kiwi");
+    Package pkg = getPackage("fruit/kiwi");
+    assertThat(pkg.containsErrors()).isTrue();
     assertContainsEvent(
         "output file 'a/b' of rule 'kiwi2' conflicts with output file 'a' of rule 'kiwi1'");
   }
@@ -224,7 +227,8 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
         genrule(name='kiwi1', srcs=[], outs=['a/b'], cmd='')
         genrule(name='kiwi2', srcs=[], outs=['a'], cmd='')
         """);
-    loadPackage("fruit/kiwi");
+    Package pkg = getPackage("fruit/kiwi");
+    assertThat(pkg.containsErrors()).isTrue();
     assertContainsEvent(
         "output file 'a' of rule 'kiwi2' conflicts with output file 'a/b' of rule 'kiwi1'");
   }
@@ -232,7 +236,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
   @Test
   public void testPackageNameFunction() throws Exception {
     scratch.file("pina/BUILD", "cc_library(name=package_name() + '-colada')");
-    Package pkg = loadPackage("pina");
+    Package pkg = getPackage("pina");
     assertNoEvents();
     assertThat(pkg.containsErrors()).isFalse();
     assertThat(pkg.getRule("pina-colada")).isNotNull();
@@ -251,7 +255,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
         cc_library(name = 'spellcheck_proto')  # conflict error stops execution
         x = 1//0  # not reached
         """);
-    Package pkg = loadPackage("duplicaterulename");
+    Package pkg = getPackage("duplicaterulename");
     assertContainsEvent(
         "cc_library rule 'spellcheck_proto' conflicts with" + " existing filegroup rule");
     assertDoesNotContainEvent("division by zero");
@@ -264,7 +268,8 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
     Target target = getTarget("//foo:BUILD");
     assertThat(target.getName()).isEqualTo("BUILD");
     // Test that it's memoized:
-    assertThat(target.getPackage().getTarget("BUILD")).isSameInstanceAs(target);
+    assertThat(getPackage(target.getLabel().getPackageIdentifier()).getTarget("BUILD"))
+        .isSameInstanceAs(target);
   }
 
   @Test
@@ -277,7 +282,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
         "cc_library(name='W', deps=['X', 'Y', 'A'])",
         "cc_library(name='X', srcs=['X'])",
         "cc_library(name='Y')");
-    Package pkg = loadPackage("foo");
+    Package pkg = getPackage("foo");
     assertThat(pkg.containsErrors()).isFalse();
 
     // X is a rule with a circular self-dependency.
@@ -332,7 +337,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
         cc_library(name = 'dup_proto',
                    srcs = ['dup.pb.cc', 'dup.pb.h'])
         """);
-    Package pkg = loadPackage("dup");
+    Package pkg = getPackage("dup");
     assertContainsEvent("cc_library rule 'dup_proto' conflicts with existing filegroup rule");
     assertThat(pkg.containsErrors()).isTrue();
 
@@ -365,7 +370,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
                 srcs = ['in3', 'in4'],
                 outs = ['out3', 'out2'])
         """);
-    Package pkg = loadPackage("conflict");
+    Package pkg = getPackage("conflict");
     assertContainsEvent(
         "generated file 'out2' in rule 'rule2' "
             + "conflicts with existing generated file from rule 'rule1'");
@@ -412,7 +417,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
                 cmd = ':',
                 outs = list)
         """);
-    Package pkg = loadPackage("error");
+    Package pkg = getPackage("error");
     assertContainsEvent("division by zero");
 
     assertThat(pkg.containsErrors()).isTrue();
@@ -432,7 +437,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
     scratch.file("x/y.cc");
     scratch.file("x/dir/dummy");
 
-    Package pkg = loadPackage("x");
+    Package pkg = getPackage("x");
 
     assertThat(pkg.getTarget("x.cc")).isNotNull(); // existing and mentioned.
 
@@ -485,7 +490,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
         test_suite(name='t4', tests=['//foo'])
         cc_test(name='c')
         """);
-    Package pkg = loadPackage("x");
+    Package pkg = getPackage("x");
 
     // Things to note:
     // - The '$implicit_tests' attribute is unset unless the 'tests' attribute is unset or empty.
@@ -507,7 +512,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
   @Test
   public void testPackageValidationFailureRegisteredAfterLoading() throws Exception {
     scratch.file("x/BUILD", "# old");
-    Package pkg = loadPackage("x");
+    Package pkg = getPackage("x");
     assertThat(pkg.containsErrors()).isFalse();
 
     // Install a validator.
@@ -526,8 +531,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
     scratch.overwriteFile("x/BUILD", "# new"); // change file to cause reloading
     invalidatePackages();
 
-    InvalidPackageException ex =
-        assertThrows(InvalidPackageException.class, () -> loadPackage("x"));
+    InvalidPackageException ex = assertThrows(InvalidPackageException.class, () -> getPackage("x"));
     assertThat(ex).hasMessageThat().contains("no such package 'x': nope");
     assertContainsEvent("warning event");
   }
@@ -544,7 +548,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
         cc_library(name = 'yes', srcs = glob(['data/*']))
         cc_library(name = 'no',  srcs = glob(['data/*'], exclude_directories=0))
         """);
-    Package pkg = loadPackage("fruit");
+    Package pkg = getPackage("fruit");
     assertNoEvents();
     List<Label> yesFiles = attributes(pkg.getRule("yes")).get("srcs", BuildType.LABEL_LIST);
     List<Label> noFiles = attributes(pkg.getRule("no")).get("srcs", BuildType.LABEL_LIST);
@@ -576,7 +580,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
         cc_library(name = 'ri', srcs = glob(['**/*.cc']))
         cc_library(name = 're', srcs = glob(['*.cc'], exclude=['**/*.c']))
         """);
-    Package pkg = loadPackage("rg");
+    Package pkg = getPackage("rg");
     assertNoEvents();
 
     assertGlob(
@@ -778,10 +782,11 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
         "p/BUILD",
         """
         name = glob(['*.txt'])[0]
+        # Note the prepended colon
         name == ':@f.txt' or fail('got %s' % name)
-        """); // observe
-    // prepended colon
-    loadPackage("p"); // no error
+        """);
+    Package pkg = getPackage("p"); // no error
+    assertThat(pkg.containsErrors()).isFalse();
   }
 
   /**
@@ -795,8 +800,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
     Path dir = scratch.dir("pkg/globs/unreadable");
     dir.setReadable(false);
 
-    NoSuchPackageException ex =
-        assertThrows(NoSuchPackageException.class, () -> loadPackage("pkg"));
+    NoSuchPackageException ex = assertThrows(NoSuchPackageException.class, () -> getPackage("pkg"));
     assertThat(ex)
         .hasMessageThat()
         .contains("error globbing [globs/**] op=FILES: " + dir + " (Permission denied)");
@@ -806,7 +810,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
   public void testNativeModuleIsDisabled() throws Exception {
     reporter.removeHandler(failFastHandler);
     scratch.file("pkg/BUILD", "native.cc_library(name='bar')");
-    Package pkg = loadPackage("pkg");
+    Package pkg = getPackage("pkg");
     assertThat(pkg.containsErrors()).isTrue();
   }
 
@@ -923,7 +927,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
         filegroup(name = 'foo', srcs=['b'])
         filegroup(name = 'bar', srcs=['b'], testonly = 0)
         """);
-    Package pkg = loadPackage("foo");
+    Package pkg = getPackage("foo");
 
     Rule fooRule = (Rule) pkg.getTarget("foo");
     assertThat(
@@ -946,7 +950,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
         "foo/BUILD",
         "package(default_deprecation = \"" + deceive + "\")",
         "filegroup(name = 'bar', srcs=['b'], deprecation = \"" + msg + "\")");
-    Package pkg = loadPackage("foo");
+    Package pkg = getPackage("foo");
 
     Rule fooRule = (Rule) pkg.getTarget("bar");
     String deprAttr =
@@ -963,7 +967,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
         package(features=['b', 'c'])
         filegroup(name='after')
         """);
-    Package pkg = loadPackage("a");
+    Package pkg = getPackage("a");
     assertThat(pkg.getPackageArgs().features())
         .isEqualTo(FeatureSet.parse(ImmutableList.of("b", "c")));
   }
@@ -974,13 +978,13 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
     throwOnReaddir = buildFile.getParentDirectory();
     invalidatePackages();
     reporter.removeHandler(failFastHandler);
-    assertThrows(NoSuchPackageException.class, () -> loadPackage("e")); // symlink cycle
+    assertThrows(NoSuchPackageException.class, () -> getPackage("e")); // symlink cycle
 
     throwOnReaddir = null;
     invalidatePackages();
 
     reporter.addHandler(failFastHandler);
-    Package pkg = loadPackage("e"); // no error
+    Package pkg = getPackage("e"); // no error
     assertThat(pkg.containsErrors()).isFalse();
     assertThat(pkg.getRule("e")).isNotNull();
     List<?> globList = (List) pkg.getRule("e").getAttr("srcs");
@@ -2024,14 +2028,14 @@ my_macro = macro(implementation = _impl)
     reporter.removeHandler(failFastHandler);
     scratch.overwriteFile("p/BUILD", content);
     invalidatePackages();
-    Package pkg = loadPackage("p");
+    Package pkg = getPackage("p");
     assertContainsEvent(expectedError);
     assertThat(pkg.containsErrors()).isTrue();
   }
 
   private Package expectEvalSuccess(String... content) throws Exception {
     scratch.file("pkg/BUILD", content);
-    Package pkg = loadPackage("pkg");
+    Package pkg = getPackage("pkg");
     assertThat(pkg.containsErrors()).isFalse();
     return pkg;
   }
@@ -2039,7 +2043,7 @@ my_macro = macro(implementation = _impl)
   private void expectEvalError(String expectedError, String... content) throws Exception {
     reporter.removeHandler(failFastHandler);
     scratch.file("pkg/BUILD", content);
-    Package pkg = loadPackage("pkg");
+    Package pkg = getPackage("pkg");
     assertWithMessage("Expected evaluation error, but none was not reported")
         .that(pkg.containsErrors())
         .isTrue();
@@ -2111,7 +2115,7 @@ my_macro = macro(implementation = _impl)
   private Package buildPackageWithGlob(String globCallExpression) throws Exception {
     scratch.deleteFile("dummypackage/BUILD");
     scratch.file("dummypackage/BUILD", "x = " + globCallExpression);
-    return loadPackage("dummypackage");
+    return getPackage("dummypackage");
   }
 
   /**
@@ -2170,7 +2174,7 @@ my_macro = macro(implementation = _impl)
             "result = glob(%s, exclude=%s, exclude_directories=%d, allow_empty = True)",
             Starlark.repr(includes), Starlark.repr(excludes), excludeDirs ? 1 : 0),
         resultAssertion);
-    return loadPackage("globs");
+    return getPackage("globs");
   }
 
   private void assertGlobProducesError(String pattern, boolean errorExpected) throws Exception {
@@ -2191,12 +2195,8 @@ my_macro = macro(implementation = _impl)
     assertThat(foundError).isEqualTo(errorExpected);
   }
 
-  private Package loadPackage(String pkgid) throws Exception {
-    return getTarget("//" + pkgid + ":BUILD").getPackage();
-  }
-
   private Package loadPackageAndAssertSuccess(String pkgid) throws Exception {
-    Package pkg = loadPackage(pkgid);
+    Package pkg = getPackage(pkgid);
     assertThat(pkg.containsErrors()).isFalse();
     return pkg;
   }

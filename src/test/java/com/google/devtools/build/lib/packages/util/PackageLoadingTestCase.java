@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
@@ -311,6 +312,23 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
   protected Target getTarget(Label label)
       throws NoSuchPackageException, NoSuchTargetException, InterruptedException {
     return getPackageManager().getTarget(reporter, label);
+  }
+
+  /**
+   * Loads a package with the given name in the main repo.
+   *
+   * @throws NoSuchPackageException if the package does not exist
+   * @throws LabelSyntaxException if the package name is not syntactically valid
+   * @throws InterruptedException if loading is interrupted
+   */
+  protected Package getPackage(String packageName)
+      throws NoSuchPackageException, LabelSyntaxException, InterruptedException {
+    return getPackageManager().getPackage(reporter, PackageIdentifier.parse(packageName));
+  }
+
+  protected Package getPackage(PackageIdentifier packageIdentifier)
+      throws NoSuchPackageException, InterruptedException {
+    return getPackageManager().getPackage(reporter, packageIdentifier);
   }
 
   /**

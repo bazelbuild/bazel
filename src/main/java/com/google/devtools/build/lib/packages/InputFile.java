@@ -41,21 +41,21 @@ import net.starlark.java.syntax.Location;
 @ThreadSafe
 public class InputFile extends FileTarget {
 
-  private final Package pkg;
+  private final Packageoid pkg;
   private final Location location;
 
   /**
-   * Constructs an input file with the given label, which must be a label for
-   * the given package, and package-default visibility.
+   * Constructs an input file with the given label, which must be a label for the given package, and
+   * package-default visibility.
    */
-  InputFile(Package pkg, Label label, Location location) {
+  InputFile(Packageoid pkg, Label label, Location location) {
     super(pkg, label);
     this.pkg = pkg;
     this.location = Preconditions.checkNotNull(location);
   }
 
   @Override
-  public Package getPackage() {
+  public Packageoid getPackageoid() {
     return pkg;
   }
 

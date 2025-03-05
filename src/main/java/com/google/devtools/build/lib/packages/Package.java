@@ -95,7 +95,7 @@ import net.starlark.java.syntax.Location;
  * <p>When changing this class, make sure to make corresponding changes to serialization!
  */
 @SuppressWarnings("JavaLangClash")
-public class Package {
+public class Package implements Packageoid {
 
   // TODO(bazel-team): This class and its builder are ginormous. Future refactoring work might
   // attempt to separate the concerns of:
@@ -262,21 +262,14 @@ public class Package {
 
   // ==== General package metadata accessors ====
 
+  @Override
   public Metadata getMetadata() {
     return metadata;
   }
 
+  @Override
   public Declarations getDeclarations() {
     return declarations;
-  }
-
-  /**
-   * Returns this package's identifier.
-   *
-   * <p>This is a suffix of {@code getFilename().getParentDirectory()}.
-   */
-  public PackageIdentifier getPackageIdentifier() {
-    return metadata.packageIdentifier();
   }
 
   /**
@@ -385,6 +378,7 @@ public class Package {
    * Rules belonging to the package are guaranteed to be intact, unless their <code>containsErrors()
    * </code> flag is set.)
    */
+  @Override
   public boolean containsErrors() {
     return containsErrors;
   }
@@ -393,6 +387,7 @@ public class Package {
    * Returns the first {@link FailureDetail} describing one of the package's errors, or {@code null}
    * if it has no errors or all its errors lack details.
    */
+  @Override
   @Nullable
   public FailureDetail getFailureDetail() {
     return failureDetail;
@@ -520,10 +515,7 @@ public class Package {
     }
   }
 
-  /**
-   * Throws {@link MacroNamespaceViolationException} if the given target (which must be a member of
-   * this package) violates macro naming rules.
-   */
+  @Override
   public void checkMacroNamespaceCompliance(Target target) throws MacroNamespaceViolationException {
     Preconditions.checkArgument(
         this.equals(target.getPackage()), "Target must belong to this package");
@@ -538,13 +530,7 @@ public class Package {
     }
   }
 
-  /**
-   * Returns the target (a member of this package) whose name is "targetName". First rules are
-   * searched, then output files, then input files. The target name must be valid, as defined by
-   * {@code LabelValidator#validateTargetName}.
-   *
-   * @throws NoSuchTargetException if the specified target was not found.
-   */
+  @Override
   public Target getTarget(String targetName) throws NoSuchTargetException {
     Target target = targets.get(targetName);
     if (target != null) {

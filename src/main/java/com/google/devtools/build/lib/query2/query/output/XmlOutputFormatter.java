@@ -226,7 +226,7 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
         addStarlarkFilesToElement(doc, elem, inputFile, labelPrinter);
         addFeaturesToElement(doc, elem, inputFile);
         elem.setAttribute(
-            "package_contains_errors", String.valueOf(inputFile.getPackage().containsErrors()));
+            "package_contains_errors", String.valueOf(inputFile.getPackageoid().containsErrors()));
       }
 
       // TODO(bazel-team): We're being inconsistent about whether we include the package's
@@ -289,6 +289,7 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
   private void addStarlarkFilesToElement(
       Document doc, Element parent, InputFile inputFile, LabelPrinter labelPrinter)
       throws InterruptedException {
+    // TODO(https://github.com/bazelbuild/bazel/issues/23852): support lazy macro expansion
     Iterable<Label> dependencies =
         aspectResolver.computeBuildFileDependencies(inputFile.getPackage());
 

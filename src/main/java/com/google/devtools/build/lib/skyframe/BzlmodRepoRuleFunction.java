@@ -209,6 +209,8 @@ public final class BzlmodRepoRuleFunction implements SkyFunction {
                       "BzlmodRepoRuleFunction.createRuleFromSpec", Location.BUILTIN)),
               ruleClass,
               attributesBuilder.buildOrThrow());
+      // rule.getPackage() is non-null because BzlmodRepoRuleCreator.createRule() creates the rule
+      // in a new package.
       return new BzlmodRepoRuleValue(rule.getPackage(), rule.getName());
     } catch (InvalidRuleException e) {
       throw new BzlmodRepoRuleFunctionException(e, Transience.PERSISTENT);

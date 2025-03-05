@@ -339,6 +339,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
       }
 
       if (inputFile.getName().equals("BUILD")) {
+        // TODO(https://github.com/bazelbuild/bazel/issues/23852): support lazy macro expansion.
         Iterable<Label> starlarkLoadLabels =
             aspectResolver == null
                 ? inputFile.getPackageDeclarations().getOrComputeTransitivelyLoadedStarlarkFiles()
@@ -353,7 +354,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
           input.addFeature(internalToUnicode(feature));
         }
 
-        input.setPackageContainsErrors(inputFile.getPackage().containsErrors());
+        input.setPackageContainsErrors(inputFile.getPackageoid().containsErrors());
       }
 
       // TODO(bazel-team): We're being inconsistent about whether we include the package's

@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.License;
 import com.google.devtools.build.lib.packages.License.DistributionType;
 import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.packages.Packageoid;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.Target;
@@ -55,7 +56,7 @@ public class DigraphTest {
     }
 
     @Override
-    public Package getPackage() {
+    public Packageoid getPackageoid() {
       return null;
     }
 

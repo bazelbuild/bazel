@@ -90,8 +90,8 @@ public abstract class OutputFile extends FileTarget {
   }
 
   @Override
-  public final Package getPackage() {
-    return generatingRule.getPackage();
+  public final Packageoid getPackageoid() {
+    return generatingRule.getPackageoid();
   }
 
   @Override

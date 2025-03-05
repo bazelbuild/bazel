@@ -610,7 +610,7 @@ public abstract class TargetDefinitionContext extends StarlarkThreadContext {
   }
 
   public void addRule(Rule rule) throws NameConflictException {
-    Preconditions.checkArgument(rule.getPackage() == pkg);
+    Preconditions.checkArgument(rule.getPackageoid() == pkg);
     recorder.addRule(rule);
   }
 

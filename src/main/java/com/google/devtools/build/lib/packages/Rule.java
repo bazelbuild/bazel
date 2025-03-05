@@ -96,7 +96,7 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
 
   public static final String IS_EXECUTABLE_ATTRIBUTE_NAME = "$is_executable";
 
-  private final Package pkg;
+  private final Packageoid pkg;
   private final Label label;
   private final RuleClass ruleClass;
   private final Location location;
@@ -174,7 +174,7 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
   private Object outputFiles;
 
   Rule(
-      Package pkg,
+      Packageoid pkg,
       Label label,
       RuleClass ruleClass,
       Location location,
@@ -189,7 +189,12 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
   }
 
   void setContainsErrors() {
-    pkg.setContainsErrors();
+    // TODO(https://github.com/bazelbuild/bazel/issues/23852): support package pieces.
+    // TODO(bazel-team): either add a checkState to ensure the package has not completed
+    // construction or replace uses of this method with TargetDefinitionContext#setContainsErrors().
+    if (pkg instanceof Package fullPackage) {
+      fullPackage.setContainsErrors();
+    }
   }
 
   @Override
@@ -198,7 +203,7 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
   }
 
   @Override
-  public Package getPackage() {
+  public Packageoid getPackageoid() {
     return pkg;
   }
 
@@ -1012,7 +1017,7 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
                       "Label for attribute %s should refer to '%s' but instead refers to '%s'"
                           + " (label '%s')",
                       attribute,
-                      pkg.getName(),
+                      pkg.getMetadata().getName(),
                       outputLabel.getPackageFragment(),
                       outputLabel.getName()));
             }
@@ -1111,7 +1116,8 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
     // enforced). See https://github.com/bazelbuild/bazel/issues/12669. Ultimately this entire
     // conditional should be removed.
     if (ruleClass.getName().equals("config_setting")
-        && pkg.getConfigSettingVisibilityPolicy() == ConfigSettingVisibilityPolicy.DEFAULT_PUBLIC) {
+        && pkg.getMetadata().configSettingVisibilityPolicy()
+            == ConfigSettingVisibilityPolicy.DEFAULT_PUBLIC) {
       return RuleVisibility.PUBLIC; // Default: //visibility:public.
     }
 

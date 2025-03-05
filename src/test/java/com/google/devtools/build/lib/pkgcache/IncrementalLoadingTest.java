@@ -29,12 +29,15 @@ import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
+import com.google.devtools.build.lib.packages.Packageoid;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.Target;
@@ -362,12 +365,14 @@ public class IncrementalLoadingTest {
         "foo_library(name = 'pkg', srcs = glob(['**/*.sh']))");
     tester.addFile("pkg/pkg.sh", "#!/bin/bash");
     tester.addFile("pkg/bar/bar.sh", "#!/bin/bash");
-    Package pkg = tester.getTarget("//pkg:pkg").getPackage();
+    Packageoid packageoid = tester.getTarget("//pkg:pkg").getPackageoid();
+    Package pkg = tester.getPackage("pkg");
 
     // Write file in directory to force reload of top-level glob.
     tester.addFile("pkg/irrelevant_file");
     tester.addFile("pkg/bar/irrelevant_file"); // Subglob is also reloaded.
-    assertThat(tester.getTarget("//pkg:pkg").getPackage()).isSameInstanceAs(pkg);
+    assertThat(tester.getTarget("//pkg:pkg").getPackageoid()).isSameInstanceAs(packageoid);
+    assertThat(tester.getPackage("pkg")).isSameInstanceAs(pkg);
   }
 
   @Test
@@ -646,6 +651,16 @@ public class IncrementalLoadingTest {
         throws NoSuchPackageException, NoSuchTargetException, InterruptedException {
       Label label = Label.parseCanonicalUnchecked(targetName);
       return skyframeExecutor.getPackageManager().getTarget(reporter, label);
+    }
+
+    Package getPackage(PackageIdentifier pkgId)
+        throws NoSuchPackageException, InterruptedException {
+      return skyframeExecutor.getPackageManager().getPackage(reporter, pkgId);
+    }
+
+    Package getPackage(String packageName)
+        throws LabelSyntaxException, NoSuchPackageException, InterruptedException {
+      return getPackage(PackageIdentifier.parse(packageName));
     }
   }
 }

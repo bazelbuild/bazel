@@ -219,7 +219,7 @@ public final class ConfiguredTargetFactory {
     // analyzed. (createRule() already enforces this above for rule targets, with optional error
     // interception through analysis_test.)
     try {
-      target.getPackage().checkMacroNamespaceCompliance(target);
+      target.getPackageoid().checkMacroNamespaceCompliance(target);
     } catch (MacroNamespaceViolationException e) {
       analysisEnvironment
           .getEventHandler()
@@ -354,7 +354,7 @@ public final class ConfiguredTargetFactory {
     }
 
     try {
-      rule.getPackage().checkMacroNamespaceCompliance(rule);
+      rule.getPackageoid().checkMacroNamespaceCompliance(rule);
     } catch (MacroNamespaceViolationException e) {
       ruleContext.ruleError(e.getMessage());
       return erroredConfiguredTarget(ruleContext, null);

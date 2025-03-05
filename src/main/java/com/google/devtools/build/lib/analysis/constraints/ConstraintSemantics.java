@@ -138,6 +138,7 @@ public interface ConstraintSemantics<T> {
           envTarget.getLabel() + " is not a valid environment definition",
           Code.INVALID_ENVIRONMENT);
     }
+    // TODO(https://github.com/bazelbuild/bazel/issues/23852): support package pieces.
     for (EnvironmentGroup group : envTarget.getPackage().getTargets(EnvironmentGroup.class)) {
       if (group.getEnvironments().contains(envTarget.getLabel())) {
         return group;

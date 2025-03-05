@@ -27,7 +27,7 @@ public final class VisibilityLicenseSpecifiedInputFile extends InputFile {
   @Nullable private final License license;
 
   VisibilityLicenseSpecifiedInputFile(
-      Package pkg,
+      Packageoid pkg,
       Label label,
       Location location,
       @Nullable RuleVisibility visibility,

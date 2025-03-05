@@ -20,7 +20,7 @@ import net.starlark.java.syntax.Location;
 /** An input file to the build system which always returns private visibility. */
 public class PrivateVisibilityInputFile extends InputFile {
 
-  PrivateVisibilityInputFile(Package pkg, Label label, Location location) {
+  PrivateVisibilityInputFile(Packageoid pkg, Label label, Location location) {
     super(pkg, label, location);
   }
 
