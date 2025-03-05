@@ -606,7 +606,10 @@ int ReadSymlinkOrJunction(const wstring& path, wstring* result,
       return ReadSymlinkOrJunctionResult::kNotALink;
     }
     default:
-      return ReadSymlinkOrJunctionResult::kUnknownLinkType;
+      *error =
+          MakeErrorMessage(WSTR(__FILE__), __LINE__, L"ReadSymlinkOrJunction",
+                           path, L"unsupported link type");
+      return ReadSymlinkOrJunctionResult::kError;
   }
 }
 

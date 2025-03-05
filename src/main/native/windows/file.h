@@ -133,7 +133,6 @@ struct ReadSymlinkOrJunctionResult {
     kAccessDenied = 2,
     kDoesNotExist = 3,
     kNotALink = 4,
-    kUnknownLinkType = 5,
   };
 };
 
