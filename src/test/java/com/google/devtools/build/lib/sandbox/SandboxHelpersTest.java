@@ -91,14 +91,13 @@ public class SandboxHelpersTest {
 
   @Test
   public void processInputFiles_materializesParamFile() throws Exception {
-    SandboxHelpers sandboxHelpers = new SandboxHelpers();
     ParamFileActionInput paramFile =
         new ParamFileActionInput(
             PathFragment.create("paramFile"),
             ImmutableList.of("-a", "-b"),
             ParameterFileType.UNQUOTED);
 
-    SandboxInputs inputs = sandboxHelpers.processInputFiles(inputMap(paramFile), execRoot);
+    SandboxInputs inputs = SandboxHelpers.processInputFiles(inputMap(paramFile), execRoot);
 
     assertThat(inputs.getFiles())
         .containsExactly(PathFragment.create("paramFile"), execRoot.getChild("paramFile"));
@@ -111,13 +110,12 @@ public class SandboxHelpersTest {
 
   @Test
   public void processInputFiles_materializesBinToolsFile() throws Exception {
-    SandboxHelpers sandboxHelpers = new SandboxHelpers();
     BinTools.PathActionInput tool =
         new BinTools.PathActionInput(
             scratch.file("tool", "#!/bin/bash", "echo hello"),
             PathFragment.create("_bin/say_hello"));
 
-    SandboxInputs inputs = sandboxHelpers.processInputFiles(inputMap(tool), execRoot);
+    SandboxInputs inputs = SandboxHelpers.processInputFiles(inputMap(tool), execRoot);
 
     assertThat(inputs.getFiles())
         .containsExactly(
@@ -156,19 +154,18 @@ public class SandboxHelpersTest {
         };
     Scratch customScratch = new Scratch(customFs);
     Path customExecRoot = customScratch.dir("/execroot");
-    SandboxHelpers sandboxHelpers = new SandboxHelpers();
 
     Future<?> future =
         executorToCleanup.submit(
             () -> {
               try {
-                sandboxHelpers.processInputFiles(inputMap(input), customExecRoot);
+                SandboxHelpers.processInputFiles(inputMap(input), customExecRoot);
                 finishProcessingSemaphore.release();
               } catch (IOException | InterruptedException e) {
                 throw new IllegalArgumentException(e);
               }
             });
-    sandboxHelpers.processInputFiles(inputMap(input), customExecRoot);
+    SandboxHelpers.processInputFiles(inputMap(input), customExecRoot);
     finishProcessingSemaphore.release();
     future.get();
 
@@ -306,7 +303,6 @@ public class SandboxHelpersTest {
         execPath -> PathFragment.create(execPath.getPathString().replace("config/", ""));
     Spawn spawn =
         new SpawnBuilder().withOutputs(outputFile, outputDir).setPathMapper(pathMapper).build();
-    var sandboxHelpers = new SandboxHelpers();
     LinkedHashSet<PathFragment> writableDirs = new LinkedHashSet<>();
     LinkedHashSet<PathFragment> inputsToCreate = new LinkedHashSet<>();
     LinkedHashSet<PathFragment> dirsToCreate = new LinkedHashSet<>();
@@ -316,7 +312,7 @@ public class SandboxHelpersTest {
         inputsToCreate,
         dirsToCreate,
         ImmutableList.of(),
-        sandboxHelpers.getOutputs(spawn));
+        SandboxHelpers.getOutputs(spawn));
 
     assertThat(writableDirs).isEmpty();
     assertThat(inputsToCreate).isEmpty();
@@ -336,7 +332,6 @@ public class SandboxHelpersTest {
             .withOutputs(unmappedOutputPath.getPathString())
             .setPathMapper(pathMapper)
             .build();
-    var sandboxHelpers = new SandboxHelpers();
     Path sandboxBase = execRoot.getRelative("sandbox");
     PathFragment mappedOutputPath = PathFragment.create("bin/output");
     sandboxBase.getRelative(mappedOutputPath).getParentDirectory().createDirectoryAndParents();
@@ -344,7 +339,7 @@ public class SandboxHelpersTest {
         sandboxBase.getRelative(mappedOutputPath), UTF_8, "hello", "pathmapper");
 
     Path realBase = execRoot.getRelative("real");
-    SandboxHelpers.moveOutputs(sandboxHelpers.getOutputs(spawn), sandboxBase, realBase);
+    SandboxHelpers.moveOutputs(SandboxHelpers.getOutputs(spawn), sandboxBase, realBase);
 
     assertThat(
             FileSystemUtils.readLines(

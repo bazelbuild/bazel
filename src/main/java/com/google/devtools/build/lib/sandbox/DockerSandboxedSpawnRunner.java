@@ -140,7 +140,6 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
 
   private static final ConcurrentHashMap<String, String> imageMap = new ConcurrentHashMap<>();
 
-  private final SandboxHelpers helpers;
   private final Path execRoot;
   private final boolean allowNetwork;
   private final Path dockerClient;
@@ -160,7 +159,6 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
   /**
    * Creates a sandboxed spawn runner that uses the {@code linux-sandbox} tool.
    *
-   * @param helpers common tools and state across all spawns during sandboxed execution
    * @param cmdEnv the command environment to use
    * @param dockerClient path to the `docker` executable
    * @param sandboxBase path to the sandbox base directory
@@ -169,7 +167,6 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
    * @param treeDeleter scheduler for tree deletions
    */
   DockerSandboxedSpawnRunner(
-      SandboxHelpers helpers,
       CommandEnvironment cmdEnv,
       Path dockerClient,
       Path sandboxBase,
@@ -177,9 +174,8 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       boolean useCustomizedImages,
       TreeDeleter treeDeleter) {
     super(cmdEnv);
-    this.helpers = helpers;
     this.execRoot = cmdEnv.getExecRoot();
-    this.allowNetwork = helpers.shouldAllowNetwork(cmdEnv.getOptions());
+    this.allowNetwork = SandboxHelpers.shouldAllowNetwork(cmdEnv.getOptions());
     this.dockerClient = dockerClient;
     this.processWrapper = ProcessWrapper.fromCommandEnvironment(cmdEnv);
     this.sandboxBase = sandboxBase;
@@ -221,10 +217,10 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
         localEnvProvider.rewriteLocalEnv(spawn.getEnvironment(), binTools, "/tmp");
 
     SandboxInputs inputs =
-        helpers.processInputFiles(
+        SandboxHelpers.processInputFiles(
             context.getInputMapping(PathFragment.EMPTY_FRAGMENT, /* willAccessRepeatedly= */ true),
             execRoot);
-    SandboxOutputs outputs = helpers.getOutputs(spawn);
+    SandboxOutputs outputs = SandboxHelpers.getOutputs(spawn);
 
     Duration timeout = context.getTimeout();
 

@@ -90,7 +90,6 @@ final class WorkerSpawnRunner implements SpawnRunner {
    */
   private static final int VERBOSE_LEVEL = 10;
 
-  private final SandboxHelpers helpers;
   private final Path execRoot;
   private final ExtendedEventHandler reporter;
   private final ResourceManager resourceManager;
@@ -101,7 +100,6 @@ final class WorkerSpawnRunner implements SpawnRunner {
   private final WorkerProcessMetricsCollector metricsCollector;
 
   public WorkerSpawnRunner(
-      SandboxHelpers helpers,
       Path execRoot,
       WorkerPool workers,
       ExtendedEventHandler reporter,
@@ -112,7 +110,6 @@ final class WorkerSpawnRunner implements SpawnRunner {
       WorkerOptions workerOptions,
       WorkerProcessMetricsCollector workerProcessMetricsCollector,
       Clock clock) {
-    this.helpers = helpers;
     this.execRoot = execRoot;
     this.reporter = reporter;
     this.resourceManager = resourceManager;
@@ -192,12 +189,12 @@ final class WorkerSpawnRunner implements SpawnRunner {
       try (SilentCloseable c1 =
           Profiler.instance().profile(ProfilerTask.WORKER_SETUP, "Setting up inputs")) {
         inputFiles =
-            helpers.processInputFiles(
+            SandboxHelpers.processInputFiles(
                 context.getInputMapping(
                     PathFragment.EMPTY_FRAGMENT, /* willAccessRepeatedly= */ true),
                 execRoot);
       }
-      SandboxOutputs outputs = helpers.getOutputs(spawn);
+      SandboxOutputs outputs = SandboxHelpers.getOutputs(spawn);
 
       WorkerParser.WorkerConfig workerConfig = workerParser.compute(spawn, context);
       WorkerKey key = workerConfig.getWorkerKey();

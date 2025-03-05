@@ -69,6 +69,8 @@ import javax.annotation.Nullable;
  */
 public final class SandboxHelpers {
 
+  private SandboxHelpers() {}
+
   public static final String INACCESSIBLE_HELPER_DIR = "inaccessibleHelperDir";
   public static final String INACCESSIBLE_HELPER_FILE = "inaccessibleHelperFile";
 
@@ -530,7 +532,8 @@ public final class SandboxHelpers {
    * @throws IOException if processing symlinks fails
    */
   @CanIgnoreReturnValue
-  public SandboxInputs processInputFiles(Map<PathFragment, ActionInput> inputMap, Path execRoot)
+  public static SandboxInputs processInputFiles(
+      Map<PathFragment, ActionInput> inputMap, Path execRoot)
       throws IOException, InterruptedException {
     Map<PathFragment, Path> inputFiles = new TreeMap<>();
     Map<PathFragment, PathFragment> inputSymlinks = new TreeMap<>();
@@ -596,7 +599,7 @@ public final class SandboxHelpers {
     }
   }
 
-  public SandboxOutputs getOutputs(Spawn spawn) {
+  public static SandboxOutputs getOutputs(Spawn spawn) {
     ImmutableMap.Builder<PathFragment, PathFragment> files = ImmutableMap.builder();
     ImmutableMap.Builder<PathFragment, PathFragment> dirs = ImmutableMap.builder();
     for (ActionInput output : spawn.getOutputFiles()) {
@@ -630,7 +633,7 @@ public final class SandboxHelpers {
    * reference to the full set of build options (and also for performance, since this only needs to
    * be checked once-per-build).
    */
-  boolean shouldAllowNetwork(OptionsParsingResult buildOptions) {
+  static boolean shouldAllowNetwork(OptionsParsingResult buildOptions) {
     // Allow network access, when --java_debug is specified, otherwise we can't connect to the
     // remote debug server of the test. This intentionally overrides the "block-network" execution
     // tag.

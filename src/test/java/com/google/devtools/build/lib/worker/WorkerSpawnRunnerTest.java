@@ -54,7 +54,6 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.exec.SpawnExecutingEvent;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
-import com.google.devtools.build.lib.sandbox.SandboxHelpers;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -146,7 +145,6 @@ public class WorkerSpawnRunnerTest {
 
     WorkerSpawnRunner runner =
         new WorkerSpawnRunner(
-            new SandboxHelpers(),
             execRoot,
             WorkerTestUtils.createTestWorkerPool(worker),
             reporter,
@@ -537,7 +535,6 @@ public class WorkerSpawnRunnerTest {
 
   private WorkerSpawnRunner createWorkerSpawnRunner(WorkerOptions workerOptions) {
     return new WorkerSpawnRunner(
-        new SandboxHelpers(),
         fs.getPath("/execRoot"),
         WorkerTestUtils.createTestWorkerPool(worker),
         reporter,

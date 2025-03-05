@@ -101,7 +101,6 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     return true;
   }
 
-  private final SandboxHelpers helpers;
   private final Path execRoot;
   private final boolean allowNetwork;
   private final ProcessWrapper processWrapper;
@@ -120,20 +119,14 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
    * Creates a sandboxed spawn runner that uses the {@code process-wrapper} tool and the MacOS
    * {@code sandbox-exec} binary.
    *
-   * @param helpers common tools and state across all spawns during sandboxed execution
    * @param cmdEnv the command environment to use
    * @param sandboxBase path to the sandbox base directory
    */
-  DarwinSandboxedSpawnRunner(
-      SandboxHelpers helpers,
-      CommandEnvironment cmdEnv,
-      Path sandboxBase,
-      TreeDeleter treeDeleter)
+  DarwinSandboxedSpawnRunner(CommandEnvironment cmdEnv, Path sandboxBase, TreeDeleter treeDeleter)
       throws IOException, InterruptedException {
     super(cmdEnv);
-    this.helpers = helpers;
     this.execRoot = cmdEnv.getExecRoot();
-    this.allowNetwork = helpers.shouldAllowNetwork(cmdEnv.getOptions());
+    this.allowNetwork = SandboxHelpers.shouldAllowNetwork(cmdEnv.getOptions());
     this.alwaysWritableDirs = getAlwaysWritableDirs(cmdEnv.getRuntime().getFileSystem());
     this.processWrapper = ProcessWrapper.fromCommandEnvironment(cmdEnv);
     this.localEnvProvider = LocalEnvProvider.forCurrentOs(cmdEnv.getClientEnv());
@@ -223,10 +216,10 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     writableDirs.addAll(extraWritableDirs);
 
     SandboxInputs inputs =
-        helpers.processInputFiles(
+        SandboxHelpers.processInputFiles(
             context.getInputMapping(PathFragment.EMPTY_FRAGMENT, /* willAccessRepeatedly= */ true),
             execRoot);
-    SandboxOutputs outputs = helpers.getOutputs(spawn);
+    SandboxOutputs outputs = SandboxHelpers.getOutputs(spawn);
 
     final Path sandboxConfigPath = sandboxPath.getRelative("sandbox.sb");
     Duration timeout = context.getTimeout();

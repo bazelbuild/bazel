@@ -117,7 +117,6 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     return true;
   }
 
-  private final SandboxHelpers helpers;
   private final FileSystem fileSystem;
   private final Path execRoot;
   private final boolean allowNetwork;
@@ -136,7 +135,6 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
   /**
    * Creates a sandboxed spawn runner that uses the {@code linux-sandbox} tool.
    *
-   * @param helpers common tools and state across all spawns during sandboxed execution
    * @param cmdEnv the command environment to use
    * @param sandboxBase path to the sandbox base directory
    * @param inaccessibleHelperFile path to a file that is (already) inaccessible
@@ -144,7 +142,6 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
    * @param timeoutKillDelay an additional grace period before killing timing out commands
    */
   LinuxSandboxedSpawnRunner(
-      SandboxHelpers helpers,
       CommandEnvironment cmdEnv,
       Path sandboxBase,
       Path inaccessibleHelperFile,
@@ -161,10 +158,9 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
                 VirtualCgroup.getInstance(),
                 getSandboxOptions().getLimits(),
                 /* alwaysCreate= */ false);
-    this.helpers = helpers;
     this.fileSystem = cmdEnv.getRuntime().getFileSystem();
     this.execRoot = cmdEnv.getExecRoot();
-    this.allowNetwork = helpers.shouldAllowNetwork(cmdEnv.getOptions());
+    this.allowNetwork = SandboxHelpers.shouldAllowNetwork(cmdEnv.getOptions());
     this.linuxSandbox = LinuxSandboxUtil.getLinuxSandbox(cmdEnv.getBlazeWorkspace());
     this.sandboxBase = sandboxBase;
     this.inaccessibleHelperFile = inaccessibleHelperFile;
@@ -263,7 +259,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     sandboxExecRoot.createDirectoryAndParents();
 
     SandboxInputs inputs =
-        helpers.processInputFiles(
+        SandboxHelpers.processInputFiles(
             context.getInputMapping(PathFragment.EMPTY_FRAGMENT, /* willAccessRepeatedly= */ true),
             execRoot);
 
@@ -296,7 +292,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       }
     }
 
-    SandboxOutputs outputs = helpers.getOutputs(spawn);
+    SandboxOutputs outputs = SandboxHelpers.getOutputs(spawn);
     Duration timeout = context.getTimeout();
     SandboxOptions sandboxOptions = getSandboxOptions();
 
