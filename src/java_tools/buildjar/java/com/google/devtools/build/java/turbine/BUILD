@@ -89,7 +89,7 @@ genrule(
     outs = ["turbine_direct_graal"],
     cmd = select({
         "@platforms//os:windows": """\
-cp $< $@
+cp $(location :turbine_direct_graal_unpatched) $@
 cat $(location turbine_direct_graal.manifest) | $(location //src:write_manifest) $@
 """,
         "//conditions:default": "cp $< $@",
