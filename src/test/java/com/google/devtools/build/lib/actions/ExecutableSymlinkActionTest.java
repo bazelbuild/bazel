@@ -76,7 +76,7 @@ public class ExecutableSymlinkActionTest {
         actionKeyContext,
         mock(OutputMetadataStore.class),
         /* rewindingEnabled= */ false,
-        false, LostInputsCheck.NONE,
+        LostInputsCheck.NONE,
         outErr,
         /* eventHandler= */ null,
         /* clientEnv= */ ImmutableMap.of(),

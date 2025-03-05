@@ -426,11 +426,6 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
     }
 
     @Override
-    public boolean wasRewound() {
-      return actionExecutionContext.wasRewound();
-    }
-
-    @Override
     public void checkForLostInputs() throws LostInputsExecException {
       try {
         actionExecutionContext.checkForLostInputs();

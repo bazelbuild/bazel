@@ -152,7 +152,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
           new ActionKeyContext(),
           /* outputMetadataStore= */ outputMetadataStore,
           /* rewindingEnabled= */ false,
-          false, LostInputsCheck.NONE,
+          LostInputsCheck.NONE,
           fileOutErr,
           /* eventHandler= */ null,
           /* clientEnv= */ ImmutableMap.of("PATH", "/usr/bin:/bin"),

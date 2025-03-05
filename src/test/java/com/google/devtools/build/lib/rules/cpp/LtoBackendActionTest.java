@@ -93,7 +93,7 @@ public class LtoBackendActionTest extends BuildViewTestCase {
             actionKeyContext,
             /* outputMetadataStore= */ null,
             /* rewindingEnabled= */ false,
-            false, LostInputsCheck.NONE,
+            LostInputsCheck.NONE,
             new FileOutErr(),
             new StoredEventHandler(),
             /* clientEnv= */ ImmutableMap.of(),

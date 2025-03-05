@@ -163,7 +163,7 @@ public class ExtraActionTest extends FoundationTestCase {
                 actionKeyContext,
                 /* outputMetadataStore= */ null,
                 /* rewindingEnabled= */ false,
-                false, LostInputsCheck.NONE,
+                LostInputsCheck.NONE,
                 /* fileOutErr= */ null,
                 /* eventHandler= */ null,
                 /* clientEnv= */ ImmutableMap.of(),

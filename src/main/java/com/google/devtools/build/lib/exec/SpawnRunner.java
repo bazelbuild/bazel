@@ -289,9 +289,6 @@ public interface SpawnRunner {
     /** Returns whether rewinding is enabled. */
     boolean isRewindingEnabled();
 
-    /** Returns whether the action that executed this spawn has been rewound. */
-    boolean wasRewound();
-
     /** Throws if rewinding is enabled and lost inputs have been detected. */
     void checkForLostInputs() throws LostInputsExecException;
 
