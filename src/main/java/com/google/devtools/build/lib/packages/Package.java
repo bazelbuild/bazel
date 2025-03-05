@@ -103,8 +103,6 @@ public class Package {
   //     afterwards
   //   - utility logical like validating names, checking for conflicts, etc.
   //   - tracking and enforcement of limits
-  //   - grouping metadata based on whether it's known prior to BUILD file evaluation, prior to
-  //     symbolic macro evalutaion, or at the time of final Package construction
   //   - machinery specific to external package / WORKSPACE / bzlmod
 
   // ==== Static fields and enums ====
@@ -146,23 +144,7 @@ public class Package {
 
   private final Metadata metadata;
 
-  // For BUILD files, this is initialized immediately. For WORKSPACE files, it is known only after
-  // Starlark evaluation of the WORKSPACE file has finished.
-  private String workspaceName;
-
-  // Can be changed during BUILD file evaluation due to exports_files() modifying its visibility.
-  private InputFile buildFile;
-
-  // Mutated during BUILD file evaluation (but not by symbolic macro evaluation).
-  private PackageArgs packageArgs = PackageArgs.DEFAULT;
-
-  // Mutated during BUILD file evaluation (but not by symbolic macro evaluation).
-  private ImmutableMap<String, String> makeEnv;
-
-  // These two fields are mutually exclusive. Which one is set depends on
-  // PackageSettings#precomputeTransitiveLoads. See Package.Builder#setLoads.
-  @Nullable private ImmutableList<Module> directLoads;
-  @Nullable private ImmutableList<Label> transitiveLoads;
+  private final Declarations declarations;
 
   /**
    * True iff this package's BUILD files contained lexical or grammatical errors, or experienced
@@ -275,12 +257,17 @@ public class Package {
   // BUILD evaluation.
   private Package(Metadata metadata) {
     this.metadata = metadata;
+    this.declarations = new Declarations();
   }
 
   // ==== General package metadata accessors ====
 
   public Metadata getMetadata() {
     return metadata;
+  }
+
+  public Declarations getDeclarations() {
+    return declarations;
   }
 
   /**
@@ -345,44 +332,34 @@ public class Package {
     return metadata.configSettingVisibilityPolicy();
   }
 
-  /**
-   * Returns the name of the workspace this package is in. Used as a prefix for the runfiles
-   * directory. This can be set in the WORKSPACE file. This must be a valid target name.
-   */
+  /** Convenience wrapper for {@link Declarations#getWorkspaceName} */
   public String getWorkspaceName() {
-    return workspaceName;
+    // To support declarations mocking, use getDeclarations() instead of directly using the field.
+    return getDeclarations().getWorkspaceName();
   }
 
-  /** Returns the InputFile target for this package's BUILD file. */
+  /** Convenience wrapper for {@link Declarations#getBuildFile} */
   public InputFile getBuildFile() {
-    return buildFile;
+    // To support declarations mocking, use getDeclarations() instead of directly using the field.
+    return getDeclarations().getBuildFile();
   }
 
-  /**
-   * Returns the label of this package's BUILD file.
-   *
-   * <p>Typically <code>getBuildFileLabel().getName().equals("BUILD")</code> -- though not
-   * necessarily: data in a subdirectory of a test package may use a different filename to avoid
-   * inadvertently creating a new package.
-   */
+  /** Convenience wrapper for {@link Declarations#getBuildFileLabel} */
   public Label getBuildFileLabel() {
-    return buildFile.getLabel();
+    // To support declarations mocking, use getDeclarations() instead of directly using the field.
+    return getDeclarations().getBuildFileLabel();
   }
 
-  /**
-   * Returns the collection of package-level attributes set by the {@code package()} callable and
-   * similar methods.
-   */
+  /** Convenience wrapper for {@link Declarations#getPackageArgs} */
   public PackageArgs getPackageArgs() {
-    return packageArgs;
+    // To support declarations mocking, use getDeclarations() instead of directly using the field.
+    return getDeclarations().getPackageArgs();
   }
 
-  /**
-   * Returns the "Make" environment of this package, containing package-local definitions of "Make"
-   * variables.
-   */
+  /** Convenience wrapper for {@link Declarations#getMakeEnvironment} */
   public ImmutableMap<String, String> getMakeEnvironment() {
-    return makeEnv;
+    // To support declarations mocking, use getDeclarations() instead of directly using the field.
+    return getDeclarations().getMakeEnvironment();
   }
 
   /**
@@ -394,52 +371,6 @@ public class Package {
    */
   public Optional<Root> getSourceRoot() {
     return metadata.sourceRoot();
-  }
-
-  /**
-   * Returns a list of Starlark files transitively loaded by this package.
-   *
-   * <p>If transitive loads are not {@linkplain PackageSettings#precomputeTransitiveLoads
-   * precomputed}, performs a traversal over the load graph to compute them.
-   *
-   * <p>If only the count of transitively loaded files is needed, use {@link
-   * #countTransitivelyLoadedStarlarkFiles}. For a customized online visitation, use {@link
-   * #visitLoadGraph}.
-   */
-  public ImmutableList<Label> getOrComputeTransitivelyLoadedStarlarkFiles() {
-    return transitiveLoads != null ? transitiveLoads : computeTransitiveLoads(directLoads);
-  }
-
-  /**
-   * Counts the number Starlark files transitively loaded by this package.
-   *
-   * <p>If transitive loads are not {@linkplain PackageSettings#precomputeTransitiveLoads
-   * precomputed}, performs a traversal over the load graph to count them.
-   */
-  public int countTransitivelyLoadedStarlarkFiles() {
-    if (transitiveLoads != null) {
-      return transitiveLoads.size();
-    }
-    Set<Label> loads = new HashSet<>();
-    visitLoadGraph(loads::add);
-    return loads.size();
-  }
-
-  /**
-   * Performs an online visitation of the load graph rooted at this package.
-   *
-   * <p>If transitive loads were {@linkplain PackageSettings#precomputeTransitiveLoads precomputed},
-   * each file is passed to {@link LoadGraphVisitor#visit} once regardless of its return value.
-   */
-  public <E1 extends Exception, E2 extends Exception> void visitLoadGraph(
-      LoadGraphVisitor<E1, E2> visitor) throws E1, E2 {
-    if (transitiveLoads != null) {
-      for (Label load : transitiveLoads) {
-        visitor.visit(load);
-      }
-    } else {
-      BazelModuleContext.visitLoadGraphRecursively(directLoads, visitor);
-    }
   }
 
   private static ImmutableList<Label> computeTransitiveLoads(Iterable<Module> directLoads) {
@@ -737,14 +668,14 @@ public class Package {
    */
   private void finishInit(Builder builder) {
     this.containsErrors |= builder.containsErrors();
-    if (directLoads == null && transitiveLoads == null) {
+    if (declarations.directLoads == null && declarations.transitiveLoads == null) {
       Preconditions.checkState(containsErrors, "Loads not set for error-free package");
       builder.setLoads(ImmutableList.of());
     }
 
-    this.workspaceName = builder.workspaceName;
+    declarations.workspaceName = builder.workspaceName;
 
-    this.makeEnv = ImmutableMap.copyOf(builder.makeEnv);
+    declarations.makeEnv = ImmutableMap.copyOf(builder.makeEnv);
     this.targets = ImmutableSortedMap.copyOf(builder.recorder.getTargetMap());
     this.macros = ImmutableSortedMap.copyOf(builder.recorder.getMacroMap());
     this.macroNamespaceViolatingTargets =
@@ -1351,7 +1282,7 @@ public class Package {
 
     @Override
     public void mergePackageArgsFrom(PackageArgs packageArgs) {
-      pkg.packageArgs = pkg.packageArgs.mergeWith(packageArgs);
+      pkg.declarations.packageArgs = pkg.declarations.packageArgs.mergeWith(packageArgs);
     }
 
     @Override
@@ -1361,7 +1292,7 @@ public class Package {
 
     @Override
     public PackageArgs getPartialPackageArgs() {
-      return pkg.packageArgs;
+      return pkg.declarations.packageArgs;
     }
 
     /** Sets the number of Starlark computation steps executed by this BUILD file. */
@@ -1407,9 +1338,9 @@ public class Package {
     public Builder setLoads(Iterable<Module> directLoads) {
       checkLoadsNotSet();
       if (precomputeTransitiveLoads) {
-        pkg.transitiveLoads = computeTransitiveLoads(directLoads);
+        pkg.declarations.transitiveLoads = computeTransitiveLoads(directLoads);
       } else {
-        pkg.directLoads = ImmutableList.copyOf(directLoads);
+        pkg.declarations.directLoads = ImmutableList.copyOf(directLoads);
       }
       return this;
     }
@@ -1417,15 +1348,19 @@ public class Package {
     @CanIgnoreReturnValue
     Builder setTransitiveLoadsForDeserialization(ImmutableList<Label> transitiveLoads) {
       checkLoadsNotSet();
-      pkg.transitiveLoads = Preconditions.checkNotNull(transitiveLoads);
+      pkg.declarations.transitiveLoads = Preconditions.checkNotNull(transitiveLoads);
       return this;
     }
 
     private void checkLoadsNotSet() {
       Preconditions.checkState(
-          pkg.directLoads == null, "Direct loads already set: %s", pkg.directLoads);
+          pkg.declarations.directLoads == null,
+          "Direct loads already set: %s",
+          pkg.declarations.directLoads);
       Preconditions.checkState(
-          pkg.transitiveLoads == null, "Transitive loads already set: %s", pkg.transitiveLoads);
+          pkg.declarations.transitiveLoads == null,
+          "Transitive loads already set: %s",
+          pkg.declarations.transitiveLoads);
     }
 
     public Set<Target> getTargets() {
@@ -1675,7 +1610,7 @@ public class Package {
       // We create an InputFile corresponding to the BUILD file in Builder's constructor. However,
       // the visibility of this target may be overridden with an exports_files directive, so we wait
       // until now to obtain the current instance from the targets map.
-      pkg.buildFile =
+      pkg.declarations.buildFile =
           Preconditions.checkNotNull(
               (InputFile) recorder.getTargetMap().get(metadata.buildFileLabel().getName()));
 
@@ -1924,6 +1859,123 @@ public class Package {
 
       return Optional.of(sourceRoot);
     }
+  }
+
+  /**
+   * A collection of data about a package that is known after BUILD file evaluation has completed
+   * and which doesn't require expanding any symbolic macros. Treated as immutable after BUILD file
+   * evaluation has completed.
+   *
+   * <p>This class should not be extended - it's only non-final for mocking!
+   */
+  public static class Declarations {
+    // For BUILD files, this is initialized immediately. For WORKSPACE files, it is known only after
+    // Starlark evaluation of the WORKSPACE file has finished.
+    // TODO(bazel-team): move to Metadata when WORKSPACE file logic is deleted.
+    private String workspaceName;
+
+    // Can be changed during BUILD file evaluation due to exports_files() modifying its visibility.
+    private InputFile buildFile;
+
+    // Mutated during BUILD file evaluation (but not by symbolic macro evaluation).
+    private PackageArgs packageArgs = PackageArgs.DEFAULT;
+
+    // Mutated during BUILD file evaluation (but not by symbolic macro evaluation).
+    private ImmutableMap<String, String> makeEnv;
+
+    // These two fields are mutually exclusive. Which one is set depends on
+    // PackageSettings#precomputeTransitiveLoads. See Package.Builder#setLoads.
+    @Nullable private ImmutableList<Module> directLoads;
+    @Nullable private ImmutableList<Label> transitiveLoads;
+
+    /**
+     * Returns the name of the workspace this package is in. Used as a prefix for the runfiles
+     * directory. This can be set in the WORKSPACE file. This must be a valid target name.
+     */
+    public String getWorkspaceName() {
+      return workspaceName;
+    }
+
+    /** Returns the InputFile target for this package's BUILD file. */
+    public InputFile getBuildFile() {
+      return buildFile;
+    }
+
+    /**
+     * Returns the label of this package's BUILD file.
+     *
+     * <p>Typically <code>getBuildFileLabel().getName().equals("BUILD")</code> -- though not
+     * necessarily: data in a subdirectory of a test package may use a different filename to avoid
+     * inadvertently creating a new package.
+     */
+    public Label getBuildFileLabel() {
+      return buildFile.getLabel();
+    }
+
+    /**
+     * Returns the collection of package-level attributes set by the {@code package()} callable and
+     * similar methods.
+     */
+    public PackageArgs getPackageArgs() {
+      return packageArgs;
+    }
+
+    /**
+     * Returns the "Make" environment of this package, containing package-local definitions of
+     * "Make" variables.
+     */
+    public ImmutableMap<String, String> getMakeEnvironment() {
+      return makeEnv;
+    }
+
+    /**
+     * Returns a list of Starlark files transitively loaded by this package.
+     *
+     * <p>If transitive loads are not {@linkplain PackageSettings#precomputeTransitiveLoads
+     * precomputed}, performs a traversal over the load graph to compute them.
+     *
+     * <p>If only the count of transitively loaded files is needed, use {@link
+     * #countTransitivelyLoadedStarlarkFiles}. For a customized online visitation, use {@link
+     * #visitLoadGraph}.
+     */
+    public ImmutableList<Label> getOrComputeTransitivelyLoadedStarlarkFiles() {
+      return transitiveLoads != null ? transitiveLoads : computeTransitiveLoads(directLoads);
+    }
+
+    /**
+     * Counts the number Starlark files transitively loaded by this package.
+     *
+     * <p>If transitive loads are not {@linkplain PackageSettings#precomputeTransitiveLoads
+     * precomputed}, performs a traversal over the load graph to count them.
+     */
+    public int countTransitivelyLoadedStarlarkFiles() {
+      if (transitiveLoads != null) {
+        return transitiveLoads.size();
+      }
+      Set<Label> loads = new HashSet<>();
+      visitLoadGraph(loads::add);
+      return loads.size();
+    }
+
+    /**
+     * Performs an online visitation of the load graph rooted at this package.
+     *
+     * <p>If transitive loads were {@linkplain PackageSettings#precomputeTransitiveLoads
+     * precomputed}, each file is passed to {@link LoadGraphVisitor#visit} once regardless of its
+     * return value.
+     */
+    public <E1 extends Exception, E2 extends Exception> void visitLoadGraph(
+        LoadGraphVisitor<E1, E2> visitor) throws E1, E2 {
+      if (transitiveLoads != null) {
+        for (Label load : transitiveLoads) {
+          visitor.visit(load);
+        }
+      } else {
+        BazelModuleContext.visitLoadGraphRecursively(directLoads, visitor);
+      }
+    }
+
+    private Declarations() {}
   }
 
   /** Package codec implementation. */

@@ -275,7 +275,8 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
                     rulePb.addRuleOutput(
                         internalToUnicode(labelPrinter.toString(output.getLabel()))));
       }
-      for (String feature : rule.getPackage().getPackageArgs().features().toStringList()) {
+      for (String feature :
+          rule.getPackageDeclarations().getPackageArgs().features().toStringList()) {
         rulePb.addDefaultSetting(internalToUnicode(feature));
       }
 
@@ -340,14 +341,15 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
       if (inputFile.getName().equals("BUILD")) {
         Iterable<Label> starlarkLoadLabels =
             aspectResolver == null
-                ? inputFile.getPackage().getOrComputeTransitivelyLoadedStarlarkFiles()
+                ? inputFile.getPackageDeclarations().getOrComputeTransitivelyLoadedStarlarkFiles()
                 : aspectResolver.computeBuildFileDependencies(inputFile.getPackage());
 
         for (Label starlarkLoadLabel : starlarkLoadLabels) {
           input.addSubinclude(internalToUnicode(labelPrinter.toString(starlarkLoadLabel)));
         }
 
-        for (String feature : inputFile.getPackage().getPackageArgs().features().toStringList()) {
+        for (String feature :
+            inputFile.getPackageDeclarations().getPackageArgs().features().toStringList()) {
           input.addFeature(internalToUnicode(feature));
         }
 

@@ -65,6 +65,11 @@ public class DigraphTest {
     }
 
     @Override
+    public Package.Declarations getPackageDeclarations() {
+      return null;
+    }
+
+    @Override
     public String getTargetKind() {
       return null;
     }

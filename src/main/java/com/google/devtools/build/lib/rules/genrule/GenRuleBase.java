@@ -311,7 +311,7 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
         Iterable<? extends MakeVariableSupplier> makeVariableSuppliers,
         boolean windowsPath) {
       super(
-          ruleContext.getRule().getPackage(),
+          ruleContext.getRule().getPackageDeclarations(),
           ruleContext.getConfiguration(),
           ruleContext.getDefaultTemplateVariableProviders(),
           makeVariableSuppliers);

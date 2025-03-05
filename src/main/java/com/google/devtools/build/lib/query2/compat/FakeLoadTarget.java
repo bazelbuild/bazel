@@ -55,6 +55,11 @@ public class FakeLoadTarget implements Target {
   }
 
   @Override
+  public Package.Declarations getPackageDeclarations() {
+    return pkg.getDeclarations();
+  }
+
+  @Override
   public String getTargetKind() {
     return targetKind();
   }
@@ -71,7 +76,7 @@ public class FakeLoadTarget implements Target {
 
   @Override
   public Location getLocation() {
-    return pkg.getBuildFile().getLocation();
+    return getPackageDeclarations().getBuildFile().getLocation();
   }
 
   @Override

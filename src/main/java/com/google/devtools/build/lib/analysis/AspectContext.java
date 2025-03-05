@@ -363,7 +363,9 @@ public final class AspectContext extends RuleContext {
 
       baseTargetConfigurationMakeVariableContext =
           new ConfigurationMakeVariableContext(
-              this.getRule().getPackage(), getConfiguration(), templateVariableProviders);
+              this.getRule().getPackageDeclarations(),
+              getConfiguration(),
+              templateVariableProviders);
     }
     return baseTargetConfigurationMakeVariableContext;
   }

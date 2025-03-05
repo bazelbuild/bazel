@@ -258,7 +258,7 @@ public class RuleContext extends TargetContext
   }
 
   private FeatureSet computeFeatures() {
-    FeatureSet pkg = rule.getPackage().getPackageArgs().features();
+    FeatureSet pkg = rule.getPackageDeclarations().getPackageArgs().features();
     FeatureSet rule =
         attributes().has("features", Types.STRING_LIST)
             ? FeatureSet.parse(attributes().get("features", Types.STRING_LIST))
@@ -377,7 +377,7 @@ public class RuleContext extends TargetContext
 
   /** Returns the workspace name for the rule. */
   public String getWorkspaceName() {
-    return rule.getPackage().getWorkspaceName();
+    return rule.getPackageDeclarations().getWorkspaceName();
   }
 
   /** The configuration conditions that trigger this rule's configurable attributes. */
@@ -999,7 +999,9 @@ public class RuleContext extends TargetContext
     if (configurationMakeVariableContext == null) {
       configurationMakeVariableContext =
           new ConfigurationMakeVariableContext(
-              rule.getPackage(), getConfiguration(), getDefaultTemplateVariableProviders());
+              rule.getPackageDeclarations(),
+              getConfiguration(),
+              getDefaultTemplateVariableProviders());
     }
     return configurationMakeVariableContext;
   }
@@ -1237,7 +1239,7 @@ public class RuleContext extends TargetContext
     // User-defined make values may be set either in "--define foo=bar" or in a vardef in the rule's
     // package. Both are equivalent for these purposes, since in both cases setting
     // "--define foo=bar" impacts the rule's output.
-    return rule.getPackage().getMakeEnvironment().containsKey(makeVariable)
+    return rule.getPackageDeclarations().getMakeEnvironment().containsKey(makeVariable)
         || getConfiguration().getCommandLineBuildVariables().containsKey(makeVariable);
   }
 

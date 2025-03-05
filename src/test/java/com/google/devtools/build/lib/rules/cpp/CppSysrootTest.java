@@ -46,7 +46,7 @@ public final class CppSysrootTest extends BuildViewTestCase {
         getRuleContext(getConfiguredTarget(Label.parseCanonical("//dummy:library"), config));
     ConfigurationMakeVariableContext context =
         new ConfigurationMakeVariableContext(
-            ruleContext.getTarget().getPackage(),
+            ruleContext.getTarget().getPackageDeclarations(),
             config,
             ruleContext.getDefaultTemplateVariableProviders(),
             ImmutableList.of(new CcCommon.CcFlagsSupplier(ruleContext)));
@@ -145,7 +145,7 @@ public final class CppSysrootTest extends BuildViewTestCase {
         getRuleContext(getConfiguredTarget(Label.parseCanonical("//dummy:library"), targetConfig));
     ConfigurationMakeVariableContext context =
         new ConfigurationMakeVariableContext(
-            ruleContext.getTarget().getPackage(),
+            ruleContext.getTarget().getPackageDeclarations(),
             targetConfig,
             ruleContext.getDefaultTemplateVariableProviders(),
             ImmutableList.of(new CcCommon.CcFlagsSupplier(ruleContext)));

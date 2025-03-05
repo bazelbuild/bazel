@@ -195,7 +195,8 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
         outputElem.setAttribute("name", labelPrinter.toString(outputFile.getLabel()));
         elem.appendChild(outputElem);
       }
-      for (String feature : rule.getPackage().getPackageArgs().features().toStringList()) {
+      for (String feature :
+          rule.getPackageDeclarations().getPackageArgs().features().toStringList()) {
         Element outputElem = doc.createElement("rule-default-setting");
         outputElem.setAttribute("name", feature);
         elem.appendChild(outputElem);
@@ -224,8 +225,8 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
       if (inputFile.getName().equals("BUILD")) {
         addStarlarkFilesToElement(doc, elem, inputFile, labelPrinter);
         addFeaturesToElement(doc, elem, inputFile);
-        elem.setAttribute("package_contains_errors",
-            String.valueOf(inputFile.getPackage().containsErrors()));
+        elem.setAttribute(
+            "package_contains_errors", String.valueOf(inputFile.getPackage().containsErrors()));
       }
 
       // TODO(bazel-team): We're being inconsistent about whether we include the package's
@@ -277,7 +278,8 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
   }
 
   private static void addFeaturesToElement(Document doc, Element parent, InputFile inputFile) {
-    for (String feature : inputFile.getPackage().getPackageArgs().features().toStringList()) {
+    for (String feature :
+        inputFile.getPackageDeclarations().getPackageArgs().features().toStringList()) {
       Element elem = doc.createElement("feature");
       elem.setAttribute("name", feature);
       parent.appendChild(elem);

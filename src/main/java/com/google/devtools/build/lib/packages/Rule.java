@@ -207,6 +207,11 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
     return pkg.getMetadata();
   }
 
+  @Override
+  public Package.Declarations getPackageDeclarations() {
+    return pkg.getDeclarations();
+  }
+
   public RuleClass getRuleClassObject() {
     return ruleClass;
   }
@@ -1162,7 +1167,7 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
     } else if (ruleClass.ignoreLicenses()) {
       return License.NO_LICENSE;
     } else {
-      return pkg.getPackageArgs().license();
+      return getPackageDeclarations().getPackageArgs().license();
     }
   }
 

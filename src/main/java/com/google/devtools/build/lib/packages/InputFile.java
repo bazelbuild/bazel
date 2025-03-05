@@ -64,6 +64,11 @@ public class InputFile extends FileTarget {
     return pkg.getMetadata();
   }
 
+  @Override
+  public Package.Declarations getPackageDeclarations() {
+    return pkg.getDeclarations();
+  }
+
   public boolean isVisibilitySpecified() {
     return false;
   }

@@ -944,7 +944,7 @@ public final class StarlarkRuleContext
       String attributeName, String command, Map<String, String> additionalSubstitutionsMap) {
     ConfigurationMakeVariableContext makeVariableContext =
         new ConfigurationMakeVariableContext(
-            ruleContext.getRule().getPackage(),
+            ruleContext.getRule().getPackageDeclarations(),
             ruleContext.getConfiguration(),
             ruleContext.getDefaultTemplateVariableProviders()) {
           @Override

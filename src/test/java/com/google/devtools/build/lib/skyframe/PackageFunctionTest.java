@@ -727,7 +727,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
 
     SkyKey skyKey = PackageIdentifier.createInMainRepo("foo");
     Package pkg = validPackageWithoutErrors(skyKey);
-    assertThat(pkg.getOrComputeTransitivelyLoadedStarlarkFiles())
+    assertThat(pkg.getDeclarations().getOrComputeTransitivelyLoadedStarlarkFiles())
         .containsExactly(
             Label.parseCanonical("//bar:ext.bzl"), Label.parseCanonical("//baz:ext.scl"));
 
@@ -745,7 +745,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
             Root.fromPath(rootDirectory));
 
     pkg = validPackageWithoutErrors(skyKey);
-    assertThat(pkg.getOrComputeTransitivelyLoadedStarlarkFiles())
+    assertThat(pkg.getDeclarations().getOrComputeTransitivelyLoadedStarlarkFiles())
         .containsExactly(
             Label.parseCanonical("//bar:ext.bzl"), Label.parseCanonical("//qux:ext.bzl"));
   }
@@ -1562,14 +1562,14 @@ public class PackageFunctionTest extends BuildViewTestCase {
     SkyKey skyKey = PackageIdentifier.createInMainRepo("p");
     Package p = validPackageWithoutErrors(skyKey);
 
-    assertThat(toStrings(p.getOrComputeTransitivelyLoadedStarlarkFiles()))
+    assertThat(toStrings(p.getDeclarations().getOrComputeTransitivelyLoadedStarlarkFiles()))
         .containsExactly("//p:a.bzl", "//p:b.bzl", "//p:c.bzl", "//p:d.bzl");
-    assertThat(p.countTransitivelyLoadedStarlarkFiles()).isEqualTo(4);
+    assertThat(p.getDeclarations().countTransitivelyLoadedStarlarkFiles()).isEqualTo(4);
 
     // Custom visitation: c.bzl is visited twice, but the second time we don't recurse, so d.bzl is
     // only visited once.
     Multiset<Label> loads = HashMultiset.create();
-    p.visitLoadGraph(load -> loads.add(load, 1) == 0);
+    p.getDeclarations().visitLoadGraph(load -> loads.add(load, 1) == 0);
     assertThat(toStrings(loads))
         .containsExactly("//p:a.bzl", "//p:b.bzl", "//p:c.bzl", "//p:c.bzl", "//p:d.bzl");
   }

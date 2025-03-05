@@ -317,14 +317,14 @@ public final class DependencyResolutionHelpers {
           outgoingLabels,
           rule,
           RuleClass.COMPATIBLE_ENVIRONMENT_ATTR,
-          rule.getPackage().getPackageArgs().defaultCompatibleWith());
+          rule.getPackageDeclarations().getPackageArgs().defaultCompatibleWith());
     }
     if (!rule.isAttributeValueExplicitlySpecified(RuleClass.RESTRICTED_ENVIRONMENT_ATTR)) {
       addExplicitDeps(
           outgoingLabels,
           rule,
           RuleClass.RESTRICTED_ENVIRONMENT_ATTR,
-          rule.getPackage().getPackageArgs().defaultRestrictedTo());
+          rule.getPackageDeclarations().getPackageArgs().defaultRestrictedTo());
     }
 
     addToolchainDeps(toolchainContexts, outgoingLabels);

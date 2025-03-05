@@ -40,6 +40,9 @@ public interface Target extends TargetData {
   /** Returns the Package.Metadata of the package to which this target belongs. */
   Package.Metadata getPackageMetadata();
 
+  /** Returns the Package.Declarations of the package to which this target belongs. */
+  Package.Declarations getPackageDeclarations();
+
   /**
    * Returns the innermost symbolic macro that declared this target, or null if it was declared
    * outside any symbolic macro (i.e. directly in a BUILD file or only in one or more legacy
@@ -126,7 +129,7 @@ public interface Target extends TargetData {
   default RuleVisibility getDefaultVisibility() {
     return isCreatedInSymbolicMacro()
         ? RuleVisibility.PRIVATE
-        : getPackage().getPackageArgs().defaultVisibility();
+        : getPackageDeclarations().getPackageArgs().defaultVisibility();
   }
 
   /**

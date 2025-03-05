@@ -54,7 +54,7 @@ public class PackageMetricsPackageLoadingListener implements PackageLoadingListe
             .setLoadDuration(Durations.fromNanos(loadTimeNanos))
             .setComputationSteps(pkg.getComputationSteps())
             .setNumTargets(pkg.getTargets().size())
-            .setNumTransitiveLoads(pkg.countTransitivelyLoadedStarlarkFiles());
+            .setNumTransitiveLoads(pkg.getDeclarations().countTransitivelyLoadedStarlarkFiles());
 
     if (pkg.getPackageOverhead().isPresent()) {
       builder.setPackageOverhead(pkg.getPackageOverhead().getAsLong());

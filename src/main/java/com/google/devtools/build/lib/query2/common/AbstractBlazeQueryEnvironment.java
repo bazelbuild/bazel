@@ -500,14 +500,14 @@ public abstract class AbstractBlazeQueryEnvironment<T>
 
     @Override
     public Target getBuildFileTarget(Target originalTarget) {
-      return originalTarget.getPackage().getBuildFile();
+      return originalTarget.getPackageDeclarations().getBuildFile();
     }
 
     @Override
     public void visitLoads(
         Target originalTarget, LoadGraphVisitor<QueryException, InterruptedException> visitor)
         throws QueryException, InterruptedException {
-      originalTarget.getPackage().visitLoadGraph(visitor);
+      originalTarget.getPackageDeclarations().visitLoadGraph(visitor);
     }
   }
 

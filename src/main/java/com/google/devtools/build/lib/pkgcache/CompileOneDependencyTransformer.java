@@ -156,7 +156,7 @@ public final class CompileOneDependencyTransformer {
     // At load time we can't really know, so check for the common static configuration sources.
     // (We ignore parse_headers being disabled through the toolchain & by rule implementations).
 
-    FeatureSet mergedFeatures = rule.getPackage().getPackageArgs().features();
+    FeatureSet mergedFeatures = rule.getPackageDeclarations().getPackageArgs().features();
     RawAttributeMapper ruleAttrs = RawAttributeMapper.of(rule);
     if (ruleAttrs.has("features", Types.STRING_LIST) && !ruleAttrs.isConfigurable("features")) {
       FeatureSet ruleFeatures = FeatureSet.parse(ruleAttrs.get("features", Types.STRING_LIST));

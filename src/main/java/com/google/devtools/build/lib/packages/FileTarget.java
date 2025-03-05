@@ -81,6 +81,6 @@ public abstract class FileTarget implements Target, FileType.HasFileType {
    */
   @Override
   public License getLicense() {
-    return getPackage().getPackageArgs().license();
+    return getPackageDeclarations().getPackageArgs().license();
   }
 }

@@ -272,6 +272,11 @@ public class EnvironmentGroup implements Target {
   }
 
   @Override
+  public Package.Declarations getPackageDeclarations() {
+    return containingPackage.getDeclarations();
+  }
+
+  @Override
   public String getTargetKind() {
     return targetKind();
   }

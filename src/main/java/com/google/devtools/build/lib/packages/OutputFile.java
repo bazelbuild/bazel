@@ -99,6 +99,11 @@ public abstract class OutputFile extends FileTarget {
     return generatingRule.getPackageMetadata();
   }
 
+  @Override
+  public Package.Declarations getPackageDeclarations() {
+    return generatingRule.getPackageDeclarations();
+  }
+
   /**
    * A kind of output file.
    *

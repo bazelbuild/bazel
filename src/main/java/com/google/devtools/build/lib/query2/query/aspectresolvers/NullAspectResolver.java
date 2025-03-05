@@ -37,6 +37,6 @@ public class NullAspectResolver implements AspectResolver {
 
   @Override
   public ImmutableList<Label> computeBuildFileDependencies(Package pkg) {
-    return pkg.getOrComputeTransitivelyLoadedStarlarkFiles();
+    return pkg.getDeclarations().getOrComputeTransitivelyLoadedStarlarkFiles();
   }
 }

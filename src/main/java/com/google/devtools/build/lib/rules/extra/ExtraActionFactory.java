@@ -63,7 +63,7 @@ public final class ExtraActionFactory implements RuleConfiguredTargetFactory {
     command = command.replace("$(output ", "$$(output ");
     ConfigurationMakeVariableContext makeVariableContext =
         new ConfigurationMakeVariableContext(
-            context.getTarget().getPackage(),
+            context.getTarget().getPackageDeclarations(),
             context.getConfiguration(),
             context.getDefaultTemplateVariableProviders());
     command = context
