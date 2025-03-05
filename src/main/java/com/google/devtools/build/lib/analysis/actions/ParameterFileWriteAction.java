@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Spawn;
 import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
+import com.google.devtools.build.lib.util.DeterministicWriter;
 import com.google.devtools.build.lib.util.Fingerprint;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -164,7 +165,7 @@ public final class ParameterFileWriteAction extends AbstractFileWriteAction {
     }
 
     @Override
-    public void writeOutputFile(OutputStream out) throws IOException {
+    public void writeTo(OutputStream out) throws IOException {
       ParameterFile.writeParameterFile(out, arguments.arguments(), type);
     }
   }

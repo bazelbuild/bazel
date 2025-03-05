@@ -23,15 +23,12 @@ java_library(
     exports = [
         ":actions/abstract_file_write_action",
         ":actions/binary_file_write_action",
-        ":actions/byte_string_deterministic_writer",
         ":actions/compression",
         ":actions/custom_command_line",
-        ":actions/deterministic_writer",
         ":actions/file_write_action_context",
         ":actions/lazy_write_nested_set_of_tuple_action",
         ":actions/lazy_write_paths_file_action",
         ":actions/parameter_file_write_action",
-        ":actions/proto_deterministic_writer",
         ":actions/spawn_action_template",
         ":actions/substitution",
         ":actions/symlink_action",
@@ -259,7 +256,6 @@ java_library(
         ":actions/buildinfo_file_write_action",
         ":actions/compression",
         ":actions/custom_command_line",
-        ":actions/deterministic_writer",
         ":actions/lazy_write_nested_set_of_tuple_action",
         ":actions/parameter_file_write_action",
         ":actions/path_mappers",
@@ -1024,7 +1020,6 @@ java_library(
     srcs = ["RepoMappingManifestAction.java"],
     deps = [
         ":actions/abstract_file_write_action",
-        ":actions/deterministic_writer",
         ":symlink_entry",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifact_expander",
@@ -1403,13 +1398,13 @@ java_library(
     name = "actions/abstract_file_write_action",
     srcs = ["actions/AbstractFileWriteAction.java"],
     deps = [
-        ":actions/deterministic_writer",
         ":actions/file_write_action_context",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/profiler",
+        "//src/main/java/com/google/devtools/build/lib/util:deterministic_writer",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
@@ -1420,7 +1415,6 @@ java_library(
     srcs = ["actions/BinaryFileWriteAction.java"],
     deps = [
         ":actions/abstract_file_write_action",
-        ":actions/deterministic_writer",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifact_expander",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
@@ -1429,15 +1423,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util",
         "//third_party:guava",
         "//third_party:jsr305",
-    ],
-)
-
-java_library(
-    name = "actions/byte_string_deterministic_writer",
-    srcs = ["actions/ByteStringDeterministicWriter.java"],
-    deps = [
-        ":actions/deterministic_writer",
-        "@com_google_protobuf//:protobuf_java",
     ],
 )
 
@@ -1470,18 +1455,12 @@ java_library(
 )
 
 java_library(
-    name = "actions/deterministic_writer",
-    srcs = ["actions/DeterministicWriter.java"],
-    deps = ["@com_google_protobuf//:protobuf_java"],
-)
-
-java_library(
     name = "actions/file_write_action_context",
     srcs = ["actions/FileWriteActionContext.java"],
     deps = [
-        ":actions/deterministic_writer",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/util:deterministic_writer",
         "//third_party:guava",
     ],
 )
@@ -1491,7 +1470,6 @@ java_library(
     srcs = ["actions/LazyWriteNestedSetOfTupleAction.java"],
     deps = [
         ":actions/abstract_file_write_action",
-        ":actions/deterministic_writer",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifact_expander",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
@@ -1499,6 +1477,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/unsafe:string",
         "//src/main/java/com/google/devtools/build/lib/util",
+        "//src/main/java/com/google/devtools/build/lib/util:deterministic_writer",
         "//src/main/java/net/starlark/java/eval",
         "//third_party:jsr305",
     ],
@@ -1509,13 +1488,13 @@ java_library(
     srcs = ["actions/LazyWritePathsFileAction.java"],
     deps = [
         ":actions/abstract_file_write_action",
-        ":actions/deterministic_writer",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifact_expander",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/unsafe:string",
         "//src/main/java/com/google/devtools/build/lib/util",
+        "//src/main/java/com/google/devtools/build/lib/util:deterministic_writer",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
@@ -1526,7 +1505,6 @@ java_library(
     srcs = ["actions/ParameterFileWriteAction.java"],
     deps = [
         ":actions/abstract_file_write_action",
-        ":actions/deterministic_writer",
         ":config/core_options",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:arg_chunk",
@@ -1536,6 +1514,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/util",
+        "//src/main/java/com/google/devtools/build/lib/util:deterministic_writer",
         "//src/main/java/net/starlark/java/eval",
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party:guava",
@@ -1565,15 +1544,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//third_party:guava",
         "//third_party:jsr305",
-    ],
-)
-
-java_library(
-    name = "actions/proto_deterministic_writer",
-    srcs = ["actions/ProtoDeterministicWriter.java"],
-    deps = [
-        ":actions/deterministic_writer",
-        "@com_google_protobuf//:protobuf_java",
     ],
 )
 
@@ -1664,7 +1634,6 @@ java_library(
         "actions/TemplateExpansionException.java",
     ],
     deps = [
-        ":actions/deterministic_writer",
         ":actions/file_write_action_context",
         ":actions/substitution",
         ":actions/template",
@@ -1675,6 +1644,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
+        "//src/main/java/com/google/devtools/build/lib/util:deterministic_writer",
         "//src/main/java/com/google/devtools/build/lib/util:string",
         "//src/main/java/net/starlark/java/eval",
         "//src/main/protobuf:failure_details_java_proto",
@@ -2449,8 +2419,6 @@ java_library(
     srcs = ["extra/ExtraActionInfoFileWriteAction.java"],
     deps = [
         ":actions/abstract_file_write_action",
-        ":actions/deterministic_writer",
-        ":actions/proto_deterministic_writer",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifact_expander",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
@@ -2458,6 +2426,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/util",
+        "//src/main/java/com/google/devtools/build/lib/util:deterministic_writer",
+        "//src/main/java/com/google/devtools/build/lib/util:proto_deterministic_writer",
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party:guava",
         "//third_party:jsr305",

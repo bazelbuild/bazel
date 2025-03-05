@@ -247,7 +247,7 @@ java_library(
     exports = [
         # vfs depends on the profiler and creates a cycle since we use Pair in profiler
         ":pair",
-        ":stream_writer",
+        ":deterministic_writer",
     ],
     deps = [
         ":os",
@@ -267,9 +267,26 @@ java_library(
 )
 
 java_library(
-    name = "stream_writer",
-    srcs = [
-        "StreamWriter.java",
+    name = "deterministic_writer",
+    srcs = ["DeterministicWriter.java"],
+    deps = ["@com_google_protobuf//:protobuf_java"],
+)
+
+java_library(
+    name = "byte_string_deterministic_writer",
+    srcs = ["ByteStringDeterministicWriter.java"],
+    deps = [
+        ":deterministic_writer",
+        "@com_google_protobuf//:protobuf_java",
+    ],
+)
+
+java_library(
+    name = "proto_deterministic_writer",
+    srcs = ["ProtoDeterministicWriter.java"],
+    deps = [
+        ":deterministic_writer",
+        "@com_google_protobuf//:protobuf_java",
     ],
 )
 

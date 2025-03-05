@@ -1,4 +1,4 @@
-// Copyright 2018 The Bazel Authors. All rights reserved.
+// Copyright 2017 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,18 +13,28 @@
 // limitations under the License.
 package com.google.devtools.build.lib.util;
 
+import com.google.protobuf.ByteString;
 import java.io.IOException;
 import java.io.OutputStream;
 
 /**
- * A {@link StreamWriter} writes to an {@link OutputStream} deterministically.
+ * A {@link DeterministicWriter} that wraps a {@link ByteString}. Use to avoid {@link ByteString}
+ * copies.
  */
-public interface StreamWriter {
-  /**
-   * Writes the fake file to an OutputStream. MUST be deterministic, in that multiple calls to write
-   * the same StreamWriter must write identical bytes.
-   *
-   * @throws IOException only if out throws an IOException
-   */
-  void writeTo(OutputStream out) throws IOException;
+public class ByteStringDeterministicWriter implements DeterministicWriter {
+  private final ByteString byteString;
+
+  public ByteStringDeterministicWriter(ByteString byteString) {
+    this.byteString = byteString;
+  }
+
+  @Override
+  public void writeTo(OutputStream out) throws IOException {
+    byteString.writeTo(out);
+  }
+
+  @Override
+  public ByteString getBytes() throws IOException {
+    return byteString;
+  }
 }

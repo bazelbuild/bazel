@@ -2226,7 +2226,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     ByteArrayOutputStream bytes = new ByteArrayOutputStream();
     baselineCoverageAction
         .newDeterministicWriter(ActionsTestUtil.createContext(reporter))
-        .writeOutputFile(bytes);
+        .writeTo(bytes);
 
     for (String line : Splitter.on('\n').split(bytes.toString(UTF_8))) {
       if (line.startsWith("SF:")) {

@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.CommandLineItem.MapFn;
 import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
-import com.google.devtools.build.lib.analysis.actions.DeterministicWriter;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -41,6 +40,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.util.DeterministicWriter;
 import com.google.devtools.build.lib.util.Fingerprint;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -144,7 +144,7 @@ public final class RepoMappingManifestAction extends AbstractFileWriteAction
   @Override
   public String getFileContents(@Nullable EventHandler eventHandler) throws IOException {
     ByteArrayOutputStream stream = new ByteArrayOutputStream();
-    newDeterministicWriter().writeOutputFile(stream);
+    newDeterministicWriter().writeTo(stream);
     return stream.toString(ISO_8859_1);
   }
 

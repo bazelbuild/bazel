@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.actions.cache;
 import com.google.common.hash.HashingOutputStream;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
-import com.google.devtools.build.lib.util.StreamWriter;
+import com.google.devtools.build.lib.util.DeterministicWriter;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -30,7 +30,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  * An ActionInput that does not actually exist on the filesystem, but can still be written to an
  * OutputStream.
  */
-public abstract class VirtualActionInput implements ActionInput, StreamWriter {
+public abstract class VirtualActionInput implements ActionInput, DeterministicWriter {
   /**
    * An empty virtual artifact <b>without</b> an execpath. This is used to denote empty files in
    * runfiles and filesets.
@@ -112,19 +112,6 @@ public abstract class VirtualActionInput implements ActionInput, StreamWriter {
     // go through this code path.
     target.setExecutable(true);
     return digest;
-  }
-
-  /**
-   * Gets a {@link ByteString} representation of the fake file. Used to avoid copying if the fake
-   * file is internally represented as a {@link ByteString}.
-   *
-   * <p>Prefer {@link #writeTo} to this method to avoid materializing the entire file in memory. The
-   * return value should not be retained.
-   */
-  public ByteString getBytes() throws IOException {
-    ByteString.Output out = ByteString.newOutput();
-    writeTo(out);
-    return out.toByteString();
   }
 
   /**

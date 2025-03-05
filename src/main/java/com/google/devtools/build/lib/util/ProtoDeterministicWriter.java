@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.analysis.actions;
+package com.google.devtools.build.lib.util;
 
 import com.google.protobuf.AbstractMessageLite;
 import com.google.protobuf.ByteString;
@@ -29,14 +29,14 @@ public class ProtoDeterministicWriter implements DeterministicWriter {
 
   /**
    * Constructs a {@link ProtoDeterministicWriter} with the given supplier. The supplier may be
-   * called multiple times.
+   * called multiple times, but must supply the same message every time.
    */
   public ProtoDeterministicWriter(MessageSupplier supplier) {
     this.messageSupplier = supplier;
   }
 
   @Override
-  public void writeOutputFile(OutputStream out) throws IOException {
+  public void writeTo(OutputStream out) throws IOException {
     messageSupplier.getMessage().writeTo(out);
   }
 

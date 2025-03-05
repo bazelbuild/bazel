@@ -56,7 +56,7 @@ java_library(
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/remote/common",
-        "//src/main/java/com/google/devtools/build/lib/util:stream_writer",
+        "//src/main/java/com/google/devtools/build/lib/util:deterministic_writer",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/protobuf:spawn_java_proto",
         "//third_party:guava",

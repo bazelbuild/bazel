@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.SpawnResult;
+import com.google.devtools.build.lib.util.DeterministicWriter;
 
 /**
  * The action context for {@link AbstractFileWriteAction} instances (technically instances of

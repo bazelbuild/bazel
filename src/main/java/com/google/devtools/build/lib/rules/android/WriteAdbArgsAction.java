@@ -19,10 +19,10 @@ import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
-import com.google.devtools.build.lib.analysis.actions.DeterministicWriter;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.util.DeterministicWriter;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
@@ -133,7 +133,7 @@ public final class WriteAdbArgsAction extends AbstractFileWriteAction {
 
     return new DeterministicWriter() {
       @Override
-      public void writeOutputFile(OutputStream out) throws IOException {
+      public void writeTo(OutputStream out) throws IOException {
         PrintStream ps = new PrintStream(out, false, "UTF-8");
 
         if (!adb.isEmpty()) {
