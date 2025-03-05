@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.server.FailureDetails.Analysis;
 import com.google.devtools.build.lib.server.FailureDetails.Analysis.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.AbstractSaneAnalysisException;
+import com.google.devtools.build.lib.skyframe.PackageValue;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
@@ -76,7 +77,7 @@ public class TopLevelConstraintSemantics {
    *
    * @param constraintSemantics core constraints implementation logic
    * @param packageManager object for retrieving loaded targets
-   * @param evaluator for looking up already evaluated configurations
+   * @param evaluator for looking up already evaluated values
    * @param eventHandler the build's event handler
    */
   public TopLevelConstraintSemantics(
@@ -360,7 +361,7 @@ public class TopLevelConstraintSemantics {
                 compatibilityWithTargetEnvironment(
                     topLevelTarget,
                     getConfigurationValue(topLevelTarget.getConfigurationKey()),
-                    label -> packageManager.getTarget(eventHandler, label),
+                    this::getOrLoadTarget,
                     eventHandler));
         if (compatibility.isCompatible()) {
           continue;
@@ -395,6 +396,18 @@ public class TopLevelConstraintSemantics {
       return null;
     }
     return (BuildConfigurationValue) evaluator.getExistingValue(key);
+  }
+
+  @Nullable
+  private Target getOrLoadTarget(Label label)
+      throws NoSuchPackageException, NoSuchTargetException, InterruptedException {
+    var pkgVal = (PackageValue) evaluator.getExistingValue(label.getPackageIdentifier());
+    if (pkgVal != null) {
+      return pkgVal.getPackage().getTarget(label.getName());
+    }
+    // Fall back to loading the target. Top-level targets are already in the graph, but referenced
+    // environment targets may not yet be loaded.
+    return packageManager.getTarget(eventHandler, label);
   }
 
   /**
