@@ -102,7 +102,7 @@ public class SymlinkActionTest extends BuildViewTestCase {
                 actionKeyContext,
                 mock(OutputMetadataStore.class),
                 /* rewindingEnabled= */ false,
-                LostInputsCheck.NONE,
+                false, LostInputsCheck.NONE,
                 /* fileOutErr= */ null,
                 new StoredEventHandler(),
                 /* clientEnv= */ ImmutableMap.of(),

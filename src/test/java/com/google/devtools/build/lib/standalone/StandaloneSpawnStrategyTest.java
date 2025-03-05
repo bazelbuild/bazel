@@ -200,7 +200,7 @@ public class StandaloneSpawnStrategyTest {
         new ActionKeyContext(),
         /* outputMetadataStore= */ null,
         /* rewindingEnabled= */ false,
-        LostInputsCheck.NONE,
+        false, LostInputsCheck.NONE,
         outErr,
         reporter,
         /* clientEnv= */ ImmutableMap.of(),

@@ -108,7 +108,7 @@ public final class StarlarkActionWithShadowedActionTest extends BuildViewTestCas
             actionKeyContext,
             /* outputMetadataStore= */ null,
             /* rewindingEnabled= */ false,
-            LostInputsCheck.NONE,
+            false, LostInputsCheck.NONE,
             /* fileOutErr= */ null,
             /* eventHandler= */ null,
             /* clientEnv= */ ImmutableMap.of(),

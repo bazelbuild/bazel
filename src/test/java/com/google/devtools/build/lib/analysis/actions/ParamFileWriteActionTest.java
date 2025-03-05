@@ -170,7 +170,7 @@ public class ParamFileWriteActionTest extends BuildViewTestCase {
         actionKeyContext,
         /* outputMetadataStore= */ null,
         /* rewindingEnabled= */ false,
-        LostInputsCheck.NONE,
+        false, LostInputsCheck.NONE,
         new FileOutErr(),
         new StoredEventHandler(),
         /* clientEnv= */ ImmutableMap.of(),

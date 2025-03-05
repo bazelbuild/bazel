@@ -225,6 +225,11 @@ public class RemoteSpawnCacheTest {
       }
 
       @Override
+      public boolean wasRewound() {
+        return false;
+      }
+
+      @Override
       public void checkForLostInputs() {}
 
       @Override

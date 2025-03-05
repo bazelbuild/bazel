@@ -108,7 +108,7 @@ public class UnresolvedSymlinkActionTest extends BuildViewTestCase {
                 actionKeyContext,
                 /* outputMetadataStore= */ null,
                 /* rewindingEnabled= */ false,
-                LostInputsCheck.NONE,
+                false, LostInputsCheck.NONE,
                 /* fileOutErr= */ null,
                 new StoredEventHandler(),
                 /* clientEnv= */ ImmutableMap.of(),
