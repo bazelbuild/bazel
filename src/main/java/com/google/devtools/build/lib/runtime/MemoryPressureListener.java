@@ -26,13 +26,13 @@ import com.sun.management.GarbageCollectionNotificationInfo;
 import java.lang.management.GarbageCollectorMXBean;
 import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryUsage;
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicReference;
-import javax.annotation.Nullable;
 import javax.management.Notification;
 import javax.management.NotificationEmitter;
 import javax.management.NotificationListener;
@@ -43,6 +43,7 @@ final class MemoryPressureListener implements NotificationListener {
 
   private final AtomicReference<EventBus> eventBus = new AtomicReference<>();
   private final AtomicReference<GcThrashingDetector> gcThrashingDetector = new AtomicReference<>();
+  private final AtomicReference<GcChurningDetector> gcChurnDetector = new AtomicReference<>();
   private final Executor executor;
 
   private MemoryPressureListener(Executor executor) {
@@ -61,8 +62,7 @@ final class MemoryPressureListener implements NotificationListener {
 
   @VisibleForTesting
   static MemoryPressureListener createFromBeans(
-      List<GarbageCollectorMXBean> gcBeans,
-      Executor executor) {
+      List<GarbageCollectorMXBean> gcBeans, Executor executor) {
     ImmutableList<NotificationEmitter> tenuredGcEmitters = findTenuredCollectorBeans(gcBeans);
     if (tenuredGcEmitters.isEmpty()) {
       var names =
@@ -134,6 +134,7 @@ final class MemoryPressureListener implements NotificationListener {
             .setWasFullGc(GarbageCollectionMetricsUtils.isFullGc(gcInfo))
             .setTenuredSpaceUsedBytes(tenuredSpaceUsedBytes)
             .setTenuredSpaceMaxBytes(tenuredSpaceMaxBytes)
+            .setDuration(Duration.ofMillis(gcInfo.getGcInfo().getDuration()))
             .build();
     executor.execute(() -> broadcast(event));
   }
@@ -149,6 +150,11 @@ final class MemoryPressureListener implements NotificationListener {
       // returns.
       gcThrashingDetector.handle(event);
     }
+    GcChurningDetector gcChurningDetector = this.gcChurnDetector.get();
+    if (gcChurningDetector != null) {
+      // Same reasoning as above for invoking GcChurningDetector directly.
+      gcChurningDetector.handle(event);
+    }
 
     // A null EventBus implies memory pressure event between commands with no active EventBus.
     EventBus eventBus = this.eventBus.get();
@@ -157,11 +163,18 @@ final class MemoryPressureListener implements NotificationListener {
     }
   }
 
-  void setEventBus(@Nullable EventBus eventBus) {
+  void initForInvocation(
+      EventBus eventBus,
+      GcThrashingDetector gcThrashingDetector,
+      GcChurningDetector gcChurningDetector) {
     this.eventBus.set(eventBus);
+    this.gcThrashingDetector.set(gcThrashingDetector);
+    this.gcChurnDetector.set(gcChurningDetector);
   }
 
-  void setGcThrashingDetector(@Nullable GcThrashingDetector gcThrashingDetector) {
-    this.gcThrashingDetector.set(gcThrashingDetector);
+  void reset() {
+    eventBus.set(null);
+    gcThrashingDetector.set(null);
+    gcChurnDetector.set(null);
   }
 }

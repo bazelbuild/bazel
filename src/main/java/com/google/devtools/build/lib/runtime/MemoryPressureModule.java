@@ -41,13 +41,13 @@ public final class MemoryPressureModule extends BlazeModule {
   @Override
   public void beforeCommand(CommandEnvironment env) {
     eventBus = env.getEventBus();
-    memoryPressureListener.setEventBus(eventBus);
-
     MemoryPressureOptions options = env.getOptions().getOptions(MemoryPressureOptions.class);
+    memoryPressureListener.initForInvocation(
+        eventBus,
+        GcThrashingDetector.createForCommand(options),
+        GcChurningDetector.createForCommand());
     highWaterMarkLimiter =
         new HighWaterMarkLimiter(env.getSkyframeExecutor(), env.getSyscallCache(), options);
-    memoryPressureListener.setGcThrashingDetector(GcThrashingDetector.createForCommand(options));
-
     eventBus.register(this);
     eventBus.register(highWaterMarkLimiter);
   }
@@ -55,8 +55,7 @@ public final class MemoryPressureModule extends BlazeModule {
   @Override
   public void afterCommand() {
     postStats();
-    memoryPressureListener.setEventBus(null);
-    memoryPressureListener.setGcThrashingDetector(null);
+    memoryPressureListener.reset();
     eventBus = null;
     highWaterMarkLimiter = null;
   }

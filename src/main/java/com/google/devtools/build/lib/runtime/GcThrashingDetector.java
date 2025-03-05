@@ -36,6 +36,13 @@ import javax.annotation.Nullable;
 /**
  * Per-invocation handler of {@link MemoryPressureEvent} to detect GC thrashing.
  *
+ * <p>"GC thrashing" is the situation when Blaze is under memory pressure and there are full GCs but
+ * not much memory is being reclaimed. See {@link GcChurningDetector} for "GC churning". GC
+ * thrashing and GC churning can sometimes, but not necessarily, coincide. Consider a situation
+ * where Blaze all of a sudden is under memory pressure and full GCs do not alleviate it. By
+ * assumption not much time has been spent on full GCs up until this point, so this cannot be GC
+ * churning, but if the memory pressure is high enough it could be GC thrashing.
+ *
  * <p>For each {@link Limit}, maintains a sliding window of the timestamps of consecutive full GCs
  * within {@link Limit#period} where {@link MemoryPressureEvent#percentTenuredSpaceUsed} was more
  * than {@link #threshold}. If {@link Limit#count} consecutive over-threshold full GCs within {@link
@@ -45,7 +52,7 @@ import javax.annotation.Nullable;
  * <p>Manual GCs do not contribute to the limit. This is to avoid OOMing on GCs manually triggered
  * for memory metrics.
  */
-final class GcThrashingDetector {
+class GcThrashingDetector {
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
