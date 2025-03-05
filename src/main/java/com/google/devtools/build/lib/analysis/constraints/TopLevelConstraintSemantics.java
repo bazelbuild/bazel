@@ -44,13 +44,13 @@ import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.AbstractSaneAnalysisException;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.StringJoiner;
-import java.util.function.Function;
 import javax.annotation.Nullable;
 
 /**
@@ -62,29 +62,31 @@ import javax.annotation.Nullable;
  * <p>For all other targets see {@link ConstraintSemantics}.
  */
 public class TopLevelConstraintSemantics {
-  private final RuleContextConstraintSemantics constraintSemantics;
-  private final PackageManager packageManager;
-  private final Function<BuildConfigurationKey, BuildConfigurationValue> configurationProvider;
-  private final ExtendedEventHandler eventHandler;
+
   private static final String TARGET_INCOMPATIBLE_ERROR_TEMPLATE =
       "Target %s is incompatible and cannot be built, but was explicitly requested.%s";
+
+  private final RuleContextConstraintSemantics constraintSemantics;
+  private final PackageManager packageManager;
+  private final MemoizingEvaluator evaluator;
+  private final ExtendedEventHandler eventHandler;
 
   /**
    * Constructor with helper classes for loading targets.
    *
    * @param constraintSemantics core constraints implementation logic
    * @param packageManager object for retrieving loaded targets
-   * @param configurationProvider gets configurations from {@link ConfiguredTarget}s
+   * @param evaluator for looking up already evaluated configurations
    * @param eventHandler the build's event handler
    */
   public TopLevelConstraintSemantics(
       RuleContextConstraintSemantics constraintSemantics,
       PackageManager packageManager,
-      Function<BuildConfigurationKey, BuildConfigurationValue> configurationProvider,
+      MemoizingEvaluator evaluator,
       ExtendedEventHandler eventHandler) {
     this.constraintSemantics = constraintSemantics;
     this.packageManager = packageManager;
-    this.configurationProvider = configurationProvider;
+    this.evaluator = evaluator;
     this.eventHandler = eventHandler;
   }
 
@@ -357,7 +359,7 @@ public class TopLevelConstraintSemantics {
             Preconditions.checkNotNull(
                 compatibilityWithTargetEnvironment(
                     topLevelTarget,
-                    configurationProvider.apply(topLevelTarget.getConfigurationKey()),
+                    getConfigurationValue(topLevelTarget.getConfigurationKey()),
                     label -> packageManager.getTarget(eventHandler, label),
                     eventHandler));
         if (compatibility.isCompatible()) {
@@ -384,6 +386,15 @@ public class TopLevelConstraintSemantics {
               .build());
     }
     return badTargets.build();
+  }
+
+  @Nullable
+  private BuildConfigurationValue getConfigurationValue(@Nullable BuildConfigurationKey key)
+      throws InterruptedException {
+    if (key == null) {
+      return null;
+    }
+    return (BuildConfigurationValue) evaluator.getExistingValue(key);
   }
 
   /**

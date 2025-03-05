@@ -439,7 +439,7 @@ public class BuildView {
             new TopLevelConstraintSemantics(
                 (RuleContextConstraintSemantics) ruleClassProvider.getConstraintSemantics(),
                 skyframeExecutor.getPackageManager(),
-                input -> skyframeExecutor.getConfiguration(eventHandler, input),
+                skyframeExecutor.getEvaluator(),
                 eventHandler);
 
         PlatformRestrictionsResult platformRestrictions =
