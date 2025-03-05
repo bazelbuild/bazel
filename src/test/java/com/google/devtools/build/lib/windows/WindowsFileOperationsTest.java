@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.windows;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableMap;
@@ -22,6 +23,7 @@ import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.windows.util.WindowsTestUtil;
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.util.Arrays;
@@ -76,12 +78,9 @@ public class WindowsFileOperationsTest {
     // Assert deleting the symlink does not remove the target file.
     assertThat(WindowsFileOperations.deletePath(symlinkFile.toString())).isTrue();
     assertThat(helloFile.exists()).isTrue();
-    try {
-      WindowsFileOperations.isSymlinkOrJunction(symlinkFile.toString());
-      fail("Expected to throw: Symlink should no longer exist.");
-    } catch (IOException e) {
-      assertThat(e).hasMessageThat().contains("path does not exist");
-    }
+    assertThrows(
+        FileNotFoundException.class,
+        () -> WindowsFileOperations.isSymlinkOrJunction(symlinkFile.toString()));
   }
 
   @Test
@@ -143,12 +142,9 @@ public class WindowsFileOperationsTest {
     assertThat(WindowsFileOperations.isSymlinkOrJunction(root + "\\longtargetpath\\file2.txt"))
         .isFalse();
     assertThat(WindowsFileOperations.isSymlinkOrJunction(root + "\\longta~1\\file2.txt")).isFalse();
-    try {
-      WindowsFileOperations.isSymlinkOrJunction(root + "\\non-existent");
-      fail("expected to throw");
-    } catch (IOException e) {
-      assertThat(e.getMessage()).contains("path does not exist");
-    }
+    assertThrows(
+        FileNotFoundException.class,
+        () -> WindowsFileOperations.isSymlinkOrJunction(root + "\\non-existent"));
     assertThat(Arrays.asList(new File(root + "/shrtpath/a").list())).containsExactly("file1.txt");
     assertThat(Arrays.asList(new File(root + "/shrtpath/b").list())).containsExactly("file2.txt");
     assertThat(Arrays.asList(new File(root + "/shrtpath/c").list())).containsExactly("file2.txt");
