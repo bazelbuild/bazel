@@ -66,7 +66,7 @@ public final class RewindingTest extends BuildIntegrationTestCase {
         .addBlazeModule(new RemoteModule())
         .addBlazeModule(new BlockWaitingModule())
         .addBlazeModule(new IncludeScanningModule())
-        .addBlazeModule(helper.makeControllableActionStrategyModule("remote"))
+        .addBlazeModule(helper.makeControllableActionStrategyModule("remote", "standalone"))
         .addBlazeModule(helper.getLostOutputsModule())
         .addBlazeModule(
             new BlazeModule() {
@@ -141,6 +141,18 @@ public final class RewindingTest extends BuildIntegrationTestCase {
 
   @Test
   public void multipleLostInputsForRewindPlan() throws Exception {
+    helper.runMultipleLostInputsForRewindPlan();
+  }
+
+  @Test
+  public void multipleLostInputsForRewindPlan_standalone() throws Exception {
+    addOptions("--remote_executor=", "--spawn_strategy=standalone");
+    helper.runMultipleLostInputsForRewindPlan();
+  }
+
+  @Test
+  public void multipleLostInputsForRewindPlan_standaloneWithRemoteCache() throws Exception {
+    addOptions("--spawn_strategy=standalone");
     helper.runMultipleLostInputsForRewindPlan();
   }
 
