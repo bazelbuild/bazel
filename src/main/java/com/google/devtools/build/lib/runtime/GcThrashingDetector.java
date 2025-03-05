@@ -34,7 +34,7 @@ import java.util.Queue;
 import javax.annotation.Nullable;
 
 /**
- * Listens for {@link MemoryPressureEvent} to detect GC thrashing.
+ * Per-invocation handler of {@link MemoryPressureEvent} to detect GC thrashing.
  *
  * <p>For each {@link Limit}, maintains a sliding window of the timestamps of consecutive full GCs
  * within {@link Limit#period} where {@link MemoryPressureEvent#percentTenuredSpaceUsed} was more
