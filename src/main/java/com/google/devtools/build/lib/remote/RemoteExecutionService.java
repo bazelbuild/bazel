@@ -1813,8 +1813,7 @@ public class RemoteExecutionService {
         "shouldn't upload outputs of failed local action");
 
     if (remoteOptions.remoteCacheAsync
-        && !action.getSpawn().getResourceOwner().mayModifySpawnOutputsAfterExecution()
-        && !action.getSpawnExecutionContext().wasRewound()) {
+        && !action.getSpawn().getResourceOwner().mayModifySpawnOutputsAfterExecution()) {
       AtomicLong startTime = new AtomicLong();
       var unused =
           Single.using(

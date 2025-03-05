@@ -154,11 +154,6 @@ public class FakeSpawnExecutionContext implements SpawnExecutionContext {
   }
 
   @Override
-  public boolean wasRewound() {
-    return false;
-  }
-
-  @Override
   public void checkForLostInputs() {}
 
   @Nullable
