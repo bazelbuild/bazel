@@ -79,10 +79,11 @@ if [[ "$UNAME" =~ msys_nt* ]]; then
   # The JDK currently (as of JDK 23) doesn't support this natively:
   # https://mail.openjdk.org/pipermail/core-libs-dev/2024-November/133773.html
   "$(rlocation io_bazel/src/read_manifest.exe)" reduced/bin/java.exe > manifest.txt
+  echo "____________________________________________________________"
   cat manifest.txt
+  echo "____________________________________________________________"
   sed 's|</asmv3:windowsSettings>|<activeCodePage xmlns="http://schemas.microsoft.com/SMI/2019/WindowsSettings">UTF-8</activeCodePage>&|' manifest.txt \
     | "$(rlocation io_bazel/src/write_manifest.exe)" reduced/bin/java.exe
-  "$(rlocation io_bazel/src/write_manifest.exe)" reduced/bin/java.exe
   cp $DOCS legal/java.base/ASSEMBLY_EXCEPTION \
     reduced/
   # These are necessary for --host_jvm_debug to work.
