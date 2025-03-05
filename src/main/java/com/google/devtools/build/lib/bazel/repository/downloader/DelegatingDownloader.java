@@ -54,7 +54,8 @@ public class DelegatingDownloader implements Downloader {
       Path destination,
       ExtendedEventHandler eventHandler,
       Map<String, String> clientEnv,
-      Optional<String> type)
+      Optional<String> type,
+      String context)
       throws IOException, InterruptedException {
     Downloader downloader = defaultDelegate;
     if (delegate != null) {
@@ -69,6 +70,7 @@ public class DelegatingDownloader implements Downloader {
         destination,
         eventHandler,
         clientEnv,
-        type);
+        type,
+        context);
   }
 }

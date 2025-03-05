@@ -332,7 +332,8 @@ public class DownloadManager {
             destination,
             eventHandler,
             clientEnv,
-            type);
+            type,
+            context);
         break;
       } catch (InterruptedIOException e) {
         throw new InterruptedException(e.getMessage());

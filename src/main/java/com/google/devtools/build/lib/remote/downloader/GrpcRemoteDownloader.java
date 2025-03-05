@@ -138,10 +138,17 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
       Path destination,
       ExtendedEventHandler eventHandler,
       Map<String, String> clientEnv,
-      Optional<String> type)
+      Optional<String> type,
+      String context)
       throws IOException, InterruptedException {
     RequestMetadata metadata =
-        TracingMetadataUtils.buildMetadata(buildRequestId, commandId, "remote_downloader", null);
+        TracingMetadataUtils.buildMetadata(
+            buildRequestId,
+            commandId,
+            "remote_downloader",
+            /* mnemonic= */ null,
+            /* label= */ context,
+            /* configurationId= */ null);
     RemoteActionExecutionContext remoteActionExecutionContext =
         RemoteActionExecutionContext.create(metadata);
 
@@ -198,7 +205,8 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
           destination,
           eventHandler,
           clientEnv,
-          type);
+          type,
+          context);
     }
   }
 
