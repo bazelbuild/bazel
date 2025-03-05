@@ -164,6 +164,11 @@ public final class SpawnRunnerTestUtil {
     }
 
     @Override
+    public boolean wasRewound() {
+      return false;
+    }
+
+    @Override
     public void checkForLostInputs() {}
 
     @Nullable

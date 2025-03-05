@@ -217,6 +217,7 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
   private final ActionKeyContext actionKeyContext;
   private final OutputMetadataStore outputMetadataStore;
   private final boolean rewindingEnabled;
+  private final boolean wasRewound;
   private final LostInputsCheck lostInputsCheck;
   private final FileOutErr fileOutErr;
   private final ExtendedEventHandler eventHandler;
@@ -242,6 +243,7 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
       ActionKeyContext actionKeyContext,
       OutputMetadataStore outputMetadataStore,
       boolean rewindingEnabled,
+      boolean wasRewound,
       LostInputsCheck lostInputsCheck,
       FileOutErr fileOutErr,
       ExtendedEventHandler eventHandler,
@@ -259,6 +261,7 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
     this.actionKeyContext = actionKeyContext;
     this.outputMetadataStore = outputMetadataStore;
     this.rewindingEnabled = rewindingEnabled;
+    this.wasRewound = wasRewound;
     this.lostInputsCheck = lostInputsCheck;
     this.fileOutErr = fileOutErr;
     this.eventHandler = eventHandler;
@@ -284,6 +287,7 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
       ActionKeyContext actionKeyContext,
       OutputMetadataStore outputMetadataStore,
       boolean rewindingEnabled,
+      boolean wasRewound,
       LostInputsCheck lostInputsCheck,
       FileOutErr fileOutErr,
       ExtendedEventHandler eventHandler,
@@ -302,6 +306,7 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
         actionKeyContext,
         outputMetadataStore,
         rewindingEnabled,
+        wasRewound,
         lostInputsCheck,
         fileOutErr,
         eventHandler,
@@ -339,6 +344,7 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
         actionKeyContext,
         outputMetadataStore,
         rewindingEnabled,
+        /* wasRewound= */ false,
         lostInputsCheck,
         fileOutErr,
         eventHandler,
@@ -385,6 +391,10 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
 
   public boolean isRewindingEnabled() {
     return rewindingEnabled;
+  }
+
+  public boolean wasRewound() {
+    return wasRewound;
   }
 
   public void checkForLostInputs() throws LostInputsActionExecutionException {
@@ -570,6 +580,7 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
         actionKeyContext,
         outputMetadataStore,
         rewindingEnabled,
+        false,
         lostInputsCheck,
         fileOutErr,
         eventHandler,
@@ -626,6 +637,7 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
         actionKeyContext,
         outputMetadataStore,
         rewindingEnabled,
+        false,
         lostInputsCheck,
         fileOutErr,
         eventHandler,

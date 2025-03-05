@@ -653,6 +653,7 @@ public final class SkyframeActionExecutor {
         actionKeyContext,
         outputMetadataStore,
         rewindingEnabled,
+        wasRewound(action),
         lostInputsCheck(actionFileSystem, action, outputService),
         fileOutErr,
         selectEventHandler(emitProgressEvents),
@@ -1078,7 +1079,7 @@ public final class SkyframeActionExecutor {
         try {
           if (mustAcquireExclusiveRewindingLock(action)) {
             try (SilentCloseable d =
-                profiler.profile(ProfilerTask.ACTION_LOCK, "action.acquireWriteLockForRewinding")) {
+                profiler.profile(ProfilerTask.ACTION_LOCK, "action.acquireRewindingWriteLock")) {
               rewindingLock.writeLock().lockInterruptibly();
               unlockRewindingLock = true;
             }
@@ -1235,8 +1236,11 @@ public final class SkyframeActionExecutor {
 
         boolean unlockRewindingLock = false;
         if (mustAcquireSharedRewindingLock()) {
-          rewindingLock.readLock().lockInterruptibly();
-          unlockRewindingLock = true;
+          try (SilentCloseable d =
+              profiler.profile(ProfilerTask.ACTION_LOCK, "action.acquireRewindingReadLock")) {
+            rewindingLock.readLock().lockInterruptibly();
+            unlockRewindingLock = true;
+          }
         }
         try {
           result = action.execute(actionExecutionContext);
