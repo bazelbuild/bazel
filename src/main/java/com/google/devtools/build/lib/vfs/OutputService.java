@@ -265,4 +265,24 @@ public interface OutputService {
   default XattrProvider getXattrProvider(XattrProvider delegate) {
     return delegate;
   }
+
+  /** A task with a cancellation callback. */
+  @FunctionalInterface
+  interface Cancellable {
+    void cancel() throws InterruptedException;
+  }
+
+  /**
+   * Registers a cancellation callback for a task that may still be running after the action has
+   * completed.
+   */
+  default void registerCancellableTask(ActionExecutionMetadata action, Cancellable task) {
+    throw new UnsupportedOperationException();
+  }
+
+  /**
+   * Cancels and awaits the completion of all tasks registered with {@link
+   * #registerCancellableTask}.
+   */
+  default void cancelTasks(ActionExecutionMetadata action) throws InterruptedException {}
 }

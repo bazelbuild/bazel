@@ -144,7 +144,7 @@ public final class RewindingTest extends BuildIntegrationTestCase {
 
   @Test
   public void multipleLostInputsForRewindPlan_standalone() throws Exception {
-    addOptions("--remote_executor=", "--spawn_strategy=standalone");
+    addOptions("--spawn_strategy=standalone", "--remote_executor=");
     helper.runMultipleLostInputsForRewindPlan();
   }
 
