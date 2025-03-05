@@ -763,6 +763,50 @@ class LauncherTest(test_base.TestBase):
     )
     self.assertEqual('helloworld', ''.join(stdout))
 
+  # Regression test for
+  # https://github.com/bazelbuild/bazel/pull/24703#issuecomment-2665963637
+  def testBuildLaunchersWithClangClOnWindows(self):
+    if not self.IsWindows():
+      return
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'bazel_dep(name = "platforms", version = "0.0.9")',
+            'bazel_dep(name = "rules_cc", version = "0.0.12")',
+            (
+                'cc_configure ='
+                ' use_extension("@rules_cc//cc:extensions.bzl",'
+                ' "cc_configure_extension")'
+            ),
+            'use_repo(cc_configure, "local_config_cc")',
+            # Register all cc toolchains for Windows
+            'register_toolchains("@local_config_cc//:all")',
+        ],
+    )
+    self.ScratchFile(
+        'BUILD',
+        [
+            'platform(',
+            '    name = "x64_windows-clang-cl",',
+            '    constraint_values = [',
+            '        "@platforms//cpu:x86_64",',
+            '        "@platforms//os:windows",',
+            '        "@bazel_tools//tools/cpp:clang-cl",',
+            '    ],',
+            ')',
+        ],
+    )
+
+    exit_code, _, stderr = self.RunBazel([
+        'build',
+        '--extra_toolchains=@local_config_cc//:cc-toolchain-x64_windows-clang-cl',
+        '--extra_execution_platforms=//:x64_windows-clang-cl',
+        '--cxxopt=/std:c++17',
+        '--host_cxxopt=/std:c++17',
+        '@bazel_tools//src/tools/launcher:launcher',
+    ])
+    self.AssertExitCode(exit_code, 0, stderr)
+
   def AssertRunfilesManifestContains(self, manifest, entry):
     with open(manifest, 'r') as f:
       for l in f:
