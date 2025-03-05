@@ -60,7 +60,6 @@ import java.io.File;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.UncheckedIOException;
-import java.lang.reflect.Method;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -70,7 +69,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.Predicate;
 import java.util.jar.Attributes;
 import java.util.jar.JarFile;
 import java.util.jar.Manifest;
@@ -405,39 +403,13 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
     @Override
     public Void visitVariable(VariableTree variable, Void unused) {
       scan(variable.getModifiers(), null);
-      if (!declaredUsingVar((JCTree.JCVariableDecl) variable)) {
-        scan(variable.getType(), null);
+      JCTree vartype = ((JCTree.JCVariableDecl) variable).vartype;
+      if (vartype != null && vartype.pos != Position.NOPOS) {
+        scan(vartype, null);
       }
       scan(variable.getNameExpression(), null);
       scan(variable.getInitializer(), null);
       return null;
-    }
-
-    private static boolean declaredUsingVar(JCTree.JCVariableDecl variableTree) {
-      return DECLARED_USING_VAR.test(variableTree);
-    }
-
-    private static final Predicate<JCTree.JCVariableDecl> DECLARED_USING_VAR =
-        getDeclaredUsingVar();
-
-    private static Predicate<JCTree.JCVariableDecl> getDeclaredUsingVar() {
-      Method method;
-      try {
-        method = JCTree.JCVariableDecl.class.getMethod("declaredUsingVar");
-      } catch (ReflectiveOperationException e) {
-        // The method in JCVariableDecl is only available in stock JDK 17.
-        // There are no good options for earlier versions, short of looking at the source code and
-        // re-parsing the variable declaration, which would be complicated and expensive. For now,
-        // continue to enforce SJD on var for JDK < 17.
-        return variableTree -> false;
-      }
-      return variableTree -> {
-        try {
-          return (boolean) method.invoke(variableTree);
-        } catch (ReflectiveOperationException e) {
-          throw new LinkageError(e.getMessage(), e);
-        }
-      };
     }
 
     /** Visits an identifier in the AST. We only care about type symbols. */
