@@ -1014,6 +1014,54 @@ public final class ParserTest {
   }
 
   @Test
+  public void testDef() throws Exception {
+    DefStatement stmt =
+        (DefStatement)
+            parseStatement(
+                "def f(a, *, b=1, *args, **kwargs):", //
+                "  pass");
+
+    assertThat(stmt.getParameters()).hasSize(5);
+
+    assertThat(stmt.getParameters().get(0).getName()).isEqualTo("a");
+    assertThat(stmt.getParameters().get(0)).isInstanceOf(Parameter.Mandatory.class);
+
+    assertThat(stmt.getParameters().get(1).getName()).isNull();
+    assertThat(stmt.getParameters().get(1)).isInstanceOf(Parameter.Star.class);
+
+    assertThat(stmt.getParameters().get(2).getName()).isEqualTo("b");
+    assertThat(stmt.getParameters().get(2)).isInstanceOf(Parameter.Optional.class);
+    assertThat(stmt.getParameters().get(2).getDefaultValue().toString()).isEqualTo("1");
+
+    assertThat(stmt.getParameters().get(3).getName()).isEqualTo("args");
+    assertThat(stmt.getParameters().get(3)).isInstanceOf(Parameter.Star.class);
+
+    assertThat(stmt.getParameters().get(4).getName()).isEqualTo("kwargs");
+    assertThat(stmt.getParameters().get(4)).isInstanceOf(Parameter.StarStar.class);
+  }
+
+  @Test
+  public void testDefAssignmentToStarArgs() throws Exception {
+    setFailFast(false);
+    parseStatement("def f(*args=1): pass");
+    assertContainsError("syntax error at '=': expected ,");
+  }
+
+  @Test
+  public void testDefAssignmentToBareStar() throws Exception {
+    setFailFast(false);
+    parseStatement("def f(* = 1): pass");
+    assertContainsError("syntax error at '=': expected ,");
+  }
+
+  @Test
+  public void testDefAssignmentToKwargs() throws Exception {
+    setFailFast(false);
+    parseStatement("def f(**kwargs=1): pass");
+    assertContainsError("syntax error at '=': expected ,");
+  }
+
+  @Test
   public void testLambda() throws Exception {
     parseExpression("lambda a, b=1, *args, **kwargs: a+b");
     parseExpression("lambda *, a, *b: 0");
