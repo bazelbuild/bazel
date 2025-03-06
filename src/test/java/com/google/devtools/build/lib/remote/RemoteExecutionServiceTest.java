@@ -454,8 +454,9 @@ public class RemoteExecutionServiceTest {
 
     // arrange
     Tree barTreeMessage = Tree.newBuilder().setRoot(Directory.getDefaultInstance()).build();
-    Digest barTreeDigest =
-        cache.addContents(remoteActionExecutionContext, barTreeMessage.toByteArray());
+    // Don't add barTreeMessage to the cache, the Tree proto for an empty output directory is
+    // recognized by its digest.
+    Digest barTreeDigest = digestUtil.compute(barTreeMessage);
     ActionResult.Builder builder = ActionResult.newBuilder();
     builder.addOutputDirectoriesBuilder().setPath("outputs/a/bar").setTreeDigest(barTreeDigest);
     RemoteActionResult result =
