@@ -21,7 +21,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Interner;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
@@ -1389,7 +1388,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
 
   /** An element in a {@link PreprocessedCommandLine}. */
   private interface PreprocessedArg {
-    Iterator<String> iterator(PathMapper pathMapper);
+    Iterable<String> toIterator(PathMapper pathMapper);
 
     int numArgs();
 
@@ -1414,9 +1413,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
 
     @Override
     public Iterable<String> arguments(PathMapper pathMapper) {
-      return Iterables.concat(
-          Lists.transform(
-              preprocessedArgs, arg -> (Iterable<String>) () -> arg.iterator(pathMapper)));
+      return Iterables.concat(Lists.transform(preprocessedArgs, arg -> arg.toIterator(pathMapper)));
     }
 
     @Override
@@ -1477,8 +1474,8 @@ public class StarlarkCustomCommandLine extends CommandLine {
     }
 
     @Override
-    public Iterator<String> iterator(PathMapper pathMapper) {
-      return Iterators.singletonIterator(arg);
+    public Iterable<String> toIterator(PathMapper pathMapper) {
+      return ImmutableList.of(arg);
     }
 
     @Override
@@ -1500,8 +1497,8 @@ public class StarlarkCustomCommandLine extends CommandLine {
     }
 
     @Override
-    public Iterator<String> iterator(PathMapper pathMapper) {
-      return Iterators.singletonIterator(pathMapper.getMappedExecPathString(artifact));
+    public Iterable<String> toIterator(PathMapper pathMapper) {
+      return ImmutableList.of(pathMapper.getMappedExecPathString(artifact));
     }
 
     @Override
@@ -1528,8 +1525,8 @@ public class StarlarkCustomCommandLine extends CommandLine {
     }
 
     @Override
-    public Iterator<String> iterator(PathMapper pathMapper) {
-      return Iterators.singletonIterator(SingleStringArgFormatter.format(format, stringValue));
+    public Iterable<String> toIterator(PathMapper pathMapper) {
+      return ImmutableList.of(SingleStringArgFormatter.format(format, stringValue));
     }
 
     @Override
@@ -1554,8 +1551,8 @@ public class StarlarkCustomCommandLine extends CommandLine {
     }
 
     @Override
-    public Iterator<String> iterator(PathMapper pathMapper) {
-      return Iterators.singletonIterator(
+    public Iterable<String> toIterator(PathMapper pathMapper) {
+      return ImmutableList.of(
           SingleStringArgFormatter.format(format, pathMapper.getMappedExecPathString(artifact)));
     }
 
@@ -1589,25 +1586,17 @@ public class StarlarkCustomCommandLine extends CommandLine {
     }
 
     @Override
-    public Iterator<String> iterator(PathMapper pathMapper) {
-      Iterator<String> it =
-          Iterables.transform(
-                  values,
-                  value ->
-                      switch (value) {
-                        case String string -> string;
-                        case DerivedArtifact artifact ->
-                            pathMapper.getMappedExecPathString(artifact);
-                        default -> throw new AssertionError("Unexpected value type: " + value);
-                      })
-              .iterator();
+    public Iterable<String> toIterator(PathMapper pathMapper) {
+      List<String> list = Lists.transform(values, value -> pathMap(value, pathMapper));
       if (formatEach != null) {
-        it = Iterators.transform(it, s -> SingleStringArgFormatter.format(formatEach, s));
+        list = Lists.transform(list, s -> SingleStringArgFormatter.format(formatEach, s));
       }
-      if (beforeEach != null) {
-        it = new BeforeEachIterator(it, beforeEach);
+      if (beforeEach == null) {
+        return list;
+      } else {
+        List<String> finalList = list;
+        return () -> new BeforeEachIterator(finalList.iterator(), beforeEach);
       }
-      return it;
     }
 
     @Override
@@ -1619,14 +1608,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
     public int totalArgLength(PathMapper pathMapper) {
       int total = 0;
       for (Object arg : values) {
-        switch (arg) {
-          case String string -> total += string.length();
-          case DerivedArtifact artifact ->
-              total +=
-                  artifact.getExecPathString().length()
-                      - pathMapper.computeExecPathLengthDiff(artifact);
-          default -> throw new AssertionError("Unexpected value type: " + arg);
-        }
+        total += argLength(arg, pathMapper);
       }
       if (formatEach != null) {
         total += SingleStringArgFormatter.formattedLength(formatEach) * values.size();
@@ -1657,26 +1639,16 @@ public class StarlarkCustomCommandLine extends CommandLine {
     }
 
     @Override
-    public Iterator<String> iterator(PathMapper pathMapper) {
-      Iterator<String> it =
-          Iterables.transform(
-                  values,
-                  value ->
-                      switch (value) {
-                        case String string -> string;
-                        case DerivedArtifact artifact ->
-                            pathMapper.getMappedExecPathString(artifact);
-                        default -> throw new AssertionError("Unexpected value type: " + value);
-                      })
-              .iterator();
+    public Iterable<String> toIterator(PathMapper pathMapper) {
+      List<String> it = Lists.transform(values, value -> pathMap(value, pathMapper));
       if (formatEach != null) {
-        it = Iterators.transform(it, s -> SingleStringArgFormatter.format(formatEach, s));
+        it = Lists.transform(it, s -> SingleStringArgFormatter.format(formatEach, s));
       }
       String result = Joiner.on(joinWith).join(it);
       if (formatJoined != null) {
         result = SingleStringArgFormatter.format(formatJoined, result);
       }
-      return Iterators.singletonIterator(result);
+      return ImmutableList.of(result);
     }
 
     @Override
@@ -1688,14 +1660,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
     public int totalArgLength(PathMapper pathMapper) {
       int total = 0;
       for (Object arg : values) {
-        switch (arg) {
-          case String string -> total += string.length();
-          case DerivedArtifact artifact ->
-              total +=
-                  artifact.getExecPathString().length()
-                      - pathMapper.computeExecPathLengthDiff(artifact);
-          default -> throw new AssertionError("Unexpected value type: " + arg);
-        }
+        total += argLength(arg, pathMapper);
       }
       if (formatEach != null) {
         total += SingleStringArgFormatter.formattedLength(formatEach) * values.size();
@@ -1721,15 +1686,13 @@ public class StarlarkCustomCommandLine extends CommandLine {
     }
 
     @Override
-    public Iterator<String> iterator(PathMapper pathMapper) {
+    public Iterable<String> toIterator(PathMapper pathMapper) {
       Iterator<String> it =
-          Iterables.concat(
-                  Lists.transform(args, arg -> (Iterable<String>) () -> arg.iterator(pathMapper)))
-              .iterator();
+          Iterables.concat(Lists.transform(args, arg -> arg.toIterator(pathMapper))).iterator();
       String first = it.next();
       String rest = SPACE_JOINER.join(it);
       String line = first.isEmpty() ? rest : first + '=' + rest;
-      return Iterators.singletonIterator(line);
+      return ImmutableList.of(line);
     }
 
     @Override
@@ -1744,8 +1707,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
         total += arg.totalArgLength(pathMapper);
       }
       String first =
-          Iterables.concat(
-                  Lists.transform(args, arg -> (Iterable<String>) () -> arg.iterator(pathMapper)))
+          Iterables.concat(Lists.transform(args, arg -> arg.toIterator(pathMapper)))
               .iterator()
               .next();
       if (first.isEmpty()) {
@@ -1753,6 +1715,23 @@ public class StarlarkCustomCommandLine extends CommandLine {
       }
       return total;
     }
+  }
+
+  private static String pathMap(Object /* String | DerivedArtifact */ arg, PathMapper pathMapper) {
+    return switch (arg) {
+      case String string -> string;
+      case DerivedArtifact artifact -> pathMapper.getMappedExecPathString(artifact);
+      default -> throw new AssertionError("Unexpected arg type: " + arg);
+    };
+  }
+
+  private static int argLength(Object /* String | DerivedArtifact */ arg, PathMapper pathMapper) {
+    return switch (arg) {
+      case String string -> string.length();
+      case DerivedArtifact artifact ->
+          artifact.getExecPathString().length() - pathMapper.computeExecPathLengthDiff(artifact);
+      default -> throw new AssertionError("Unexpected arg type: " + arg);
+    };
   }
 
   /** Implements the {@code before_each} behavior of {@code Args.add_all}. */
