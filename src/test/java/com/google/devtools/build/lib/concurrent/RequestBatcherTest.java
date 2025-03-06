@@ -54,7 +54,8 @@ public final class RequestBatcherTest {
         RequestBatcher.<Request, Response>create(
             commonPool(),
             requests -> immediateFuture(respondTo(requests)),
-            /* targetWorkerCount= */ 1);
+            /* maxBatchSize= */ 255,
+            /* maxConcurrentRequests= */ 1);
     ListenableFuture<Response> response = batcher.submit(new Request(1));
     assertThat(response.get()).isEqualTo(new Response(1));
   }
@@ -62,11 +63,15 @@ public final class RequestBatcherTest {
   @Test
   public void queueOverflow_sleeps() throws Exception {
     // This covers the overflow case of Step 1B in the documentation.
+    int batchSize = 256;
 
     var multiplexer = new SettableMultiplexer();
     var batcher =
         RequestBatcher.<Request, Response>create(
-            commonPool(), multiplexer, /* targetWorkerCount= */ 1);
+            commonPool(),
+            multiplexer,
+            /* maxBatchSize= */ batchSize - 1,
+            /* maxConcurrentRequests= */ 1);
     ListenableFuture<Response> response0 = batcher.submit(new Request(0));
     BatchedRequestResponses requestResponses0 = multiplexer.queue.take();
     // The first worker is busy until requestResponse0 is populated.
@@ -102,7 +107,6 @@ public final class RequestBatcherTest {
     assertThat(responses).hasSize(ConcurrentFifo.MAX_ELEMENTS + 1);
 
     // Responds to all remaining batches.
-    int batchSize = RequestBatcher.BATCH_SIZE + 1;
     int batchCount = responses.size() / batchSize;
     assertThat(responses).hasSize(batchCount * batchSize);
 
@@ -122,7 +126,7 @@ public final class RequestBatcherTest {
     var multiplexer = new SettableMultiplexer();
     var batcher =
         RequestBatcher.<Request, Response>create(
-            commonPool(), multiplexer, /* targetWorkerCount= */ 1);
+            commonPool(), multiplexer, /* maxBatchSize= */ 255, /* maxConcurrentRequests= */ 1);
     ListenableFuture<Response> response1 = batcher.submit(new Request(1));
     BatchedRequestResponses requestResponses1 = multiplexer.queue.take();
 
@@ -162,7 +166,8 @@ public final class RequestBatcherTest {
             /* responseDistributionExecutor= */ commonPool(),
             /* queueDrainingExecutor= */ queueDrainingExecutor,
             requests -> immediateFuture(respondTo(requests)),
-            /* targetWorkerCount= */ 1,
+            /* maxBatchSize= */ 255,
+            /* maxConcurrentRequests= */ 1,
             countersAddress,
             fifo);
     cleaner.register(batcher, new AddressFreer(baseAddress));
@@ -201,7 +206,8 @@ public final class RequestBatcherTest {
         RequestBatcher.<Request, Response>create(
             commonPool(),
             requests -> immediateFuture(respondTo(requests)),
-            /* targetWorkerCount= */ 4);
+            /* maxBatchSize= */ 255,
+            /* maxConcurrentRequests= */ 4);
 
     var results = new ConcurrentLinkedQueue<ListenableFuture<Void>>();
     final int requestCount = 4_000_000;

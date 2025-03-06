@@ -81,6 +81,14 @@ public class RemoteAnalysisCachingOptions extends OptionsBase {
   public String remoteAnalysisCache;
 
   @Option(
+      name = "experimental_remote_analysis_cache_max_batch_size",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      defaultValue = "4095",
+      help = "Batch size limit for remote analysis caching RPCs.")
+  public int maxBatchSize;
+
+  @Option(
       name = "experimental_remote_analysis_cache_concurrency",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
