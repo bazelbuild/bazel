@@ -1106,6 +1106,21 @@ cc_binary(name = "tool")
 
   @Test
   public void testLinkoptsAreOmittedForStaticLibrary() throws Exception {
+    registerToolchainWithConfig(
+        """
+        features = [feature(
+            name = "user_link_flags",
+            flag_sets = [flag_set(
+                actions = ["c++-link-static-library"],
+                flag_groups = [flag_group(
+                    flags = ["%{user_link_flags}"],
+                    iterate_over = 'user_link_flags',
+                    expand_if_available = 'user_link_flags',
+                )],
+            )],
+        )]
+        """);
+    useConfiguration("--extra_toolchains=//toolchain");
     scratch.file(
         "foo/BUILD", "cc_library(name = 'foo', srcs = ['foo.cc'], linkopts = ['FakeLinkopt1'])");
 
