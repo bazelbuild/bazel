@@ -61,7 +61,6 @@ fi
 UNAME=$(uname -s | tr 'A-Z' 'a-z')
 
 if [[ "$UNAME" =~ msys_nt* ]]; then
-  set -x
   mkdir "tmp.$$"
   cd "tmp.$$"
   unzip -q "../$fulljdk"
