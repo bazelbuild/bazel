@@ -4,7 +4,8 @@
           xmlns:asmv3="urn:schemas-microsoft-com:asm.v3"
 >
 <assemblyIdentity
-    name="turbine_direct_graal"
+    name="turbine_direct_graal.exe"
+    version = "1.0.0.0"
     type="win32"
 />
 <description>Turbine</description>
