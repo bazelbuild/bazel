@@ -145,9 +145,7 @@ public final class StrippingPathMapper implements PathMapper {
 
   @Override
   public String getMappedExecPathString(ActionInput artifact) {
-    if (artifact instanceof DerivedArtifact
-        || ((artifact instanceof BasicActionInput || artifact instanceof VirtualActionInput)
-            && isOutputPath(artifact, outputRoot))) {
+    if (isSupported(artifact)) {
       return strip(artifact.getExecPath()).getPathString();
     } else {
       return artifact.getExecPathString();
@@ -165,7 +163,7 @@ public final class StrippingPathMapper implements PathMapper {
     // bazel-out/k8-fastbuild/... is mapped to bazel-out/${FIXED_CONFIG_SEGMENT}/...
     int firstSlash = outputRoot.getPathString().length() + 1;
     int secondSlash = unmappedPath.indexOf('/', firstSlash + 1);
-    return FIXED_CONFIG_SEGMENT.length() - (secondSlash - firstSlash);
+    return (secondSlash - firstSlash) - FIXED_CONFIG_SEGMENT.length();
   }
 
   @Override
@@ -213,6 +211,12 @@ public final class StrippingPathMapper implements PathMapper {
     }
     // Fall back for source roots as well as runfiles tree artifacts, which should be very rare.
     return PathMapper.super.mapRoot(artifact);
+  }
+
+  private boolean isSupported(ActionInput artifact) {
+    return artifact instanceof DerivedArtifact
+        || ((artifact instanceof BasicActionInput || artifact instanceof VirtualActionInput)
+            && isOutputPath(artifact, outputRoot));
   }
 
   private static final class CustomStarlarkArgsIterator implements Iterator<String> {
