@@ -312,7 +312,7 @@ def parse_netrc(contents, filename = None):
     currentmacro = ""
     cmd = None
     for line in contents.splitlines():
-        if line.startswith("#"):
+        if line.lstrip().startswith("#"):
             # Comments start with #. Ignore these lines.
             continue
         elif macdef:
