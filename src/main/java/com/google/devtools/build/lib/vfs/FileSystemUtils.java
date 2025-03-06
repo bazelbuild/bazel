@@ -23,6 +23,7 @@ import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ConditionallyThreadSafe;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.util.StringEncoding;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -280,76 +281,66 @@ public class FileSystemUtils {
   }
 
   /**
-   * Creates or updates a symbolic link from 'link' to 'target'. Replaces
-   * existing symbolic links with target, and skips the link creation if it is
-   * already present. Will also create any missing ancestor directories of the
-   * link. This method is non-atomic
+   * Creates or updates an existing symbolic link from 'link' to 'target'. Missing ancestor
+   * directories of 'link' will also be created.
    *
-   * <p>Note: this method will throw an IOException if there is an unequal
-   * non-symlink at link.
+   * <p>This operation is not atomic.
    *
-   * @throws IOException if the creation of the symbolic link was unsuccessful
-   *         for any reason.
+   * @throws NotASymlinkException if the path already exists and is not a symbolic link
+   * @throws IOException if creating the symbolic link or its ancestor directories failed for any
+   *     other reason
    */
-  @ThreadSafe  // but not atomic
+  @ThreadSafe // but not atomic
   public static void ensureSymbolicLink(Path link, Path target) throws IOException {
     ensureSymbolicLink(link, target.asFragment());
   }
 
   /**
-   * Creates or updates a symbolic link from 'link' to 'target'. Replaces
-   * existing symbolic links with target, and skips the link creation if it is
-   * already present. Will also create any missing ancestor directories of the
-   * link. This method is non-atomic
+   * Creates or updates an existing symbolic link from 'link' to 'target'. Missing ancestor
+   * directories of 'link' will also be created.
    *
-   * <p>Note: this method will throw an IOException if there is an unequal
-   * non-symlink at link.
+   * <p>This operation is not atomic.
    *
-   * @throws IOException if the creation of the symbolic link was unsuccessful
-   *         for any reason.
+   * @throws NotASymlinkException if the path already exists and is not a symbolic link
+   * @throws IOException if creating the symbolic link or its ancestor directories failed for any
+   *     other reason
    */
-  @ThreadSafe  // but not atomic
+  @ThreadSafe // but not atomic
   public static void ensureSymbolicLink(Path link, String target) throws IOException {
     ensureSymbolicLink(link, PathFragment.create(target));
   }
 
   /**
-   * Creates or updates a symbolic link from 'link' to 'target'. Replaces
-   * existing symbolic links with target, and skips the link creation if it is
-   * already present. Will also create any missing ancestor directories of the
-   * link. This method is non-atomic
+   * Creates or updates an existing symbolic link from 'link' to 'target'. Missing ancestor
+   * directories of 'link' will also be created.
    *
-   * <p>Note: this method will throw an IOException if there is an unequal
-   * non-symlink at link.
+   * <p>This operation is not atomic.
    *
-   * @throws IOException if the creation of the symbolic link was unsuccessful
-   *         for any reason.
+   * @throws NotASymlinkException if the path already exists and is not a symbolic link
+   * @throws IOException if creating the symbolic link or its ancestor directories failed for any
+   *     other reason
    */
-  @ThreadSafe  // but not atomic
+  @ThreadSafe // but not atomic
   public static void ensureSymbolicLink(Path link, PathFragment target) throws IOException {
     // TODO(bazel-team): (2009) consider adding the logic for recovering from the case when
     // we have already created a parent directory symlink earlier.
+    boolean parentKnownToExist = false;
     try {
+      // This will throw if the path already exists and is not a symbolic link.
       if (link.readSymbolicLink().equals(target)) {
-        return;  // Do nothing if the link is already there.
+        // Nothing to do.
+        return;
       }
-    } catch (IOException e) { // link missing or broken
-      /* fallthru and do the work below */
+      // The symlink exists, but points elsewhere.
+      link.delete();
+      parentKnownToExist = true;
+    } catch (FileNotFoundException e) {
+      // Path does not exist; fall through.
     }
-    if (link.isSymbolicLink()) {
-      link.delete(); // Remove the symlink since it is pointing somewhere else.
-    } else {
+    if (!parentKnownToExist) {
       link.getParentDirectory().createDirectoryAndParents();
     }
-    try {
-      link.createSymbolicLink(target);
-    } catch (IOException e) {
-      // Only pass on exceptions caused by a true link creation failure.
-      if (!link.isSymbolicLink() ||
-          !link.resolveSymbolicLinks().equals(link.getRelative(target))) {
-        throw e;
-      }
-    }
+    link.createSymbolicLink(target);
   }
 
   public static ByteSource asByteSource(final Path path) {

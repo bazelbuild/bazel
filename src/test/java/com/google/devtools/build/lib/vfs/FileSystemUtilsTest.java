@@ -29,6 +29,7 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.devtools.build.lib.testutil.BlazeTestUtils;
 import com.google.devtools.build.lib.testutil.ManualClock;
+import com.google.devtools.build.lib.vfs.FileSystem.NotASymlinkException;
 import com.google.devtools.build.lib.vfs.FileSystemUtils.MoveResult;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.io.FileNotFoundException;
@@ -717,15 +718,59 @@ public class FileSystemUtilsTest {
   }
 
   @Test
-  public void testEnsureSymbolicLinkDoesNotMakeUnnecessaryChanges() throws Exception {
+  public void testEnsureSymbolicLinkCreatesNewLink() throws Exception {
     PathFragment target = PathFragment.create("/b");
-    Path file = fileSystem.getPath("/a");
-    file.createSymbolicLink(target);
-    long prevTimeMillis = clock.currentTimeMillis();
-    clock.advanceMillis(1000);
-    FileSystemUtils.ensureSymbolicLink(file, target);
-    long timestamp = file.getLastModifiedTime(Symlinks.NOFOLLOW);
-    assertThat(timestamp).isEqualTo(prevTimeMillis);
+    Path link = fileSystem.getPath("/a");
+    FileSystemUtils.ensureSymbolicLink(link, target);
+    assertThat(link.isSymbolicLink()).isTrue();
+    assertThat(link.readSymbolicLink()).isEqualTo(target);
+  }
+
+  @Test
+  public void testEnsureSymbolicLinkReplacesExistingLink() throws Exception {
+    PathFragment target = PathFragment.create("/b");
+    Path link = fileSystem.getPath("/a");
+    link.createSymbolicLink(PathFragment.create("/c"));
+    FileSystemUtils.ensureSymbolicLink(link, target);
+    assertThat(link.isSymbolicLink()).isTrue();
+    assertThat(link.readSymbolicLink()).isEqualTo(target);
+  }
+
+  @Test
+  public void testEnsureSymbolicLinkKeepsUpToDateLink() throws Exception {
+    PathFragment target = PathFragment.create("/b");
+    Path link = fileSystem.getPath("/a");
+    link.createSymbolicLink(target);
+    FileSystemUtils.ensureSymbolicLink(link, target);
+    assertThat(link.isSymbolicLink()).isTrue();
+    assertThat(link.readSymbolicLink()).isEqualTo(target);
+  }
+
+  @Test
+  public void testEnsureSymbolicLinkCreatesParentDirectories() throws Exception {
+    PathFragment target = PathFragment.create("/b");
+    Path link = fileSystem.getPath("/a/b/c");
+    FileSystemUtils.ensureSymbolicLink(link, target);
+    assertThat(link.isSymbolicLink()).isTrue();
+    assertThat(link.readSymbolicLink()).isEqualTo(target);
+  }
+
+  @Test
+  public void testEnsureSymbolicLinkFailsForExistingDirectory() throws Exception {
+    PathFragment target = PathFragment.create("/b");
+    Path link = fileSystem.getPath("/a");
+    link.createDirectory();
+    assertThrows(
+        NotASymlinkException.class, () -> FileSystemUtils.ensureSymbolicLink(link, target));
+  }
+
+  @Test
+  public void testEnsureSymbolicLinkFailsForExistingFile() throws Exception {
+    PathFragment target = PathFragment.create("/b");
+    Path link = fileSystem.getPath("/a");
+    FileSystemUtils.createEmptyFile(link);
+    assertThrows(
+        NotASymlinkException.class, () -> FileSystemUtils.ensureSymbolicLink(link, target));
   }
 
   @Test
