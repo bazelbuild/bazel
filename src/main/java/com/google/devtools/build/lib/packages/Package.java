@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.packages;
 
+import static com.google.common.base.Preconditions.checkState;
+
 import com.google.auto.value.AutoBuilder;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
@@ -695,12 +697,20 @@ public class Package implements Packageoid {
     this.packageOverhead = overheadEstimate.orElse(PACKAGE_OVERHEAD_UNSET);
   }
 
-  // TODO(bazel-team): This is a mutation, but Package is supposed to be immutable. In practice it
-  // seems like this is only called during Package construction (including deserialization),
-  // principally via Rule#reportError. I would bet that all of the callers have access to a
-  // Package.Builder, in which case they should report the bit using the builder instead. But maybe
-  // it's easier to just checkState() that the Package hasn't already finished constructing.
+  /**
+   * Marks this package, which must still be in the process of being constructed, as containing
+   * errors.
+   *
+   * <p>Intended only for use by {@link Rule#reportError}, whose callers might not have access to
+   * the {@link Package.Builder} instance.
+   *
+   * @throws IllegalStateException if this package has completed construction.
+   */
+  // Morally should be a {@link Packageoid} method, but we don't want to make it public.
   void setContainsErrors() {
+    checkState(
+        targets == null,
+        "setContainsErrors() can only be called while the package is being constructed");
     containsErrors = true;
   }
 

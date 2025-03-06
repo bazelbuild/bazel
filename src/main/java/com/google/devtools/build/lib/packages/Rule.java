@@ -188,15 +188,6 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
     this.attrBytes = new byte[bitSetSize()];
   }
 
-  void setContainsErrors() {
-    // TODO(https://github.com/bazelbuild/bazel/issues/23852): support package pieces.
-    // TODO(bazel-team): either add a checkState to ensure the package has not completed
-    // construction or replace uses of this method with TargetDefinitionContext#setContainsErrors().
-    if (pkg instanceof Package fullPackage) {
-      fullPackage.setContainsErrors();
-    }
-  }
-
   @Override
   public Label getLabel() {
     return label;
@@ -1066,9 +1057,17 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
     }
   }
 
+  /**
+   * Marks the rule's package or package piece as in error, and propagates the error message to the
+   * reporter.
+   *
+   * <p>This method may only be called while the rule's package or package piece is being
+   * constructed.
+   */
   void reportError(String message, EventHandler eventHandler) {
     eventHandler.handle(Package.error(location, message, PackageLoading.Code.STARLARK_EVAL_ERROR));
-    setContainsErrors();
+    // TODO(https://github.com/bazelbuild/bazel/issues/23852): support package pieces.
+    getPackage().setContainsErrors();
   }
 
   private void reportWarning(String message, EventHandler eventHandler) {
