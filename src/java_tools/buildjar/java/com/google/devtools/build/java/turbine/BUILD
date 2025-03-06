@@ -26,13 +26,21 @@ java_binary(
     runtime_deps = [":turbine_deps"],
 )
 
+alias(
+    name = "turbine_direct_graal",
+    actual = select({
+        "@platforms//os:windows": ":turbine_direct_graal_with_app_manifest",
+        "//conditions:default": ":turbine_direct_graal_unpatched",
+    }),
+)
+
 native_image(
     name = "turbine_direct_graal_unpatched",
     executable_name = select({
         # TODO(cushon): restore .exe suffix on windows
         # see https://github.com/sgammon/rules_graalvm/issues/324
-        "@bazel_tools//src/conditions:windows": "%target%",
-        "//conditions:default": "%target%",
+        "@bazel_tools//src/conditions:windows": "turbine_direct_graal_unpatched",
+        "//conditions:default": "turbine_direct_graal",
     }),
     extra_args = [
         # Workaround for https://github.com/oracle/graal/issues/4757.
@@ -79,26 +87,19 @@ native_image(
 # able to use UTF-8 for filesystem operations.
 # https://github.com/oracle/graal/issues/10237
 genrule(
-    name = "turbine_direct_graal",
+    name = "turbine_direct_graal_with_app_manifest",
     srcs = [
         ":turbine_direct_graal_unpatched",
-    ] + select({
-        "@platforms//os:windows": ["turbine_direct_graal.manifest"],
-        "//conditions:default": [],
-    }),
-    outs = ["turbine_direct_graal"],
-    cmd = select({
-        "@platforms//os:windows": """\
+        "turbine_direct_graal.manifest",
+    ],
+    outs = ["turbine_direct_graal.exe"],
+    cmd = """\
 cp $(location :turbine_direct_graal_unpatched) $@
 chmod +w $@
 cat $(location turbine_direct_graal.manifest) | $(location //src:write_manifest) $@
 """,
-        "//conditions:default": "cp $< $@",
-    }),
-    tools = select({
-        "@platforms//os:windows": ["//src:write_manifest"],
-        "//conditions:default": [],
-    }),
+    target_compatible_with = ["@platforms//os:windows"],
+    tools = ["//src:write_manifest"],
 )
 
 # Run with -c opt.
