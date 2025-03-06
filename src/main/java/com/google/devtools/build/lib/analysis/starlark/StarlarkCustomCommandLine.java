@@ -95,13 +95,14 @@ import net.starlark.java.syntax.Location;
  * directories and invoking {@code map_each} functions. At this point, the representation stores a
  * string for each individual argument, but string formatting (including {@code format}, {@code
  * format_each}, {@code before_each}, {@code join_with}, {@code format_joined}, and {@code
- * flag_per_line}), is not yet applied. This means that in the common case of an {@link Artifact}
- * with no {@code map_each} function, the string representation is still its {@link
- * Artifact#getExecPathString}, which is not a novel string instance - it is already stored in the
- * {@link Artifact}. This is crucial because for param files (the longest command lines), the
- * preprocessed representation is retained throughout the action's execution.
+ * flag_per_line}), is not yet applied. If {@code map_each} is not used, path mapping is also not
+ * applied yet. This means that in the common case of an {@link Artifact} with no {@code map_each}
+ * function, the string representation is still its {@link Artifact#getExecPathString}, which is not
+ * a novel string instance - it is already stored in the {@link Artifact}. This is crucial because
+ * for param files (the longest command lines), the preprocessed representation is retained
+ * throughout the action's execution.
  *
- * <p>Finally, string formatting is applied lazily during iteration over a {@link
+ * <p>Finally, string formatting and path mapping are applied lazily during iteration over a {@link
  * PreprocessedCommandLine}. When there is no param file, this happens up front during {@link
  * CommandLines#expand(InputMetadataProvider, PathFragment, PathMapper, CommandLineLimits)}. When a
  * param file is used, the lazy {@link PreprocessedCommandLine#arguments} is stored in a {@link
@@ -360,7 +361,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
         for (int i = 0; i < count; ++i) {
           Object /* String | DerivedArtifact */ val = values.get(i);
           // If the path mapper is a no-op, an artifact behaves just like its (trivially mapped)
-          // exec path string.If the path mapper is not a no-op, mapped paths are always distinct
+          // exec path string. If the path mapper is not a no-op, mapped paths are always distinct
           // from unmapped paths. We can thus uniquify based on the mapped exec path string in each
           // case.
           String valToDeduplicateBy =
@@ -378,7 +379,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
       if ((features & HAS_ARG_NAME) != 0) {
         String argName = (String) arguments.get(argi++);
         if (!isEmptyAndShouldOmit) {
-          builder.addArg(argName);
+          builder.addString(argName);
         }
       }
 
@@ -411,7 +412,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
       if ((features & HAS_TERMINATE_WITH) != 0) {
         String terminateWith = (String) arguments.get(argi++);
         if (!isEmptyAndShouldOmit) {
-          builder.addArg(terminateWith);
+          builder.addString(terminateWith);
         }
       }
       return argi;
@@ -808,7 +809,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
         @Nullable RepositoryMapping mainRepoMapping) {
       Object object = arguments.get(argi++);
       String formatStr = (String) arguments.get(argi++);
-      switch (StarlarkCustomCommandLine.expandToCommandLine(object, mainRepoMapping)) {
+      switch (expandToCommandLine(object, mainRepoMapping)) {
         case DerivedArtifact derivedArtifact ->
             builder.addPreprocessedArg(
                 new PreprocessedSingleFormattedArtifactArg(formatStr, derivedArtifact));
@@ -1397,12 +1398,12 @@ public class StarlarkCustomCommandLine extends CommandLine {
 
   /**
    * Intermediate command line representation with directory expansion and {@code map_each} already
-   * applied, but with string formatting not yet applied. See {@link StarlarkCustomCommandLine}
-   * class-level documentation for details.
+   * applied, but with string formatting and path mapping not yet applied. See {@link
+   * StarlarkCustomCommandLine} class-level documentation for details.
    *
-   * <p>Implements {@link #totalArgLength} without applying string formatting so that the total
-   * command line length can be efficiently tested against {@link CommandLineLimits} and param file
-   * thresholds.
+   * <p>Implements {@link #totalArgLength} without applying string formatting and path mapping so
+   * that the total command line length can be efficiently tested against {@link CommandLineLimits}
+   * and param file thresholds.
    */
   private static final class PreprocessedCommandLine implements ArgChunk {
     private final ImmutableList<PreprocessedArg> preprocessedArgs;
@@ -1435,6 +1436,10 @@ public class StarlarkCustomCommandLine extends CommandLine {
       void addPreprocessedArg(PreprocessedArg arg) {
         preprocessedArgs.add(arg);
         numArgs += arg.numArgs();
+      }
+
+      void addString(String string) {
+        addPreprocessedArg(new PreprocessedStringArg(string));
       }
 
       void addArg(Object /* String | DerivedArtifact */ arg) {
@@ -1507,7 +1512,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
     @Override
     public int totalArgLength(PathMapper pathMapper) {
       return artifact.getExecPathString().length()
-          + pathMapper.computeExecPathLengthDiff(artifact)
+          - pathMapper.computeExecPathLengthDiff(artifact)
           + 1;
     }
   }
@@ -1563,7 +1568,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
     public int totalArgLength(PathMapper pathMapper) {
       return SingleStringArgFormatter.formattedLength(format)
           + artifact.getExecPathString().length()
-          + pathMapper.computeExecPathLengthDiff(artifact)
+          - pathMapper.computeExecPathLengthDiff(artifact)
           + 1;
     }
   }
@@ -1619,7 +1624,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
           case DerivedArtifact artifact ->
               total +=
                   artifact.getExecPathString().length()
-                      + pathMapper.computeExecPathLengthDiff(artifact);
+                      - pathMapper.computeExecPathLengthDiff(artifact);
           default -> throw new AssertionError("Unexpected value type: " + arg);
         }
       }
@@ -1688,7 +1693,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
           case DerivedArtifact artifact ->
               total +=
                   artifact.getExecPathString().length()
-                      + pathMapper.computeExecPathLengthDiff(artifact);
+                      - pathMapper.computeExecPathLengthDiff(artifact);
           default -> throw new AssertionError("Unexpected value type: " + arg);
         }
       }
