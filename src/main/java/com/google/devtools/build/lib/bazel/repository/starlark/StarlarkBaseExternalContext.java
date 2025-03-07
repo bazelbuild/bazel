@@ -78,9 +78,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
-import java.nio.file.Paths;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -1050,10 +1048,7 @@ the same path on case-insensitive filesystems.
     Path downloadDirectory;
     try {
       // Download to temp directory inside the outputDirectory and delete it after extraction
-      java.nio.file.Path tempDirectory =
-          Files.createTempDirectory(Paths.get(outputPath.toString()), "temp");
-      downloadDirectory =
-          workingDirectory.getFileSystem().getPath(tempDirectory.toFile().getAbsolutePath());
+      downloadDirectory = outputPath.getPath().createTempDirectory("temp");
 
       Phaser downloadPhaser = new Phaser();
       Future<Path> pendingDownload =
@@ -1388,7 +1383,7 @@ the same path on case-insensitive filesystems.
       makeDirectories(p.getPath());
       p.getPath().delete();
       try (OutputStream stream = p.getPath().getOutputStream()) {
-        stream.write(StringUnsafe.getInstance().getInternalStringBytes(content));
+        stream.write(StringUnsafe.getInternalStringBytes(content));
       }
       if (executable) {
         p.getPath().setExecutable(true);

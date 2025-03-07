@@ -134,7 +134,7 @@ public /*final*/ class ConfiguredRuleClassProvider
     protected synchronized byte[] getDigest(PathFragment path) {
       return getDigestFunction()
           .getHashFunction()
-          .hashBytes(StringUnsafe.getInstance().getInternalStringBytes(path.getPathString()))
+          .hashBytes(StringUnsafe.getInternalStringBytes(path.getPathString()))
           .asBytes();
     }
   }
