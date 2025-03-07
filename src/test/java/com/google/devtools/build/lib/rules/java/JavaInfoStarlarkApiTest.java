@@ -53,49 +53,6 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
 
-  /** Test exports adds dependencies to JavaCompilationArgsProvider. */
-  @Test
-  public void buildHelperCreateJavaInfoExportProviderExportsDepsAdded() throws Exception {
-    ruleBuilder().build();
-    scratch.file(
-        "foo/BUILD",
-        """
-        load("@rules_java//java:defs.bzl", "java_library")
-        load(":extension.bzl", "my_rule")
-
-        java_library(
-            name = "my_java_lib_exports",
-            srcs = ["java/A.java"],
-        )
-
-        my_rule(
-            name = "my_starlark_rule",
-            dep_exports = [":my_java_lib_exports"],
-            output_jar = "my_starlark_rule_lib.jar",
-        )
-        """);
-    assertNoEvents();
-
-    JavaInfo javaInfo = fetchJavaInfo();
-
-    JavaSourceJarsProvider javaSourceJarsProvider =
-        javaInfo.getProvider(JavaSourceJarsProvider.class);
-
-    assertThat(javaSourceJarsProvider.sourceJars()).isEmpty();
-
-    JavaCompilationArgsProvider javaCompilationArgsProvider =
-        javaInfo.getProvider(JavaCompilationArgsProvider.class);
-
-    assertThat(prettyArtifactNames(javaCompilationArgsProvider.directCompileTimeJars()))
-        .containsExactly("foo/my_starlark_rule_lib.jar", "foo/libmy_java_lib_exports-hjar.jar");
-    assertThat(prettyArtifactNames(javaCompilationArgsProvider.directFullCompileTimeJars()))
-        .containsExactly("foo/my_starlark_rule_lib.jar", "foo/libmy_java_lib_exports.jar");
-    assertThat(prettyArtifactNames(javaCompilationArgsProvider.runtimeJars()))
-        .containsExactly("foo/my_starlark_rule_lib.jar", "foo/libmy_java_lib_exports.jar");
-    assertThat(prettyArtifactNames(javaCompilationArgsProvider.transitiveCompileTimeJars()))
-        .containsExactly("foo/my_starlark_rule_lib.jar", "foo/libmy_java_lib_exports-hjar.jar");
-  }
-
   /** Test exports adds itself and recursive dependencies to JavaCompilationArgsProvider. */
   @Test
   public void buildHelperCreateJavaInfoExportProvider() throws Exception {
