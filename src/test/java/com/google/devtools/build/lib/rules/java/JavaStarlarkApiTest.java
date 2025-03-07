@@ -273,66 +273,6 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
   }
 
   @Test
-  public void javaPlugin_exposesJavaOutputs() throws Exception {
-    scratch.file(
-        "java/test/BUILD",
-        """
-        load("@rules_java//java:defs.bzl", "java_library", "java_plugin")
-        load(":extension.bzl", "my_rule")
-
-        java_library(
-            name = "lib",
-            srcs = ["Lib.java"],
-        )
-
-        java_plugin(
-            name = "dep",
-            srcs = ["Dep.java"],
-            deps = [":lib"],
-        )
-
-        my_rule(
-            name = "my",
-            dep = ":dep",
-        )
-        """);
-    scratch.file(
-        "java/test/extension.bzl",
-        """
-        load("@rules_java//java/common:java_plugin_info.bzl",
-         "JavaPluginInfo")
-        result = provider()
-
-        def impl(ctx):
-            depj = ctx.attr.dep[JavaPluginInfo]
-            return [result(
-                outputs = depj.java_outputs,
-            )]
-
-        my_rule = rule(impl, attrs = {"dep": attr.label()})
-        """);
-
-    ConfiguredTarget configuredTarget = getConfiguredTarget("//java/test:my");
-    StructImpl info =
-        (StructImpl)
-            configuredTarget.get(
-                new StarlarkProvider.Key(
-                    keyForBuild(Label.parseCanonical("//java/test:extension.bzl")), "result"));
-
-    ImmutableList<JavaOutput> javaOutputs =
-        JavaOutput.wrapSequence(info.getValue("outputs", Sequence.class));
-
-    assertThat(javaOutputs.size()).isEqualTo(1);
-    JavaOutput javaOutput = javaOutputs.get(0);
-    assertThat(javaOutput.classJar().getFilename()).isEqualTo("libdep.jar");
-    assertThat(javaOutput.compileJar().getFilename()).isEqualTo("libdep-hjar.jar");
-    assertThat(artifactFilesNames(javaOutput.getSourceJarsAsList()))
-        .containsExactly("libdep-src.jar");
-    assertThat(javaOutput.jdeps().getFilename()).isEqualTo("libdep.jdeps");
-    assertThat(javaOutput.compileJdeps().getFilename()).isEqualTo("libdep-hjar.jdeps");
-  }
-
-  @Test
   public void javaToolchainInfo_jacocoRunnerAttribute() throws Exception {
     JavaTestUtil.writeBuildFileForJavaToolchain(scratch);
     scratch.file("java/test/B.jar");
