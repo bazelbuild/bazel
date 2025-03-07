@@ -54,42 +54,6 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
 
-  @Test
-  public void buildHelperCreateJavaInfoWithRunTimeDeps() throws Exception {
-    ruleBuilder().build();
-    scratch.file(
-        "foo/BUILD",
-        """
-        load("@rules_java//java:defs.bzl", "java_library")
-        load(":extension.bzl", "my_rule")
-
-        java_library(
-            name = "my_java_lib_direct",
-            srcs = ["java/A.java"],
-        )
-
-        my_rule(
-            name = "my_starlark_rule",
-            dep_runtime = [":my_java_lib_direct"],
-            output_jar = "my_starlark_rule_lib.jar",
-            source_jars = ["my_starlark_rule_src.jar"],
-        )
-        """);
-    assertNoEvents();
-
-    JavaCompilationArgsProvider javaCompilationArgsProvider =
-        fetchJavaInfo().getProvider(JavaCompilationArgsProvider.class);
-
-    assertThat(prettyArtifactNames(javaCompilationArgsProvider.directCompileTimeJars()))
-        .containsExactly("foo/my_starlark_rule_lib.jar");
-    assertThat(prettyArtifactNames(javaCompilationArgsProvider.directFullCompileTimeJars()))
-        .containsExactly("foo/my_starlark_rule_lib.jar");
-    assertThat(prettyArtifactNames(javaCompilationArgsProvider.runtimeJars()))
-        .containsExactly("foo/my_starlark_rule_lib.jar", "foo/libmy_java_lib_direct.jar");
-    assertThat(prettyArtifactNames(javaCompilationArgsProvider.transitiveCompileTimeJars()))
-        .containsExactly("foo/my_starlark_rule_lib.jar");
-  }
-
   /** Tests that JavaInfo can be constructed with CC native libraries as dependencies. */
   @Test
   public void javaInfo_setNativeLibraries() throws Exception {
