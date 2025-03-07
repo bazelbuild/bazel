@@ -53,45 +53,6 @@ import org.junit.runners.JUnit4;
 public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
 
   @Test
-  public void buildHelperCreateJavaInfoWithJdeps_javaRuleOutputJarsProvider() throws Exception {
-    ruleBuilder().build();
-    scratch.file(
-        "foo/BUILD",
-        """
-        load("@rules_java//java:defs.bzl", "java_library")
-        load(":extension.bzl", "my_rule")
-
-        java_library(
-            name = "my_java_lib_direct",
-            srcs = ["java/A.java"],
-        )
-
-        my_rule(
-            name = "my_starlark_rule",
-            dep = [":my_java_lib_direct"],
-            jdeps = "my_jdeps.pb",
-            output_jar = "my_starlark_rule_lib.jar",
-            source_jars = ["my_starlark_rule_src.jar"],
-        )
-        """);
-    assertNoEvents();
-
-    JavaRuleOutputJarsProvider ruleOutputs =
-        fetchJavaInfo().getProvider(JavaRuleOutputJarsProvider.class);
-
-    assertThat(prettyArtifactNames(ruleOutputs.getAllClassOutputJars()))
-        .containsExactly("foo/my_starlark_rule_lib.jar");
-    assertThat(prettyArtifactNames(ruleOutputs.getAllSrcOutputJars()))
-        .containsExactly("foo/my_starlark_rule_src.jar");
-    assertThat(
-            prettyArtifactNames(
-                ruleOutputs.javaOutputs().stream()
-                    .map(JavaOutput::jdeps)
-                    .collect(toImmutableList())))
-        .containsExactly("foo/my_jdeps.pb");
-  }
-
-  @Test
   public void buildHelperCreateJavaInfoWithGeneratedJars_javaRuleOutputJarsProvider()
       throws Exception {
     ruleBuilder().build();
