@@ -74,7 +74,7 @@ public final class LazyWriteNestedSetOfTupleAction extends AbstractFileWriteActi
         for (int i = 1; i < tuple.size(); i++) {
           stringBuilder.append(delimiter).append(tuple.get(i));
         }
-        stringBuilder.append(System.lineSeparator());
+        stringBuilder.append("\n");
       }
       fileContents = stringBuilder.toString();
     }
