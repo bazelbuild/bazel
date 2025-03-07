@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.java;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.prettyArtifactNames;
 import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
@@ -51,42 +50,6 @@ import org.junit.runners.JUnit4;
 /** Tests JavaInfo API for Starlark. */
 @RunWith(JUnit4.class)
 public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
-
-  @Test
-  public void buildHelperCreateJavaInfoWithManifestProto_javaRuleOutputJarsProvider()
-      throws Exception {
-    ruleBuilder().build();
-    scratch.file(
-        "foo/BUILD",
-        """
-        load("@rules_java//java:defs.bzl", "java_library")
-        load(":extension.bzl", "my_rule")
-
-        java_library(
-            name = "my_java_lib_direct",
-            srcs = ["java/A.java"],
-        )
-
-        my_rule(
-            name = "my_starlark_rule",
-            dep = [":my_java_lib_direct"],
-            manifest_proto = "manifest.proto",
-            output_jar = "my_starlark_rule_lib.jar",
-            source_jars = ["my_starlark_rule_src.jar"],
-        )
-        """);
-    assertNoEvents();
-
-    JavaRuleOutputJarsProvider ruleOutputs =
-        fetchJavaInfo().getProvider(JavaRuleOutputJarsProvider.class);
-
-    assertThat(
-            prettyArtifactNames(
-                ruleOutputs.javaOutputs().stream()
-                    .map(JavaOutput::manifestProto)
-                    .collect(toImmutableList())))
-        .containsExactly("foo/manifest.proto");
-  }
 
   @Test
   public void buildHelperCreateJavaInfoWithModuleFlags() throws Exception {
