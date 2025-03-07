@@ -155,13 +155,15 @@ public abstract class FileSystemTest {
     if (!testFS.getPath(directoryToRemove.toAbsolutePath().toString()).startsWith(testDirPath)) {
       throw new IOException("trying to remove files outside of the testdata directory");
     }
-    // Some tests set the directories read-only and/or non-executable, so
-    // override that:
+    // Some tests change permissions on directories, so override them.
     Files.setPosixFilePermissions(
         directoryToRemove,
         Sets.union(
             Files.getPosixFilePermissions(directoryToRemove),
-            ImmutableSet.of(PosixFilePermission.OWNER_WRITE, PosixFilePermission.OWNER_EXECUTE)));
+            ImmutableSet.of(
+                PosixFilePermission.OWNER_READ,
+                PosixFilePermission.OWNER_WRITE,
+                PosixFilePermission.OWNER_EXECUTE)));
 
     java.nio.file.Path[] entries;
     try (var entriesStream = Files.list(directoryToRemove)) {
