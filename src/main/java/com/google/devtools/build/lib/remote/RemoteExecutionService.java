@@ -152,6 +152,7 @@ import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Phaser;
@@ -1815,7 +1816,8 @@ public class RemoteExecutionService {
     if (remoteOptions.remoteCacheAsync
         && !action.getSpawn().getResourceOwner().mayModifySpawnOutputsAfterExecution()) {
       AtomicLong startTime = new AtomicLong();
-      var unused =
+      CountDownLatch done = new CountDownLatch(1);
+      var asyncUpload =
           Single.using(
                   () -> {
                     backgroundTaskPhaser.register();
@@ -1837,10 +1839,20 @@ public class RemoteExecutionService {
                     backgroundTaskPhaser.arriveAndDeregister();
                     onUploadComplete.run();
                     cacheResource.release();
+                    done.countDown();
+                    // Clean up the done task, cancelling it is a no-op at this point.
+                    outputService.cancelTasks(
+                        action.getRemoteActionExecutionContext().getSpawnOwner());
                   },
                   /* eager= */ false)
               .subscribeOn(scheduler)
               .subscribe(result -> {}, this::reportUploadError);
+      outputService.registerCancellableTask(
+          action.getRemoteActionExecutionContext().getSpawnOwner(),
+          () -> {
+            asyncUpload.dispose();
+            done.await();
+          });
     } else {
       try (SilentCloseable c =
           Profiler.instance().profile(ProfilerTask.UPLOAD_TIME, "upload outputs")) {

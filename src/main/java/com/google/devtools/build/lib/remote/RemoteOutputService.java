@@ -49,6 +49,7 @@ import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import java.io.IOException;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
@@ -56,6 +57,8 @@ import javax.annotation.Nullable;
 public class RemoteOutputService implements OutputService {
 
   private final BlazeDirectories directories;
+  private final ConcurrentHashMap<ActionExecutionMetadata, Cancellable> cancellableTasks =
+      new ConcurrentHashMap<>();
 
   @Nullable private RemoteOutputChecker remoteOutputChecker;
   @Nullable private RemoteActionInputFetcher actionInputFetcher;
@@ -239,5 +242,27 @@ public class RemoteOutputService implements OutputService {
             fileCacheSupplier.get(),
             actionInputFetcher);
     return ArtifactPathResolver.createPathResolver(remoteFileSystem, fileSystem.getPath(execRoot));
+  }
+
+  @Override
+  public void registerCancellableTask(ActionExecutionMetadata action, Cancellable task) {
+    // We don't expect to have multiple cancellable tasks for the same action, so we avoid the
+    // overhead of a multi-valued map.
+    cancellableTasks.merge(
+        action,
+        task,
+        (oldTask, newTask) ->
+            () -> {
+              oldTask.cancel();
+              newTask.cancel();
+            });
+  }
+
+  @Override
+  public void cancelTasks(ActionExecutionMetadata action) throws InterruptedException {
+    Cancellable task = cancellableTasks.remove(action);
+    if (task != null) {
+      task.cancel();
+    }
   }
 }
