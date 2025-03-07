@@ -685,8 +685,7 @@ public final class RemoteModule extends BlazeModule {
               buildRequestId,
               invocationId,
               remoteOptions.remoteInstanceName,
-              remoteOptions.remoteAcceptCached,
-              env.getReporter()));
+              remoteOptions.remoteAcceptCached));
     } else {
       if (enableDiskCache) {
         try {

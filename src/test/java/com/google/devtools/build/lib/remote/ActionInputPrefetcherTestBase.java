@@ -36,9 +36,7 @@ import static org.mockito.Mockito.when;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
-import com.google.common.eventbus.AllowConcurrentEvents;
 import com.google.common.eventbus.EventBus;
-import com.google.common.eventbus.Subscribe;
 import com.google.common.hash.HashCode;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -57,7 +55,8 @@ import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
-import com.google.devtools.build.lib.remote.common.LostInputsEvent;
+import com.google.devtools.build.lib.remote.common.BulkTransferException;
+import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.testing.vfs.SpiedFileSystem;
 import com.google.devtools.build.lib.util.Pair;
@@ -70,13 +69,13 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.Callable;
-import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -858,29 +857,26 @@ public abstract class ActionInputPrefetcherTestBase {
   }
 
   @Test
-  public void missingInputs_sendLostInputsEvent() {
+  public void missingInputs_exceptionHasLostInputs() {
     Map<ActionInput, FileArtifactValue> metadata = new HashMap<>();
     Map<HashCode, byte[]> cas = new HashMap<>();
-    var unused = createRemoteArtifact("file", "hello world", metadata, /* cas= */ null);
+    var input = createRemoteArtifact("file", "hello world", metadata, /* cas= */ null);
     AbstractActionInputPrefetcher prefetcher = createPrefetcher(cas);
-    var lostInputsEvents = new ConcurrentLinkedQueue<LostInputsEvent>();
-    eventBus.register(
-        new Object() {
-          @Subscribe
-          @AllowConcurrentEvents
-          public void onLostInputsEvent(LostInputsEvent event) {
-            lostInputsEvents.add(event);
-          }
-        });
 
-    assertThrows(
-        Exception.class,
-        () ->
-            wait(
-                prefetcher.prefetchFiles(
-                    action, metadata.keySet(), metadata::get, Priority.MEDIUM, Reason.INPUTS)));
-
-    assertThat(lostInputsEvents).hasSize(1);
+    var e =
+        assertThrows(
+            BulkTransferException.class,
+            () ->
+                wait(
+                    prefetcher.prefetchFiles(
+                        action, metadata.keySet(), metadata::get, Priority.MEDIUM, Reason.INPUTS)));
+    assertThat(
+            e.getLostInputs(
+                inputPath -> inputPath.equals(input.getExecPathString()) ? input : null))
+        .containsExactly(
+            DigestUtil.toString(
+                new DigestUtil(SyscallCache.NO_CACHE, HASH_FUNCTION).computeAsUtf8("hello world")),
+            input);
   }
 
   protected static void wait(ListenableFuture<Void> future)
