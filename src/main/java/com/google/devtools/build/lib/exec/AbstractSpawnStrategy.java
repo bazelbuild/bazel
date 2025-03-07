@@ -187,6 +187,7 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
               .build());
     } catch (SpawnExecException e) {
       ex = e;
+      e.printStackTrace();
       spawnResult = e.getSpawnResult();
       // Log the Spawn and re-throw.
     } catch (ForbiddenActionInputException e) {
