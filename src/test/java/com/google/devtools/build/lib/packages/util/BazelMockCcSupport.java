@@ -79,10 +79,12 @@ public final class BazelMockCcSupport extends MockCcSupport {
         toolchain_type(name = 'toolchain_type')
         cc_library(
             name = 'link_extra_lib',
+            srcs = ['linkextra.cc'],
             tags = ['__DONT_DEPEND_ON_DEF_PARSER__'],
         )
         cc_library(
             name = 'malloc',
+            srcs = ['malloc.cc'],
             tags = ['__DONT_DEPEND_ON_DEF_PARSER__'],
         )
         filegroup(
@@ -104,6 +106,8 @@ public final class BazelMockCcSupport extends MockCcSupport {
         """);
       for (String s :
           Arrays.asList(
+              "linkextra.cc",
+              "malloc.cc",
               "aggregate-ddi.sh",
               "generate-modmap.sh",
               "interface_library_builder.sh",
