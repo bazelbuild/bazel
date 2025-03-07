@@ -214,9 +214,13 @@ public final class StrippingPathMapper implements PathMapper {
   }
 
   private boolean isSupported(ActionInput artifact) {
-    return artifact instanceof DerivedArtifact
-        || ((artifact instanceof BasicActionInput || artifact instanceof VirtualActionInput)
-            && isOutputPath(artifact, outputRoot));
+    if (artifact instanceof DerivedArtifact) {
+      return true;
+    }
+    if (artifact instanceof BasicActionInput || artifact instanceof VirtualActionInput) {
+      return isOutputPath(artifact, outputRoot);
+    }
+    return false;
   }
 
   private static final class CustomStarlarkArgsIterator implements Iterator<String> {
