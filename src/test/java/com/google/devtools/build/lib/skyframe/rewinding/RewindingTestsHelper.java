@@ -1649,6 +1649,10 @@ public class RewindingTestsHelper {
 
     addSpawnShim("Linking tree/libconsumes_tree.so", shim);
 
+    if (!supportsConcurrentRewinding()) {
+      testCase.addOptions("--jobs=1");
+    }
+
     List<SkyKey> rewoundKeys = collectOrderedRewoundKeys();
     testCase.buildTarget("//tree:consumes_tree");
     verifyAllSpawnShimsConsumed();
