@@ -44,7 +44,10 @@ import java.util.function.Supplier;
 import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 
-/** A {@link RemoteArtifactChecker} that checks the TTL of remote metadata. */
+/**
+ * An {@link RemoteArtifactChecker} that checks the TTL of remote metadata and decides which outputs
+ * to download.
+ */
 public class RemoteOutputChecker implements RemoteArtifactChecker {
   private enum CommandMode {
     UNKNOWN,
@@ -273,14 +276,15 @@ public class RemoteOutputChecker implements RemoteArtifactChecker {
   }
 
   /** Returns whether this {@link ActionInput} should be downloaded. */
-  public boolean shouldDownloadOutput(ActionInput output) {
+  @Override
+  public boolean shouldDownloadOutput(ActionInput output, RemoteFileArtifactValue metadata) {
     checkState(
         !(output instanceof Artifact && ((Artifact) output).isTreeArtifact()),
         "shouldDownloadOutput should not be called on a tree artifact");
     return shouldDownloadOutput(output.getExecPath());
   }
 
-  /** Returns whether an {@link ActionInput} with the given path should be downloaded. */
+  /** Returns whether a remote {@link ActionInput} with the given path should be downloaded. */
   public boolean shouldDownloadOutput(PathFragment execPath) {
     return outputsMode == RemoteOutputsMode.ALL
         || pathsToDownload.contains(execPath)
@@ -296,12 +300,12 @@ public class RemoteOutputChecker implements RemoteArtifactChecker {
     if (lastRemoteOutputChecker != null) {
       // This is an incremental build. If the file was downloaded by previous build and is now
       // missing, invalidate the action.
-      if (lastRemoteOutputChecker.shouldDownloadOutput(file)) {
+      if (lastRemoteOutputChecker.shouldDownloadOutput(file, metadata)) {
         return false;
       }
     }
 
-    if (shouldDownloadOutput(file)) {
+    if (shouldDownloadOutput(file, metadata)) {
       return false;
     }
 
