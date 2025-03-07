@@ -43,20 +43,17 @@ public final class BazelMockCcSupport extends MockCcSupport {
 
   @Override
   protected String getRealFilesystemCrosstoolTopPath() {
-    // TODO(b/195425240): Make real-filesystem mode work.
-    return "";
+    return "src/test/java/com/google/devtools/build/lib/packages/util/real";
   }
 
   @Override
   protected String[] getRealFilesystemToolsToLink(String crosstoolTop) {
-    // TODO(b/195425240): Make real-filesystem mode work.
     return new String[0];
   }
 
   @Override
   protected String[] getRealFilesystemToolsToCopy(String crosstoolTop) {
-    // TODO(b/195425240): Make real-filesystem mode work.
-    return new String[0];
+    return new String[] {crosstoolTop + "/BUILD"};
   }
 
   @Override
@@ -73,7 +70,38 @@ public final class BazelMockCcSupport extends MockCcSupport {
     createStarlarkLooseHeadersWhitelist(config, "//...");
     config.append(
         TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/cpp/BUILD",
-        "alias(name='host_xcodes',actual='@local_config_xcode//:host_xcodes')");
+        """
+        alias(name='host_xcodes',actual='@local_config_xcode//:host_xcodes')
+        toolchain_type(name = 'toolchain_type')
+        filegroup(
+            name = 'aggregate-ddi',
+            srcs = ['aggregate-ddi.sh'],
+        )
+        filegroup(
+            name = 'generate-modmap',
+            srcs = ['generate-modmap.sh'],
+        )
+        filegroup(
+            name = 'interface_library_builder',
+            srcs = ['interface_library_builder.sh'],
+        )
+        filegroup(
+            name = 'link_dynamic_library',
+            srcs = ['link_dynamic_library.sh'],
+        )
+        """);
+    config.create(
+        TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/cpp/aggregate-ddi.sh",
+        "#!/bin/bash\nexit 1\n");
+    config.create(
+        TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/cpp/generate-modmap.sh",
+        "#!/bin/bash\nexit 1\n");
+    config.create(
+        TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/cpp/interface_library_builder.sh",
+        "#!/bin/bash\nexit 1\n");
+    config.create(
+        TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/cpp/link_dynamic_library.sh",
+        "#!/bin/bash\nexit 1\n");
 
     // Copies rules_cc from real @rules_cc
     config.create("third_party/bazel_rules/rules_cc/MODULE.bazel", "module(name='rules_cc')");
@@ -81,8 +109,6 @@ public final class BazelMockCcSupport extends MockCcSupport {
     PathFragment path = PathFragment.create(runfiles.rlocation("rules_cc/cc/defs.bzl"));
     config.copyDirectory(
         path.getParentDirectory(), "third_party/bazel_rules/rules_cc/cc", MAX_VALUE, true);
-    config.overwrite("third_party/bazel_rules/rules_cc/cc/toolchains/BUILD");
-    config.overwrite("third_party/bazel_rules/rules_cc/cc/common/BUILD");
   }
 
   @Override
@@ -98,12 +124,6 @@ public final class BazelMockCcSupport extends MockCcSupport {
   @Override
   public Predicate<String> labelNameFilter() {
     return BazelMockCcSupport::isNotCcLabel;
-  }
-
-  @Override
-  protected boolean shouldUseRealFileSystemCrosstool() {
-    // TODO(b/195425240): Workaround for lack of real-filesystem support.
-    return false;
   }
 
   private static ImmutableList<CcToolchainConfig> getToolchainConfigs() {

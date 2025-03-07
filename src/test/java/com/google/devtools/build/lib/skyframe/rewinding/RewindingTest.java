@@ -171,19 +171,16 @@ public final class RewindingTest extends BuildIntegrationTestCase {
 
   @Test
   public void treeFileArtifactRewound() throws Exception {
-    skipIfBazel();
     helper.runTreeFileArtifactRewound_spawnFailed();
   }
 
   @Test
   public void treeArtifactRewound_allFilesLost() throws Exception {
-    skipIfBazel();
     helper.runTreeArtifactRewound_allFilesLost_spawnFailed();
   }
 
   @Test
   public void treeArtifactRewound_oneFileLost() throws Exception {
-    skipIfBazel();
     helper.runTreeArtifactRewound_oneFileLost_spawnFailed();
   }
 
@@ -220,7 +217,6 @@ public final class RewindingTest extends BuildIntegrationTestCase {
 
   @Test
   public void generatedHeaderRewound_lostInActionExecution() throws Exception {
-    skipIfBazel();
     helper.runGeneratedHeaderRewound_lostInActionExecution_spawnFailed();
   }
 
@@ -232,7 +228,6 @@ public final class RewindingTest extends BuildIntegrationTestCase {
 
   @Test
   public void generatedTransitiveHeaderRewound_lostInActionExecution() throws Exception {
-    skipIfBazel();
     helper.runGeneratedTransitiveHeaderRewound_lostInActionExecution_spawnFailed();
   }
 
