@@ -40,7 +40,6 @@ import com.google.devtools.build.lib.rules.java.JavaPluginInfo.JavaPluginData;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.util.Map;
 import net.starlark.java.eval.Starlark;
@@ -52,35 +51,6 @@ import org.junit.runners.JUnit4;
 /** Tests JavaInfo API for Starlark. */
 @RunWith(JUnit4.class)
 public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
-
-  @Test
-  public void buildHelperCreateJavaInfoWithOutputJarAndStampJar() throws Exception {
-    ruleBuilder().withStampJar().build();
-
-    scratch.file(
-        "foo/BUILD",
-        """
-        load(":extension.bzl", "my_rule")
-
-        my_rule(
-            name = "my_starlark_rule",
-            output_jar = "my_starlark_rule_lib.jar",
-            source_jars = ["my_starlark_rule_src.jar"],
-        )
-        """);
-    assertNoEvents();
-
-    JavaCompilationArgsProvider javaCompilationArgsProvider =
-        fetchJavaInfo().getProvider(JavaCompilationArgsProvider.class);
-    assertThat(prettyArtifactNames(javaCompilationArgsProvider.directFullCompileTimeJars()))
-        .containsExactly("foo/my_starlark_rule_lib.jar");
-    assertThat(prettyArtifactNames(javaCompilationArgsProvider.directCompileTimeJars()))
-        .containsExactly("foo/my_starlark_rule_lib-stamped.jar");
-    assertThat(prettyArtifactNames(javaCompilationArgsProvider.runtimeJars()))
-        .containsExactly("foo/my_starlark_rule_lib.jar");
-    assertThat(prettyArtifactNames(javaCompilationArgsProvider.transitiveCompileTimeJars()))
-        .containsExactly("foo/my_starlark_rule_lib-stamped.jar");
-  }
 
   @Test
   public void buildHelperCreateJavaInfoWithJdeps_javaRuleOutputJarsProvider() throws Exception {
@@ -725,14 +695,6 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
   }
 
   private class RuleBuilder {
-    private boolean stampJar;
-
-    @CanIgnoreReturnValue
-    private RuleBuilder withStampJar() {
-      stampJar = true;
-      return this;
-    }
-
     private String[] newJavaInfo() {
       ImmutableList.Builder<String> lines = ImmutableList.builder();
       lines.add(
@@ -745,20 +707,8 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
           "  dp_runtime = [dep[java_common.provider] for dep in ctx.attr.dep_runtime]",
           "  dp_exports = [dep[java_common.provider] for dep in ctx.attr.dep_exports]",
           "  dp_exported_plugins = [dep[JavaPluginInfo] for dep in ctx.attr.dep_exported_plugins]",
-          "  dp_libs = [dep[CcInfo] for dep in ctx.attr.cc_dep]");
-
-      if (stampJar) {
-        lines.add(
-            "  compile_jar = java_common.stamp_jar(",
-            "    ctx.actions,",
-            "    jar = ctx.outputs.output_jar,",
-            "    target_label = ctx.label,",
-            "    java_toolchain = ctx.attr._toolchain[java_common.JavaToolchainInfo],",
-            "  )");
-      } else {
-        lines.add("  compile_jar = ctx.outputs.output_jar");
-      }
-      lines.add(
+          "  dp_libs = [dep[CcInfo] for dep in ctx.attr.cc_dep]",
+          "  compile_jar = ctx.outputs.output_jar",
           "  if ctx.files.source_jars:",
           "    source_jar = list(ctx.files.source_jars)[0]",
           "  else:",
@@ -790,10 +740,6 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
     }
 
     private void build() throws Exception {
-      if (stampJar) {
-        JavaTestUtil.writeBuildFileForJavaToolchain(scratch);
-      }
-
       ImmutableList.Builder<String> lines = ImmutableList.builder();
       lines.add(newJavaInfo());
       lines.add(
@@ -817,9 +763,6 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
           "    'manifest_proto' : attr.label(allow_single_file=True),",
           "    'add_exports' : attr.string_list(),",
           "    'add_opens' : attr.string_list(),",
-          stampJar
-              ? "    '_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),"
-              : "",
           "  }",
           ")");
 
