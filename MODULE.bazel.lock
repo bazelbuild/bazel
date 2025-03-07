@@ -169,7 +169,8 @@
     "https://bcr.bazel.build/modules/rules_java/7.4.0/MODULE.bazel": "a592852f8a3dd539e82ee6542013bf2cadfc4c6946be8941e189d224500a8934",
     "https://bcr.bazel.build/modules/rules_java/7.6.1/MODULE.bazel": "2f14b7e8a1aa2f67ae92bc69d1ec0fa8d9f827c4e17ff5e5f02e91caa3b2d0fe",
     "https://bcr.bazel.build/modules/rules_java/8.6.1/MODULE.bazel": "f4808e2ab5b0197f094cabce9f4b006a27766beb6a9975931da07099560ca9c2",
-    "https://bcr.bazel.build/modules/rules_java/8.6.1/source.json": "f18d9ad3c4c54945bf422ad584fa6c5ca5b3116ff55a5b1bc77e5c1210be5960",
+    "https://bcr.bazel.build/modules/rules_java/8.9.0/MODULE.bazel": "e17c876cb53dcd817b7b7f0d2985b710610169729e8c371b2221cacdcd3dce4a",
+    "https://bcr.bazel.build/modules/rules_java/8.9.0/source.json": "fcf9537bfd741f6b7d74ec00898b8a79c1bc76335690943d412bc32fe1e64d03",
     "https://bcr.bazel.build/modules/rules_jvm_external/6.0/MODULE.bazel": "37c93a5a78d32e895d52f86a8d0416176e915daabd029ccb5594db422e87c495",
     "https://bcr.bazel.build/modules/rules_jvm_external/6.0/source.json": "73cc8818203a182e7374adf137f428d276190b2e2bef3022c231990cf0e594aa",
     "https://bcr.bazel.build/modules/rules_kotlin/1.9.0/MODULE.bazel": "ef85697305025e5a61f395d4eaede272a5393cee479ace6686dba707de804d59",
@@ -1438,28 +1439,6 @@
             "rules_graalvm+",
             "bazel_skylib",
             "bazel_skylib+"
-          ]
-        ]
-      }
-    },
-    "@@rules_java+//java:rules_java_deps.bzl%compatibility_proxy": {
-      "general": {
-        "bzlTransitiveDigest": "84xJEZ1jnXXwo8BXMprvBm++rRt4jsTu9liBxz0ivps=",
-        "usagesDigest": "jTQDdLDxsS43zuRmg1faAjIEPWdLAbDAowI1pInQSoo=",
-        "recordedFileInputs": {},
-        "recordedDirentsInputs": {},
-        "envVariables": {},
-        "generatedRepoSpecs": {
-          "compatibility_proxy": {
-            "repoRuleId": "@@rules_java+//java:rules_java_deps.bzl%_compatibility_proxy_repo_rule",
-            "attributes": {}
-          }
-        },
-        "recordedRepoMappingEntries": [
-          [
-            "rules_java+",
-            "bazel_tools",
-            "bazel_tools"
           ]
         ]
       }

@@ -55,7 +55,6 @@ import java.util.Iterator;
 import java.util.List;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Sequence;
-import net.starlark.java.eval.StarlarkList;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -389,7 +388,8 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
                     keyForBuild(Label.parseCanonical("//java/test:extension.bzl")), "result"));
 
     @SuppressWarnings("unchecked") // deserialization
-    StarlarkList<JavaOutput> javaOutputs = ((StarlarkList<JavaOutput>) info.getValue("outputs"));
+    ImmutableList<JavaOutput> javaOutputs =
+        JavaOutput.wrapSequence(info.getValue("outputs", Sequence.class));
 
     assertThat(javaOutputs.size()).isEqualTo(1);
     JavaOutput javaOutput = javaOutputs.get(0);
