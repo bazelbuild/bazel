@@ -87,7 +87,6 @@ cc_toolchain_config(
     },
     toolchain_identifier = "local",
     unfiltered_compile_flags = [
-        "-fno-canonical-system-headers",
         "-Wno-builtin-macro-redefined",
         "-D__DATE__=\"redacted\"",
         "-D__TIMESTAMP__=\"redacted\"",
