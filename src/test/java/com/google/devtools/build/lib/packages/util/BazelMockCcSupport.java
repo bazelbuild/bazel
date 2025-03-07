@@ -77,6 +77,14 @@ public final class BazelMockCcSupport extends MockCcSupport {
           TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/cpp/BUILD",
           """
         toolchain_type(name = 'toolchain_type')
+        cc_library(
+            name = 'link_extra_lib',
+            tags = ['__DONT_DEPEND_ON_DEF_PARSER__'],
+        )
+        cc_library(
+            name = 'malloc',
+            tags = ['__DONT_DEPEND_ON_DEF_PARSER__'],
+        )
         filegroup(
             name = 'aggregate-ddi',
             srcs = ['aggregate-ddi.sh'],
