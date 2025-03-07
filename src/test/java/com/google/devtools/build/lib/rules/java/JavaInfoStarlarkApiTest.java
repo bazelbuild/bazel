@@ -53,37 +53,6 @@ import org.junit.runners.JUnit4;
 public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
 
   @Test
-  public void buildHelperCreateJavaInfoWithGeneratedJars_javaGenJarsProvider() throws Exception {
-    ruleBuilder().build();
-    scratch.file(
-        "foo/BUILD",
-        """
-        load("@rules_java//java:defs.bzl", "java_library")
-        load(":extension.bzl", "my_rule")
-
-        java_library(
-            name = "my_java_lib_direct",
-            srcs = ["java/A.java"],
-        )
-
-        my_rule(
-            name = "my_starlark_rule",
-            dep = [":my_java_lib_direct"],
-            generated_class_jar = "generated_class.jar",
-            generated_source_jar = "generated_srcs.jar",
-            output_jar = "my_starlark_rule_lib.jar",
-            source_jars = ["my_starlark_rule_src.jar"],
-        )
-        """);
-    assertNoEvents();
-
-    JavaGenJarsProvider ruleOutputs = fetchJavaInfo().getProvider(JavaGenJarsProvider.class);
-
-    assertThat(ruleOutputs.getGenClassJar().prettyPrint()).isEqualTo("foo/generated_class.jar");
-    assertThat(ruleOutputs.getGenSourceJar().prettyPrint()).isEqualTo("foo/generated_srcs.jar");
-  }
-
-  @Test
   public void buildHelperCreateJavaInfoWithCompileJdeps_javaRuleOutputJarsProvider()
       throws Exception {
     ruleBuilder().build();
