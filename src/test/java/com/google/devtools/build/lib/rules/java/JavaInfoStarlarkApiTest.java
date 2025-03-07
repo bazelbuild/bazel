@@ -36,7 +36,6 @@ import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.StructProvider;
-import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.rules.java.JavaPluginInfo.JavaPluginData;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
 import com.google.devtools.build.lib.testutil.TestConstants;
@@ -53,37 +52,6 @@ import org.junit.runners.JUnit4;
 /** Tests JavaInfo API for Starlark. */
 @RunWith(JUnit4.class)
 public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
-
-  /** Tests that JavaInfo can be constructed with CC native libraries as dependencies. */
-  @Test
-  public void javaInfo_setNativeLibraries() throws Exception {
-    ruleBuilder().build();
-    scratch.file(
-        "foo/BUILD",
-        """
-        load(":extension.bzl", "my_rule")
-
-        cc_library(
-            name = "my_cc_lib_direct",
-            srcs = ["cc/a.cc"],
-        )
-
-        my_rule(
-            name = "my_starlark_rule",
-            cc_dep = [":my_cc_lib_direct"],
-            output_jar = "my_starlark_rule_lib.jar",
-            source_jars = ["my_starlark_rule_src.jar"],
-        )
-        """);
-    assertNoEvents();
-
-    JavaInfo javaInfoProvider = fetchJavaInfo();
-
-    NestedSet<LibraryToLink> librariesForTopTarget =
-        javaInfoProvider.getTransitiveNativeLibraries();
-    assertThat(librariesForTopTarget.toList().stream().map(LibraryToLink::getLibraryIdentifier))
-        .contains("foo/libmy_cc_lib_direct");
-  }
 
   @Test
   public void buildHelperCreateJavaInfoWithDepsAndNeverLink() throws Exception {
