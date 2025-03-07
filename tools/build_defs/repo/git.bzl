@@ -176,6 +176,10 @@ _common_attrs = {
             "Either `workspace_file` or `workspace_file_content` can be " +
             "specified, or neither, but not both.",
     ),
+    "sparse_checkout_patterns": attr.string_list(
+        default = [],
+        doc = "Sequence of patterns for a sparse checkout of files in this repository.",
+    ),
 }
 
 def _git_repository_implementation(ctx):
