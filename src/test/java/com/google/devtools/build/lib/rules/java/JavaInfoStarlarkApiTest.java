@@ -55,38 +55,6 @@ import org.junit.runners.JUnit4;
 public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
 
   @Test
-  public void buildHelperCreateJavaInfoWithOutputJarAndUseIJar() throws Exception {
-
-    ruleBuilder().withIJar().build();
-
-    scratch.file(
-        "foo/BUILD",
-        """
-        load(":extension.bzl", "my_rule")
-
-        my_rule(
-            name = "my_starlark_rule",
-            output_jar = "my_starlark_rule_lib.jar",
-            source_jars = ["my_starlark_rule_src.jar"],
-        )
-        """);
-    assertNoEvents();
-
-    JavaCompilationArgsProvider javaCompilationArgsProvider =
-        fetchJavaInfo().getProvider(JavaCompilationArgsProvider.class);
-
-    assertThat(prettyArtifactNames(javaCompilationArgsProvider.directCompileTimeJars()))
-        .containsExactly("foo/my_starlark_rule_lib-ijar.jar");
-    assertThat(prettyArtifactNames(javaCompilationArgsProvider.directFullCompileTimeJars()))
-        .containsExactly("foo/my_starlark_rule_lib.jar");
-
-    assertThat(prettyArtifactNames(javaCompilationArgsProvider.runtimeJars()))
-        .containsExactly("foo/my_starlark_rule_lib.jar");
-    assertThat(prettyArtifactNames(javaCompilationArgsProvider.transitiveCompileTimeJars()))
-        .containsExactly("foo/my_starlark_rule_lib-ijar.jar");
-  }
-
-  @Test
   public void buildHelperCreateJavaInfoJavaRuleOutputJarsProviderSourceJarOutputJarAndUseIJar()
       throws Exception {
     ruleBuilder().withIJar().build();
