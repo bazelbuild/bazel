@@ -54,45 +54,6 @@ import org.junit.runners.JUnit4;
 public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
 
   @Test
-  public void buildHelperCreateJavaInfoWithSourcesFilesAndSourcesJars() throws Exception {
-    ruleBuilder().withSourceFiles().build();
-
-    scratch.file(
-        "foo/BUILD",
-        """
-        load(":extension.bzl", "my_rule")
-
-        my_rule(
-            name = "my_starlark_rule",
-            output_jar = "my_starlark_rule_lib.jar",
-            source_jars = ["my_starlark_rule_src-A.jar"],
-            sources = [
-                "ClassA.java",
-                "ClassB.java",
-                "ClassC.java",
-                "ClassD.java",
-            ],
-        )
-        """);
-    assertNoEvents();
-
-    JavaRuleOutputJarsProvider javaRuleOutputJarsProvider =
-        fetchJavaInfo().getProvider(JavaRuleOutputJarsProvider.class);
-
-    assertThat(prettyArtifactNames(javaRuleOutputJarsProvider.getAllSrcOutputJars()))
-        .containsExactly("foo/my_starlark_rule_lib-src.jar");
-
-    JavaSourceJarsProvider sourceJarsProvider =
-        fetchJavaInfo().getProvider(JavaSourceJarsProvider.class);
-
-    assertThat(prettyArtifactNames(sourceJarsProvider.sourceJars()))
-        .containsExactly("foo/my_starlark_rule_lib-src.jar");
-
-    assertThat(prettyArtifactNames(sourceJarsProvider.transitiveSourceJars()))
-        .containsExactly("foo/my_starlark_rule_lib-src.jar");
-  }
-
-  @Test
   public void buildHelperCreateJavaInfoSourceJarsProviderWithDeps() throws Exception {
     ruleBuilder().build();
     scratch.file(
@@ -1180,17 +1141,10 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
 
   private class RuleBuilder {
     private boolean stampJar;
-    private boolean sourceFiles = false;
 
     @CanIgnoreReturnValue
     private RuleBuilder withStampJar() {
       stampJar = true;
-      return this;
-    }
-
-    @CanIgnoreReturnValue
-    private RuleBuilder withSourceFiles() {
-      sourceFiles = true;
       return this;
     }
 
@@ -1219,24 +1173,11 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
       } else {
         lines.add("  compile_jar = ctx.outputs.output_jar");
       }
-      if (sourceFiles) {
-        lines.add(
-            "  source_jar = java_common.pack_sources(",
-            "    ctx.actions,",
-            "    output_source_jar = ",
-            "      ctx.actions.declare_file(ctx.outputs.output_jar.basename[:-4] + '-src.jar'),",
-            "    sources = ctx.files.sources,",
-            "    source_jars = ctx.files.source_jars,",
-            "    java_toolchain = ctx.attr._toolchain[java_common.JavaToolchainInfo],",
-            ")");
-      } else {
-        lines.add(
-            "  if ctx.files.source_jars:",
-            "    source_jar = list(ctx.files.source_jars)[0]",
-            "  else:",
-            "    source_jar = None");
-      }
       lines.add(
+          "  if ctx.files.source_jars:",
+          "    source_jar = list(ctx.files.source_jars)[0]",
+          "  else:",
+          "    source_jar = None",
           "  javaInfo = JavaInfo(",
           "    output_jar = ctx.outputs.output_jar,",
           "    compile_jar = compile_jar,",
@@ -1264,7 +1205,7 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
     }
 
     private void build() throws Exception {
-      if (stampJar || sourceFiles) {
+      if (stampJar) {
         JavaTestUtil.writeBuildFileForJavaToolchain(scratch);
       }
 
@@ -1291,7 +1232,7 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
           "    'manifest_proto' : attr.label(allow_single_file=True),",
           "    'add_exports' : attr.string_list(),",
           "    'add_opens' : attr.string_list(),",
-          stampJar || sourceFiles
+          stampJar
               ? "    '_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),"
               : "",
           "  }",
