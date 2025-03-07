@@ -460,7 +460,7 @@ public final class CompletionFunction<
         var treeFile = child.getKey();
         var metadata = child.getValue();
         if (metadata.isRemote()
-            && !remoteArtifactChecker.shouldTrustRemoteArtifact(
+            && remoteArtifactChecker.shouldDownloadOutput(
                 treeFile, (RemoteFileArtifactValue) metadata)) {
           filesToDownload.add(treeFile);
         }
@@ -480,7 +480,7 @@ public final class CompletionFunction<
       }
 
       if (metadata.isRemote()
-          && !remoteArtifactChecker.shouldTrustRemoteArtifact(
+          && remoteArtifactChecker.shouldDownloadOutput(
               artifact, (RemoteFileArtifactValue) metadata)) {
         var action =
             ActionUtils.getActionForLookupData(env, derivedArtifact.getGeneratingActionKey());

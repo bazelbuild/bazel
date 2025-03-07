@@ -20,6 +20,11 @@ public interface RemoteArtifactChecker {
   RemoteArtifactChecker TRUST_ALL = (file, metadata) -> true;
   RemoteArtifactChecker IGNORE_ALL = (file, metadata) -> false;
 
+  /** Returns whether the given output should be downloaded. */
+  default boolean shouldDownloadOutput(ActionInput output, RemoteFileArtifactValue metadata) {
+    return !shouldTrustRemoteArtifact(output, metadata);
+  }
+
   /**
    * Returns true if Bazel should trust (and not verify) build artifacts that were last seen
    * remotely and do not exist locally.
