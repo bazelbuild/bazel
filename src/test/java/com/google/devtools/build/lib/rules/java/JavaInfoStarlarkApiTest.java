@@ -55,40 +55,6 @@ import org.junit.runners.JUnit4;
 public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
 
   @Test
-  public void buildHelperCreateJavaInfoJavaRuleOutputJarsProviderSourceJarOutputJarAndUseIJar()
-      throws Exception {
-    ruleBuilder().withIJar().build();
-
-    scratch.file(
-        "foo/BUILD",
-        """
-        load(":extension.bzl", "my_rule")
-
-        my_rule(
-            name = "my_starlark_rule",
-            output_jar = "my_starlark_rule_lib.jar",
-            source_jars = ["my_starlark_rule_src.jar"],
-        )
-        """);
-    assertNoEvents();
-
-    JavaRuleOutputJarsProvider javaRuleOutputJarsProvider =
-        fetchJavaInfo().getProvider(JavaRuleOutputJarsProvider.class);
-
-    assertThat(prettyArtifactNames(javaRuleOutputJarsProvider.getAllSrcOutputJars()))
-        .containsExactly("foo/my_starlark_rule_src.jar");
-
-    assertThat(prettyArtifactNames(javaRuleOutputJarsProvider.getAllClassOutputJars()))
-        .containsExactly("foo/my_starlark_rule_lib.jar");
-
-    assertThat(javaRuleOutputJarsProvider.javaOutputs()).hasSize(1);
-    JavaOutput javaOutput = javaRuleOutputJarsProvider.javaOutputs().get(0);
-
-    assertThat(javaOutput.compileJar().prettyPrint())
-        .isEqualTo("foo/my_starlark_rule_lib-ijar.jar");
-  }
-
-  @Test
   public void buildHelperCreateJavaInfoWithDeps() throws Exception {
     ruleBuilder().build();
     scratch.file(
@@ -1443,16 +1409,9 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
   }
 
   private class RuleBuilder {
-    private boolean useIJar = false;
     private boolean stampJar;
     private boolean neverLink = false;
     private boolean sourceFiles = false;
-
-    @CanIgnoreReturnValue
-    private RuleBuilder withIJar() {
-      useIJar = true;
-      return this;
-    }
 
     @CanIgnoreReturnValue
     private RuleBuilder withStampJar() {
@@ -1473,7 +1432,6 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
     }
 
     private String[] newJavaInfo() {
-      assertThat(useIJar && stampJar).isFalse();
       ImmutableList.Builder<String> lines = ImmutableList.builder();
       lines.add(
           "load('@rules_java//java:defs.bzl', 'java_common', 'JavaInfo',"
@@ -1487,14 +1445,7 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
           "  dp_exported_plugins = [dep[JavaPluginInfo] for dep in ctx.attr.dep_exported_plugins]",
           "  dp_libs = [dep[CcInfo] for dep in ctx.attr.cc_dep]");
 
-      if (useIJar) {
-        lines.add(
-            "  compile_jar = java_common.run_ijar(",
-            "    ctx.actions,",
-            "    jar = ctx.outputs.output_jar,",
-            "    java_toolchain = ctx.attr._toolchain[java_common.JavaToolchainInfo],",
-            "  )");
-      } else if (stampJar) {
+      if (stampJar) {
         lines.add(
             "  compile_jar = java_common.stamp_jar(",
             "    ctx.actions,",
@@ -1551,7 +1502,7 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
     }
 
     private void build() throws Exception {
-      if (useIJar || stampJar || sourceFiles) {
+      if (stampJar || sourceFiles) {
         JavaTestUtil.writeBuildFileForJavaToolchain(scratch);
       }
 
@@ -1578,7 +1529,7 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
           "    'manifest_proto' : attr.label(allow_single_file=True),",
           "    'add_exports' : attr.string_list(),",
           "    'add_opens' : attr.string_list(),",
-          useIJar || stampJar || sourceFiles
+          stampJar || sourceFiles
               ? "    '_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),"
               : "",
           "  }",
