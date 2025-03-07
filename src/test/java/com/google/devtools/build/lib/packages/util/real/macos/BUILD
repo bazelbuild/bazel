@@ -47,7 +47,6 @@ cc_toolchain_config(
     host_system_name = "local",
     link_flags = [
         "-B/usr/bin",
-        "-pass-exit-codes",
     ],
     opt_compile_flags = [
         "-g0",
