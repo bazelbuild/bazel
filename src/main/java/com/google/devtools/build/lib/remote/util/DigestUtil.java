@@ -19,6 +19,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import build.bazel.remote.execution.v2.Action;
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.DigestFunction;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.hash.HashCode;
 import com.google.common.hash.HashFunction;
@@ -162,6 +163,12 @@ public class DigestUtil {
 
   public static String toString(Digest digest) {
     return digest.getHash() + "/" + digest.getSizeBytes();
+  }
+
+  public static Digest fromString(String digest) {
+    String[] parts = digest.split("/", /* limit= */ -1);
+    Preconditions.checkArgument(parts.length == 2, "Invalid digest format: %s", digest);
+    return buildDigest(parts[0], Long.parseLong(parts[1]));
   }
 
   public static byte[] toBinaryDigest(Digest digest) {

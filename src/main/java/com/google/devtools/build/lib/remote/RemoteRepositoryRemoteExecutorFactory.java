@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote;
 
-import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.remote.common.RemoteExecutionClient;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
@@ -30,7 +29,6 @@ class RemoteRepositoryRemoteExecutorFactory implements RepositoryRemoteExecutorF
 
   private final String remoteInstanceName;
   private final boolean acceptCached;
-  private final Reporter reporter;
 
   RemoteRepositoryRemoteExecutorFactory(
       RemoteExecutionCache remoteExecutionCache,
@@ -39,8 +37,7 @@ class RemoteRepositoryRemoteExecutorFactory implements RepositoryRemoteExecutorF
       String buildRequestId,
       String commandId,
       String remoteInstanceName,
-      boolean acceptCached,
-      Reporter reporter) {
+      boolean acceptCached) {
     this.remoteExecutionCache = remoteExecutionCache;
     this.remoteExecutor = remoteExecutor;
     this.digestUtil = digestUtil;
@@ -48,7 +45,6 @@ class RemoteRepositoryRemoteExecutorFactory implements RepositoryRemoteExecutorF
     this.commandId = commandId;
     this.remoteInstanceName = remoteInstanceName;
     this.acceptCached = acceptCached;
-    this.reporter = reporter;
   }
 
   @Override
@@ -60,7 +56,6 @@ class RemoteRepositoryRemoteExecutorFactory implements RepositoryRemoteExecutorF
         buildRequestId,
         commandId,
         remoteInstanceName,
-        acceptCached,
-        reporter);
+        acceptCached);
   }
 }

@@ -928,6 +928,7 @@ public class RemoteExecutionService {
           combinedCache.downloadFile(
               context,
               internalToUnicode(remotePathResolver.localPathToOutputPath(file.path())),
+              remotePathResolver.localPathToExecPath(file.path().asFragment()),
               tmpPath,
               file.digest(),
               new CombinedCache.DownloadProgressReporter(
@@ -1193,7 +1194,11 @@ public class RemoteExecutionService {
         dirMetadataDownloads.put(
             localPath,
             Futures.transformAsync(
-                combinedCache.downloadBlob(context, outputPath, dir.getTreeDigest()),
+                combinedCache.downloadBlob(
+                    context,
+                    outputPath,
+                    remotePathResolver.localPathToExecPath(localPath.asFragment()),
+                    dir.getTreeDigest()),
                 (treeBytes) ->
                     immediateFuture(
                         Tree.parseFrom(treeBytes, ExtensionRegistry.getEmptyRegistry())),
@@ -1357,7 +1362,10 @@ public class RemoteExecutionService {
               downloadsBuilder.add(
                   transform(
                       combinedCache.downloadBlob(
-                          context, inMemoryOutputPath.getPathString(), file.digest()),
+                          context,
+                          inMemoryOutputPath.getPathString(),
+                          inMemoryOutputPath,
+                          file.digest()),
                       data -> {
                         inMemoryOutputData.set(ByteString.copyFrom(data));
                         return null;
@@ -1908,7 +1916,7 @@ public class RemoteExecutionService {
           merkleTree,
           additionalInputs,
           force,
-          reporter);
+          action.getRemotePathResolver());
     } finally {
       maybeReleaseRemoteActionBuildingSemaphore();
     }
@@ -2005,7 +2013,9 @@ public class RemoteExecutionService {
 
   @Subscribe
   public void onLostInputs(LostInputsEvent event) {
-    knownMissingCasDigests.add(event.getMissingDigest());
+    for (String digest : event.missingDigests()) {
+      knownMissingCasDigests.add(DigestUtil.fromString(digest));
+    }
   }
 
   /**

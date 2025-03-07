@@ -42,7 +42,7 @@ import java.io.IOException;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
-import java.util.function.Function;
+import java.util.function.BiFunction;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
 
@@ -53,10 +53,10 @@ import javax.annotation.Nullable;
 public class LostImportantOutputHandlerModule extends BlazeModule {
 
   private final Set<String> pathsToConsiderLost = Sets.newConcurrentHashSet();
-  private final Function<byte[], String> digestFn;
+  private final BiFunction<byte[], Long, String> digestFn;
   private boolean outputHandlerEnabled = true;
 
-  protected LostImportantOutputHandlerModule(Function<byte[], String> digestFn) {
+  protected LostImportantOutputHandlerModule(BiFunction<byte[], Long, String> digestFn) {
     this.digestFn = checkNotNull(digestFn);
   }
 
@@ -155,7 +155,7 @@ public class LostImportantOutputHandlerModule extends BlazeModule {
         } catch (IOException e) {
           throw new IllegalStateException(e);
         }
-        lost.put(digestFn.apply(metadata.getDigest()), output);
+        lost.put(digestFn.apply(metadata.getDigest(), metadata.getSize()), output);
         if (owner != null) {
           owners.put(output, owner);
         }
