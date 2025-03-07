@@ -44,7 +44,12 @@ public final class BazelMockCcSupport extends MockCcSupport {
 
   @Override
   protected String getRealFilesystemCrosstoolTopPath() {
-    return "src/test/java/com/google/devtools/build/lib/packages/util/real";
+    return "src/test/java/com/google/devtools/build/lib/packages/util/real/"
+        + switch (OS.getCurrent()) {
+          case LINUX -> "linux";
+          case DARWIN -> "macos";
+          default -> throw new IllegalStateException("Unsupported OS: " + OS.getCurrent());
+        };
   }
 
   @Override

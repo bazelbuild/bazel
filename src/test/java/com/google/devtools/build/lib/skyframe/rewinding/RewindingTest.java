@@ -88,10 +88,9 @@ public final class RewindingTest extends BuildIntegrationTestCase {
   /**
    * Skips test cases that cannot run with bazel.
    *
-   * <p>{@link BuildIntegrationTestCase} currently does not support CPP compilation on bazel.
+   * <p>{@link BuildIntegrationTestCase} currently does not support include scanning or header
+   * modules.
    */
-  // TODO(b/195425240): Remove once CPP compilation on bazel is supported. Assumptions that
-  // generated headers are always under k8-opt will need to be relaxed to support other platforms.
   private static void skipIfBazel() {
     assume().that(AnalysisMock.get().isThisBazel()).isFalse();
   }
