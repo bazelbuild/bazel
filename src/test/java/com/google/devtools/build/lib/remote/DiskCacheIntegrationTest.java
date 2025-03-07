@@ -44,6 +44,8 @@ import java.util.Collection;
 import java.util.HashSet;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.ClassRule;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -71,22 +73,14 @@ public class DiskCacheIntegrationTest extends BuildIntegrationTestCase {
 
   private DigestUtil digestUtil;
 
-  private WorkerInstance worker;
-
-  private void startWorker() throws Exception {
-    if (worker == null) {
-      worker = IntegrationTestUtils.startWorker();
-    }
-  }
+  @ClassRule @Rule public static final WorkerInstance worker = IntegrationTestUtils.createWorker();
 
   private void enableRemoteExec(String... additionalOptions) {
-    assertThat(worker).isNotNull();
     addOptions("--remote_executor=grpc://localhost:" + worker.getPort());
     addOptions(additionalOptions);
   }
 
   private void enableRemoteCache(String... additionalOptions) {
-    assertThat(worker).isNotNull();
     addOptions("--remote_cache=grpc://localhost:" + worker.getPort());
     addOptions(additionalOptions);
   }
@@ -112,10 +106,6 @@ public class DiskCacheIntegrationTest extends BuildIntegrationTestCase {
   @After
   public void tearDown() throws IOException {
     getWorkspace().getFileSystem().getPath(getDiskCacheDir()).deleteTree();
-
-    if (worker != null) {
-      worker.stop();
-    }
   }
 
   @Override
@@ -182,21 +172,18 @@ public class DiskCacheIntegrationTest extends BuildIntegrationTestCase {
 
   @Test
   public void bwobAndRemoteExec_blobsReferencedInAcAreMissingFromCas_ignoresAc() throws Exception {
-    startWorker();
     enableRemoteExec("--remote_download_minimal");
     doBlobsReferencedInAcAreMissingFromCasIgnoresAc();
   }
 
   @Test
   public void bwobAndRemoteCache_blobsReferencedInAcAreMissingFromCas_ignoresAc() throws Exception {
-    startWorker();
     enableRemoteCache("--remote_download_minimal");
     doBlobsReferencedInAcAreMissingFromCasIgnoresAc();
   }
 
   private void doRemoteExecWithDiskCache(String... additionalOptions) throws Exception {
     // Arrange: Prepare the workspace and populate disk cache.
-    startWorker();
     setupWorkspace();
     enableRemoteExec(additionalOptions);
     buildTarget("//:foobar");

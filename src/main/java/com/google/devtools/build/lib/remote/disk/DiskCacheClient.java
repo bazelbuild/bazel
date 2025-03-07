@@ -207,9 +207,10 @@ public class DiskCacheClient {
       var treeDigest = outputDirectory.getTreeDigest();
       checkDigestExists(treeDigest);
 
-      var treePath = toPath(treeDigest, Store.CAS);
-      var tree =
-          Tree.parseFrom(treePath.getInputStream(), ExtensionRegistryLite.getEmptyRegistry());
+      Tree tree;
+      try (var in = toPath(treeDigest, Store.CAS).getInputStream()) {
+        tree = Tree.parseFrom(in, ExtensionRegistryLite.getEmptyRegistry());
+      }
       checkOutputDirectory(tree.getRoot());
       for (var dir : tree.getChildrenList()) {
         checkOutputDirectory(dir);
