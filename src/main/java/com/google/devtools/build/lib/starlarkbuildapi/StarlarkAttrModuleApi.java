@@ -974,6 +974,12 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
             positional = false,
             doc = MANDATORY_DOC),
         @Param(
+            name = SKIP_VALIDATIONS_ARG,
+            defaultValue = "False",
+            named = true,
+            positional = false,
+            doc = SKIP_VALIDATIONS_ARG_DOC),
+        @Param(
             name = CONFIGURATION_ARG,
             defaultValue = "None",
             named = true,
@@ -999,6 +1005,7 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
       Object forDependencyResolution,
       Sequence<?> flags,
       Boolean mandatory,
+      Boolean skipValidations,
       Object cfg,
       Sequence<?> aspects,
       StarlarkThread thread)

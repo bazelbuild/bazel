@@ -996,6 +996,7 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
       Object forDependencyResolution,
       Sequence<?> flags,
       Boolean mandatory,
+      Boolean skipValidations,
       Object cfg,
       Sequence<?> aspects,
       StarlarkThread thread)
@@ -1019,6 +1020,8 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
             flags,
             MANDATORY_ARG,
             mandatory,
+            SKIP_VALIDATIONS_ARG,
+            skipValidations,
             ALLOW_EMPTY_ARG,
             allowEmpty,
             CONFIGURATION_ARG,
