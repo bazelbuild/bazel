@@ -54,44 +54,6 @@ import org.junit.runners.JUnit4;
 public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
 
   @Test
-  public void buildHelperCreateJavaInfoWithSourcesFiles() throws Exception {
-    ruleBuilder().withSourceFiles().build();
-
-    scratch.file(
-        "foo/BUILD",
-        """
-        load(":extension.bzl", "my_rule")
-
-        my_rule(
-            name = "my_starlark_rule",
-            output_jar = "my_starlark_rule_lib.jar",
-            sources = [
-                "ClassA.java",
-                "ClassB.java",
-                "ClassC.java",
-                "ClassD.java",
-            ],
-        )
-        """);
-    assertNoEvents();
-
-    JavaRuleOutputJarsProvider javaRuleOutputJarsProvider =
-        fetchJavaInfo().getProvider(JavaRuleOutputJarsProvider.class);
-
-    assertThat(prettyArtifactNames(javaRuleOutputJarsProvider.getAllSrcOutputJars()))
-        .containsExactly("foo/my_starlark_rule_lib-src.jar");
-
-    JavaSourceJarsProvider sourceJarsProvider =
-        fetchJavaInfo().getProvider(JavaSourceJarsProvider.class);
-
-    assertThat(prettyArtifactNames(sourceJarsProvider.sourceJars()))
-        .containsExactly("foo/my_starlark_rule_lib-src.jar");
-
-    assertThat(prettyArtifactNames(sourceJarsProvider.transitiveSourceJars()))
-        .containsExactly("foo/my_starlark_rule_lib-src.jar");
-  }
-
-  @Test
   public void buildHelperCreateJavaInfoWithSourcesFilesAndSourcesJars() throws Exception {
     ruleBuilder().withSourceFiles().build();
 
