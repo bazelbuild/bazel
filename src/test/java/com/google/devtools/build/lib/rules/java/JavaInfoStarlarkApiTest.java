@@ -54,42 +54,6 @@ import org.junit.runners.JUnit4;
 public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
 
   @Test
-  public void buildHelperCreateJavaInfoWithDepsAndNeverLink() throws Exception {
-    ruleBuilder().withNeverLink().build();
-
-    scratch.file(
-        "foo/BUILD",
-        """
-        load("@rules_java//java:defs.bzl", "java_library")
-        load(":extension.bzl", "my_rule")
-
-        java_library(
-            name = "my_java_lib_direct",
-            srcs = ["java/A.java"],
-        )
-
-        my_rule(
-            name = "my_starlark_rule",
-            dep = [":my_java_lib_direct"],
-            output_jar = "my_starlark_rule_lib.jar",
-            source_jars = ["my_starlark_rule_src.jar"],
-        )
-        """);
-    assertNoEvents();
-
-    JavaCompilationArgsProvider javaCompilationArgsProvider =
-        fetchJavaInfo().getProvider(JavaCompilationArgsProvider.class);
-
-    assertThat(prettyArtifactNames(javaCompilationArgsProvider.directCompileTimeJars()))
-        .containsExactly("foo/my_starlark_rule_lib.jar");
-    assertThat(prettyArtifactNames(javaCompilationArgsProvider.directFullCompileTimeJars()))
-        .containsExactly("foo/my_starlark_rule_lib.jar");
-    assertThat(prettyArtifactNames(javaCompilationArgsProvider.runtimeJars())).isEmpty();
-    assertThat(prettyArtifactNames(javaCompilationArgsProvider.transitiveCompileTimeJars()))
-        .containsExactly("foo/my_starlark_rule_lib.jar", "foo/libmy_java_lib_direct-hjar.jar");
-  }
-
-  @Test
   public void buildHelperCreateJavaInfoSourceJarsProviderWithSourceJars() throws Exception {
     ruleBuilder().build();
     scratch.file(
@@ -1306,18 +1270,11 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
 
   private class RuleBuilder {
     private boolean stampJar;
-    private boolean neverLink = false;
     private boolean sourceFiles = false;
 
     @CanIgnoreReturnValue
     private RuleBuilder withStampJar() {
       stampJar = true;
-      return this;
-    }
-
-    @CanIgnoreReturnValue
-    private RuleBuilder withNeverLink() {
-      neverLink = true;
       return this;
     }
 
@@ -1374,7 +1331,6 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
           "    output_jar = ctx.outputs.output_jar,",
           "    compile_jar = compile_jar,",
           "    source_jar = source_jar,",
-          neverLink ? "    neverlink = True," : "",
           "    deps = dp,",
           "    runtime_deps = dp_runtime,",
           "    exports = dp_exports,",
