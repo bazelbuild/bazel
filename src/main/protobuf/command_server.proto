@@ -235,6 +235,10 @@ message InfoResponse {
   // Results of info items requested by the client. This field can be empty if
   // all requested info keys are invalid.
   repeated InfoItem info_item = 2;
+
+  // Whether the remote bazel client should print the keys of the info items to
+  // the console.
+  bool print_keys = 3;
 }
 
 service CommandServer {

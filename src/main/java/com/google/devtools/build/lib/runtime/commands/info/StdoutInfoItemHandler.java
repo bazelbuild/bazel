@@ -21,13 +21,15 @@ import java.io.IOException;
 /** Prints {@link InfoItem}s to the console. */
 public class StdoutInfoItemHandler implements InfoItemHandler {
   private final OutErr outErr;
+  private final boolean printKeys;
 
-  public StdoutInfoItemHandler(OutErr outErr) {
+  public StdoutInfoItemHandler(OutErr outErr, boolean printKeys) {
     this.outErr = outErr;
+    this.printKeys = printKeys;
   }
 
   @Override
-  public void addInfoItem(String key, byte[] value, boolean printKeys) throws IOException {
+  public void addInfoItem(String key, byte[] value) throws IOException {
     if (printKeys) {
       outErr.getOutputStream().write(StringUnsafe.getInternalStringBytes(key));
       outErr.getOutputStream().write(':');

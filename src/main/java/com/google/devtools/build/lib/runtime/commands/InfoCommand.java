@@ -47,6 +47,8 @@ import com.google.devtools.build.lib.runtime.commands.info.ExecutionRootInfoItem
 import com.google.devtools.build.lib.runtime.commands.info.GcCountInfoItem;
 import com.google.devtools.build.lib.runtime.commands.info.GcTimeInfoItem;
 import com.google.devtools.build.lib.runtime.commands.info.InfoItemHandler;
+import com.google.devtools.build.lib.runtime.commands.info.InfoItemHandler.InfoItemHandlerFactory;
+import com.google.devtools.build.lib.runtime.commands.info.InfoItemHandler.InfoItemHandlerFactoryImpl;
 import com.google.devtools.build.lib.runtime.commands.info.InfoItemHandler.InfoItemOutputType;
 import com.google.devtools.build.lib.runtime.commands.info.InstallBaseInfoItem;
 import com.google.devtools.build.lib.runtime.commands.info.JavaHomeInfoItem;
@@ -83,7 +85,6 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
-import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 
 /** Implementation of 'blaze info'. */
@@ -151,17 +152,15 @@ public class InfoCommand implements BlazeCommand {
     }
   }
 
-  private final BiFunction<CommandEnvironment, InfoItemOutputType, InfoItemHandler>
-      infoItemHandlerFactory;
+  private final InfoItemHandlerFactory infoItemHandlerFactory;
 
   @VisibleForTesting
-  public InfoCommand(
-      BiFunction<CommandEnvironment, InfoItemOutputType, InfoItemHandler> infoItemHandlerFactory) {
+  public InfoCommand(InfoItemHandlerFactory infoItemHandlerFactory) {
     this.infoItemHandlerFactory = infoItemHandlerFactory;
   }
 
   public InfoCommand() {
-    this.infoItemHandlerFactory = InfoItemHandler::create;
+    this.infoItemHandlerFactory = new InfoItemHandlerFactoryImpl();
   }
 
   @Override
@@ -201,9 +200,11 @@ public class InfoCommand implements BlazeCommand {
             });
 
     Map<String, InfoItem> items = getInfoItemMap(env, optionsParsingResult);
+    List<String> residue = optionsParsingResult.getResidue();
 
     try (InfoItemHandler infoItemHandler =
-        infoItemHandlerFactory.apply(env, infoOptions.infoOutputType)) {
+        infoItemHandlerFactory.create(
+            env, infoOptions.infoOutputType, /* printKeys= */ residue.size() != 1)) {
       if (infoOptions.showMakeEnvironment) {
         Map<String, String> makeEnv = configurationSupplier.get().getMakeEnvironment();
         for (Map.Entry<String, String> entry : makeEnv.entrySet()) {
@@ -212,7 +213,6 @@ public class InfoCommand implements BlazeCommand {
         }
       }
 
-      List<String> residue = optionsParsingResult.getResidue();
       env.getEventBus().post(new NoBuildEvent());
       if (!residue.isEmpty()) {
         ImmutableSet.Builder<String> unknownKeysBuilder = ImmutableSet.builder();
@@ -224,7 +224,7 @@ public class InfoCommand implements BlazeCommand {
                 ensureSyncPackageLoading(env, optionsParsingResult);
               }
               byte[] value = infoItem.get(configurationSupplier, env);
-              infoItemHandler.addInfoItem(key, value, /* printKeys= */ residue.size() > 1);
+              infoItemHandler.addInfoItem(key, value);
             }
           } else {
             unknownKeysBuilder.add(key);
@@ -254,9 +254,7 @@ public class InfoCommand implements BlazeCommand {
           }
           try (SilentCloseable c = Profiler.instance().profile(infoItem.getName() + ".infoItem")) {
             infoItemHandler.addInfoItem(
-                infoItem.getName(),
-                infoItem.get(configurationSupplier, env),
-                /* printKeys= */ true);
+                infoItem.getName(), infoItem.get(configurationSupplier, env));
           }
         }
       }

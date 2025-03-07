@@ -21,7 +21,7 @@ import java.io.IOException;
 /** Handles how {@link InfoItem}s are outputted. */
 public interface InfoItemHandler extends AutoCloseable {
   /** Stores {@link InfoItem} information. */
-  void addInfoItem(String key, byte[] value, boolean printKeys)
+  void addInfoItem(String key, byte[] value)
       throws AbruptExitException, InterruptedException, IOException;
 
   /** Flushes any internal state. */
@@ -43,11 +43,24 @@ public interface InfoItemHandler extends AutoCloseable {
     RESPONSE_PROTO
   }
 
-  /** Creates {@link InfoItemHandler} based on the passed in {@link InfoItemOutputType}. */
-  static InfoItemHandler create(CommandEnvironment env, InfoItemOutputType infoItemOutputType) {
-    return switch (infoItemOutputType) {
-      case STDOUT -> new StdoutInfoItemHandler(env.getReporterOutErr());
-      case RESPONSE_PROTO -> new RemoteRequestedInfoItemHandler(env);
-    };
+  /** Contains method to create the correct type of {@link InfoItemHandler}. */
+  interface InfoItemHandlerFactory {
+    InfoItemHandler create(
+        CommandEnvironment env, InfoItemOutputType infoItemOutputType, boolean printKeys);
+  }
+
+  /**
+   * Implementation of {@link InfoItemHandlerFactory} that creates {@link InfoItemHandler} instances
+   * based on the provided {@link InfoItemOutputType}.
+   */
+  class InfoItemHandlerFactoryImpl implements InfoItemHandlerFactory {
+    @Override
+    public InfoItemHandler create(
+        CommandEnvironment env, InfoItemOutputType infoItemOutputType, boolean printKeys) {
+      return switch (infoItemOutputType) {
+        case STDOUT -> new StdoutInfoItemHandler(env.getReporterOutErr(), printKeys);
+        case RESPONSE_PROTO -> new RemoteRequestedInfoItemHandler(env, printKeys);
+      };
+    }
   }
 }
