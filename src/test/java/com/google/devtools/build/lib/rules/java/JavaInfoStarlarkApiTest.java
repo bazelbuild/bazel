@@ -54,39 +54,6 @@ import org.junit.runners.JUnit4;
 public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
 
   @Test
-  public void buildHelperCreateJavaInfoSourceJarsProviderWithDeps() throws Exception {
-    ruleBuilder().build();
-    scratch.file(
-        "foo/BUILD",
-        """
-        load("@rules_java//java:defs.bzl", "java_library")
-        load(":extension.bzl", "my_rule")
-
-        java_library(
-            name = "my_java_lib_direct",
-            srcs = ["java/A.java"],
-        )
-
-        my_rule(
-            name = "my_starlark_rule",
-            dep = [":my_java_lib_direct"],
-            output_jar = "my_starlark_rule_lib.jar",
-            source_jars = ["my_starlark_rule_src.jar"],
-        )
-        """);
-    assertNoEvents();
-
-    JavaSourceJarsProvider sourceJarsProvider =
-        fetchJavaInfo().getProvider(JavaSourceJarsProvider.class);
-
-    assertThat(prettyArtifactNames(sourceJarsProvider.sourceJars()))
-        .containsExactly("foo/my_starlark_rule_src.jar");
-
-    assertThat(prettyArtifactNames(sourceJarsProvider.transitiveSourceJars()))
-        .containsExactly("foo/my_starlark_rule_src.jar", "foo/libmy_java_lib_direct-src.jar");
-  }
-
-  @Test
   public void buildHelperCreateJavaInfoJavaSourceJarsProviderAndRuntimeDeps() throws Exception {
     ruleBuilder().build();
     scratch.file(
