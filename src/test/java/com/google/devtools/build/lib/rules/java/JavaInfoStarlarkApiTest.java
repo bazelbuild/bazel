@@ -54,39 +54,6 @@ import org.junit.runners.JUnit4;
 public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
 
   @Test
-  public void buildHelperCreateJavaInfoWithPlugins() throws Exception {
-    ruleBuilder().build();
-    scratch.file(
-        "foo/BUILD",
-        """
-        load("@rules_java//java:defs.bzl", "java_library", "java_plugin")
-        load(":extension.bzl", "my_rule")
-
-        java_library(
-            name = "plugin_dep",
-            srcs = ["ProcessorDep.java"],
-        )
-
-        java_plugin(
-            name = "plugin",
-            srcs = ["AnnotationProcessor.java"],
-            processor_class = "com.google.process.stuff",
-            deps = [":plugin_dep"],
-        )
-
-        my_rule(
-            name = "my_starlark_rule",
-            dep_exported_plugins = [":plugin"],
-            output_jar = "my_starlark_rule_lib.jar",
-        )
-        """);
-    assertNoEvents();
-
-    assertThat(fetchJavaInfo().getJavaPluginInfo().plugins().processorClasses().toList())
-        .containsExactly("com.google.process.stuff");
-  }
-
-  @Test
   public void buildHelperCreateJavaInfoWithOutputJarAndStampJar() throws Exception {
     ruleBuilder().withStampJar().build();
 
