@@ -204,7 +204,8 @@ public class BlazeRuntimeWrapper {
                 extensions.stream().map(Any::pack).collect(toImmutableList()),
                 this.crashMessages::add,
                 NO_OP_COMMAND_EXTENSION_REPORTER,
-                /* attemptNumber= */ 1);
+                /* attemptNumber= */ 1,
+                /* buildRequestIdOverride= */ null);
     return env;
   }
 
