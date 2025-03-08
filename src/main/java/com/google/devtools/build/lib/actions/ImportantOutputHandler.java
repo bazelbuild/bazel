@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.actions;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.DetailedException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
@@ -37,13 +38,17 @@ public interface ImportantOutputHandler extends ActionContext {
    * @param outputs top-level outputs
    * @param expander used to expand {@linkplain Artifact#isDirectory directory artifacts} in {@code
    *     outputs}
-   * @param metadataProvider provides metadata for artifacts in {@code outputs} and their expansions
+   * @param inputMap provides metadata for artifacts in {@code outputs} and their expansions
+   * @param getGeneratingAction returns the generating action for a derived artifact
    * @return any artifacts that need to be regenerated via action rewinding
    * @throws ImportantOutputException for an issue processing the outputs, not including lost
    *     outputs which are reported in the returned {@link LostArtifacts}
    */
   LostArtifacts processOutputsAndGetLostArtifacts(
-      Iterable<Artifact> outputs, ArtifactExpander expander, InputMetadataProvider metadataProvider)
+      Iterable<Artifact> outputs,
+      ArtifactExpander expander,
+      ActionInputMap inputMap,
+      GeneratingActionGetter getGeneratingAction)
       throws ImportantOutputException, InterruptedException;
 
   /**
@@ -109,6 +114,10 @@ public interface ImportantOutputHandler extends ActionContext {
    * profiling {@link ImportantOutputHandler} operations.
    */
   Duration LOG_THRESHOLD = Duration.ofMillis(100);
+
+  interface GeneratingActionGetter {
+    ActionExecutionMetadata of(DerivedArtifact artifact) throws InterruptedException;
+  }
 
   /**
    * Represents artifacts that need to be regenerated via action rewinding, along with their owners.
