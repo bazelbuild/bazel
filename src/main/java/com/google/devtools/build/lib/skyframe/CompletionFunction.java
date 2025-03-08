@@ -16,21 +16,15 @@ package com.google.devtools.build.lib.skyframe;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputMap;
-import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
-import com.google.devtools.build.lib.actions.ActionInputPrefetcher.Priority;
-import com.google.devtools.build.lib.actions.ActionInputPrefetcher.Reason;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.CompletionContext;
 import com.google.devtools.build.lib.actions.CompletionContext.PathResolverFactory;
 import com.google.devtools.build.lib.actions.EventReportingArtifacts;
@@ -40,8 +34,6 @@ import com.google.devtools.build.lib.actions.ImportantOutputHandler;
 import com.google.devtools.build.lib.actions.ImportantOutputHandler.ImportantOutputException;
 import com.google.devtools.build.lib.actions.ImportantOutputHandler.LostArtifacts;
 import com.google.devtools.build.lib.actions.InputFileErrorException;
-import com.google.devtools.build.lib.actions.InputMetadataProvider;
-import com.google.devtools.build.lib.actions.OutputChecker;
 import com.google.devtools.build.lib.actions.TopLevelOutputException;
 import com.google.devtools.build.lib.analysis.ConfiguredObjectValue;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -60,10 +52,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
-import com.google.devtools.build.lib.remote.common.BulkTransferException;
-import com.google.devtools.build.lib.remote.util.Utils;
-import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
-import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution;
 import com.google.devtools.build.lib.skyframe.ArtifactFunction.MissingArtifactValue;
 import com.google.devtools.build.lib.skyframe.ArtifactFunction.SourceArtifactException;
 import com.google.devtools.build.lib.skyframe.MetadataConsumerForMetrics.FilesMetricConsumer;
@@ -76,15 +64,10 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
-import java.io.IOException;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ExecutionException;
-import java.util.function.Supplier;
 import javax.annotation.Nullable;
 import net.starlark.java.syntax.Location;
 
@@ -149,7 +132,6 @@ public final class CompletionFunction<
   private final FilesMetricConsumer topLevelArtifactsMetric;
   private final ActionRewindStrategy actionRewindStrategy;
   private final BugReporter bugReporter;
-  private final Supplier<Boolean> isSkymeld;
 
   CompletionFunction(
       PathResolverFactory pathResolverFactory,
@@ -157,15 +139,13 @@ public final class CompletionFunction<
       SkyframeActionExecutor skyframeActionExecutor,
       FilesMetricConsumer topLevelArtifactsMetric,
       ActionRewindStrategy actionRewindStrategy,
-      BugReporter bugReporter,
-      Supplier<Boolean> isSkymeld) {
+      BugReporter bugReporter) {
     this.pathResolverFactory = checkNotNull(pathResolverFactory);
     this.completor = checkNotNull(completor);
     this.skyframeActionExecutor = checkNotNull(skyframeActionExecutor);
     this.topLevelArtifactsMetric = checkNotNull(topLevelArtifactsMetric);
     this.actionRewindStrategy = checkNotNull(actionRewindStrategy);
     this.bugReporter = checkNotNull(bugReporter);
-    this.isSkymeld = isSkymeld;
   }
 
   @SuppressWarnings("unchecked") // Cast to KeyT
@@ -305,28 +285,6 @@ public final class CompletionFunction<
             skyframeActionExecutor.getExecRoot(),
             workspaceNameValue.getName());
 
-    ImmutableMap<String, ActionInput> knownLostOutputs = ImmutableMap.of();
-    try {
-      ensureToplevelArtifacts(env, importantArtifacts, inputMap);
-    } catch (IOException e) {
-      if (e instanceof BulkTransferException bulkTransferException) {
-        knownLostOutputs = bulkTransferException.getLostInputs(inputMap::getInput);
-      }
-      if (knownLostOutputs.isEmpty()) {
-        throw new CompletionFunctionException(
-            new TopLevelOutputException(
-                e.getMessage(),
-                DetailedExitCode.of(
-                    FailureDetail.newBuilder()
-                        .setMessage(e.getMessage())
-                        .setRemoteExecution(
-                            RemoteExecution.newBuilder()
-                                .setCode(RemoteExecution.Code.TOPLEVEL_OUTPUTS_DOWNLOAD_FAILURE)
-                                .build())
-                        .build())));
-      }
-    }
-
     NestedSet<Cause> rootCauses = rootCausesBuilder.build();
     if (!rootCauses.isEmpty()) {
       Reset reset = null;
@@ -344,11 +302,11 @@ public final class CompletionFunction<
                       allArtifactsAreImportant
                           ? builtArtifacts
                           : Iterables.filter(builtArtifacts, importantArtifacts::contains)),
-                  knownLostOutputs,
                   rootCauses,
                   ctx,
                   artifactsToBuild,
-                  builtArtifacts);
+                  builtArtifacts,
+                  inputMap);
         } finally {
           if (interruptedDuringErrorBubbling) {
             Thread.currentThread().interrupt();
@@ -395,11 +353,11 @@ public final class CompletionFunction<
             value,
             env,
             importantArtifacts,
-            knownLostOutputs,
             rootCauses,
             ctx,
             artifactsToBuild,
-            builtArtifacts);
+            builtArtifacts,
+            inputMap);
     if (reset != null) {
       return reset; // Initiate action rewinding to regenerate lost outputs.
     }
@@ -410,104 +368,6 @@ public final class CompletionFunction<
     topLevelArtifactsMetric.mergeIn(currentConsumer);
 
     return completor.getResult();
-  }
-
-  private void ensureToplevelArtifacts(
-      Environment env, ImmutableCollection<Artifact> importantArtifacts, ActionInputMap inputMap)
-      throws IOException, InterruptedException {
-    // For skymeld, a non-toplevel target might become a toplevel after it has been executed. This
-    // is the last chance to download the missing toplevel outputs in this case before sending out
-    // TargetCompleteEvent. See https://github.com/bazelbuild/bazel/issues/20737.
-    if (!isSkymeld.get()) {
-      return;
-    }
-
-    var actionInputPrefetcher = skyframeActionExecutor.getActionInputPrefetcher();
-    if (actionInputPrefetcher == null || actionInputPrefetcher == ActionInputPrefetcher.NONE) {
-      return;
-    }
-
-    var outputService = skyframeActionExecutor.getOutputService();
-    var outputChecker = outputService.getOutputChecker();
-    if (outputChecker == OutputChecker.TRUST_ALL) {
-      return;
-    }
-
-    var futures = new ArrayList<ListenableFuture<Void>>();
-
-    for (var artifact : importantArtifacts) {
-      downloadArtifact(env, outputChecker, actionInputPrefetcher, inputMap, artifact, futures);
-    }
-
-    for (var runfileTree : inputMap.getRunfilesTrees()) {
-      for (var artifact : runfileTree.getArtifacts().toList()) {
-        downloadArtifact(env, outputChecker, actionInputPrefetcher, inputMap, artifact, futures);
-      }
-    }
-
-    // TODO: Only wait for failed futures to complete as long as they can all be explained by
-    // lost outputs.
-    try {
-      var unused = Utils.mergeBulkTransfer(futures).get();
-    } catch (ExecutionException e) {
-      Throwables.throwIfInstanceOf(e.getCause(), IOException.class);
-      Throwables.throwIfInstanceOf(e.getCause(), InterruptedException.class);
-      Throwables.throwIfUnchecked(e.getCause());
-      throw new IllegalStateException(e.getCause());
-    }
-  }
-
-  private void downloadArtifact(
-      Environment env,
-      OutputChecker outputChecker,
-      ActionInputPrefetcher actionInputPrefetcher,
-      ActionInputMap inputMap,
-      Artifact artifact,
-      List<ListenableFuture<Void>> futures)
-      throws InterruptedException {
-    if (!(artifact instanceof DerivedArtifact derivedArtifact)) {
-      return;
-    }
-
-    // Metadata can be null during error bubbling, only download outputs that are already
-    // generated. b/342188273
-    if (artifact.isTreeArtifact()) {
-      var treeMetadata = inputMap.getTreeMetadata(artifact.getExecPath());
-      if (treeMetadata == null) {
-        return;
-      }
-
-      var filesToDownload = new ArrayList<ActionInput>(treeMetadata.getChildValues().size());
-      for (var child : treeMetadata.getChildValues().entrySet()) {
-        var treeFile = child.getKey();
-        var metadata = child.getValue();
-        if (outputChecker.shouldDownloadOutput(treeFile, metadata)) {
-          filesToDownload.add(treeFile);
-        }
-      }
-      if (!filesToDownload.isEmpty()) {
-        var action =
-            ActionUtils.getActionForLookupData(env, derivedArtifact.getGeneratingActionKey());
-        var future =
-            actionInputPrefetcher.prefetchFiles(
-                action, filesToDownload, inputMap, Priority.LOW, Reason.OUTPUTS);
-        futures.add(future);
-      }
-    } else {
-      var metadata = inputMap.getInputMetadata(artifact);
-      if (metadata == null) {
-        return;
-      }
-
-      if (outputChecker.shouldDownloadOutput(artifact, metadata)) {
-        var action =
-            ActionUtils.getActionForLookupData(env, derivedArtifact.getGeneratingActionKey());
-        var future =
-            actionInputPrefetcher.prefetchFiles(
-                action, ImmutableList.of(artifact), inputMap, Priority.LOW, Reason.OUTPUTS);
-        futures.add(future);
-      }
-    }
   }
 
   private void postFailedEvent(
@@ -571,11 +431,11 @@ public final class CompletionFunction<
       ValueT value,
       Environment env,
       ImmutableCollection<Artifact> importantArtifacts,
-      ImmutableMap<String, ActionInput> knownLostOutputs,
       NestedSet<Cause> rootCauses,
       CompletionContext ctx,
       ArtifactsToBuild artifactsToBuild,
-      Set<Artifact> builtArtifacts)
+      Set<Artifact> builtArtifacts,
+      ActionInputMap inputMap)
       throws CompletionFunctionException, InterruptedException {
     var importantOutputHandler =
         skyframeActionExecutor.getActionContextRegistry().getContext(ImportantOutputHandler.class);
@@ -584,11 +444,6 @@ public final class CompletionFunction<
     }
 
     Label label = key.actionLookupKey().getLabel();
-    InputMetadataProvider metadataProvider =
-        new ActionInputMetadataProvider(
-            skyframeActionExecutor.getExecRoot().asFragment(),
-            ctx.getImportantInputMap(),
-            ctx.getExpandedFilesets());
     try {
       LostArtifacts lostOutputs;
       try (var ignored =
@@ -601,8 +456,8 @@ public final class CompletionFunction<
                     ? importantArtifacts
                     : Iterables.filter(importantArtifacts, artifact -> !artifact.isFileset()),
                 ctx,
-                metadataProvider,
-                knownLostOutputs);
+                inputMap,
+                env);
       }
       if (lostOutputs.isEmpty()) {
         return null;

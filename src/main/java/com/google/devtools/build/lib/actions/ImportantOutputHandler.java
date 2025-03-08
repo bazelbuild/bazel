@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.skyframe.DetailedException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.skyframe.SkyFunction;
 import java.time.Duration;
 import java.util.Collection;
 import java.util.Map;
@@ -37,8 +38,8 @@ public interface ImportantOutputHandler extends ActionContext {
    * @param outputs top-level outputs
    * @param expander used to expand {@linkplain Artifact#isDirectory directory artifacts} in {@code
    *     outputs}
-   * @param metadataProvider provides metadata for artifacts in {@code outputs} and their expansions
-   * @param knownLostOutputs outputs that are already known to be lost
+   * @param inputMap provides metadata for artifacts in {@code outputs} and their expansions
+   * @param env Skyframe environment
    * @return any artifacts that need to be regenerated via action rewinding
    * @throws ImportantOutputException for an issue processing the outputs, not including lost
    *     outputs which are reported in the returned {@link LostArtifacts}
@@ -46,8 +47,8 @@ public interface ImportantOutputHandler extends ActionContext {
   LostArtifacts processOutputsAndGetLostArtifacts(
       Iterable<Artifact> outputs,
       ArtifactExpander expander,
-      InputMetadataProvider metadataProvider,
-      ImmutableMap<String, ActionInput> knownLostOutputs)
+      ActionInputMap inputMap,
+      SkyFunction.Environment env)
       throws ImportantOutputException, InterruptedException;
 
   /**
