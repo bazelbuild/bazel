@@ -69,15 +69,23 @@ public abstract sealed class PathFragment
 
   /** Creates a new normalized path fragment. */
   public static PathFragment create(String path) {
+    return createInternal(path, OS);
+  }
+
+  public static PathFragment createForOs(String path, com.google.devtools.build.lib.util.OS os) {
+    return createInternal(path, OsPathPolicy.getFilePathOs(os));
+  }
+
+  private static PathFragment createInternal(String path, OsPathPolicy osPathPolicy) {
     if (path.isEmpty()) {
       return EMPTY_FRAGMENT;
     }
-    int normalizationLevel = OS.needsToNormalize(path);
+    int normalizationLevel = osPathPolicy.needsToNormalize(path);
     String normalizedPath =
         normalizationLevel != OsPathPolicy.NORMALIZED
-            ? OS.normalize(path, normalizationLevel)
+            ? osPathPolicy.normalize(path, normalizationLevel)
             : path;
-    int driveStrLength = OS.getDriveStrLength(normalizedPath);
+    int driveStrLength = osPathPolicy.getDriveStrLength(normalizedPath);
     return makePathFragment(normalizedPath, driveStrLength);
   }
 
