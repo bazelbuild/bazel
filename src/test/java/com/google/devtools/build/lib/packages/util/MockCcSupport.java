@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.testutil.TestConstants;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.util.Arrays;
@@ -181,7 +182,7 @@ public abstract class MockCcSupport {
   }
 
   protected boolean shouldUseRealFileSystemCrosstool() {
-    return true;
+    return OS.getCurrent() == OS.LINUX || OS.getCurrent() == OS.DARWIN;
   }
 
   public void setupCcToolchainConfig(MockToolsConfig config) throws IOException {

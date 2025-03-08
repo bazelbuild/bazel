@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.WorkspaceBuilder;
 import com.google.devtools.build.lib.testutil.ActionEventRecorder;
 import com.google.devtools.build.lib.testutil.TestConstants;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
@@ -240,6 +241,8 @@ public final class RewindingTest extends BuildIntegrationTestCase {
 
   @Test
   public void generatedHeaderRewound_lostInActionExecution() throws Exception {
+    // macOS linker does not support --start-lib/--end-lib, which throws off the assertions.
+    assume().that(OS.getCurrent()).isEqualTo(OS.LINUX);
     helper.runGeneratedHeaderRewound_lostInActionExecution_spawnFailed();
   }
 
@@ -251,6 +254,8 @@ public final class RewindingTest extends BuildIntegrationTestCase {
 
   @Test
   public void generatedTransitiveHeaderRewound_lostInActionExecution() throws Exception {
+    // macOS linker does not support --start-lib/--end-lib, which throws off the assertions.
+    assume().that(OS.getCurrent()).isEqualTo(OS.LINUX);
     helper.runGeneratedTransitiveHeaderRewound_lostInActionExecution_spawnFailed();
   }
 
