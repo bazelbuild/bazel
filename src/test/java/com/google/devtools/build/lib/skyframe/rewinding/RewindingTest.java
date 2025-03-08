@@ -17,8 +17,10 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.TruthJUnit.assume;
 
 import com.google.common.collect.Iterables;
+import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.analysis.TargetConfiguredEvent;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.includescanning.IncludeScanningModule;
@@ -26,8 +28,12 @@ import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.WorkspaceBuilder;
 import com.google.devtools.build.lib.testutil.ActionEventRecorder;
+import com.google.devtools.build.lib.testutil.TestConstants;
+import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
+import java.io.IOException;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -64,6 +70,10 @@ public final class RewindingTest extends BuildIntegrationTestCase {
                 // Null out RepositoryHelpersHolder so that we don't trigger
                 // RepoMappingManifestAction. This preserves action graph structure between blaze
                 // and bazel, which is important for this test's assertions.
+                //
+                // IMPORTANT: As a result of this, external repositories are not symlinked under
+                // the execroot with Skymeld enabled. See onTargetAnalyzed for how to manually
+                // create such a symlink.
                 builder.setSkyframeExecutorRepositoryHelpersHolder(null);
               }
             });
@@ -83,15 +93,28 @@ public final class RewindingTest extends BuildIntegrationTestCase {
         "--keep_going=" + keepGoing,
         "--experimental_merged_skyframe_analysis_execution=" + skymeld);
     runtimeWrapper.registerSubscriber(actionEventRecorder);
+    runtimeWrapper.registerSubscriber(this);
+  }
+
+  @Subscribe
+  public void onTargetAnalyzed(TargetConfiguredEvent event) throws IOException {
+    if (skymeld) {
+      // Necessary due to the RepositoryHelpersHolder nulling above, simulates the effect of
+      // TopLevelTargetReadyForSymlinkPlanting.
+      FileSystemUtils.ensureSymbolicLink(
+          getExecRootBase()
+              .getChild(TestConstants.WORKSPACE_NAME)
+              .getRelative("external/bazel_tools"),
+          getOutputBase().getRelative("external/bazel_tools"));
+    }
   }
 
   /**
    * Skips test cases that cannot run with bazel.
    *
-   * <p>{@link BuildIntegrationTestCase} currently does not support CPP compilation on bazel.
+   * <p>{@link BuildIntegrationTestCase} currently does not support include scanning or header
+   * modules on bazel.
    */
-  // TODO(b/195425240): Remove once CPP compilation on bazel is supported. Assumptions that
-  // generated headers are always under k8-opt will need to be relaxed to support other platforms.
   private static void skipIfBazel() {
     assume().that(AnalysisMock.get().isThisBazel()).isFalse();
   }
@@ -172,19 +195,22 @@ public final class RewindingTest extends BuildIntegrationTestCase {
 
   @Test
   public void treeFileArtifactRewound() throws Exception {
-    skipIfBazel();
+    // macOS does not produce nodeps dynamic libraries, which throws off the assertions.
+    assume().that(OS.getCurrent()).isEqualTo(OS.LINUX);
     helper.runTreeFileArtifactRewound_spawnFailed();
   }
 
   @Test
   public void treeArtifactRewound_allFilesLost() throws Exception {
-    skipIfBazel();
+    // macOS does not produce nodeps dynamic libraries, which throws off the assertions.
+    assume().that(OS.getCurrent()).isEqualTo(OS.LINUX);
     helper.runTreeArtifactRewound_allFilesLost_spawnFailed();
   }
 
   @Test
   public void treeArtifactRewound_oneFileLost() throws Exception {
-    skipIfBazel();
+    // macOS does not produce nodeps dynamic libraries, which throws off the assertions.
+    assume().that(OS.getCurrent()).isEqualTo(OS.LINUX);
     helper.runTreeArtifactRewound_oneFileLost_spawnFailed();
   }
 
@@ -221,7 +247,8 @@ public final class RewindingTest extends BuildIntegrationTestCase {
 
   @Test
   public void generatedHeaderRewound_lostInActionExecution() throws Exception {
-    skipIfBazel();
+    // macOS linker does not support --start-lib/--end-lib, which throws off the assertions.
+    assume().that(OS.getCurrent()).isEqualTo(OS.LINUX);
     helper.runGeneratedHeaderRewound_lostInActionExecution_spawnFailed();
   }
 
@@ -233,7 +260,8 @@ public final class RewindingTest extends BuildIntegrationTestCase {
 
   @Test
   public void generatedTransitiveHeaderRewound_lostInActionExecution() throws Exception {
-    skipIfBazel();
+    // macOS linker does not support --start-lib/--end-lib, which throws off the assertionss
+    assume().that(OS.getCurrent()).isEqualTo(OS.LINUX);
     helper.runGeneratedTransitiveHeaderRewound_lostInActionExecution_spawnFailed();
   }
 
