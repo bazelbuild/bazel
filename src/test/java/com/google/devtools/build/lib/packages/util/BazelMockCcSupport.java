@@ -47,7 +47,6 @@ public final class BazelMockCcSupport extends MockCcSupport {
     return "src/test/java/com/google/devtools/build/lib/packages/util/real/"
         + switch (OS.getCurrent()) {
           case LINUX -> "linux";
-          case DARWIN -> "macos";
           default -> throw new IllegalStateException("Unsupported OS: " + OS.getCurrent());
         };
   }
@@ -77,7 +76,7 @@ public final class BazelMockCcSupport extends MockCcSupport {
     config.append(
         TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/cpp/BUILD",
         "alias(name='host_xcodes',actual='@local_config_xcode//:host_xcodes')");
-    if (config.isRealFileSystem()) {
+    if (config.isRealFileSystem() && shouldUseRealFileSystemCrosstool()) {
       config.append(
           TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/cpp/BUILD",
           """
@@ -127,8 +126,8 @@ public final class BazelMockCcSupport extends MockCcSupport {
     PathFragment path = PathFragment.create(runfiles.rlocation("rules_cc/cc/defs.bzl"));
     config.copyDirectory(
         path.getParentDirectory(), "third_party/bazel_rules/rules_cc/cc", MAX_VALUE, true);
+    config.overwrite("third_party/bazel_rules/rules_cc/cc/toolchains/BUILD");
     config.overwrite("third_party/bazel_rules/rules_cc/cc/common/BUILD");
-    config.overwrite("third_party/bazel_rules/rules_cc/cc/toolchain/BUILD");
   }
 
   @Override
@@ -144,6 +143,11 @@ public final class BazelMockCcSupport extends MockCcSupport {
   @Override
   public Predicate<String> labelNameFilter() {
     return BazelMockCcSupport::isNotCcLabel;
+  }
+
+  @Override
+  protected boolean shouldUseRealFileSystemCrosstool() {
+    return OS.getCurrent() == OS.LINUX;
   }
 
   private static ImmutableList<CcToolchainConfig> getToolchainConfigs() {

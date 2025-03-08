@@ -113,7 +113,7 @@ public final class RewindingTest extends BuildIntegrationTestCase {
    * Skips test cases that cannot run with bazel.
    *
    * <p>{@link BuildIntegrationTestCase} currently does not support include scanning or header
-   * modules.
+   * modules on bazel.
    */
   private static void skipIfBazel() {
     assume().that(AnalysisMock.get().isThisBazel()).isFalse();
@@ -195,16 +195,22 @@ public final class RewindingTest extends BuildIntegrationTestCase {
 
   @Test
   public void treeFileArtifactRewound() throws Exception {
+    // macOS does not produce nodeps dynamic libraries, which throws off the assertions.
+    assume().that(OS.getCurrent()).isEqualTo(OS.LINUX);
     helper.runTreeFileArtifactRewound_spawnFailed();
   }
 
   @Test
   public void treeArtifactRewound_allFilesLost() throws Exception {
+    // macOS does not produce nodeps dynamic libraries, which throws off the assertions.
+    assume().that(OS.getCurrent()).isEqualTo(OS.LINUX);
     helper.runTreeArtifactRewound_allFilesLost_spawnFailed();
   }
 
   @Test
   public void treeArtifactRewound_oneFileLost() throws Exception {
+    // macOS does not produce nodeps dynamic libraries, which throws off the assertions.
+    assume().that(OS.getCurrent()).isEqualTo(OS.LINUX);
     helper.runTreeArtifactRewound_oneFileLost_spawnFailed();
   }
 
@@ -254,7 +260,7 @@ public final class RewindingTest extends BuildIntegrationTestCase {
 
   @Test
   public void generatedTransitiveHeaderRewound_lostInActionExecution() throws Exception {
-    // macOS linker does not support --start-lib/--end-lib, which throws off the assertions.
+    // macOS linker does not support --start-lib/--end-lib, which throws off the assertionss
     assume().that(OS.getCurrent()).isEqualTo(OS.LINUX);
     helper.runGeneratedTransitiveHeaderRewound_lostInActionExecution_spawnFailed();
   }

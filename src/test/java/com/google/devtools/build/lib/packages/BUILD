@@ -12,7 +12,6 @@ filegroup(
     srcs = glob(["**"]) + [
         "//src/test/java/com/google/devtools/build/lib/packages/util/mock:srcs",
         "//src/test/java/com/google/devtools/build/lib/packages/util/real/linux:srcs",
-        "//src/test/java/com/google/devtools/build/lib/packages/util/real/macos:srcs",
     ],
     visibility = ["//src:__subpackages__"],
 )
@@ -150,7 +149,6 @@ java_library(
     srcs = glob(["util/*.java"]),
     data = [
         "//src/test/java/com/google/devtools/build/lib/packages/util/real/linux:srcs",
-        "//src/test/java/com/google/devtools/build/lib/packages/util/real/macos:srcs",
     ],
     resources = [
         "//src/test/java/com/google/devtools/build/lib/packages/util/mock:android_cc_toolchain_config.bzl",

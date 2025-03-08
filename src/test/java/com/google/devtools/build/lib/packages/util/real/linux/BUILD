@@ -29,6 +29,7 @@ cc_toolchain(
     toolchain_identifier = "local",
 )
 
+# Trimmed down version of what rules_cc's unix_cc_configure generates.
 cc_toolchain_config(
     name = "cc-compiler-k8-llvm.k8-config",
     abi_libc_version = "local",
@@ -46,6 +47,7 @@ cc_toolchain_config(
     dbg_compile_flags = ["-g"],
     host_system_name = "local",
     link_flags = [
+        # Use gold for --start-lib/--end-lib support.
         "-fuse-ld=gold",
         "-B/usr/bin",
     ],
