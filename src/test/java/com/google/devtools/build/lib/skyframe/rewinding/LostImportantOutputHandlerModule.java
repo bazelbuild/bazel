@@ -38,7 +38,6 @@ import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.errorprone.annotations.ForOverride;
 import java.io.IOException;
 import java.util.Collection;
@@ -109,7 +108,10 @@ public class LostImportantOutputHandlerModule extends BlazeModule {
 
     @Override
     public LostArtifacts processOutputsAndGetLostArtifacts(
-        Iterable<Artifact> outputs, ArtifactExpander expander, ActionInputMap inputMap, SkyFunction.Environment env) {
+        Iterable<Artifact> outputs,
+        ArtifactExpander expander,
+        ActionInputMap inputMap,
+        GeneratingActionGetter getGeneratingAction) {
       return getLostOutputs(outputs, expander, inputMap);
     }
 
