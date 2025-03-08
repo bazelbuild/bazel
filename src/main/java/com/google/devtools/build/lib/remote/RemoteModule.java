@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.actions.ActionInputDepOwnerMap;
 import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ImportantOutputHandler;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
@@ -101,7 +102,6 @@ import com.google.devtools.build.lib.server.FailureDetails.Execution;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution.Code;
-import com.google.devtools.build.lib.skyframe.ActionUtils;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
@@ -113,7 +113,6 @@ import com.google.devtools.build.lib.vfs.OutputPermissions;
 import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingResult;
@@ -141,7 +140,6 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.function.Predicate;
-import java.util.function.Supplier;
 import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 
@@ -164,7 +162,6 @@ public final class RemoteModule extends BlazeModule {
   @Nullable private RemoteOutputChecker remoteOutputChecker;
   @Nullable private RemoteOutputChecker lastRemoteOutputChecker;
   @Nullable private String lastBuildId;
-  @Nullable private Supplier<Boolean> isSkymeld;
 
   private ChannelFactory channelFactory =
       new ChannelFactory() {
@@ -794,8 +791,6 @@ public final class RemoteModule extends BlazeModule {
       downloaderChannel.release();
       env.getDownloaderDelegate().setDelegate(remoteDownloader);
     }
-
-    isSkymeld = env::withMergedAnalysisAndExecutionSourceOfTruth;
   }
 
   private static ReferenceCountedChannel createChannel(
@@ -947,7 +942,6 @@ public final class RemoteModule extends BlazeModule {
     tempPathGenerator = null;
     rpcLogFile = null;
     remoteOutputChecker = null;
-    isSkymeld = null;
   }
 
   private static void afterCommandTask(
@@ -1241,11 +1235,11 @@ public final class RemoteModule extends BlazeModule {
         Iterable<Artifact> outputs,
         ArtifactExpander expander,
         ActionInputMap inputMap,
-        Environment env)
+        GeneratingActionGetter getGeneratingAction)
         throws ImportantOutputException, InterruptedException {
       ImmutableMap<String, ActionInput> knownLostOutputs = ImmutableMap.of();
       try {
-        ensureToplevelArtifacts(env, outputs, inputMap);
+        ensureToplevelArtifacts(outputs, inputMap, getGeneratingAction);
       } catch (IOException e) {
         if (e instanceof BulkTransferException bulkTransferException) {
           knownLostOutputs = bulkTransferException.getLostInputs(inputMap::getInput);
@@ -1287,25 +1281,42 @@ public final class RemoteModule extends BlazeModule {
     }
 
     private void ensureToplevelArtifacts(
-        Environment env, Iterable<Artifact> importantArtifacts, ActionInputMap inputMap)
+        Iterable<Artifact> importantArtifacts,
+        ActionInputMap inputMap,
+        GeneratingActionGetter getGeneratingAction)
         throws IOException, InterruptedException {
       // For skymeld, a non-toplevel target might become a toplevel after it has been executed. This
       // is the last chance to download the missing toplevel outputs in this case before sending out
       // TargetCompleteEvent. See https://github.com/bazelbuild/bazel/issues/20737.
-      if (!isSkymeld.get()) {
+      if (!env.withMergedAnalysisAndExecutionSourceOfTruth()) {
+        return;
+      }
+
+      if (actionInputFetcher == null || remoteOutputChecker == null) {
         return;
       }
 
       var futures = new ArrayList<ListenableFuture<Void>>();
 
       for (var artifact : importantArtifacts) {
-        downloadArtifact(env, remoteOutputChecker, actionInputFetcher, inputMap, artifact, futures);
+        downloadArtifact(
+            remoteOutputChecker,
+            actionInputFetcher,
+            inputMap,
+            getGeneratingAction,
+            artifact,
+            futures);
       }
 
       for (var runfileTree : inputMap.getRunfilesTrees()) {
         for (var artifact : runfileTree.getArtifacts().toList()) {
           downloadArtifact(
-              env, remoteOutputChecker, actionInputFetcher, inputMap, artifact, futures);
+              remoteOutputChecker,
+              actionInputFetcher,
+              inputMap,
+              getGeneratingAction,
+              artifact,
+              futures);
         }
       }
 
@@ -1322,14 +1333,14 @@ public final class RemoteModule extends BlazeModule {
     }
 
     private static void downloadArtifact(
-        Environment env,
         OutputChecker outputChecker,
         ActionInputPrefetcher actionInputPrefetcher,
         ActionInputMap inputMap,
+        GeneratingActionGetter getGeneratingAction,
         Artifact artifact,
         List<ListenableFuture<Void>> futures)
         throws InterruptedException {
-      if (!(artifact instanceof Artifact.DerivedArtifact derivedArtifact)) {
+      if (!(artifact instanceof DerivedArtifact derivedArtifact)) {
         return;
       }
 
@@ -1350,16 +1361,13 @@ public final class RemoteModule extends BlazeModule {
           }
         }
         if (!filesToDownload.isEmpty()) {
-          var action =
-              ActionUtils.getActionForLookupData(env, derivedArtifact.getGeneratingActionKey());
-          var future =
+          futures.add(
               actionInputPrefetcher.prefetchFiles(
-                  action,
+                  getGeneratingAction.of(derivedArtifact),
                   filesToDownload,
                   inputMap,
                   ActionInputPrefetcher.Priority.LOW,
-                  ActionInputPrefetcher.Reason.OUTPUTS);
-          futures.add(future);
+                  ActionInputPrefetcher.Reason.OUTPUTS));
         }
       } else {
         var metadata = inputMap.getInputMetadata(artifact);
@@ -1368,16 +1376,13 @@ public final class RemoteModule extends BlazeModule {
         }
 
         if (outputChecker.shouldDownloadOutput(artifact, metadata)) {
-          var action =
-              ActionUtils.getActionForLookupData(env, derivedArtifact.getGeneratingActionKey());
-          var future =
+          futures.add(
               actionInputPrefetcher.prefetchFiles(
-                  action,
+                  getGeneratingAction.of(derivedArtifact),
                   ImmutableList.of(artifact),
                   inputMap,
                   ActionInputPrefetcher.Priority.LOW,
-                  ActionInputPrefetcher.Reason.OUTPUTS);
-          futures.add(future);
+                  ActionInputPrefetcher.Reason.OUTPUTS));
         }
       }
     }

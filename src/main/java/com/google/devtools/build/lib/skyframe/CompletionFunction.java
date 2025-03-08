@@ -457,7 +457,8 @@ public final class CompletionFunction<
                     : Iterables.filter(importantArtifacts, artifact -> !artifact.isFileset()),
                 ctx,
                 inputMap,
-                env);
+                artifact ->
+                    ActionUtils.getActionForLookupData(env, artifact.getGeneratingActionKey()));
       }
       if (lostOutputs.isEmpty()) {
         return null;

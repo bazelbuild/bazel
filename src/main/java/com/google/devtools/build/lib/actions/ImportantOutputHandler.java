@@ -16,12 +16,12 @@ package com.google.devtools.build.lib.actions;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.DetailedException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.skyframe.SkyFunction;
 import java.time.Duration;
 import java.util.Collection;
 import java.util.Map;
@@ -39,7 +39,7 @@ public interface ImportantOutputHandler extends ActionContext {
    * @param expander used to expand {@linkplain Artifact#isDirectory directory artifacts} in {@code
    *     outputs}
    * @param inputMap provides metadata for artifacts in {@code outputs} and their expansions
-   * @param env Skyframe environment
+   * @param getGeneratingAction returns the generating action for a derived artifact
    * @return any artifacts that need to be regenerated via action rewinding
    * @throws ImportantOutputException for an issue processing the outputs, not including lost
    *     outputs which are reported in the returned {@link LostArtifacts}
@@ -48,7 +48,7 @@ public interface ImportantOutputHandler extends ActionContext {
       Iterable<Artifact> outputs,
       ArtifactExpander expander,
       ActionInputMap inputMap,
-      SkyFunction.Environment env)
+      GeneratingActionGetter getGeneratingAction)
       throws ImportantOutputException, InterruptedException;
 
   /**
@@ -114,6 +114,10 @@ public interface ImportantOutputHandler extends ActionContext {
    * profiling {@link ImportantOutputHandler} operations.
    */
   Duration LOG_THRESHOLD = Duration.ofMillis(100);
+
+  interface GeneratingActionGetter {
+    ActionExecutionMetadata of(DerivedArtifact artifact) throws InterruptedException;
+  }
 
   /**
    * Represents artifacts that need to be regenerated via action rewinding, along with their owners.
