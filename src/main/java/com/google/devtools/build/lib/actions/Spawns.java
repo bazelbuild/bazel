@@ -68,7 +68,7 @@ public final class Spawns {
   }
 
   /**
-   * Returns whether a Spawn must be executed on a separate exec root, for exampke, because it
+   * Returns whether a Spawn must be executed on a separate exec root, for example, because it
    * expects output paths to be rewritten or may not arbitrarily write its outputs.
    */
   public static boolean requiresSandboxing(Spawn spawn) {
