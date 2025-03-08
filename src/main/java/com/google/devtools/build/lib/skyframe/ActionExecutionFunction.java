@@ -62,6 +62,7 @@ import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.LostInputsActionExecutionException;
 import com.google.devtools.build.lib.actions.PackageRootResolver;
 import com.google.devtools.build.lib.actions.RichArtifactData;
+import com.google.devtools.build.lib.actions.RichDataProducingAction;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
@@ -873,6 +874,9 @@ public final class ActionExecutionFunction implements SkyFunction {
       if (action.getOutputs().size() == 1
           && Iterables.getOnlyElement(action.getOutputs()).isFileset()) {
         forwardedRichArtifactData = Iterables.getOnlyElement(state.topLevelFilesets.values());
+      } else if (action instanceof RichDataProducingAction rdpa) {
+        forwardedRichArtifactData =
+            rdpa.reconstructRichDataOnActionCacheHit(state.topLevelFilesets, inputMetadataProvider);
       } else {
         forwardedRichArtifactData = null;
       }

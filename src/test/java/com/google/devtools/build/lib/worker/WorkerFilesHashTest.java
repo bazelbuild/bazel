@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.actions.RunfilesTree;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.exec.util.SpawnBuilder;
+import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.worker.WorkerFilesHash.MissingInputException;
@@ -169,6 +170,12 @@ public final class WorkerFilesHashTest {
           return fileArtifactValue;
         }
         throw new AssertionError("Unexpected value: " + metadataOrException);
+      }
+
+      @Nullable
+      @Override
+      public TreeArtifactValue getTreeMetadata(ActionInput actionInput) {
+        return null;
       }
 
       @Override

@@ -39,36 +39,7 @@ final class ActionInputMapHelper {
       Artifact key,
       SkyValue value,
       MetadataConsumerForMetrics consumer) {
-    if (value instanceof RunfilesArtifactValue runfilesArtifactValue) {
-      // Note: we don't expand the .runfiles/MANIFEST file into the inputs. The reason for that
-      // being that the MANIFEST file contains absolute paths that don't work with remote execution.
-      // Instead, the way the SpawnInputExpander expands runfiles is via the Runfiles class
-      // which contains all artifacts in the runfiles tree minus the MANIFEST file.
-      runfilesArtifactValue.forEachFile(
-          (artifact, metadata) -> {
-            inputMap.put(artifact, metadata, /* depOwner= */ key);
-            consumer.accumulate(metadata);
-          });
-      runfilesArtifactValue.forEachTree(
-          (treeArtifact, metadata) -> {
-            expandTreeArtifactAndPopulateArtifactData(
-                treeArtifact, metadata, treeArtifactConsumer, inputMap, /* depOwner= */ key);
-            consumer.accumulate(metadata);
-          });
-
-      runfilesArtifactValue.forEachFileset(
-          (fileset, filesetOutputTree) -> {
-            filesetsInsideRunfiles.put(fileset, filesetOutputTree);
-            consumer.accumulate(filesetOutputTree);
-          });
-      // This is used for three purposes:
-      // - To collect the RunfilesTree objects which the execution strategies need to expand the
-      //   runfiles trees
-      // - The action cache checker may want the digest of the aggregated runfiles tree
-      // - Input rewinding needs to know the owners of artifacts in the runfiles tree
-      //   (this is definitely necessary for Filesets; dunno how that works for other artifacts)
-      inputMap.putRunfilesMetadata(key, runfilesArtifactValue, /* depOwner= */ key);
-    } else if (value instanceof TreeArtifactValue treeArtifactValue) {
+    if (value instanceof TreeArtifactValue treeArtifactValue) {
       expandTreeArtifactAndPopulateArtifactData(
           key, treeArtifactValue, treeArtifactConsumer, inputMap, /* depOwner= */ key);
       consumer.accumulate(treeArtifactValue);
@@ -85,14 +56,49 @@ final class ActionInputMapHelper {
             treeArtifact, treeArtifactValue, treeArtifactConsumer, inputMap, treeArtifact);
         consumer.accumulate(treeArtifactValue);
       }
-      FileArtifactValue metadata = actionExecutionValue.getExistingFileArtifactValue(key);
-      inputMap.put(key, metadata, key);
       if (key.isFileset()) {
+        FileArtifactValue metadata = actionExecutionValue.getExistingFileArtifactValue(key);
+        inputMap.put(key, metadata, key);
         FilesetOutputTree filesetOutput =
             (FilesetOutputTree) actionExecutionValue.getRichArtifactData();
         topLevelFilesets.put(key, filesetOutput);
         consumer.accumulate(filesetOutput);
+      } else if (key.isRunfilesTree()) {
+        RunfilesArtifactValue runfilesArtifactValue =
+            (RunfilesArtifactValue) actionExecutionValue.getRichArtifactData();
+        // Note: we don't expand the .runfiles/MANIFEST file into the inputs. The reason for that
+        // being that the MANIFEST file contains absolute paths that don't work with remote
+        // execution.
+        // Instead, the way the SpawnInputExpander expands runfiles is via the Runfiles class
+        // which contains all artifacts in the runfiles tree minus the MANIFEST file.
+        runfilesArtifactValue.forEachFile(
+            (artifact, metadata) -> {
+              inputMap.put(artifact, metadata, /* depOwner= */ key);
+              consumer.accumulate(metadata);
+            });
+        runfilesArtifactValue.forEachTree(
+            (treeArtifact, metadata) -> {
+              expandTreeArtifactAndPopulateArtifactData(
+                  treeArtifact, metadata, treeArtifactConsumer, inputMap, /* depOwner= */ key);
+              consumer.accumulate(metadata);
+            });
+
+        runfilesArtifactValue.forEachFileset(
+            (fileset, filesetOutputTree) -> {
+              filesetsInsideRunfiles.put(fileset, filesetOutputTree);
+              consumer.accumulate(filesetOutputTree);
+            });
+        // This is used for three purposes:
+        // - To collect the RunfilesTree objects which the execution strategies need to expand the
+        //   runfiles trees
+        // - The action cache checker may want the digest of the aggregated runfiles tree
+        // - Input rewinding needs to know the owners of artifacts in the runfiles tree
+        //   (this is definitely necessary for Filesets; dunno how that works for other artifacts)
+        inputMap.putRunfilesMetadata(key, runfilesArtifactValue, /* depOwner= */ key);
+
       } else {
+        FileArtifactValue metadata = actionExecutionValue.getExistingFileArtifactValue(key);
+        inputMap.put(key, metadata, key);
         consumer.accumulate(metadata);
       }
     } else if (value instanceof FileArtifactValue fileArtifactValue) {

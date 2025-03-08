@@ -92,15 +92,15 @@ public abstract class ActionExecutionValue implements SkyValue {
     if (richArtifactData != null) {
       checkArgument(
           artifactData.size() == 1,
-          "Fileset actions should have a single output file (the manifest): %s",
+          "actions with rich artifact data should have a single output file (the manifest): %s",
           artifactData);
       checkArgument(
           treeArtifactData.isEmpty(),
-          "Fileset actions do not output tree artifacts: %s",
+          "actions with rich artifact data do not output tree artifacts: %s",
           treeArtifactData);
       checkArgument(
           discoveredModules.isEmpty(),
-          "Fileset actions do not discover modules: %s",
+          "actions with rich artifact data do not discover modules: %s",
           discoveredModules);
       return new WithRichData(artifactData, richArtifactData);
     }
@@ -355,10 +355,7 @@ public abstract class ActionExecutionValue implements SkyValue {
     }
   }
 
-  /**
-   * The result of a {@link
-   * com.google.devtools.build.lib.view.fileset.SkyframeFilesetManifestAction}.
-   */
+  /** The result of an action that produces rich data. */
   private static final class WithRichData extends SingleOutputFile {
     private final RichArtifactData richArtifactData;
 

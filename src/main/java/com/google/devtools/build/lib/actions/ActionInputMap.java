@@ -300,6 +300,13 @@ public final class ActionInputMap implements InputMetadataProvider, ActionInputM
     return entry != null ? entry.getValue() : null;
   }
 
+  @Nullable
+  @Override
+  public TreeArtifactValue getTreeMetadata(ActionInput input) {
+    Preconditions.checkArgument((input instanceof Artifact artifact) && artifact.isTreeArtifact());
+    return getTreeMetadata(input.getExecPath());
+  }
+
   /**
    * Returns the {@link TreeArtifactValue} for the given path, or {@code null} if no such tree
    * artifact exists.

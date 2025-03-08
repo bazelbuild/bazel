@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.actions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import java.io.IOException;
 import javax.annotation.Nullable;
@@ -42,6 +43,9 @@ public interface InputMetadataProvider {
   @Nullable
   FileArtifactValue getInputMetadataChecked(ActionInput input)
       throws IOException, MissingDepExecException;
+
+  @Nullable
+  TreeArtifactValue getTreeMetadata(ActionInput input);
 
   /**
    * Like {@link #getInputMetadata(ActionInput)}, but assumes that no Skyframe restart is needed.

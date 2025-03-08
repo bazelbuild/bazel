@@ -11,16 +11,19 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 package com.google.devtools.build.lib.actions;
 
+import com.google.common.collect.ImmutableMap;
+
 /**
- * Artifact contents more than just a blob of bytes.
+ * An action that emits rich data.
  *
- * <p>Used when one needs to propagate structured information upwards in the dependency graph from
- * an action to those that depend on it. For example, the structure of runfiles trees is represented
- * this way: an action represents the creation of the runfiles tree and its output is the runfiles
- * tree artifact, which has rich artifact data attached which in turn contains the mapping from path
- * in the runfiles tree to the artifact that lives there.
+ * <p>This needs to be a concept because when such an action is an action cache hit, the rich data
+ * is currently not reconstructed from the action cache (it's theoretically possible, it's just that
+ * it's not done). So the action must reconstruct this data itself.
  */
-public interface RichArtifactData {}
+public interface RichDataProducingAction {
+  RichArtifactData reconstructRichDataOnActionCacheHit(
+      ImmutableMap<Artifact, FilesetOutputTree> topLevelFilesets,
+      InputMetadataProvider inputMetadataProvider);
+}

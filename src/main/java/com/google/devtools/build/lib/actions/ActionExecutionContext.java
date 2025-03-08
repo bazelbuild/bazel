@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.util.CommandDescriptionForm;
 import com.google.devtools.build.lib.util.CommandFailureUtils;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -160,6 +161,12 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
     public FileArtifactValue getInputMetadataChecked(ActionInput input)
         throws IOException, MissingDepExecException {
       return wrapped.getInputMetadataChecked(input);
+    }
+
+    @Nullable
+    @Override
+    public TreeArtifactValue getTreeMetadata(ActionInput actionInput) {
+      return wrapped.getTreeMetadata(actionInput);
     }
 
     @Nullable

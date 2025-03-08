@@ -20,14 +20,18 @@ import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.FileArtifactValue.ConstantMetadataValue;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.HashCodes;
-import com.google.devtools.build.skyframe.SkyValue;
 
-/** The artifacts behind a runfiles tree. */
-@AutoCodec
-public final class RunfilesArtifactValue implements SkyValue {
+/**
+ * The artifacts behind a runfiles tree.
+ *
+ * <p>NB: since this class contains a nested set (through {@link RunfilesTree}, {@link
+ * RunfilesTreeAction} needs to be special-cased in {@code
+ * Actions.assignOwnersAndThrowIfConflictMaybeToleratingSharedActions}. The comment in that method
+ * explains why.
+ */
+public final class RunfilesArtifactValue implements RichArtifactData {
 
   /** A callback for consuming artifacts in a runfiles tree. */
   @FunctionalInterface

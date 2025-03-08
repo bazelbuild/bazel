@@ -1819,7 +1819,7 @@ public class RewindingTestsHelper {
         /* actionRewindingPostLostInputCounts= */ ImmutableList.of(lostRunfiles.size()));
 
     if (buildRunfileManifests()) {
-      assertThat(rewoundKeys).hasSize(7);
+      assertThat(rewoundKeys).hasSize(6);
       HashSet<String> expectedRewoundGenrules =
           new HashSet<>(ImmutableList.of("//middle:gen1", "//middle:gen2"));
       int i = 0;
@@ -1845,9 +1845,8 @@ public class RewindingTestsHelper {
       }
 
       assertActionKey(rewoundKeys.get(i++), "//middle:tool", /* index= */ 3);
-      assertArtifactKey(rewoundKeys.get(i), "middle/tool.runfiles");
     } else {
-      assertThat(rewoundKeys).hasSize(5);
+      assertThat(rewoundKeys).hasSize(4);
       HashSet<String> expectedRewoundGenrules =
           new HashSet<>(ImmutableList.of("//middle:gen1", "//middle:gen2"));
       int i = 0;
@@ -1864,7 +1863,6 @@ public class RewindingTestsHelper {
       }
 
       assertActionKey(rewoundKeys.get(i++), "//middle:tool", /* index= */ 1);
-      assertArtifactKey(rewoundKeys.get(i), "middle/tool.runfiles");
     }
   }
 
@@ -1995,7 +1993,7 @@ public class RewindingTestsHelper {
         /* actionRewindingPostLostInputCounts= */ ImmutableList.of(1));
 
     if (buildRunfileManifests()) {
-      assertThat(rewoundKeys).hasSize(6);
+      assertThat(rewoundKeys).hasSize(5);
       int i = 0;
       while (i < 4) {
         assertThat(rewoundKeys.get(i)).isInstanceOf(ActionLookupData.class);
@@ -2022,9 +2020,8 @@ public class RewindingTestsHelper {
       }
 
       assertActionKey(rewoundKeys.get(i++), "//test:tool", /* index= */ 3);
-      assertArtifactKey(rewoundKeys.get(i), "test/tool.runfiles");
     } else {
-      assertThat(rewoundKeys).hasSize(4);
+      assertThat(rewoundKeys).hasSize(3);
       int i = 0;
       while (i < 2) {
         assertThat(rewoundKeys.get(i)).isInstanceOf(ActionLookupData.class);
@@ -2039,7 +2036,6 @@ public class RewindingTestsHelper {
       }
 
       assertActionKey(rewoundKeys.get(i++), "//test:tool", /* index= */ 1);
-      assertArtifactKey(rewoundKeys.get(i), "test/tool.runfiles");
     }
   }
 
@@ -2146,7 +2142,7 @@ public class RewindingTestsHelper {
         /* actionRewindingPostLostInputCounts= */ ImmutableList.of(2));
 
     if (buildRunfileManifests()) {
-      assertThat(rewoundKeys).hasSize(7);
+      assertThat(rewoundKeys).hasSize(6);
       int i = 0;
       while (i < 5) {
         assertThat(rewoundKeys.get(i)).isInstanceOf(ActionLookupData.class);
@@ -2172,9 +2168,8 @@ public class RewindingTestsHelper {
       }
 
       assertActionKey(rewoundKeys.get(i++), "//middle:tool", /* index= */ 3);
-      assertArtifactKey(rewoundKeys.get(i), "middle/tool.runfiles");
     } else {
-      assertThat(rewoundKeys).hasSize(5);
+      assertThat(rewoundKeys).hasSize(4);
       int i = 0;
       while (i < 3) {
         assertThat(rewoundKeys.get(i)).isInstanceOf(ActionLookupData.class);
@@ -2191,7 +2186,6 @@ public class RewindingTestsHelper {
       }
 
       assertActionKey(rewoundKeys.get(i++), "//middle:tool", /* index= */ 1);
-      assertArtifactKey(rewoundKeys.get(i), "middle/tool.runfiles");
     }
   }
 

@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.RunfilesArtifactValue;
 import com.google.devtools.build.lib.actions.RunfilesTree;
+import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -56,6 +57,12 @@ public final class FakeActionInputFileCache implements InputMetadataProvider {
   @Nullable
   public FileArtifactValue getInputMetadataChecked(ActionInput input) throws IOException {
     return inputs.get(input);
+  }
+
+  @Nullable
+  @Override
+  public TreeArtifactValue getTreeMetadata(ActionInput actionInput) {
+    throw new UnsupportedOperationException();
   }
 
   @Override

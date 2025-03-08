@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.actions;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import java.io.IOException;
 import java.util.LinkedHashSet;
 import javax.annotation.Nullable;
@@ -38,6 +39,13 @@ public final class DelegatingPairInputMetadataProvider implements InputMetadataP
     return (metadata != null) && (metadata != FileArtifactValue.MISSING_FILE_MARKER)
         ? metadata
         : secondary.getInputMetadataChecked(input);
+  }
+
+  @Nullable
+  @Override
+  public TreeArtifactValue getTreeMetadata(ActionInput actionInput) {
+    TreeArtifactValue metadata = primary.getTreeMetadata(actionInput);
+    return metadata != null ? metadata : secondary.getTreeMetadata(actionInput);
   }
 
   @Override

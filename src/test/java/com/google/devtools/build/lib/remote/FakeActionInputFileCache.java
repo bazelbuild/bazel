@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.RunfilesArtifactValue;
 import com.google.devtools.build.lib.actions.RunfilesTree;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
+import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -61,6 +62,12 @@ final class FakeActionInputFileCache implements InputMetadataProvider {
     FileStatus stat = path.stat(Symlinks.FOLLOW);
     return FileArtifactValue.createForNormalFile(
         HashCode.fromString(hexDigest).asBytes(), FileContentsProxy.create(stat), stat.getSize());
+  }
+
+  @Nullable
+  @Override
+  public TreeArtifactValue getTreeMetadata(ActionInput actionInput) {
+    throw new UnsupportedOperationException();
   }
 
   @Override

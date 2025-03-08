@@ -910,6 +910,12 @@ public final class ActionsTestUtil {
       throw new UnsupportedOperationException();
     }
 
+    @Nullable
+    @Override
+    public TreeArtifactValue getTreeMetadata(ActionInput actionInput) {
+      throw new UnsupportedOperationException();
+    }
+
     @Override
     @Nullable
     public RunfilesArtifactValue getRunfilesMetadata(ActionInput input) {

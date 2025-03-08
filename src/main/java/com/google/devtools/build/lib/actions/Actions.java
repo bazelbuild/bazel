@@ -224,7 +224,11 @@ public final class Actions {
     int actionIndex = 0;
     for (ActionAnalysisMetadata action : actions) {
       ActionLookupData generatingActionKey =
-          dependsOnBuildId(action)
+          // Runfiles tree actions have the unfortunate property that their RichArtifactData
+          // contains a nested set of Artifacts, which requires Artifact.equals() to work. So we
+          // need an unshareable action lookup data because the shareable version would cause the
+          // deserialized Artifacts to have OMITTED_FOR_SERIALIZATION as their owner.
+          dependsOnBuildId(action) || action instanceof RunfilesTreeAction
               ? ActionLookupData.createUnshareable(actionLookupKey, actionIndex)
               : ActionLookupData.create(actionLookupKey, actionIndex);
       for (Artifact artifact : action.getOutputs()) {

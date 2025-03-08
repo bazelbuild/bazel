@@ -110,6 +110,7 @@ java_library(
         "ParamFileInfo.java",
         "ParameterFile.java",
         "ResourceEstimator.java",
+        "RichDataProducingAction.java",
         "RunfilesTreeAction.java",
         "RunningActionEvent.java",
         "SandboxedSpawnStrategy.java",
@@ -437,10 +438,8 @@ java_library(
         ":fileset_output_tree",
         ":runfiles_tree",
         "//src/main/java/com/google/devtools/build/lib/skyframe:tree_artifact_value",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:hash_codes",
-        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party:guava",
     ],
 )
