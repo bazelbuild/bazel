@@ -25,7 +25,6 @@ import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.base.Throwables;
-import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -72,6 +71,7 @@ import com.google.devtools.build.lib.remote.CombinedCacheClientFactory.CombinedC
 import com.google.devtools.build.lib.remote.LeaseService.LeaseExtension;
 import com.google.devtools.build.lib.remote.RemoteServerCapabilities.ServerCapabilitiesRequirement;
 import com.google.devtools.build.lib.remote.circuitbreaker.CircuitBreakerFactory;
+import com.google.devtools.build.lib.remote.common.BulkTransferException;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.common.RemoteExecutionClient;
 import com.google.devtools.build.lib.remote.disk.DiskCacheClient;
@@ -113,7 +113,7 @@ import com.google.devtools.build.lib.vfs.OutputPermissions;
 import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.skyframe.SkyFunction;
+import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingResult;
@@ -1240,8 +1240,28 @@ public final class RemoteModule extends BlazeModule {
     public LostArtifacts processOutputsAndGetLostArtifacts(
         Iterable<Artifact> outputs,
         ArtifactExpander expander,
-        InputMetadataProvider metadataProvider,
-        ImmutableMap<String, ActionInput> knownLostOutputs) {
+        ActionInputMap inputMap,
+        Environment env)
+        throws ImportantOutputException, InterruptedException {
+      ImmutableMap<String, ActionInput> knownLostOutputs = ImmutableMap.of();
+      try {
+        ensureToplevelArtifacts(env, outputs, inputMap);
+      } catch (IOException e) {
+        if (e instanceof BulkTransferException bulkTransferException) {
+          knownLostOutputs = bulkTransferException.getLostInputs(inputMap::getInput);
+        }
+        if (knownLostOutputs.isEmpty()) {
+          throw new ImportantOutputException(
+              e,
+              FailureDetail.newBuilder()
+                  .setMessage(e.getMessage())
+                  .setRemoteExecution(
+                      RemoteExecution.newBuilder()
+                          .setCode(RemoteExecution.Code.TOPLEVEL_OUTPUTS_DOWNLOAD_FAILURE)
+                          .build())
+                  .build());
+        }
+      }
       return new LostArtifacts(
           knownLostOutputs, new ActionInputDepOwnerMap(knownLostOutputs.values()));
     }
@@ -1267,9 +1287,7 @@ public final class RemoteModule extends BlazeModule {
     }
 
     private void ensureToplevelArtifacts(
-        SkyFunction.Environment env,
-        ImmutableCollection<Artifact> importantArtifacts,
-        ActionInputMap inputMap)
+        Environment env, Iterable<Artifact> importantArtifacts, ActionInputMap inputMap)
         throws IOException, InterruptedException {
       // For skymeld, a non-toplevel target might become a toplevel after it has been executed. This
       // is the last chance to download the missing toplevel outputs in this case before sending out
@@ -1304,7 +1322,7 @@ public final class RemoteModule extends BlazeModule {
     }
 
     private static void downloadArtifact(
-        SkyFunction.Environment env,
+        Environment env,
         OutputChecker outputChecker,
         ActionInputPrefetcher actionInputPrefetcher,
         ActionInputMap inputMap,
