@@ -46,12 +46,14 @@ cc_toolchain_config(
     dbg_compile_flags = ["-g"],
     host_system_name = "local",
     link_flags = [
+        "-fuse-ld=gold",
         "-B/usr/bin",
     ],
     opt_compile_flags = [
         "-g0",
         "-O2",
     ],
+    supports_start_end_lib = True,
     tags = ["manual"],
     target_libc = "local",
     target_system_name = "local",

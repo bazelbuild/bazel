@@ -200,6 +200,12 @@ public class RewindingTestsHelper {
     return new LostImportantOutputHandlerModule(this::toHex);
   }
 
+  /**
+   * Filters out spawn descriptions that only appear in Bazel or Blaze and aren't relevant to the
+   * test.
+   *
+   * <p>Returns a String[] as Object[] to allow the convenient use as a varargs argument.
+   */
   @ForOverride
   Object[] filterExecutedSpawnDescriptions(String... expectedDescriptions) {
     return Arrays.stream(expectedDescriptions)
