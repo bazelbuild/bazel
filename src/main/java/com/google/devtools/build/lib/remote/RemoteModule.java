@@ -25,19 +25,24 @@ import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.base.Throwables;
+import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputDepOwnerMap;
+import com.google.devtools.build.lib.actions.ActionInputMap;
+import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ImportantOutputHandler;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
+import com.google.devtools.build.lib.actions.OutputChecker;
 import com.google.devtools.build.lib.analysis.AnalysisResult;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
@@ -80,6 +85,7 @@ import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
+import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.BlockWaitingModule;
@@ -95,6 +101,7 @@ import com.google.devtools.build.lib.server.FailureDetails.Execution;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution.Code;
+import com.google.devtools.build.lib.skyframe.ActionUtils;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
@@ -106,6 +113,7 @@ import com.google.devtools.build.lib.vfs.OutputPermissions;
 import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingResult;
@@ -120,17 +128,20 @@ import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.channels.ClosedChannelException;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 
@@ -153,6 +164,7 @@ public final class RemoteModule extends BlazeModule {
   @Nullable private RemoteOutputChecker remoteOutputChecker;
   @Nullable private RemoteOutputChecker lastRemoteOutputChecker;
   @Nullable private String lastBuildId;
+  @Nullable private Supplier<Boolean> isSkymeld;
 
   private ChannelFactory channelFactory =
       new ChannelFactory() {
@@ -782,6 +794,8 @@ public final class RemoteModule extends BlazeModule {
       downloaderChannel.release();
       env.getDownloaderDelegate().setDelegate(remoteDownloader);
     }
+
+    isSkymeld = env::withMergedAnalysisAndExecutionSourceOfTruth;
   }
 
   private static ReferenceCountedChannel createChannel(
@@ -933,6 +947,7 @@ public final class RemoteModule extends BlazeModule {
     tempPathGenerator = null;
     rpcLogFile = null;
     remoteOutputChecker = null;
+    isSkymeld = null;
   }
 
   private static void afterCommandTask(
@@ -1220,7 +1235,7 @@ public final class RemoteModule extends BlazeModule {
     return remoteDownloader;
   }
 
-  private static final class RemoteImportantOutputHandler implements ImportantOutputHandler {
+  private final class RemoteImportantOutputHandler implements ImportantOutputHandler {
     @Override
     public LostArtifacts processOutputsAndGetLostArtifacts(
         Iterable<Artifact> outputs,
@@ -1249,6 +1264,104 @@ public final class RemoteModule extends BlazeModule {
     @Override
     public void processWorkspaceStatusOutputs(Path stableOutput, Path volatileOutput) {
       // Workspace status outputs are considered cheap and can be regenerated locally.
+    }
+
+    private void ensureToplevelArtifacts(
+        SkyFunction.Environment env,
+        ImmutableCollection<Artifact> importantArtifacts,
+        ActionInputMap inputMap)
+        throws IOException, InterruptedException {
+      // For skymeld, a non-toplevel target might become a toplevel after it has been executed. This
+      // is the last chance to download the missing toplevel outputs in this case before sending out
+      // TargetCompleteEvent. See https://github.com/bazelbuild/bazel/issues/20737.
+      if (!isSkymeld.get()) {
+        return;
+      }
+
+      var futures = new ArrayList<ListenableFuture<Void>>();
+
+      for (var artifact : importantArtifacts) {
+        downloadArtifact(env, remoteOutputChecker, actionInputFetcher, inputMap, artifact, futures);
+      }
+
+      for (var runfileTree : inputMap.getRunfilesTrees()) {
+        for (var artifact : runfileTree.getArtifacts().toList()) {
+          downloadArtifact(
+              env, remoteOutputChecker, actionInputFetcher, inputMap, artifact, futures);
+        }
+      }
+
+      // TODO: Only wait for failed futures to complete as long as they can all be explained by
+      // lost outputs.
+      try {
+        var unused = Utils.mergeBulkTransfer(futures).get();
+      } catch (ExecutionException e) {
+        Throwables.throwIfInstanceOf(e.getCause(), IOException.class);
+        Throwables.throwIfInstanceOf(e.getCause(), InterruptedException.class);
+        Throwables.throwIfUnchecked(e.getCause());
+        throw new IllegalStateException(e.getCause());
+      }
+    }
+
+    private static void downloadArtifact(
+        SkyFunction.Environment env,
+        OutputChecker outputChecker,
+        ActionInputPrefetcher actionInputPrefetcher,
+        ActionInputMap inputMap,
+        Artifact artifact,
+        List<ListenableFuture<Void>> futures)
+        throws InterruptedException {
+      if (!(artifact instanceof Artifact.DerivedArtifact derivedArtifact)) {
+        return;
+      }
+
+      // Metadata can be null during error bubbling, only download outputs that are already
+      // generated. b/342188273
+      if (artifact.isTreeArtifact()) {
+        var treeMetadata = inputMap.getTreeMetadata(artifact.getExecPath());
+        if (treeMetadata == null) {
+          return;
+        }
+
+        var filesToDownload = new ArrayList<ActionInput>(treeMetadata.getChildValues().size());
+        for (var child : treeMetadata.getChildValues().entrySet()) {
+          var treeFile = child.getKey();
+          var metadata = child.getValue();
+          if (outputChecker.shouldDownloadOutput(treeFile, metadata)) {
+            filesToDownload.add(treeFile);
+          }
+        }
+        if (!filesToDownload.isEmpty()) {
+          var action =
+              ActionUtils.getActionForLookupData(env, derivedArtifact.getGeneratingActionKey());
+          var future =
+              actionInputPrefetcher.prefetchFiles(
+                  action,
+                  filesToDownload,
+                  inputMap,
+                  ActionInputPrefetcher.Priority.LOW,
+                  ActionInputPrefetcher.Reason.OUTPUTS);
+          futures.add(future);
+        }
+      } else {
+        var metadata = inputMap.getInputMetadata(artifact);
+        if (metadata == null) {
+          return;
+        }
+
+        if (outputChecker.shouldDownloadOutput(artifact, metadata)) {
+          var action =
+              ActionUtils.getActionForLookupData(env, derivedArtifact.getGeneratingActionKey());
+          var future =
+              actionInputPrefetcher.prefetchFiles(
+                  action,
+                  ImmutableList.of(artifact),
+                  inputMap,
+                  ActionInputPrefetcher.Priority.LOW,
+                  ActionInputPrefetcher.Reason.OUTPUTS);
+          futures.add(future);
+        }
+      }
     }
   }
 }
