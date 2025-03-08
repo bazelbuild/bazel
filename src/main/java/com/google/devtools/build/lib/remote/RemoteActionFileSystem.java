@@ -26,8 +26,11 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.ActionInputDepOwnerMap;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher.Priority;
@@ -38,7 +41,10 @@ import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileStatusWithMetadata;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
+import com.google.devtools.build.lib.actions.LostInputsActionExecutionException;
+import com.google.devtools.build.lib.actions.LostInputsExecException;
 import com.google.devtools.build.lib.clock.Clock;
+import com.google.devtools.build.lib.remote.common.BulkTransferException;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.vfs.AbstractFileSystem;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -60,8 +66,11 @@ import java.io.OutputStream;
 import java.nio.channels.SeekableByteChannel;
 import java.time.Instant;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
 import javax.annotation.Nullable;
@@ -109,6 +118,10 @@ public class RemoteActionFileSystem extends AbstractFileSystem
   private final RemoteActionInputFetcher inputFetcher;
   private final FileSystem localFs;
   private final RemoteInMemoryFileSystem remoteOutputTree;
+  // Concurrent access is rare and most builds don't have lost inputs, so use a map implementation
+  // with a very low footprint.
+  private final Map<String, ActionInput> lostInputs =
+      Collections.synchronizedMap(new LinkedHashMap<>(0));
 
   @Nullable private ActionExecutionMetadata action = null;
 
@@ -369,7 +382,16 @@ public class RemoteActionFileSystem extends AbstractFileSystem
 
   @Override
   protected InputStream getInputStream(PathFragment path) throws IOException {
-    downloadFileIfRemote(path);
+    try {
+      downloadFileIfRemote(path);
+    } catch (BulkTransferException e) {
+      ImmutableMap<String, ActionInput> newlyLostInputs =
+          e.getLostInputs(inputArtifactData::getInput);
+      if (!newlyLostInputs.isEmpty()) {
+        lostInputs.putAll(newlyLostInputs);
+      }
+      throw e;
+    }
     // TODO(tjgq): Consider only falling back to the local filesystem for source (non-output) files.
     // See getMetadata() for why this isn't currently possible.
     return localFs.getPath(path).getInputStream();
@@ -919,6 +941,18 @@ public class RemoteActionFileSystem extends AbstractFileSystem
   protected void createHardLink(PathFragment linkPath, PathFragment originalPath)
       throws IOException {
     localFs.getPath(linkPath).createHardLink(getPath(originalPath));
+  }
+
+  public void checkForLostInputs(Action action) throws LostInputsActionExecutionException {
+    if (lostInputs.isEmpty()) {
+      return;
+    }
+    var builtLostInputs = ImmutableMap.copyOf(lostInputs);
+    throw (LostInputsActionExecutionException)
+        ActionExecutionException.fromExecException(
+            new LostInputsExecException(
+                builtLostInputs, new ActionInputDepOwnerMap(builtLostInputs.values())),
+            action);
   }
 
   static class RemoteInMemoryFileSystem extends InMemoryFileSystem {
