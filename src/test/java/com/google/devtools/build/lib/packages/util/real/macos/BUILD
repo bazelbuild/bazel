@@ -52,7 +52,6 @@ cc_toolchain_config(
         "-g0",
         "-O2",
     ],
-    supports_start_end_lib = True,
     tags = ["manual"],
     target_libc = "macosx",
     target_system_name = "local",

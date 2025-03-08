@@ -81,6 +81,7 @@ import com.google.devtools.build.lib.testutil.SpawnController.SpawnShim;
 import com.google.devtools.build.lib.testutil.SpawnInputUtils;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestUtils;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.NodeEntry.DirtyType;
@@ -1569,13 +1570,13 @@ public class RewindingTestsHelper {
             "Compiling tree/make_cc_dir.cc/file1.cc",
             "Compiling tree/make_cc_dir.cc/file2.cc",
             "Compiling tree/source_2.cc",
-            "Linking tree/libconsumes_tree.so",
+            getConsumesTreeSharedLibrarySpawnDescription(),
             "Linking tree/libconsumes_tree.a");
 
     recorder.assertEvents(
         /* runOnce= */ ImmutableList.of(
             "Compiling tree/make_cc_dir.cc/file2.cc",
-            "Linking tree/libconsumes_tree.so",
+            getConsumesTreeSharedLibrarySpawnDescription(),
             "Linking tree/libconsumes_tree.a"),
         /* completedRewound= */ ImmutableList.of("Action tree/make_cc_dir.cc"),
         /* failedRewound= */ ImmutableList.of("Compiling tree/make_cc_dir.cc/file1.cc"),
@@ -1663,7 +1664,7 @@ public class RewindingTestsHelper {
       ImmutableList<String> lostTreeFileArtifactNames, SpawnShim shim) throws Exception {
     setUpTreeArtifactPackage(testCase);
 
-    addSpawnShim("Linking tree/libconsumes_tree.so", shim);
+    addSpawnShim(getConsumesTreeSharedLibrarySpawnDescription(), shim);
 
     if (!supportsConcurrentRewinding()) {
       testCase.addOptions("--jobs=1");
@@ -1678,10 +1679,10 @@ public class RewindingTestsHelper {
             "Compiling tree/make_cc_dir.cc/file1.cc",
             "Compiling tree/make_cc_dir.cc/file2.cc",
             "Compiling tree/source_2.cc",
-            "Linking tree/libconsumes_tree.so",
+            getConsumesTreeSharedLibrarySpawnDescription(),
             "Compiling tree/make_cc_dir.cc/file1.cc",
             "Compiling tree/make_cc_dir.cc/file2.cc",
-            "Linking tree/libconsumes_tree.so",
+            getConsumesTreeSharedLibrarySpawnDescription(),
             "Linking tree/libconsumes_tree.a");
 
     recorder.assertEvents(
@@ -1689,7 +1690,7 @@ public class RewindingTestsHelper {
             "Action tree/make_cc_dir.cc", "Linking tree/libconsumes_tree.a"),
         /* completedRewound= */ ImmutableList.of(
             "Compiling tree/make_cc_dir.cc/file1.cc", "Compiling tree/make_cc_dir.cc/file2.cc"),
-        /* failedRewound= */ ImmutableList.of("Linking tree/libconsumes_tree.so"),
+        /* failedRewound= */ ImmutableList.of(getConsumesTreeSharedLibrarySpawnDescription()),
         /* actionRewindingPostLostInputCounts= */ ImmutableList.of(
             lostTreeFileArtifactNames.size()));
 
@@ -1703,6 +1704,15 @@ public class RewindingTestsHelper {
           .isTrue();
     }
     assertArtifactKey(rewoundKeys.get(2), "tree/_pic_objs/consumes_tree/make_cc_dir");
+  }
+
+  private static String getConsumesTreeSharedLibrarySpawnDescription() {
+    return "Linking tree/libconsumes_tree."
+        + switch (OS.getCurrent()) {
+          case LINUX -> "so";
+          case DARWIN -> "dylib";
+          default -> throw new AssertionError("Unsupported OS: " + OS.getCurrent());
+        };
   }
 
   public final void runGeneratedRunfilesRewound_allFilesLost_spawnFailed() throws Exception {
