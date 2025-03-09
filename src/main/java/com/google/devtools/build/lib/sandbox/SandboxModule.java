@@ -321,6 +321,7 @@ public final class SandboxModule extends BlazeModule {
                     pathToDocker,
                     sandboxBase,
                     defaultImage,
+                    options.containerRuntime,
                     useCustomizedImages,
                     treeDeleter));
         spawnRunners.add(spawnRunner);
