@@ -18,14 +18,18 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSetMultimap;
+import com.google.common.collect.Multimaps;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ImportantOutputHandler.LostArtifacts;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
@@ -88,6 +92,17 @@ public class BulkTransferException extends IOException {
       return LostArtifacts.EMPTY;
     }
 
+    var runfilesOwners =
+        Multimaps.<ActionInput, SpecialArtifact>newSetMultimap(
+            new HashMap<>(), () -> HashSet.newHashSet(metadataProvider.getRunfilesTrees().size()));
+    for (var runfilesTree : metadataProvider.getRunfilesTrees()) {
+      var runfilesTreeArtifact =
+          (SpecialArtifact) metadataProvider.getInput(runfilesTree.getExecPath().getPathString());
+      for (var runfilesArtifact : runfilesTree.getArtifacts().toList()) {
+        runfilesOwners.put(runfilesArtifact, runfilesTreeArtifact);
+      }
+    }
+
     ImmutableMap.Builder<String, ActionInput> byDigest = ImmutableMap.builder();
     ImmutableSetMultimap.Builder<ActionInput, Artifact> owners = ImmutableSetMultimap.builder();
     for (var suppressed : getSuppressed()) {
@@ -98,9 +113,12 @@ public class BulkTransferException extends IOException {
       var actionInput = metadataProvider.getInput(execPath.getPathString());
       checkNotNull(
           actionInput, "ActionInput not found for filename %s in CacheNotFoundException", execPath);
-      if (actionInput instanceof TreeFileArtifact treeFile) {
-        owners.put(treeFile, treeFile.getParent());
+      if (actionInput instanceof TreeFileArtifact treeFileArtifact) {
+        var treeArtifact = treeFileArtifact.getParent();
+        owners.put(treeFileArtifact, treeArtifact);
+        owners.putAll(treeArtifact, runfilesOwners.get(treeArtifact));
       }
+      owners.putAll(actionInput, runfilesOwners.get(actionInput));
       byDigest.put(DigestUtil.toString(missingDigest), actionInput);
     }
     return new LostArtifacts(byDigest.build(), owners.build()::get);
