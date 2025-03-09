@@ -24,7 +24,6 @@ import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
-import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ArtifactExpander.MissingExpansionException;
@@ -110,7 +109,7 @@ public class LostImportantOutputHandlerModule extends BlazeModule {
     public LostArtifacts processOutputsAndGetLostArtifacts(
         Iterable<Artifact> outputs,
         ArtifactExpander expander,
-        ActionInputMap inputMap,
+        InputMetadataProvider inputMap,
         GeneratingActionGetter getGeneratingAction) {
       return getLostOutputs(outputs, expander, inputMap);
     }

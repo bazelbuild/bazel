@@ -35,13 +35,14 @@ import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputDepOwnerMap;
-import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.ArtifactExpander;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.ImportantOutputHandler;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
+import com.google.devtools.build.lib.actions.MissingDepExecException;
 import com.google.devtools.build.lib.actions.OutputChecker;
 import com.google.devtools.build.lib.analysis.AnalysisResult;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
@@ -1234,15 +1235,15 @@ public final class RemoteModule extends BlazeModule {
     public LostArtifacts processOutputsAndGetLostArtifacts(
         Iterable<Artifact> outputs,
         ArtifactExpander expander,
-        ActionInputMap inputMap,
+        InputMetadataProvider metadataProvider,
         GeneratingActionGetter getGeneratingAction)
         throws ImportantOutputException, InterruptedException {
       ImmutableMap<String, ActionInput> knownLostOutputs = ImmutableMap.of();
       try {
-        ensureToplevelArtifacts(outputs, inputMap, getGeneratingAction);
+        ensureToplevelArtifacts(outputs, expander, metadataProvider, getGeneratingAction);
       } catch (IOException e) {
         if (e instanceof BulkTransferException bulkTransferException) {
-          knownLostOutputs = bulkTransferException.getLostInputs(inputMap::getInput);
+          knownLostOutputs = bulkTransferException.getLostInputs(metadataProvider::getInput);
         }
         if (knownLostOutputs.isEmpty()) {
           throw new ImportantOutputException(
@@ -1282,7 +1283,8 @@ public final class RemoteModule extends BlazeModule {
 
     private void ensureToplevelArtifacts(
         Iterable<Artifact> importantArtifacts,
-        ActionInputMap inputMap,
+        ArtifactExpander expander,
+        InputMetadataProvider metadataProvider,
         GeneratingActionGetter getGeneratingAction)
         throws IOException, InterruptedException {
       // For skymeld, a non-toplevel target might become a toplevel after it has been executed. This
@@ -1302,18 +1304,20 @@ public final class RemoteModule extends BlazeModule {
         downloadArtifact(
             remoteOutputChecker,
             actionInputFetcher,
-            inputMap,
+            expander,
+            metadataProvider,
             getGeneratingAction,
             artifact,
             futures);
       }
 
-      for (var runfileTree : inputMap.getRunfilesTrees()) {
+      for (var runfileTree : metadataProvider.getRunfilesTrees()) {
         for (var artifact : runfileTree.getArtifacts().toList()) {
           downloadArtifact(
               remoteOutputChecker,
               actionInputFetcher,
-              inputMap,
+              expander,
+              metadataProvider,
               getGeneratingAction,
               artifact,
               futures);
@@ -1335,11 +1339,12 @@ public final class RemoteModule extends BlazeModule {
     private static void downloadArtifact(
         OutputChecker outputChecker,
         ActionInputPrefetcher actionInputPrefetcher,
-        ActionInputMap inputMap,
+        ArtifactExpander expander,
+        InputMetadataProvider metadataProvider,
         GeneratingActionGetter getGeneratingAction,
         Artifact artifact,
         List<ListenableFuture<Void>> futures)
-        throws InterruptedException {
+        throws IOException, InterruptedException {
       if (!(artifact instanceof DerivedArtifact derivedArtifact)) {
         return;
       }
@@ -1347,15 +1352,20 @@ public final class RemoteModule extends BlazeModule {
       // Metadata can be null during error bubbling, only download outputs that are already
       // generated. b/342188273
       if (artifact.isTreeArtifact()) {
-        var treeMetadata = inputMap.getTreeMetadata(artifact.getExecPath());
-        if (treeMetadata == null) {
-          return;
-        }
+        var treeFiles = expander.tryExpandTreeArtifact(artifact);
 
-        var filesToDownload = new ArrayList<ActionInput>(treeMetadata.getChildValues().size());
-        for (var child : treeMetadata.getChildValues().entrySet()) {
-          var treeFile = child.getKey();
-          var metadata = child.getValue();
+        var filesToDownload = new ArrayList<ActionInput>(treeFiles.size());
+        for (var treeFile : treeFiles) {
+          FileArtifactValue metadata;
+          try {
+            metadata = metadataProvider.getInputMetadataChecked(treeFile);
+            if (metadata == null) {
+              continue;
+            }
+          } catch (MissingDepExecException e) {
+            // No expected implementation throws this exception.
+            throw new IllegalStateException(e);
+          }
           if (outputChecker.shouldDownloadOutput(treeFile, metadata)) {
             filesToDownload.add(treeFile);
           }
@@ -1365,14 +1375,20 @@ public final class RemoteModule extends BlazeModule {
               actionInputPrefetcher.prefetchFiles(
                   getGeneratingAction.of(derivedArtifact),
                   filesToDownload,
-                  inputMap,
+                  metadataProvider,
                   ActionInputPrefetcher.Priority.LOW,
                   ActionInputPrefetcher.Reason.OUTPUTS));
         }
       } else {
-        var metadata = inputMap.getInputMetadata(artifact);
-        if (metadata == null) {
-          return;
+        FileArtifactValue metadata;
+        try {
+          metadata = metadataProvider.getInputMetadataChecked(artifact);
+          if (metadata == null) {
+            return;
+          }
+        } catch (MissingDepExecException e) {
+          // No expected implementation throws this exception.
+          throw new IllegalStateException(e);
         }
 
         if (outputChecker.shouldDownloadOutput(artifact, metadata)) {
@@ -1380,7 +1396,7 @@ public final class RemoteModule extends BlazeModule {
               actionInputPrefetcher.prefetchFiles(
                   getGeneratingAction.of(derivedArtifact),
                   ImmutableList.of(artifact),
-                  inputMap,
+                  metadataProvider,
                   ActionInputPrefetcher.Priority.LOW,
                   ActionInputPrefetcher.Reason.OUTPUTS));
         }

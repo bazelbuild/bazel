@@ -47,7 +47,7 @@ public interface ImportantOutputHandler extends ActionContext {
   LostArtifacts processOutputsAndGetLostArtifacts(
       Iterable<Artifact> outputs,
       ArtifactExpander expander,
-      ActionInputMap inputMap,
+      InputMetadataProvider inputMap,
       GeneratingActionGetter getGeneratingAction)
       throws ImportantOutputException, InterruptedException;
 
