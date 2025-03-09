@@ -109,9 +109,9 @@ public class LostImportantOutputHandlerModule extends BlazeModule {
     public LostArtifacts processOutputsAndGetLostArtifacts(
         Iterable<Artifact> outputs,
         ArtifactExpander expander,
-        InputMetadataProvider inputMap,
+        InputMetadataProvider metadataProvider,
         GeneratingActionGetter getGeneratingAction) {
-      return getLostOutputs(outputs, expander, inputMap);
+      return getLostOutputs(outputs, expander, metadataProvider);
     }
 
     @Override

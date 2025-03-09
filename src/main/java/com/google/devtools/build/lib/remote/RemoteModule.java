@@ -1268,7 +1268,8 @@ public final class RemoteModule extends BlazeModule {
         ArtifactExpander expander,
         InputMetadataProvider metadataProvider,
         String inputManifestExtension) {
-      throw new UnsupportedOperationException("TODO: Rewind lost runfiles.");
+      throw new UnsupportedOperationException(
+          "Unused in Bazel, runfiles are processed in processOutputsAndGetLostArtifacts");
     }
 
     @Override
@@ -1278,7 +1279,6 @@ public final class RemoteModule extends BlazeModule {
 
     @Override
     public void processWorkspaceStatusOutputs(Path stableOutput, Path volatileOutput) {
-      // Workspace status outputs are considered cheap and can be regenerated locally.
     }
 
     private void ensureToplevelArtifacts(
