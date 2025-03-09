@@ -35,7 +35,9 @@ import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.BlockWaitingModule;
 import com.google.devtools.build.lib.runtime.BuildSummaryStatsModule;
 import com.google.devtools.build.lib.standalone.StandaloneModule;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -732,6 +734,120 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
     // Assert: all outputs were downloaded
     assertValidOutputFile("a/bar.out", "file-inside\nbar" + lineSeparator());
     assertValidOutputFile("a/foo.out/file-inside", "hello world");
+  }
+
+  @Test
+  public void remoteCacheEvictBlobs_whenRunfilesRequested_succeedsWithActionRewinding()
+      throws Exception {
+    // Arrange: Prepare workspace and populate remote cache
+    write("BUILD");
+    writeOutputDirRule();
+    write(
+        "native_binary.bzl",
+        """
+        def _native_binary_impl(ctx):
+            runfiles = ctx.runfiles(
+                transitive_files = depset(
+                    transitive = [target[DefaultInfo].files for target in ctx.attr.data],
+                ),
+            )
+            runfiles = runfiles.merge_all(
+                [target[DefaultInfo].default_runfiles for target in ctx.attr.data],
+            )
+            executable = ctx.actions.declare_file(ctx.label.name)
+            ctx.actions.symlink(
+                output = executable,
+                target_file = ctx.file.executable,
+            )
+            return [
+                DefaultInfo(
+                    executable = executable,
+                    runfiles = runfiles,
+                ),
+            ]
+
+        native_binary = rule(
+            implementation = _native_binary_impl,
+            attrs = {
+                "executable": attr.label(allow_single_file = True),
+                "data": attr.label_list(),
+            },
+            executable = True,
+        )
+        """);
+    write(
+        "a/BUILD",
+        """
+        load("//:native_binary.bzl", "native_binary")
+        load("//:output_dir.bzl", "output_dir")
+
+        output_dir(
+            name = "foo.out",
+            content_map = {"file-inside": "hello world"},
+        )
+
+        genrule(
+            name = "bar",
+            srcs = [
+                "foo.out",
+                "bar.in",
+            ],
+            outs = ["bar.out"],
+            cmd = "( ls $(location :foo.out); cat $(location :bar.in) ) > $@",
+        )
+
+        native_binary(
+            name = "bin",
+            executable = "bin.sh",
+            data = [
+                ":foo.out",
+                ":bar",
+            ],
+        )
+        """);
+    write("a/bar.in", "bar");
+    write("a/bin.sh");
+
+    // Populate remote cache
+    buildTarget("//a:bin");
+    getOutputPath("a/foo.out").deleteTreesBelow();
+    getOutputPath("a/bar.out").delete();
+    getOutputBase().getRelative("action_cache").deleteTreesBelow();
+    restartServer();
+
+    // Clean build, runfiles aren't downloaded
+    buildTarget("//a:bin");
+    assertThat(getOutputPath("a/bin.runfiles").isDirectory()).isTrue();
+    Path packageRunfilesPath =
+        getOutputPath("a/bin.runfiles/%s/a".formatted(TestConstants.WORKSPACE_NAME));
+    assertThat(packageRunfilesPath.readdir(Symlinks.NOFOLLOW))
+        .containsExactly(
+            new Dirent("bin", Dirent.Type.SYMLINK),
+            new Dirent("foo.out", Dirent.Type.SYMLINK),
+            new Dirent("bar.out", Dirent.Type.SYMLINK));
+    assertThat(packageRunfilesPath.readdir(Symlinks.FOLLOW))
+        .containsExactly(
+            new Dirent("bin", Dirent.Type.FILE),
+            new Dirent("foo.out", Dirent.Type.DIRECTORY),
+            new Dirent("bar.out", Dirent.Type.UNKNOWN));
+    assertThat(packageRunfilesPath.getChild("foo.out").readdir(Symlinks.FOLLOW)).isEmpty();
+
+    // Act: Do an incremental build without "clean" or "shutdown" after clearing the cache and
+    // switching to download toplevel
+    evictAllBlobs();
+    setDownloadToplevel();
+    enableActionRewinding();
+    buildTarget("//a:bin");
+
+    // Assert: all outputs were downloaded
+    assertThat(packageRunfilesPath.readdir(Symlinks.FOLLOW))
+        .containsExactly(
+            new Dirent("bin", Dirent.Type.FILE),
+            new Dirent("foo.out", Dirent.Type.DIRECTORY),
+            new Dirent("bar.out", Dirent.Type.FILE));
+    assertOutputEquals(
+        packageRunfilesPath.getChild("bar.out"), "file-inside\nbar" + lineSeparator());
+    assertOutputEquals(packageRunfilesPath.getRelative("foo.out/file-inside"), "hello world");
   }
 
   @Test
