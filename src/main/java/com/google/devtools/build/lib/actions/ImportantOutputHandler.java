@@ -38,7 +38,7 @@ public interface ImportantOutputHandler extends ActionContext {
    * @param outputs top-level outputs
    * @param expander used to expand {@linkplain Artifact#isDirectory directory artifacts} in {@code
    *     outputs}
-   * @param inputMap provides metadata for artifacts in {@code outputs} and their expansions
+   * @param metadataProvider provides metadata for artifacts in {@code outputs} and their expansions
    * @param getGeneratingAction returns the generating action for a derived artifact
    * @return any artifacts that need to be regenerated via action rewinding
    * @throws ImportantOutputException for an issue processing the outputs, not including lost
@@ -47,7 +47,7 @@ public interface ImportantOutputHandler extends ActionContext {
   LostArtifacts processOutputsAndGetLostArtifacts(
       Iterable<Artifact> outputs,
       ArtifactExpander expander,
-      InputMetadataProvider inputMap,
+      InputMetadataProvider metadataProvider,
       GeneratingActionGetter getGeneratingAction)
       throws ImportantOutputException, InterruptedException;
 
@@ -115,7 +115,16 @@ public interface ImportantOutputHandler extends ActionContext {
    */
   Duration LOG_THRESHOLD = Duration.ofMillis(100);
 
+  /**
+   * A function that returns the {@link ActionExecutionMetadata} of the action that generates a
+   * given {@link DerivedArtifact}.
+   */
+  @FunctionalInterface
   interface GeneratingActionGetter {
+    /**
+     * Returns the {@link ActionExecutionMetadata} of the action that generates the given {@link
+     * DerivedArtifact}.
+     */
     ActionExecutionMetadata of(DerivedArtifact artifact) throws InterruptedException;
   }
 
