@@ -62,6 +62,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Predicate;
 import javax.annotation.Nullable;
 
 /**
@@ -80,6 +81,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
   protected final RemoteOutputChecker remoteOutputChecker;
 
   private final ActionOutputDirectoryHelper outputDirectoryHelper;
+  private Predicate<ActionExecutionMetadata> wasRewound = action -> false;
 
   /** The state of a directory tracked by {@link DirectoryTracker}, as explained below. */
   enum DirectoryState {
@@ -402,7 +404,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
               reason);
 
       if (symlink != null) {
-        result = result.andThen(plantSymlink(symlink));
+        result = result.andThen(plantSymlink(action, symlink));
       }
 
       return toListenableFuture(result);
@@ -580,7 +582,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
                           alreadyDeleted.set(true);
                         }));
 
-    return downloadCache.executeIfNot(
+    return downloadCache.execute(
         finalPath,
         Completable.defer(
             () -> {
@@ -588,7 +590,8 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
                 return download;
               }
               return Completable.complete();
-            }));
+            }),
+        /* force= */ wasRewound.test(action));
   }
 
   private void finalizeDownload(
@@ -622,6 +625,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     // for artifacts produced by local actions.
     tmpPath.chmod(outputPermissions.getPermissionsMode());
     tmpPath.renameTo(finalPath);
+    System.err.println("Downloaded to " + finalPath);
 
     // Set the contents proxy when supported, to make future modification checks cheaper.
     metadata.setContentsProxy(FileContentsProxy.create(finalPath.stat()));
@@ -660,8 +664,8 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     }
   }
 
-  private Completable plantSymlink(Symlink symlink) {
-    return downloadCache.executeIfNot(
+  private Completable plantSymlink(ActionExecutionMetadata action, Symlink symlink) {
+    return downloadCache.execute(
         execRoot.getRelative(symlink.linkExecPath()),
         Completable.defer(
             () -> {
@@ -672,7 +676,8 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
               link.delete();
               link.createSymbolicLink(target);
               return Completable.complete();
-            }));
+            }),
+        /* force= */ wasRewound.test(action));
   }
 
   public ImmutableSet<Path> downloadedFiles() {
@@ -749,5 +754,9 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
 
   public RemoteOutputChecker getRemoteOutputChecker() {
     return remoteOutputChecker;
+  }
+
+  public void setWasRewoundPredicate(Predicate<ActionExecutionMetadata> wasRewound) {
+    this.wasRewound = wasRewound;
   }
 }

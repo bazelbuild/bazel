@@ -146,7 +146,6 @@ final class RemoteSpawnCache implements SpawnCache {
             Stopwatch fetchTime = Stopwatch.createStarted();
             InMemoryOutput inMemoryOutput;
             try (SilentCloseable c = prof.profile(REMOTE_DOWNLOAD, "download outputs")) {
-              System.err.println("RemoteSpawnCache.lookup: download outputs " + result);
               inMemoryOutput = remoteExecutionService.downloadOutputs(action, result);
             }
             fetchTime.stop();
