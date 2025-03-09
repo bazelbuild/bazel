@@ -302,7 +302,7 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
                     Reason.INPUTS),
             BulkTransferException.class,
             (BulkTransferException e) -> {
-              e.getLostArtifacts(actionExecutionContext.getInputMetadataProvider()::getInput)
+              e.getLostArtifacts(actionExecutionContext.getInputMetadataProvider())
                   .throwIfNotEmpty();
               throw new EnvironmentalExecException(
                   e,

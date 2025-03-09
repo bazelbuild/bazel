@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.remote;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
 import static com.google.devtools.build.lib.remote.util.Utils.waitForBulkTransfer;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
@@ -36,12 +37,15 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
+import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
+import com.google.devtools.build.lib.actions.StaticInputMetadataProvider;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -72,7 +76,6 @@ import com.google.devtools.common.options.Options;
 import com.google.protobuf.ByteString;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.nio.charset.StandardCharsets;
 import java.util.Deque;
 import java.util.Map;
 import java.util.SortedMap;
@@ -228,7 +231,7 @@ public class CombinedCacheTest {
     final ConcurrentMap<Digest, byte[]> cas = new ConcurrentHashMap<>();
 
     Digest helloDigest = digestUtil.computeAsUtf8("hello-contents");
-    cas.put(helloDigest, "hello-contents".getBytes(StandardCharsets.UTF_8));
+    cas.put(helloDigest, "hello-contents".getBytes(UTF_8));
 
     Path file = fs.getPath("/execroot/symlink-to-file");
     RemoteOptions options = Options.getDefaults(RemoteOptions.class);
@@ -351,6 +354,12 @@ public class CombinedCacheTest {
     FileSystemUtils.writeContentAsLatin1(path, "bar");
     SortedMap<PathFragment, Path> inputs = new TreeMap<>();
     inputs.put(PathFragment.create("foo"), path);
+    ActionInput actionInput = ActionInputHelper.fromPath("foo");
+    var metadataProvider =
+        new StaticInputMetadataProvider(
+            ImmutableMap.of(
+                actionInput,
+                FileArtifactValue.createForNormalFileUsingPath(path, 3, SyscallCache.NO_CACHE)));
     MerkleTree merkleTree = MerkleTree.build(inputs, digestUtil);
     path.delete();
 
@@ -364,10 +373,8 @@ public class CombinedCacheTest {
                     ImmutableMap.of(),
                     false,
                     new RemotePathResolver.DefaultRemotePathResolver(execRoot)));
-    assertThat(e.getLostArtifacts(ActionInputHelper::fromPath).byDigest())
-        .containsExactly(
-            DigestUtil.toString(digestUtil.computeAsUtf8("bar")),
-            ActionInputHelper.fromPath("foo"));
+    assertThat(e.getLostArtifacts(metadataProvider).byDigest())
+        .containsExactly(DigestUtil.toString(digestUtil.computeAsUtf8("bar")), actionInput);
   }
 
   @Test
