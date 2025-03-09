@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.actions.InputFileErrorException;
 import com.google.devtools.build.lib.actions.TopLevelOutputException;
 import com.google.devtools.build.lib.analysis.ConfiguredObjectValue;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.ArtifactsInOutputGroup;
@@ -464,6 +465,22 @@ public final class CompletionFunction<
         return null;
       }
 
+      Iterable<Artifact> artifactsRelevantForRewinding = importantArtifacts;
+      if (lostOutputs.byDigest().values().stream()
+          .flatMap(lostOutput -> lostOutputs.owners().getDepOwners(lostOutput).stream())
+          .anyMatch(Artifact::isRunfilesTree)) {
+        // Runfiles are not considered important outputs, but can arise as dep keys to which lost
+        // outputs are attributed in Bazel (but not Blaze).
+        artifactsRelevantForRewinding =
+            Iterables.concat(
+                artifactsRelevantForRewinding,
+                artifactsToBuild
+                    .getAllArtifactsByOutputGroup()
+                    .get(OutputGroupInfo.HIDDEN_TOP_LEVEL)
+                    .getArtifacts()
+                    .toSet());
+      }
+
       // Filter out lost outputs from the set of built artifacts so that they are not reported. If
       // rewinding is successful, we'll report them later on.
       for (ActionInput lostOutput : lostOutputs.byDigest().values()) {
@@ -473,7 +490,7 @@ public final class CompletionFunction<
 
       return actionRewindStrategy.prepareRewindPlanForLostTopLevelOutputs(
           key,
-          ImmutableSet.copyOf(Artifact.keys(importantArtifacts)),
+          ImmutableSet.copyOf(Artifact.keys(artifactsRelevantForRewinding)),
           lostOutputs.byDigest(),
           lostOutputs.owners(),
           env);
