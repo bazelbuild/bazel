@@ -582,6 +582,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
                           alreadyDeleted.set(true);
                         }));
 
+    System.err.println("Deferring download of " + path + " " + wasRewound.test(action) + " " + action.prettyPrint());
     return downloadCache.execute(
         finalPath,
         Completable.defer(

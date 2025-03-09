@@ -1098,7 +1098,7 @@ public final class SkyframeActionExecutor {
               // action, although some actions perform additional work, while others intentionally
               // keep previous outputs in place.
               System.err.println(
-                  "Deleting outputs of " + action + (wasRewound(action) ? " (rewound)" : ""));
+                  "Deleting outputs of " + action.prettyPrint() + " " + wasRewound(action));
               action.prepare(
                   actionExecutionContext.getExecRoot(),
                   actionExecutionContext.getPathResolver(),
