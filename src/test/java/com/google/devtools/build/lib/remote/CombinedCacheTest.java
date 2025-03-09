@@ -364,7 +364,7 @@ public class CombinedCacheTest {
                     ImmutableMap.of(),
                     false,
                     new RemotePathResolver.DefaultRemotePathResolver(execRoot)));
-    assertThat(e.getLostInputs(ActionInputHelper::fromPath))
+    assertThat(e.getLostArtifacts(ActionInputHelper::fromPath).byDigest())
         .containsExactly(
             DigestUtil.toString(digestUtil.computeAsUtf8("bar")),
             ActionInputHelper.fromPath("foo"));

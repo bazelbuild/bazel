@@ -26,7 +26,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -34,7 +33,6 @@ import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.ActionInputDepOwnerMap;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
@@ -1238,27 +1236,26 @@ public final class RemoteModule extends BlazeModule {
         InputMetadataProvider metadataProvider,
         GeneratingActionGetter getGeneratingAction)
         throws ImportantOutputException, InterruptedException {
-      ImmutableMap<String, ActionInput> knownLostOutputs = ImmutableMap.of();
       try {
         ensureToplevelArtifacts(outputs, expander, metadataProvider, getGeneratingAction);
       } catch (IOException e) {
         if (e instanceof BulkTransferException bulkTransferException) {
-          knownLostOutputs = bulkTransferException.getLostInputs(metadataProvider::getInput);
+          var lostArtifacts = bulkTransferException.getLostArtifacts(metadataProvider::getInput);
+          if (!lostArtifacts.isEmpty()) {
+            return lostArtifacts;
+          }
         }
-        if (knownLostOutputs.isEmpty()) {
-          throw new ImportantOutputException(
-              e,
-              FailureDetail.newBuilder()
-                  .setMessage(e.getMessage())
-                  .setRemoteExecution(
-                      RemoteExecution.newBuilder()
-                          .setCode(RemoteExecution.Code.TOPLEVEL_OUTPUTS_DOWNLOAD_FAILURE)
-                          .build())
-                  .build());
-        }
+        throw new ImportantOutputException(
+            e,
+            FailureDetail.newBuilder()
+                .setMessage(e.getMessage())
+                .setRemoteExecution(
+                    RemoteExecution.newBuilder()
+                        .setCode(RemoteExecution.Code.TOPLEVEL_OUTPUTS_DOWNLOAD_FAILURE)
+                        .build())
+                .build());
       }
-      return new LostArtifacts(
-          knownLostOutputs, new ActionInputDepOwnerMap(knownLostOutputs.values()));
+      return LostArtifacts.EMPTY;
     }
 
     @Override
