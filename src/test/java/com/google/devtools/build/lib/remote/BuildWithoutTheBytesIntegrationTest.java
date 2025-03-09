@@ -683,6 +683,58 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
   }
 
   @Test
+  public void remoteCacheEvictBlobs_whenTopLevelRequested_succeedsWithActionRewinding()
+      throws Exception {
+    // Arrange: Prepare workspace and populate remote cache
+    write("BUILD");
+    writeOutputDirRule();
+    write(
+        "a/BUILD",
+        """
+        load("//:output_dir.bzl", "output_dir")
+
+        output_dir(
+            name = "foo.out",
+            content_map = {"file-inside": "hello world"},
+        )
+
+        genrule(
+            name = "bar",
+            srcs = [
+                "foo.out",
+                "bar.in",
+            ],
+            outs = ["bar.out"],
+            cmd = "( ls $(location :foo.out); cat $(location :bar.in) ) > $@",
+        )
+        """);
+    write("a/bar.in", "bar");
+
+    // Populate remote cache
+    buildTarget("//a:bar", "//a:foo.out");
+    getOutputPath("a/foo.out").deleteTreesBelow();
+    getOutputPath("a/bar.out").delete();
+    getOutputBase().getRelative("action_cache").deleteTreesBelow();
+    restartServer();
+
+    // Clean build, bar.out and foo.out aren't downloaded
+    buildTarget("//a:bar", "//a:foo.out");
+    assertOutputDoesNotExist("a/bar.out");
+    assertOutputDoesNotExist("a/foo.out/file-inside");
+
+    // Act: Do an incremental build without "clean" or "shutdown" after clearing the cache and
+    // switching to download toplevel
+    evictAllBlobs();
+    setDownloadToplevel();
+    enableActionRewinding();
+    buildTarget("//a:bar", "//a:foo.out");
+
+    // Assert: all outputs were downloaded
+    assertValidOutputFile("a/bar.out", "file-inside\nbar" + lineSeparator());
+    assertValidOutputFile("a/foo.out/file-inside", "hello world");
+  }
+
+  @Test
   public void leaseExtension() throws Exception {
     // Test that Bazel will extend the leases for remote output by sending FindMissingBlobs calls
     // periodically to remote server. The test assumes remote server will set mtime of referenced
