@@ -22,12 +22,12 @@ import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ImportantOutputHandler.LostArtifacts;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
@@ -83,7 +83,7 @@ public class BulkTransferException extends IOException {
    * Returns a {@link LostArtifacts} instance that is non-empty if and only if all suppressed
    * exceptions are caused by cache misses.
    */
-  public LostArtifacts getLostArtifacts(Function<String, ActionInput> actionInputResolver) {
+  public LostArtifacts getLostArtifacts(InputMetadataProvider metadataProvider) {
     if (!allCausedByCacheNotFoundException(this)) {
       return LostArtifacts.EMPTY;
     }
@@ -95,7 +95,7 @@ public class BulkTransferException extends IOException {
       var missingDigest = e.getMissingDigest();
       var execPath = e.getExecPath();
       checkNotNull(execPath, "exec path not known for action input with digest %s", missingDigest);
-      var actionInput = actionInputResolver.apply(execPath.getPathString());
+      var actionInput = metadataProvider.getInput(execPath.getPathString());
       checkNotNull(
           actionInput, "ActionInput not found for filename %s in CacheNotFoundException", execPath);
       if (actionInput instanceof TreeFileArtifact treeFile) {
