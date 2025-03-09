@@ -28,10 +28,20 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
+import com.google.devtools.build.lib.actions.ArtifactExpander;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.ImportantOutputHandler;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
+import com.google.devtools.build.lib.actions.MissingDepExecException;
+import com.google.devtools.build.lib.actions.OutputChecker;
 import com.google.devtools.build.lib.analysis.AnalysisResult;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
@@ -61,6 +71,7 @@ import com.google.devtools.build.lib.remote.CombinedCacheClientFactory.CombinedC
 import com.google.devtools.build.lib.remote.LeaseService.LeaseExtension;
 import com.google.devtools.build.lib.remote.RemoteServerCapabilities.ServerCapabilitiesRequirement;
 import com.google.devtools.build.lib.remote.circuitbreaker.CircuitBreakerFactory;
+import com.google.devtools.build.lib.remote.common.BulkTransferException;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.common.RemoteExecutionClient;
 import com.google.devtools.build.lib.remote.disk.DiskCacheClient;
@@ -74,6 +85,7 @@ import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
+import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.BlockWaitingModule;
@@ -99,6 +111,7 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.OutputPermissions;
 import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingResult;
@@ -113,9 +126,13 @@ import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.channels.ClosedChannelException;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -979,6 +996,7 @@ public final class RemoteModule extends BlazeModule {
       return;
     }
     actionContextProvider.registerSpawnCache(registryBuilder);
+    registryBuilder.register(ImportantOutputHandler.class, new RemoteImportantOutputHandler());
   }
 
   private TempPathGenerator getTempPathGenerator(CommandEnvironment env)
@@ -1208,5 +1226,178 @@ public final class RemoteModule extends BlazeModule {
   @VisibleForTesting
   Downloader getRemoteDownloader() {
     return remoteDownloader;
+  }
+
+  private final class RemoteImportantOutputHandler implements ImportantOutputHandler {
+    @Override
+    public LostArtifacts processOutputsAndGetLostArtifacts(
+        Iterable<Artifact> outputs,
+        ArtifactExpander expander,
+        InputMetadataProvider metadataProvider,
+        GeneratingActionGetter getGeneratingAction)
+        throws ImportantOutputException, InterruptedException {
+      try {
+        ensureToplevelArtifacts(outputs, expander, metadataProvider, getGeneratingAction);
+      } catch (IOException e) {
+        if (e instanceof BulkTransferException bulkTransferException) {
+          var lostArtifacts = bulkTransferException.getLostArtifacts(metadataProvider);
+          if (!lostArtifacts.isEmpty()) {
+            return lostArtifacts;
+          }
+        }
+        throw new ImportantOutputException(
+            e,
+            FailureDetail.newBuilder()
+                .setMessage(e.getMessage())
+                .setRemoteExecution(
+                    RemoteExecution.newBuilder()
+                        .setCode(RemoteExecution.Code.TOPLEVEL_OUTPUTS_DOWNLOAD_FAILURE)
+                        .build())
+                .build());
+      }
+      return LostArtifacts.EMPTY;
+    }
+
+    @Override
+    public LostArtifacts processRunfilesAndGetLostArtifacts(
+        PathFragment runfilesDir,
+        Map<PathFragment, Artifact> runfiles,
+        ArtifactExpander expander,
+        InputMetadataProvider metadataProvider,
+        String inputManifestExtension) {
+      throw new UnsupportedOperationException("TODO: Rewind lost runfiles.");
+    }
+
+    @Override
+    public void processTestOutputs(Collection<Path> testOutputs) {
+      // TODO: Either ensure that test outputs are never lost or implement a way to rewind them.
+    }
+
+    @Override
+    public void processWorkspaceStatusOutputs(Path stableOutput, Path volatileOutput) {
+      // Workspace status outputs are considered cheap and can be regenerated locally.
+    }
+
+    private void ensureToplevelArtifacts(
+        Iterable<Artifact> importantArtifacts,
+        ArtifactExpander expander,
+        InputMetadataProvider metadataProvider,
+        GeneratingActionGetter getGeneratingAction)
+        throws IOException, InterruptedException {
+      // For skymeld, a non-toplevel target might become a toplevel after it has been executed. This
+      // is the last chance to download the missing toplevel outputs in this case before sending out
+      // TargetCompleteEvent. See https://github.com/bazelbuild/bazel/issues/20737.
+      if (!env.withMergedAnalysisAndExecutionSourceOfTruth()) {
+        return;
+      }
+
+      if (actionInputFetcher == null || remoteOutputChecker == null) {
+        return;
+      }
+
+      var futures = new ArrayList<ListenableFuture<Void>>();
+
+      for (var artifact : importantArtifacts) {
+        downloadArtifact(
+            remoteOutputChecker,
+            actionInputFetcher,
+            expander,
+            metadataProvider,
+            getGeneratingAction,
+            artifact,
+            futures);
+      }
+
+      for (var runfileTree : metadataProvider.getRunfilesTrees()) {
+        for (var artifact : runfileTree.getArtifacts().toList()) {
+          downloadArtifact(
+              remoteOutputChecker,
+              actionInputFetcher,
+              expander,
+              metadataProvider,
+              getGeneratingAction,
+              artifact,
+              futures);
+        }
+      }
+
+      // TODO: Only wait for failed futures to complete as long as they can all be explained by
+      // lost outputs.
+      try {
+        var unused = Utils.mergeBulkTransfer(futures).get();
+      } catch (ExecutionException e) {
+        Throwables.throwIfInstanceOf(e.getCause(), IOException.class);
+        Throwables.throwIfInstanceOf(e.getCause(), InterruptedException.class);
+        Throwables.throwIfUnchecked(e.getCause());
+        throw new IllegalStateException(e.getCause());
+      }
+    }
+
+    private static void downloadArtifact(
+        OutputChecker outputChecker,
+        ActionInputPrefetcher actionInputPrefetcher,
+        ArtifactExpander expander,
+        InputMetadataProvider metadataProvider,
+        GeneratingActionGetter getGeneratingAction,
+        Artifact artifact,
+        List<ListenableFuture<Void>> futures)
+        throws IOException, InterruptedException {
+      if (!(artifact instanceof DerivedArtifact derivedArtifact)) {
+        return;
+      }
+
+      // Metadata can be null during error bubbling, only download outputs that are already
+      // generated. b/342188273
+      if (artifact.isTreeArtifact()) {
+        var treeFiles = expander.tryExpandTreeArtifact(artifact);
+
+        var filesToDownload = new ArrayList<ActionInput>(treeFiles.size());
+        for (var treeFile : treeFiles) {
+          FileArtifactValue metadata;
+          try {
+            metadata = metadataProvider.getInputMetadataChecked(treeFile);
+            if (metadata == null) {
+              continue;
+            }
+          } catch (MissingDepExecException e) {
+            // No expected implementation throws this exception.
+            throw new IllegalStateException(e);
+          }
+          if (outputChecker.shouldDownloadOutput(treeFile, metadata)) {
+            filesToDownload.add(treeFile);
+          }
+        }
+        if (!filesToDownload.isEmpty()) {
+          futures.add(
+              actionInputPrefetcher.prefetchFiles(
+                  getGeneratingAction.of(derivedArtifact),
+                  filesToDownload,
+                  metadataProvider,
+                  ActionInputPrefetcher.Priority.LOW,
+                  ActionInputPrefetcher.Reason.OUTPUTS));
+        }
+      } else {
+        FileArtifactValue metadata;
+        try {
+          metadata = metadataProvider.getInputMetadataChecked(artifact);
+          if (metadata == null) {
+            return;
+          }
+        } catch (MissingDepExecException e) {
+          // No expected implementation throws this exception.
+          throw new IllegalStateException(e);
+        }
+
+        if (outputChecker.shouldDownloadOutput(artifact, metadata)) {
+          futures.add(
+              actionInputPrefetcher.prefetchFiles(
+                  getGeneratingAction.of(derivedArtifact),
+                  ImmutableList.of(artifact),
+                  metadataProvider,
+                  ActionInputPrefetcher.Priority.LOW,
+                  ActionInputPrefetcher.Reason.OUTPUTS));
+        }
+      }
+    }
   }
 }
