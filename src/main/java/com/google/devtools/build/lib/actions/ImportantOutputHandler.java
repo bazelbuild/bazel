@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.actions;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSetMultimap;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.DetailedException;
@@ -133,6 +134,10 @@ public interface ImportantOutputHandler extends ActionContext {
    */
   record LostArtifacts(ImmutableMap<String, ActionInput> byDigest, ActionInputDepOwners owners) {
 
+    /** An empty instance of {@link LostArtifacts}. */
+    public static final LostArtifacts EMPTY =
+        new LostArtifacts(ImmutableMap.of(), ImmutableSetMultimap.<ActionInput, Artifact>of()::get);
+
     public LostArtifacts(ImmutableMap<String, ActionInput> byDigest, ActionInputDepOwners owners) {
       this.byDigest = checkNotNull(byDigest);
       this.owners = checkNotNull(owners);
@@ -140,6 +145,15 @@ public interface ImportantOutputHandler extends ActionContext {
 
     public boolean isEmpty() {
       return byDigest.isEmpty();
+    }
+
+    /**
+     * @throws LostInputsExecException if this instance is not empty
+     */
+    public void throwIfNotEmpty() throws LostInputsExecException {
+      if (!isEmpty()) {
+        throw new LostInputsExecException(byDigest, owners);
+      }
     }
   }
 

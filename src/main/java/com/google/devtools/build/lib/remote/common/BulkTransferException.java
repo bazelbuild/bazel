@@ -17,7 +17,11 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSetMultimap;
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
+import com.google.devtools.build.lib.actions.ImportantOutputHandler.LostArtifacts;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import java.io.IOException;
 import java.util.Arrays;
@@ -76,19 +80,16 @@ public class BulkTransferException extends IOException {
   }
 
   /**
-   * Returns a map whose keys are the textual representation of a digest, and whose values are the
-   * corresponding action inputs
-   *
-   * <p>Use {@code Function<String, ActionInput>} to avoid the heavy dependency on {@code
-   * InputMetadataProvider}, whose getInput method provides the argument to this method.
+   * Returns a {@link LostArtifacts} instance that is non-empty if and only if all suppressed
+   * exceptions are caused by cache misses.
    */
-  public ImmutableMap<String, ActionInput> getLostInputs(
-      Function<String, ActionInput> actionInputResolver) {
+  public LostArtifacts getLostArtifacts(Function<String, ActionInput> actionInputResolver) {
     if (!allCausedByCacheNotFoundException(this)) {
-      return ImmutableMap.of();
+      return LostArtifacts.EMPTY;
     }
 
-    ImmutableMap.Builder<String, ActionInput> lostInputs = ImmutableMap.builder();
+    ImmutableMap.Builder<String, ActionInput> byDigest = ImmutableMap.builder();
+    ImmutableSetMultimap.Builder<ActionInput, Artifact> owners = ImmutableSetMultimap.builder();
     for (var suppressed : getSuppressed()) {
       CacheNotFoundException e = (CacheNotFoundException) suppressed;
       var missingDigest = e.getMissingDigest();
@@ -97,10 +98,12 @@ public class BulkTransferException extends IOException {
       var actionInput = actionInputResolver.apply(execPath.getPathString());
       checkNotNull(
           actionInput, "ActionInput not found for filename %s in CacheNotFoundException", execPath);
-
-      lostInputs.put(DigestUtil.toString(missingDigest), actionInput);
+      if (actionInput instanceof TreeFileArtifact treeFile) {
+        owners.put(treeFile, treeFile.getParent());
+      }
+      byDigest.put(DigestUtil.toString(missingDigest), actionInput);
     }
-    return lostInputs.buildKeepingLast();
+    return new LostArtifacts(byDigest.build(), owners.build()::get);
   }
 
   @Override
