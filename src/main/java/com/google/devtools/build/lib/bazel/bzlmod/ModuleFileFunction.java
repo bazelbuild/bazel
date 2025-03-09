@@ -231,7 +231,7 @@ public class ModuleFileFunction implements SkyFunction {
           module.getVersion());
     }
 
-    return new NonRootModuleFileValue(
+    return NonRootModuleFileValue.create(
         module,
         RegistryFileDownloadEvent.collectToMap(
             getModuleFileResult.downloadEventHandler.getPosts()));
@@ -493,7 +493,7 @@ public class ModuleFileFunction implements SkyFunction {
                 includeLabelToCompiledModuleFile.keySet().stream()
                     .map(label -> Label.parseCanonicalUnchecked(label).toPathFragment()))
             .collect(toImmutableSet());
-    return new RootModuleFileValue(
+    return RootModuleFileValue.create(
         module, overrides, nonRegistryOverrideCanonicalRepoNameLookup, moduleFilePaths);
   }
 

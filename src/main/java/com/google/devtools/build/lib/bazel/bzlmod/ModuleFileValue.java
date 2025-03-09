@@ -15,6 +15,7 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
+import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
@@ -46,31 +47,50 @@ public interface ModuleFileValue extends SkyValue {
   ImmutableMap<String, Optional<Checksum>> registryFileHashes();
 
   /** The {@link ModuleFileValue} for non-root modules. */
-  @AutoCodec
-  record NonRootModuleFileValue(
-      InterimModule module, ImmutableMap<String, Optional<Checksum>> registryFileHashes)
-      implements ModuleFileValue {}
+  @AutoValue
+  abstract class NonRootModuleFileValue implements ModuleFileValue {
+    public static NonRootModuleFileValue create(
+        InterimModule module, ImmutableMap<String, Optional<Checksum>> registryFileHashes) {
+      return new AutoValue_ModuleFileValue_NonRootModuleFileValue(module, registryFileHashes);
+    }
+  }
 
   /**
    * The {@link ModuleFileValue} for the root module, containing additional information about
    * overrides.
-   *
-   * @param overrides The overrides specified by the evaluated module file. The key is the module
-   *     name and the value is the override itself.
-   * @param nonRegistryOverrideCanonicalRepoNameLookup A mapping from a canonical repo name to the
-   *     name of the module. Only works for modules with non-registry overrides.
-   * @param moduleFilePaths The set of relative paths to the root MODULE.bazel file itself and all
-   *     its transitive includes.
    */
-  @AutoCodec
-  record RootModuleFileValue(
-      InterimModule module,
-      ImmutableMap<String, ModuleOverride> overrides,
-      ImmutableMap<RepositoryName, String> nonRegistryOverrideCanonicalRepoNameLookup,
-      ImmutableSet<PathFragment> moduleFilePaths)
-      implements ModuleFileValue {
+  @AutoValue
+  abstract class RootModuleFileValue implements ModuleFileValue {
+    /**
+     * The overrides specified by the evaluated module file. The key is the module name and the
+     * value is the override itself.
+     */
+    public abstract ImmutableMap<String, ModuleOverride> overrides();
+
+    /**
+     * A mapping from a canonical repo name to the name of the module. Only works for modules with
+     * non-registry overrides.
+     */
+    public abstract ImmutableMap<RepositoryName, String>
+        nonRegistryOverrideCanonicalRepoNameLookup();
+
+    /**
+     * The set of relative paths to the root MODULE.bazel file itself and all its transitive
+     * includes.
+     */
+    public abstract ImmutableSet<PathFragment> moduleFilePaths();
+
+    public static RootModuleFileValue create(
+        InterimModule module,
+        ImmutableMap<String, ModuleOverride> overrides,
+        ImmutableMap<RepositoryName, String> nonRegistryOverrideCanonicalRepoNameLookup,
+        ImmutableSet<PathFragment> moduleFilePaths) {
+      return new AutoValue_ModuleFileValue_RootModuleFileValue(
+          module, overrides, nonRegistryOverrideCanonicalRepoNameLookup, moduleFilePaths);
+    }
+
     @Override
-    public ImmutableMap<String, Optional<Checksum>> registryFileHashes() {
+    public final ImmutableMap<String, Optional<Checksum>> registryFileHashes() {
       // The root module is not obtained from a registry.
       return ImmutableMap.of();
     }
@@ -82,12 +102,15 @@ public interface ModuleFileValue extends SkyValue {
 
   /** {@link SkyKey} for {@link ModuleFileValue} computation. */
   @AutoCodec
-  record Key(ModuleKey moduleKey) implements SkyKey {
+  @AutoValue
+  abstract class Key implements SkyKey {
+    abstract ModuleKey moduleKey();
+
     private static final SkyKeyInterner<Key> interner = SkyKey.newInterner();
 
     @AutoCodec.Instantiator
     static Key create(ModuleKey moduleKey) {
-      return interner.intern(new Key(moduleKey));
+      return interner.intern(new AutoValue_ModuleFileValue_Key(moduleKey));
     }
 
     @Override
