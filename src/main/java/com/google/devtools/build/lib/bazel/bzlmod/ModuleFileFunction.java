@@ -157,13 +157,18 @@ public class ModuleFileFunction implements SkyFunction {
       return null;
     }
 
-    ModuleFileValue.Key moduleFileKey = (ModuleFileValue.Key) skyKey;
-    ModuleKey moduleKey = moduleFileKey.getModuleKey();
+    RootModuleFileValue rootModuleFileValue =
+        (RootModuleFileValue) env.getValue(ModuleFileValue.KEY_FOR_ROOT_MODULE);
+    if (rootModuleFileValue == null) {
+      return null;
+    }
+
+    ModuleKey moduleKey = ((ModuleFileValue.Key) skyKey).moduleKey();
     GetModuleFileResult getModuleFileResult;
     try (SilentCloseable c =
         Profiler.instance().profile(ProfilerTask.BZLMOD, () -> "fetch module file: " + moduleKey)) {
       getModuleFileResult =
-          getModuleFile(moduleKey, moduleFileKey.getOverride(), starlarkSemantics, env);
+          getModuleFile(moduleKey, rootModuleFileValue.overrides().get(moduleKey.getName()), starlarkSemantics, env);
     }
     if (getModuleFileResult == null) {
       return null;

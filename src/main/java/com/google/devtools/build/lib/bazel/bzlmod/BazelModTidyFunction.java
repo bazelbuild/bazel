@@ -102,6 +102,6 @@ public class BazelModTidyFunction implements SkyFunction {
     }
 
     return BazelModTidyValue.create(
-        fixups.build(), buildozer.asPath(), rootModuleFileValue.getModuleFilePaths());
+        fixups.build(), buildozer.asPath(), rootModuleFileValue.moduleFilePaths());
   }
 }
