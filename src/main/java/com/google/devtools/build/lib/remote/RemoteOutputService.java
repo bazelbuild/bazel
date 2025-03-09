@@ -50,7 +50,6 @@ import java.io.IOException;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Predicate;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
@@ -264,13 +263,6 @@ public class RemoteOutputService implements OutputService {
     Cancellable task = cancellableTasks.remove(action);
     if (task != null) {
       task.cancel();
-    }
-  }
-
-  @Override
-  public void setWasRewoundPredicate(Predicate<ActionExecutionMetadata> wasRewound) {
-    if (actionInputFetcher != null) {
-      actionInputFetcher.setWasRewoundPredicate(wasRewound);
     }
   }
 }

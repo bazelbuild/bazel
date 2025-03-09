@@ -36,7 +36,6 @@ import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import java.io.IOException;
 import java.util.Map;
 import java.util.UUID;
-import java.util.function.Predicate;
 import javax.annotation.Nullable;
 
 /**
@@ -286,9 +285,4 @@ public interface OutputService {
    * #registerCancellableTask}.
    */
   default void cancelTasks(ActionExecutionMetadata action) throws InterruptedException {}
-
-  /**
-   * @param wasRewound a predicate that returns true if the given action was rewound
-   */
-  default void setWasRewoundPredicate(Predicate<ActionExecutionMetadata> wasRewound) {}
 }
