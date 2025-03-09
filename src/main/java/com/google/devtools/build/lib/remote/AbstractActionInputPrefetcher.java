@@ -57,6 +57,7 @@ import io.reactivex.rxjava3.core.Completable;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -581,7 +582,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
                         }));
 
     System.err.println("Deferring download of " + path + " " + action.prettyPrint());
-    return downloadCache.executeIfNot(
+    return downloadCache.execute(
         finalPath,
         Completable.defer(
             () -> {
@@ -589,7 +590,8 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
                 return download;
               }
               return Completable.complete();
-            }));
+            }),
+        /* force= */ true);
   }
 
   private void finalizeDownload(
@@ -662,7 +664,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
   }
 
   private Completable plantSymlink(Symlink symlink) {
-    return downloadCache.executeIfNot(
+    return downloadCache.execute(
         execRoot.getRelative(symlink.linkExecPath()),
         Completable.defer(
             () -> {
@@ -673,7 +675,8 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
               link.delete();
               link.createSymbolicLink(target);
               return Completable.complete();
-            }));
+            }),
+        /* force= */ true);
   }
 
   public ImmutableSet<Path> downloadedFiles() {
@@ -751,4 +754,6 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
   public RemoteOutputChecker getRemoteOutputChecker() {
     return remoteOutputChecker;
   }
+
+  public void cancelAndClearCaches(Collection<Artifact> outputs) {}
 }

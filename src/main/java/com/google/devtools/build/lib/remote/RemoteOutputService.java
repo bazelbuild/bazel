@@ -247,7 +247,7 @@ public class RemoteOutputService implements OutputService {
   @Override
   public void registerCancellableTask(ActionExecutionMetadata action, Cancellable task) {
     // We don't expect to have multiple cancellable tasks for the same action, so we avoid the
-    // overhead of a multi-valued map.
+    // overhead of a multivalued map.
     cancellableTasks.merge(
         action,
         task,
@@ -264,5 +264,6 @@ public class RemoteOutputService implements OutputService {
     if (task != null) {
       task.cancel();
     }
+    actionInputFetcher.cancelAndClearCaches(action.getOutputs());
   }
 }
