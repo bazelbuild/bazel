@@ -135,7 +135,12 @@ def add_origin(ctx, git_repo, remote):
 
 def fetch(ctx, git_repo):
     args = ["fetch", "origin", git_repo.fetch_ref]
+    if ctx.attr.sparse_checkout_patterns:
+        args.append("--filter=blob:none")
     st = _git_maybe_shallow(ctx, git_repo, *args)
+    if ctx.attr.sparse_checkout_patterns:
+        _git_sparse_checkout(ctx, git_repo, ctx.attr.sparse_checkout_patterns)
+
     if st.return_code == 0:
         return
     if ctx.attr.commit:
@@ -194,6 +199,17 @@ def _git_maybe_shallow(ctx, git_repo, command, *args):
         if st.return_code == 0:
             return st
     return _execute(ctx, git_repo, start + args_list)
+
+def _git_sparse_checkout(ctx, git_repo, sparse_checkout_patterns):
+    command = ["sparse-checkout", "init", "--no-cone"]
+    st = _execute(ctx, git_repo, command)
+    if st.return_code != 0:
+        _error(ctx.name, command, st.stderr)
+    for pattern in sparse_checkout_patterns:
+        command = ["sparse-checkout", "set", pattern]
+        st = _execute(ctx, git_repo, command)
+        if st.return_code != 0:
+            _error(ctx.name, command, st.stderr)
 
 # List of variables to unset when calling `git` to ensure no interference of
 # operation. This is in the form of a dict that can be passed to `execute()`.
