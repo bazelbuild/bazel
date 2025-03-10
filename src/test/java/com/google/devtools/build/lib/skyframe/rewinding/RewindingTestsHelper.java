@@ -200,8 +200,8 @@ public class RewindingTestsHelper {
   }
 
   public final ControllableActionStrategyModule makeControllableActionStrategyModule(
-      String identifier) {
-    return new ControllableActionStrategyModule(spawnController, identifier);
+      String... identifiers) {
+    return new ControllableActionStrategyModule(spawnController, identifiers);
   }
 
   public final ImmutableList<String> getExecutedSpawnDescriptions() {
