@@ -721,4 +721,25 @@ EOF
   bazel build //:all >& $TEST_log || fail "Expect bazel build to succeed."
 }
 
+function test_git_repository_with_sparse_checkout() {
+  local pluto_repo_dir=$(get_pluto_repo)
+  # Use sparse-checkout to only checkout the BUILD file.
+  cat >> MODULE.bazel <<EOF
+git_repository = use_repo_rule('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
+git_repository(
+    name = "pluto",
+    remote = "$pluto_repo_dir",
+    tag = "1-build",
+    sparse_checkout_patterns = [
+        "BUILD",
+    ],
+)
+EOF
+  bazel fetch @pluto
+
+  repo_dir=$(bazel info output_base)/external/+git_repository+pluto
+  assert_exists "$repo_dir/BUILD"
+  assert_not_exists "$repo_dir/info"
+}
+
 run_suite "Starlark git_repository tests"
