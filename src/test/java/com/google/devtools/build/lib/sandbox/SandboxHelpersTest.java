@@ -46,6 +46,8 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.LinkedHashSet;
@@ -62,25 +64,47 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 /** Tests for {@link SandboxHelpers}. */
-@RunWith(JUnit4.class)
+@RunWith(TestParameterInjector.class)
 public class SandboxHelpersTest {
+
+  private static class CustomInMemoryFileSystem extends InMemoryFileSystem {
+    private boolean forbidRenameTo = false;
+
+    CustomInMemoryFileSystem() {
+      super(DigestHashFunction.SHA256);
+    }
+
+    @Override
+    public void renameTo(PathFragment source, PathFragment target) throws IOException {
+      if (forbidRenameTo) {
+        throw new IOException("error injected by test");
+      }
+      super.renameTo(source, target);
+    }
+
+    void forbidRenameTo() {
+      forbidRenameTo = true;
+    }
+  }
 
   private final TreeDeleter treeDeleter = new SynchronousTreeDeleter();
 
-  private final Scratch scratch = new Scratch();
+  private final CustomInMemoryFileSystem fs = new CustomInMemoryFileSystem();
+  private final Scratch scratch = new Scratch(fs);
   private Path execRoot;
+  private Path sandboxRoot;
   @Nullable private ExecutorService executorToCleanup;
 
   @Before
-  public void createExecRoot() throws IOException {
-    execRoot = scratch.dir("/execRoot");
+  public void setUp() throws IOException {
+    execRoot = scratch.dir("/execroot");
+    sandboxRoot = scratch.dir("/sandbox");
   }
 
   @After
-  public void shutdownExecutor() throws InterruptedException {
+  public void tearDown() throws InterruptedException {
     if (executorToCleanup == null) {
       return;
     }
@@ -270,8 +294,8 @@ public class SandboxHelpersTest {
     execRoot.getRelative("justSomeDir/thatIsDoomed").createDirectoryAndParents();
     // `thiswillbeafile/output` simulates a directory that was in the stashed dir but whose same
     // path is used later for a regular file.
-    scratch.dir("/execRoot/thiswillbeafile/output");
-    scratch.file("/execRoot/thiswillbeafile/output/file1");
+    scratch.dir("/execroot/thiswillbeafile/output");
+    scratch.file("/execroot/thiswillbeafile/output/file1");
     dirsToCreate.add(PathFragment.create("thiswillbeafile"));
     PathFragment input4 = PathFragment.create("thiswillbeafile/output");
     SandboxInputs inputs2 =
@@ -323,7 +347,117 @@ public class SandboxHelpersTest {
   }
 
   @Test
-  public void moveOutputs_mappedPathMovedToUnmappedPath() throws Exception {
+  public void moveOutputs_movesFile(@TestParameter boolean forceCopy) throws Exception {
+    if (forceCopy) {
+      fs.forbidRenameTo();
+    }
+
+    Path sandboxFile = sandboxRoot.getRelative("output");
+    FileSystemUtils.writeContent(sandboxFile, UTF_8, "hello");
+
+    Spawn spawn = new SpawnBuilder().withOutputs("output").build();
+    SandboxHelpers.moveOutputs(SandboxHelpers.getOutputs(spawn), sandboxRoot, execRoot);
+
+    Path realFile = execRoot.getRelative("output");
+    assertThat(realFile.isFile()).isTrue();
+    assertThat(FileSystemUtils.readContent(realFile, UTF_8)).isEqualTo("hello");
+  }
+
+  @Test
+  public void moveOutputs_movesSymlink(@TestParameter boolean forceCopy) throws Exception {
+    if (forceCopy) {
+      fs.forbidRenameTo();
+    }
+
+    Path sandboxSymlink = sandboxRoot.getRelative("output");
+    sandboxSymlink.createSymbolicLink(PathFragment.create("target"));
+
+    Spawn spawn = new SpawnBuilder().withOutputs("output").build();
+    SandboxHelpers.moveOutputs(SandboxHelpers.getOutputs(spawn), sandboxRoot, execRoot);
+
+    Path realSymlink = execRoot.getRelative("output");
+    assertThat(realSymlink.isSymbolicLink()).isTrue();
+    assertThat(realSymlink.readSymbolicLink()).isEqualTo(PathFragment.create("target"));
+  }
+
+  @Test
+  public void moveOutputs_movesDirectory(@TestParameter boolean forceCopy) throws Exception {
+    if (forceCopy) {
+      fs.forbidRenameTo();
+    }
+
+    Path sandboxDir = sandboxRoot.getRelative("output");
+    sandboxDir.createDirectoryAndParents();
+    FileSystemUtils.writeContent(sandboxDir.getRelative("file"), UTF_8, "hello");
+    sandboxDir.getRelative("symlink").createSymbolicLink(PathFragment.create("target"));
+    sandboxDir.getRelative("subdir").createDirectoryAndParents();
+
+    Spawn spawn = new SpawnBuilder().withOutputs("output").build();
+    SandboxHelpers.moveOutputs(SandboxHelpers.getOutputs(spawn), sandboxRoot, execRoot);
+
+    Path realDir = execRoot.getRelative("output");
+    assertThat(realDir.isDirectory()).isTrue();
+    assertThat(realDir.getRelative("file").isFile()).isTrue();
+    assertThat(FileSystemUtils.readContent(realDir.getRelative("file"), UTF_8)).isEqualTo("hello");
+    assertThat(realDir.getRelative("symlink").isSymbolicLink()).isTrue();
+    assertThat(realDir.getRelative("symlink").readSymbolicLink())
+        .isEqualTo(PathFragment.create("target"));
+    assertThat(realDir.getRelative("subdir").isDirectory()).isTrue();
+  }
+
+  @Test
+  public void moveOutputs_ignoresMissing(@TestParameter boolean forceCopy) throws Exception {
+    if (forceCopy) {
+      fs.forbidRenameTo();
+    }
+
+    Spawn spawn = new SpawnBuilder().withOutputs("output").build();
+    SandboxHelpers.moveOutputs(SandboxHelpers.getOutputs(spawn), sandboxRoot, execRoot);
+
+    assertThat(execRoot.getRelative("output").exists()).isFalse();
+  }
+
+  @Test
+  public void moveOutputs_fixesPermissionsOnFileWhenCopying() throws Exception {
+    fs.forbidRenameTo();
+
+    Path sandboxFile = sandboxRoot.getRelative("output");
+    FileSystemUtils.writeContent(sandboxFile, UTF_8, "hello");
+    sandboxFile.chmod(0);
+
+    Spawn spawn = new SpawnBuilder().withOutputs("output").build();
+    SandboxHelpers.moveOutputs(SandboxHelpers.getOutputs(spawn), sandboxRoot, execRoot);
+
+    Path realFile = execRoot.getRelative("output");
+    assertThat(realFile.isFile()).isTrue();
+    assertThat(FileSystemUtils.readContent(realFile, UTF_8)).isEqualTo("hello");
+  }
+
+  @Test
+  public void moveOutputs_fixesPermissionsOnDirectoryWhenCopying() throws Exception {
+    fs.forbidRenameTo();
+
+    Path sandboxDir = sandboxRoot.getRelative("output");
+    sandboxDir.createDirectoryAndParents();
+    FileSystemUtils.writeContent(sandboxDir.getRelative("file"), UTF_8, "hello");
+    sandboxDir.chmod(0);
+
+    Spawn spawn = new SpawnBuilder().withOutputs("output").build();
+    SandboxHelpers.moveOutputs(SandboxHelpers.getOutputs(spawn), sandboxRoot, execRoot);
+
+    Path realDir = execRoot.getRelative("output");
+    assertThat(realDir.isDirectory()).isTrue();
+    assertThat(realDir.getRelative("file").isFile()).isTrue();
+    assertThat(FileSystemUtils.readContent(realDir.getRelative("file"), UTF_8)).isEqualTo("hello");
+  }
+
+  @Test
+  public void moveOutputs_mappedPathMovedToUnmappedPath(@TestParameter boolean forceCopy)
+      throws Exception {
+    if (forceCopy) {
+      fs.forbidRenameTo();
+    }
+
     PathFragment unmappedOutputPath = PathFragment.create("bin/config/output");
     PathMapper pathMapper =
         execPath -> PathFragment.create(execPath.getPathString().replace("config/", ""));
@@ -332,20 +466,17 @@ public class SandboxHelpersTest {
             .withOutputs(unmappedOutputPath.getPathString())
             .setPathMapper(pathMapper)
             .build();
-    Path sandboxBase = execRoot.getRelative("sandbox");
     PathFragment mappedOutputPath = PathFragment.create("bin/output");
-    sandboxBase.getRelative(mappedOutputPath).getParentDirectory().createDirectoryAndParents();
+    sandboxRoot.getRelative(mappedOutputPath).getParentDirectory().createDirectoryAndParents();
     FileSystemUtils.writeLinesAs(
-        sandboxBase.getRelative(mappedOutputPath), UTF_8, "hello", "pathmapper");
+        sandboxRoot.getRelative(mappedOutputPath), UTF_8, "hello", "pathmapper");
 
-    Path realBase = execRoot.getRelative("real");
-    SandboxHelpers.moveOutputs(SandboxHelpers.getOutputs(spawn), sandboxBase, realBase);
+    SandboxHelpers.moveOutputs(SandboxHelpers.getOutputs(spawn), sandboxRoot, execRoot);
 
     assertThat(
             FileSystemUtils.readLines(
-                realBase.getRelative(unmappedOutputPath.getPathString()), UTF_8))
+                execRoot.getRelative(unmappedOutputPath.getPathString()), UTF_8))
         .containsExactly("hello", "pathmapper")
         .inOrder();
-    assertThat(sandboxBase.getRelative(mappedOutputPath).exists()).isFalse();
   }
 }

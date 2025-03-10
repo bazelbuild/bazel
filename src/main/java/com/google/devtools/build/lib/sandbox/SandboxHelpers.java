@@ -27,6 +27,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.flogger.GoogleLogger;
+import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Spawn;
@@ -41,15 +42,18 @@ import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Sandbox;
 import com.google.devtools.build.lib.server.FailureDetails.Sandbox.Code;
 import com.google.devtools.build.lib.vfs.Dirent;
+import com.google.devtools.build.lib.vfs.FileAccessException;
+import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
-import com.google.devtools.build.lib.vfs.FileSystemUtils.MoveResult;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -79,12 +83,15 @@ public final class SandboxHelpers {
   private static final AtomicBoolean warnedAboutMovesBeingCopies = new AtomicBoolean(false);
 
   /**
-   * Moves all given outputs from a root to another.
+   * Moves or copies all given outputs from a root to another.
    *
-   * @param outputs outputs to move as relative paths to a root
-   * @param sourceRoot source directory from which to resolve outputs
-   * @param targetRoot target directory to which to move the resolved outputs from the source
-   * @throws IOException if any of the moves fails
+   * <p>Moves if possible, otherwise makes a copy. It is unspecified whether the source files still
+   * exist after this method returns.
+   *
+   * @param outputs outputs to move/copy as relative paths to a root
+   * @param sourceRoot root directory to copy from
+   * @param targetRoot root directory to copy to
+   * @throws IOException if moving/copying fails
    */
   public static void moveOutputs(SandboxOutputs outputs, Path sourceRoot, Path targetRoot)
       throws IOException {
@@ -92,36 +99,109 @@ public final class SandboxHelpers {
         Iterables.concat(outputs.files().entrySet(), outputs.dirs().entrySet())) {
       Path source = sourceRoot.getRelative(output.getValue());
       Path target = targetRoot.getRelative(output.getKey());
-      if (source.isFile() || source.isSymbolicLink()) {
-        // Ensure the target directory exists in the target. The directories for the action outputs
-        // have already been created, but the spawn outputs may be different from the overall action
-        // outputs. This is the case for test actions.
-        target.getParentDirectory().createDirectoryAndParents();
-        if (FileSystemUtils.moveFile(source, target).equals(MoveResult.FILE_COPIED)) {
-          if (warnedAboutMovesBeingCopies.compareAndSet(false, true)) {
-            logger.atWarning().log(
-                "Moving files out of the sandbox (e.g. from %s to %s"
-                    + ") had to be done with a file copy, which is detrimental to performance; are "
-                    + "the two trees in different file systems?",
-                source, target);
-          }
+
+      FileStatus stat = source.statIfFound(Symlinks.NOFOLLOW);
+      if (stat == null) {
+        // The correct thing to do here would be to delete the target path.
+        // Unfortunately, this breaks streamed test output, which causes the test log to be written
+        // directly to the target path even when sandboxing is enabled. Until we either fix streamed
+        // test output or create a way to reliably detect it, just skip the deletion.
+        continue;
+      }
+
+      // Delete the target if it already exists.
+      // Some test spawn outputs aren't action outputs, so they aren't deleted before action
+      // execution.
+      target.deleteTree();
+
+      // Create the target's parent directory if it doesn't already exist.
+      // Some test spawn outputs aren't action outputs, so their parent directories aren't created
+      // before action execution.
+      target.getParentDirectory().createDirectoryAndParents();
+
+      try {
+        // Prefer to move outputs through a rename, avoiding a more expensive copy.
+        source.renameTo(target);
+      } catch (IOException unused) {
+        // Assume that the rename failed because it was cross-device.
+        // TODO(tjgq): Distinguish a cross-device rename from other errors.
+        if (warnedAboutMovesBeingCopies.compareAndSet(false, true)) {
+          logger.atWarning().log(
+              "Moving files out of the sandbox (e.g. from %s to %s) had to be done with a file"
+                  + " copy, which is detrimental to performance; are the two trees in different"
+                  + " file systems?",
+              source, target);
         }
-      } else if (source.isDirectory()) {
-        try {
-          source.renameTo(target);
-        } catch (IOException e) {
-          // Failed to move directory directly, thus move it recursively.
-          target.createDirectory();
-          FileSystemUtils.moveTreesBelow(source, target);
+
+        // Make a copy.
+        // Do as little work as possible, as any overhead adds up for large trees. In particular,
+        // avoid FileSystemUtils, which spends time deleting preexisting files and preserving
+        // attributes: we know output directories start out empty, and don't care about attributes.
+        // Don't delete the original, either; leave it to the sandbox to clean up after itself.
+        if (stat.isFile()) {
+          copyFile(source, target);
+        } else if (stat.isDirectory()) {
+          copyDir(source, target);
+        } else if (stat.isSymbolicLink()) {
+          copySymlink(source, target);
+        } else {
+          throw new IOException(
+              "Don't know how to copy %s into %s because it has an unsupported type"
+                  .formatted(source, target));
         }
-      } else if (!source.exists()) {
-        // This will show up as an error later
-      } else {
-        logger.atWarning().log(
-            "Sandbox file %s for output %s is neither file nor symlink nor directory.",
-            source, target);
       }
     }
+  }
+
+  private static void copyDir(Path source, Path target) throws IOException {
+    Collection<Dirent> dirents;
+    try {
+      dirents = source.readdir(Symlinks.NOFOLLOW);
+    } catch (FileAccessException e) {
+      // Make the source directory readable and try again (but only once).
+      // Don't check the permissions upfront to optimize for the typical case.
+      source.chmod(0755);
+      dirents = source.readdir(Symlinks.NOFOLLOW);
+    }
+    target.createDirectory();
+    for (Dirent dirent : dirents) {
+      Path sourceChild = source.getChild(dirent.getName());
+      Path targetChild = target.getChild(dirent.getName());
+      switch (dirent.getType()) {
+        case DIRECTORY:
+          copyDir(sourceChild, targetChild);
+          break;
+        case FILE:
+          copyFile(sourceChild, targetChild);
+          break;
+        case SYMLINK:
+          copySymlink(sourceChild, targetChild);
+          break;
+        case UNKNOWN:
+          throw new IOException(
+              "Don't know how to copy %s into %s because it has an unsupported type"
+                  .formatted(sourceChild, targetChild));
+      }
+    }
+  }
+
+  private static void copyFile(Path source, Path target) throws IOException {
+    try (InputStream in = source.getInputStream();
+        OutputStream out = target.getOutputStream()) {
+      ByteStreams.copy(in, out);
+    } catch (FileAccessException e) {
+      // Make the source file readable and try again (but only once).
+      // Don't check the permissions upfront to optimize for the typical case.
+      source.chmod(0644);
+      try (InputStream in = source.getInputStream();
+          OutputStream out = target.getOutputStream()) {
+        ByteStreams.copy(in, out);
+      }
+    }
+  }
+
+  private static void copySymlink(Path source, Path target) throws IOException {
+    target.createSymbolicLink(source.readSymbolicLink());
   }
 
   /**
