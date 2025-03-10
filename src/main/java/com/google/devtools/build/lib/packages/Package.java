@@ -50,6 +50,7 @@ import com.google.devtools.build.lib.skyframe.serialization.DeserializationConte
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.vfs.Path;
@@ -1700,6 +1701,7 @@ public class Package implements Packageoid {
   }
 
   /** A collection of data that is known before BUILD file evaluation even begins. */
+  @AutoCodec
   public record Metadata(
       PackageIdentifier packageIdentifier,
       RootedPath buildFilename,
