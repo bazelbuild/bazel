@@ -38,7 +38,6 @@ import com.google.common.collect.Multimap;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.Uninterruptibles;
-import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputDepOwnerMap;
@@ -103,6 +102,7 @@ import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.IntStream;
 
 /**
  * Implements rewinding-specific infrastructure and test logic used for rewinding tests. Search for
@@ -162,21 +162,6 @@ public class RewindingTestsHelper {
 
   public final LostImportantOutputHandlerModule getLostOutputsModule() {
     return lostOutputsModule;
-  }
-
-  /**
-   * Returns whether the execution strategy can handle rewinding happening concurrently with another
-   * action consuming the rewound action's outputs.
-   *
-   * <p>When an action is rewound, it executes a second time, including the {@link Action#prepare}
-   * step which deletes previous outputs on disk. Another action which observed its dependency to be
-   * done (before rewinding was initiated) may simultaneously attempt to consume these deleted
-   * outputs, leading to a flaky build failure. If this method returns {@code false}, test cases
-   * which exercise the described scenario will set {@code --jobs=1} to avoid the race condition.
-   */
-  @ForOverride
-  boolean supportsConcurrentRewinding() {
-    return false;
   }
 
   /**
@@ -746,9 +731,6 @@ public class RewindingTestsHelper {
    * not contain the genrule action with one input.
    */
   public final void runMultipleLostInputsForRewindPlan() throws Exception {
-    if (!supportsConcurrentRewinding()) {
-      testCase.addOptions("--jobs=1");
-    }
     writeNGenrulePackages(ActionRewindStrategy.MAX_ACTION_REWIND_EVENTS + 1);
     for (int i = 1; i <= ActionRewindStrategy.MAX_ACTION_REWIND_EVENTS + 1; i++) {
       final int target = i;
@@ -768,15 +750,16 @@ public class RewindingTestsHelper {
     }
     List<SkyKey> rewoundKeys = collectOrderedRewoundKeys();
     testCase.buildTarget(
-        "//test:consume_1",
-        "//test:consume_2",
-        "//test:consume_3",
-        "//test:consume_4",
-        "//test:consume_5",
-        "//test:consume_6");
+        IntStream.rangeClosed(1, ActionRewindStrategy.MAX_ACTION_REWIND_EVENTS + 1)
+            .mapToObj(i -> "//test:consume_" + i)
+            .toArray(String[]::new));
     assertOnlyActionsRewound(rewoundKeys);
     verifyAllSpawnShimsConsumed();
-    recorder.assertTotalLostInputCountsFromStats(ImmutableList.of(21));
+    recorder.assertTotalLostInputCountsFromStats(
+        ImmutableList.of(
+            (ActionRewindStrategy.MAX_ACTION_REWIND_EVENTS + 1)
+                * (ActionRewindStrategy.MAX_ACTION_REWIND_EVENTS + 2)
+                / 2));
   }
 
   public final void runInterruptedDuringRewindStopsNormally() throws Exception {
@@ -1538,10 +1521,6 @@ public class RewindingTestsHelper {
     setUpTreeArtifactPackage(testCase);
 
     addSpawnShim("Compiling tree/make_cc_dir.cc/file1.cc", shim);
-
-    if (!supportsConcurrentRewinding()) {
-      testCase.addOptions("--jobs=1");
-    }
 
     List<SkyKey> rewoundKeys = collectOrderedRewoundKeys();
     testCase.buildTarget("//tree:consumes_tree");
