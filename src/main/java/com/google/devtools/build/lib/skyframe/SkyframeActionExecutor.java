@@ -536,7 +536,6 @@ public final class SkyframeActionExecutor {
       ImmutableMap<Artifact, FilesetOutputTree> expandedFilesets,
       ImmutableMap<Artifact, FilesetOutputTree> topLevelFilesets,
       @Nullable FileSystem actionFileSystem,
-      @Nullable Object skyframeDepsResult,
       ActionPostprocessing postprocessing,
       boolean hasDiscoveredInputs)
       throws ActionExecutionException, InterruptedException {
@@ -553,7 +552,6 @@ public final class SkyframeActionExecutor {
             artifactExpander,
             topLevelFilesets,
             actionFileSystem,
-            skyframeDepsResult,
             actionLookupData);
 
     if (actionCacheChecker.isActionExecutionProhibited(action)) {
@@ -632,7 +630,6 @@ public final class SkyframeActionExecutor {
       ArtifactExpander artifactExpander,
       ImmutableMap<Artifact, FilesetOutputTree> topLevelFilesets,
       @Nullable FileSystem actionFileSystem,
-      @Nullable Object skyframeDepsResult,
       ActionLookupData actionLookupData) {
     boolean emitProgressEvents = shouldEmitProgressEvents(action);
     ArtifactPathResolver artifactPathResolver =
@@ -652,7 +649,6 @@ public final class SkyframeActionExecutor {
         topLevelFilesets,
         artifactExpander,
         actionFileSystem,
-        skyframeDepsResult,
         discoveredModulesPruner,
         syscallCache,
         threadStateReceiverFactory.apply(actionLookupData));
@@ -1578,16 +1574,15 @@ public final class SkyframeActionExecutor {
               return false;
             }
 
-            // Actions implementing the mechanics of Fileset (SymlinkTreeAction and SymlinkAction)
-            // also have the fileset output tree in their ActionExecutionValue because they
-            // represent the fileset, but we want to count files in each Fileset only once. This
-            // check for checking whether this is the actual Fileset manifest action
-            // (SkyframeFilesetManifestAction) is the best I could come up with that doesn't cause
-            // too much collateral damage.
-            FilesetOutputTree filesetOutputTree =
-                action instanceof SkyframeAwareAction
-                    ? (FilesetOutputTree) actionExecutionContext.getRichArtifactData()
-                    : null;
+            FilesetOutputTree filesetOutputTree = null;
+            if (actionExecutionContext != null
+                && actionExecutionContext.getRichArtifactData() instanceof FilesetOutputTree fot) {
+              // If isForwarded() is true, this action did not create the Fileset itself and thus
+              // it should not be counted.
+              if (!fot.isForwarded()) {
+                filesetOutputTree = fot;
+              }
+            }
 
             addOutputToMetrics(
                 output,

@@ -109,7 +109,6 @@ public class SymlinkActionTest extends BuildViewTestCase {
                 /* topLevelFilesets= */ ImmutableMap.of(),
                 /* artifactExpander= */ null,
                 /* actionFileSystem= */ null,
-                /* skyframeDepsResult= */ null,
                 DiscoveredModulesPruner.DEFAULT,
                 SyscallCache.NO_CACHE,
                 ThreadStateReceiver.NULL_INSTANCE));

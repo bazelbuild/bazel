@@ -226,7 +226,6 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
   @Nullable private final Environment env;
 
   @Nullable private final FileSystem actionFileSystem;
-  @Nullable private final Object skyframeDepsResult;
 
   private RichArtifactData richArtifactData = null;
 
@@ -250,7 +249,6 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
       @Nullable ArtifactExpander artifactExpander,
       @Nullable Environment env,
       @Nullable FileSystem actionFileSystem,
-      @Nullable Object skyframeDepsResult,
       DiscoveredModulesPruner discoveredModulesPruner,
       SyscallCache syscallCache,
       ThreadStateReceiver threadStateReceiverForMetrics) {
@@ -268,7 +266,6 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
     this.artifactExpander = artifactExpander;
     this.env = env;
     this.actionFileSystem = actionFileSystem;
-    this.skyframeDepsResult = skyframeDepsResult;
     this.threadStateReceiverForMetrics = threadStateReceiverForMetrics;
     this.pathResolver = ArtifactPathResolver.createPathResolver(actionFileSystem,
         // executor is only ever null in testing.
@@ -291,7 +288,6 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
       ImmutableMap<Artifact, FilesetOutputTree> topLevelFilesets,
       ArtifactExpander artifactExpander,
       @Nullable FileSystem actionFileSystem,
-      @Nullable Object skyframeDepsResult,
       DiscoveredModulesPruner discoveredModulesPruner,
       SyscallCache syscallCache,
       ThreadStateReceiver threadStateReceiverForMetrics) {
@@ -310,7 +306,6 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
         artifactExpander,
         /* env= */ null,
         actionFileSystem,
-        skyframeDepsResult,
         discoveredModulesPruner,
         syscallCache,
         threadStateReceiverForMetrics);
@@ -347,7 +342,6 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
         /* artifactExpander= */ null,
         env,
         actionFileSystem,
-        /* skyframeDepsResult= */ null,
         discoveredModulesPruner,
         syscalls,
         threadStateReceiverForMetrics);
@@ -512,11 +506,6 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
     return artifactExpander;
   }
 
-  @Nullable
-  public Object getSkyframeDepsResult() {
-    return skyframeDepsResult;
-  }
-
   /**
    * Provide that {@code FileOutErr} that the action should use for redirecting the output and error
    * stream.
@@ -578,7 +567,6 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
         artifactExpander,
         env,
         actionFileSystem,
-        skyframeDepsResult,
         discoveredModulesPruner,
         syscallCache,
         threadStateReceiverForMetrics);
@@ -634,7 +622,6 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
         artifactExpander,
         env,
         actionFileSystem,
-        skyframeDepsResult,
         discoveredModulesPruner,
         syscallCache,
         threadStateReceiverForMetrics);

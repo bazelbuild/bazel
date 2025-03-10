@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.skyframe.rewinding;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -27,15 +26,11 @@ import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.SetMultimap;
 import com.google.common.flogger.GoogleLogger;
-import com.google.common.graph.EndpointPair;
-import com.google.common.graph.ImmutableGraph;
 import com.google.common.graph.MutableGraph;
-import com.google.common.graph.Traverser;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputDepOwners;
@@ -54,7 +49,6 @@ import com.google.devtools.build.lib.server.FailureDetails.ActionRewinding.Code;
 import com.google.devtools.build.lib.skyframe.ActionUtils;
 import com.google.devtools.build.lib.skyframe.ArtifactFunction.ArtifactDependencies;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor;
-import com.google.devtools.build.lib.skyframe.SkyframeAwareAction;
 import com.google.devtools.build.lib.skyframe.TopLevelActionLookupKeyWrapper;
 import com.google.devtools.build.lib.skyframe.proto.ActionRewind.ActionDescription;
 import com.google.devtools.build.lib.skyframe.proto.ActionRewind.ActionRewindEvent;
@@ -503,9 +497,9 @@ public final class ActionRewindStrategy {
   }
 
   /**
-   * Looks at each action in {@code actionsToCheck} and determines whether additional artifacts,
-   * actions, and (in the case of {@link SkyframeAwareAction}s) other Skyframe nodes need to be
-   * rewound. If this finds more actions to rewind, those actions are recursively checked too.
+   * Looks at each action in {@code actionsToCheck} and determines whether additional artifacts or
+   * actions need to be rewound. If this finds more actions to rewind, those actions are recursively
+   * checked too.
    */
   private void checkActions(
       ImmutableList<ActionAndLookupData> actionsToCheck,
@@ -521,18 +515,6 @@ public final class ActionRewindStrategy {
       Action action = actionAndLookupData.action();
       ArrayList<DerivedArtifact> artifactsToCheck = new ArrayList<>();
       ArrayList<ActionLookupData> newlyDiscoveredActions = new ArrayList<>();
-
-      if (action instanceof SkyframeAwareAction) {
-        // This action depends on more than just its input artifact values. We need to also rewind
-        // the Skyframe subgraph it depends on, up to and including any artifacts, which may
-        // aggregate multiple actions.
-        addSkyframeAwareDepsAndGetNewlyVisitedArtifactsAndActions(
-            rewindGraph,
-            actionKey,
-            (SkyframeAwareAction) action,
-            artifactsToCheck,
-            newlyDiscoveredActions);
-      }
 
       if (action.mayInsensitivelyPropagateInputs()) {
         // Rewinding this action won't recreate the missing input. We need to also rewind this
@@ -563,37 +545,6 @@ public final class ActionRewindStrategy {
         depsToRewind.addAll(actions(newlyVisitedActions));
         uncheckedActions.addAll(newlyVisitedActions);
       }
-    }
-  }
-
-  /**
-   * For a {@link SkyframeAwareAction} {@code action} with key {@code actionKey}, add its Skyframe
-   * subgraph to {@code rewindGraph}, any {@link Artifact}s to {@code newlyVisitedArtifacts}, and
-   * any {@link ActionLookupData}s to {@code newlyVisitedActions}.
-   */
-  private static void addSkyframeAwareDepsAndGetNewlyVisitedArtifactsAndActions(
-      MutableGraph<SkyKey> rewindGraph,
-      ActionLookupData actionKey,
-      SkyframeAwareAction action,
-      ArrayList<DerivedArtifact> newlyVisitedArtifacts,
-      ArrayList<ActionLookupData> newlyVisitedActions) {
-
-    ImmutableGraph<SkyKey> graph = action.getSkyframeDependenciesForRewinding(actionKey);
-    if (graph.nodes().isEmpty()) {
-      return;
-    }
-    assertSkyframeAwareRewindingGraph(graph, actionKey);
-
-    Set<EndpointPair<SkyKey>> edges = graph.edges();
-    for (EndpointPair<SkyKey> edge : edges) {
-      SkyKey target = edge.target();
-      if (target instanceof Artifact && rewindGraph.addNode(target)) {
-        newlyVisitedArtifacts.add((DerivedArtifact) target);
-      }
-      if (target instanceof ActionLookupData && rewindGraph.addNode(target)) {
-        newlyVisitedActions.add((ActionLookupData) target);
-      }
-      rewindGraph.putEdge(edge.source(), edge.target());
     }
   }
 
@@ -728,50 +679,6 @@ public final class ActionRewindStrategy {
       return null;
     }
     return ImmutableSet.copyOf(actionTemplateExpansionKeys);
-  }
-
-  private static void assertSkyframeAwareRewindingGraph(
-      ImmutableGraph<SkyKey> graph, ActionLookupData actionKey) {
-    checkArgument(
-        graph.isDirected(),
-        "SkyframeAwareAction's rewinding graph is undirected. graph: %s, actionKey: %s",
-        graph,
-        actionKey);
-    checkArgument(
-        !graph.allowsSelfLoops(),
-        "SkyframeAwareAction's rewinding graph allows self loops. graph: %s, actionKey: %s",
-        graph,
-        actionKey);
-    checkArgument(
-        graph.nodes().contains(actionKey),
-        "SkyframeAwareAction's rewinding graph does not contain its action root. graph: %s, "
-            + "actionKey: %s",
-        graph,
-        actionKey);
-    checkArgument(
-        Iterables.size(Traverser.forGraph(graph).breadthFirst(actionKey)) == graph.nodes().size(),
-        "SkyframeAwareAction's rewinding graph has nodes unreachable from its action root. "
-            + "graph: %s, actionKey: %s",
-        graph,
-        actionKey);
-
-    for (EndpointPair<SkyKey> edge : graph.edges()) {
-      SkyKey target = edge.target();
-      checkArgument(
-          !(target instanceof Artifact && ((Artifact) target).isSourceArtifact()),
-          "SkyframeAwareAction's rewinding graph contains source artifact. graph: %s, "
-              + "rootActionNode: %s, sourceArtifact: %s",
-          graph,
-          actionKey,
-          target);
-      checkState(
-          !(target instanceof Artifact) || target instanceof DerivedArtifact,
-          "A non-source artifact must be derived. graph: %s, rootActionNode: %s, sourceArtifact:"
-              + " %s",
-          graph,
-          actionKey,
-          target);
-    }
   }
 
   private boolean shouldRecordRewindEventSample() {

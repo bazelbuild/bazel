@@ -14,6 +14,8 @@
 package com.google.devtools.build.lib.actions;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.vfs.Path;
+import javax.annotation.Nullable;
 
 /**
  * An action that emits rich data.
@@ -22,8 +24,13 @@ import com.google.common.collect.ImmutableMap;
  * is currently not reconstructed from the action cache (it's theoretically possible, it's just that
  * it's not done). So the action must reconstruct this data itself.
  */
+// TODO(lberki): Maybe merge this with NotifyOnActionCacheHit?
 public interface RichDataProducingAction {
+  @Nullable
   RichArtifactData reconstructRichDataOnActionCacheHit(
+      Path execRoot,
       ImmutableMap<Artifact, FilesetOutputTree> topLevelFilesets,
-      InputMetadataProvider inputMetadataProvider);
+      InputMetadataProvider inputMetadataProvider,
+      ArtifactExpander artifactExpander)
+      throws ActionExecutionException;
 }

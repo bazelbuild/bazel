@@ -207,7 +207,6 @@ public class StandaloneSpawnStrategyTest {
         /* topLevelFilesets= */ ImmutableMap.of(),
         treeArtifact -> ImmutableSortedSet.of(),
         /* actionFileSystem= */ null,
-        /* skyframeDepsResult= */ null,
         DiscoveredModulesPruner.DEFAULT,
         SyscallCache.NO_CACHE,
         ThreadStateReceiver.NULL_INSTANCE);

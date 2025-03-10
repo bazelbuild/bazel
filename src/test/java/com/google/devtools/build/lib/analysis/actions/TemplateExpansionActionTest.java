@@ -195,7 +195,7 @@ public class TemplateExpansionActionTest extends FoundationTestCase {
   private ActionExecutionContext createContext(Executor executor) {
     return new ActionExecutionContext(
         executor,
-        /* actionInputFileCache= */ null,
+        /* inputMetadataProvider= */ null,
         ActionInputPrefetcher.NONE,
         actionKeyContext,
         /* outputMetadataStore= */ null,
@@ -207,7 +207,6 @@ public class TemplateExpansionActionTest extends FoundationTestCase {
         /* topLevelFilesets= */ ImmutableMap.of(),
         /* artifactExpander= */ null,
         /* actionFileSystem= */ null,
-        /* skyframeDepsResult= */ null,
         DiscoveredModulesPruner.DEFAULT,
         SyscallCache.NO_CACHE,
         ThreadStateReceiver.NULL_INSTANCE);

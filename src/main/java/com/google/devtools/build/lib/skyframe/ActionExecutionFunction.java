@@ -39,7 +39,6 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionCacheChecker.Token;
 import com.google.devtools.build.lib.actions.ActionCompletionEvent;
 import com.google.devtools.build.lib.actions.ActionExecutedEvent;
-import com.google.devtools.build.lib.actions.ActionExecutedEvent.ErrorTiming;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputDepOwnerMap;
@@ -102,9 +101,9 @@ import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnaly
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.DetailedExitCode.DetailedExitCodeComparator;
 import com.google.devtools.build.lib.util.Pair;
-import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
@@ -331,23 +330,6 @@ public final class ActionExecutionFunction implements SkyFunction {
       }
     }
 
-    Object skyframeDepsResult;
-    try {
-      skyframeDepsResult = establishSkyframeDependencies(env, action);
-    } catch (ActionExecutionException e) {
-      throw new ActionExecutionFunctionException(
-          skyframeActionExecutor.processAndGetExceptionToThrow(
-              env.getListener(),
-              /* primaryOutputPath= */ null,
-              action,
-              e,
-              new FileOutErr(),
-              ErrorTiming.BEFORE_EXECUTION));
-    }
-    if (env.valuesMissing()) {
-      return null;
-    }
-
     if (checkedInputs != null) {
       checkState(!state.hasArtifactData(), "%s %s", state, action);
       state.inputArtifactData = checkedInputs.actionInputMap;
@@ -374,7 +356,6 @@ public final class ActionExecutionFunction implements SkyFunction {
               clientEnv,
               actionLookupData,
               previousExecution,
-              skyframeDepsResult,
               actionStartTime);
     } catch (LostInputsActionExecutionException e) {
       return handleLostInputs(
@@ -795,7 +776,6 @@ public final class ActionExecutionFunction implements SkyFunction {
       Map<String, String> clientEnv,
       ActionLookupData actionLookupData,
       @Nullable ActionExecutionState previousAction,
-      Object skyframeDepsResult,
       long actionStartTime)
       throws ActionExecutionException, InterruptedException {
     if (previousAction != null) {
@@ -855,38 +835,22 @@ public final class ActionExecutionFunction implements SkyFunction {
     }
 
     if (state.token == null) {
-      // We got a hit from the action cache -- no need to execute.
-      // Filesets are a special case: the actual "fileset artifact" can be the fileset output
-      // manifest or its output symlink tree. In the latter case, the symlink tree is created
-      // by a SymlinkTreeAction, then symlinked at the appropriate location using a SymlinkAction.
-      // In case of an action cache hit but a Skyframe miss, the resulting SkyValue needs to be
-      // populated with the pertinent FilesetOutputTree. SkyframeFilesetManifestAction cannot be
-      // cached in the action cache because if it was, the ActionExecutionValue would be created
-      // from metadata stored in the action cache and thus the associated FilesetOutputTree would
-      // not be present there. So that action is marked as "execute unconditionally" so that the
-      // FilesetOutputTree is always created, but we need to take special care for the other two
-      // actions: if they are action cache hits, the FilesetOutputTree needs to be forwarded from
-      // their inputs to their outputs.
-      //
-      // This is an awkward way to check whether this mechanism is necessary, but in practice,
-      // Filesets are only created by Fileset() so this is good enough.
-      RichArtifactData forwardedRichArtifactData;
-      if (action.getOutputs().size() == 1
-          && Iterables.getOnlyElement(action.getOutputs()).isFileset()) {
-        forwardedRichArtifactData = Iterables.getOnlyElement(state.topLevelFilesets.values());
-      } else if (action instanceof RichDataProducingAction rdpa) {
-        forwardedRichArtifactData =
-            rdpa.reconstructRichDataOnActionCacheHit(state.topLevelFilesets, inputMetadataProvider);
+      RichArtifactData reconstructedRichArtifactData;
+      if (action instanceof RichDataProducingAction rdpa) {
+        Path execRoot =
+            state.actionFileSystem != null
+                ? state.actionFileSystem.getPath(skyframeActionExecutor.getExecRoot().asFragment())
+                : skyframeActionExecutor.getExecRoot();
+
+        reconstructedRichArtifactData =
+            rdpa.reconstructRichDataOnActionCacheHit(
+                execRoot, state.topLevelFilesets, inputMetadataProvider, artifactExpander);
       } else {
-        forwardedRichArtifactData = null;
+        reconstructedRichArtifactData = null;
       }
 
-      checkState(
-          !(action instanceof SkyframeAwareAction),
-          "Error, we're not re-executing a "
-              + "SkyframeAwareAction which should be re-executed unconditionally. Action: %s",
-          action);
-      return ActionExecutionValue.create(outputMetadataStore, forwardedRichArtifactData, action);
+      return ActionExecutionValue.create(
+          outputMetadataStore, reconstructedRichArtifactData, action);
     }
 
     outputMetadataStore.prepareForActionExecution();
@@ -953,7 +917,6 @@ public final class ActionExecutionFunction implements SkyFunction {
         expandedFilesets,
         state.topLevelFilesets,
         state.actionFileSystem,
-        skyframeDepsResult,
         new ActionPostprocessingImpl(state),
         state.discoveredInputs != null);
   }
@@ -1114,36 +1077,6 @@ public final class ActionExecutionFunction implements SkyFunction {
             "unknown metadata for " + input.getExecPathString() + ": " + retrievedMetadata);
       }
     }
-  }
-
-  @Nullable
-  private static Object establishSkyframeDependencies(Environment env, Action action)
-      throws ActionExecutionException, InterruptedException {
-    // Before we may safely establish Skyframe dependencies, we must build all action inputs by
-    // requesting their ArtifactValues.
-    // This is very important to do, because the establishSkyframeDependencies method may request
-    // FileValues for input files of this action (directly requesting them, or requesting some other
-    // SkyValue whose builder requests FileValues), which may not yet exist if their generating
-    // actions have not yet run.
-    // See SkyframeAwareActionTest.testRaceConditionBetweenInputAcquisitionAndSkyframeDeps
-    checkState(!env.valuesMissing(), action);
-
-    if (action instanceof SkyframeAwareAction skyframeAwareAction) {
-      // Skyframe-aware actions should be executed unconditionally, i.e. bypass action cache
-      // checking. See documentation of SkyframeAwareAction.
-      checkState(action.executeUnconditionally(), action);
-
-      ImmutableList<? extends SkyKey> keys = skyframeAwareAction.getDirectSkyframeDependencies();
-      SkyframeLookupResult values = env.getValuesAndExceptions(keys);
-
-      try {
-        return skyframeAwareAction.processSkyframeValues(keys, values, env.valuesMissing());
-      } catch (SkyframeAwareAction.ExceptionBase e) {
-        throw new ActionExecutionException(
-            e, action, false, DetailedExitCode.of(e.getFailureDetail()));
-      }
-    }
-    return null;
   }
 
   private static class CheckInputResults {

@@ -170,7 +170,6 @@ public class ExtraActionTest extends FoundationTestCase {
                 /* topLevelFilesets= */ ImmutableMap.of(),
                 /* artifactExpander= */ null,
                 /* actionFileSystem= */ null,
-                /* skyframeDepsResult= */ null,
                 DiscoveredModulesPruner.DEFAULT,
                 SyscallCache.NO_CACHE,
                 ThreadStateReceiver.NULL_INSTANCE));

@@ -2431,7 +2431,6 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
           /* topLevelFilesets= */ ImmutableMap.of(),
           artifactExpander,
           /* actionFileSystem= */ null,
-          /* skyframeDepsResult= */ null,
           DiscoveredModulesPruner.DEFAULT,
           SyscallCache.NO_CACHE,
           ThreadStateReceiver.NULL_INSTANCE);

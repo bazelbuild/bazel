@@ -37,23 +37,34 @@ public final class FilesetOutputTree implements RichArtifactData {
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
-  public static final FilesetOutputTree EMPTY = new FilesetOutputTree(ImmutableList.of(), false);
+  public static final FilesetOutputTree EMPTY =
+      new FilesetOutputTree(ImmutableList.of(), false, false);
   private static final int MAX_SYMLINK_TRAVERSALS = 256;
+
+  public static FilesetOutputTree forward(FilesetOutputTree other) {
+    return other.isEmpty()
+        ? EMPTY
+        : new FilesetOutputTree(other.symlinks, other.hasRelativeSymlinks, true);
+  }
 
   public static FilesetOutputTree create(ImmutableList<FilesetOutputSymlink> symlinks) {
     return symlinks.isEmpty()
         ? EMPTY
         : new FilesetOutputTree(
-            symlinks, symlinks.stream().anyMatch(FilesetOutputTree::isRelativeSymlink));
+            symlinks, symlinks.stream().anyMatch(FilesetOutputTree::isRelativeSymlink), false);
   }
 
   private final ImmutableList<FilesetOutputSymlink> symlinks;
   private final boolean hasRelativeSymlinks;
+  private final boolean forwarded;
 
   private FilesetOutputTree(
-      ImmutableList<FilesetOutputSymlink> symlinks, boolean hasRelativeSymlinks) {
+      ImmutableList<FilesetOutputSymlink> symlinks,
+      boolean hasRelativeSymlinks,
+      boolean forwarded) {
     this.symlinks = checkNotNull(symlinks);
     this.hasRelativeSymlinks = hasRelativeSymlinks;
+    this.forwarded = forwarded;
   }
 
   /** Receiver for the symlinks in a fileset's output tree. */
@@ -156,6 +167,15 @@ public final class FilesetOutputTree implements RichArtifactData {
 
   public ImmutableList<FilesetOutputSymlink> symlinks() {
     return symlinks;
+  }
+
+  /**
+   * Returns true if this Fileset is really created from a different action.
+   *
+   * <p>This is used to avoid double-counting the size of the fileset in metrics.
+   */
+  public boolean isForwarded() {
+    return forwarded;
   }
 
   public int size() {

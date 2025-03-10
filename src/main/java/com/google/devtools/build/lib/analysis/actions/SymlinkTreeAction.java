@@ -17,6 +17,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
@@ -27,6 +28,10 @@ import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactExpander;
+import com.google.devtools.build.lib.actions.FilesetOutputTree;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
+import com.google.devtools.build.lib.actions.RichArtifactData;
+import com.google.devtools.build.lib.actions.RichDataProducingAction;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.RunfileSymlinksMode;
@@ -35,6 +40,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.vfs.Path;
 import javax.annotation.Nullable;
 
 /**
@@ -42,7 +48,7 @@ import javax.annotation.Nullable;
  * trees.
  */
 @Immutable
-public final class SymlinkTreeAction extends AbstractAction {
+public final class SymlinkTreeAction extends AbstractAction implements RichDataProducingAction {
 
   private static final String GUID = "7a16371c-cd4a-494d-b622-963cd89f5212";
 
@@ -221,6 +227,18 @@ public final class SymlinkTreeAction extends AbstractAction {
     }
   }
 
+  @Nullable
+  @Override
+  public RichArtifactData reconstructRichDataOnActionCacheHit(
+      Path execRoot,
+      ImmutableMap<Artifact, FilesetOutputTree> topLevelFilesets,
+      InputMetadataProvider inputMetadataProvider,
+      ArtifactExpander artifactExpander) {
+    return getPrimaryOutput().isFileset()
+        ? FilesetOutputTree.forward(topLevelFilesets.get(getPrimaryInput()))
+        : null;
+  }
+
   @Override
   public ActionResult execute(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
@@ -229,7 +247,8 @@ public final class SymlinkTreeAction extends AbstractAction {
         .createSymlinks(this, actionExecutionContext);
     if (getPrimaryOutput().isFileset()) {
       actionExecutionContext.setRichArtifactData(
-          actionExecutionContext.getTopLevelFilesets().get(getPrimaryInput()));
+          FilesetOutputTree.forward(
+              actionExecutionContext.getTopLevelFilesets().get(getPrimaryInput())));
     }
     return ActionResult.EMPTY;
   }

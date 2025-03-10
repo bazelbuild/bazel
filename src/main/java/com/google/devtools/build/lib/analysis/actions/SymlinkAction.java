@@ -30,6 +30,10 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.FilesetOutputTree;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
+import com.google.devtools.build.lib.actions.RichArtifactData;
+import com.google.devtools.build.lib.actions.RichDataProducingAction;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -51,7 +55,7 @@ import javax.annotation.Nullable;
  * Action to create a symlink to a known-to-exist target with alias semantics similar to a true copy
  * of the input (if any).
  */
-public final class SymlinkAction extends AbstractAction {
+public final class SymlinkAction extends AbstractAction implements RichDataProducingAction {
   private static final String GUID = "7f4fab4d-d0a7-4f0f-8649-1d0337a21fee";
 
   /** Null when {@link #getPrimaryInput} is the target of the symlink. */
@@ -198,6 +202,18 @@ public final class SymlinkAction extends AbstractAction {
     return actionExecutionContext.getInputPath(getPrimaryOutput());
   }
 
+  @Nullable
+  @Override
+  public RichArtifactData reconstructRichDataOnActionCacheHit(
+      Path execRoot,
+      ImmutableMap<Artifact, FilesetOutputTree> topLevelFilesets,
+      InputMetadataProvider inputMetadataProvider,
+      ArtifactExpander artifactExpander) {
+    return targetType == TargetType.FILESET
+        ? FilesetOutputTree.forward(topLevelFilesets.get(getPrimaryInput()))
+        : null;
+  }
+
   @Override
   public ActionResult execute(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
@@ -252,7 +268,8 @@ public final class SymlinkAction extends AbstractAction {
       // attached to that artifact so that the execution strategies of actions that take it as an
       // input can recreate the Fileset.
       actionExecutionContext.setRichArtifactData(
-          actionExecutionContext.getTopLevelFilesets().get(getPrimaryInput()));
+          FilesetOutputTree.forward(
+              actionExecutionContext.getTopLevelFilesets().get(getPrimaryInput())));
     } else {
       maybeInjectMetadata(this, actionExecutionContext);
     }

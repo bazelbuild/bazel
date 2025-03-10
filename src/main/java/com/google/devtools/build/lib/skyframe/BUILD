@@ -186,7 +186,6 @@ java_library(
         ":skyfocus_options",
         ":skyfocus_state",
         ":skyframe_action_executor",
-        ":skyframe_aware_action",
         ":skyframe_error_processor",
         ":skyframe_executor_repository_helpers_holder",
         ":skyframe_incremental_build_monitor",
@@ -2471,7 +2470,6 @@ java_library(
         ":action_output_metadata_store",
         ":metadata_consumer_for_metrics",
         ":progress_suppressing_event_handler",
-        ":skyframe_aware_action",
         ":track_source_directories_flag",
         ":tree_artifact_value",
         "//src/main/java/com/google/devtools/build/lib:build-request-options",
@@ -2507,16 +2505,6 @@ java_library(
         "//third_party:flogger",
         "//third_party:guava",
         "//third_party:jsr305",
-    ],
-)
-
-java_library(
-    name = "skyframe_aware_action",
-    srcs = ["SkyframeAwareAction.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
-        "//src/main/protobuf:failure_details_java_proto",
-        "//third_party:guava",
     ],
 )
 
