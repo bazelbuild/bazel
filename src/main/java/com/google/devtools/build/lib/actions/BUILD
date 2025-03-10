@@ -141,7 +141,6 @@ java_library(
     deps = [
         ":action_lookup_data",
         ":action_lookup_key",
-        ":arg_chunk",
         ":artifact_expander",
         ":artifact_owner",
         ":artifacts",
@@ -212,11 +211,6 @@ java_library(
         "@com_google_protobuf//:protobuf_java",
         "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
     ],
-)
-
-java_library(
-    name = "arg_chunk",
-    srcs = ["ArgChunk.java"],
 )
 
 java_library(
@@ -301,6 +295,7 @@ java_library(
     srcs = [
         "ActionInput.java",
         "ActionKeyContext.java",
+        "ArgChunk.java",
         "Artifact.java",
         "ArtifactCodecs.java",
         "ArtifactFactory.java",
@@ -314,7 +309,6 @@ java_library(
     deps = [
         ":action_lookup_data",
         ":action_lookup_key",
-        ":arg_chunk",
         ":artifact_owner",
         ":commandline_item",
         ":package_roots",
