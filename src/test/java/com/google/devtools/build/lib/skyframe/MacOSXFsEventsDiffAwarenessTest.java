@@ -130,7 +130,7 @@ public class MacOSXFsEventsDiffAwarenessTest {
     // pathsYetToBeSeen set.
     int attempts = 0;
     for (; ; ) {
-      View view2 = underTest.getCurrentView(watchFsEnabledProvider);
+      View view2 = underTest.getCurrentView(watchFsEnabledProvider, event -> {});
 
       ModifiedFileSet diff = underTest.getDiff(view1, view2);
       // If fsevents lost events (e.g. because we weren't fast enough processing them or because
@@ -164,7 +164,7 @@ public class MacOSXFsEventsDiffAwarenessTest {
   @Test
   @Ignore("Test is flaky; see https://github.com/bazelbuild/bazel/issues/10776")
   public void testSimple() throws Exception {
-    View view1 = underTest.getCurrentView(watchFsEnabledProvider);
+    View view1 = underTest.getCurrentView(watchFsEnabledProvider, event -> {});
 
     scratchDir("a/b");
     scratchFile("a/b/c");
@@ -184,7 +184,7 @@ public class MacOSXFsEventsDiffAwarenessTest {
     scratchFile("dir1/file.c", "first");
     scratchDir("dir2");
     scratchFile("dir2/file.c", "second");
-    View view1 = underTest.getCurrentView(watchFsEnabledProvider);
+    View view1 = underTest.getCurrentView(watchFsEnabledProvider, event -> {});
 
     Files.move(watchedPath.resolve("dir1"), watchedPath.resolve("dir3"));
     Files.move(watchedPath.resolve("dir2"), watchedPath.resolve("dir1"));
@@ -195,7 +195,7 @@ public class MacOSXFsEventsDiffAwarenessTest {
   @Test
   @Ignore("Test is flaky; see https://github.com/bazelbuild/bazel/issues/10776")
   public void testStress() throws Exception {
-    View view1 = underTest.getCurrentView(watchFsEnabledProvider);
+    View view1 = underTest.getCurrentView(watchFsEnabledProvider, event -> {});
 
     // Attempt to cause fsevents to drop events by performing a lot of concurrent file accesses
     // which then may result in our own callback in fsevents.cc not being able to keep up.

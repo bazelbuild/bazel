@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -22,6 +23,7 @@ import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.util.OptionsUtils;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -72,6 +74,19 @@ public abstract class LocalDiffAwareness implements DiffAwareness {
             "If true, experimental Windows support for --watchfs is enabled. Otherwise --watchfs"
                 + "is a non-op on Windows. Make sure to also enable --watchfs.")
     public boolean windowsWatchFS;
+
+    @Option(
+        name = "experimental_watchman_path",
+        defaultValue = "",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        converter = OptionsUtils.PathFragmentConverter.class,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help =
+            "If set to a non-empty value, the specified Watchman binary will be used for file "
+                + "system watching instead of the builtin OS-specific file system watching "
+                + "mechanism. If only a basename is provided, the binary will be searched for in "
+                + "PATH.")
+    public PathFragment watchmanPath;
   }
 
   /** Factory for creating {@link LocalDiffAwareness} instances. */
@@ -107,6 +122,12 @@ public abstract class LocalDiffAwareness implements DiffAwareness {
       }
       Path watchRoot =
           Path.of(StringEncoding.internalToPlatform(resolvedPathEntryFragment.getPathString()));
+
+      PathFragment watchmanPath = optionsProvider.getOptions(Options.class).watchmanPath;
+      if (!watchmanPath.isEmpty()) {
+        return new WatchmanDiffAwareness(watchRoot, ignoredPaths);
+      }
+
       // On OSX uses FsEvents due to https://bugs.openjdk.java.net/browse/JDK-7133447
       if (OS.getCurrent() == OS.DARWIN) {
         return new MacOSXFsEventsDiffAwareness(watchRoot);

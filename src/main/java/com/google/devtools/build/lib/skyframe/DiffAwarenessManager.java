@@ -133,7 +133,7 @@ public final class DiffAwarenessManager {
     DiffAwareness diffAwareness = diffAwarenessState.diffAwareness;
     View newView;
     try (SilentCloseable c = Profiler.instance().profile("diffAwareness.getCurrentView")) {
-      newView = diffAwareness.getCurrentView(options);
+      newView = diffAwareness.getCurrentView(options, eventHandler);
     } catch (BrokenDiffAwarenessException e) {
       handleBrokenDiffAwareness(eventHandler, pathEntry, ignoredPaths, e);
       return BrokenProcessableModifiedFileSet.INSTANCE;

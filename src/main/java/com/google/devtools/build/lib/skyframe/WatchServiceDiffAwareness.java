@@ -19,6 +19,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.HashBiMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.OptionsProvider;
@@ -71,7 +72,8 @@ public final class WatchServiceDiffAwareness extends LocalDiffAwareness {
   }
 
   @Override
-  public View getCurrentView(OptionsProvider options) throws BrokenDiffAwarenessException {
+  public View getCurrentView(OptionsProvider options, EventHandler eventHandler)
+      throws BrokenDiffAwarenessException {
     // We need to consider 4 cases for watchFs:
     // previous view    current view
     //  disabled         disabled  -> EVERYTHING_MODIFIED

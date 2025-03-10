@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -26,6 +27,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.util.EventCollectionApparatus;
 import com.google.devtools.build.lib.skyframe.DiffAwareness.View;
 import com.google.devtools.build.lib.skyframe.DiffAwarenessManager.ProcessableModifiedFileSet;
@@ -291,7 +293,7 @@ public class DiffAwarenessManagerTest {
     Root pathEntry = Root.fromPath(fs.getPath("/path"));
     WorkspaceInfoFromDiff workspaceInfo = new WorkspaceInfoFromDiff() {};
     DiffAwareness diffAwareness = mock(DiffAwareness.class);
-    when(diffAwareness.getCurrentView(any())).thenReturn(createView(workspaceInfo));
+    when(diffAwareness.getCurrentView(any(), any())).thenReturn(createView(workspaceInfo));
     DiffAwareness.Factory factory = mock(DiffAwareness.Factory.class);
     when(factory.maybeCreate(pathEntry, IgnoredSubdirectories.EMPTY, OptionsProvider.EMPTY))
         .thenReturn(diffAwareness);
@@ -312,7 +314,7 @@ public class DiffAwarenessManagerTest {
     DiffAwareness diffAwareness = mock(DiffAwareness.class);
     View view1 = createView(workspaceInfo1);
     View view2 = createView(workspaceInfo2);
-    when(diffAwareness.getCurrentView(any())).thenReturn(view1, view2);
+    when(diffAwareness.getCurrentView(any(), any())).thenReturn(view1, view2);
     when(diffAwareness.getDiff(view1, view2))
         .thenReturn(ModifiedFileSet.builder().modify(PathFragment.create("file")).build());
     DiffAwareness.Factory factory = mock(DiffAwareness.Factory.class);
@@ -338,7 +340,7 @@ public class DiffAwarenessManagerTest {
     DiffAwareness diffAwareness = mock(DiffAwareness.class);
     View view1 = createView(workspaceInfo1);
     View view2 = createView(workspaceInfo2);
-    when(diffAwareness.getCurrentView(any())).thenReturn(view1, view2);
+    when(diffAwareness.getCurrentView(any(), any())).thenReturn(view1, view2);
     when(diffAwareness.getDiff(view1, view2)).thenReturn(ModifiedFileSet.NOTHING_MODIFIED);
     DiffAwareness.Factory factory = mock(DiffAwareness.Factory.class);
     when(factory.maybeCreate(pathEntry, IgnoredSubdirectories.EMPTY, OptionsProvider.EMPTY))
@@ -362,7 +364,7 @@ public class DiffAwarenessManagerTest {
     DiffAwareness diffAwareness = mock(DiffAwareness.class);
     View view1 = createView(new WorkspaceInfoFromDiff() {});
     View view2 = createView(/*workspaceInfo=*/ null);
-    when(diffAwareness.getCurrentView(any())).thenReturn(view1, view2);
+    when(diffAwareness.getCurrentView(any(), any())).thenReturn(view1, view2);
     when(diffAwareness.getDiff(view1, view2))
         .thenReturn(ModifiedFileSet.builder().modify(PathFragment.create("file")).build());
     DiffAwareness.Factory factory = mock(DiffAwareness.Factory.class);
@@ -388,7 +390,7 @@ public class DiffAwarenessManagerTest {
     DiffAwareness diffAwareness = mock(DiffAwareness.class);
     View view1 = createView(workspaceInfo1);
     View view2 = createView(workspaceInfo2);
-    when(diffAwareness.getCurrentView(any())).thenReturn(view1, view2);
+    when(diffAwareness.getCurrentView(any(), any())).thenReturn(view1, view2);
     when(diffAwareness.getDiff(view1, view2)).thenThrow(BrokenDiffAwarenessException.class);
     DiffAwareness.Factory factory = mock(DiffAwareness.Factory.class);
     when(factory.maybeCreate(pathEntry, IgnoredSubdirectories.EMPTY, OptionsProvider.EMPTY))
@@ -412,7 +414,7 @@ public class DiffAwarenessManagerTest {
     DiffAwareness diffAwareness = mock(DiffAwareness.class);
     View view1 = createView(/*workspaceInfo=*/ null);
     View view2 = createView(/*workspaceInfo=*/ null);
-    when(diffAwareness.getCurrentView(any())).thenReturn(view1, view2);
+    when(diffAwareness.getCurrentView(any(), any())).thenReturn(view1, view2);
     when(diffAwareness.getDiff(view1, view2)).thenThrow(IncompatibleViewException.class);
     DiffAwareness.Factory factory = mock(DiffAwareness.Factory.class);
     when(factory.maybeCreate(pathEntry, IgnoredSubdirectories.EMPTY, OptionsProvider.EMPTY))
@@ -492,7 +494,7 @@ public class DiffAwarenessManagerTest {
     }
 
     @Override
-    public View getCurrentView(OptionsProvider options) throws BrokenDiffAwarenessException {
+    public View getCurrentView(OptionsProvider options, EventHandler eventHandler) throws BrokenDiffAwarenessException {
       if (curSequenceNum == brokenViewNum) {
         throw new BrokenDiffAwarenessException("error in getCurrentView");
       }

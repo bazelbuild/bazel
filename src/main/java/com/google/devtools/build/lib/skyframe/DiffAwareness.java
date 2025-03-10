@@ -15,6 +15,8 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.common.options.OptionsProvider;
@@ -63,7 +65,8 @@ public interface DiffAwareness extends Closeable {
    *     {@link DiffAwareness} instance. The {@link DiffAwareness} is expected to close itself in
    *     this case.
    */
-  View getCurrentView(OptionsProvider options) throws BrokenDiffAwarenessException;
+  View getCurrentView(OptionsProvider options, EventHandler eventHandler)
+      throws BrokenDiffAwarenessException;
 
   /**
    * Returns the set of files of interest that have been modified between the given two views.
