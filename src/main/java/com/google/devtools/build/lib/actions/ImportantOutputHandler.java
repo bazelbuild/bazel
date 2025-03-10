@@ -16,6 +16,8 @@ package com.google.devtools.build.lib.actions;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSetMultimap;
+import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.DetailedException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
@@ -38,12 +40,16 @@ public interface ImportantOutputHandler extends ActionContext {
    * @param expander used to expand {@linkplain Artifact#isDirectory directory artifacts} in {@code
    *     outputs}
    * @param metadataProvider provides metadata for artifacts in {@code outputs} and their expansions
+   * @param getGeneratingAction returns the generating action for a derived artifact
    * @return any artifacts that need to be regenerated via action rewinding
    * @throws ImportantOutputException for an issue processing the outputs, not including lost
    *     outputs which are reported in the returned {@link LostArtifacts}
    */
   LostArtifacts processOutputsAndGetLostArtifacts(
-      Iterable<Artifact> outputs, ArtifactExpander expander, InputMetadataProvider metadataProvider)
+      Iterable<Artifact> outputs,
+      ArtifactExpander expander,
+      InputMetadataProvider metadataProvider,
+      GeneratingActionGetter getGeneratingAction)
       throws ImportantOutputException, InterruptedException;
 
   /**
@@ -111,9 +117,26 @@ public interface ImportantOutputHandler extends ActionContext {
   Duration LOG_THRESHOLD = Duration.ofMillis(100);
 
   /**
+   * A function that returns the {@link ActionExecutionMetadata} of the action that generates a
+   * given {@link DerivedArtifact}.
+   */
+  @FunctionalInterface
+  interface GeneratingActionGetter {
+    /**
+     * Returns the {@link ActionExecutionMetadata} of the action that generates the given {@link
+     * DerivedArtifact}.
+     */
+    ActionExecutionMetadata of(DerivedArtifact artifact) throws InterruptedException;
+  }
+
+  /**
    * Represents artifacts that need to be regenerated via action rewinding, along with their owners.
    */
   record LostArtifacts(ImmutableMap<String, ActionInput> byDigest, ActionInputDepOwners owners) {
+
+    /** An empty instance of {@link LostArtifacts}. */
+    public static final LostArtifacts EMPTY =
+        new LostArtifacts(ImmutableMap.of(), ImmutableSetMultimap.<ActionInput, Artifact>of()::get);
 
     public LostArtifacts(ImmutableMap<String, ActionInput> byDigest, ActionInputDepOwners owners) {
       this.byDigest = checkNotNull(byDigest);
@@ -122,6 +145,15 @@ public interface ImportantOutputHandler extends ActionContext {
 
     public boolean isEmpty() {
       return byDigest.isEmpty();
+    }
+
+    /**
+     * @throws LostInputsExecException if this instance is not empty
+     */
+    public void throwIfNotEmpty() throws LostInputsExecException {
+      if (!isEmpty()) {
+        throw new LostInputsExecException(byDigest, owners);
+      }
     }
   }
 
