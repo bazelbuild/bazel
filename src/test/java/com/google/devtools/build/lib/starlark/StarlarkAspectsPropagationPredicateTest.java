@@ -34,9 +34,9 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests for Starlark aspects propagation functions. */
+/** Tests for Starlark aspects {@code propagation_predicate} function. */
 @RunWith(JUnit4.class)
-public final class StarlarkAspectsPropagationFunctionsTest extends AnalysisTestCase {
+public final class StarlarkAspectsPropagationPredicateTest extends AnalysisTestCase {
 
   private void createTestDefs(String propagationPredicate) throws Exception {
     scratch.file(

@@ -110,6 +110,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
 
 /**
  * The Skyframe function that generates aspects.
@@ -483,6 +484,12 @@ final class AspectFunction implements SkyFunction {
         throw new AspectFunctionException(
             new AspectCreationException(
                 cause.getMessage(), cause.getRootCauses(), cause.getDetailedExitCode()));
+      }
+      // Exception while evaluating the aspect {@code attr_aspects} and {@code toolchains_aspects}
+      // functions.
+      if (e.getCause() instanceof EvalException cause) {
+        throw new AspectFunctionException(
+            new AspectCreationException(cause.getMessage(), key.getLabel(), configuration));
       }
       // Cast to InconsistentAspectOrderException as a consistency check. If you add any
       // DependencyEvaluationException constructors, you may need to change this code, too.

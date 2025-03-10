@@ -215,33 +215,36 @@ public class StarlarkAttributesCollection implements StarlarkAttributesCollectio
       return builder.buildImmutable();
     }
 
-    @Nullable
-    public static Object convertAttributeValue(
-        Supplier<List<? extends TransitiveInfoCollection>> prerequisiteSupplier,
-        Attribute a,
-        Object val) {
+    private static boolean shouldIgnore(Attribute a) {
       Type<?> type = a.getType();
       String skyname = a.getPublicName();
 
       // Some legacy native attribute types do not have a valid Starlark type. Avoid exposing
       // these to Starlark.
       if (type == BuildType.DISTRIBUTIONS || type == BuildType.TRISTATE) {
-        return null;
+        return true;
       }
 
       // Don't expose invalid attributes via the rule ctx.attr. Ordinarily, this case cannot happen,
       // and currently only applies to subrule attributes
       // TODO: b/293304174 - let subrules explicitly mark attributes as not-visible-to-starlark
       if (!Identifier.isValid(skyname)) {
-        return null;
+        return true;
       }
 
       // Don't expose exec_group_compatible_with to Starlark. There is no reason for it to be used
       // by the rule implementation function and its type (LABEL_LIST_DICT) is not available to
       // Starlark.
       if (a.getName().equals(RuleClass.EXEC_GROUP_COMPATIBLE_WITH_ATTR)) {
-        return null;
+        return true;
       }
+
+      return false;
+    }
+
+    @Nullable
+    private static Object maybeDirectVal(Attribute a, Object val) {
+      Type<?> type = a.getType();
 
       if (type == BuildType.DORMANT_LABEL) {
         return val == null
@@ -262,6 +265,58 @@ public class StarlarkAttributesCollection implements StarlarkAttributesCollectio
         // Attribute values should be type safe
         return Attribute.valueToStarlark(val);
       }
+
+      return null;
+    }
+
+    @Nullable
+    public static Object convertAttributeValueForAspectPropagationFunc(
+        Supplier<List<Label>> depLabelsSupplier, Attribute a, Object val) {
+
+      if (shouldIgnore(a)) {
+        return null;
+      }
+
+      Object maybeVal = maybeDirectVal(a, val);
+      if (maybeVal != null) {
+        return maybeVal;
+      }
+
+      Type<?> type = a.getType();
+
+      if (type == BuildType.LABEL && !a.getTransitionFactory().isSplit()) {
+        List<? extends Label> prerequisites = depLabelsSupplier.get();
+        return prerequisites.isEmpty() ? Starlark.NONE : prerequisites.get(0);
+      } else if (type == BuildType.LABEL_LIST
+          || (type == BuildType.LABEL && a.getTransitionFactory().isSplit())) {
+        return StarlarkList.immutableCopyOf(depLabelsSupplier.get());
+      } else if (type == BuildType.LABEL_DICT_UNARY || type == BuildType.LABEL_KEYED_STRING_DICT) {
+        return val; // return the same map as the labels are not configured to targets
+      } else {
+        throw new IllegalArgumentException(
+            "Can't transform attribute "
+                + a.getName()
+                + " of type "
+                + type
+                + " to a Starlark object");
+      }
+    }
+
+    @Nullable
+    public static Object convertAttributeValue(
+        Supplier<List<? extends TransitiveInfoCollection>> prerequisiteSupplier,
+        Attribute a,
+        Object val) {
+      if (shouldIgnore(a)) {
+        return null;
+      }
+
+      Object maybeVal = maybeDirectVal(a, val);
+      if (maybeVal != null) {
+        return maybeVal;
+      }
+
+      Type<?> type = a.getType();
 
       if (type == BuildType.LABEL && !a.getTransitionFactory().isSplit()) {
         List<? extends TransitiveInfoCollection> prerequisites = prerequisiteSupplier.get();

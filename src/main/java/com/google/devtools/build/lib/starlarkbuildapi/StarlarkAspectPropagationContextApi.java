@@ -95,7 +95,7 @@ public interface StarlarkAspectPropagationContextApi extends StarlarkValue {
    */
   static interface RuleAttributeApi extends StarlarkValue {
     @StarlarkMethod(name = "value", structField = true, doc = "The value of the attribute.")
-    StarlarkValue getValue() throws EvalException;
+    Object getValue() throws EvalException;
 
     @StarlarkMethod(name = "is_tool", structField = true, doc = "Whether the attribute is a tool.")
     boolean isTool() throws EvalException;

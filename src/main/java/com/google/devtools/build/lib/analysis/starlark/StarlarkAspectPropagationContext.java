@@ -33,28 +33,15 @@ import com.google.devtools.build.lib.starlarkbuildapi.StarlarkAspectPropagationC
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import net.starlark.java.eval.StarlarkList;
-import net.starlark.java.eval.StarlarkValue;
 
 /** Implementation of {@link StarlarkAspectPropagationContextApi}. */
 public final record StarlarkAspectPropagationContext(
     StructImpl aspectPublicParams, StarlarkAspectPropagationRule rule)
     implements StarlarkAspectPropagationContextApi {
 
+  /** Creates a {@link StarlarkAspectPropagationContext} for the propagation predicate. */
   public static StarlarkAspectPropagationContext createForPropagationPredicate(
       Aspect aspect, Label label, RuleClass ruleClass, ImmutableList<String> tags) {
-
-    var aspectPublicParams =
-        StructProvider.STRUCT.create(
-            aspect.getParameters().getAttributes().keySet().stream()
-                .map(aspect.getDefinition().getAttributes()::get)
-                .collect(
-                    toImmutableMap(
-                        attr -> attr.getPublicName(),
-                        attr -> Attribute.valueToStarlark(attr.getDefaultValue(null)))),
-            " '%s' is not a public parameter of the aspect.");
-
-    var qualifiedRuleKind =
-        new QualifiedRuleKind(ruleClass.getRuleDefinitionEnvironmentLabel(), ruleClass.getName());
 
     var ruleAttributes =
         StructProvider.STRUCT.create(
@@ -63,8 +50,9 @@ public final record StarlarkAspectPropagationContext(
             "Only rule's \"tags\" are available in propagation_predicate function.");
 
     return new StarlarkAspectPropagationContext(
-        aspectPublicParams,
-        new StarlarkAspectPropagationRule(label, qualifiedRuleKind, ruleAttributes));
+        createAspectPublicParams(aspect),
+        new StarlarkAspectPropagationRule(
+            label, createQualifiedRuleKind(ruleClass), ruleAttributes));
   }
 
   /**
@@ -76,8 +64,46 @@ public final record StarlarkAspectPropagationContext(
       Rule rule,
       ConfiguredAttributeMapper attributeMap,
       OrderedSetMultimap<DependencyKind, Label> dependencyLabels) {
-    // TODO(b/394400334): Implement this.
-    return null;
+
+    ImmutableMap.Builder<String, Object> ruleAttributesBuilder = ImmutableMap.builder();
+    for (Attribute attr : rule.getAttributes()) {
+      var starlarkValue =
+          StarlarkAttributesCollection.Builder.convertAttributeValueForAspectPropagationFunc(
+              () ->
+                  ImmutableList.copyOf(
+                      dependencyLabels.get(DependencyKind.AttributeDependencyKind.forRule(attr))),
+              attr,
+              attributeMap.get(attr.getName(), attr.getType()));
+
+      if (starlarkValue != null) {
+        ruleAttributesBuilder.put(
+            attr.getPublicName(), new RuleAttribute(starlarkValue, attr.isToolDependency()));
+      }
+    }
+    var ruleAttributes =
+        StructProvider.STRUCT.create(
+            ruleAttributesBuilder.buildOrThrow(), "'%s' is not an attribute of target: " + rule);
+
+    return new StarlarkAspectPropagationContext(
+        createAspectPublicParams(aspect),
+        new StarlarkAspectPropagationRule(
+            rule.getLabel(), createQualifiedRuleKind(rule.getRuleClassObject()), ruleAttributes));
+  }
+
+  private static StructImpl createAspectPublicParams(Aspect aspect) {
+    return StructProvider.STRUCT.create(
+        aspect.getParameters().getAttributes().keySet().stream()
+            .map(aspect.getDefinition().getAttributes()::get)
+            .collect(
+                toImmutableMap(
+                    Attribute::getPublicName,
+                    attr -> Attribute.valueToStarlark(attr.getDefaultValue(null)))),
+        " '%s' is not a public parameter of the aspect.");
+  }
+
+  private static QualifiedRuleKind createQualifiedRuleKind(RuleClass ruleClass) {
+    return new QualifiedRuleKind(
+        ruleClass.getRuleDefinitionEnvironmentLabel(), ruleClass.getName());
   }
 
   @Override
@@ -122,10 +148,9 @@ public final record StarlarkAspectPropagationContext(
     }
   }
 
-  private static record RuleAttribute(StarlarkValue value, boolean isTool)
-      implements RuleAttributeApi {
+  private static record RuleAttribute(Object value, boolean isTool) implements RuleAttributeApi {
     @Override
-    public StarlarkValue getValue() {
+    public Object getValue() {
       return value;
     }
 

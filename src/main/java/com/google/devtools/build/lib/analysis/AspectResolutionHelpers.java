@@ -96,7 +96,7 @@ public final class AspectResolutionHelpers {
   private static ImmutableList<Aspect> computePropagatingAspectsToToolchainDep(
       DependencyKind.BaseTargetToolchainDependencyKind kind,
       ImmutableList<Aspect> aspectsPath,
-      @Nullable ImmutableMultimap<Aspect, Label> computedToolchainsAspects,
+      ImmutableMultimap<Aspect, Label> computedToolchainsAspects,
       @Nullable ToolchainCollection<UnloadedToolchainContext> baseTargetToolchainContext) {
     var toolchainContext = baseTargetToolchainContext.getToolchainContext(kind.getExecGroupName());
     var toolchainType =
@@ -252,7 +252,8 @@ public final class AspectResolutionHelpers {
       Target target,
       ConfiguredAttributeMapper attributeMap,
       OrderedSetMultimap<DependencyKind, Label> dependencyLabels,
-      ExtendedEventHandler eventHandler) {
+      ExtendedEventHandler eventHandler)
+      throws InterruptedException, EvalException {
     var result = ImmutableMultimap.<Aspect, String>builder();
     for (Aspect aspect : aspects) {
       var attributeAspects = aspect.getDefinition().getAttributeAspects();
@@ -277,7 +278,8 @@ public final class AspectResolutionHelpers {
       Target target,
       ConfiguredAttributeMapper attributeMap,
       OrderedSetMultimap<DependencyKind, Label> dependencyLabels,
-      ExtendedEventHandler eventHandler) {
+      ExtendedEventHandler eventHandler)
+      throws InterruptedException, EvalException {
     var result = ImmutableMultimap.<Aspect, Label>builder();
     for (Aspect aspect : aspects) {
       var toolchainsAspects = aspect.getDefinition().getToolchainsAspects();

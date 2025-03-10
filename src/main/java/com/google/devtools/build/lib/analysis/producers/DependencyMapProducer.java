@@ -25,6 +25,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.analysis.DependencyKind;
+import com.google.devtools.build.lib.analysis.config.DependencyEvaluationException;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionCollector;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -309,7 +310,14 @@ public final class DependencyMapProducer implements StateMachine, DependencyProd
 
   @Override
   public StateMachine step(Tasks tasks) throws InterruptedException {
-    computeAspectPropagationEdges();
+    try {
+      computeAspectPropagationEdges();
+    } catch (EvalException e) {
+      parameters.eventHandler().handle(Event.error(parameters.location(), e.getMessageWithStack()));
+      acceptDependencyError(
+          DependencyError.of(new DependencyEvaluationException(e, parameters.location())));
+      return DONE;
+    }
     return attributeResolutionStep(tasks, true, this::evaluateMaterializersIfNeeded);
   }
 
@@ -318,7 +326,7 @@ public final class DependencyMapProducer implements StateMachine, DependencyProd
   }
 
   /** Computes the aspects' propagation attribute names and toolchain types. */
-  private void computeAspectPropagationEdges() {
+  private void computeAspectPropagationEdges() throws InterruptedException, EvalException {
     if (parameters.aspects().isEmpty()) {
       return;
     }

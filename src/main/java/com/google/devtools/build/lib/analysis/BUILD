@@ -225,6 +225,7 @@ java_library(
         "extra/ExtraActionMapProvider.java",
         "extra/ExtraActionSpec.java",
         "starlark/StarlarkActionFactory.java",
+        "starlark/StarlarkAspectPropagationContext.java",
         "starlark/StarlarkAttrModule.java",
         "starlark/StarlarkAttributeTransitionProvider.java",
         "starlark/StarlarkAttributesCollection.java",
@@ -368,7 +369,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
         "//src/main/java/com/google/devtools/build/lib/actions:package_roots",
         "//src/main/java/com/google/devtools/build/lib/actions:runfiles_tree",
-        "//src/main/java/com/google/devtools/build/lib/analysis:starlark_aspect_propagation_context",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
         "//src/main/java/com/google/devtools/build/lib/analysis/stringtemplate",
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:resolution",
@@ -451,22 +451,6 @@ java_library(
         "//third_party:jsr305",
         "@com_google_protobuf//:protobuf_java",
         "@com_google_protobuf//:protobuf_java_util",
-    ],
-)
-
-java_library(
-    name = "starlark_aspect_propagation_context",
-    srcs = ["starlark/StarlarkAspectPropagationContext.java"],
-    deps = [
-        ":dependency_kind",
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/java/com/google/devtools/build/lib/packages:configured_attribute_mapper",
-        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi",
-        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/core",
-        "//src/main/java/com/google/devtools/build/lib/util",
-        "//src/main/java/net/starlark/java/eval",
-        "//third_party:guava",
     ],
 )
 
