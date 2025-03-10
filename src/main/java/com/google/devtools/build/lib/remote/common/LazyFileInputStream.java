@@ -66,8 +66,9 @@ public class LazyFileInputStream extends InputStream {
 
   @Override
   public void close() throws IOException {
-    ensureOpen();
-    in.close();
+    if (in != null) {
+      in.close();
+    }
   }
 
   private void ensureOpen() throws IOException {
