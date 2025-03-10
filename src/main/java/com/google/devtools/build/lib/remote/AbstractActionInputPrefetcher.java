@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
 import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValueWithMaterializationData;
 import com.google.devtools.build.lib.actions.FileContentsProxy;
 import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
@@ -682,14 +683,18 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       }
 
       if (output.isTreeArtifact()) {
-        var children = outputMetadataStore.getTreeArtifactChildren((SpecialArtifact) output);
-        for (var file : children) {
-          if (remoteOutputChecker.shouldDownloadOutput(file)) {
-            outputsToDownload.add(file);
-          }
-        }
+        outputMetadataStore
+            .getTreeArtifactValue((SpecialArtifact) output)
+            .getChildValues()
+            .forEach(
+                (child, childMetadata) -> {
+                  if (remoteOutputChecker.shouldDownloadOutput(
+                      child, (RemoteFileArtifactValue) childMetadata)) {
+                    outputsToDownload.add(child);
+                  }
+                });
       } else {
-        if (remoteOutputChecker.shouldDownloadOutput(output)) {
+        if (remoteOutputChecker.shouldDownloadOutput(output, (RemoteFileArtifactValue) metadata)) {
           outputsToDownload.add(output);
         }
       }
