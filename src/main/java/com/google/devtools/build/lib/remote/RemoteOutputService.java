@@ -57,6 +57,7 @@ import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import java.io.IOException;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -68,6 +69,8 @@ import javax.annotation.Nullable;
 public class RemoteOutputService implements OutputService {
 
   private final BlazeDirectories directories;
+  private final ConcurrentHashMap<ActionExecutionMetadata, Cancellable> postExecutionTasks =
+      new ConcurrentHashMap<>();
 
   @Nullable private RemoteOutputChecker remoteOutputChecker;
   @Nullable private RemoteActionInputFetcher actionInputFetcher;
@@ -262,6 +265,28 @@ public class RemoteOutputService implements OutputService {
   }
 
   @Override
+  public void registerPostExecutionTask(ActionExecutionMetadata action, Cancellable task) {
+    // We don't expect to have multiple post-execution tasks for the same action registered at the
+    // same time.
+    postExecutionTasks.merge(
+        action,
+        task,
+        (oldTask, newTask) -> {
+          throw new IllegalStateException(
+              "Attempted to register multiple post-execution tasks for %s: %s and %s"
+                  .formatted(action, oldTask, newTask));
+        });
+  }
+
+  @Override
+  public void cancelPostExecutionTasks(ActionExecutionMetadata action) throws InterruptedException {
+    Cancellable task = postExecutionTasks.remove(action);
+    if (task != null) {
+      task.cancel();
+    }
+  }
+
+  @Override
   public RewoundActionSynchronizer createRewoundActionSynchronizer(boolean rewindingEnabled) {
     if (rewindingEnabled && actionInputFetcher != null) {
       return new RemoteRewoundActionSynchronizer();
@@ -298,6 +323,7 @@ public class RemoteOutputService implements OutputService {
         fineLocks = localFineLocks;
         coarseLock = null;
         localCoarseLock.writeLock().unlock();
+        cancelPostExecutionTasks(action);
         return fineWriteLock::unlock;
       }
 

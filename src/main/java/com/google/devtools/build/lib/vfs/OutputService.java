@@ -268,6 +268,26 @@ public interface OutputService {
     return delegate;
   }
 
+  /** A task with a cancellation callback. */
+  interface Cancellable {
+    void cancel() throws InterruptedException;
+  }
+
+  /**
+   * Registers a cancellation callback for a task that may still be running after the action has
+   * completed.
+   */
+  default void registerPostExecutionTask(ActionExecutionMetadata action, Cancellable task) {
+    throw new UnsupportedOperationException();
+  }
+
+  /**
+   * Cancels and awaits the completion of all tasks registered with {@link
+   * #registerPostExecutionTask}.
+   */
+  default void cancelPostExecutionTasks(ActionExecutionMetadata action)
+      throws InterruptedException {}
+
   default RewoundActionSynchronizer createRewoundActionSynchronizer(boolean rewindingEnabled) {
     return RewoundActionSynchronizer.NOOP;
   }
