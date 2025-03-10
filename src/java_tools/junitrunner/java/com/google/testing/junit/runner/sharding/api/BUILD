@@ -20,7 +20,7 @@ java_library(
     name = "api-android",
     srcs = glob(["*.java"]),
     deps = [
-        "//third_party/java/junit:junit-android",
+        "//third_party/java/junit:not-testonly-android",
     ],
 )
 
