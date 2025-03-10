@@ -27,10 +27,12 @@ import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.FilesetOutputTree;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.LostInputsActionExecutionException;
 import com.google.devtools.build.lib.actions.OutputChecker;
 import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import java.io.IOException;
@@ -264,5 +266,29 @@ public interface OutputService {
 
   default XattrProvider getXattrProvider(XattrProvider delegate) {
     return delegate;
+  }
+
+  default RewoundActionSynchronizer createRewoundActionSynchronizer(boolean rewindingEnabled) {
+    return RewoundActionSynchronizer.NOOP;
+  }
+
+  interface RewoundActionSynchronizer {
+    SilentCloseable enterActionPreparation(Action action, boolean wasRewound)
+        throws InterruptedException;
+
+    SilentCloseable enterActionExecution(Action action, InputMetadataProvider metadataProvider) throws InterruptedException;
+
+    RewoundActionSynchronizer NOOP =
+        new RewoundActionSynchronizer() {
+          @Override
+          public SilentCloseable enterActionPreparation(Action action, boolean wasRewound) {
+            return () -> {};
+          }
+
+          @Override
+          public SilentCloseable enterActionExecution(Action action, InputMetadataProvider metadataProvider) {
+            return () -> {};
+          }
+        };
   }
 }
