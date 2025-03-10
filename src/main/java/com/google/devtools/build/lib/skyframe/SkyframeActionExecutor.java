@@ -451,6 +451,7 @@ public final class SkyframeActionExecutor {
     this.executorEngine = null;
     this.progressSuppressingEventHandler = null;
     this.outputService = null;
+    this.rewoundActionSynchronizer = null;
     this.buildActionMap = null;
     this.rewoundActions = null;
     this.actionCacheChecker = null;

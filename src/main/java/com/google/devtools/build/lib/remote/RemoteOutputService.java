@@ -16,6 +16,8 @@ package com.google.devtools.build.lib.remote;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedSet;
@@ -23,7 +25,9 @@ import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInputMap;
+import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.FilesetOutputTree;
@@ -34,6 +38,9 @@ import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionPhaseCompleteEvent;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.ProfilerTask;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.server.FailureDetails.Execution;
 import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -50,7 +57,11 @@ import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import java.io.IOException;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Supplier;
+import java.util.stream.Stream;
 import javax.annotation.Nullable;
 
 /** Output service implementation for the remote build without local output service daemon. */
@@ -247,6 +258,112 @@ public class RemoteOutputService implements OutputService {
       throws LostInputsActionExecutionException {
     if (actionFileSystem instanceof RemoteActionFileSystem remoteFileSystem) {
       remoteFileSystem.checkForLostInputs(action);
+    }
+  }
+
+  @Override
+  public RewoundActionSynchronizer createRewoundActionSynchronizer(boolean rewindingEnabled) {
+    if (rewindingEnabled && actionInputFetcher != null) {
+      return new RemoteRewoundActionSynchronizer();
+    }
+    return RewoundActionSynchronizer.NOOP;
+  }
+
+  final class RemoteRewoundActionSynchronizer implements RewoundActionSynchronizer {
+    @Nullable private volatile ReadWriteLock coarseLock = new ReentrantReadWriteLock();
+    @Nullable private volatile LoadingCache<ActionLookupData, ReadWriteLock> fineLocks = null;
+
+    @Override
+    public SilentCloseable enterActionPreparation(Action action, boolean wasRewound)
+        throws InterruptedException {
+      if (!wasRewound) {
+        return () -> {};
+      }
+      try (SilentCloseable c =
+          Profiler.instance().profile(ProfilerTask.ACTION_LOCK, "action.enterActionPreparation")) {
+        return enterActionPreparationInternal(action);
+      }
+    }
+
+    private SilentCloseable enterActionPreparationInternal(Action action)
+        throws InterruptedException {
+      var localCoarseLock = coarseLock;
+      if (localCoarseLock != null) {
+        localCoarseLock.writeLock().lockInterruptibly();
+        var localFineLocks =
+            Caffeine.newBuilder()
+                .<ActionLookupData, ReadWriteLock>build(artifact -> new ReentrantReadWriteLock());
+        var fineWriteLock = localFineLocks.get(outputKeyFor(action)).writeLock();
+        fineWriteLock.lock();
+        fineLocks = localFineLocks;
+        coarseLock = null;
+        localCoarseLock.writeLock().unlock();
+        return fineWriteLock::unlock;
+      }
+
+      var writeLock = fineLocks.get(outputKeyFor(action)).writeLock();
+      writeLock.lockInterruptibly();
+      cancelPostExecutionTasks(action);
+      return writeLock::unlock;
+    }
+
+    @Override
+    public SilentCloseable enterActionExecution(
+        Action action, InputMetadataProvider metadataProvider) throws InterruptedException {
+      try (SilentCloseable c =
+          Profiler.instance().profile(ProfilerTask.ACTION_LOCK, "action.enterActionExecution")) {
+        return enterActionExecutionInternal(action, metadataProvider);
+      }
+    }
+
+    private SilentCloseable enterActionExecutionInternal(
+        Action action, InputMetadataProvider metadataProvider) throws InterruptedException {
+      var localCoarseLock = coarseLock;
+      if (localCoarseLock != null) {
+        localCoarseLock.readLock().lockInterruptibly();
+      }
+      var localFineLocks = fineLocks;
+      if (localFineLocks == null) {
+        return localCoarseLock.readLock()::unlock;
+      }
+      if (localCoarseLock != null) {
+        localCoarseLock.readLock().unlock();
+      }
+
+      var allReadWriteLocks =
+          localFineLocks.getAll(inputKeysFor(action, metadataProvider)).values();
+      var locksToUnlockBuilder =
+          ImmutableList.<Lock>builderWithExpectedSize(allReadWriteLocks.size());
+      try {
+        for (var readWriteLock : allReadWriteLocks) {
+          var readLock = readWriteLock.readLock();
+          readLock.lockInterruptibly();
+          locksToUnlockBuilder.add(readLock);
+        }
+      } catch (InterruptedException e) {
+        for (var readLock : locksToUnlockBuilder.build()) {
+          readLock.unlock();
+        }
+        throw e;
+      }
+      var locksToUnlock = locksToUnlockBuilder.build();
+      return () -> locksToUnlock.forEach(Lock::unlock);
+    }
+
+    private static Iterable<ActionLookupData> inputKeysFor(
+        Action action, InputMetadataProvider metadataProvider) {
+      return () ->
+          Stream.concat(
+                  action.getInputs().toList().stream(),
+                  metadataProvider.getRunfilesTrees().stream()
+                      .flatMap(runfilesTree -> runfilesTree.getArtifacts().toList().stream()))
+              .filter(artifact -> artifact instanceof DerivedArtifact)
+              .map(artifact -> ((DerivedArtifact) artifact).getGeneratingActionKey())
+              .iterator();
+    }
+
+    private static ActionLookupData outputKeyFor(Action action) {
+      return ((DerivedArtifact) action.getPrimaryOutput()).getGeneratingActionKey();
     }
   }
 }

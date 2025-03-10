@@ -276,7 +276,8 @@ public interface OutputService {
     SilentCloseable enterActionPreparation(Action action, boolean wasRewound)
         throws InterruptedException;
 
-    SilentCloseable enterActionExecution(Action action, InputMetadataProvider metadataProvider) throws InterruptedException;
+    SilentCloseable enterActionExecution(Action action, InputMetadataProvider metadataProvider)
+        throws InterruptedException;
 
     RewoundActionSynchronizer NOOP =
         new RewoundActionSynchronizer() {
@@ -286,7 +287,8 @@ public interface OutputService {
           }
 
           @Override
-          public SilentCloseable enterActionExecution(Action action, InputMetadataProvider metadataProvider) {
+          public SilentCloseable enterActionExecution(
+              Action action, InputMetadataProvider metadataProvider) {
             return () -> {};
           }
         };
