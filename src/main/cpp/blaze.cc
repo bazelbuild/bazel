@@ -986,6 +986,9 @@ static bool IsVolatileArg(const string &arg) {
 // (c) runningServerArgumentsNew is assigned when old_args is not empty in AreStartupOptionsDifferent
 static string runningStartupOptionsString() {
   std::ostringstream appendArgumentsWithSpaces;
+  if (runningServerArgumentsNew.empty()) {
+    return "";
+  }
   for (const string &a : runningServerArgumentsNew) {
     appendArgumentsWithSpaces << a << " ";
   }
