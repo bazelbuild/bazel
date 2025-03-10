@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.StringChunk;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.StringValueParser;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
@@ -1299,6 +1300,7 @@ public class CcToolchainFeatures implements StarlarkValue {
      * used when creation of the real {@link FeatureConfiguration} failed, the rule error was
      * reported, but the analysis continues to collect more rule errors.
      */
+    @SerializationConstant
     public static final FeatureConfiguration EMPTY =
         FEATURE_CONFIGURATION_INTERNER.intern(new FeatureConfiguration());
 
@@ -1331,7 +1333,23 @@ public class CcToolchainFeatures implements StarlarkValue {
     }
 
     @VisibleForSerialization
-    @AutoCodec.Interner
+    @AutoCodec.Instantiator
+    static FeatureConfiguration createForSerialization(
+        ImmutableSet<String> requestedFeatures,
+        ImmutableList<Feature> enabledFeatures,
+        ImmutableSet<String> enabledActionConfigActionNames,
+        ImmutableMap<String, ActionConfig> actionConfigByActionName,
+        PathFragment ccToolchainPath) {
+      return intern(
+          new FeatureConfiguration(
+              requestedFeatures,
+              enabledFeatures,
+              enabledActionConfigActionNames,
+              actionConfigByActionName,
+              ccToolchainPath));
+    }
+
+    @VisibleForTesting
     static FeatureConfiguration intern(FeatureConfiguration featureConfiguration) {
       return FEATURE_CONFIGURATION_INTERNER.intern(featureConfiguration);
     }

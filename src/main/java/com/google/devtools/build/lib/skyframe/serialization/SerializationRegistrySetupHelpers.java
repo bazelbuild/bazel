@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.collect.nestedset.DeferredNestedSetCodec;
 import com.google.devtools.build.lib.packages.BazelStarlarkEnvironment;
 import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.rules.AliasConfiguredTarget;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.RemoteConfiguredTargetValue;
 import com.google.devtools.build.lib.vfs.Root;
@@ -151,7 +152,8 @@ public final class SerializationRegistrySetupHelpers {
             OutputFileConfiguredTarget.class,
             PackageGroupConfiguredTarget.class,
             RuleConfiguredTarget.class,
-            AliasConfiguredTarget.class);
+            AliasConfiguredTarget.class,
+            FeatureConfiguration.class);
 
     private static final ImmutableList<ObjectCodec<?>> INSTANCE;
 
@@ -177,7 +179,10 @@ public final class SerializationRegistrySetupHelpers {
           // the required target dependency exists. The corresponding AutoCodec class will be in the
           // same jar file.
           Constructor<?> autoCodecConstructor =
-              Class.forName(classForValueSharing.getName() + "_AutoCodec").getDeclaredConstructor();
+              // AutoCodec generated codecs for inner classes use '_' as a separator in the
+              // generated class name.
+              Class.forName(classForValueSharing.getName().replace('$', '_') + "_AutoCodec")
+                  .getDeclaredConstructor();
           autoCodecConstructor.setAccessible(true);
           builder.add(
               new ValueSharingAdapter<>(
