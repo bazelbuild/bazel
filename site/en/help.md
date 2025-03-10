@@ -29,9 +29,9 @@ There are recordings of Bazel talks at various conferences, such as:
   * [BazelCon 2022](https://youtube.com/playlist?list=PLxNYxgaZ8RsdH4GCIZ69dzxQCOPyuNlpF){: .external}
   * [BazelCon 2021](https://www.youtube.com/playlist?list=PLxNYxgaZ8Rsc3auKhtfIB4qXAYf7whEux){: .external}
   * [BazelCon 2020](https://www.youtube.com/playlist?list=PLxNYxgaZ8RseRybXNbopHRv6-wGmFr04n){: .external}
-  * [BazelCon 2019](https://youtu.be/eymphDN7No4?t=PLxNYxgaZ8Rsf-7g43Z8LyXct9ax6egdSj){: .external}
-  * [BazelCon 2018](https://youtu.be/DVYRg6b2UBo?t=PLxNYxgaZ8Rsd3Nmvl1W1B4I6nK1674ezp){: .external}
-  * [BazelCon 2017](https://youtu.be/3eFllvz8_0k?t=PLxNYxgaZ8RseY0KmkXQSt0StE71E7yizG){: .external}
+  * [BazelCon 2019](https://www.youtube.com/playlist?list=PLxNYxgaZ8Rsf-7g43Z8LyXct9ax6egdSj){: .external}
+  * [BazelCon 2018](https://www.youtube.com/playlist?list=PLxNYxgaZ8Rsd3Nmvl1W1B4I6nK1674ezp){: .external}
+  * [BazelCon 2017](https://www.youtube.com/playlist?list=PLxNYxgaZ8RseY0KmkXQSt0StE71E7yizG){: .external}
 * Bazel day on [Google Open Source Live](https://opensourcelive.withgoogle.com/events/bazel){: .external}
 
 {% dynamic endif %}
