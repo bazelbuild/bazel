@@ -774,6 +774,19 @@ public abstract class FileSystemTest {
     assertThat(path.delete()).isFalse();
   }
 
+  @Test
+  public void testDeleteDoesNotFollowSymlink() throws IOException {
+    Path file = absolutize("file");
+    Path symlink = absolutize("symlink");
+
+    FileSystemUtils.createEmptyFile(file);
+    symlink.createSymbolicLink(file);
+
+    assertThat(symlink.delete()).isTrue();
+    assertThat(symlink.exists(Symlinks.NOFOLLOW)).isFalse();
+    assertThat(file.exists()).isTrue();
+  }
+
   // Here we test the situations where delete should throw exceptions.
   @Test
   public void testDeleteNonEmptyDirectoryThrowsException() throws Exception {
@@ -796,7 +809,7 @@ public abstract class FileSystemTest {
   }
 
   @Test
-  public void testDeleteTreeDeletesContents() throws IOException {
+  public void testDeleteTreeDeletesNonEmptyDirectory() throws IOException {
     Path topDir = absolutize("top-dir");
     Path file1 = absolutize("top-dir/file-1");
     Path file2 = absolutize("top-dir/file-2");
@@ -818,6 +831,15 @@ public abstract class FileSystemTest {
     assertThat(file2.exists()).isFalse();
     assertThat(aDir.exists()).isFalse();
     assertThat(file3.exists()).isFalse();
+  }
+
+  @Test
+  public void testDeleteTreeDeletesFile() throws IOException {
+    Path file = absolutize("file");
+    FileSystemUtils.createEmptyFile(file);
+
+    file.deleteTree();
+    assertThat(file.exists()).isFalse();
   }
 
   private static enum DeleteFunc {
