@@ -116,6 +116,7 @@ final class RemoteSpawnCache implements SpawnCache {
       try {
         thisExecution = LocalExecution.createIfDeduplicatable(action);
         if (shouldUploadLocalResults && thisExecution != null) {
+          System.err.println("Deduplication");
           LocalExecution previousOrThisExecution =
               inFlightExecutions.merge(
                   action.getActionKey(),
@@ -145,6 +146,7 @@ final class RemoteSpawnCache implements SpawnCache {
             Stopwatch fetchTime = Stopwatch.createStarted();
             InMemoryOutput inMemoryOutput;
             try (SilentCloseable c = prof.profile(REMOTE_DOWNLOAD, "download outputs")) {
+              System.err.println("RemoteSpawnCache.lookup: download outputs " + result);
               inMemoryOutput = remoteExecutionService.downloadOutputs(action, result);
             }
             fetchTime.stop();

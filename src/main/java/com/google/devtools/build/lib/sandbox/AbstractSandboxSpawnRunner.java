@@ -98,7 +98,9 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
 
     try {
       try (SilentCloseable c = Profiler.instance().profile("context.prefetchInputs")) {
+        System.err.println("Prefetching " + spawn.getInputFiles().toList());
         context.prefetchInputsAndWait();
+        System.err.println("Done prefetching " + spawn.getInputFiles().toList());
       }
 
       try (ResourceHandle ignored =

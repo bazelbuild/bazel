@@ -50,7 +50,6 @@ import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.remote.util.AsyncTaskCache;
 import com.google.devtools.build.lib.util.TempPathGenerator;
 import com.google.devtools.build.lib.vfs.FileSymlinkLoopException;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.OutputPermissions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -58,6 +57,7 @@ import io.reactivex.rxjava3.core.Completable;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -581,7 +581,8 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
                           alreadyDeleted.set(true);
                         }));
 
-    return downloadCache.executeIfNot(
+    System.err.println("Deferring download of " + path + " " + action.prettyPrint());
+    return downloadCache.execute(
         finalPath,
         Completable.defer(
             () -> {
@@ -589,7 +590,8 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
                 return download;
               }
               return Completable.complete();
-            }));
+            }),
+        /* force= */ true);
   }
 
   private void finalizeDownload(
@@ -622,7 +624,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     // Set output permissions on files, matching the behavior of SkyframeActionExecutor#checkOutputs
     // for artifacts produced by local actions.
     tmpPath.chmod(outputPermissions.getPermissionsMode());
-    FileSystemUtils.moveFile(tmpPath, finalPath);
+    tmpPath.renameTo(finalPath);
 
     // Set the contents proxy when supported, to make future modification checks cheaper.
     metadata.setContentsProxy(FileContentsProxy.create(finalPath.stat()));
@@ -662,7 +664,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
   }
 
   private Completable plantSymlink(Symlink symlink) {
-    return downloadCache.executeIfNot(
+    return downloadCache.execute(
         execRoot.getRelative(symlink.linkExecPath()),
         Completable.defer(
             () -> {
@@ -673,7 +675,8 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
               link.delete();
               link.createSymbolicLink(target);
               return Completable.complete();
-            }));
+            }),
+        /* force= */ true);
   }
 
   public ImmutableSet<Path> downloadedFiles() {
@@ -751,4 +754,6 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
   public RemoteOutputChecker getRemoteOutputChecker() {
     return remoteOutputChecker;
   }
+
+  public void cancelAndClearCaches(Collection<Artifact> outputs) {}
 }
