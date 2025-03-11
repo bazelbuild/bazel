@@ -2913,13 +2913,14 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             skyKey, newValue, newError, evaluationSuccessState, state, directDeps);
       }
 
-      // After a PACKAGE node is evaluated, all targets and the labels associated with this package
-      // should have been added to the InMemoryGraph. So it is safe to remove relevant labels from
-      // weak interner.
+      // After a PACKAGE node is freshly computed, all targets and the labels associated with this
+      // package should have been added to the InMemoryGraph. So it is safe to remove relevant
+      // labels from weak interner.
       LabelInterner labelInterner = Label.getLabelInterner();
       if (labelInterner.enabled()
           && skyKey.functionName().equals(SkyFunctions.PACKAGE)
-          && newValue != null) {
+          && newValue != null
+          && directDeps != null) {
         checkState(newValue instanceof PackageValue, newValue);
 
         Package pkg = ((PackageValue) newValue).getPackage();
@@ -3654,7 +3655,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   }
 
   @Nullable
-  private Package getExistingPackage(PackageIdentifier id) throws InterruptedException {
+  public Package getExistingPackage(PackageIdentifier id) throws InterruptedException {
     var value = (PackageValue) memoizingEvaluator.getExistingValue(id);
     if (value == null) {
       return null;
