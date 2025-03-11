@@ -1069,7 +1069,7 @@ public final class ParserTest {
     setFileOptions(FileOptions.builder().allowTypeAnnotations(true).build());
     setFailFast(false);
     parseStatement("def f(a: list[]): pass");
-    assertContainsError("syntax error at ']': expected expression");
+    assertContainsError("syntax error at ']': expected a type argument");
   }
 
   @Test
@@ -1077,7 +1077,7 @@ public final class ParserTest {
     setFileOptions(FileOptions.builder().allowTypeAnnotations(true).build());
     setFailFast(false);
     parseStatement("def f(a: list[int,]): pass");
-    assertContainsError("Trailing comma is allowed only in parenthesized tuples.");
+    assertContainsError("syntax error at ']': expected a type argument");
   }
 
   @Test
@@ -1086,6 +1086,22 @@ public final class ParserTest {
     setFailFast(false);
     parseStatement("def f(a: int): pass");
     assertContainsError("syntax error at ':': type annotations are disallowed.");
+  }
+
+  @Test
+  public void testDefWithLiteralInTypeAnnotation() throws Exception {
+    setFileOptions(FileOptions.builder().allowTypeAnnotations(true).build());
+    setFailFast(false);
+    parseStatement("def f(a: [int]): pass");
+    assertContainsError("syntax error at '[': expected a type");
+  }
+
+  @Test
+  public void testDefWithExpressionInTypeAnnotation() throws Exception {
+    setFileOptions(FileOptions.builder().allowTypeAnnotations(true).build());
+    setFailFast(false);
+    parseStatement("def f(a: int[f(1)]): pass");
+    assertContainsError("syntax error at '(': expected ,");
   }
 
   @Test
