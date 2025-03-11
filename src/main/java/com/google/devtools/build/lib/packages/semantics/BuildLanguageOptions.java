@@ -157,6 +157,18 @@ public final class BuildLanguageOptions extends OptionsBase {
   public List<String> repositoriesWithoutAutoloads;
 
   @Option(
+      name = "incompatible_disable_autoloads_in_main_repo",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "Controls if the autoloads (set by --incompatible_autoload_externally) are enabled in the"
+              + "main repository. When enabled the rules (or other symbols) that were previously "
+              + "part of Bazel need to have load statements. Use buildifier to add them.")
+  public boolean incompatibleDisableAutoloadsInMainRepo;
+
+  @Option(
       name = "experimental_builtins_dummy",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -878,6 +890,8 @@ public final class BuildLanguageOptions extends OptionsBase {
             .set(EXPERIMENTAL_BUILTINS_BZL_PATH, experimentalBuiltinsBzlPath)
             .set(INCOMPATIBLE_AUTOLOAD_EXTERNALLY, incompatibleAutoloadExternally)
             .set(REPOSITORIES_WITHOUT_AUTOLOAD, repositoriesWithoutAutoloads)
+            .setBool(
+                INCOMPATIBLE_DISABLE_AUTOLOADS_IN_MAIN_REPO, incompatibleDisableAutoloadsInMainRepo)
             .setBool(EXPERIMENTAL_BUILTINS_DUMMY, experimentalBuiltinsDummy)
             .set(EXPERIMENTAL_BUILTINS_INJECTION_OVERRIDE, experimentalBuiltinsInjectionOverride)
             .setBool(EXPERIMENTAL_BZL_VISIBILITY, experimentalBzlVisibility)
@@ -990,6 +1004,8 @@ public final class BuildLanguageOptions extends OptionsBase {
   public static final String EXPERIMENTAL_JAVA_LIBRARY_EXPORT = "-experimental_java_library_export";
   public static final String INCOMPATIBLE_STOP_EXPORTING_LANGUAGE_MODULES =
       "-incompatible_stop_exporting_language_modules";
+  public static final String INCOMPATIBLE_DISABLE_AUTOLOADS_IN_MAIN_REPO =
+      "-incompatible_disable_autoloads_in_main_repo";
   public static final String INCOMPATIBLE_ALLOW_TAGS_PROPAGATION =
       "+incompatible_allow_tags_propagation";
   public static final String EXPERIMENTAL_BUILTINS_DUMMY = "-experimental_builtins_dummy";

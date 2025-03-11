@@ -656,7 +656,8 @@ public class BzlLoadFunction implements SkyFunction {
     return autoloadSymbols.isEnabled()
         && key instanceof BzlLoadValue.KeyForBuild
         && !key.isBuildPrelude()
-        && !autoloadSymbols.autoloadsDisabledForRepo(key.getLabel());
+        && !autoloadSymbols.autoloadsDisabledInBzlForRepo(
+            key.getLabel() == null ? null : key.getLabel().getRepository());
   }
 
   /**
