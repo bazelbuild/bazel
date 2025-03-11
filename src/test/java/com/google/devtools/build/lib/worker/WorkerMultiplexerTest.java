@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.util.concurrent.Futures;
 import com.google.devtools.build.lib.clock.BlazeClock;
+import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
@@ -226,5 +227,22 @@ public class WorkerMultiplexerTest {
     assertThat(response1.get().getRequestId()).isEqualTo(3);
     assertThat(response2.get().getRequestId()).isEqualTo(42);
     assertThat(multiplexer.noOutstandingRequests()).isTrue();
+  }
+
+  @Test
+  public void workDir_destroyMultiplexer_successfullyDestroysWorkDir() throws IOException {
+    Path testRoot = fileSystem.getPath(TestUtils.tmpDir());
+
+    WorkerKey workerKey =
+        WorkerTestUtils.createWorkerKey(fileSystem, "TestMnemonic", true, "fakeBinary");
+    WorkerMultiplexer multiplexer = WorkerMultiplexerManager.getInstance(workerKey, logPath);
+
+    Path workDir = testRoot.getRelative("/tmp/workdir");
+    workDir.createDirectoryAndParents();
+    assertThat(workDir.exists()).isTrue();
+
+    multiplexer.setWorkDir(workDir);
+    multiplexer.destroyMultiplexer();
+    assertThat(workDir.exists()).isFalse();
   }
 }

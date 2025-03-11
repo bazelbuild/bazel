@@ -103,6 +103,7 @@ public class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worke
         worker =
             new SandboxedWorkerProxy(
                 key, workerId, logFile, workerMultiplexer, workDir, treeDeleter);
+        workerMultiplexer.setWorkDir(workDir);
       } else {
         Path workDir = getSandboxedWorkerPath(key, workerId);
         worker =
