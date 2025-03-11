@@ -104,7 +104,7 @@ public final class StringEncoding {
    */
   public static String internalToPlatform(String s) {
     return needsReencodeForPlatform(s)
-        ? new String(STRING_UNSAFE.getInternalStringBytes(s), UTF_8)
+        ? new String(StringUnsafe.getInternalStringBytes(s), UTF_8)
         : s;
   }
 
@@ -115,7 +115,7 @@ public final class StringEncoding {
    */
   public static String platformToInternal(String s) {
     return needsReencodeForPlatform(s)
-        ? STRING_UNSAFE.newInstance(s.getBytes(UTF_8), StringUnsafe.LATIN1)
+        ? StringUnsafe.newInstance(s.getBytes(UTF_8), StringUnsafe.LATIN1)
         : s;
   }
 
@@ -126,7 +126,7 @@ public final class StringEncoding {
    */
   public static String internalToUnicode(String s) {
     return needsReencodeForUnicode(s)
-        ? new String(STRING_UNSAFE.getInternalStringBytes(s), UTF_8)
+        ? new String(StringUnsafe.getInternalStringBytes(s), UTF_8)
         : s;
   }
 
@@ -137,11 +137,9 @@ public final class StringEncoding {
    */
   public static String unicodeToInternal(String s) {
     return needsReencodeForUnicode(s)
-        ? STRING_UNSAFE.newInstance(s.getBytes(UTF_8), StringUnsafe.LATIN1)
+        ? StringUnsafe.newInstance(s.getBytes(UTF_8), StringUnsafe.LATIN1)
         : s;
   }
-
-  private static final StringUnsafe STRING_UNSAFE = StringUnsafe.getInstance();
 
   /**
    * The {@link Charset} with which the JVM encodes any strings passed to or returned from Java
@@ -170,7 +168,7 @@ public final class StringEncoding {
     if (BAZEL_UNICODE_STRINGS) {
       return false;
     }
-    return !STRING_UNSAFE.isAscii(s);
+    return !StringUnsafe.isAscii(s);
   }
 
   private StringEncoding() {}

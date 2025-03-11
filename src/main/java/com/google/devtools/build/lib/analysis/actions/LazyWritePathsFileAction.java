@@ -71,7 +71,7 @@ public final class LazyWritePathsFileAction extends AbstractFileWriteAction {
 
   @Override
   public DeterministicWriter newDeterministicWriter(ActionExecutionContext ctx) {
-    return out -> out.write(StringUnsafe.getInstance().getInternalStringBytes(getContents()));
+    return out -> out.write(StringUnsafe.getInternalStringBytes(getContents()));
   }
 
   /** Computes the Action key for this action by computing the fingerprint for the file contents. */

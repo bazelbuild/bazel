@@ -77,6 +77,7 @@ java_library(
     deps = [
         ":os",
         ":single_line_formatter",
+        ":string_encoding",
         ":util",
         "//third_party:error_prone_annotations",
         "//third_party:guava",
