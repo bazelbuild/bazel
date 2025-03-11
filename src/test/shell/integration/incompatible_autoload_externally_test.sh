@@ -596,7 +596,7 @@ EOF
 
   bazel query --noincompatible_disable_autoloads_in_main_repo //foo >&$TEST_log 2>&1 || fail "build failed"
   bazel query --incompatible_disable_autoloads_in_main_repo //foo >&$TEST_log 2>&1 && fail "build unexpectedly succeeded"
-  expect_log "name 'java_library' is not defined"
+  expect_log "no such attribute 'srcs' in 'java_library' rule"
   bazel query --noincompatible_disable_autoloads_in_main_repo //bar >&$TEST_log 2>&1 || fail "build failed"
   bazel query --incompatible_disable_autoloads_in_main_repo //bar >&$TEST_log 2>&1 && fail "build unexpectedly succeeded"
   expect_log "Error: no native function or rule 'java_library'"
