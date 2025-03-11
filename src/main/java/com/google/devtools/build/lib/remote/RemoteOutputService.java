@@ -315,22 +315,33 @@ public class RemoteOutputService implements OutputService {
       var localCoarseLock = coarseLock;
       if (localCoarseLock != null) {
         localCoarseLock.writeLock().lockInterruptibly();
+        System.err.println("Locked coarse write lock for " + action.prettyPrint());
         var localFineLocks =
             Caffeine.newBuilder()
                 .<ActionLookupData, ReadWriteLock>build(artifact -> new ReentrantReadWriteLock());
         var fineWriteLock = localFineLocks.get(outputKeyFor(action)).writeLock();
         fineWriteLock.lock();
+        System.err.println("Locked fine write lock for " + action.prettyPrint());
         fineLocks = localFineLocks;
         coarseLock = null;
         localCoarseLock.writeLock().unlock();
+        System.err.println("Unlocked coarse write lock for " + action.prettyPrint());
         cancelPostExecutionTasks(action);
-        return fineWriteLock::unlock;
+        return () -> {
+          fineWriteLock.unlock();
+          System.err.println("Unlocked fine write lock for " + action.prettyPrint());
+        };
       }
 
       var writeLock = fineLocks.get(outputKeyFor(action)).writeLock();
       writeLock.lockInterruptibly();
+      System.err.println("Locked fine write lock for " + action.prettyPrint());
       cancelPostExecutionTasks(action);
-      return writeLock::unlock;
+      System.err.println("Cancelled post-execution tasks for " + action);
+      return () -> {
+        writeLock.unlock();
+        System.err.println("Unlocked fine write lock for " + action.prettyPrint());
+      };
     }
 
     @Override
@@ -347,10 +358,15 @@ public class RemoteOutputService implements OutputService {
       var localCoarseLock = coarseLock;
       if (localCoarseLock != null) {
         localCoarseLock.readLock().lockInterruptibly();
+        System.err.println("Locked coarse read lock for " + action.prettyPrint());
       }
       var localFineLocks = fineLocks;
       if (localFineLocks == null) {
-        return localCoarseLock.readLock()::unlock;
+        Lock lock = localCoarseLock.readLock();
+        return () -> {
+          lock.unlock();
+          System.err.println("Unlocked coarse read lock for " + action.prettyPrint());
+        };
       }
       if (localCoarseLock != null) {
         localCoarseLock.readLock().unlock();
@@ -373,7 +389,11 @@ public class RemoteOutputService implements OutputService {
         throw e;
       }
       var locksToUnlock = locksToUnlockBuilder.build();
-      return () -> locksToUnlock.forEach(Lock::unlock);
+      System.err.println("Locked fine read locks for " + action.prettyPrint());
+      return () -> {
+        locksToUnlock.forEach(Lock::unlock);
+        System.err.println("Unlocked fine read locks for " + action.prettyPrint());
+      };
     }
 
     private static Iterable<ActionLookupData> inputKeysFor(
@@ -385,6 +405,7 @@ public class RemoteOutputService implements OutputService {
                       .flatMap(runfilesTree -> runfilesTree.getArtifacts().toList().stream()))
               .filter(artifact -> artifact instanceof DerivedArtifact)
               .map(artifact -> ((DerivedArtifact) artifact).getGeneratingActionKey())
+              .peek(key -> System.err.printf("Key for %s: %s%n", action.prettyPrint(), key))
               .iterator();
     }
 
