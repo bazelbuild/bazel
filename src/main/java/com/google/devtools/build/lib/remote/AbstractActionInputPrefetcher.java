@@ -582,7 +582,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
                           alreadyDeleted.set(true);
                         }));
 
-    return downloadCache.executeIfNot(
+    return downloadCache.execute(
         finalPath,
         Completable.defer(
             () -> {
@@ -590,7 +590,8 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
                 return download;
               }
               return Completable.complete();
-            }));
+            }),
+        true);
   }
 
   private void finalizeDownload(
@@ -623,7 +624,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     // Set output permissions on files, matching the behavior of SkyframeActionExecutor#checkOutputs
     // for artifacts produced by local actions.
     tmpPath.chmod(outputPermissions.getPermissionsMode());
-    FileSystemUtils.moveFile(tmpPath, finalPath);
+    tmpPath.renameTo(finalPath);
 
     // Set the contents proxy when supported, to make future modification checks cheaper.
     metadata.setContentsProxy(FileContentsProxy.create(finalPath.stat()));
@@ -663,7 +664,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
   }
 
   private Completable plantSymlink(Symlink symlink) {
-    return downloadCache.executeIfNot(
+    return downloadCache.execute(
         execRoot.getRelative(symlink.linkExecPath()),
         Completable.defer(
             () -> {
@@ -674,7 +675,8 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
               link.delete();
               link.createSymbolicLink(target);
               return Completable.complete();
-            }));
+            }),
+        true);
   }
 
   public ImmutableSet<Path> downloadedFiles() {
