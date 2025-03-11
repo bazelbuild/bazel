@@ -64,7 +64,7 @@ public class WorkerMultiplexer {
    * An ID for this multiplexer that can be used by sandboxed multiplex workers to generate their
    * workdir. The workdir needs to be the same for all {@code SandboxedWorkerProxy} instances
    * associated with a {@code WorkerMultiplexer}, but needs to be unique across multiplexers for the
-   * same mnemonic. This is analogous to the @{code workerId} created in {@code WorkerFactory}.
+   * same mnemonic. This is analogous to the {@code workerId} created in {@code WorkerFactory}.
    */
   private final int multiplexerId;
 
@@ -137,6 +137,12 @@ public class WorkerMultiplexer {
    * the best we can do. This must be set when a process is created.
    */
   private Thread shutdownHook;
+
+  /**
+   * The workDir of the multiplexer. We should clean this up on destroy if it's a sandboxed
+   * multiplex worker.
+   */
+  private Path workDir;
 
   WorkerMultiplexer(Path logFile, WorkerKey workerKey, int multiplexerId) {
     this.status = new WorkerProcessStatus();
@@ -287,6 +293,17 @@ public class WorkerMultiplexer {
   public synchronized void destroyMultiplexer() {
     if (this.process != null) {
       destroyProcess();
+    }
+    if (workDir != null) {
+      try {
+        workDir.deleteTree();
+      } catch (IOException e) {
+        logger.atWarning().withCause(e).log("Failed to delete workDir.");
+      }
+    } else if (workerKey.isSandboxed()) {
+      logger.atWarning().log(
+          "No workDir was deleted for this sandboxed multiplex worker because the workDir was never"
+              + " set or set to null.");
     }
     // The WorkerProcessStatus is only set as killed once all WorkerProxy instances are destroyed.
     status.setKilled();
@@ -502,5 +519,9 @@ public class WorkerMultiplexer {
 
   public int getMultiplexerId() {
     return this.multiplexerId;
+  }
+
+  public void setWorkDir(Path workDir) {
+    this.workDir = workDir;
   }
 }
