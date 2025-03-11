@@ -93,6 +93,8 @@ final class Parser {
   /** Current lookahead token. May be mutated by the parser. */
   private final Lexer token; // token.kind is a prettier alias for lexer.kind
 
+  private final FileOptions options;
+
   private static final boolean DEBUGGING = false;
 
   private final Lexer lexer;
@@ -150,11 +152,12 @@ final class Parser {
   // lexer can't handle.
   private final Map<String, String> stringInterner = new HashMap<>();
 
-  private Parser(Lexer lexer, List<SyntaxError> errors) {
+  private Parser(Lexer lexer, List<SyntaxError> errors, FileOptions options) {
     this.lexer = lexer;
     this.locs = lexer.locs;
     this.errors = errors;
     this.token = lexer;
+    this.options = options;
     nextToken();
   }
 
@@ -174,7 +177,7 @@ final class Parser {
   static ParseResult parseFile(ParserInput input, FileOptions options) {
     List<SyntaxError> errors = new ArrayList<>();
     Lexer lexer = new Lexer(input, errors, options);
-    Parser parser = new Parser(lexer, errors);
+    Parser parser = new Parser(lexer, errors, options);
 
     StarlarkFile.ParseProfiler profiler = Parser.profiler;
     long profileStartNanos = profiler != null ? profiler.start() : -1;
@@ -211,7 +214,7 @@ final class Parser {
       throws SyntaxError.Exception {
     List<SyntaxError> errors = new ArrayList<>();
     Lexer lexer = new Lexer(input, errors, options);
-    Parser parser = new Parser(lexer, errors);
+    Parser parser = new Parser(lexer, errors, options);
     Expression result = null;
     try {
       result = parser.parseExpression();
@@ -431,14 +434,21 @@ final class Parser {
     return new Argument.Positional(locs, expr);
   }
 
-  // arg = IDENTIFIER '=' test
-  //     | IDENTIFIER
-  private Parameter parseParameter() {
+  // arg = IDENTIFIER [':' test] [ '=' test ]
+  //     | * [IDENTIFIER [':' test]]
+  //     | ** IDENTIFIER [':' test]
+  // Type annotations are only available on def statements (not lambdas)
+  private Parameter parseParameter(boolean defStatement) {
+    Expression type = null;
+
     // **kwargs
     if (token.kind == TokenKind.STAR_STAR) {
       int starStarOffset = nextToken();
       Identifier id = parseIdent();
-      return new Parameter.StarStar(locs, starStarOffset, id);
+      if (defStatement) {
+        type = maybeParseTypeAnnotation();
+      }
+      return new Parameter.StarStar(locs, starStarOffset, id, type);
     }
 
     // * or *args
@@ -446,21 +456,30 @@ final class Parser {
       int starOffset = nextToken();
       if (token.kind == TokenKind.IDENTIFIER) {
         Identifier id = parseIdent();
-        return new Parameter.Star(locs, starOffset, id);
+        if (defStatement) {
+          type = maybeParseTypeAnnotation();
+        }
+        return new Parameter.Star(locs, starOffset, id, type);
       }
-      return new Parameter.Star(locs, starOffset, null);
-    }
-
-    // name=default
-    Identifier id = parseIdent();
-    if (token.kind == TokenKind.EQUALS) {
-      nextToken(); // TODO: save token pos?
-      Expression expr = parseTest();
-      return new Parameter.Optional(locs, id, expr);
+      return new Parameter.Star(locs, starOffset, null, null);
     }
 
     // name
-    return new Parameter.Mandatory(locs, id);
+    Identifier id = parseIdent();
+
+    // name: type
+    if (defStatement) {
+      type = maybeParseTypeAnnotation();
+    }
+
+    // name=default
+    if (token.kind == TokenKind.EQUALS) {
+      nextToken(); // TODO: save token pos?
+      Expression expr = parseTest();
+      return new Parameter.Optional(locs, id, type, expr);
+    }
+
+    return new Parameter.Mandatory(locs, id, type);
   }
 
   // call_suffix = '(' arg_list? ')'
@@ -927,11 +946,23 @@ final class Parser {
     return new BinaryOperatorExpression(locs, x, op, opOffset, y);
   }
 
+  @Nullable
+  private Expression maybeParseTypeAnnotation() {
+    if (options.allowTypeAnnotations() && token.kind == TokenKind.COLON) {
+      nextToken();
+      // TODO(ilist): make parsing of types more specific
+      return parseTest();
+    } else if (token.kind == TokenKind.COLON) {
+      syntaxError("type annotations are disallowed.");
+    }
+    return null;
+  }
+
   // Parses a non-tuple expression ("test" in Python terminology).
   private Expression parseTest() {
     int start = token.start;
     if (token.kind == TokenKind.LAMBDA) {
-      return parseLambda(/*allowCond=*/ true);
+      return parseLambda(/* allowCond= */ true);
     }
 
     Expression expr = parseTest(0);
@@ -964,7 +995,7 @@ final class Parser {
   // The allowCond flag allows the body to be an 'a if b else c' conditional.
   private LambdaExpression parseLambda(boolean allowCond) {
     int lambdaOffset = expect(TokenKind.LAMBDA);
-    ImmutableList<Parameter> params = parseParameters();
+    ImmutableList<Parameter> params = parseParameters(/* defStatement= */ false);
     expect(TokenKind.COLON);
     Expression body = allowCond ? parseTest() : parseTestNoCond();
     return new LambdaExpression(locs, lambdaOffset, params, body);
@@ -1196,7 +1227,7 @@ final class Parser {
     int defOffset = expect(TokenKind.DEF);
     Identifier ident = parseIdent();
     expect(TokenKind.LPAREN);
-    ImmutableList<Parameter> params = parseParameters();
+    ImmutableList<Parameter> params = parseParameters(/* defStatement= */ true);
     expect(TokenKind.RPAREN);
     expect(TokenKind.COLON);
     ImmutableList<Statement> block = parseSuite();
@@ -1205,7 +1236,7 @@ final class Parser {
 
   // Parse a list of function parameters.
   // Validation of parameter ordering and uniqueness is the job of the Resolver.
-  private ImmutableList<Parameter> parseParameters() {
+  private ImmutableList<Parameter> parseParameters(boolean defStatement) {
     boolean hasParam = false;
     ImmutableList.Builder<Parameter> list = ImmutableList.builder();
 
@@ -1219,7 +1250,7 @@ final class Parser {
           break;
         }
       }
-      Parameter param = parseParameter();
+      Parameter param = parseParameter(defStatement);
       hasParam = true;
       list.add(param);
     }
