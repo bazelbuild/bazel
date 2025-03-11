@@ -17,8 +17,11 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Interner;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.util.Fingerprint;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
@@ -46,6 +49,9 @@ public abstract class ActionEnvironment {
 
   public static final ActionEnvironment EMPTY = new EmptyActionEnvironment();
 
+  private static final Interner<ActionEnvironment> actionEnvironmentInterner =
+      BlazeInterners.newWeakInterner();
+
   /** Convenience method for creating an {@link ActionEnvironment} with no inherited variables. */
   public static ActionEnvironment create(ImmutableMap<String, String> fixedEnv) {
     return create(fixedEnv, /* inheritedEnv= */ ImmutableSet.of());
@@ -63,7 +69,7 @@ public abstract class ActionEnvironment {
     if (fixedEnv.isEmpty() && inheritedEnv.isEmpty()) {
       return EMPTY;
     }
-    return new SimpleActionEnvironment(fixedEnv, inheritedEnv);
+    return actionEnvironmentInterner.intern(new SimpleActionEnvironment(fixedEnv, inheritedEnv));
   }
 
   /**
@@ -148,11 +154,14 @@ public abstract class ActionEnvironment {
       return this;
     }
     if (this == EMPTY) {
-      return new SimpleActionEnvironment(
-          ImmutableMap.copyOf(fixedVars), ImmutableSet.copyOf(inheritedVars));
+      return actionEnvironmentInterner.intern(
+          new SimpleActionEnvironment(
+              ImmutableMap.copyOf(fixedVars), ImmutableSet.copyOf(inheritedVars)));
     }
-    return new CompoundActionEnvironment(
-        this, ImmutableMap.copyOf(fixedVars), ImmutableSet.copyOf(inheritedVars));
+    // intern
+    return actionEnvironmentInterner.intern(
+        new CompoundActionEnvironment(
+            this, ImmutableMap.copyOf(fixedVars), ImmutableSet.copyOf(inheritedVars)));
   }
 
   private static final class EmptyActionEnvironment extends ActionEnvironment {
@@ -197,6 +206,22 @@ public abstract class ActionEnvironment {
     public int estimatedSize() {
       return fixedEnv.size() + inheritedEnv.size();
     }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (!(o instanceof SimpleActionEnvironment that)) {
+        return false;
+      }
+      return fixedEnv.equals(that.fixedEnv) && inheritedEnv.equals(that.inheritedEnv);
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(fixedEnv, inheritedEnv);
+    }
   }
 
   private static final class CompoundActionEnvironment extends ActionEnvironment {
@@ -232,6 +257,24 @@ public abstract class ActionEnvironment {
     @Override
     public int estimatedSize() {
       return base.estimatedSize() + fixedVars.size() + inheritedVars.size();
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (!(o instanceof CompoundActionEnvironment that)) {
+        return false;
+      }
+      return base.equals(that.base)
+          && fixedVars.equals(that.fixedVars)
+          && inheritedVars.equals(that.inheritedVars);
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(base, fixedVars, inheritedVars);
     }
   }
 }
