@@ -1735,7 +1735,7 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
         )
         """);
 
-    useConfiguration("--//test/starlark:cmd-line-option=100", "--cpu=FOO");
+    useConfiguration("--//test/starlark:cmd-line-option=100", "--compilation_mode=opt");
 
     ConfiguredTarget test = getConfiguredTarget("//test/starlark:test");
 
@@ -1752,7 +1752,7 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
         .isEqualTo(StarlarkInt.of(100));
 
     // Assert native option set via command line.
-    assertThat(getCoreOptions(dep).cpu).isEqualTo("FOO");
+    assertThat(getCoreOptions(dep).compilationMode.toString()).isEqualTo("opt");
 
     // Assert that transitionDirectoryNameFragment is only affected by options
     // set via transitions. Not by native or starlark options set via command line,
