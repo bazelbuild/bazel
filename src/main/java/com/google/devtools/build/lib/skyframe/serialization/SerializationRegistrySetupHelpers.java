@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.actions.RunfilesArtifactValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMapImpl;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.OutputDirectories.OutputDirectory;
 import com.google.devtools.build.lib.analysis.configuredtargets.EnvironmentGroupConfiguredTarget;
@@ -155,7 +156,8 @@ public final class SerializationRegistrySetupHelpers {
             RuleConfiguredTarget.class,
             FeatureConfiguration.class,
             RunfilesArtifactValue.class,
-            AliasConfiguredTarget.class);
+            AliasConfiguredTarget.class,
+            BuildConfigurationValue.class);
 
     private static final ImmutableList<ObjectCodec<?>> INSTANCE;
 
