@@ -13,8 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-
-import com.google.devtools.build.lib.actions.ActionInputMapSink;
+import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
@@ -32,80 +31,80 @@ final class ActionInputMapHelper {
 
   /** Adds a value obtained by an Artifact SkyValue lookup to the action input map. */
   static void addToMap(
-      ActionInputMapSink inputMap,
+      ActionInputMap inputMap,
       BiConsumer<Artifact, TreeArtifactValue> treeArtifactConsumer,
       Map<Artifact, FilesetOutputTree> filesetsInsideRunfiles,
       Map<Artifact, FilesetOutputTree> topLevelFilesets,
       Artifact key,
       SkyValue value,
       MetadataConsumerForMetrics consumer) {
-    if (value instanceof TreeArtifactValue treeArtifactValue) {
-      expandTreeArtifactAndPopulateArtifactData(
-          key, treeArtifactValue, treeArtifactConsumer, inputMap, /* depOwner= */ key);
-      consumer.accumulate(treeArtifactValue);
-    } else if (value instanceof ActionExecutionValue actionExecutionValue) {
-      // Actions resulting from the expansion of an ActionTemplate consume only one of the files
-      // in a tree artifact. However, the input prefetcher and the Linux sandbox require access to
-      // the tree metadata to determine the prefetch location of a tree artifact materialized as a
-      // symlink to another (cf. TreeArtifactValue#getResolvedPath()).
-      if (key.isChildOfDeclaredDirectory()) {
-        SpecialArtifact treeArtifact = key.getParent();
-        TreeArtifactValue treeArtifactValue =
-            actionExecutionValue.getTreeArtifactValue(treeArtifact);
+    switch (value) {
+      case TreeArtifactValue treeArtifactValue -> {
         expandTreeArtifactAndPopulateArtifactData(
-            treeArtifact, treeArtifactValue, treeArtifactConsumer, inputMap, treeArtifact);
+            key, treeArtifactValue, treeArtifactConsumer, inputMap);
         consumer.accumulate(treeArtifactValue);
       }
-      if (key.isFileset()) {
-        FileArtifactValue metadata = actionExecutionValue.getExistingFileArtifactValue(key);
-        inputMap.put(key, metadata, key);
-        FilesetOutputTree filesetOutput =
-            (FilesetOutputTree) actionExecutionValue.getRichArtifactData();
-        topLevelFilesets.put(key, filesetOutput);
-        consumer.accumulate(filesetOutput);
-      } else if (key.isRunfilesTree()) {
-        RunfilesArtifactValue runfilesArtifactValue =
-            (RunfilesArtifactValue) actionExecutionValue.getRichArtifactData();
-        // Note: we don't expand the .runfiles/MANIFEST file into the inputs. The reason for that
-        // being that the MANIFEST file contains absolute paths that don't work with remote
-        // execution.
-        // Instead, the way the SpawnInputExpander expands runfiles is via the Runfiles class
-        // which contains all artifacts in the runfiles tree minus the MANIFEST file.
-        runfilesArtifactValue.forEachFile(
-            (artifact, metadata) -> {
-              inputMap.put(artifact, metadata, /* depOwner= */ key);
-              consumer.accumulate(metadata);
-            });
-        runfilesArtifactValue.forEachTree(
-            (treeArtifact, metadata) -> {
-              expandTreeArtifactAndPopulateArtifactData(
-                  treeArtifact, metadata, treeArtifactConsumer, inputMap, /* depOwner= */ key);
-              consumer.accumulate(metadata);
-            });
+      case ActionExecutionValue actionExecutionValue -> {
+        // Actions resulting from the expansion of an ActionTemplate consume only one of the files
+        // in a tree artifact. However, the input prefetcher and the Linux sandbox require access to
+        // the tree metadata to determine the prefetch location of a tree artifact materialized as a
+        // symlink to another (cf. TreeArtifactValue#getResolvedPath()).
+        if (key.isChildOfDeclaredDirectory()) {
+          SpecialArtifact treeArtifact = key.getParent();
+          TreeArtifactValue treeArtifactValue =
+              actionExecutionValue.getTreeArtifactValue(treeArtifact);
+          expandTreeArtifactAndPopulateArtifactData(
+              treeArtifact, treeArtifactValue, treeArtifactConsumer, inputMap);
+          consumer.accumulate(treeArtifactValue);
+        }
+        if (key.isFileset()) {
+          FileArtifactValue metadata = actionExecutionValue.getExistingFileArtifactValue(key);
+          inputMap.put(key, metadata);
+          FilesetOutputTree filesetOutput =
+              (FilesetOutputTree) actionExecutionValue.getRichArtifactData();
+          topLevelFilesets.put(key, filesetOutput);
+          consumer.accumulate(filesetOutput);
+        } else if (key.isRunfilesTree()) {
+          RunfilesArtifactValue runfilesArtifactValue =
+              (RunfilesArtifactValue) actionExecutionValue.getRichArtifactData();
+          // Note: we don't expand the .runfiles/MANIFEST file into the inputs. The reason for that
+          // being that the MANIFEST file contains absolute paths that don't work with remote
+          // execution.
+          // Instead, the way the SpawnInputExpander expands runfiles is via the Runfiles class
+          // which contains all artifacts in the runfiles tree minus the MANIFEST file.
+          runfilesArtifactValue.forEachFile(
+              (artifact, metadata) -> {
+                inputMap.put(artifact, metadata);
+                consumer.accumulate(metadata);
+              });
+          runfilesArtifactValue.forEachTree(
+              (treeArtifact, metadata) -> {
+                expandTreeArtifactAndPopulateArtifactData(
+                    treeArtifact, metadata, treeArtifactConsumer, inputMap);
+                consumer.accumulate(metadata);
+              });
 
-        runfilesArtifactValue.forEachFileset(
-            (fileset, filesetOutputTree) -> {
-              filesetsInsideRunfiles.put(fileset, filesetOutputTree);
-              consumer.accumulate(filesetOutputTree);
-            });
-        // This is used for three purposes:
-        // - To collect the RunfilesTree objects which the execution strategies need to expand the
-        //   runfiles trees
-        // - The action cache checker may want the digest of the aggregated runfiles tree
-        // - Input rewinding needs to know the owners of artifacts in the runfiles tree
-        //   (this is definitely necessary for Filesets; dunno how that works for other artifacts)
-        inputMap.putRunfilesMetadata(key, runfilesArtifactValue, /* depOwner= */ key);
-
-      } else {
-        FileArtifactValue metadata = actionExecutionValue.getExistingFileArtifactValue(key);
-        inputMap.put(key, metadata, key);
-        consumer.accumulate(metadata);
+          runfilesArtifactValue.forEachFileset(
+              (fileset, filesetOutputTree) -> {
+                filesetsInsideRunfiles.put(fileset, filesetOutputTree);
+                consumer.accumulate(filesetOutputTree);
+              });
+          // This is used for two purposes:
+          // - To collect the RunfilesTree objects which the execution strategies need to expand the
+          //   runfiles trees
+          // - The action cache checker may want the digest of the aggregated runfiles tree
+          inputMap.putRunfilesMetadata(key, runfilesArtifactValue);
+        } else {
+          FileArtifactValue metadata = actionExecutionValue.getExistingFileArtifactValue(key);
+          inputMap.put(key, metadata);
+          consumer.accumulate(metadata);
+        }
       }
-    } else if (value instanceof FileArtifactValue fileArtifactValue) {
-      inputMap.put(key, fileArtifactValue, /* depOwner= */ key);
-      consumer.accumulate(fileArtifactValue);
-    } else {
-      throw new IllegalStateException(String.format("Unexpected value %s", value));
+      case FileArtifactValue fileArtifactValue -> {
+        inputMap.put(key, fileArtifactValue);
+        consumer.accumulate(fileArtifactValue);
+      }
+      case null, default -> throw new IllegalStateException("Unexpected value " + value);
     }
   }
 
@@ -113,10 +112,9 @@ final class ActionInputMapHelper {
       Artifact treeArtifact,
       TreeArtifactValue value,
       BiConsumer<Artifact, TreeArtifactValue> treeArtifactConsumer,
-      ActionInputMapSink inputMap,
-      Artifact depOwner) {
+      ActionInputMap inputMap) {
     treeArtifactConsumer.accept(treeArtifact, value);
-    inputMap.putTreeArtifact((SpecialArtifact) treeArtifact, value, depOwner);
+    inputMap.putTreeArtifact(treeArtifact, value);
     if (value.getArchivedRepresentation().isEmpty()) {
       return;
     }
@@ -124,7 +122,6 @@ final class ActionInputMapHelper {
     ArchivedRepresentation archivedRepresentation = value.getArchivedRepresentation().get();
     inputMap.put(
         archivedRepresentation.archivedTreeFileArtifact(),
-        archivedRepresentation.archivedFileValue(),
-        depOwner);
+        archivedRepresentation.archivedFileValue());
   }
 }

@@ -53,7 +53,6 @@ java_library(
         "ActionInputDepOwnerMap.java",
         "ActionInputDepOwners.java",
         "ActionInputMap.java",
-        "ActionInputMapSink.java",
         "ActionInputPrefetcher.java",
         "ActionKeyComputer.java",
         "ActionKeyContext.java",

@@ -33,11 +33,15 @@ import com.google.common.flogger.GoogleLogger;
 import com.google.common.graph.MutableGraph;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.ActionInputDepOwnerMap;
 import com.google.devtools.build.lib.actions.ActionInputDepOwners;
+import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.LostInputsActionExecutionException;
+import com.google.devtools.build.lib.actions.RunfilesArtifactValue;
+import com.google.devtools.build.lib.actions.RunfilesTree;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.collect.nestedset.ArtifactNestedSetKey;
@@ -159,7 +163,7 @@ public final class ActionRewindStrategy {
       Action failedAction,
       Set<SkyKey> failedActionDeps,
       LostInputsActionExecutionException lostInputsException,
-      ActionInputDepOwners inputDepOwners,
+      ActionInputMap inputArtifactData,
       Environment env,
       long actionStartTimeNanos)
       throws ActionRewindException, InterruptedException {
@@ -173,6 +177,8 @@ public final class ActionRewindStrategy {
 
     ImmutableList<LostInputRecord> lostInputRecords =
         checkIfActionLostInputTooManyTimes(failedKey, failedAction, lostInputsByDigest);
+    ActionInputDepOwners inputDepOwners =
+        createAugmentedInputDepOwners(lostInputsException, inputArtifactData);
 
     ImmutableList.Builder<Action> depsToRewind = ImmutableList.builder();
     Reset rewindPlan;
@@ -418,6 +424,54 @@ public final class ActionRewindStrategy {
         .collect(toImmutableList());
   }
 
+  /**
+   * Returns an augmented version of {@link LostInputsActionExecutionException#getOwners} adding
+   * ownership information from tree artifacts and runfiles trees.
+   *
+   * <p>This compensates for how the ownership information in {@link
+   * LostInputsActionExecutionException#getOwners} is potentially incomplete. E.g., it may lack
+   * knowledge of a runfiles tree owning a fileset, even if it knows that fileset owns a lost input.
+   */
+  // TODO: b/321128298 - Handle fileset ownership and make ownership tracking optional.
+  private static ActionInputDepOwners createAugmentedInputDepOwners(
+      LostInputsActionExecutionException e, ActionInputMap inputArtifactData) {
+    Set<ActionInput> lostInputsAndOwnersSoFar = new HashSet<>();
+    ActionInputDepOwners owners = e.getOwners();
+    for (ActionInput lostInput : e.getLostInputs().values()) {
+      lostInputsAndOwnersSoFar.add(lostInput);
+      lostInputsAndOwnersSoFar.addAll(owners.getDepOwners(lostInput));
+      if (lostInput instanceof Artifact artifact && artifact.hasParent()) {
+        lostInputsAndOwnersSoFar.add(artifact.getParent());
+      }
+    }
+
+    ActionInputDepOwnerMap inputDepOwners = new ActionInputDepOwnerMap(lostInputsAndOwnersSoFar);
+    for (RunfilesTree runfilesTree : inputArtifactData.getRunfilesTrees()) {
+      Artifact runfilesArtifact =
+          (Artifact) inputArtifactData.getInput(runfilesTree.getExecPath().getPathString());
+      checkState(runfilesArtifact.isRunfilesTree(), runfilesArtifact);
+
+      RunfilesArtifactValue runfilesValue = inputArtifactData.getRunfilesMetadata(runfilesArtifact);
+      runfilesValue.forEachFile(
+          (file, metadata) -> inputDepOwners.addOwner(file, runfilesArtifact));
+      runfilesValue.forEachTree(
+          (tree, metadata) -> inputDepOwners.addOwner(tree, runfilesArtifact));
+      runfilesValue.forEachFileset(
+          (fileset, outputTree) -> inputDepOwners.addOwner(fileset, runfilesArtifact));
+    }
+
+    // Copy the ownership mappings from the exception into the augmented version.
+    for (ActionInput lostInput : e.getLostInputs().values()) {
+      for (Artifact depOwner : owners.getDepOwners(lostInput)) {
+        inputDepOwners.addOwner(lostInput, depOwner);
+      }
+      if (lostInput instanceof Artifact artifact && artifact.hasParent()) {
+        inputDepOwners.addOwner(artifact, artifact.getParent());
+      }
+    }
+    return inputDepOwners;
+  }
+
   private Set<DerivedArtifact> getLostInputOwningDirectDeps(
       SkyKey failedKey,
       Set<SkyKey> failedKeyDeps,
@@ -470,7 +524,7 @@ public final class ActionRewindStrategy {
       }
 
       if (lostInput instanceof Artifact artifact && expandedDeps.contains(Artifact.key(artifact))) {
-        checkDerived((Artifact) lostInput);
+        checkDerived(artifact);
 
         lostInputOwningDirectDeps.add((DerivedArtifact) lostInput);
         foundLostInputDepOwner = true;

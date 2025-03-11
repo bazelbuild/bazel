@@ -64,7 +64,7 @@ public final class CompletionContextTest {
   @Test
   public void regularArtifact() {
     Artifact file = ActionsTestUtil.createArtifact(outputRoot, "file");
-    inputMap.put(file, DUMMY_METADATA, /* depOwner= */ null);
+    inputMap.put(file, DUMMY_METADATA);
     CompletionContext ctx = createCompletionContext(/* expandFilesets= */ true);
 
     assertThat(visit(ctx, file)).containsExactly(file);
@@ -82,7 +82,7 @@ public final class CompletionContextTest {
             .putChild(treeFile1, DUMMY_METADATA)
             .putChild(treeFile2, DUMMY_METADATA)
             .build();
-    inputMap.putTreeArtifact(tree, treeValue, /* depOwner= */ null);
+    inputMap.putTreeArtifact(tree, treeValue);
     treeExpansions.put(tree, treeValue);
     CompletionContext ctx = createCompletionContext(/* expandFilesets= */ true);
 
@@ -93,7 +93,7 @@ public final class CompletionContextTest {
   @Test
   public void fileset_noExpansion() {
     SpecialArtifact fileset = createFileset("fs");
-    inputMap.put(fileset, DUMMY_METADATA, /* depOwner= */ null);
+    inputMap.put(fileset, DUMMY_METADATA);
     filesetExpansions.put(
         fileset,
         FilesetOutputTree.create(
@@ -111,7 +111,7 @@ public final class CompletionContextTest {
   @Test
   public void fileset_withExpansion() throws Exception {
     SpecialArtifact fileset = createFileset("fs");
-    inputMap.put(fileset, DUMMY_METADATA, /* depOwner= */ null);
+    inputMap.put(fileset, DUMMY_METADATA);
     ImmutableList<FilesetOutputSymlink> links =
         ImmutableList.of(filesetLink("a1", "b1"), filesetLink("a2", "b2"));
     filesetExpansions.put(fileset, FilesetOutputTree.create(links));

@@ -142,7 +142,7 @@ public final class ActionOutputMetadataStoreTest {
         FileArtifactValue.createForNormalFile(
             new byte[] {1, 2, 3}, /* proxy= */ null, /* size= */ 10L);
     ActionInputMap map = new ActionInputMap(1);
-    map.putWithNoDepOwner(input, metadata);
+    map.put(input, metadata);
     assertThat(map.getInputMetadata(input)).isEqualTo(metadata);
     ActionInputMetadataProvider inputMetadataProvider =
         new ActionInputMetadataProvider(execRoot.asFragment(), map, ImmutableMap.of());
@@ -158,7 +158,7 @@ public final class ActionOutputMetadataStoreTest {
         FileArtifactValue.createForNormalFile(
             new byte[] {1, 2, 3}, /* proxy= */ null, /* size= */ 10L);
     ActionInputMap map = new ActionInputMap(1);
-    map.putWithNoDepOwner(artifact, metadata);
+    map.put(artifact, metadata);
     ActionInputMetadataProvider inputMetadataProvider =
         new ActionInputMetadataProvider(execRoot.asFragment(), map, ImmutableMap.of());
     assertThat(inputMetadataProvider.getInputMetadata(artifact)).isEqualTo(metadata);
@@ -437,7 +437,7 @@ public final class ActionOutputMetadataStoreTest {
     }
 
     ActionInputMap inputMap = new ActionInputMap(0);
-    inputMap.putWithNoDepOwner(inputArtifact, inputMetadata);
+    inputMap.put(inputArtifact, inputMetadata);
 
     RemoteActionFileSystem actionFs =
         createRemoteActionFileSystem(inputMap, ImmutableSet.of(outputArtifact));
@@ -515,7 +515,7 @@ public final class ActionOutputMetadataStoreTest {
     TreeArtifactValue inputMetadata = builder.build();
 
     ActionInputMap inputMap = new ActionInputMap(0);
-    inputMap.putTreeArtifact(inputArtifact, inputMetadata, /* depOwner= */ null);
+    inputMap.putTreeArtifact(inputArtifact, inputMetadata);
 
     RemoteActionFileSystem actionFs =
         createRemoteActionFileSystem(inputMap, ImmutableSet.of(outputArtifact));

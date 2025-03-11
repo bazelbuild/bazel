@@ -249,12 +249,6 @@ public final class RewindingTest extends BuildIntegrationTestCase {
   }
 
   @Test
-  public void flakyActionFailsAfterRewind_raceWithIndirectConsumer_undoneDuringLostInputHandling()
-      throws Exception {
-    helper.runFlakyActionFailsAfterRewind_raceWithIndirectConsumer_undoneDuringLostInputHandling();
-  }
-
-  @Test
   public void discoveredCppModuleLost() throws Exception {
     skipIfBazel();
     helper.runDiscoveredCppModuleLost();
