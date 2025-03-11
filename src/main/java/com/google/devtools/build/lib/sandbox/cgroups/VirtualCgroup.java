@@ -68,6 +68,7 @@ public abstract class VirtualCgroup implements Cgroup {
   @Override
   public abstract ImmutableSet<Path> paths();
 
+  @Nullable
   public abstract CgroupsInfo cgroupsInfo();
 
   private final Queue<VirtualCgroup> children = new ConcurrentLinkedQueue<>();
@@ -77,15 +78,21 @@ public abstract class VirtualCgroup implements Cgroup {
   }
 
   private static VirtualCgroup createInstance() {
-    VirtualCgroup root;
+    VirtualCgroup instance;
     try {
-      root = createRoot().createChild("blaze_" + ProcessHandle.current().pid() + "_spawns.slice");
+      VirtualCgroup cgroupRoot = createRoot();
+      // In our implementation, only the root cgroup holds the cgroupsInfo object. If we want to
+      // create a node to be the new root of our cgroup, we need to pass down the cgroupsInfo,
+      // otherwise it'll be null.
+      instance =
+          cgroupRoot.createChild(
+              "blaze_" + ProcessHandle.current().pid() + "_spawns.slice", cgroupRoot.cgroupsInfo());
     } catch (IOException e) {
       logger.atInfo().withCause(e).log("Failed to create root cgroup");
-      root = NULL;
+      instance = NULL;
     }
     Runtime.getRuntime().addShutdownHook(new Thread(VirtualCgroup::deleteInstance));
-    return root;
+    return instance;
   }
 
   public static void deleteInstance() {
@@ -93,7 +100,7 @@ public abstract class VirtualCgroup implements Cgroup {
   }
 
   public static final VirtualCgroup NULL =
-      new AutoValue_VirtualCgroup(null, null, ImmutableSet.of(), CgroupsInfo.getDefaultInstance());
+      new AutoValue_VirtualCgroup(null, null, ImmutableSet.of(), null);
 
   static VirtualCgroup createRoot() throws IOException {
     return createRoot(PROC_SELF_MOUNTS_PATH, PROC_SELF_CGROUP_PATH);
@@ -238,6 +245,11 @@ public abstract class VirtualCgroup implements Cgroup {
   }
 
   public VirtualCgroup createChild(String name) throws IOException {
+    return createChild(name, null);
+  }
+
+  private VirtualCgroup createChild(String name, @Nullable CgroupsInfo cgroupsInfo)
+      throws IOException {
     Controller.Cpu cpu = null;
     Controller.Memory memory = null;
     ImmutableSet.Builder<Path> paths = ImmutableSet.builder();
@@ -252,8 +264,7 @@ public abstract class VirtualCgroup implements Cgroup {
     // We don't create the CgroupsInfo for the child cgroups. Theoretically, when the root cgroup is
     // user-writable, then the child cgroups are also user-writable. We can revisit this if we
     // observe strange behaviors in the future.
-    VirtualCgroup child =
-        new AutoValue_VirtualCgroup(cpu, memory, paths.build(), CgroupsInfo.getDefaultInstance());
+    VirtualCgroup child = new AutoValue_VirtualCgroup(cpu, memory, paths.build(), cgroupsInfo);
     this.children.add(child);
     return child;
   }
