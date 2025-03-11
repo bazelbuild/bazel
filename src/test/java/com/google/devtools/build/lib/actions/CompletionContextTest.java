@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.CompletionContext.ArtifactReceiver;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
-import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.Path;
@@ -49,7 +48,7 @@ public final class CompletionContextTest {
       FileArtifactValue.createForRemoteFile(
           /* digest= */ new byte[0], /* size= */ 0, /* locationIndex= */ 0);
 
-  private final ActionInputMap inputMap = new ActionInputMap(BugReporter.defaultInstance(), 0);
+  private final ActionInputMap inputMap = new ActionInputMap(0);
   private final Map<Artifact, TreeArtifactValue> treeExpansions = new HashMap<>();
   private final Map<Artifact, FilesetOutputTree> filesetExpansions = new HashMap<>();
   private Path execRoot;

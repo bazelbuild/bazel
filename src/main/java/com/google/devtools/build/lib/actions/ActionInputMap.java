@@ -24,7 +24,6 @@ import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
-import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.collect.compacthashmap.CompactHashMap;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -127,8 +126,6 @@ public final class ActionInputMap implements InputMetadataProvider {
     }
   }
 
-  private final BugReporter bugReporter;
-
   /** The number of elements contained in this map. */
   private int size;
 
@@ -164,14 +161,7 @@ public final class ActionInputMap implements InputMetadataProvider {
 
   private List<RunfilesTree> runfilesTrees = new ArrayList<>();
 
-  @Deprecated
-  @VisibleForTesting
   public ActionInputMap(int sizeHint) {
-    this(BugReporter.defaultInstance(), sizeHint);
-  }
-
-  public ActionInputMap(BugReporter bugReporter, int sizeHint) {
-    this.bugReporter = bugReporter;
     sizeHint = Math.max(1, sizeHint);
     int tableSize = Integer.highestOneBit(sizeHint) << 1;
     size = 0;
@@ -238,17 +228,10 @@ public final class ActionInputMap implements InputMetadataProvider {
       return null;
     }
 
-    // Check the trees in case input is a non-Artifact ActionInput pointing to a tree artifact file
-    // (such as the ones resulting from a fileset expansion).
-    FileArtifactValue result = getMetadataFromTreeArtifacts(input.getExecPath());
-
-    if (result != null) {
-      bugReporter.sendBugReport(
-          new IllegalArgumentException(
-              String.format(
-                  "Tree artifact file: '%s' referred to as an action input", input.getExecPath())));
-    }
-    return result;
+    // Check the trees in case input is a non-Artifact ActionInput pointing to a tree artifact file.
+    // This can happen if both a TreeArtifact and a Fileset containing the TreeArtifact are inputs
+    // to the same action.
+    return getMetadataFromTreeArtifacts(input.getExecPath());
   }
 
   @Nullable

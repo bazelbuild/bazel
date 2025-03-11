@@ -203,7 +203,7 @@ public final class CompletionFunction<
 
     boolean allArtifactsAreImportant = artifactsToBuild.areAllOutputGroupsImportant();
 
-    ActionInputMap inputMap = new ActionInputMap(bugReporter, allArtifacts.size());
+    ActionInputMap inputMap = new ActionInputMap(allArtifacts.size());
     // Prepare an ActionInputMap for important artifacts separately, to be used by BEP events. The
     // _validation output group can contain orders of magnitude more unimportant artifacts than
     // there are important artifacts, and BEP events will retain the ActionInputMap until the
@@ -216,7 +216,7 @@ public final class CompletionFunction<
       importantInputMap = inputMap;
     } else {
       importantArtifacts = artifactsToBuild.getImportantArtifacts().toSet();
-      importantInputMap = new ActionInputMap(bugReporter, importantArtifacts.size());
+      importantInputMap = new ActionInputMap(importantArtifacts.size());
     }
 
     // TODO: b/239184359 - Can we just get the tree artifacts from the ActionInputMap?

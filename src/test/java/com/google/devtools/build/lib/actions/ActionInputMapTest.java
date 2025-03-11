@@ -17,19 +17,14 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 import static org.junit.Assert.assertThrows;
-import static org.mockito.Mockito.doNothing;
-import static org.mockito.Mockito.mock;
 
 import com.google.auto.value.AutoValue;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
-import com.google.devtools.build.lib.bugreport.BugReporter;
-import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
-import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
@@ -39,25 +34,20 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Random;
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.mockito.ArgumentCaptor;
 
 /** Unit test for {@link ActionInputMap}. */
 @RunWith(TestParameterInjector.class)
 public final class ActionInputMapTest {
 
   // small hint to stress the map
-  private final ActionInputMap map = new ActionInputMap(BugReporter.defaultInstance(), 1);
-  private ArtifactRoot artifactRoot;
-
-  @Before
-  public void createArtifactRoot() {
-    FileSystem fs = new InMemoryFileSystem(BlazeClock.instance(), DigestHashFunction.SHA256);
-    artifactRoot =
-        ArtifactRoot.asDerivedRoot(fs.getPath("/execroot"), RootType.Output, "bazel-out");
-  }
+  private final ActionInputMap map = new ActionInputMap(1);
+  private final ArtifactRoot artifactRoot =
+      ArtifactRoot.asDerivedRoot(
+          new InMemoryFileSystem(DigestHashFunction.SHA256).getPath("/execroot"),
+          RootType.Output,
+          "bazel-out");
 
   @Test
   public void basicPutAndLookup() {
@@ -295,10 +285,7 @@ public final class ActionInputMapTest {
 
   @Test
   public void getMetadata_actionInputWithTreeFileExecPath_returnsTreeArtifactEntries() {
-    BugReporter bugReporter = mock(BugReporter.class);
-    ArgumentCaptor<Throwable> exceptionCaptor = ArgumentCaptor.forClass(Throwable.class);
-    doNothing().when(bugReporter).sendBugReport(exceptionCaptor.capture());
-    ActionInputMap inputMap = new ActionInputMap(bugReporter, /*sizeHint=*/ 1);
+    ActionInputMap inputMap = new ActionInputMap(/* sizeHint= */ 1);
     SpecialArtifact tree = createTreeArtifact("tree");
     TreeFileArtifact treeFile = TreeFileArtifact.createTreeOutput(tree, "file");
     FileArtifactValue treeFileMetadata = TestMetadata.create(1);
@@ -310,10 +297,6 @@ public final class ActionInputMapTest {
     FileArtifactValue metadata = inputMap.getInputMetadata(input);
 
     assertThat(metadata).isSameInstanceAs(treeFileMetadata);
-    assertThat(exceptionCaptor.getValue()).isInstanceOf(IllegalArgumentException.class);
-    assertThat(exceptionCaptor.getValue())
-        .hasMessageThat()
-        .isEqualTo("Tree artifact file: 'bazel-out/tree/file' referred to as an action input");
   }
 
   @Test

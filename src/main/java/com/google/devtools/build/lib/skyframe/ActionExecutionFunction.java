@@ -1129,7 +1129,7 @@ public final class ActionExecutionFunction implements SkyFunction {
     // files. We don't bother to optimize the error-ful case since it's rare.
     Map<Artifact, FilesetOutputTree> filesetsInsideRunfiles = Maps.newHashMapWithExpectedSize(0);
     Map<Artifact, FilesetOutputTree> topLevelFilesets = Maps.newHashMapWithExpectedSize(0);
-    ActionInputMap inputArtifactData = new ActionInputMap(bugReporter, allInputsList.size());
+    ActionInputMap inputArtifactData = new ActionInputMap(allInputsList.size());
     List<Artifact> undoneInputs = new ArrayList<>(0);
 
     for (Artifact input : allInputsList) {

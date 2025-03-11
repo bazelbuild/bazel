@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FilesetOutputTree.RelativeSymlinkBehaviorWithoutError;
 import com.google.devtools.build.lib.bugreport.BugReport;
-import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -48,7 +47,7 @@ public final class CompletionContext implements ArtifactExpander {
           ImmutableMap.of(),
           null,
           ArtifactPathResolver.IDENTITY,
-          new ActionInputMap(BugReporter.defaultInstance(), 0),
+          new ActionInputMap(0),
           false,
           false);
 
