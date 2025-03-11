@@ -78,6 +78,9 @@ public abstract class FileOptions {
    */
   public abstract boolean stringLiteralsAreAsciiOnly();
 
+  /** Whether type annotations are allowed in the source code. */
+  public abstract boolean allowTypeAnnotations();
+
   public static Builder builder() {
     // These are the DEFAULT values.
     return new AutoValue_FileOptions.Builder()
@@ -85,7 +88,8 @@ public abstract class FileOptions {
         .allowToplevelRebinding(false)
         .loadBindsGlobally(false)
         .requireLoadStatementsFirst(true)
-        .stringLiteralsAreAsciiOnly(false);
+        .stringLiteralsAreAsciiOnly(false)
+        .allowTypeAnnotations(false);
   }
 
   public abstract Builder toBuilder();
@@ -103,6 +107,8 @@ public abstract class FileOptions {
     public abstract Builder requireLoadStatementsFirst(boolean value);
 
     public abstract Builder stringLiteralsAreAsciiOnly(boolean value);
+
+    public abstract Builder allowTypeAnnotations(boolean value);
 
     public abstract FileOptions build();
   }
