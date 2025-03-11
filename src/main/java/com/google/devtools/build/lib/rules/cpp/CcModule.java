@@ -352,7 +352,7 @@ public abstract class CcModule
   @Override
   public CcToolchainVariables getVariables(StarlarkThread thread) throws EvalException {
     isCalledFromStarlarkCcCommon(thread);
-    return CcToolchainVariables.EMPTY;
+    return CcToolchainVariables.empty();
   }
 
   /**

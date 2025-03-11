@@ -175,7 +175,7 @@ public final class LinkCommandLine extends AbstractCommandLine {
 
     public LinkCommandLine build() {
       if (variables == null) {
-        variables = CcToolchainVariables.EMPTY;
+        variables = CcToolchainVariables.empty();
       }
 
       return new LinkCommandLine(

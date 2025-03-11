@@ -280,8 +280,25 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
         throws ExpansionException;
   }
 
-  /** An empty variables instance. */
-  public static final CcToolchainVariables EMPTY = builder().build();
+  /** Returns an empty variables instance. */
+  public static CcToolchainVariables empty() {
+    return EmptyVariablesHolder.EMPTY;
+  }
+
+  /**
+   * Avoids cyclic class initialization issues with {@link MapVariables}.
+   *
+   * <p>Without this holder, there would be a cycle here. {@link MapVariables} depends on its parent
+   * class {@link CcToolchainVariables} and {@link CcToolchainVariables} would depend on {@link
+   * MapVariables} via {@link #EMPTY}.
+   *
+   * <p>See <a
+   * href="https://en.wikipedia.org/wiki/Initialization-on-demand_holder_idiom">Initialization on
+   * demand idiom</a>.
+   */
+  private static class EmptyVariablesHolder {
+    private static final CcToolchainVariables EMPTY = builder().build();
+  }
 
   private static final Object NULL_MARKER = new Object();
 
