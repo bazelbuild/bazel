@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.StarlarkExportable;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Map;
+import java.util.Optional;
 import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
@@ -41,6 +42,7 @@ import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkInt;
@@ -245,9 +247,18 @@ public class ModuleFileGlobals {
             defaultValue = "-1"),
         @Param(
             name = "repo_name",
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = NoneType.class),
+            },
             doc =
-                "The name of the external repo representing this dependency. This is by default the"
-                    + " name of the module.",
+                """
+                The name of the external repo representing this dependency. This is by default the
+                name of the module. Can be set to <code>None</code> to make this dependency a
+                "<em>nodep</em>" dependency: in this case, this <code>bazel_dep</code> specification
+                is only honored if the target module already exists in the dependency graph by some
+                other means.
+                """,
             named = true,
             positional = false,
             defaultValue = "''"),
@@ -255,7 +266,7 @@ public class ModuleFileGlobals {
             name = "dev_dependency",
             doc =
                 "If true, this dependency will be ignored if the current module is not the root"
-                    + " module or `--ignore_dev_dependency` is enabled.",
+                    + " module or <code>--ignore_dev_dependency</code> is enabled.",
             named = true,
             positional = false,
             defaultValue = "False"),
@@ -265,15 +276,12 @@ public class ModuleFileGlobals {
       String name,
       String version,
       StarlarkInt maxCompatibilityLevel,
-      String repoName,
+      Object repoNameArg,
       boolean devDependency,
       StarlarkThread thread)
       throws EvalException {
     ModuleThreadContext context = ModuleThreadContext.fromOrFail(thread, "bazel_dep()");
     context.setNonModuleCalled();
-    if (repoName.isEmpty()) {
-      repoName = name;
-    }
     validateModuleName(name);
     Version parsedVersion;
     try {
@@ -281,7 +289,17 @@ public class ModuleFileGlobals {
     } catch (ParseException e) {
       throw new EvalException("Invalid version in bazel_dep()", e);
     }
-    RepositoryName.validateUserProvidedRepoName(repoName);
+
+    Optional<String> repoName =
+        switch (repoNameArg) {
+          case NoneType n -> Optional.empty();
+          case String s when s.isEmpty() -> Optional.of(name);
+          case String s -> {
+            RepositoryName.validateUserProvidedRepoName(s);
+            yield Optional.of(s);
+          }
+          default -> throw Starlark.errorf("internal error: unexpected repoName type");
+        };
 
     if (!(context.shouldIgnoreDevDeps() && devDependency)) {
       context.addDep(
@@ -290,7 +308,9 @@ public class ModuleFileGlobals {
               name, parsedVersion, maxCompatibilityLevel.toInt("max_compatibility_level")));
     }
 
-    context.addRepoNameUsage(repoName, "by a bazel_dep", thread.getCallStack());
+    if (repoName.isPresent()) {
+      context.addRepoNameUsage(repoName.get(), "by a bazel_dep", thread.getCallStack());
+    }
   }
 
   @StarlarkMethod(
