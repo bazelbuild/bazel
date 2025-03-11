@@ -434,9 +434,9 @@ final class Parser {
     return new Argument.Positional(locs, expr);
   }
 
-  // arg = IDENTIFIER [':' test] [ '=' test ]
-  //     | * [IDENTIFIER [':' test]]
-  //     | ** IDENTIFIER [':' test]
+  // arg = IDENTIFIER [':' TypeExpr] [ '=' test ]
+  //     | * [IDENTIFIER [':' TypeExpr]]
+  //     | ** IDENTIFIER [':' TypeExpr]
   // Type annotations are only available on def statements (not lambdas)
   private Parameter parseParameter(boolean defStatement) {
     Expression type = null;
@@ -950,12 +950,117 @@ final class Parser {
   private Expression maybeParseTypeAnnotation() {
     if (options.allowTypeAnnotations() && token.kind == TokenKind.COLON) {
       nextToken();
-      // TODO(ilist): make parsing of types more specific
-      return parseTest();
+      return parseTypeExpr();
     } else if (token.kind == TokenKind.COLON) {
       syntaxError("type annotations are disallowed.");
     }
     return null;
+  }
+
+  // TypeExpr = TypeAtom {'|' TypeAtom}.
+  // TypeAtom = identifier [TypeArguments].
+  private Expression parseTypeExpr() {
+    if (token.kind != TokenKind.IDENTIFIER) {
+      int start = token.start;
+      syntaxError("expected a type");
+      int end = syncTo(EXPR_TERMINATOR_SET);
+      return makeErrorExpression(start, end);
+    }
+    Expression expr = parseIdent();
+    if (token.kind == TokenKind.LBRACKET) {
+      expr = parseTypeApplication(expr);
+    }
+    while (token.kind == TokenKind.PIPE) {
+      int opOffset = nextToken();
+      Expression y = parseIdent();
+      if (token.kind == TokenKind.LBRACKET) {
+        y = parseTypeApplication(y);
+      }
+      expr = new BinaryOperatorExpression(locs, expr, TokenKind.PIPE, opOffset, y);
+    }
+    return expr;
+  }
+
+  // TypeArgument = TypeExpr | ListOfTypes | DictOfTypes | string
+  private Expression parseTypeArgument() {
+    switch (token.kind) {
+      case LBRACKET: // [...]
+        return parseTypeList();
+      case LBRACE: // {...}
+        return parseTypeDict();
+      case STRING:
+        return parseStringLiteral();
+      default:
+    }
+    if (token.kind != TokenKind.IDENTIFIER) {
+      int start = token.start;
+      syntaxError("expected a type argument");
+      int end = syncTo(EXPR_TERMINATOR_SET);
+      return makeErrorExpression(start, end);
+    }
+    return parseTypeExpr();
+  }
+
+  // ListOfTypes = '[' [TypeArgument {',' TypeArgument} [',']] ']'.
+  private Expression parseTypeList() {
+    int lbracketOffset = expect(TokenKind.LBRACKET);
+    ImmutableList.Builder<Expression> elems = ImmutableList.builder();
+    if (token.kind != TokenKind.RBRACKET) {
+      elems.add(parseTypeArgument());
+    }
+    while (token.kind != TokenKind.RBRACKET && token.kind != TokenKind.EOF) {
+      expect(TokenKind.COMMA);
+      if (token.kind == TokenKind.RBRACKET) {
+        break;
+      }
+      elems.add(parseTypeArgument());
+    }
+    int rbracketOffset = nextToken();
+    return new ListExpression(
+        locs, /* isTuple= */ false, lbracketOffset, elems.build(), rbracketOffset);
+  }
+
+  // TypeEntry = string ':' TypeArgument .
+  private DictExpression.Entry parseTypeDictEntry() {
+    Expression key = parseStringLiteral();
+    int colonOffset = expect(TokenKind.COLON);
+    Expression value = parseTypeArgument();
+    return new DictExpression.Entry(locs, key, colonOffset, value);
+  }
+
+  // DictOfTypes = '{' [TypeEntry {',' TypeEntry} [',']] '}' .
+  private Expression parseTypeDict() {
+    int lbraceOffset = expect(TokenKind.LBRACE);
+
+    ImmutableList.Builder<DictExpression.Entry> entries = ImmutableList.builder();
+    if (token.kind != TokenKind.RBRACE) {
+      entries.add(parseTypeDictEntry());
+    }
+    while (token.kind != TokenKind.RBRACE && token.kind != TokenKind.EOF) {
+      expect(TokenKind.COMMA);
+      if (token.kind == TokenKind.RBRACE) {
+        break;
+      }
+      entries.add(parseTypeDictEntry());
+    }
+
+    int rbraceOffset = nextToken();
+    return new DictExpression(locs, lbraceOffset, entries.build(), rbraceOffset);
+  }
+
+  // TypeArguments = '[' TypeArgument {',' TypeArgument} ']'.
+  private Expression parseTypeApplication(Expression fn) {
+    int lbracketOffset = expect(TokenKind.LBRACKET);
+    ImmutableList.Builder<Argument> args = ImmutableList.builder();
+    args.add(new Argument.Positional(locs, parseTypeArgument()));
+    while (token.kind != TokenKind.RBRACKET && token.kind != TokenKind.EOF) {
+      expect(TokenKind.COMMA);
+      args.add(new Argument.Positional(locs, parseTypeArgument()));
+    }
+    int rbracketOffset = expect(TokenKind.RBRACKET);
+    // TODO(ilist@): introduce TypeApplication Node
+    return new CallExpression(
+        locs, fn, locs.getLocation(lbracketOffset), args.build(), rbracketOffset);
   }
 
   // Parses a non-tuple expression ("test" in Python terminology).
