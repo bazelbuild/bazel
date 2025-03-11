@@ -42,11 +42,6 @@ java_library(
 )
 
 java_library(
-    name = "always_out_of_date_action",
-    srcs = ["AlwaysOutOfDateAction.java"],
-)
-
-java_library(
     name = "bin_tools",
     srcs = ["BinTools.java"],
     deps = [
@@ -85,7 +80,6 @@ java_library(
     name = "check_up_to_date_filter",
     srcs = ["CheckUpToDateFilter.java"],
     deps = [
-        ":always_out_of_date_action",
         ":execution_options",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
