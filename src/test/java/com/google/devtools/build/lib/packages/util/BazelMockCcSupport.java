@@ -26,9 +26,7 @@ import com.google.devtools.build.runfiles.Runfiles;
 import java.io.IOException;
 import java.util.Arrays;
 
-/**
- * Bazel implementation of {@link MockCcSupport}
- */
+/** Bazel implementation of {@link MockCcSupport} */
 public final class BazelMockCcSupport extends MockCcSupport {
   public static final BazelMockCcSupport INSTANCE = new BazelMockCcSupport();
 
@@ -44,11 +42,10 @@ public final class BazelMockCcSupport extends MockCcSupport {
 
   @Override
   protected String getRealFilesystemCrosstoolTopPath() {
-    return "src/test/java/com/google/devtools/build/lib/packages/util/real/"
-        + switch (OS.getCurrent()) {
-          case LINUX -> "linux";
-          default -> throw new IllegalStateException("Unsupported OS: " + OS.getCurrent());
-        };
+    if (OS.getCurrent() == OS.LINUX) {
+      return "src/test/java/com/google/devtools/build/lib/packages/util/real/linux";
+    }
+    throw new IllegalStateException("Unsupported OS: " + OS.getCurrent());
   }
 
   @Override
