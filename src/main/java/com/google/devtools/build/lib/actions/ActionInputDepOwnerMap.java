@@ -13,6 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
@@ -31,10 +34,30 @@ public final class ActionInputDepOwnerMap implements ActionInputDepOwners {
             /* expectedKeys= */ inputsOfInterest.size(), /* expectedValuesPerKey= */ 1);
   }
 
-  public void addOwner(ActionInput input, Artifact depOwner) {
+  public void addOwner(ActionInput input, Artifact owner) {
+    checkNotNull(input);
+    checkNotNull(owner);
+    checkArgument(
+        isValidOwnerRelationship(input, owner),
+        "Invalid owner relationship (input=%s, owner=%s)",
+        input,
+        owner);
     if (inputsOfInterest.contains(input)) {
-      depOwnersByInputs.put(input, depOwner);
+      depOwnersByInputs.put(input, owner);
     }
+  }
+
+  private static boolean isValidOwnerRelationship(ActionInput input, Artifact owner) {
+    if (owner.isFileset()) {
+      return !(input instanceof Artifact);
+    }
+    if (owner.isTreeArtifact()) {
+      return input instanceof Artifact child && child.getParent().equals(owner);
+    }
+    if (owner.isRunfilesTree()) {
+      return input instanceof Artifact;
+    }
+    return false;
   }
 
   @Override
