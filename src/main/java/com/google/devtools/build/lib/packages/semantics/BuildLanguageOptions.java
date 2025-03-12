@@ -675,6 +675,16 @@ public final class BuildLanguageOptions extends OptionsBase {
               + "from the top level target instead (No-op in Bazel)")
   public boolean incompatibleDisableObjcLibraryTransition;
 
+  @Option(
+      name = "add_go_exec_groups_to_binary_rules",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = OptionEffectTag.LOADING_AND_ANALYSIS,
+      help =
+          "When enabled, 'go_build' and 'go_link' execution groups are added to binary rules like"
+              + " 'cc_binary'.")
+  public boolean addGoExecGroupsToBinaryRules;
+
   // remove after Bazel LTS in Nov 2023
   @Option(
       name = "incompatible_fail_on_unknown_attributes",
@@ -914,6 +924,7 @@ public final class BuildLanguageOptions extends OptionsBase {
             .setBool(
                 INCOMPATIBLE_DISABLE_OBJC_LIBRARY_TRANSITION,
                 incompatibleDisableObjcLibraryTransition)
+            .setBool(ADD_GO_EXEC_GROUPS_TO_BINARY_RULES, addGoExecGroupsToBinaryRules)
             .setBool(INCOMPATIBLE_FAIL_ON_UNKNOWN_ATTRIBUTES, incompatibleFailOnUnknownAttributes)
             .setBool(
                 INCOMPATIBLE_ENABLE_PROTO_TOOLCHAIN_RESOLUTION,
@@ -1022,6 +1033,8 @@ public final class BuildLanguageOptions extends OptionsBase {
       "+experimental_merge_fixed_and_default_shell_env";
   public static final String INCOMPATIBLE_DISABLE_OBJC_LIBRARY_TRANSITION =
       "+incompatible_disable_objc_library_transition";
+  public static final String ADD_GO_EXEC_GROUPS_TO_BINARY_RULES =
+      "-add_go_exec_groups_to_binary_rules";
   public static final String INCOMPATIBLE_FAIL_ON_UNKNOWN_ATTRIBUTES =
       "+incompatible_fail_on_unknown_attributes";
   public static final String INCOMPATIBLE_ENABLE_PROTO_TOOLCHAIN_RESOLUTION =

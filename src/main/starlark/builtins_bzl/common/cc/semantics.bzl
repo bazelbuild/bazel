@@ -191,6 +191,7 @@ semantics = struct(
     BUILD_INFO_TRANLATOR_LABEL = "@bazel_tools//tools/build_defs/build_info:cc_build_info",
     CC_PROTO_TOOLCHAIN = "@rules_cc//cc/proto:toolchain_type",
     is_bazel = True,
+    extra_exec_groups = {},
     stamp_extra_docs = "",
     malloc_docs = """
  Override the default dependency on malloc.

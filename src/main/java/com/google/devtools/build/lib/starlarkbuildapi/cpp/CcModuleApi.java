@@ -1485,6 +1485,12 @@ public interface CcModuleApi<
   boolean getIncompatibleDisableObjcLibraryTransition(StarlarkThread thread) throws EvalException;
 
   @StarlarkMethod(
+      name = "add_go_exec_groups_to_binary_rules",
+      useStarlarkThread = true,
+      documented = false)
+  boolean addGoExecGroupsToBinaryRules(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(
       name = "create_linking_context",
       doc = "Creates a <code>LinkingContext</code>.",
       useStarlarkThread = true,

@@ -1025,6 +1025,15 @@ public abstract class CcModule
   }
 
   @Override
+  public boolean addGoExecGroupsToBinaryRules(StarlarkThread thread) throws EvalException {
+    // This method is called from cc_common.bzl and semantics.bzl
+    if (!isStarlarkCcCommonCalledFromBuiltins(thread)) {
+      throw Starlark.errorf("add_go_exec_groups_to_binary_rules can only be used in builtins");
+    }
+    return thread.getSemantics().getBool(BuildLanguageOptions.ADD_GO_EXEC_GROUPS_TO_BINARY_RULES);
+  }
+
+  @Override
   public CcLinkingContext createCcLinkingInfo(
       Object linkerInputs,
       Object librariesToLinkObject,
