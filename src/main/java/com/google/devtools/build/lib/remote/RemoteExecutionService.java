@@ -1842,14 +1842,15 @@ public class RemoteExecutionService {
                                       combinedCache,
                                       reporter)),
                   cacheResource -> {
+                    // Signal that the post-execution tasks touching the output are done.
+                    done.countDown();
                     Profiler.instance()
                         .completeTask(startTime.get(), ProfilerTask.UPLOAD_TIME, "upload outputs");
                     backgroundTaskPhaser.arriveAndDeregister();
                     onUploadComplete.run();
                     cacheResource.release();
-                    done.countDown();
-                    // Clean up the done task, disposing and awaiting it is effectively a no-op at
-                    // this point.
+                    // Clean up the post-execution task, disposing and awaiting it is effectively a
+                    // no-op at this point.
                     outputService.cancelPostExecutionTasks(
                         action.getRemoteActionExecutionContext().getSpawnOwner());
                   },
