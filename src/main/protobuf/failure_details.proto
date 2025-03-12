@@ -1377,6 +1377,7 @@ message ModCommand {
     INVALID_ARGUMENTS = 3 [(metadata) = { exit_code: 2 }];
     BUILDOZER_FAILED = 4 [(metadata) = { exit_code: 2 }];
     ERROR_DURING_GRAPH_INSPECTION = 5 [(metadata) = { exit_code: 2 }];
+    MODULE_NEEDS_TIDY = 6 [(metadata) = { exit_code: 3 }];
   }
 
   Code code = 1;
