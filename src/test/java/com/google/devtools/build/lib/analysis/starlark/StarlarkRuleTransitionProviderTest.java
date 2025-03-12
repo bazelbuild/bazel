@@ -1156,6 +1156,42 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
   }
 
   @Test
+  public void testAnalysisTestsCanTransitionOnExperimentalFlag() throws Exception {
+    scratch.file(
+        "test/analysis_test.bzl",
+        """
+        def make_test(name, target, settings):
+          testing.analysis_test(
+            name,
+            lambda ctx: None,
+            attrs = {
+              "target" : attr.label(
+                default = target,
+                cfg = analysis_test_transition(settings = settings)
+              )
+            },
+          )
+
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load("//test:analysis_test.bzl", "make_test")
+        filegroup(name = "foo")
+        make_test(name = "test", target = ":foo", settings = {
+          "//command_line_option:experimental_something_something": True
+        })
+        """);
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test");
+    assertDoesNotContainEvent("Cannot transition on --experimental_* or --incompatible_* options");
+    assertContainsEvent(
+        "transition outputs [//command_line_option:experimental_something_something] do not"
+            + " correspond to valid settings");
+  }
+
+  @Test
   public void testTransitionIsCheckedAgainstDefaultAllowlist() throws Exception {
     scratch.overwriteFile(
         TestConstants.TOOLS_REPOSITORY_SCRATCH
