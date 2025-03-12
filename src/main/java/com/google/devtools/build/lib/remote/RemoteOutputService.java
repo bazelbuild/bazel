@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.FilesetOutputTree;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
+import com.google.devtools.build.lib.actions.LostInputsActionExecutionException;
 import com.google.devtools.build.lib.actions.OutputChecker;
 import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
@@ -239,5 +240,13 @@ public class RemoteOutputService implements OutputService {
             fileCacheSupplier.get(),
             actionInputFetcher);
     return ArtifactPathResolver.createPathResolver(remoteFileSystem, fileSystem.getPath(execRoot));
+  }
+
+  @Override
+  public void checkActionFileSystemForLostInputs(FileSystem actionFileSystem, Action action)
+      throws LostInputsActionExecutionException {
+    if (actionFileSystem instanceof RemoteActionFileSystem remoteFileSystem) {
+      remoteFileSystem.checkForLostInputs(action);
+    }
   }
 }
