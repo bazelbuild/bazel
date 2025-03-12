@@ -693,7 +693,12 @@ final class Lexer {
           setToken(TokenKind.PLUS, pos - 1, pos);
           break;
         case '-':
-          setToken(TokenKind.MINUS, pos - 1, pos);
+          if (peek(0) == '>') {
+            setToken(TokenKind.RARROW, pos - 1, pos + 1);
+            pos += 1;
+          } else {
+            setToken(TokenKind.MINUS, pos - 1, pos);
+          }
           break;
         case '|':
           setToken(TokenKind.PIPE, pos - 1, pos);

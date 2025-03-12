@@ -80,6 +80,7 @@ public enum TokenKind {
   PLUS("+"),
   PLUS_EQUALS("+="),
   RAISE("raise"),
+  RARROW("->"),
   RBRACE("}"),
   RBRACKET("]"),
   RETURN("return"),
