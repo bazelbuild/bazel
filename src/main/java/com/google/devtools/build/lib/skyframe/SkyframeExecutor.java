@@ -2276,6 +2276,18 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       if (value == null) {
         continue; // Skip aspects that couldn't be applied to targets.
       }
+      // The ConfiguredTargetKey in the AspectKey will vary from the TopLevelAspectKey's
+      // ConfiguredTargetKey due to rule transitions. See the implementation in
+      // ToplevelStarlarkAspectFunction#getConfiguredTargetKey().
+      // Keep this logic in-sync with BuildDriverFunction#announceTopLevelAspectAnalyzed(), which
+      // is the corresponding skymeld (merged analysis+execution) codepath.
+      AspectKey firstAspectKey = Iterables.getFirst(value.getTopLevelAspectsMap().keySet(), null);
+      if (firstAspectKey == null) {
+        continue;
+      }
+      ConfiguredTargetKey transitionedKey = firstAspectKey.getBaseConfiguredTargetKey();
+      int aspectCount = value.getTopLevelAspectsMap().size();
+      eventHandler.post(new ToplevelAspectsIdentifiedEvent(transitionedKey, aspectCount));
       for (Map.Entry<AspectKey, AspectValue> entry : value.getTopLevelAspectsMap().entrySet()) {
         AspectKey aspectKey = entry.getKey();
         AspectValue aspectValue = entry.getValue();

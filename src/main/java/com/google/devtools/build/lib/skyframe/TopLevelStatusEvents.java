@@ -208,7 +208,7 @@ public final class TopLevelStatusEvents {
   /** An event that marks the successful analysis of an aspect. */
   @AutoValue
   public abstract static class AspectAnalyzedEvent implements TopLevelStatusEventWithType {
-    abstract AspectKey aspectKey();
+    public abstract AspectKey aspectKey();
 
     public abstract ConfiguredAspect configuredAspect();
 

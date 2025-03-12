@@ -289,7 +289,7 @@ public class BuildDriverFunction implements SkyFunction {
             // We consider the evaluation of this BuildDriverKey successful at this point, even when
             // the target is skipped.
             removeStatesForKey(buildDriverKey);
-            return new BuildDriverValue(topLevelSkyValue, /*skipped=*/ true);
+            return new BuildDriverValue(topLevelSkyValue, /* skipped= */ true);
           }
         } catch (TargetCompatibilityCheckException e) {
           // The analysis of the target technically succeeded, just that it was incompatible and
@@ -386,7 +386,7 @@ public class BuildDriverFunction implements SkyFunction {
     }
 
     removeStatesForKey(buildDriverKey);
-    return new BuildDriverValue(topLevelSkyValue, /*skipped=*/ false);
+    return new BuildDriverValue(topLevelSkyValue, /* skipped= */ false);
   }
 
   /**
@@ -454,6 +454,19 @@ public class BuildDriverFunction implements SkyFunction {
     if (!postedEventsTypes.add(TopLevelStatusEvents.Type.ASPECT_ANALYZED)) {
       return;
     }
+    // The ConfiguredTargetKey in the AspectKey will vary from the TopLevelAspectKey's
+    // ConfiguredTargetKey due to rule transitions. See the implementation in
+    // ToplevelStarlarkAspectFunction#getConfiguredTargetKey().
+    // Keep this logic in-sync with SkyframeExecutor#configureTargets().
+    AspectKey firstAspectKey =
+        Iterables.getFirst(topLevelAspectsValue.getTopLevelAspectsMap().keySet(), null);
+    if (firstAspectKey == null) {
+      return;
+    }
+    ConfiguredTargetKey transitionedKey = firstAspectKey.getBaseConfiguredTargetKey();
+    int aspectCount = topLevelAspectsValue.getTopLevelAspectsMap().size();
+    env.getListener().post(new ToplevelAspectsIdentifiedEvent(transitionedKey, aspectCount));
+
     for (Map.Entry<AspectKey, AspectValue> entry :
         topLevelAspectsValue.getTopLevelAspectsMap().entrySet()) {
       AspectKey aspectKey = entry.getKey();

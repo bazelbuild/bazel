@@ -208,6 +208,7 @@ java_library(
         ":tests_for_target_pattern_value",
         ":top_level_action_lookup_key_wrapper",
         ":top_level_aspects_details_build_failed_exception",
+        ":top_level_aspects_identified_event",
         ":top_level_aspects_value",
         ":top_level_status_events",
         ":transitive_base_traversal_function",
@@ -905,6 +906,7 @@ java_library(
         ":sane_analysis_exception",
         ":target_completion_value",
         ":test_completion_value",
+        ":top_level_aspects_identified_event",
         ":top_level_aspects_value",
         ":top_level_conflict_exception",
         ":top_level_status_events",
@@ -966,6 +968,15 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "top_level_aspects_identified_event",
+    srcs = ["ToplevelAspectsIdentifiedEvent.java"],
+    deps = [
+        ":configured_target_key",
+        "//src/main/java/com/google/devtools/build/lib/events",
     ],
 )
 

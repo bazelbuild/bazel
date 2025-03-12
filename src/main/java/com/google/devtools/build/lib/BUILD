@@ -467,6 +467,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_executor_repository_helpers_holder",
         "//src/main/java/com/google/devtools/build/lib/skyframe:target_completion_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:target_pattern_phase_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:top_level_aspects_identified_event",
         "//src/main/java/com/google/devtools/build/lib/skyframe:top_level_aspects_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:top_level_status_events",
         "//src/main/java/com/google/devtools/build/lib/skyframe:workspace_info",
