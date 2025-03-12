@@ -377,7 +377,8 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       PathFragment execPath = input.getExecPath();
 
       // input is known to be a non-source artifact and thus must have metadata.
-      FileArtifactValue metadata = checkNotNull(metadataSupplier.getMetadata(input));
+      FileArtifactValue metadata =
+          checkNotNull(metadataSupplier.getMetadata(input), "no metadata for %s", input);
       if (!canDownloadFile(execRoot.getRelative(execPath), metadata)) {
         return immediateVoidFuture();
       }
