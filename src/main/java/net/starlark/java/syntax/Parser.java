@@ -446,7 +446,7 @@ final class Parser {
       int starStarOffset = nextToken();
       Identifier id = parseIdent();
       if (defStatement) {
-        type = maybeParseTypeAnnotation();
+        type = maybeParseTypeAnnotationAfter(TokenKind.COLON);
       }
       return new Parameter.StarStar(locs, starStarOffset, id, type);
     }
@@ -457,7 +457,7 @@ final class Parser {
       if (token.kind == TokenKind.IDENTIFIER) {
         Identifier id = parseIdent();
         if (defStatement) {
-          type = maybeParseTypeAnnotation();
+          type = maybeParseTypeAnnotationAfter(TokenKind.COLON);
         }
         return new Parameter.Star(locs, starOffset, id, type);
       }
@@ -469,7 +469,7 @@ final class Parser {
 
     // name: type
     if (defStatement) {
-      type = maybeParseTypeAnnotation();
+      type = maybeParseTypeAnnotationAfter(TokenKind.COLON);
     }
 
     // name=default
@@ -947,11 +947,11 @@ final class Parser {
   }
 
   @Nullable
-  private Expression maybeParseTypeAnnotation() {
-    if (options.allowTypeAnnotations() && token.kind == TokenKind.COLON) {
+  private Expression maybeParseTypeAnnotationAfter(TokenKind expectedToken) {
+    if (options.allowTypeAnnotations() && token.kind == expectedToken) {
       nextToken();
       return parseTypeExpr();
-    } else if (token.kind == TokenKind.COLON) {
+    } else if (token.kind == expectedToken) {
       syntaxError("type annotations are disallowed.");
     }
     return null;
@@ -1334,9 +1334,10 @@ final class Parser {
     expect(TokenKind.LPAREN);
     ImmutableList<Parameter> params = parseParameters(/* defStatement= */ true);
     expect(TokenKind.RPAREN);
+    Expression returnType = maybeParseTypeAnnotationAfter(TokenKind.RARROW);
     expect(TokenKind.COLON);
     ImmutableList<Statement> block = parseSuite();
-    return new DefStatement(locs, defOffset, ident, params, block);
+    return new DefStatement(locs, defOffset, ident, params, returnType, block);
   }
 
   // Parse a list of function parameters.
