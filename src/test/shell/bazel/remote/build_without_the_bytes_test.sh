@@ -2167,7 +2167,7 @@ EOF
       --experimental_java_classpath=bazel \
       //a:bin >& $TEST_log || fail "Failed to build"
 
-  expect_log 'lost inputs with digests:'
+  expect_log "Lost inputs no longer available remotely: a/liblib-hjar.jdeps (.*)"
   expect_log "Found transient remote cache error, retrying the build..."
 
   local invocation_ids=$(grep "Invocation ID:" $TEST_log)

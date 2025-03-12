@@ -22,8 +22,6 @@ import com.google.devtools.build.lib.server.FailureDetails.Execution;
 import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.util.DetailedExitCode;
-import java.util.HashMap;
-import java.util.Map;
 
 /**
  * An {@link ExecException} thrown when an action fails to execute because one or more of its inputs
@@ -67,7 +65,7 @@ public class LostInputsExecException extends ExecException {
   protected ActionExecutionException fromExecException(
       String message, Action action, DetailedExitCode code) {
     return new LostInputsActionExecutionException(
-        message, lostInputs, owners, action, /*cause=*/ this, code);
+        message, lostInputs, owners, action, /* cause= */ this, code);
   }
 
   @Override
@@ -78,21 +76,25 @@ public class LostInputsExecException extends ExecException {
         .build();
   }
 
-  public void combineAndThrow(LostInputsExecException other) throws LostInputsExecException {
-    // This uses a HashMap when merging the two lostInputs maps because key collisions are expected.
-    // In contrast, ImmutableMap.Builder treats collisions as errors. Collisions will happen when
-    // the two sources of the original exceptions shared knowledge of what was lost. For example,
-    // a SpawnRunner may discover a lost input and look it up in an action filesystem in which it's
-    // also lost. The SpawnRunner and the filesystem may then each throw a LostInputsExecException
-    // with the same information.
-    Map<String, ActionInput> map = new HashMap<>();
-    map.putAll(lostInputs);
-    map.putAll(other.lostInputs);
+  public LostInputsExecException combine(LostInputsExecException other) {
+    // Collisions can happen when the two sources of the original exceptions shared knowledge of
+    // what was lost. For example, a SpawnRunner may discover a lost input and look it up in an
+    // action filesystem in which it's also lost. The SpawnRunner and the filesystem may then each
+    // throw a LostInputsExecException with the same information.
+    var map =
+        ImmutableMap.<String, ActionInput>builder()
+            .putAll(lostInputs)
+            .putAll(other.lostInputs)
+            .buildKeepingLast();
     LostInputsExecException combined =
         new LostInputsExecException(
-            ImmutableMap.copyOf(map), new MergedActionInputDepOwners(owners, other.owners), this);
+            map, new MergedActionInputDepOwners(owners, other.owners), this);
     combined.addSuppressed(other);
-    throw combined;
+    return combined;
+  }
+
+  public void combineAndThrow(LostInputsExecException other) throws LostInputsExecException {
+    throw combine(other);
   }
 
   private static class MergedActionInputDepOwners implements ActionInputDepOwners {
