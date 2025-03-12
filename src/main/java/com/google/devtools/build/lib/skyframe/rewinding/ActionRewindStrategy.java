@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.LostInputsActionExecutionException;
 import com.google.devtools.build.lib.actions.RunfilesArtifactValue;
 import com.google.devtools.build.lib.actions.RunfilesTree;
@@ -171,7 +172,10 @@ public final class ActionRewindStrategy {
     ImmutableList<LostInputRecord> lostInputRecords =
         checkIfActionLostInputTooManyTimes(failedKey, failedAction, lostInputsByDigest);
     ActionInputDepOwners inputDepOwners =
-        createAugmentedInputDepOwners(lostInputsException, inputArtifactData);
+        computeNonFilesetDepOwners(
+            lostInputsException.getLostInputs(),
+            lostInputsException.getOwners(),
+            inputArtifactData);
 
     ImmutableList.Builder<Action> depsToRewind = ImmutableList.builder();
     Reset rewindPlan;
@@ -469,11 +473,12 @@ public final class ActionRewindStrategy {
    * knowledge of a runfiles tree owning a fileset, even if it knows that fileset owns a lost input.
    */
   // TODO: b/321128298 - Handle fileset ownership and make ownership tracking optional.
-  private static ActionInputDepOwners createAugmentedInputDepOwners(
-      LostInputsActionExecutionException e, ActionInputMap inputArtifactData) {
+  public static ActionInputDepOwners computeNonFilesetDepOwners(
+      ImmutableMap<String, ActionInput> lostInputs,
+      ActionInputDepOwners owners,
+      InputMetadataProvider metadataProvider) {
     Set<ActionInput> lostInputsAndOwnersSoFar = new HashSet<>();
-    ActionInputDepOwners owners = e.getOwners();
-    for (ActionInput lostInput : e.getLostInputs().values()) {
+    for (ActionInput lostInput : lostInputs.values()) {
       lostInputsAndOwnersSoFar.add(lostInput);
       lostInputsAndOwnersSoFar.addAll(owners.getDepOwners(lostInput));
       if (lostInput instanceof Artifact artifact && artifact.hasParent()) {
@@ -482,12 +487,12 @@ public final class ActionRewindStrategy {
     }
 
     ActionInputDepOwnerMap inputDepOwners = new ActionInputDepOwnerMap(lostInputsAndOwnersSoFar);
-    for (RunfilesTree runfilesTree : inputArtifactData.getRunfilesTrees()) {
+    for (RunfilesTree runfilesTree : metadataProvider.getRunfilesTrees()) {
       Artifact runfilesArtifact =
-          (Artifact) inputArtifactData.getInput(runfilesTree.getExecPath().getPathString());
+          (Artifact) metadataProvider.getInput(runfilesTree.getExecPath().getPathString());
       checkState(runfilesArtifact.isRunfilesTree(), runfilesArtifact);
 
-      RunfilesArtifactValue runfilesValue = inputArtifactData.getRunfilesMetadata(runfilesArtifact);
+      RunfilesArtifactValue runfilesValue = metadataProvider.getRunfilesMetadata(runfilesArtifact);
       runfilesValue.forEachFile(
           (file, metadata) -> inputDepOwners.addOwner(file, runfilesArtifact));
       runfilesValue.forEachTree(
@@ -497,7 +502,7 @@ public final class ActionRewindStrategy {
     }
 
     // Copy the ownership mappings from the exception into the augmented version.
-    for (ActionInput lostInput : e.getLostInputs().values()) {
+    for (ActionInput lostInput : lostInputs.values()) {
       for (Artifact depOwner : owners.getDepOwners(lostInput)) {
         inputDepOwners.addOwner(lostInput, depOwner);
       }
