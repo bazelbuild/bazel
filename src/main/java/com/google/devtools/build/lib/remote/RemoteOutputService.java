@@ -326,7 +326,7 @@ public class RemoteOutputService implements OutputService {
         coarseLock = null;
         localCoarseLock.writeLock().unlock();
         System.err.println("Unlocked coarse write lock for " + action.prettyPrint());
-        cancelPostExecutionTasks(action);
+        prepareOutputsForRewinding(action);
         return () -> {
           fineWriteLock.unlock();
           System.err.println("Unlocked fine write lock for " + action.prettyPrint());
@@ -336,12 +336,17 @@ public class RemoteOutputService implements OutputService {
       var writeLock = fineLocks.get(outputKeyFor(action)).writeLock();
       writeLock.lockInterruptibly();
       System.err.println("Locked fine write lock for " + action.prettyPrint());
-      cancelPostExecutionTasks(action);
+      prepareOutputsForRewinding(action);
       System.err.println("Cancelled post-execution tasks for " + action);
       return () -> {
         writeLock.unlock();
         System.err.println("Unlocked fine write lock for " + action.prettyPrint());
       };
+    }
+
+    private void prepareOutputsForRewinding(Action action) throws InterruptedException {
+      cancelPostExecutionTasks(action);
+      action.getOutputs().forEach(actionInputFetcher::markRewoundActionOutput);
     }
 
     @Override
