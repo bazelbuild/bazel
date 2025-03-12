@@ -154,11 +154,11 @@ _common_attrs = {
     "build_file": attr.label(
         allow_single_file = True,
         doc =
-            "The file to use as the BUILD file for this repository." +
+            "The file to use as the BUILD file for this repository. " +
             "This attribute is an absolute label (use '@//' for the main " +
             "repo). The file does not need to be named BUILD, but can " +
             "be (something like BUILD.new-repo-name may work well for " +
-            "distinguishing it from the repository's actual BUILD files. ",
+            "distinguishing it from the repository's actual BUILD files). ",
     ),
     "build_file_content": attr.string(
         doc =
