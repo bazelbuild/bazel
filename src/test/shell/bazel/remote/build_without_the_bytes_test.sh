@@ -2015,7 +2015,76 @@ EOF
       --experimental_remote_cache_eviction_retries=1 \
       //a:bar >& $TEST_log || fail "Failed to build"
 
-  expect_log 'lost inputs with digests:'
+  expect_log "Lost inputs no longer available remotely: a/foo.out (.*/4)"
+  expect_log "Found transient remote cache error, retrying the build..."
+
+  local invocation_ids=$(grep "Invocation ID:" $TEST_log)
+  local first_id=$(echo "$invocation_ids" | head -n 1)
+  local second_id=$(echo "$invocation_ids" | tail -n 1)
+  if [ "$first_id" == "$second_id" ]; then
+    fail "Invocation IDs are the same"
+  fi
+}
+
+function test_remote_cache_eviction_retries_toplevel_artifacts() {
+  mkdir -p a
+
+  cat > a/BUILD <<'EOF'
+genrule(
+  name = 'foo',
+  srcs = ['foo.in'],
+  outs = [
+      'foo1.out',
+      'foo2.out',
+  ],
+  cmd = 'cat $< > $(location foo1.out) && cat $< $(location foo1.out) > $(location foo2.out)',
+)
+EOF
+
+  echo foo > a/foo.in
+
+  # Populate remote cache
+  bazel build \
+      --remote_executor=grpc://localhost:${worker_port} \
+      --remote_download_minimal \
+      //a:foo >& $TEST_log || fail "Failed to build"
+
+  bazel clean
+
+  # Clean build, foo{1,2}.out aren't downloaded
+  bazel build \
+      --remote_executor=grpc://localhost:${worker_port} \
+      --remote_download_minimal \
+      //a:foo >& $TEST_log || fail "Failed to build"
+
+  if [[ -f bazel-bin/a/foo1.out ]]; then
+    fail "Expected top-level output bazel-bin/a/foo1.out to not be downloaded"
+  fi
+  if [[ -f bazel-bin/a/foo2.out ]]; then
+    fail "Expected top-level output bazel-bin/a/foo2.out to not be downloaded"
+  fi
+
+  # Evict blobs from remote cache
+  stop_worker
+  start_worker
+
+  # Incremental build triggers remote cache eviction error but Bazel
+  # automatically retries the build and reruns the generating actions for
+  # missing blobs
+  bazel build \
+      --remote_executor=grpc://localhost:${worker_port} \
+      --remote_download_toplevel \
+      --experimental_remote_cache_eviction_retries=1 \
+      //a:foo >& $TEST_log || fail "Failed to build"
+
+  if [[ ! -f bazel-bin/a/foo1.out ]]; then
+    fail "Expected top-level output bazel-bin/a/foo1.out to be downloaded"
+  fi
+  if [[ ! -f bazel-bin/a/foo2.out ]]; then
+    fail "Expected top-level output bazel-bin/a/foo2.out to be downloaded"
+  fi
+
+  expect_log "Lost outputs no longer available remotely: a/foo1.out (.*/4), a/foo2.out (.*/8)"
   expect_log "Found transient remote cache error, retrying the build..."
 
   local invocation_ids=$(grep "Invocation ID:" $TEST_log)
@@ -2098,7 +2167,7 @@ EOF
       --experimental_java_classpath=bazel \
       //a:bin >& $TEST_log || fail "Failed to build"
 
-  expect_log 'lost inputs with digests:'
+  expect_log "Lost inputs no longer available remotely: a/liblib-hjar.jdeps (.*)"
   expect_log "Found transient remote cache error, retrying the build..."
 
   local invocation_ids=$(grep "Invocation ID:" $TEST_log)
@@ -2166,7 +2235,7 @@ EOF
       --build_event_text_file=bes.txt \
       //a:bar >& $TEST_log || fail "Failed to build"
 
-  expect_log 'lost inputs with digests:'
+  expect_log "Lost inputs no longer available remotely: a/foo.out (.*/4)"
   expect_log "Found transient remote cache error, retrying the build..."
 
   local invocation_ids=$(grep "Invocation ID:" $TEST_log)

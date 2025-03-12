@@ -16,8 +16,11 @@ java_library(
     srcs = ["BulkTransferException.java"],
     deps = [
         ":cache_not_found_exception",
+        "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/actions:important_output_handler",
         "//src/main/java/com/google/devtools/build/lib/remote/util:digest_utils",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/rewinding",
         "//third_party:guava",
     ],
 )
