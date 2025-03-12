@@ -405,12 +405,14 @@ public class RemoteOutputService implements OutputService {
                       .flatMap(runfilesTree -> runfilesTree.getArtifacts().toList().stream()))
               .filter(artifact -> artifact instanceof DerivedArtifact)
               .map(artifact -> ((DerivedArtifact) artifact).getGeneratingActionKey())
-              .peek(key -> System.err.printf("Key for %s: %s%n", action.prettyPrint(), key))
+              .peek(key -> System.err.printf("Input key for %s: %s%n", action.prettyPrint(), key))
               .iterator();
     }
 
     private static ActionLookupData outputKeyFor(Action action) {
-      return ((DerivedArtifact) action.getPrimaryOutput()).getGeneratingActionKey();
+      var key = ((DerivedArtifact) action.getPrimaryOutput()).getGeneratingActionKey();
+      System.err.printf("Output key for %s: %s%n", action.prettyPrint(), key);
+      return key;
     }
   }
 }

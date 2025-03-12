@@ -129,6 +129,7 @@ public class LocalSpawnRunner implements SpawnRunner {
     Stopwatch totalTimeStopwatch = Stopwatch.createStarted();
     Stopwatch setupTimeStopwatch = Stopwatch.createStarted();
     if (Spawns.shouldPrefetchInputsForLocalExecution(spawn)) {
+      System.err.println("Prefetching inputs for " + spawn.getTargetDescription());
       context.prefetchInputsAndWait();
     }
     spawnMetrics.addSetupTimeInMs((int) setupTimeStopwatch.elapsed().toMillis());

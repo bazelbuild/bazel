@@ -50,7 +50,6 @@ import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.remote.util.AsyncTaskCache;
 import com.google.devtools.build.lib.util.TempPathGenerator;
 import com.google.devtools.build.lib.vfs.FileSymlinkLoopException;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.OutputPermissions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -321,6 +320,8 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       return immediateVoidFuture();
     }
 
+    System.err.println("Prefetching " + ImmutableSet.copyOf(inputs));
+
     // Collect the set of directories whose output permissions must be set at the end of this call.
     // This responsibility cannot lie with the downloading of an individual file, because multiple
     // files may be concurrently downloaded into the same directory within a single call to
@@ -379,6 +380,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       // input is known to be a non-source artifact and thus must have metadata.
       FileArtifactValue metadata = checkNotNull(metadataSupplier.getMetadata(input));
       if (!canDownloadFile(execRoot.getRelative(execPath), metadata)) {
+        System.err.println("Skipping " + execPath + " as it isn't remote: " + metadata);
         return immediateVoidFuture();
       }
 
@@ -582,6 +584,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
                           alreadyDeleted.set(true);
                         }));
 
+    System.err.println("Maybe downloading " + finalPath);
     return downloadCache.execute(
         finalPath,
         Completable.defer(
@@ -625,6 +628,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     // for artifacts produced by local actions.
     tmpPath.chmod(outputPermissions.getPermissionsMode());
     tmpPath.renameTo(finalPath);
+    System.err.println("Downloaded " + finalPath);
 
     // Set the contents proxy when supported, to make future modification checks cheaper.
     metadata.setContentsProxy(FileContentsProxy.create(finalPath.stat()));

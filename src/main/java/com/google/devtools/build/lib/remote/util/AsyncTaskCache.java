@@ -295,11 +295,13 @@ public final class AsyncTaskCache<KeyT, ValueT> {
         emitter -> {
           synchronized (lock) {
             if (state != STATE_ACTIVE) {
+              System.err.println("Shutdown " + key);
               emitter.onError(new CancellationException("already shutdown"));
               return;
             }
 
             if (!force && finished.containsKey(key)) {
+              System.err.println("Previously done: " + key);
               onAlreadyFinished.run();
               emitter.onSuccess(finished.get(key));
               return;
@@ -310,9 +312,11 @@ public final class AsyncTaskCache<KeyT, ValueT> {
             Execution execution = inProgress.get(key);
             if (execution != null) {
               onAlreadyRunning.run();
+              System.err.println("Task already running: " + key);
             } else {
               execution = new Execution(key, task);
               inProgress.put(key, execution);
+              System.err.println("Really downloading: " + key);
             }
 
             // We must subscribe the execution within the scope of lock to avoid race condition
