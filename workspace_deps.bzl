@@ -31,9 +31,10 @@ WORKSPACE_REPOS = {
         "strip_prefix": "protobuf-29.0-rc3",
     },
     "rules_java": {
-        "archive": "rules_java-8.9.0.tar.gz",
-        "sha256": "8daa0e4f800979c74387e4cd93f97e576ec6d52beab8ac94710d2931c57f8d8b",
-        "urls": ["https://github.com/bazelbuild/rules_java/releases/download/8.9.0/rules_java-8.9.0.tar.gz"],
+        "archive": "81ea2694b7161b2578baf56971eaaf42035f9987.tar.gz",
+        "sha256": "241166ac3681c477721d0412ceda681054d5dea7ca5b51c70b707bcce158cb52",
+        "strip_prefix": "rules_java-81ea2694b7161b2578baf56971eaaf42035f9987",
+        "urls": ["https://github.com/bazelbuild/rules_java/archive/81ea2694b7161b2578baf56971eaaf42035f9987.tar.gz"],
     },
     "bazel_skylib": {
         "archive": "bazel-skylib-1.6.1.tar.gz",

@@ -74,6 +74,13 @@ single_version_override(
     ],
 )
 
+archive_override(
+    module_name = "rules_java",
+    urls = ["https://github.com/bazelbuild/rules_java/archive/81ea2694b7161b2578baf56971eaaf42035f9987.tar.gz"],
+    integrity = "sha256-JBFmrDaBxHdyHQQSztpoEFTV3qfKW1HHC3B7zOFYy1I=",
+    strip_prefix = "rules_java-81ea2694b7161b2578baf56971eaaf42035f9987",
+)
+
 local_path_override(
     module_name = "remoteapis",
     path = "./third_party/remoteapis",
