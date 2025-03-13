@@ -239,7 +239,7 @@ public class RewindingTestsHelper {
   }
 
   static ActionInputDepOwners getInputOwners(Multimap<ActionInput, Artifact> mappings) {
-    ActionInputDepOwnerMap owners = new ActionInputDepOwnerMap(mappings.keySet());
+    ActionInputDepOwnerMap owners = new ActionInputDepOwnerMap();
     mappings.forEach(owners::addOwner);
     return owners;
   }
@@ -401,8 +401,7 @@ public class RewindingTestsHelper {
         (spawn, context) -> {
           ImmutableList<ActionInput> lostInputs =
               ImmutableList.of(SpawnInputUtils.getInputWithName(spawn, "dep.out"));
-          return createLostInputsExecException(
-              context, lostInputs, new ActionInputDepOwnerMap(lostInputs));
+          return createLostInputsExecException(context, lostInputs, new ActionInputDepOwnerMap());
         });
 
     var e = assertThrows(BuildFailedException.class, () -> testCase.buildTarget("//foo:top"));
@@ -465,9 +464,7 @@ public class RewindingTestsHelper {
     runDependentActionsReevaluated(
         (spawn, context) ->
             createLostInputsExecException(
-                context,
-                getIntermediate1And2LostInputs(spawn),
-                new ActionInputDepOwnerMap(getIntermediate1And2LostInputs(spawn))));
+                context, getIntermediate1And2LostInputs(spawn), new ActionInputDepOwnerMap()));
   }
 
   static ImmutableList<ActionInput> getIntermediate1And2LostInputs(Spawn spawn) {
@@ -600,8 +597,7 @@ public class RewindingTestsHelper {
         (spawn, context) -> {
           ImmutableList<ActionInput> lostInputs =
               ImmutableList.of(SpawnInputUtils.getInputWithName(spawn, "intermediate.txt"));
-          return createLostInputsExecException(
-              context, lostInputs, new ActionInputDepOwnerMap(lostInputs));
+          return createLostInputsExecException(context, lostInputs, new ActionInputDepOwnerMap());
         });
 
     List<SkyKey> rewoundKeys = collectOrderedRewoundKeys();
@@ -645,7 +641,7 @@ public class RewindingTestsHelper {
             return ExecResult.ofException(
                 new LostInputsExecException(
                     ImmutableMap.of("fakedigest/10", intermediate.get()),
-                    new ActionInputDepOwnerMap(ImmutableList.of(intermediate.get()))));
+                    new ActionInputDepOwnerMap()));
           });
     }
 
@@ -762,8 +758,7 @@ public class RewindingTestsHelper {
             }
             ImmutableMap<String, ActionInput> inputMap = inputMapBuilder.buildOrThrow();
             return ExecResult.ofException(
-                new LostInputsExecException(
-                    inputMap, new ActionInputDepOwnerMap(inputMap.values())));
+                new LostInputsExecException(inputMap, new ActionInputDepOwnerMap()));
           });
     }
     List<SkyKey> rewoundKeys = collectOrderedRewoundKeys();
@@ -798,8 +793,7 @@ public class RewindingTestsHelper {
 
           ImmutableList<ActionInput> lostInputs =
               ImmutableList.of(SpawnInputUtils.getInputWithName(spawn, "intermediate.txt"));
-          return createLostInputsExecException(
-              context, lostInputs, new ActionInputDepOwnerMap(lostInputs));
+          return createLostInputsExecException(context, lostInputs, new ActionInputDepOwnerMap());
         });
 
     List<SkyKey> rewoundKeys = collectOrderedRewoundKeys();
@@ -891,8 +885,7 @@ public class RewindingTestsHelper {
 
           ImmutableList<ActionInput> lostInputs =
               ImmutableList.of(SpawnInputUtils.getInputWithName(spawn, "intermediate.txt"));
-          return createLostInputsExecException(
-              context, lostInputs, new ActionInputDepOwnerMap(lostInputs));
+          return createLostInputsExecException(context, lostInputs, new ActionInputDepOwnerMap());
         });
 
     List<SkyKey> rewoundKeys = collectOrderedRewoundKeys();
@@ -964,8 +957,7 @@ public class RewindingTestsHelper {
         (spawn, context) -> {
           ImmutableList<ActionInput> lostInputs =
               ImmutableList.of(SpawnInputUtils.getInputWithName(spawn, "intermediate_2.txt"));
-          return createLostInputsExecException(
-              context, lostInputs, new ActionInputDepOwnerMap(lostInputs));
+          return createLostInputsExecException(context, lostInputs, new ActionInputDepOwnerMap());
         });
 
     List<SkyKey> rewoundKeys = collectOrderedRewoundKeys();
@@ -1054,13 +1046,12 @@ public class RewindingTestsHelper {
                     ImmutableList.of(
                         SpawnInputUtils.getInputWithName(otherSpawn, "intermediate_1.txt"));
                 return createLostInputsExecException(
-                    otherContext, lostInputs, new ActionInputDepOwnerMap(lostInputs));
+                    otherContext, lostInputs, new ActionInputDepOwnerMap());
               });
 
           ImmutableList<ActionInput> lostInputs =
               ImmutableList.of(SpawnInputUtils.getInputWithName(spawn, "intermediate_2.txt"));
-          return createLostInputsExecException(
-              context, lostInputs, new ActionInputDepOwnerMap(lostInputs));
+          return createLostInputsExecException(context, lostInputs, new ActionInputDepOwnerMap());
         });
 
     List<SkyKey> rewoundKeys = collectOrderedRewoundKeys();
@@ -1140,8 +1131,7 @@ public class RewindingTestsHelper {
               SpawnInputUtils.getInputWithName(spawn, "intermediate_1.inlined");
           intermediate1FirstContent.set(latin1StringFromActionInput(context, intermediate1));
           ImmutableList<ActionInput> lostInputs = ImmutableList.of(intermediate1);
-          return createLostInputsExecException(
-              context, lostInputs, new ActionInputDepOwnerMap(lostInputs));
+          return createLostInputsExecException(context, lostInputs, new ActionInputDepOwnerMap());
         });
 
     AtomicReference<String> intermediate1SecondContent = new AtomicReference<>(null);
@@ -1305,16 +1295,14 @@ public class RewindingTestsHelper {
         (spawn, context) -> {
           ImmutableList<ActionInput> sharedInput =
               ImmutableList.of(SpawnInputUtils.getInputWithName(spawn, "A-shared.out"));
-          return createLostInputsExecException(
-              context, sharedInput, new ActionInputDepOwnerMap(sharedInput));
+          return createLostInputsExecException(context, sharedInput, new ActionInputDepOwnerMap());
         });
     addSpawnShim(
         "Copying A-shared.out to B-shared.out on behalf of shared_2",
         (spawn, context) -> {
           ImmutableList<ActionInput> sharedInput =
               ImmutableList.of(SpawnInputUtils.getInputWithName(spawn, "A-shared.out"));
-          return createLostInputsExecException(
-              context, sharedInput, new ActionInputDepOwnerMap(sharedInput));
+          return createLostInputsExecException(context, sharedInput, new ActionInputDepOwnerMap());
         });
 
     // This code controls the evaluation of the shared actions belonging to shared_1 and shared_2
@@ -1513,8 +1501,7 @@ public class RewindingTestsHelper {
     runTreeFileArtifactRewound(
         (spawn, context) -> {
           ImmutableList<ActionInput> lostInputs = getTreeFileArtifactRewoundLostInputs(spawn);
-          return createLostInputsExecException(
-              context, lostInputs, new ActionInputDepOwnerMap(lostInputs));
+          return createLostInputsExecException(context, lostInputs, new ActionInputDepOwnerMap());
         });
   }
 
@@ -1720,7 +1707,7 @@ public class RewindingTestsHelper {
       ImmutableList<ActionInput> lostRunfileArtifacts =
           getGeneratedRunfilesRewoundLostRunfiles(lostRunfiles, spawn, context);
       return createLostInputsExecException(
-          context, lostRunfileArtifacts, new ActionInputDepOwnerMap(lostRunfileArtifacts));
+          context, lostRunfileArtifacts, new ActionInputDepOwnerMap());
     };
   }
 
@@ -1874,8 +1861,7 @@ public class RewindingTestsHelper {
               getDupeDirectAndRunfilesDependencyRewoundLostInput(spawn, context);
           intermediate1FirstContent.set(latin1StringFromActionInput(context, lostInput));
           ImmutableList<ActionInput> lostInputs = ImmutableList.of(lostInput);
-          return createLostInputsExecException(
-              context, lostInputs, new ActionInputDepOwnerMap(lostInputs));
+          return createLostInputsExecException(context, lostInputs, new ActionInputDepOwnerMap());
         };
     runDupeDirectAndRunfilesDependencyRewound(intermediate1FirstContent, shim);
   }
@@ -2246,8 +2232,7 @@ public class RewindingTestsHelper {
         (spawn, context) -> {
           ActionInput genOut1 = SpawnInputUtils.getInputWithName(spawn, "gen.out1");
           ImmutableList<ActionInput> lostInputs = ImmutableList.of(genOut1);
-          return createLostInputsExecException(
-              context, lostInputs, new ActionInputDepOwnerMap(lostInputs));
+          return createLostInputsExecException(context, lostInputs, new ActionInputDepOwnerMap());
         });
     List<SkyKey> rewoundKeys = collectOrderedRewoundKeys();
 
@@ -2302,8 +2287,7 @@ public class RewindingTestsHelper {
         (spawn, context) -> {
           ActionInput header = getGeneratedHeaderRewoundLostInput(spawn);
           ImmutableList<ActionInput> lostInputs = ImmutableList.of(header);
-          return createLostInputsExecException(
-              context, lostInputs, new ActionInputDepOwnerMap(lostInputs));
+          return createLostInputsExecException(context, lostInputs, new ActionInputDepOwnerMap());
         };
 
     runGeneratedHeaderRewound_lostInInputDiscovery(shim);
@@ -2364,8 +2348,7 @@ public class RewindingTestsHelper {
         (spawn, context) -> {
           ActionInput header = getGeneratedHeaderRewoundLostInput(spawn);
           ImmutableList<ActionInput> lostInputs = ImmutableList.of(header);
-          return createLostInputsExecException(
-              context, lostInputs, new ActionInputDepOwnerMap(lostInputs));
+          return createLostInputsExecException(context, lostInputs, new ActionInputDepOwnerMap());
         };
 
     runGeneratedHeaderRewound_lostInActionExecution(shim);
@@ -2450,7 +2433,7 @@ public class RewindingTestsHelper {
           ActionInput header = getGeneratedHeaderRewoundLostInput(discoverySpawn);
           ImmutableList<ActionInput> lostInputs = ImmutableList.of(header);
           return createLostInputsExecException(
-              discoveryContext, lostInputs, new ActionInputDepOwnerMap(lostInputs));
+              discoveryContext, lostInputs, new ActionInputDepOwnerMap());
         };
 
     runGeneratedTransitiveHeaderRewound_lostInInputDiscovery(shim);
@@ -2522,8 +2505,7 @@ public class RewindingTestsHelper {
         (spawn, context) -> {
           ActionInput header = getGeneratedHeaderRewoundLostInput(spawn);
           ImmutableList<ActionInput> lostInputs = ImmutableList.of(header);
-          return createLostInputsExecException(
-              context, lostInputs, new ActionInputDepOwnerMap(lostInputs));
+          return createLostInputsExecException(context, lostInputs, new ActionInputDepOwnerMap());
         };
 
     runGeneratedTransitiveHeaderRewound_lostInActionExecution(shim);
@@ -2637,8 +2619,7 @@ public class RewindingTestsHelper {
         (spawn, context) -> {
           ImmutableList<ActionInput> lostInputs =
               ImmutableList.of(SpawnInputUtils.getInputWithName(spawn, "dep.out2"));
-          return createLostInputsExecException(
-              context, lostInputs, new ActionInputDepOwnerMap(lostInputs));
+          return createLostInputsExecException(context, lostInputs, new ActionInputDepOwnerMap());
         });
     testCase.injectListenerAtStartOfNextBuild(
         (key, type, order, context) -> {
@@ -2764,8 +2745,7 @@ public class RewindingTestsHelper {
                           /* catastrophe= */ false)));
           ImmutableList<ActionInput> lostInputs =
               ImmutableList.of(SpawnInputUtils.getInputWithName(spawn, "flaky_lost.out"));
-          return createLostInputsExecException(
-              context, lostInputs, new ActionInputDepOwnerMap(lostInputs));
+          return createLostInputsExecException(context, lostInputs, new ActionInputDepOwnerMap());
         });
 
     testCase.injectListenerAtStartOfNextBuild(
@@ -2846,9 +2826,7 @@ public class RewindingTestsHelper {
           ActionInput lostInput = SpawnInputUtils.getInputWithName(spawn, "dep.pic.pcm");
           depPcm.set((Artifact) lostInput);
           return createLostInputsExecException(
-              context,
-              ImmutableList.of(lostInput),
-              new ActionInputDepOwnerMap(ImmutableList.of(lostInput)));
+              context, ImmutableList.of(lostInput), new ActionInputDepOwnerMap());
         });
     List<SkyKey> rewoundKeys = collectOrderedRewoundKeys();
 

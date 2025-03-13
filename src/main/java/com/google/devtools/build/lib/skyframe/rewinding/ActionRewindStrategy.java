@@ -435,41 +435,35 @@ public final class ActionRewindStrategy {
   // TODO: b/321128298 - Handle fileset ownership and make ownership tracking optional.
   private static ActionInputDepOwners createAugmentedInputDepOwners(
       LostInputsActionExecutionException e, ActionInputMap inputArtifactData) {
-    Set<ActionInput> lostInputsAndOwnersSoFar = new HashSet<>();
+    Set<ActionInput> lostInputsAndOwners = new HashSet<>();
+    ActionInputDepOwnerMap augmentedOwners = new ActionInputDepOwnerMap();
     ActionInputDepOwners owners = e.getOwners();
     for (ActionInput lostInput : e.getLostInputs().values()) {
-      lostInputsAndOwnersSoFar.add(lostInput);
-      lostInputsAndOwnersSoFar.addAll(owners.getDepOwners(lostInput));
+      lostInputsAndOwners.add(lostInput);
+      for (Artifact depOwner : owners.getDepOwners(lostInput)) {
+        lostInputsAndOwners.add(depOwner);
+        augmentedOwners.addOwner(lostInput, depOwner);
+      }
       if (lostInput instanceof Artifact artifact && artifact.hasParent()) {
-        lostInputsAndOwnersSoFar.add(artifact.getParent());
+        lostInputsAndOwners.add(artifact.getParent());
+        augmentedOwners.addOwner(artifact, artifact.getParent());
       }
     }
 
-    ActionInputDepOwnerMap inputDepOwners = new ActionInputDepOwnerMap(lostInputsAndOwnersSoFar);
     for (RunfilesTree runfilesTree : inputArtifactData.getRunfilesTrees()) {
       Artifact runfilesArtifact =
           (Artifact) inputArtifactData.getInput(runfilesTree.getExecPath().getPathString());
       checkState(runfilesArtifact.isRunfilesTree(), runfilesArtifact);
 
       RunfilesArtifactValue runfilesValue = inputArtifactData.getRunfilesMetadata(runfilesArtifact);
-      runfilesValue.forEachFile(
-          (file, metadata) -> inputDepOwners.addOwner(file, runfilesArtifact));
-      runfilesValue.forEachTree(
-          (tree, metadata) -> inputDepOwners.addOwner(tree, runfilesArtifact));
-      runfilesValue.forEachFileset(
-          (fileset, outputTree) -> inputDepOwners.addOwner(fileset, runfilesArtifact));
+      for (Artifact artifact : runfilesValue.getAllArtifacts()) {
+        if (lostInputsAndOwners.contains(artifact)) {
+          augmentedOwners.addOwner(artifact, runfilesArtifact);
+        }
+      }
     }
 
-    // Copy the ownership mappings from the exception into the augmented version.
-    for (ActionInput lostInput : e.getLostInputs().values()) {
-      for (Artifact depOwner : owners.getDepOwners(lostInput)) {
-        inputDepOwners.addOwner(lostInput, depOwner);
-      }
-      if (lostInput instanceof Artifact artifact && artifact.hasParent()) {
-        inputDepOwners.addOwner(artifact, artifact.getParent());
-      }
-    }
-    return inputDepOwners;
+    return augmentedOwners;
   }
 
   private Set<DerivedArtifact> getLostInputOwningDirectDeps(

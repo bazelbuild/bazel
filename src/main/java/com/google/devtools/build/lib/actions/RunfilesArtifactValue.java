@@ -18,6 +18,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.FileArtifactValue.ConstantMetadataValue;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
@@ -27,7 +28,7 @@ import com.google.devtools.build.lib.util.HashCodes;
 /**
  * The artifacts behind a runfiles tree.
  *
- * <p>NB: since this class contains a nested set (through {@link RunfilesTree}, {@link
+ * <p>NB: since this class contains a nested set (through {@link RunfilesTree}), {@link
  * RunfilesTreeAction} needs to be special-cased in {@code
  * Actions.assignOwnersAndThrowIfConflictMaybeToleratingSharedActions}. The comment in that method
  * explains why.
@@ -130,6 +131,17 @@ public final class RunfilesArtifactValue implements RichArtifactData {
     return runfilesTree;
   }
 
+  /**
+   * Returns all artifacts in the runfiles tree this value represents. Tree artifacts and filesets
+   * are included, but are not expanded.
+   *
+   * <p>This is similar to calling {@link RunfilesTree#getArtifacts} on the result of {@link
+   * #getRunfilesTree}, except this method additionally includes manifest files.
+   */
+  public Iterable<Artifact> getAllArtifacts() {
+    return Iterables.concat(files, trees, filesets);
+  }
+
   /** Visits the file artifacts that this runfiles artifact expands to, together with their data. */
   public void forEachFile(RunfilesConsumer<FileArtifactValue> consumer) {
     for (int i = 0; i < files.size(); i++) {
@@ -144,6 +156,9 @@ public final class RunfilesArtifactValue implements RichArtifactData {
     }
   }
 
+  /**
+   * Visits the fileset artifacts that this runfiles artifact expands to, together with their data.
+   */
   public void forEachFileset(RunfilesConsumer<FilesetOutputTree> consumer) {
     for (int i = 0; i < filesets.size(); i++) {
       consumer.accept(filesets.get(i), filesetValues.get(i));

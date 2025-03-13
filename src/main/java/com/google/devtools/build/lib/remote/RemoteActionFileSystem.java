@@ -133,7 +133,7 @@ public class RemoteActionFileSystem extends AbstractFileSystem
     FOLLOW_PARENT,
     /** Do not canonicalize. This is only used internally to resolve symlinks efficiently. */
     FOLLOW_NONE
-  };
+  }
 
   /** Describes which sources to consider when calling {@link #statInternal}. */
   private enum StatSources {
@@ -947,11 +947,10 @@ public class RemoteActionFileSystem extends AbstractFileSystem
     if (lostInputs.isEmpty()) {
       return;
     }
-    var builtLostInputs = ImmutableMap.copyOf(lostInputs);
     throw (LostInputsActionExecutionException)
         ActionExecutionException.fromExecException(
             new LostInputsExecException(
-                builtLostInputs, new ActionInputDepOwnerMap(builtLostInputs.values())),
+                ImmutableMap.copyOf(lostInputs), new ActionInputDepOwnerMap()),
             action);
   }
 

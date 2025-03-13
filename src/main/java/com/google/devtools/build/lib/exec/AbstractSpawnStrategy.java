@@ -304,8 +304,7 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
               ImmutableMap<String, ActionInput> lostInputs =
                   e.getLostInputs(actionExecutionContext.getInputMetadataProvider()::getInput);
               if (!lostInputs.isEmpty()) {
-                throw new LostInputsExecException(
-                    lostInputs, new ActionInputDepOwnerMap(lostInputs.values()));
+                throw new LostInputsExecException(lostInputs, new ActionInputDepOwnerMap());
               } else {
                 throw new EnvironmentalExecException(
                     e,

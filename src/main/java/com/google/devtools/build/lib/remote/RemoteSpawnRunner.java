@@ -600,8 +600,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
       ImmutableMap<String, ActionInput> lostInputs =
           e.getLostInputs(context.getInputMetadataProvider()::getInput);
       if (!lostInputs.isEmpty()) {
-        throw new LostInputsExecException(
-            lostInputs, new ActionInputDepOwnerMap(lostInputs.values()));
+        throw new LostInputsExecException(lostInputs, new ActionInputDepOwnerMap());
       }
     }
     if (remoteOptions.remoteLocalFallback && !RemoteRetrierUtils.causedByExecTimeout(cause)) {
