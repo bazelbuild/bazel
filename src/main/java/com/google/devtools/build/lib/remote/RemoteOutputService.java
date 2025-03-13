@@ -346,7 +346,7 @@ public class RemoteOutputService implements OutputService {
 
     private void prepareOutputsForRewinding(Action action) throws InterruptedException {
       cancelPostExecutionTasks(action);
-      actionInputFetcher.markRewoundActionOutputs(action.getOutputs());
+      actionInputFetcher.handleRewoundActionOutputs(action.getOutputs());
     }
 
     @Override

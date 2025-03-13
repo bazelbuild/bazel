@@ -48,7 +48,6 @@ import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.remote.util.AsyncTaskCache;
-import com.google.devtools.build.lib.remote.util.ConcurrentPathTrie;
 import com.google.devtools.build.lib.util.TempPathGenerator;
 import com.google.devtools.build.lib.vfs.FileSymlinkLoopException;
 import com.google.devtools.build.lib.vfs.OutputPermissions;
@@ -58,7 +57,6 @@ import io.reactivex.rxjava3.core.Completable;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -77,12 +75,10 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
   private final AsyncTaskCache.NoResult<Path> downloadCache = AsyncTaskCache.NoResult.create();
   private final TempPathGenerator tempPathGenerator;
   private final OutputPermissions outputPermissions;
-  private final ConcurrentPathTrie rewoundActionOutputs = new ConcurrentPathTrie();
 
   protected final Path execRoot;
   protected final RemoteOutputChecker remoteOutputChecker;
-
-  private final ActionOutputDirectoryHelper outputDirectoryHelper;
+  protected final ActionOutputDirectoryHelper outputDirectoryHelper;
 
   /** The state of a directory tracked by {@link DirectoryTracker}, as explained below. */
   enum DirectoryState {
@@ -143,8 +139,9 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       directoryStateMap.compute(
           dir,
           (unusedKey, oldState) -> {
-            if (oldState == DirectoryState.TEMPORARILY_WRITABLE
-                || oldState == DirectoryState.PERMANENTLY_WRITABLE) {
+            if (!forceRefetch(dir)
+                && (oldState == DirectoryState.TEMPORARILY_WRITABLE
+                    || oldState == DirectoryState.PERMANENTLY_WRITABLE)) {
               // Already writable, but must potentially upgrade from temporary to permanent.
               return newState == DirectoryState.PERMANENTLY_WRITABLE ? newState : oldState;
             }
@@ -176,8 +173,9 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       directoryStateMap.compute(
           dir,
           (unusedKey, oldState) -> {
-            if (oldState == DirectoryState.OUTPUT_PERMISSIONS
-                || oldState == DirectoryState.PERMANENTLY_WRITABLE) {
+            if (!forceRefetch(dir)
+                && (oldState == DirectoryState.OUTPUT_PERMISSIONS
+                    || oldState == DirectoryState.PERMANENTLY_WRITABLE)) {
               // Either the output permissions have already been set, or we're not changing the
               // permissions ever again.
               return oldState;
@@ -247,6 +245,8 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
   }
 
   protected abstract boolean canDownloadFile(Path path, FileArtifactValue metadata);
+
+  protected abstract boolean forceRefetch(Path path);
 
   /**
    * Downloads file to the given path via its metadata.
@@ -386,9 +386,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
 
       // input is known to be a non-source artifact and thus must have metadata.
       FileArtifactValue metadata = checkNotNull(metadataSupplier.getMetadata(input));
-      if (!canDownloadFile(execRoot.getRelative(execPath), metadata)
-          && !(rewoundActionOutputs.contains(execPath)
-              && !execRoot.getRelative(execPath).exists())) {
+      if (!canDownloadFile(execRoot.getRelative(execPath), metadata)) {
         System.err.println("Skipping " + execPath + " as it isn't remote: " + metadata);
         return immediateVoidFuture();
       }
@@ -603,7 +601,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
               }
               return Completable.complete();
             }),
-        rewoundActionOutputs.contains(finalPath.relativeTo(execRoot)));
+        forceRefetch(finalPath));
   }
 
   private void finalizeDownload(
@@ -677,8 +675,9 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
   }
 
   private Completable plantSymlink(Symlink symlink) {
+    Path symlinkPath = execRoot.getRelative(symlink.linkExecPath());
     return downloadCache.execute(
-        execRoot.getRelative(symlink.linkExecPath()),
+        symlinkPath,
         Completable.defer(
             () -> {
               Path link = execRoot.getRelative(symlink.linkExecPath());
@@ -689,7 +688,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
               link.createSymbolicLink(target);
               return Completable.complete();
             }),
-        rewoundActionOutputs.contains(symlink.linkExecPath()));
+        forceRefetch(symlinkPath));
   }
 
   public ImmutableSet<Path> downloadedFiles() {
@@ -766,17 +765,5 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
 
   public RemoteOutputChecker getRemoteOutputChecker() {
     return remoteOutputChecker;
-  }
-
-  public void markRewoundActionOutputs(Collection<Artifact> outputs) {
-    outputDirectoryHelper.invalidateTreeArtifactDirectoryCreation(outputs);
-    directoryTracker.clear();
-    for (var output : outputs) {
-      if (output.isTreeArtifact()) {
-        rewoundActionOutputs.addPrefix(output.getExecPath());
-      } else {
-        rewoundActionOutputs.add(output.getExecPath());
-      }
-    }
   }
 }
