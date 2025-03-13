@@ -142,7 +142,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
     }
     // Dynamic execution only makes it more likely that the spawn is sandboxed.
     // TODO: Verify that spawns that require sandboxing can run with dynamic execution.
-    if (Spawns.requiresSandboxing(spawn)
+    if (Spawns.usesPathMapping(spawn)
         && !WorkerParser.isSandboxed(spawn, workerOptions, /* dynamic= */ false)) {
       return false;
     }
