@@ -1843,32 +1843,31 @@ public class RewindingTestsHelper {
         /* actionRewindingPostLostInputCounts= */ ImmutableList.of(lostRunfiles.size()));
 
     if (buildRunfileManifests()) {
-      assertThat(rewoundKeys).hasSize(6);
+      assertThat(rewoundKeys).hasSize(7);
       HashSet<String> expectedRewoundGenrules =
           new HashSet<>(ImmutableList.of("//middle:gen1", "//middle:gen2"));
       int i = 0;
-      while (i < 5) {
+      while (i < 6) {
         assertThat(rewoundKeys.get(i)).isInstanceOf(ActionLookupData.class);
         ActionLookupData actionKey = (ActionLookupData) rewoundKeys.get(i);
         String actionLabel = actionKey.getLabel().getCanonicalForm();
         i++;
         if (actionLabel.equals("//middle:tool")) {
           switch (actionKey.getActionIndex()) {
-            case 0: // SymlinkAction
-              break;
-            case 1: // SourceManifestAction
-              assertActionKey(rewoundKeys.get(i), "//middle:tool", 2);
+            case 0, 1 -> {}
+            case 2 -> {
+              assertActionKey(rewoundKeys.get(i), "//middle:tool", 3);
               i++;
-              break;
-            default:
-              fail(String.format("Unexpected action index. actionKey: %s, i: %s", actionKey, i));
+            }
+            default ->
+                fail("Unexpected action index. actionKey: %s, i: %d".formatted(actionKey, i));
           }
         } else {
           assertThat(expectedRewoundGenrules.remove(actionLabel)).isTrue();
         }
       }
 
-      assertActionKey(rewoundKeys.get(i++), "//middle:tool", /* index= */ 3);
+      assertActionKey(rewoundKeys.get(i++), "//middle:tool", /* index= */ 4);
     } else {
       assertThat(rewoundKeys).hasSize(4);
       HashSet<String> expectedRewoundGenrules =
@@ -2017,33 +2016,31 @@ public class RewindingTestsHelper {
         /* actionRewindingPostLostInputCounts= */ ImmutableList.of(1));
 
     if (buildRunfileManifests()) {
-      assertThat(rewoundKeys).hasSize(5);
+      assertThat(rewoundKeys).hasSize(6);
       int i = 0;
-      while (i < 4) {
+      while (i < 5) {
         assertThat(rewoundKeys.get(i)).isInstanceOf(ActionLookupData.class);
         ActionLookupData actionKey = (ActionLookupData) rewoundKeys.get(i);
         String actionLabel = actionKey.getLabel().getCanonicalForm();
         i++;
         if (actionLabel.equals("//test:tool")) {
           switch (actionKey.getActionIndex()) {
-            case 0: // SymlinkAction
-              break;
-            case 1: // SourceManifestAction
-              assertActionKey(rewoundKeys.get(i), "//test:tool", /* index= */ 2);
+            case 0, 1 -> {}
+            case 2 -> {
+              assertActionKey(rewoundKeys.get(i), "//test:tool", /* index= */ 3);
               i++;
-              break;
-            default:
-              fail(
-                  String.format(
-                      "Unexpected action index. actionKey: %s, rewoundKeys: %s",
-                      actionKey, rewoundKeys));
+            }
+            default ->
+                fail(
+                    "Unexpected action index. actionKey: %s, rewoundKeys: %s"
+                        .formatted(actionKey, rewoundKeys));
           }
         } else {
           assertThat(actionLabel).isEqualTo("//test:rule1");
         }
       }
 
-      assertActionKey(rewoundKeys.get(i++), "//test:tool", /* index= */ 3);
+      assertActionKey(rewoundKeys.get(i++), "//test:tool", /* index= */ 4);
     } else {
       assertThat(rewoundKeys).hasSize(3);
       int i = 0;
@@ -2166,23 +2163,21 @@ public class RewindingTestsHelper {
         /* actionRewindingPostLostInputCounts= */ ImmutableList.of(2));
 
     if (buildRunfileManifests()) {
-      assertThat(rewoundKeys).hasSize(6);
+      assertThat(rewoundKeys).hasSize(7);
       int i = 0;
-      while (i < 5) {
+      while (i < 6) {
         assertThat(rewoundKeys.get(i)).isInstanceOf(ActionLookupData.class);
         ActionLookupData actionKey = (ActionLookupData) rewoundKeys.get(i);
         String actionLabel = actionKey.getLabel().getCanonicalForm();
         i++;
         if (actionLabel.equals("//middle:tool")) {
           switch (actionKey.getActionIndex()) {
-            case 0: // SymlinkAction
-              break;
-            case 1: // SourceManifestAction
-              assertActionKey(rewoundKeys.get(i), "//middle:tool", 2);
+            case 0, 1 -> {}
+            case 2 -> {
+              assertActionKey(rewoundKeys.get(i), "//middle:tool", 3);
               i++;
-              break;
-            default:
-              fail(String.format("Unexpected action index. actionKey: %s", actionKey));
+            }
+            default -> fail("Unexpected action index. actionKey: %s".formatted(actionKey));
           }
         } else {
           assertThat(actionLabel).isEqualTo("//middle:gen_tree");
@@ -2191,7 +2186,7 @@ public class RewindingTestsHelper {
         }
       }
 
-      assertActionKey(rewoundKeys.get(i++), "//middle:tool", /* index= */ 3);
+      assertActionKey(rewoundKeys.get(i++), "//middle:tool", /* index= */ 4);
     } else {
       assertThat(rewoundKeys).hasSize(4);
       int i = 0;
