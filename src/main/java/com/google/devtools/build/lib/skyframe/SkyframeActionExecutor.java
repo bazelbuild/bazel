@@ -1080,10 +1080,6 @@ public final class SkyframeActionExecutor {
                 // This call generally deletes any files at locations that are declared outputs of
                 // the action, although some actions perform additional work, while others
                 // intentionally keep previous outputs in place.
-                System.err.println(
-                    "Deleting output files before executing action: "
-                        + action.prettyPrint()
-                        + (wasRewound(action) ? " (rewound)" : ""));
                 action.prepare(
                     actionExecutionContext.getExecRoot(),
                     actionExecutionContext.getPathResolver(),
