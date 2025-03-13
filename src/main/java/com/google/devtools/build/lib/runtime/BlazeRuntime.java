@@ -1474,6 +1474,9 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
    * informative error to stderr if that fails.
    */
   private static void forceJniLinking(PathFragment installBase) {
+    if (!JniLoader.isJniAvailable()) {
+      return;
+    }
     try {
       JniLoader.forceLinking();
     } catch (UnsatisfiedLinkError t) {
