@@ -249,7 +249,7 @@ public class RewindingTestsHelper {
     for (ActionInput lostInput : lostInputs) {
       builder.put(getHexDigest(lostInput, context), lostInput);
     }
-    return ExecResult.ofException(new LostInputsExecException(builder.buildKeepingLast(), owners));
+    return ExecResult.ofException(new LostInputsExecException(builder.buildOrThrow(), owners));
   }
 
   private String getHexDigest(ActionInput input, ActionExecutionContext context)
