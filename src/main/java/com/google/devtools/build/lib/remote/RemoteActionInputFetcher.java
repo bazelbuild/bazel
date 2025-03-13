@@ -109,6 +109,7 @@ public class RemoteActionInputFetcher extends AbstractActionInputPrefetcher {
     return combinedCache.downloadFile(
         context,
         execPath.getPathString(),
+        execPath,
         tempPath,
         digest,
         new CombinedCache.DownloadProgressReporter(
