@@ -58,6 +58,7 @@ import java.io.IOException;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -294,6 +295,11 @@ public class RemoteOutputService implements OutputService {
     return RewoundActionSynchronizer.NOOP;
   }
 
+  /**
+   * A {@link RewoundActionSynchronizer} implementation for Bazel's remote filesystem, which is
+   * backed by actual files on disk and requires synchronization to ensure that action outputs
+   * aren't deleted while they are being read.
+   */
   final class RemoteRewoundActionSynchronizer implements RewoundActionSynchronizer {
     @Nullable private volatile ReadWriteLock coarseLock = new ReentrantReadWriteLock();
     @Nullable private volatile LoadingCache<ActionLookupData, ReadWriteLock> fineLocks = null;
@@ -313,24 +319,26 @@ public class RemoteOutputService implements OutputService {
     private SilentCloseable enterActionPreparationInternal(Action action)
         throws InterruptedException {
       var localCoarseLock = coarseLock;
-      if (localCoarseLock != null) {
-        localCoarseLock.writeLock().lockInterruptibly();
-        var localFineLocks =
-            Caffeine.newBuilder()
-                .<ActionLookupData, ReadWriteLock>build(artifact -> new ReentrantReadWriteLock());
-        var fineWriteLock = localFineLocks.get(outputKeyFor(action)).writeLock();
-        fineWriteLock.lock();
-        fineLocks = localFineLocks;
-        coarseLock = null;
-        localCoarseLock.writeLock().unlock();
+      if (localCoarseLock == null) {
+        var writeLock = fineLocks.get(outputKeyFor(action)).writeLock();
+        writeLock.lockInterruptibly();
         prepareOutputsForRewinding(action);
-        return fineWriteLock::unlock;
+        return writeLock::unlock;
       }
 
-      var writeLock = fineLocks.get(outputKeyFor(action)).writeLock();
-      writeLock.lockInterruptibly();
+      localCoarseLock.writeLock().lockInterruptibly();
+      var localFineLocks =
+          Caffeine.newBuilder()
+              .weakValues()
+              // TODO: Investigate whether fair locks would be beneficial.
+              .<ActionLookupData, ReadWriteLock>build(artifact -> new WeakSafeReadWriteLock());
+      var fineWriteLock = localFineLocks.get(outputKeyFor(action)).writeLock();
+      fineWriteLock.lock();
+      fineLocks = localFineLocks;
+      coarseLock = null;
+      localCoarseLock.writeLock().unlock();
       prepareOutputsForRewinding(action);
-      return writeLock::unlock;
+      return fineWriteLock::unlock;
     }
 
     private void prepareOutputsForRewinding(Action action) throws InterruptedException {
@@ -395,6 +403,63 @@ public class RemoteOutputService implements OutputService {
 
     private static ActionLookupData outputKeyFor(Action action) {
       return ((DerivedArtifact) action.getPrimaryOutput()).getGeneratingActionKey();
+    }
+
+    // Classes below are based on Guava's Striped class, but optimized for memory usage by using
+    // extension rather than delegation:
+    // https://github.com/google/guava/blob/d25d62fc843ece1c3866859bc8639b815093eac8/guava/src/com/google/common/util/concurrent/Striped.java#L282-L326
+
+    /**
+     * ReadWriteLock implementation whose read and write locks retain a reference back to this lock.
+     * Otherwise, a reference to just the read lock or just the write lock would not suffice to
+     * ensure the {@code ReadWriteLock} is retained.
+     */
+    private static final class WeakSafeReadWriteLock extends ReentrantReadWriteLock {
+      @Override
+      public WeakSafeReadLock readLock() {
+        return new WeakSafeReadLock(this);
+      }
+
+      @Override
+      public WeakSafeWriteLock writeLock() {
+        return new WeakSafeWriteLock(this);
+      }
+    }
+
+    /**
+     * A read lock that ensures a strong reference is retained to the owning {@link ReadWriteLock}.
+     */
+    private static final class WeakSafeReadLock extends ReentrantReadWriteLock.ReadLock {
+      @SuppressWarnings({"unused", "FieldCanBeLocal"})
+      private final WeakSafeReadWriteLock strongReference;
+
+      WeakSafeReadLock(WeakSafeReadWriteLock readWriteLock) {
+        super(readWriteLock);
+        this.strongReference = readWriteLock;
+      }
+
+      @Override
+      public Condition newCondition() {
+        throw new UnsupportedOperationException();
+      }
+    }
+
+    /**
+     * A write lock that ensures a strong reference is retained to the owning {@link ReadWriteLock}.
+     */
+    private static final class WeakSafeWriteLock extends ReentrantReadWriteLock.WriteLock {
+      @SuppressWarnings({"unused", "FieldCanBeLocal"})
+      private final WeakSafeReadWriteLock strongReference;
+
+      WeakSafeWriteLock(WeakSafeReadWriteLock readWriteLock) {
+        super(readWriteLock);
+        this.strongReference = readWriteLock;
+      }
+
+      @Override
+      public Condition newCondition() {
+        throw new UnsupportedOperationException();
+      }
     }
   }
 }
