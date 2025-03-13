@@ -478,7 +478,7 @@ public final class SandboxModule extends BlazeModule {
 
     @Override
     public boolean canExecWithLegacyFallback(Spawn spawn) {
-      if (Spawns.requiresSandboxing(spawn)) {
+      if (Spawns.usesPathMapping(spawn)) {
         return false;
       }
       boolean canExec = !sandboxSpawnRunner.canExec(spawn) && fallbackSpawnRunner.canExec(spawn);

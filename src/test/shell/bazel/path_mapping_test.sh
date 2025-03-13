@@ -105,7 +105,7 @@ function test_path_stripping_local_fails() {
     --experimental_output_paths=strip \
     --strategy=Javac=local \
     //src/main/java/com/example:Main &> $TEST_log && fail "build succeeded unexpectedly"
-  expect_log 'Javac spawn, which requires sandboxing, cannot be executed with any of the available strategies'
+  expect_log 'Javac spawn, which requires sandboxing due to path mapping, cannot be executed with any of the available strategies'
 }
 
 function test_path_stripping_sandboxed() {
@@ -149,7 +149,7 @@ function test_path_stripping_unsandboxed_singleplex_worker_fails() {
     --noworker_sandboxing \
     --noexperimental_worker_multiplex \
     //src/main/java/com/example:Main &> $TEST_log && fail "build succeeded unexpectedly"
-  expect_log 'Javac spawn, which requires sandboxing, cannot be executed with any of the available strategies'
+  expect_log 'Javac spawn, which requires sandboxing due to path mapping, cannot be executed with any of the available strategies'
 }
 
 function test_path_stripping_singleplex_worker() {
@@ -196,7 +196,7 @@ function test_path_stripping_unsandboxed_multiplex_worker_fails() {
     --strategy=Javac=worker \
     --noexperimental_worker_multiplex_sandboxing \
     //src/main/java/com/example:Main &> $TEST_log && fail "build succeeded unexpectedly"
-  expect_log 'Javac spawn, which requires sandboxing, cannot be executed with any of the available strategies'
+  expect_log 'Javac spawn, which requires sandboxing due to path mapping, cannot be executed with any of the available strategies'
 }
 
 function test_path_stripping_multiplex_worker() {

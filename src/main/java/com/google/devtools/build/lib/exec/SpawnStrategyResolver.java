@@ -92,7 +92,9 @@ public final class SpawnStrategyResolver implements ActionContext {
                     + " too strict. Visit https://github.com/bazelbuild/bazel/issues/7480 for"
                     + " advice",
                 spawn.getMnemonic(),
-                Spawns.requiresSandboxing(spawn) ? ", which requires sandboxing," : "",
+                Spawns.usesPathMapping(spawn)
+                    ? ", which requires sandboxing due to path mapping,"
+                    : "",
                 strategies);
         throw new UserExecException(
             FailureDetail.newBuilder()

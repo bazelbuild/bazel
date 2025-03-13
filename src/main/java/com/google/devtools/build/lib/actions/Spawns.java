@@ -68,10 +68,10 @@ public final class Spawns {
   }
 
   /**
-   * Returns whether a Spawn must be executed on a separate exec root, for exampke, because it
-   * expects output paths to be rewritten or may not arbitrarily write its outputs.
+   * Returns whether a Spawn must be executed on a separate exec root (i.e. in a sandbox) since it
+   * references rewritten input and output paths.
    */
-  public static boolean requiresSandboxing(Spawn spawn) {
+  public static boolean usesPathMapping(Spawn spawn) {
     return !spawn.getPathMapper().isNoop();
   }
 

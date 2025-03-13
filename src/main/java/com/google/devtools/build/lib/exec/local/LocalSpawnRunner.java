@@ -168,7 +168,7 @@ public class LocalSpawnRunner implements SpawnRunner {
 
   @Override
   public boolean canExec(Spawn spawn) {
-    return !Spawns.requiresSandboxing(spawn);
+    return !Spawns.usesPathMapping(spawn);
   }
 
   @Override
