@@ -24,8 +24,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.hash.HashCode;
 import com.google.common.hash.HashFunction;
 import com.google.common.io.BaseEncoding;
-import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
+import com.google.devtools.build.lib.util.StreamWriter;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.DigestUtils;
 import com.google.devtools.build.lib.vfs.FileStatus;
@@ -92,10 +92,9 @@ public class DigestUtil {
         DigestUtils.getDigestWithManualFallback(path, xattrProvider, status), status.getSize());
   }
 
-  public static Digest compute(VirtualActionInput input, HashFunction hashFunction)
-      throws IOException {
-    // Stream the virtual action input as parameter files, which can be very large, are lazily
-    // computed from the in-memory CommandLine object. This avoids allocating large byte arrays.
+  public static Digest compute(StreamWriter input, HashFunction hashFunction) throws IOException {
+    // Stream the input as parameter files, which can be very large, are lazily computed from the
+    // in-memory CommandLine object. This avoids allocating large byte arrays.
     try (DigestOutputStream digestOutputStream =
         new DigestOutputStream(hashFunction, OutputStream.nullOutputStream())) {
       input.writeTo(digestOutputStream);
@@ -103,7 +102,7 @@ public class DigestUtil {
     }
   }
 
-  public Digest compute(VirtualActionInput input) throws IOException {
+  public Digest compute(StreamWriter input) throws IOException {
     return compute(input, hashFn.getHashFunction());
   }
 
