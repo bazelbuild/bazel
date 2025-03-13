@@ -299,7 +299,7 @@ public final class SandboxModule extends BlazeModule {
               cmdEnv, new ProcessWrapperSandboxedSpawnRunner(cmdEnv, sandboxBase, treeDeleter));
       spawnRunners.add(spawnRunner);
       builder.registerStrategy(
-          new ProcessWrapperSandboxedStrategy(cmdEnv.getExecRoot(), spawnRunner, executionOptions),
+          new ProcessWrapperSandboxedStrategy(spawnRunner, executionOptions),
           "sandboxed",
           "processwrapper-sandbox");
     }
@@ -325,8 +325,7 @@ public final class SandboxModule extends BlazeModule {
                     treeDeleter));
         spawnRunners.add(spawnRunner);
         builder.registerStrategy(
-            new DockerSandboxedStrategy(cmdEnv.getExecRoot(), spawnRunner, executionOptions),
-            "docker");
+            new DockerSandboxedStrategy(spawnRunner, executionOptions), "docker");
       }
     } else if (options.dockerVerbose) {
       cmdEnv
@@ -345,9 +344,7 @@ public final class SandboxModule extends BlazeModule {
               LinuxSandboxedStrategy.create(cmdEnv, sandboxBase, timeoutKillDelay, treeDeleter));
       spawnRunners.add(spawnRunner);
       builder.registerStrategy(
-          new LinuxSandboxedStrategy(cmdEnv.getExecRoot(), spawnRunner, executionOptions),
-          "sandboxed",
-          "linux-sandbox");
+          new LinuxSandboxedStrategy(spawnRunner, executionOptions), "sandboxed", "linux-sandbox");
     }
 
     // This is the preferred sandboxing strategy on macOS.
@@ -356,7 +353,7 @@ public final class SandboxModule extends BlazeModule {
           withFallback(cmdEnv, new DarwinSandboxedSpawnRunner(cmdEnv, sandboxBase, treeDeleter));
       spawnRunners.add(spawnRunner);
       builder.registerStrategy(
-          new DarwinSandboxedStrategy(cmdEnv.getExecRoot(), spawnRunner, executionOptions),
+          new DarwinSandboxedStrategy(spawnRunner, executionOptions),
           "sandboxed",
           "darwin-sandbox");
     }
@@ -368,7 +365,7 @@ public final class SandboxModule extends BlazeModule {
               new WindowsSandboxedSpawnRunner(cmdEnv, timeoutKillDelay, windowsSandboxPath));
       spawnRunners.add(spawnRunner);
       builder.registerStrategy(
-          new WindowsSandboxedStrategy(cmdEnv.getExecRoot(), spawnRunner, executionOptions),
+          new WindowsSandboxedStrategy(spawnRunner, executionOptions),
           "sandboxed",
           "windows-sandbox");
     }

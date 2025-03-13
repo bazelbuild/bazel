@@ -112,7 +112,7 @@ public class FakeSpawnExecutionContext implements SpawnExecutionContext {
 
   @Override
   public SpawnInputExpander getSpawnInputExpander() {
-    return new SpawnInputExpander(execRoot);
+    return new SpawnInputExpander();
   }
 
   @Override

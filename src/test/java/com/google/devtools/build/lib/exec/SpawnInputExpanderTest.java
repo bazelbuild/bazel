@@ -74,7 +74,7 @@ public final class SpawnInputExpanderTest {
   private final Path execRoot = fs.getPath("/root");
   private final ArtifactRoot rootDir = ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "out");
 
-  private SpawnInputExpander expander = new SpawnInputExpander(execRoot);
+  private SpawnInputExpander expander = new SpawnInputExpander();
   private final Map<PathFragment, ActionInput> inputMap = new HashMap<>();
 
   @Test
@@ -125,7 +125,7 @@ public final class SpawnInputExpanderTest {
     assertThat(inputMap)
         .containsExactly(
             PathFragment.create("runfiles/workspace/foo/biz/fs_out/zizz"),
-            ActionInputHelper.fromPath("/root/xyz/zizz"));
+            ActionInputHelper.fromPath("xyz/zizz"));
   }
 
   @Test
@@ -338,7 +338,7 @@ public final class SpawnInputExpanderTest {
     RunfilesTree runfilesTree =
         AnalysisTestUtil.createRunfilesTree(PathFragment.create("runfiles"), runfiles);
 
-    expander = new SpawnInputExpander(execRoot, IGNORE, /* expandArchivedTreeArtifacts= */ false);
+    expander = new SpawnInputExpander(IGNORE, /* expandArchivedTreeArtifacts= */ false);
     expander.addSingleRunfilesTreeToInputs(
         runfilesTree, inputMap, artifactExpander, PathMapper.NOOP, PathFragment.EMPTY_FRAGMENT);
 
@@ -498,7 +498,7 @@ public final class SpawnInputExpanderTest {
 
   @Test
   public void testManifestWithErrorOnRelativeSymlink() {
-    expander = new SpawnInputExpander(execRoot, ERROR);
+    expander = new SpawnInputExpander(ERROR);
     Artifact fileset = createFileset("out");
     ImmutableMap<Artifact, FilesetOutputTree> filesetMappings =
         ImmutableMap.of(
@@ -520,7 +520,7 @@ public final class SpawnInputExpanderTest {
 
   @Test
   public void testManifestWithIgnoredRelativeSymlink() throws Exception {
-    expander = new SpawnInputExpander(execRoot, IGNORE);
+    expander = new SpawnInputExpander(IGNORE);
     Artifact fileset = createFileset("out");
     ImmutableMap<Artifact, FilesetOutputTree> filesetMappings =
         ImmutableMap.of(
@@ -534,12 +534,12 @@ public final class SpawnInputExpanderTest {
 
     assertThat(inputMap)
         .containsExactly(
-            PathFragment.create("out/workspace/foo"), ActionInputHelper.fromPath("/root/bar"));
+            PathFragment.create("out/workspace/foo"), ActionInputHelper.fromPath("bar"));
   }
 
   @Test
   public void testManifestWithResolvedRelativeSymlink() throws Exception {
-    expander = new SpawnInputExpander(execRoot, RESOLVE);
+    expander = new SpawnInputExpander(RESOLVE);
     Artifact fileset = createFileset("out");
     ImmutableMap<Artifact, FilesetOutputTree> filesetMappings =
         ImmutableMap.of(
@@ -554,8 +554,8 @@ public final class SpawnInputExpanderTest {
     assertThat(inputMap)
         .containsExactly(
             PathFragment.create("out/workspace/bar"),
-            ActionInputHelper.fromPath("/root/bar"),
+            ActionInputHelper.fromPath("bar"),
             PathFragment.create("out/workspace/foo"),
-            ActionInputHelper.fromPath("/root/bar"));
+            ActionInputHelper.fromPath("bar"));
   }
 }

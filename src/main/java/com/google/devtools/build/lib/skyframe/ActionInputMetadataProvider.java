@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.actions.FilesetOutputTree.RelativeSymlinkBe
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.RunfilesArtifactValue;
 import com.google.devtools.build.lib.actions.RunfilesTree;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.HashMap;
@@ -43,7 +42,6 @@ import javax.annotation.Nullable;
  * once the action finishes executing.
  */
 final class ActionInputMetadataProvider implements InputMetadataProvider {
-  private final PathFragment execRoot;
 
   private final ActionInputMap inputArtifactData;
 
@@ -58,10 +56,7 @@ final class ActionInputMetadataProvider implements InputMetadataProvider {
   private final Supplier<ImmutableMap<String, FileArtifactValue>> filesetMapping;
 
   ActionInputMetadataProvider(
-      PathFragment execRoot,
-      ActionInputMap inputArtifactData,
-      Map<Artifact, FilesetOutputTree> filesets) {
-    this.execRoot = execRoot;
+      ActionInputMap inputArtifactData, Map<Artifact, FilesetOutputTree> filesets) {
     this.inputArtifactData = inputArtifactData;
     this.filesetMapping = Suppliers.memoize(() -> createFilesetMapping(filesets));
   }
@@ -85,10 +80,7 @@ final class ActionInputMetadataProvider implements InputMetadataProvider {
   @Override
   public FileArtifactValue getInputMetadataChecked(ActionInput actionInput) throws IOException {
     if (!(actionInput instanceof Artifact artifact)) {
-      PathFragment inputPath = actionInput.getExecPath();
-      PathFragment filesetKeyPath =
-          inputPath.startsWith(execRoot) ? inputPath.relativeTo(execRoot) : inputPath;
-      return filesetMapping.get().get(filesetKeyPath.getPathString());
+      return filesetMapping.get().get(actionInput.getExecPathString());
     }
 
     FileArtifactValue value = inputArtifactData.getInputMetadataChecked(artifact);

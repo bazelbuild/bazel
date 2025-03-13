@@ -558,10 +558,7 @@ public final class CompletionFunction<
 
     Label label = key.actionLookupKey().getLabel();
     InputMetadataProvider metadataProvider =
-        new ActionInputMetadataProvider(
-            skyframeActionExecutor.getExecRoot().asFragment(),
-            ctx.getImportantInputMap(),
-            ctx.getExpandedFilesets());
+        new ActionInputMetadataProvider(ctx.getImportantInputMap(), ctx.getExpandedFilesets());
     try {
       LostArtifacts lostOutputs;
       try (var ignored =

@@ -217,7 +217,7 @@ final class RemoteActionContextProvider {
             getRemoteExecutionService(),
             digestUtil);
     registryBuilder.registerStrategy(
-        new RemoteSpawnStrategy(env.getExecRoot(), spawnRunner, executionOptions), "remote");
+        new RemoteSpawnStrategy(spawnRunner, executionOptions), "remote");
   }
 
   /**

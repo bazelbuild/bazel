@@ -2340,7 +2340,7 @@ public abstract class SpawnLogContextTestBase {
     TreeMap<PathFragment, ActionInput> builder = new TreeMap<>();
 
     if (runfilesTree != null) {
-      new SpawnInputExpander(/* execRoot= */ null)
+      new SpawnInputExpander()
           .addSingleRunfilesTreeToInputs(
               runfilesTree,
               builder,

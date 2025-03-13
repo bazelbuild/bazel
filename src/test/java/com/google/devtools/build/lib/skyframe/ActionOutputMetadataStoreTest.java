@@ -145,7 +145,7 @@ public final class ActionOutputMetadataStoreTest {
     map.put(input, metadata);
     assertThat(map.getInputMetadata(input)).isEqualTo(metadata);
     ActionInputMetadataProvider inputMetadataProvider =
-        new ActionInputMetadataProvider(execRoot.asFragment(), map, ImmutableMap.of());
+        new ActionInputMetadataProvider(map, ImmutableMap.of());
     assertThat(inputMetadataProvider.getInputMetadata(input)).isNull();
     assertThat(chmodCalls).isEmpty();
   }
@@ -160,7 +160,7 @@ public final class ActionOutputMetadataStoreTest {
     ActionInputMap map = new ActionInputMap(1);
     map.put(artifact, metadata);
     ActionInputMetadataProvider inputMetadataProvider =
-        new ActionInputMetadataProvider(execRoot.asFragment(), map, ImmutableMap.of());
+        new ActionInputMetadataProvider(map, ImmutableMap.of());
     assertThat(inputMetadataProvider.getInputMetadata(artifact)).isEqualTo(metadata);
     assertThat(chmodCalls).isEmpty();
   }
@@ -171,7 +171,7 @@ public final class ActionOutputMetadataStoreTest {
     Artifact artifact = ActionsTestUtil.createArtifactWithRootRelativePath(sourceRoot, path);
     ActionInputMap inputMap = new ActionInputMap(0);
     ActionInputMetadataProvider inputMetadataProvider =
-        new ActionInputMetadataProvider(execRoot.asFragment(), inputMap, ImmutableMap.of());
+        new ActionInputMetadataProvider(inputMap, ImmutableMap.of());
     assertThat(inputMetadataProvider.getInputMetadata(artifact)).isNull();
     assertThat(chmodCalls).isEmpty();
   }
@@ -182,7 +182,7 @@ public final class ActionOutputMetadataStoreTest {
     Artifact artifact = ActionsTestUtil.createArtifactWithRootRelativePath(outputRoot, path);
     ActionInputMap inputMap = new ActionInputMap(0);
     ActionInputMetadataProvider inputMetadataProvider =
-        new ActionInputMetadataProvider(execRoot.asFragment(), inputMap, ImmutableMap.of());
+        new ActionInputMetadataProvider(inputMap, ImmutableMap.of());
     assertThat(inputMetadataProvider.getInputMetadata(artifact)).isNull();
     assertThat(chmodCalls).isEmpty();
   }
@@ -212,7 +212,7 @@ public final class ActionOutputMetadataStoreTest {
     Artifact artifact = TreeFileArtifact.createTreeOutput(treeArtifact, "baz");
     ActionInputMap inputMap = new ActionInputMap(0);
     ActionInputMetadataProvider inputMetadataProvider =
-        new ActionInputMetadataProvider(execRoot.asFragment(), inputMap, ImmutableMap.of());
+        new ActionInputMetadataProvider(inputMap, ImmutableMap.of());
     assertThat(inputMetadataProvider.getInputMetadata(artifact)).isNull();
     assertThat(chmodCalls).isEmpty();
   }
@@ -562,14 +562,16 @@ public final class ActionOutputMetadataStoreTest {
         ImmutableMap.of(artifact, FilesetOutputTree.create(symlinks));
 
     ActionInputMetadataProvider inputMetadataProvider =
-        new ActionInputMetadataProvider(
-            execRoot.asFragment(), new ActionInputMap(0), expandedFilesets);
+        new ActionInputMetadataProvider(new ActionInputMap(0), expandedFilesets);
 
     // Only the regular FileArtifactValue should have its metadata stored.
-    assertThat(inputMetadataProvider.getInputMetadata(createInput("dir"))).isNull();
-    assertThat(inputMetadataProvider.getInputMetadata(createInput("file"))).isEqualTo(regularFav);
-    assertThat(inputMetadataProvider.getInputMetadata(createInput("bytes"))).isNull();
-    assertThat(inputMetadataProvider.getInputMetadata(createInput("does_not_exist"))).isNull();
+    assertThat(inputMetadataProvider.getInputMetadata(ActionInputHelper.fromPath("dir"))).isNull();
+    assertThat(inputMetadataProvider.getInputMetadata(ActionInputHelper.fromPath("file")))
+        .isEqualTo(regularFav);
+    assertThat(inputMetadataProvider.getInputMetadata(ActionInputHelper.fromPath("bytes")))
+        .isNull();
+    assertThat(inputMetadataProvider.getInputMetadata(ActionInputHelper.fromPath("does_not_exist")))
+        .isNull();
     assertThat(chmodCalls).isEmpty();
   }
 
@@ -580,10 +582,6 @@ public final class ActionOutputMetadataStoreTest {
         digest,
         execRoot.asFragment(),
         /* enclosingTreeArtifact= */ null);
-  }
-
-  private ActionInput createInput(String identifier) {
-    return ActionInputHelper.fromPath(execRoot.getRelative(identifier).getPathString());
   }
 
   @Test

@@ -540,10 +540,7 @@ public final class ActionExecutionFunction implements SkyFunction {
         // ActionCompletionEvent because it hoped rewinding would fix things. Because it won't, this
         // must emit one to compensate.
         ActionInputMetadataProvider inputMetadataProvider =
-            new ActionInputMetadataProvider(
-                skyframeActionExecutor.getExecRoot().asFragment(),
-                state.inputArtifactData,
-                state.getExpandedFilesets());
+            new ActionInputMetadataProvider(state.inputArtifactData, state.getExpandedFilesets());
         env.getListener()
             .post(
                 new ActionCompletionEvent(
@@ -750,10 +747,7 @@ public final class ActionExecutionFunction implements SkyFunction {
             state.actionFileSystem, skyframeActionExecutor.getExecRoot());
 
     ActionInputMetadataProvider inputMetadataProvider =
-        new ActionInputMetadataProvider(
-            skyframeActionExecutor.getExecRoot().asFragment(),
-            state.inputArtifactData,
-            expandedFilesets);
+        new ActionInputMetadataProvider(state.inputArtifactData, expandedFilesets);
 
     ActionOutputMetadataStore outputMetadataStore =
         ActionOutputMetadataStore.create(
