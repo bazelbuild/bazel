@@ -2026,6 +2026,89 @@ EOF
   fi
 }
 
+function test_remote_cache_eviction_retries_jdeps() {
+  mkdir -p a
+
+  cat > a/BUILD <<'EOF'
+java_library(
+  name = "lib",
+  srcs = ["Library.java"],
+)
+
+java_binary(
+  name = "bin",
+  srcs = ["Binary.java"],
+  main_class = "Binary",
+  deps = [":lib"],
+  tags = ['no-remote-exec'],
+)
+EOF
+  cat > a/Library.java <<'EOF'
+public class Library {
+  public static boolean TEST = true;
+}
+EOF
+  cat > a/Binary.java <<'EOF'
+public class Binary {
+  public static void main(String[] args) {
+    System.out.println(Library.TEST);
+  }
+}
+EOF
+
+  # Populate remote cache
+  bazel build \
+      --remote_executor=grpc://localhost:${worker_port} \
+      --remote_download_minimal \
+      --experimental_java_classpath=bazel \
+      //a:bin >& $TEST_log || fail "Failed to build"
+
+  bazel clean
+
+  # Clean build, the jdeps file for lib isn't downloaded
+  bazel build \
+      --remote_executor=grpc://localhost:${worker_port} \
+      --remote_download_minimal \
+      --experimental_java_classpath=bazel \
+      //a:bin >& $TEST_log || fail "Failed to build"
+
+  if [[ -f bazel-bin/a/liblib-hjar.jdeps ]]; then
+    fail "Expected intermediate output bazel-bin/a/liblib-hjar.jdeps to not be downloaded"
+  fi
+
+  # Evict blobs from remote cache
+  stop_worker
+  start_worker
+
+  cat > a/Binary.java <<'EOF'
+public class Binary {
+  public static void main(String[] args) {
+    System.out.println(!Library.TEST);
+  }
+}
+EOF
+
+  # Incremental build triggers remote cache eviction error but Bazel
+  # automatically retries the build and reruns the generating actions for
+  # missing blobs
+  bazel build \
+      --remote_executor=grpc://localhost:${worker_port} \
+      --remote_download_minimal \
+      --experimental_remote_cache_eviction_retries=1 \
+      --experimental_java_classpath=bazel \
+      //a:bin >& $TEST_log || fail "Failed to build"
+
+  expect_log 'lost inputs with digests:'
+  expect_log "Found transient remote cache error, retrying the build..."
+
+  local invocation_ids=$(grep "Invocation ID:" $TEST_log)
+  local first_id=$(echo "$invocation_ids" | head -n 1)
+  local second_id=$(echo "$invocation_ids" | tail -n 1)
+  if [ "$first_id" == "$second_id" ]; then
+    fail "Invocation IDs are the same"
+  fi
+}
+
 function test_remote_cache_eviction_retries_with_fixed_invocation_id() {
   mkdir -p a
 
