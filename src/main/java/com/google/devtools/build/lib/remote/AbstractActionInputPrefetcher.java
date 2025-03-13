@@ -720,7 +720,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       }
 
       var metadata = outputMetadataStore.getOutputMetadata(output);
-      if (!metadata.isRemote()) {
+      if (!canDownloadFile(output.getPath(), metadata)) {
         continue;
       }
 
