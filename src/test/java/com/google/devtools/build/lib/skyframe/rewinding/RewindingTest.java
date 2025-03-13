@@ -119,6 +119,16 @@ public final class RewindingTest extends BuildIntegrationTestCase {
     assume().that(AnalysisMock.get().isThisBazel()).isFalse();
   }
 
+  /**
+   * Skips test cases that cannot run on non-Linux platforms.
+   *
+   * <p>The macOS linker does not support --start-lib/--end-lib and nodeps dynamic libraries, which
+   * throws off the assertions.
+   */
+  private static void skipIfNotLinux() {
+    assume().that(OS.getCurrent()).isEqualTo(OS.LINUX);
+  }
+
   @Test
   public void noLossSmokeTest() throws Exception {
     helper.runNoLossSmokeTest();
@@ -195,22 +205,19 @@ public final class RewindingTest extends BuildIntegrationTestCase {
 
   @Test
   public void treeFileArtifactRewound() throws Exception {
-    // macOS does not produce nodeps dynamic libraries, which throws off the assertions.
-    assume().that(OS.getCurrent()).isEqualTo(OS.LINUX);
+    skipIfNotLinux();
     helper.runTreeFileArtifactRewound_spawnFailed();
   }
 
   @Test
   public void treeArtifactRewound_allFilesLost() throws Exception {
-    // macOS does not produce nodeps dynamic libraries, which throws off the assertions.
-    assume().that(OS.getCurrent()).isEqualTo(OS.LINUX);
+    skipIfNotLinux();
     helper.runTreeArtifactRewound_allFilesLost_spawnFailed();
   }
 
   @Test
   public void treeArtifactRewound_oneFileLost() throws Exception {
-    // macOS does not produce nodeps dynamic libraries, which throws off the assertions.
-    assume().that(OS.getCurrent()).isEqualTo(OS.LINUX);
+    skipIfNotLinux();
     helper.runTreeArtifactRewound_oneFileLost_spawnFailed();
   }
 
@@ -247,8 +254,7 @@ public final class RewindingTest extends BuildIntegrationTestCase {
 
   @Test
   public void generatedHeaderRewound_lostInActionExecution() throws Exception {
-    // macOS linker does not support --start-lib/--end-lib, which throws off the assertions.
-    assume().that(OS.getCurrent()).isEqualTo(OS.LINUX);
+    skipIfNotLinux();
     helper.runGeneratedHeaderRewound_lostInActionExecution_spawnFailed();
   }
 
@@ -260,8 +266,7 @@ public final class RewindingTest extends BuildIntegrationTestCase {
 
   @Test
   public void generatedTransitiveHeaderRewound_lostInActionExecution() throws Exception {
-    // macOS linker does not support --start-lib/--end-lib, which throws off the assertionss
-    assume().that(OS.getCurrent()).isEqualTo(OS.LINUX);
+    skipIfNotLinux();
     helper.runGeneratedTransitiveHeaderRewound_lostInActionExecution_spawnFailed();
   }
 
