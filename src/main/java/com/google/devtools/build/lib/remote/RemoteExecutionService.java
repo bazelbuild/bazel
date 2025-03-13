@@ -152,7 +152,6 @@ import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Phaser;
@@ -1824,7 +1823,7 @@ public class RemoteExecutionService {
     if (remoteOptions.remoteCacheAsync
         && !action.getSpawn().getResourceOwner().mayModifySpawnOutputsAfterExecution()) {
       AtomicLong startTime = new AtomicLong();
-      CountDownLatch done = new CountDownLatch(1);
+      Semaphore uploadDone = new Semaphore(1);
       var asyncUpload =
           Single.using(
                   () -> {
@@ -1834,25 +1833,34 @@ public class RemoteExecutionService {
                     return cache;
                   },
                   combinedCache ->
-                      buildUploadManifestAsync(action, spawnResult)
-                          .flatMap(
-                              manifest ->
-                                  manifest.uploadAsync(
-                                      action.getRemoteActionExecutionContext(),
-                                      combinedCache,
-                                      reporter)),
+                      Single.using(
+                          () -> {
+                            uploadDone.acquire();
+                            return uploadDone;
+                          },
+                          doneSemaphore ->
+                              buildUploadManifestAsync(action, spawnResult)
+                                  .flatMap(
+                                      manifest ->
+                                          manifest.uploadAsync(
+                                              action.getRemoteActionExecutionContext(),
+                                              combinedCache,
+                                              reporter)),
+                          doneSemaphore -> {
+                            // Signal that the post-execution tasks touching the outputs are done.
+                            doneSemaphore.release();
+                            // Clean up the post-execution task, disposing and awaiting it is
+                            // effectively a no-op at this point.
+                            outputService.cancelPostExecutionTasks(
+                                action.getRemoteActionExecutionContext().getSpawnOwner());
+                          },
+                          /* eager= */ false),
                   cacheResource -> {
-                    // Signal that the post-execution tasks touching the output are done.
-                    done.countDown();
                     Profiler.instance()
                         .completeTask(startTime.get(), ProfilerTask.UPLOAD_TIME, "upload outputs");
                     backgroundTaskPhaser.arriveAndDeregister();
                     onUploadComplete.run();
                     cacheResource.release();
-                    // Clean up the post-execution task, disposing and awaiting it is effectively a
-                    // no-op at this point.
-                    outputService.cancelPostExecutionTasks(
-                        action.getRemoteActionExecutionContext().getSpawnOwner());
                   },
                   /* eager= */ false)
               .subscribeOn(scheduler)
@@ -1861,7 +1869,7 @@ public class RemoteExecutionService {
           action.getRemoteActionExecutionContext().getSpawnOwner(),
           () -> {
             asyncUpload.dispose();
-            done.await();
+            uploadDone.acquire();
           });
     } else {
       try (SilentCloseable c =
