@@ -17,15 +17,23 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.TruthJUnit.assume;
 
 import com.google.common.collect.Iterables;
+import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.analysis.TargetConfiguredEvent;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.includescanning.IncludeScanningModule;
+import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
+import com.google.devtools.build.lib.runtime.WorkspaceBuilder;
 import com.google.devtools.build.lib.testutil.ActionEventRecorder;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
+import java.io.IOException;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -53,7 +61,22 @@ public final class RewindingTest extends BuildIntegrationTestCase {
     return super.getRuntimeBuilder()
         .addBlazeModule(new IncludeScanningModule())
         .addBlazeModule(helper.makeControllableActionStrategyModule("standalone"))
-        .addBlazeModule(helper.getLostOutputsModule());
+        .addBlazeModule(helper.getLostOutputsModule())
+        .addBlazeModule(
+            new BlazeModule() {
+              @Override
+              public void workspaceInit(
+                  BlazeRuntime runtime, BlazeDirectories directories, WorkspaceBuilder builder) {
+                // Null out RepositoryHelpersHolder so that we don't trigger
+                // RepoMappingManifestAction. This preserves action graph structure between blaze
+                // and bazel, which is important for this test's assertions.
+                //
+                // IMPORTANT: As a result of this, external repositories are not symlinked under
+                // the execroot with Skymeld enabled. See onTargetAnalyzed for how to manually
+                // create such a symlink.
+                builder.setSkyframeExecutorRepositoryHelpersHolder(null);
+              }
+            });
   }
 
   @Override
@@ -70,6 +93,20 @@ public final class RewindingTest extends BuildIntegrationTestCase {
         "--keep_going=" + keepGoing,
         "--experimental_merged_skyframe_analysis_execution=" + skymeld);
     runtimeWrapper.registerSubscriber(actionEventRecorder);
+    runtimeWrapper.registerSubscriber(this);
+  }
+
+  @Subscribe
+  public void onTargetAnalyzed(TargetConfiguredEvent event) throws IOException {
+    if (skymeld) {
+      // Necessary due to the RepositoryHelpersHolder nulling above, simulates the effect of
+      // TopLevelTargetReadyForSymlinkPlanting.
+      FileSystemUtils.ensureSymbolicLink(
+          getExecRootBase()
+              .getChild(TestConstants.WORKSPACE_NAME)
+              .getRelative("external/bazel_tools"),
+          getOutputBase().getRelative("external/bazel_tools"));
+    }
   }
 
   /**
