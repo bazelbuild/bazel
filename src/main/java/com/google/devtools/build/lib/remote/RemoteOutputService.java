@@ -301,12 +301,35 @@ public class RemoteOutputService implements OutputService {
    * aren't deleted while they are being read.
    */
   final class RemoteRewoundActionSynchronizer implements RewoundActionSynchronizer {
+    // A single coarse lock is used to synchronize rewound actions (writers) and both rewound and
+    // non-rewound actions (readers) as long as no rewound action has attempted to prepare for its
+    // execution.
+    // This ensures high throughput and low memory footprint for the common case of no rewound
+    // actions. In this case, there won't be any writers and the performance characteristics of a
+    // ReentrantReadWriteLock are comparable to that of an atomic counter.
+    // Note that it wouldn't be correct to only start using this lock once an action is rewound,
+    // because non-rewound actions consuming its non-lost outputs could have already started
+    // executing.
     @Nullable private volatile ReadWriteLock coarseLock = new ReentrantReadWriteLock();
-    @Nullable private volatile LoadingCache<ActionLookupData, ReadWriteLock> fineLocks = null;
+
+    // A fine-grained lock structure that is switched to when the first rewound action attempts to
+    // prepare for its execution. This structure is used to ensure that rewound actions do not
+    // delete their outputs while they are being read by other actions, while still allowing
+    // rewound actions and non-rewound actions to run concurrently (i.e., not force the equivalent
+    // of --jobs=1 for as long as a rewound action is running, as the coarse lock would).
+    // A rewound action will acquire a write lock on its lookup data before it prepares for
+    // execution, while any action will acquire a read lock on the lookup data of any generating
+    // action of its inputs before it starts executing.
+    // The values of this cache are weakly referenced to ensure that locks are cleaned up when they
+    // are no longer needed.
+    @Nullable
+    private volatile LoadingCache<ActionLookupData, WeakSafeReadWriteLock> fineLocks = null;
 
     @Override
     public SilentCloseable enterActionPreparation(Action action, boolean wasRewound)
         throws InterruptedException {
+      // Skyframe schedules non-rewound actions such that they never run concurrently with actions
+      // that consume their outputs.
       if (!wasRewound) {
         return () -> {};
       }
@@ -319,28 +342,45 @@ public class RemoteOutputService implements OutputService {
     private SilentCloseable enterActionPreparationInternal(Action action)
         throws InterruptedException {
       var localCoarseLock = coarseLock;
+      Lock writeLock;
+
       if (localCoarseLock == null) {
-        var writeLock = fineLocks.get(outputKeyFor(action)).writeLock();
+        // Common case after some action has been rewound and thus inflated the fine locks, acquire
+        // the single write lock representing this action and prepare its outputs for rewinding.
+        writeLock = fineLocks.get(outputKeyFor(action)).writeLock();
         writeLock.lockInterruptibly();
         prepareOutputsForRewinding(action);
         return writeLock::unlock;
+      } else {
+        // This is the first time a rewound action has attempted to prepare for its execution.
+        // Atomically switch to the fine locks structure.
+        localCoarseLock.writeLock().lockInterruptibly();
+        // At this point, all other actions are blocked on the read lock.
+        var localFineLocks =
+            Caffeine.newBuilder()
+                .weakValues()
+                // TODO: Investigate whether fair locks would be beneficial.
+                .build((ActionLookupData unused) -> new WeakSafeReadWriteLock());
+        // Lock the corresponding fine lock and publish the fine locks before releasing the coarse
+        // lock.
+        writeLock = localFineLocks.get(outputKeyFor(action)).writeLock();
+        // We just created the lock, so locking it never blocks.
+        writeLock.lock();
+        fineLocks = localFineLocks;
+        coarseLock = null;
+        localCoarseLock.writeLock().unlock();
+        // Safe to continue under the fine write lock only since blocked actions will acquire the
+        // fine read lock after the write lock is released.
       }
 
-      localCoarseLock.writeLock().lockInterruptibly();
-      var localFineLocks =
-          Caffeine.newBuilder()
-              .weakValues()
-              // TODO: Investigate whether fair locks would be beneficial.
-              .<ActionLookupData, ReadWriteLock>build(artifact -> new WeakSafeReadWriteLock());
-      var fineWriteLock = localFineLocks.get(outputKeyFor(action)).writeLock();
-      fineWriteLock.lock();
-      fineLocks = localFineLocks;
-      coarseLock = null;
-      localCoarseLock.writeLock().unlock();
       prepareOutputsForRewinding(action);
-      return fineWriteLock::unlock;
+      return writeLock::unlock;
     }
 
+    /**
+     * Cancels all async tasks that operate on the action's outputs and resets any cached data about
+     * their prefetching state.
+     */
     private void prepareOutputsForRewinding(Action action) throws InterruptedException {
       cancelPostExecutionTasks(action);
       actionInputFetcher.handleRewoundActionOutputs(action.getOutputs());
@@ -359,16 +399,24 @@ public class RemoteOutputService implements OutputService {
         Action action, InputMetadataProvider metadataProvider) throws InterruptedException {
       var localCoarseLock = coarseLock;
       if (localCoarseLock != null) {
+        // Common case for builds without any rewound actions: acquire the single lock that is never
+        // acquired by a writer.
         localCoarseLock.readLock().lockInterruptibly();
       }
+      // Read the fine locks after acquiring the coarse lock to allow the fine locks to be inflated
+      // lazily.
       var localFineLocks = fineLocks;
       if (localFineLocks == null) {
+        // Continuation of the common case for builds without any rewound actions: the fine locks
+        // have not been inflated.
         return localCoarseLock.readLock()::unlock;
       }
+
+      // At this point, there has been at least one rewound action that has inflated the fine locks.
+      // We need to switch to it.
       if (localCoarseLock != null) {
         localCoarseLock.readLock().unlock();
       }
-
       var allReadWriteLocks =
           localFineLocks.getAll(inputKeysFor(action, metadataProvider)).values();
       var locksToUnlockBuilder =

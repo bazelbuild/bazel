@@ -1823,6 +1823,8 @@ public class RemoteExecutionService {
     if (remoteOptions.remoteCacheAsync
         && !action.getSpawn().getResourceOwner().mayModifySpawnOutputsAfterExecution()) {
       AtomicLong startTime = new AtomicLong();
+      // We use a Semaphore instead of a CountDownLatch since the Disposable may be disposed before
+      // the upload is started.
       Semaphore uploadDone = new Semaphore(1);
       var asyncUpload =
           Single.using(
