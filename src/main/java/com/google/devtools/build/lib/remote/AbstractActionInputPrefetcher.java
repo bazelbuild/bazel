@@ -58,6 +58,7 @@ import io.reactivex.rxjava3.core.Completable;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -110,6 +111,10 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
   private final class DirectoryTracker {
     private final ConcurrentHashMap<Path, DirectoryState> directoryStateMap =
         new ConcurrentHashMap<>();
+
+    public void clear() {
+      directoryStateMap.clear();
+    }
 
     /**
      * Marks a directory as temporarily writable.
@@ -763,11 +768,15 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     return remoteOutputChecker;
   }
 
-  public void markRewoundActionOutput(Artifact output) {
-    if (output.isTreeArtifact()) {
-      rewoundActionOutputs.addPrefix(output.getExecPath());
-    } else {
-      rewoundActionOutputs.add(output.getExecPath());
+  public void markRewoundActionOutputs(Collection<Artifact> outputs) {
+    outputDirectoryHelper.invalidateTreeArtifactDirectoryCreation(outputs);
+    directoryTracker.clear();
+    for (var output : outputs) {
+      if (output.isTreeArtifact()) {
+        rewoundActionOutputs.addPrefix(output.getExecPath());
+      } else {
+        rewoundActionOutputs.add(output.getExecPath());
+      }
     }
   }
 }
