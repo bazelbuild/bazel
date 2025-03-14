@@ -35,10 +35,13 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputDepOwnerMap;
 import com.google.devtools.build.lib.actions.ActionInputDepOwners;
+import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
+import com.google.devtools.build.lib.actions.FilesetOutputTree;
+import com.google.devtools.build.lib.actions.FilesetOutputTree.RelativeSymlinkBehaviorWithoutError;
 import com.google.devtools.build.lib.actions.LostInputsActionExecutionException;
 import com.google.devtools.build.lib.actions.RunfilesArtifactValue;
 import com.google.devtools.build.lib.actions.RunfilesTree;
@@ -164,6 +167,7 @@ public final class ActionRewindStrategy {
       Set<SkyKey> failedActionDeps,
       LostInputsActionExecutionException lostInputsException,
       ActionInputMap inputArtifactData,
+      ImmutableMap<Artifact, FilesetOutputTree> expandedFilesets,
       Environment env,
       long actionStartTimeNanos)
       throws ActionRewindException, InterruptedException {
@@ -178,7 +182,7 @@ public final class ActionRewindStrategy {
     ImmutableList<LostInputRecord> lostInputRecords =
         checkIfActionLostInputTooManyTimes(failedKey, failedAction, lostInputsByDigest);
     ActionInputDepOwners inputDepOwners =
-        createAugmentedInputDepOwners(lostInputsException, inputArtifactData);
+        createAugmentedInputDepOwners(lostInputsException, inputArtifactData, expandedFilesets);
 
     ImmutableList.Builder<Action> depsToRewind = ImmutableList.builder();
     Reset rewindPlan;
@@ -432,24 +436,49 @@ public final class ActionRewindStrategy {
    * LostInputsActionExecutionException#getOwners} is potentially incomplete. E.g., it may lack
    * knowledge of a runfiles tree owning a fileset, even if it knows that fileset owns a lost input.
    */
-  // TODO: b/321128298 - Handle fileset ownership and make ownership tracking optional.
+  // TODO: b/321128298 - Make ownership tracking optional.
   private static ActionInputDepOwners createAugmentedInputDepOwners(
-      LostInputsActionExecutionException e, ActionInputMap inputArtifactData) {
+      LostInputsActionExecutionException e,
+      ActionInputMap inputArtifactData,
+      ImmutableMap<Artifact, FilesetOutputTree> expandedFilesets) {
     Set<ActionInput> lostInputsAndOwners = new HashSet<>();
     ActionInputDepOwnerMap augmentedOwners = new ActionInputDepOwnerMap();
     ActionInputDepOwners owners = e.getOwners();
+    boolean sawLostFilesetFile = false;
     for (ActionInput lostInput : e.getLostInputs().values()) {
       lostInputsAndOwners.add(lostInput);
       for (Artifact depOwner : owners.getDepOwners(lostInput)) {
         lostInputsAndOwners.add(depOwner);
         augmentedOwners.addOwner(lostInput, depOwner);
       }
-      if (lostInput instanceof Artifact artifact && artifact.hasParent()) {
+      if (!(lostInput instanceof Artifact artifact)) {
+        sawLostFilesetFile = true;
+      } else if (artifact.hasParent()) {
         lostInputsAndOwners.add(artifact.getParent());
         augmentedOwners.addOwner(artifact, artifact.getParent());
       }
     }
 
+    if (sawLostFilesetFile) {
+      expandedFilesets.forEach(
+          (fileset, outputTree) ->
+              outputTree.visitSymlinks(
+                  RelativeSymlinkBehaviorWithoutError.RESOLVE,
+                  (name, target, metadata) -> {
+                    if (metadata == null) {
+                      return;
+                    }
+                    ActionInput input = ActionInputHelper.fromPath(target);
+                    if (lostInputsAndOwners.contains(input)) {
+                      lostInputsAndOwners.add(fileset);
+                      augmentedOwners.addOwner(input, fileset);
+                    }
+                  }));
+    }
+
+    // Runfiles trees may contain tree artifacts and filesets, but not vice versa. Runfiles are
+    // processed last to ensure that any lost input owning tree artifacts and filesets are already
+    // in lostInputsAndOwners.
     for (RunfilesTree runfilesTree : inputArtifactData.getRunfilesTrees()) {
       Artifact runfilesArtifact =
           (Artifact) inputArtifactData.getInput(runfilesTree.getExecPath().getPathString());

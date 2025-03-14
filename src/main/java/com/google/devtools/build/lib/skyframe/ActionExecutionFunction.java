@@ -502,6 +502,7 @@ public final class ActionExecutionFunction implements SkyFunction {
               failedActionDeps,
               e,
               state.inputArtifactData,
+              state.getExpandedFilesets(),
               env,
               actionStartTimeNanos);
     } catch (ActionRewindException rewindingFailedException) {
@@ -1355,15 +1356,17 @@ public final class ActionExecutionFunction implements SkyFunction {
     }
 
     ImmutableMap<Artifact, FilesetOutputTree> getExpandedFilesets() {
-      if (topLevelFilesets == null || topLevelFilesets.isEmpty()) {
+      if (topLevelFilesets.isEmpty()) {
         return filesetsInsideRunfiles;
       }
-
-      Map<Artifact, FilesetOutputTree> filesetsMap =
-          Maps.newHashMapWithExpectedSize(filesetsInsideRunfiles.size() + topLevelFilesets.size());
-      filesetsMap.putAll(filesetsInsideRunfiles);
-      filesetsMap.putAll(topLevelFilesets);
-      return ImmutableMap.copyOf(filesetsMap);
+      if (filesetsInsideRunfiles.isEmpty()) {
+        return topLevelFilesets;
+      }
+      return ImmutableMap.<Artifact, FilesetOutputTree>builderWithExpectedSize(
+              filesetsInsideRunfiles.size() + topLevelFilesets.size())
+          .putAll(filesetsInsideRunfiles)
+          .putAll(topLevelFilesets)
+          .buildKeepingLast();
     }
 
     @Override
