@@ -5,6 +5,7 @@ cc_binary(
     srcs = ["daemonize.cc"],
     deps = [
         ":process-tools",
+        ":logging",
     ],
 )
 
