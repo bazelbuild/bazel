@@ -359,6 +359,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:config/core_options",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/invalid_configuration_exception",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/starlark_defined_config_transition",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/symlink_definition",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/transitions/baseline_options_value",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target_value",

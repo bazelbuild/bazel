@@ -208,10 +208,8 @@ java_library(
         "actions/StarlarkAction.java",
         "actions/SymlinkTreeAction.java",
         "actions/SymlinkTreeActionContext.java",
-        "config/DependencyEvaluationException.java",
         "config/FragmentCollection.java",
         "config/RequiredFragmentsUtil.java",
-        "config/SymlinkDefinition.java",
         "configuredtargets/AbstractConfiguredTarget.java",
         "configuredtargets/EnvironmentGroupConfiguredTarget.java",
         "configuredtargets/FileConfiguredTarget.java",
@@ -284,6 +282,7 @@ java_library(
         ":config/per_label_options",
         ":config/run_under",
         ":config/starlark_defined_config_transition",
+        ":config/symlink_definition",
         ":config/toolchain_type_requirement",
         ":config/transitions/composing_transition_factory",
         ":config/transitions/configuration_transition",
@@ -2898,5 +2897,31 @@ java_library(
     deps = [
         "//third_party:guava",
         "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "config/dependency_evaluation_exception",
+    srcs = ["config/DependencyEvaluationException.java"],
+    deps = [
+        ":inconsistent_aspect_order_exception",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:configured_value_creation_exception",
+        "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
+        "//src/main/java/net/starlark/java/eval",
+        "//src/main/java/net/starlark/java/syntax",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "config/symlink_definition",
+    srcs = ["config/SymlinkDefinition.java"],
+    deps = [
+        ":config/build_configuration",
+        ":config/build_options",
+        "//src/main/java/com/google/devtools/build/lib:build-request-options",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//third_party:guava",
     ],
 )
