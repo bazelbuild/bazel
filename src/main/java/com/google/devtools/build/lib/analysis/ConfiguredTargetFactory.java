@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.analysis.ExecGroupCollection.InvalidExecGro
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.ConfigConditions;
 import com.google.devtools.build.lib.analysis.config.Fragment;
-import com.google.devtools.build.lib.analysis.config.RequiredFragmentsUtil;
 import com.google.devtools.build.lib.analysis.configuredtargets.EnvironmentGroupConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.InputFileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.OutputFileConfiguredTarget;
