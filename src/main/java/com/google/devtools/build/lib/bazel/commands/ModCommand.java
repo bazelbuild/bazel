@@ -265,7 +265,7 @@ public final class ModCommand implements BlazeCommand {
       }
       try (SilentCloseable c =
           Profiler.instance().profile(ProfilerTask.BZLMOD, "execute mod " + subcommand)) {
-        return runTidy(env, modTidyValue);
+        return runTidy(env, modTidyValue, modOptions.write);
       }
     }
 
@@ -550,7 +550,11 @@ public final class ModCommand implements BlazeCommand {
     }
   }
 
-  private BlazeCommandResult runTidy(CommandEnvironment env, BazelModTidyValue modTidyValue) {
+  private BlazeCommandResult runTidy(CommandEnvironment env, BazelModTidyValue modTidyValue, boolean write) {
+    if (!write) {
+      return reportAndCreateTidyDryRunResult(env, modTidyValue);
+    }
+
     ImmutableListMultimap<PathFragment, String> allCommandsPerFile =
         modTidyValue.fixups().stream()
             .flatMap(fixup -> fixup.moduleFilePathToBuildozerCommands().entries().stream())
@@ -594,6 +598,20 @@ public final class ModCommand implements BlazeCommand {
     }
 
     return reportAndCreateTidyResult(env, modTidyValue);
+  }
+
+  private static BlazeCommandResult reportAndCreateTidyDryRunResult(
+    CommandEnvironment env, BazelModTidyValue modTidyValue) {
+    if (modTidyValue.fixups().isEmpty()) {
+      return BlazeCommandResult.success();
+    } else {
+      String lintErrors = String.format("Files with errors:\n%s",
+        modTidyValue.errors().stream().map(Object::toString).collect(joining("\n"))).stripTrailing();
+      return reportAndCreateFailureResult(
+          env,
+          lintErrors,
+          Code.MODULE_NEEDS_TIDY);
+    }
   }
 
   private static BlazeCommandResult reportAndCreateTidyResult(
