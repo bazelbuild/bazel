@@ -79,11 +79,17 @@ public class RemoteActionInputFetcher extends AbstractActionInputPrefetcher {
 
   @Override
   protected boolean canDownloadFile(Path path, FileArtifactValue metadata) {
+    // When action rewinding is enabled, an action that had remote metadata at some point during the
+    // build may have been re-executed locally to regenerate lost inputs, but may then be rewound
+    // again and thus have its (now local) outputs deleted. In this case, we need to download the
+    // outputs again, even if they are now considered local.
     return metadata.isRemote() || (forceRefetch(path) && !path.exists(Symlinks.NOFOLLOW));
   }
 
   @Override
   protected boolean forceRefetch(Path path) {
+    // Caches for download operations and output directory creation need to be disregarded for the
+    // outputs of rewound actions as they may have been deleted after they were first created.
     return rewoundActionOutputs.contains(path.relativeTo(execRoot));
   }
 
