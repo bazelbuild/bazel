@@ -357,7 +357,7 @@ public class RemoteOutputService implements OutputService {
           enterActionExecution hasn't been called yet in SkyframeActionExecutor and all past
           executions of the action have released all their locks due to use of try-with-resources.
           This means that A_1 can't have any incoming edges in the wait-for graph, which is a
-          contradiction to the assumption that is contained in the directed cycle C.
+          contradiction to the assumption that it is contained in the directed cycle C.
 
      We conclude that XY = RW. Since the write lock of A_3 is only ever acquired by A_3 itself, all
      edges in C are of the form A_1 -[RW(A_2)]-> A_2. But by construction of inputKeysFor, the
