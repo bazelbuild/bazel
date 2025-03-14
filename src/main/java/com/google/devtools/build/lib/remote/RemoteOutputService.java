@@ -533,11 +533,6 @@ public class RemoteOutputService implements OutputService {
         super(readWriteLock);
         this.strongReference = readWriteLock;
       }
-
-      @Override
-      public Condition newCondition() {
-        throw new UnsupportedOperationException();
-      }
     }
 
     /**
