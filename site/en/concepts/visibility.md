@@ -53,7 +53,7 @@ are just syntactic placeholders that don't correspond to any actual target.
 *   `"//foo/bar:__pkg__"`: Grants access to `//foo/bar` (but not its
     subpackages).
 
-*   `"//foo/bar:__subpackages__"`: Grants access `//foo/bar` and all of its
+*   `"//foo/bar:__subpackages__"`: Grants access to `//foo/bar` and all of its
     direct and indirect subpackages.
 
 *   `"//some_pkg:my_package_group"`: Grants access to all of the packages that
