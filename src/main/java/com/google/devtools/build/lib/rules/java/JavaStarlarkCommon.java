@@ -351,7 +351,7 @@ public class JavaStarlarkCommon
                   }
                   return true;
                 })
-            .map(artifact -> artifact.getRootRelativePath().getParentDirectory().getPathString())
+            .map(artifact -> artifact.getRunfilesPath().getParentDirectory().getPathString())
             .distinct()
             .collect(toImmutableList());
     return StarlarkList.immutableCopyOf(uniqueDirs);
