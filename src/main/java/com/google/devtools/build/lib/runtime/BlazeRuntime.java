@@ -18,7 +18,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.devtools.build.lib.util.DetailedExitCode.DetailedExitCodeComparator.chooseMoreImportantWithFirstIfTie;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
-import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
@@ -1381,7 +1380,9 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
               try {
                 // TODO(adonovan): opt: cache seen files, as the stack often repeats the same files.
                 Path path = fs.getPath(PathFragment.create(loc.file()));
-                List<String> lines = FileSystemUtils.readLines(path, UTF_8);
+                // Reading the file as Latin-1 is equivalent to reading raw bytes, which matches
+                // Bazel's internal encoding for strings (see StringEncoding).
+                ImmutableList<String> lines = FileSystemUtils.readLinesAsLatin1(path);
                 return lines.size() >= loc.line() ? lines.get(loc.line() - 1) : null;
               } catch (Throwable unused) {
                 // ignore any failure (e.g. ENOENT, security manager rejecting I/O)
