@@ -464,7 +464,6 @@ java_library(
     name = "symlink_tree_strategy",
     srcs = ["SymlinkTreeStrategy.java"],
     deps = [
-        ":bin_tools",
         ":symlink_tree_helper",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifact_expander",
