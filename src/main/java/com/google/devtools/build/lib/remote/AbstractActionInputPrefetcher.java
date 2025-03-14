@@ -50,6 +50,7 @@ import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.remote.util.AsyncTaskCache;
 import com.google.devtools.build.lib.util.TempPathGenerator;
 import com.google.devtools.build.lib.vfs.FileSymlinkLoopException;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.OutputPermissions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -630,7 +631,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     // Set output permissions on files, matching the behavior of SkyframeActionExecutor#checkOutputs
     // for artifacts produced by local actions.
     tmpPath.chmod(outputPermissions.getPermissionsMode());
-    tmpPath.renameTo(finalPath);
+    FileSystemUtils.moveFile(tmpPath, finalPath);
 
     // Set the contents proxy when supported, to make future modification checks cheaper.
     metadata.setContentsProxy(FileContentsProxy.create(finalPath.stat()));
