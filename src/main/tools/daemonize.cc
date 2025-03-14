@@ -50,6 +50,7 @@
 #include <unistd.h>
 
 #include "src/main/tools/process-tools.h"
+#include "src/main/tools/logging.h"
 
 // Configures std{in,out,err} of the current process to serve as a daemon.
 //
@@ -80,6 +81,8 @@ static void SetupStdio(const char* log_path, bool log_append) {
     err(EXIT_FAILURE, "dup failed");
   }
   assert(fd == STDERR_FILENO);
+
+  global_debug = stderr;
 }
 
 // Writes the given pid to a new file at pid_path.
@@ -328,6 +331,8 @@ static void MoveToCgroup(pid_t pid, const char* cgroup_path) {
       if (procs != NULL) {
         fprintf(procs, "%d", pid);
         fclose(procs);
+      } else {
+        PRINT_DEBUG("Failed to move server to cgroup %s", procs_path);
       }
       free(procs_path);
     }
