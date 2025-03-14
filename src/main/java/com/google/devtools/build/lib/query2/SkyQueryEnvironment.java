@@ -327,7 +327,8 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     return packageSemaphore;
   }
 
-  boolean hasDependencyFilter() {
+  /** Returns true if this environment has a dependency filter on any edges. */
+  public boolean hasDependencyFilter() {
     return dependencyFilter != DependencyFilter.ALL_DEPS;
   }
 
@@ -359,7 +360,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
         universeScopeList,
         result);
     QueryTransitivePackagePreloader.maybeThrowQueryExceptionForResultWithError(
-        result, roots, exprForError, /*operation=*/ "Building universe scope");
+        result, roots, exprForError, /* operation= */ "Building universe scope");
   }
 
   private static final Duration MIN_LOGGING = Duration.ofMillis(50);
@@ -781,7 +782,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   }
 
   /** Targetify SkyKeys of reverse deps and filter out targets whose deps are not allowed. */
-  Collection<Target> filterRawReverseDepsOfTransitiveTraversalKeys(
+  protected Collection<Target> filterRawReverseDepsOfTransitiveTraversalKeys(
       Map<SkyKey, ? extends Iterable<SkyKey>> rawReverseDeps,
       Multimap<SkyKey, SkyKey> packageKeyToTargetKeyMap)
       throws InterruptedException {
@@ -1024,7 +1025,9 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
                   Iterables.filter(
                       targets,
                       target ->
-                          targetPatternKey.getPolicy().shouldRetain(target, /*explicit=*/ false)));
+                          targetPatternKey
+                              .getPolicy()
+                              .shouldRetain(target, /* explicit= */ false)));
     }
     ListenableFuture<Void> evalFuture =
         patternToEval.evalAsync(
@@ -1387,7 +1390,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     }
   }
 
-  static final Function<Target, SkyKey> TARGET_TO_SKY_KEY =
+  protected static final Function<Target, SkyKey> TARGET_TO_SKY_KEY =
       target -> TransitiveTraversalValue.key(target.getLabel());
 
   /** A strict (i.e. non-lazy) variant of {@link #makeLabels}. */
@@ -1592,7 +1595,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
         expression,
         context,
         callback,
-        /*depsNeedFiltering=*/ !dependencyFilter.equals(DependencyFilter.ALL_DEPS),
+        /* depsNeedFiltering= */ !dependencyFilter.equals(DependencyFilter.ALL_DEPS),
         caller);
   }
 
