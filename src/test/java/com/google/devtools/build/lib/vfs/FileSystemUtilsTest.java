@@ -32,6 +32,8 @@ import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.vfs.FileSystem.NotASymlinkException;
 import com.google.devtools.build.lib.vfs.FileSystemUtils.MoveResult;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.Arrays;
@@ -39,10 +41,9 @@ import java.util.Collection;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 /** This class tests the file system utilities. */
-@RunWith(JUnit4.class)
+@RunWith(TestParameterInjector.class)
 public class FileSystemUtilsTest {
   private ManualClock clock;
   private FileSystem fileSystem;
@@ -346,13 +347,14 @@ public class FileSystemUtilsTest {
   }
 
   @Test
-  public void testMoveFile() throws IOException {
+  public void testMoveFile(@TestParameter boolean targetIsWritable) throws IOException {
     createTestDirectoryTree();
     Path originalFile = file1;
     byte[] content = new byte[] { 'a', 'b', 'c', 23, 42 };
     FileSystemUtils.writeContent(originalFile, content);
 
     Path moveTarget = file2;
+    moveTarget.setWritable(targetIsWritable);
 
     assertThat(moveFile(originalFile, moveTarget)).isEqualTo(MoveResult.FILE_MOVED);
 

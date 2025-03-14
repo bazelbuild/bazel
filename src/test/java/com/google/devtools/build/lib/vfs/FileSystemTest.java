@@ -1562,12 +1562,15 @@ public abstract class FileSystemTest {
   }
 
   @Test
-  public void testCanRenameFileToExistingFile() throws Exception {
+  public void testCanRenameFileToExistingFile(@TestParameter boolean existingFileIsWritable)
+      throws Exception {
     Path otherFile = absolutize("otherFile");
     FileSystemUtils.createEmptyFile(otherFile);
+    otherFile.setWritable(existingFileIsWritable);
     xFile.renameTo(otherFile); // succeeds
     assertThat(xFile.exists()).isFalse();
     assertThat(otherFile.isFile()).isTrue();
+    assertThat(otherFile.isWritable()).isTrue();
   }
 
   @Test
@@ -1582,11 +1585,29 @@ public abstract class FileSystemTest {
   }
 
   @Test
-  public void testCanRenameSymlinkToExistingFile() throws Exception {
+  public void testCanRenameFileToExistingSymlinkToNonWritableFile() throws Exception {
+    assumeTrue(testFS.supportsSymbolicLinksNatively(xLink.asFragment()));
+
+    Path nonWritableFile = absolutize("non-writable-file");
+    FileSystemUtils.touchFile(nonWritableFile);
+    nonWritableFile.setWritable(false);
+    Path symlink = absolutize("symlink");
+    createSymbolicLink(symlink, nonWritableFile.asFragment());
+    assertThat(symlink.isWritable()).isFalse();
+    xFile.renameTo(symlink); // succeeds
+    assertThat(xFile.exists()).isFalse();
+    assertThat(symlink.isFile()).isTrue();
+    assertThat(symlink.isWritable()).isTrue();
+  }
+
+  @Test
+  public void testCanRenameSymlinkToExistingFile(@TestParameter boolean existingFileIsWritable)
+      throws Exception {
     assumeTrue(testFS.supportsSymbolicLinksNatively(xLink.asFragment()));
 
     Path symlink = absolutize("symlink");
     createSymbolicLink(symlink, PathFragment.create("something"));
+    xFile.setWritable(existingFileIsWritable);
     symlink.renameTo(xFile); // succeeds
     assertThat(symlink.exists(Symlinks.NOFOLLOW)).isFalse();
     assertThat(xFile.isSymbolicLink()).isTrue();
