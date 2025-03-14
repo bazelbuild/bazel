@@ -178,6 +178,7 @@ public final class MockObjcSupport {
         "  constraint_values = [",
         "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:osx',",
         "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:x86_64',",
+        "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "env:device',",
         "  ],",
         ")",
         "platform(",
@@ -185,6 +186,7 @@ public final class MockObjcSupport {
         "  constraint_values = [",
         "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:ios',",
         "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:arm64',",
+        "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "env:device',",
         "  ],",
         ")",
         "platform(",
@@ -192,6 +194,7 @@ public final class MockObjcSupport {
         "  constraint_values = [",
         "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:ios',",
         "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:arm64e',",
+        "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "env:device',",
         "  ],",
         ")",
         "platform(", // legacy platform only used to support tests
@@ -199,6 +202,7 @@ public final class MockObjcSupport {
         "  constraint_values = [",
         "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:ios',",
         "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:armv7',",
+        "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "env:device',",
         "  ],",
         ")",
         "platform(",
@@ -206,6 +210,7 @@ public final class MockObjcSupport {
         "  constraint_values = [",
         "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:watchos',",
         "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:armv7k',",
+        "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "env:device',",
         "  ],",
         ")",
         "platform(",
@@ -213,6 +218,7 @@ public final class MockObjcSupport {
         "  constraint_values = [",
         "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:watchos',",
         "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:arm64_32',",
+        "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "env:device',",
         "  ],",
         ")");
 
@@ -222,6 +228,7 @@ public final class MockObjcSupport {
       "  constraint_values = [",
       "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:ios',",
       "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:x86_64',",
+      "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "env:simulator',",
       "  ],",
       ")",
       "platform(",
@@ -229,6 +236,7 @@ public final class MockObjcSupport {
       "  constraint_values = [",
       "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:ios',",
       "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:x86_32',",
+      "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "env:simulator',",
       "  ],",
       ")",
       "platform(",
@@ -236,6 +244,7 @@ public final class MockObjcSupport {
       "  constraint_values = [",
       "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:watchos',",
       "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:x86_64',",
+      "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "env:simulator',",
       "  ],",
       ")"
     };
