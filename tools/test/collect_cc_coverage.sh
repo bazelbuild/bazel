@@ -78,7 +78,7 @@ function init_gcov() {
 function llvm_coverage_lcov() {
   local output_file="${1}"; shift
   export LLVM_PROFILE_FILE="${COVERAGE_DIR}/%h-%p-%m.profraw"
-  "${COVERAGE_GCOV_PATH}" merge -output "${output_file}.data" \
+  "${LLVM_PROFDATA}" merge -output "${output_file}.data" \
       "${COVERAGE_DIR}"/*.profraw
 
   local object_param=""
@@ -98,7 +98,7 @@ function llvm_coverage_lcov() {
 function llvm_coverage_profdata() {
   local output_file="${1}"; shift
   export LLVM_PROFILE_FILE="${COVERAGE_DIR}/%h-%p-%m.profraw"
-  "${COVERAGE_GCOV_PATH}" merge -output "${output_file}" \
+  "${LLVM_PROFDATA}" merge -output "${output_file}" \
       "${COVERAGE_DIR}"/*.profraw
 }
 
