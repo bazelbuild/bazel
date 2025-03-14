@@ -323,7 +323,55 @@ public class RemoteOutputService implements OutputService {
     // The values of this cache are weakly referenced to ensure that locks are cleaned up when they
     // are no longer needed.
     @Nullable
-    private volatile LoadingCache<ActionLookupData, WeakSafeReadWriteLock> fineLocks = null;
+    private volatile LoadingCache<ActionLookupData, WeakSafeReentrantReadWriteLock> fineLocks;
+
+    /*
+    Proof of deadlock freedom:
+
+    As long as the coarse lock is used, there can't be any deadlock because there is only a single
+    read-write lock.
+
+    Now assume that there is a deadlock while the fine locks are used. Consider the directed
+    labeled "wait-for" graph defined as follows:
+
+    * Nodes are given by the currently active Skyframe action execution threads, each of which is
+      identified with the action it is (or will be) executing. Actions are in one-to-one
+      correspondence with the ActionLookupData that is used as the key in the fine locks map.
+    * For each pair of actions A_1 and A_2, there is an edge from A_1 to B_2 labeled with XY(A_3)
+      if A_1 is waiting for the X lock of A_3 and B currently holds the Y lock of A_3, where X and Y
+      are either R (for read) or W (for write). The resulting graph may have parallel edges with
+      distinct labels.
+
+    Let C be any directed cycle in the graph representing a deadlock, let A_1 -[XY(A_3)]-> A_2 be an
+    edge in C and consider the following cases for the pair XY:
+
+    * RR: Since a read-write lock whose read lock is held by at least one thread doesn't
+          block any other thread from acquiring its read lock, this case doesn't occur.
+    * WW: The write lock of A_3 is only ever (attempted to be) acquired by A_3 itself when it is
+          rewound, which means that the edge would necessarily be of the shape A_3 -[WW(A_3)]-> A_3.
+          But this isn't possible since the read-write locks are reentrant.
+    * WR: In this case, A_1 attempts to acquire a write lock, which only happens when A_1 is a
+          rewound action about to prepare for its (re-)execution. This means that the edge is
+          necessarily of the shape A_1 -[WR(A_1)]-> A_2. While a rewound action is waiting for its
+          own write lock in enterActionPeparation, it doesn't hold any locks since
+          enterActionExecution hasn't been called yet in SkyframeActionExecutor and all past
+          executions of the action have released all their locks due to use of try-with-resources.
+          This means that A_1 can't have any incoming edges in the wait-for graph, which is a
+          contradiction to the assumption that is contained in the directed cycle C.
+
+     We conclude that XY = RW. Since the write lock of A_3 is only ever acquired by A_3 itself, all
+     edges in C are of the form A_1 -[RW(A_2)]-> A_2. But by construction of inputKeysFor, the
+     action A_1 is attempting to acquire the read locks of all its inputs' generating actions, and
+     thus the action A_1 depends on one of the outputs of A_2 (*).
+
+     Applied to all edges of C, we conclude that there is a corresponding directed cycle in the
+     action graph, which is a contradiction since Bazel disallows dependency cycles.
+
+     Notes:
+     * The proof would not go through at (*) if fineLocks was replaced by a Striped lock structure
+       with a fixed number of locks. In fact, this gives rise to a deadlock if the number of stripes
+       is at least 2, but low enough that distinct generating actions hash to the same stripe.
+     */
 
     @Override
     public SilentCloseable enterActionPreparation(Action action, boolean wasRewound)
@@ -360,7 +408,7 @@ public class RemoteOutputService implements OutputService {
             Caffeine.newBuilder()
                 .weakValues()
                 // TODO: Investigate whether fair locks would be beneficial.
-                .build((ActionLookupData unused) -> new WeakSafeReadWriteLock());
+                .build((ActionLookupData unused) -> new WeakSafeReentrantReadWriteLock());
         // Lock the corresponding fine lock and publish the fine locks before releasing the coarse
         // lock.
         writeLock = localFineLocks.get(outputKeyFor(action)).writeLock();
@@ -462,7 +510,7 @@ public class RemoteOutputService implements OutputService {
      * Otherwise, a reference to just the read lock or just the write lock would not suffice to
      * ensure the {@code ReadWriteLock} is retained.
      */
-    private static final class WeakSafeReadWriteLock extends ReentrantReadWriteLock {
+    private static final class WeakSafeReentrantReadWriteLock extends ReentrantReadWriteLock {
       @Override
       public WeakSafeReadLock readLock() {
         return new WeakSafeReadLock(this);
@@ -479,9 +527,9 @@ public class RemoteOutputService implements OutputService {
      */
     private static final class WeakSafeReadLock extends ReentrantReadWriteLock.ReadLock {
       @SuppressWarnings({"unused", "FieldCanBeLocal"})
-      private final WeakSafeReadWriteLock strongReference;
+      private final WeakSafeReentrantReadWriteLock strongReference;
 
-      WeakSafeReadLock(WeakSafeReadWriteLock readWriteLock) {
+      WeakSafeReadLock(WeakSafeReentrantReadWriteLock readWriteLock) {
         super(readWriteLock);
         this.strongReference = readWriteLock;
       }
@@ -497,9 +545,9 @@ public class RemoteOutputService implements OutputService {
      */
     private static final class WeakSafeWriteLock extends ReentrantReadWriteLock.WriteLock {
       @SuppressWarnings({"unused", "FieldCanBeLocal"})
-      private final WeakSafeReadWriteLock strongReference;
+      private final WeakSafeReentrantReadWriteLock strongReference;
 
-      WeakSafeWriteLock(WeakSafeReadWriteLock readWriteLock) {
+      WeakSafeWriteLock(WeakSafeReentrantReadWriteLock readWriteLock) {
         super(readWriteLock);
         this.strongReference = readWriteLock;
       }
