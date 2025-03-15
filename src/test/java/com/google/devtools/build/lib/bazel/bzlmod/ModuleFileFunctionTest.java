@@ -2045,6 +2045,56 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
   }
 
   @Test
+  public void testOverrideRepo_extraKeywordArguments_literal() throws Exception {
+    scratch.overwriteFile(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        """
+        module(name='aaa')
+        ext1 = use_extension('//:defs.bzl', 'ext1')
+        use_repo(ext1, "foo")
+        ext2 = use_extension('//:defs.bzl', 'ext2')
+        use_repo(ext2, "bar.2")
+        override_repo(ext2, **{"foo.2": "foo"})
+        """);
+
+    EvaluationResult<RootModuleFileValue> result =
+        evaluator.evaluate(
+            ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+    assertThat(result.hasError()).isFalse();
+
+    var ext2Usage =
+        result.get(ModuleFileValue.KEY_FOR_ROOT_MODULE).module().getExtensionUsages().get(1);
+    assertThat(ext2Usage.getRepoOverrides().keySet()).containsExactly("foo.2");
+  }
+
+  @Test
+  public void testOverrideRepo_extraKeywordArguments_nonLiteral() throws Exception {
+    scratch.overwriteFile(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        """
+        module(name='aaa')
+        ext1 = use_extension('//:defs.bzl', 'ext1')
+        use_repo(ext1, "foo")
+        ext2 = use_extension('//:defs.bzl', 'ext2')
+        use_repo(ext2, "bar.2")
+        KWARGS = {"foo.2": "foo"}
+        override_repo(ext2, **KWARGS)
+        """);
+
+    reporter.removeHandler(failFastHandler);
+    EvaluationResult<RootModuleFileValue> result =
+        evaluator.evaluate(
+            ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+    assertThat(result.hasError()).isTrue();
+
+    assertContainsEvent(
+        """
+        ERROR /workspace/MODULE.bazel:7:21: **kwargs arguments must be a literal dict in \
+        MODULE.bazel files.\
+        """);
+  }
+
+  @Test
   public void testInjectRepo_imported() throws Exception {
     scratch.overwriteFile(
         rootDirectory.getRelative("MODULE.bazel").getPathString(),
