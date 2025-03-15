@@ -343,13 +343,7 @@ public final class ActionExecutionFunction implements SkyFunction {
     try {
       result =
           checkCacheAndExecuteIfNeeded(
-              action,
-              state,
-              env,
-              clientEnv,
-              actionLookupData,
-              previousExecution,
-              actionStartTime);
+              action, state, env, clientEnv, actionLookupData, previousExecution, actionStartTime);
     } catch (LostInputsActionExecutionException e) {
       return handleLostInputs(
           e,
@@ -1193,11 +1187,9 @@ public final class ActionExecutionFunction implements SkyFunction {
       }
     }
 
-    if (actionExecutionFunctionExceptionHandler != null) {
-      // After accumulating the inputs, we might find some mandatory artifact with
-      // SourceFileInErrorArtifactValue.
-      actionExecutionFunctionExceptionHandler.maybeThrowException();
-    }
+    // After accumulating the inputs, we might find some mandatory artifact with
+    // SourceFileInErrorArtifactValue.
+    actionExecutionFunctionExceptionHandler.maybeThrowException();
 
     return new CheckInputResults(inputArtifactData, filesetsInsideRunfiles, topLevelFilesets);
   }
