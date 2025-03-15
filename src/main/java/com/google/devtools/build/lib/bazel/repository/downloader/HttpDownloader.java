@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.io.ByteStreams;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId.FetchId;
 import com.google.devtools.build.lib.buildeventstream.FetchEvent;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.clock.JavaClock;
@@ -119,7 +120,7 @@ public class HttpDownloader implements Downloader {
         continue;
       } finally {
         semaphore.release();
-        eventHandler.post(new FetchEvent(url.toString(), success));
+        eventHandler.post(new FetchEvent(url.toString(), FetchId.Downloader.HTTP, success));
       }
     }
 
