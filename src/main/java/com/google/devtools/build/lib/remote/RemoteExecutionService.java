@@ -1835,12 +1835,6 @@ public class RemoteExecutionService {
     }
   }
 
-  @VisibleForTesting
-  public void uploadOutputs(RemoteAction action, SpawnResult spawnResult, Runnable onUploadComplete)
-      throws InterruptedException, ExecException {
-    uploadOutputs(action, spawnResult, onUploadComplete, ConcurrentChangesCheckLevel.OFF);
-  }
-
   /** Upload outputs of a remote action which was executed locally to remote cache. */
   public void uploadOutputs(
       RemoteAction action,
