@@ -34,8 +34,6 @@ import com.google.common.flogger.GoogleLogger;
 import com.google.common.graph.MutableGraph;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.ActionInputDepOwnerMap;
-import com.google.devtools.build.lib.actions.ActionInputDepOwners;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.ActionLookupData;
@@ -116,7 +114,7 @@ public final class ActionRewindStrategy {
       TopLevelActionLookupKeyWrapper failedKey,
       Set<SkyKey> failedKeyDeps,
       ImmutableMap<String, ActionInput> lostOutputsByDigest,
-      ActionInputDepOwners depOwners,
+      LostInputOwners owners,
       Environment env)
       throws ActionRewindException, InterruptedException {
     if (!skyframeActionExecutor.rewindingEnabled()) {
@@ -138,7 +136,7 @@ public final class ActionRewindStrategy {
             ProfilerTask.ACTION_REWINDING)) {
       rewindPlan =
           prepareRewindPlan(
-              failedKey, failedKeyDeps, lostOutputsByDigest, depOwners, env, depsToRewind);
+              failedKey, failedKeyDeps, lostOutputsByDigest, owners, env, depsToRewind);
     }
 
     if (shouldRecordRewindEventSample()) {
@@ -181,7 +179,7 @@ public final class ActionRewindStrategy {
 
     ImmutableList<LostInputRecord> lostInputRecords =
         checkIfActionLostInputTooManyTimes(failedKey, failedAction, lostInputsByDigest);
-    ActionInputDepOwners inputDepOwners =
+    LostInputOwners owners =
         e.getOwners().isPresent()
             ? e.getOwners().get()
             : calculateLostInputOwners(
@@ -196,7 +194,7 @@ public final class ActionRewindStrategy {
             ProfilerTask.ACTION_REWINDING)) {
       rewindPlan =
           prepareRewindPlan(
-              failedKey, failedActionDeps, lostInputsByDigest, inputDepOwners, env, depsToRewind);
+              failedKey, failedActionDeps, lostInputsByDigest, owners, env, depsToRewind);
     }
 
     if (shouldRecordRewindEventSample()) {
@@ -216,7 +214,7 @@ public final class ActionRewindStrategy {
       SkyKey failedKey,
       Set<SkyKey> failedKeyDeps,
       ImmutableMap<String, ActionInput> lostInputsByDigest,
-      ActionInputDepOwners inputDepOwners,
+      LostInputOwners owners,
       Environment env,
       ImmutableList.Builder<Action> depsToRewind)
       throws InterruptedException {
@@ -227,7 +225,7 @@ public final class ActionRewindStrategy {
     MutableGraph<SkyKey> rewindGraph = Reset.newRewindGraphFor(failedKey);
 
     Set<DerivedArtifact> lostArtifacts =
-        getLostInputOwningDirectDeps(failedKey, failedKeyDeps, lostInputs, inputDepOwners);
+        getLostInputOwningDirectDeps(failedKey, failedKeyDeps, lostInputs, owners);
 
     // Additional nested sets we may need to invalidate that are the dependencies of an
     // insensitively propagating action, associated with the key that depends on them.
@@ -432,17 +430,17 @@ public final class ActionRewindStrategy {
   }
 
   /**
-   * Calculates the {@link ActionInputDepOwners} for {@code lostInputs}.
+   * Calculates the {@link LostInputOwners} for {@code lostInputs}.
    *
    * <p>This is only necessary when {@link LostInputsActionExecutionException#getOwners} is not
    * present.
    */
-  private static ActionInputDepOwners calculateLostInputOwners(
+  private static LostInputOwners calculateLostInputOwners(
       ImmutableCollection<ActionInput> lostInputs,
       ActionInputMap inputArtifactData,
       ImmutableMap<Artifact, FilesetOutputTree> expandedFilesets) {
     Set<ActionInput> lostInputsAndOwners = new HashSet<>();
-    ActionInputDepOwnerMap owners = new ActionInputDepOwnerMap();
+    LostInputOwners owners = new LostInputOwners();
     boolean sawLostFilesetFile = false;
     for (ActionInput lostInput : lostInputs) {
       lostInputsAndOwners.add(lostInput);
@@ -490,7 +488,7 @@ public final class ActionRewindStrategy {
       SkyKey failedKey,
       Set<SkyKey> failedKeyDeps,
       ImmutableList<ActionInput> lostInputs,
-      ActionInputDepOwners inputDepOwners) {
+      LostInputOwners owners) {
     // Not all input artifacts' keys are direct deps - they may be below an ArtifactNestedSetKey.
     // Expand all ArtifactNestedSetKey deps to get a flat set with all input artifact keys.
     Set<SkyKey> expandedDeps = new HashSet<>();
@@ -506,9 +504,9 @@ public final class ActionRewindStrategy {
     for (ActionInput lostInput : lostInputs) {
       boolean foundLostInputDepOwner = false;
 
-      Collection<Artifact> owners = inputDepOwners.getDepOwners(lostInput);
-      for (Artifact owner : owners) {
-        checkDerived(owner);
+      ImmutableSet<Artifact> directOwners = owners.getOwners(lostInput);
+      for (Artifact directOwner : directOwners) {
+        checkDerived(directOwner);
 
         // Rewinding must invalidate all Skyframe paths from the failed action to the action which
         // generates the lost input. Intermediate nodes not on the shortest path to that action may
@@ -516,7 +514,7 @@ public final class ActionRewindStrategy {
         // invalidated, then their values may become stale. Therefore, this method collects not only
         // the first action dep associated with the lost input, but all of them.
 
-        Collection<Artifact> transitiveOwners = inputDepOwners.getDepOwners(owner);
+        ImmutableSet<Artifact> transitiveOwners = owners.getOwners(directOwner);
         for (Artifact transitiveOwner : transitiveOwners) {
           checkDerived(transitiveOwner);
 
@@ -529,10 +527,10 @@ public final class ActionRewindStrategy {
           }
         }
 
-        if (expandedDeps.contains(Artifact.key(owner))) {
+        if (expandedDeps.contains(Artifact.key(directOwner))) {
           // The lost input is included in an aggregation artifact (e.g. a tree artifact, fileset,
           // or runfiles tree) that the action directly depends on.
-          lostInputOwningDirectDeps.add((DerivedArtifact) owner);
+          lostInputOwningDirectDeps.add((DerivedArtifact) directOwner);
           foundLostInputDepOwner = true;
         }
       }

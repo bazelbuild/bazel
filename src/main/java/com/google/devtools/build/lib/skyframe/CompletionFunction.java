@@ -430,7 +430,7 @@ public final class CompletionFunction<
     }
   }
 
-  private void downloadArtifact(
+  private static void downloadArtifact(
       Environment env,
       OutputChecker outputChecker,
       ActionInputPrefetcher actionInputPrefetcher,
@@ -580,7 +580,7 @@ public final class CompletionFunction<
       // rewinding is successful, we'll report them later on.
       for (ActionInput lostOutput : lostOutputs.byDigest().values()) {
         builtArtifacts.remove(lostOutput);
-        builtArtifacts.removeAll(lostOutputs.owners().getDepOwners(lostOutput));
+        builtArtifacts.removeAll(lostOutputs.owners().getOwners(lostOutput));
       }
 
       return actionRewindStrategy.prepareRewindPlanForLostTopLevelOutputs(
