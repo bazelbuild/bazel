@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.vfs;
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Objects;
+import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
@@ -25,6 +26,22 @@ import javax.annotation.Nullable;
  * indicate that all files of interest have been modified.
  */
 public class ModifiedFileSet {
+
+  /**
+   * Allows issuing instructions to clean up the client. This could be in order to revert the client
+   * back to its baseline (hypothetical use case) or a real use case at the time of writing this
+   * comment which is to clean up Skycache violations of files modified outside of the project's
+   * frontier compared to the baseline.
+   */
+  @Nullable
+  public String getInstructionsMessage(Set<String> modified) {
+    return null;
+  }
+
+  @Nullable
+  public String getInstructionsPrelude(Set<String> modified) {
+    return null;
+  }
 
   // When everything is modified that naturally includes all directories.
   public static final ModifiedFileSet EVERYTHING_MODIFIED = new ModifiedFileSet(null);
@@ -105,7 +122,7 @@ public class ModifiedFileSet {
     }
   }
 
-  private ModifiedFileSet(ImmutableSet<PathFragment> modified) {
+  protected ModifiedFileSet(ImmutableSet<PathFragment> modified) {
     this.modified = modified;
   }
 

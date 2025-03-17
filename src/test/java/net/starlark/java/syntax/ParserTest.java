@@ -1102,6 +1102,9 @@ public final class ParserTest {
     // Trailing commas in dict and list arguments
     parseStatement("def f(a: Callable[[int,],bool]): pass");
     parseStatement("def f(a: TypeDict[{'foo': int, }]): pass");
+
+    // Return type
+    parseStatement("def f() -> int: pass");
   }
 
   @Test

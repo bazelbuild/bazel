@@ -89,9 +89,7 @@ public class StandaloneModule extends BlazeModule {
     // could potentially be used and a spawnActionContext doesn't specify which one it wants, the
     // last one from strategies list will be used
     registryBuilder.registerStrategy(
-        new StandaloneSpawnStrategy(env.getExecRoot(), localSpawnRunner, executionOptions),
-        "standalone",
-        "local");
+        new StandaloneSpawnStrategy(localSpawnRunner, executionOptions), "standalone", "local");
 
     // This makes the "standalone" strategy the default Spawn strategy, unless it is overridden by a
     // later BlazeModule.

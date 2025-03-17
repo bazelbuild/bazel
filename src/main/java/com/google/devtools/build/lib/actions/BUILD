@@ -153,9 +153,9 @@ java_library(
         ":runfiles_metadata",
         ":runfiles_tree",
         ":thread_state_receiver",
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/build_configuration",
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/core_options",
         "//src/main/java/com/google/devtools/build/lib/analysis:symlink_entry",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:build_configuration",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:core_options",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform:constants",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
@@ -177,6 +177,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:detailed_exceptions",
         "//src/main/java/com/google/devtools/build/lib/skyframe:sane_analysis_exception",
         "//src/main/java/com/google/devtools/build/lib/skyframe:tree_artifact_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:visible-for-serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi",
@@ -319,7 +320,7 @@ java_library(
         ":commandline_item",
         ":package_roots",
         "//src/main/java/com/google/devtools/build/docgen/annot",
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/core_options",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:core_options",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset:fingerprint_cache",
@@ -388,7 +389,10 @@ java_library(
         "ExecException.java",
         "UserExecException.java",
     ],
-    deps = ["//src/main/protobuf:failure_details_java_proto"],
+    deps = [
+        "//src/main/protobuf:failure_details_java_proto",
+        "//third_party:jsr305",
+    ],
 )
 
 java_library(
@@ -571,8 +575,8 @@ java_library(
     srcs = ["RunfilesTree.java"],
     deps = [
         ":artifacts",
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/build_configuration",
         "//src/main/java/com/google/devtools/build/lib/analysis:symlink_entry",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:build_configuration",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",

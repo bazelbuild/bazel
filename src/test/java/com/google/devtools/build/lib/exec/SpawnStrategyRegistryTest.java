@@ -399,7 +399,7 @@ public class SpawnStrategyRegistryTest {
 
   /** Throw error when some of strategies were not registered. */
   @Test
-  public void testDescriptionStrategyNotPresent() throws Exception {
+  public void testDescriptionStrategyNotPresent() {
     NoopStrategy strategy1 = new NoopStrategy("1");
     AbruptExitException exception =
         assertThrows(
@@ -649,7 +649,7 @@ public class SpawnStrategyRegistryTest {
     assertThat(strategy7.usedCalled).isEqualTo(0);
   }
 
-  private Spawn createSpawnWithMnemonicAndDescription(String mnemonic, String description) {
+  private static Spawn createSpawnWithMnemonicAndDescription(String mnemonic, String description) {
     return new SimpleSpawn(
         new FakeOwner(mnemonic, description, "//dummy:label"),
         ImmutableList.of(),
@@ -712,8 +712,8 @@ public class SpawnStrategyRegistryTest {
     private final String name;
     private int usedCalled = 0;
 
-    public NoopAbstractStrategy(String name) {
-      super(null, null, null);
+    NoopAbstractStrategy(String name) {
+      super(null, null);
       this.name = name;
     }
 

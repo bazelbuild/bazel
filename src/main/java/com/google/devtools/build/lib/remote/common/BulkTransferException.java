@@ -103,8 +103,8 @@ public class BulkTransferException extends IOException {
     var byDigest = byDigestBuilder.build();
     return new LostArtifacts(
         byDigest,
-        ActionRewindStrategy.computeNonFilesetDepOwners(
-            byDigest, owners.build()::get, metadataProvider));
+        ActionRewindStrategy.calculateLostInputOwners(
+            byDigest.values(), metadataProvider, ImmutableMap.of()));
   }
 
   @Override

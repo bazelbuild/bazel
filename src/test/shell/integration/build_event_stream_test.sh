@@ -173,6 +173,21 @@ def _semifailing_aspect_impl(target, ctx):
 
 semifailing_aspect = aspect(implementation = _semifailing_aspect_impl)
 EOF
+cat > requiringaspect.bzl <<'EOF'
+load(":simpleaspect.bzl", "simple_aspect")
+def _requiring_aspect_impl(target, ctx):
+    for orig_out in ctx.rule.attr.outs:
+        aspect_out = ctx.actions.declare_file(orig_out.name + ".requiring")
+        ctx.actions.write(
+            output=aspect_out,
+            content = "Hello from requiring aspect")
+    return [OutputGroupInfo(aspect_out=depset([aspect_out]))]
+
+requiring_aspect = aspect(
+    implementation=_requiring_aspect_impl,
+    requires=[simple_aspect],
+)
+EOF
 mkdir -p semifailingpkg/
 cat > semifailingpkg/BUILD <<'EOF'
 genrule(
@@ -813,6 +828,54 @@ function test_aspect_target_summary() {
   expect_log_n '^completed' 2
   expect_log_once '^target_summary '
   expect_log_once 'overall_build_success.*true'
+}
+
+function test_aspect_with_failing_target_summary() {
+  mkdir -p demo
+  cat >demo/BUILD <<'EOF'
+genrule(
+    name = "failrule",
+    outs = ["fail.out"],
+    cmd = "echo failrule > $(location fail.out); false",
+)
+EOF
+
+  bazel build --build_event_text_file=$TEST_log \
+    --experimental_bep_target_summary \
+    --aspects=simpleaspect.bzl%simple_aspect \
+    --output_groups=default,aspect_out \
+    //demo:failrule && fail "bazel build unexpectedly succeeded"
+  expect_not_log 'aborted'
+  expect_log_n '^configured' 2
+  expect_log 'last_message: true'
+  expect_log_once '^build_tool_logs'
+  expect_log_n '^completed' 2
+  expect_log_once '^target_summary '
+  expect_not_log 'overall_build_success.*true'
+}
+
+function test_aspect_with_requires_failing_target_summary() {
+  mkdir -p demo
+  cat >demo/BUILD <<'EOF'
+genrule(
+    name = "failrule",
+    outs = ["fail.out"],
+    cmd = "echo failrule > $(location fail.out); false",
+)
+EOF
+
+  bazel build --build_event_text_file=$TEST_log \
+    --experimental_bep_target_summary \
+    --aspects=requiringaspect.bzl%requiring_aspect \
+    --output_groups=default,aspect_out \
+    //demo:failrule && fail "bazel build unexpectedly succeeded"
+  expect_not_log 'aborted'
+  expect_log_n '^configured' 3
+  expect_log 'last_message: true'
+  expect_log_once '^build_tool_logs'
+  expect_log_n '^completed' 3
+  expect_log_once '^target_summary '
+  expect_not_log 'overall_build_success.*true'
 }
 
 function test_failing_aspect() {

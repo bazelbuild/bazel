@@ -500,6 +500,7 @@ public final class ActionExecutionFunction implements SkyFunction {
               failedActionDeps,
               e,
               state.inputArtifactData,
+              state.getExpandedFilesets(),
               env,
               actionStartTimeNanos);
     } catch (ActionRewindException rewindingFailedException) {
@@ -522,10 +523,7 @@ public final class ActionExecutionFunction implements SkyFunction {
         // ActionCompletionEvent because it hoped rewinding would fix things. Because it won't, this
         // must emit one to compensate.
         ActionInputMetadataProvider inputMetadataProvider =
-            new ActionInputMetadataProvider(
-                skyframeActionExecutor.getExecRoot().asFragment(),
-                state.inputArtifactData,
-                state.getExpandedFilesets());
+            new ActionInputMetadataProvider(state.inputArtifactData, state.getExpandedFilesets());
         env.getListener()
             .post(
                 new ActionCompletionEvent(
@@ -732,10 +730,7 @@ public final class ActionExecutionFunction implements SkyFunction {
             state.actionFileSystem, skyframeActionExecutor.getExecRoot());
 
     ActionInputMetadataProvider inputMetadataProvider =
-        new ActionInputMetadataProvider(
-            skyframeActionExecutor.getExecRoot().asFragment(),
-            state.inputArtifactData,
-            expandedFilesets);
+        new ActionInputMetadataProvider(state.inputArtifactData, expandedFilesets);
 
     ActionOutputMetadataStore outputMetadataStore =
         ActionOutputMetadataStore.create(
@@ -1343,15 +1338,17 @@ public final class ActionExecutionFunction implements SkyFunction {
     }
 
     ImmutableMap<Artifact, FilesetOutputTree> getExpandedFilesets() {
-      if (topLevelFilesets == null || topLevelFilesets.isEmpty()) {
+      if (topLevelFilesets.isEmpty()) {
         return filesetsInsideRunfiles;
       }
-
-      Map<Artifact, FilesetOutputTree> filesetsMap =
-          Maps.newHashMapWithExpectedSize(filesetsInsideRunfiles.size() + topLevelFilesets.size());
-      filesetsMap.putAll(filesetsInsideRunfiles);
-      filesetsMap.putAll(topLevelFilesets);
-      return ImmutableMap.copyOf(filesetsMap);
+      if (filesetsInsideRunfiles.isEmpty()) {
+        return topLevelFilesets;
+      }
+      return ImmutableMap.<Artifact, FilesetOutputTree>builderWithExpectedSize(
+              filesetsInsideRunfiles.size() + topLevelFilesets.size())
+          .putAll(filesetsInsideRunfiles)
+          .putAll(topLevelFilesets)
+          .buildKeepingLast();
     }
 
     @Override

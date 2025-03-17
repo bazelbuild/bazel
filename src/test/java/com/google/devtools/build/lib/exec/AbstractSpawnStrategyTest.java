@@ -64,8 +64,8 @@ public class AbstractSpawnStrategyTest {
           .build();
 
   private static class TestedSpawnStrategy extends AbstractSpawnStrategy {
-    public TestedSpawnStrategy(Path execRoot, SpawnRunner spawnRunner) {
-      super(execRoot, spawnRunner, new ExecutionOptions());
+    TestedSpawnStrategy(SpawnRunner spawnRunner) {
+      super(spawnRunner, new ExecutionOptions());
     }
   }
 
@@ -97,7 +97,7 @@ public class AbstractSpawnStrategyTest {
         .thenReturn(spawnResult);
 
     List<SpawnResult> spawnResults =
-        new TestedSpawnStrategy(execRoot, spawnRunner).exec(SIMPLE_SPAWN, actionExecutionContext);
+        new TestedSpawnStrategy(spawnRunner).exec(SIMPLE_SPAWN, actionExecutionContext);
 
     assertThat(spawnResults).containsExactly(spawnResult);
 
@@ -121,7 +121,7 @@ public class AbstractSpawnStrategyTest {
         .exec(any(Spawn.class), any(SpawnExecutionContext.class));
 
     ImmutableList<SpawnResult> spawnResults =
-        new TestedSpawnStrategy(execRoot, spawnRunner).exec(SIMPLE_SPAWN, actionExecutionContext);
+        new TestedSpawnStrategy(spawnRunner).exec(SIMPLE_SPAWN, actionExecutionContext);
 
     assertThat(spawnResults).containsExactly(spawnResult);
     // Must only be called exactly once.
@@ -151,8 +151,7 @@ public class AbstractSpawnStrategyTest {
             SpawnExecException.class,
             () ->
                 // Ignoring the List<SpawnResult> return value.
-                new TestedSpawnStrategy(execRoot, spawnRunner)
-                    .exec(SIMPLE_SPAWN, actionExecutionContext));
+                new TestedSpawnStrategy(spawnRunner).exec(SIMPLE_SPAWN, actionExecutionContext));
     assertThat(e.getSpawnResult()).isSameInstanceAs(result);
     // Must only be called exactly once.
     verify(spawnRunner).exec(any(Spawn.class), any(SpawnExecutionContext.class));
@@ -169,7 +168,7 @@ public class AbstractSpawnStrategyTest {
     when(actionExecutionContext.getExecRoot()).thenReturn(execRoot);
 
     List<SpawnResult> spawnResults =
-        new TestedSpawnStrategy(execRoot, spawnRunner).exec(SIMPLE_SPAWN, actionExecutionContext);
+        new TestedSpawnStrategy(spawnRunner).exec(SIMPLE_SPAWN, actionExecutionContext);
     assertThat(spawnResults).containsExactly(spawnResult);
     verify(spawnRunner, never()).exec(any(Spawn.class), any(SpawnExecutionContext.class));
   }
@@ -190,7 +189,7 @@ public class AbstractSpawnStrategyTest {
         .thenReturn(spawnResult);
 
     List<SpawnResult> spawnResults =
-        new TestedSpawnStrategy(execRoot, spawnRunner).exec(SIMPLE_SPAWN, actionExecutionContext);
+        new TestedSpawnStrategy(spawnRunner).exec(SIMPLE_SPAWN, actionExecutionContext);
 
     assertThat(spawnResults).containsExactly(spawnResult);
 
@@ -213,7 +212,7 @@ public class AbstractSpawnStrategyTest {
         .thenReturn(spawnResult);
 
     List<SpawnResult> spawnResults =
-        new TestedSpawnStrategy(execRoot, spawnRunner).exec(SIMPLE_SPAWN, actionExecutionContext);
+        new TestedSpawnStrategy(spawnRunner).exec(SIMPLE_SPAWN, actionExecutionContext);
 
     assertThat(spawnResults).containsExactly(spawnResult);
 
@@ -241,7 +240,7 @@ public class AbstractSpawnStrategyTest {
         .thenReturn(spawnResult);
 
     List<SpawnResult> spawnResults =
-        new TestedSpawnStrategy(execRoot, spawnRunner)
+        new TestedSpawnStrategy(spawnRunner)
             .exec(SIMPLE_SPAWN, actionExecutionContext, (exitCode, errorMessage, outErr) -> {});
 
     assertThat(spawnResults).containsExactly(spawnResult);
@@ -266,7 +265,7 @@ public class AbstractSpawnStrategyTest {
         .thenReturn(spawnResult);
 
     List<SpawnResult> spawnResults =
-        new TestedSpawnStrategy(execRoot, spawnRunner)
+        new TestedSpawnStrategy(spawnRunner)
             .exec(SIMPLE_SPAWN, actionExecutionContext, (exitCode, errorMessage, outErr) -> {});
 
     assertThat(spawnResults).containsExactly(spawnResult);
@@ -301,8 +300,7 @@ public class AbstractSpawnStrategyTest {
             SpawnExecException.class,
             () ->
                 // Ignoring the List<SpawnResult> return value.
-                new TestedSpawnStrategy(execRoot, spawnRunner)
-                    .exec(SIMPLE_SPAWN, actionExecutionContext));
+                new TestedSpawnStrategy(spawnRunner).exec(SIMPLE_SPAWN, actionExecutionContext));
     assertThat(e.getSpawnResult()).isSameInstanceAs(result);
     // Must only be called exactly once.
     verify(spawnRunner).exec(any(Spawn.class), any(SpawnExecutionContext.class));
@@ -328,7 +326,7 @@ public class AbstractSpawnStrategyTest {
         .thenReturn(spawnResult);
 
     ImmutableList<SpawnResult> spawnResults =
-        new TestedSpawnStrategy(execRoot, spawnRunner).exec(SIMPLE_SPAWN, actionExecutionContext);
+        new TestedSpawnStrategy(spawnRunner).exec(SIMPLE_SPAWN, actionExecutionContext);
     assertThat(spawnResults).containsExactly(spawnResult);
 
     verify(spawnLogContext)

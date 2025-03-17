@@ -58,6 +58,7 @@ java_library(
         "StringLiteral.java",
         "SyntaxError.java",
         "TokenKind.java",
+        "TypeApplication.java",
         "UnaryOperatorExpression.java",
     ],
     visibility = ["//src/main/java/net/starlark/java:clients"],

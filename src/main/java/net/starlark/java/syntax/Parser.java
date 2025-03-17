@@ -446,7 +446,7 @@ final class Parser {
       int starStarOffset = nextToken();
       Identifier id = parseIdent();
       if (defStatement) {
-        type = maybeParseTypeAnnotation();
+        type = maybeParseTypeAnnotationAfter(TokenKind.COLON);
       }
       return new Parameter.StarStar(locs, starStarOffset, id, type);
     }
@@ -457,7 +457,7 @@ final class Parser {
       if (token.kind == TokenKind.IDENTIFIER) {
         Identifier id = parseIdent();
         if (defStatement) {
-          type = maybeParseTypeAnnotation();
+          type = maybeParseTypeAnnotationAfter(TokenKind.COLON);
         }
         return new Parameter.Star(locs, starOffset, id, type);
       }
@@ -469,7 +469,7 @@ final class Parser {
 
     // name: type
     if (defStatement) {
-      type = maybeParseTypeAnnotation();
+      type = maybeParseTypeAnnotationAfter(TokenKind.COLON);
     }
 
     // name=default
@@ -947,12 +947,14 @@ final class Parser {
   }
 
   @Nullable
-  private Expression maybeParseTypeAnnotation() {
-    if (options.allowTypeAnnotations() && token.kind == TokenKind.COLON) {
+  private Expression maybeParseTypeAnnotationAfter(TokenKind expectedToken) {
+    if (options.allowTypeAnnotations() && token.kind == expectedToken) {
       nextToken();
       return parseTypeExpr();
-    } else if (token.kind == TokenKind.COLON) {
-      syntaxError("type annotations are disallowed.");
+    } else if (token.kind == expectedToken) {
+      syntaxError(
+          "type annotations are disallowed. Enable them with --experimental_starlark_types and"
+              + " --experimental_starlark_types_allowed_paths.");
     }
     return null;
   }
@@ -966,15 +968,21 @@ final class Parser {
       int end = syncTo(EXPR_TERMINATOR_SET);
       return makeErrorExpression(start, end);
     }
-    Expression expr = parseIdent();
+    Identifier typeOrConstructor = parseIdent();
+    Expression expr;
     if (token.kind == TokenKind.LBRACKET) {
-      expr = parseTypeApplication(expr);
+      expr = parseTypeApplication(typeOrConstructor);
+    } else {
+      expr = typeOrConstructor;
     }
     while (token.kind == TokenKind.PIPE) {
       int opOffset = nextToken();
-      Expression y = parseIdent();
+      Identifier secondTypeOrConstructor = parseIdent();
+      Expression y;
       if (token.kind == TokenKind.LBRACKET) {
-        y = parseTypeApplication(y);
+        y = parseTypeApplication(secondTypeOrConstructor);
+      } else {
+        y = secondTypeOrConstructor;
       }
       expr = new BinaryOperatorExpression(locs, expr, TokenKind.PIPE, opOffset, y);
     }
@@ -1049,18 +1057,16 @@ final class Parser {
   }
 
   // TypeArguments = '[' TypeArgument {',' TypeArgument} ']'.
-  private Expression parseTypeApplication(Expression fn) {
-    int lbracketOffset = expect(TokenKind.LBRACKET);
-    ImmutableList.Builder<Argument> args = ImmutableList.builder();
-    args.add(new Argument.Positional(locs, parseTypeArgument()));
+  private Expression parseTypeApplication(Identifier constructor) {
+    expect(TokenKind.LBRACKET);
+    ImmutableList.Builder<Expression> args = ImmutableList.builder();
+    args.add(parseTypeArgument());
     while (token.kind != TokenKind.RBRACKET && token.kind != TokenKind.EOF) {
       expect(TokenKind.COMMA);
-      args.add(new Argument.Positional(locs, parseTypeArgument()));
+      args.add(parseTypeArgument());
     }
     int rbracketOffset = expect(TokenKind.RBRACKET);
-    // TODO(ilist@): introduce TypeApplication Node
-    return new CallExpression(
-        locs, fn, locs.getLocation(lbracketOffset), args.build(), rbracketOffset);
+    return new TypeApplication(locs, constructor, args.build(), rbracketOffset);
   }
 
   // Parses a non-tuple expression ("test" in Python terminology).
@@ -1334,9 +1340,10 @@ final class Parser {
     expect(TokenKind.LPAREN);
     ImmutableList<Parameter> params = parseParameters(/* defStatement= */ true);
     expect(TokenKind.RPAREN);
+    Expression returnType = maybeParseTypeAnnotationAfter(TokenKind.RARROW);
     expect(TokenKind.COLON);
     ImmutableList<Statement> block = parseSuite();
-    return new DefStatement(locs, defOffset, ident, params, block);
+    return new DefStatement(locs, defOffset, ident, params, returnType, block);
   }
 
   // Parse a list of function parameters.

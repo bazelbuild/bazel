@@ -25,9 +25,8 @@ import java.time.Duration;
 
 /** Strategy that uses sandboxing to execute a process. */
 public final class LinuxSandboxedStrategy extends AbstractSpawnStrategy {
-  LinuxSandboxedStrategy(
-      Path execRoot, SpawnRunner spawnRunner, ExecutionOptions executionOptions) {
-    super(execRoot, spawnRunner, executionOptions);
+  LinuxSandboxedStrategy(SpawnRunner spawnRunner, ExecutionOptions executionOptions) {
+    super(spawnRunner, executionOptions);
   }
 
   @Override

@@ -194,7 +194,7 @@ public class RemoteSpawnCacheTest {
 
       @Override
       public SpawnInputExpander getSpawnInputExpander() {
-        return new SpawnInputExpander(execRoot);
+        return new SpawnInputExpander();
       }
 
       @Override

@@ -18,21 +18,12 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Multimap;
-import java.util.Collection;
+import com.google.common.collect.SetMultimap;
 
 /** A mutable {@link ActionInputDepOwners}. */
 public final class ActionInputDepOwnerMap implements ActionInputDepOwners {
 
-  private final ImmutableSet<ActionInput> inputsOfInterest;
-  private final Multimap<ActionInput, Artifact> depOwnersByInputs;
-
-  public ActionInputDepOwnerMap(Collection<ActionInput> inputsOfInterest) {
-    this.inputsOfInterest = ImmutableSet.copyOf(inputsOfInterest);
-    this.depOwnersByInputs =
-        HashMultimap.create(
-            /* expectedKeys= */ inputsOfInterest.size(), /* expectedValuesPerKey= */ 1);
-  }
+  private final SetMultimap<ActionInput, Artifact> depOwnersByInputs = HashMultimap.create();
 
   public void addOwner(ActionInput input, Artifact owner) {
     checkNotNull(input);
@@ -42,9 +33,7 @@ public final class ActionInputDepOwnerMap implements ActionInputDepOwners {
         "Invalid owner relationship (input=%s, owner=%s)",
         input,
         owner);
-    if (inputsOfInterest.contains(input)) {
-      depOwnersByInputs.put(input, owner);
-    }
+    depOwnersByInputs.put(input, owner);
   }
 
   private static boolean isValidOwnerRelationship(ActionInput input, Artifact owner) {

@@ -14,8 +14,6 @@
 
 package com.google.devtools.build.lib.packages;
 
-import static com.google.common.base.Preconditions.checkState;
-
 import com.google.auto.value.AutoBuilder;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
@@ -98,7 +96,7 @@ import net.starlark.java.syntax.Location;
  * <p>When changing this class, make sure to make corresponding changes to serialization!
  */
 @SuppressWarnings("JavaLangClash")
-public class Package implements Packageoid {
+public class Package extends Packageoid {
 
   // TODO(bazel-team): This class and its builder are ginormous. Future refactoring work might
   // attempt to separate the concerns of:
@@ -150,23 +148,6 @@ public class Package implements Packageoid {
   private final Declarations declarations;
 
   /**
-   * True iff this package's BUILD files contained lexical or grammatical errors, or experienced
-   * errors during evaluation, or semantic errors during the construction of any rule.
-   *
-   * <p>Note: A package containing errors does not necessarily prevent a build; if all the rules
-   * needed for a given build were constructed prior to the first error, the build may proceed.
-   */
-  private boolean containsErrors;
-
-  /**
-   * The first detailed error encountered during this package's construction and evaluation, or
-   * {@code null} if there were no such errors or all its errors lacked details.
-   */
-  @Nullable private FailureDetail failureDetail;
-
-  private long computationSteps;
-
-  /**
    * A rough approximation of the memory and general accounting costs associated with a loaded
    * package. A value of -1 means it is unset. Stored as a long to take up less memory per pkg.
    */
@@ -187,21 +168,6 @@ public class Package implements Packageoid {
   private OptionalInt firstWorkspaceSuffixRegisteredToolchain;
 
   // ==== Target and macro fields ====
-
-  /** The collection of all targets defined in this package, indexed by name. */
-  // TODO(bazel-team): Clarify what this map contains when a rule and its output both share the same
-  // name.
-  private ImmutableSortedMap<String, Target> targets;
-
-  /**
-   * The collection of all symbolic macro instances defined in this package, indexed by their {@link
-   * MacroInstance#getId id} (not name).
-   */
-  // TODO(#19922): Consider enforcing that macro namespaces are "exclusive", meaning that target
-  // names may only suffix a macro name when the target is created (transitively) within the macro.
-  // This would be a major change that would break the (common) use case where a BUILD file
-  // declares both "foo" and "foo_test".
-  private ImmutableSortedMap<String, MacroInstance> macros;
 
   /**
    * A map from names of targets declared in a symbolic macro which violate macro naming rules, such
@@ -373,32 +339,6 @@ public class Package implements Packageoid {
     Set<Label> loads = new LinkedHashSet<>();
     BazelModuleContext.visitLoadGraphRecursively(directLoads, loads::add);
     return ImmutableList.copyOf(loads);
-  }
-
-  /**
-   * Returns true if errors were encountered during evaluation of this package. (The package may be
-   * incomplete and its contents should not be relied upon for critical operations. However, any
-   * Rules belonging to the package are guaranteed to be intact, unless their <code>containsErrors()
-   * </code> flag is set.)
-   */
-  @Override
-  public boolean containsErrors() {
-    return containsErrors;
-  }
-
-  /**
-   * Returns the first {@link FailureDetail} describing one of the package's errors, or {@code null}
-   * if it has no errors or all its errors lack details.
-   */
-  @Override
-  @Nullable
-  public FailureDetail getFailureDetail() {
-    return failureDetail;
-  }
-
-  /** Returns the number of Starlark computation steps executed by this BUILD file. */
-  public long getComputationSteps() {
-    return computationSteps;
   }
 
   /** Returns package overhead as configured by the configured {@link PackageOverheadEstimator}. */
@@ -696,23 +636,6 @@ public class Package implements Packageoid {
     this.externalPackageRepositoryMappings = repositoryMappingsBuilder.buildOrThrow();
     OptionalLong overheadEstimate = builder.packageOverheadEstimator.estimatePackageOverhead(this);
     this.packageOverhead = overheadEstimate.orElse(PACKAGE_OVERHEAD_UNSET);
-  }
-
-  /**
-   * Marks this package, which must still be in the process of being constructed, as containing
-   * errors.
-   *
-   * <p>Intended only for use by {@link Rule#reportError}, whose callers might not have access to
-   * the {@link Package.Builder} instance.
-   *
-   * @throws IllegalStateException if this package has completed construction.
-   */
-  // Morally should be a {@link Packageoid} method, but we don't want to make it public.
-  void setContainsErrors() {
-    checkState(
-        targets == null,
-        "setContainsErrors() can only be called while the package is being constructed");
-    containsErrors = true;
   }
 
   // ==== Stringification / debugging ====
@@ -1701,6 +1624,7 @@ public class Package implements Packageoid {
   }
 
   /** A collection of data that is known before BUILD file evaluation even begins. */
+  // TODO(bazel-team): move to Packageoid.java or to its own file to reduce size of Package.java?
   @AutoCodec
   public record Metadata(
       PackageIdentifier packageIdentifier,

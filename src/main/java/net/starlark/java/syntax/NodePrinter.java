@@ -95,7 +95,7 @@ final class NodePrinter {
     } else if (arg instanceof Argument.StarStar) {
       buf.append("**");
     }
-    printExpr(arg.getValue());
+    printExpr(arg.getValue(), true);
   }
 
   private void printParameter(Parameter param) {
@@ -132,9 +132,18 @@ final class NodePrinter {
     for (Parameter param : def.getParameters()) {
       buf.append(sep);
       printParameter(param);
+      if (param.getType() != null) {
+        buf.append(": ");
+        printExpr(param.getType(), true);
+      }
       sep = ", ";
     }
-    buf.append("):");
+    buf.append(")");
+    if (def.getReturnType() != null) {
+      buf.append(" -> ");
+      printExpr(def.getReturnType(), true);
+    }
+    buf.append(":");
   }
 
   private void printStmt(Statement s) {
@@ -252,19 +261,26 @@ final class NodePrinter {
   }
 
   private void printExpr(Expression expr) {
+    printExpr(expr, false);
+  }
+
+  private void printExpr(Expression expr, boolean canSkipParenthesis) {
     switch (expr.kind()) {
       case BINARY_OPERATOR:
         {
           BinaryOperatorExpression binop = (BinaryOperatorExpression) expr;
-          // TODO(bazel-team): retain parentheses in the syntax tree so we needn't
-          // conservatively emit them here.
-          buf.append('(');
+          // TODO(bazel-team): print minimal number of parentheses
+          if (!canSkipParenthesis) {
+            buf.append('(');
+          }
           printExpr(binop.getX());
           buf.append(' ');
           buf.append(binop.getOperator());
           buf.append(' ');
           printExpr(binop.getY());
-          buf.append(')');
+          if (!canSkipParenthesis) {
+            buf.append(')');
+          }
           break;
         }
 
@@ -387,7 +403,7 @@ final class NodePrinter {
           String sep = "";
           for (Expression e : list.getElements()) {
             buf.append(sep);
-            printExpr(e);
+            printExpr(e, true);
             sep = ", ";
           }
           if (list.isTuple() && list.getElements().size() == 1) {
@@ -469,12 +485,30 @@ final class NodePrinter {
       case UNARY_OPERATOR:
         {
           UnaryOperatorExpression unop = (UnaryOperatorExpression) expr;
-          // TODO(bazel-team): retain parentheses in the syntax tree so we needn't
-          // conservatively emit them here.
+          // TODO(bazel-team): print minimal number of parentheses
           buf.append(unop.getOperator() == TokenKind.NOT ? "not " : unop.getOperator().toString());
-          buf.append('(');
+          if (!canSkipParenthesis) {
+            buf.append('(');
+          }
           printExpr(unop.getX());
-          buf.append(')');
+          if (!canSkipParenthesis) {
+            buf.append(')');
+          }
+          break;
+        }
+
+      case TYPE_APPLICATION:
+        {
+          TypeApplication typeApplication = (TypeApplication) expr;
+          printExpr(typeApplication.getConstructor());
+          buf.append('[');
+          String sep = "";
+          for (Expression arg : typeApplication.getArguments()) {
+            buf.append(sep);
+            printExpr(arg, true);
+            sep = ", ";
+          }
+          buf.append(']');
           break;
         }
     }

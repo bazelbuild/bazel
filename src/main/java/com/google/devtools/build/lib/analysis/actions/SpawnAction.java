@@ -145,13 +145,41 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       CharSequence progressMessage,
       String mnemonic,
       OutputPathsMode outputPathsMode) {
-    super(owner, inputs, outputs);
+    super(owner, inputs, /* outputs= */ outputs);
     this.tools = tools;
     this.resourceSetOrBuilder = resourceSetOrBuilder;
     this.executionInfo =
         executionInfo.isEmpty()
             ? ImmutableSortedMap.of()
             : executionInfoInterner.intern(ImmutableSortedMap.copyOf(executionInfo));
+    this.commandLines = commandLines;
+    this.env = env;
+    this.progressMessage = progressMessage;
+    this.mnemonic = mnemonic;
+    this.outputPathsMode = outputPathsMode;
+  }
+
+  /** Constructor for serialization. */
+  @SuppressWarnings("TooManyParameters") // Follows the production constructor.
+  public SpawnAction(
+      ActionOwner owner,
+      NestedSet<Artifact> tools,
+      NestedSet<Artifact> inputs,
+      Object rawOutputs,
+      ResourceSetOrBuilder resourceSetOrBuilder,
+      CommandLines commandLines,
+      ActionEnvironment env,
+      ImmutableSortedMap<String, String> executionInfo,
+      CharSequence progressMessage,
+      String mnemonic,
+      OutputPathsMode outputPathsMode) {
+    super(owner, inputs, /* rawOutputs= */ rawOutputs);
+    this.tools = tools;
+    this.resourceSetOrBuilder = resourceSetOrBuilder;
+    this.executionInfo =
+        executionInfo.isEmpty()
+            ? ImmutableSortedMap.of()
+            : executionInfoInterner.intern(executionInfo);
     this.commandLines = commandLines;
     this.env = env;
     this.progressMessage = progressMessage;

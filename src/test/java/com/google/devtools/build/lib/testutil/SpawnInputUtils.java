@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.actions.ArtifactExpander.MissingExpansionEx
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.FilesetOutputTree;
 import com.google.devtools.build.lib.actions.Spawn;
-import com.google.devtools.build.lib.vfs.Path;
 import java.util.Map;
 import java.util.NoSuchElementException;
 
@@ -41,25 +40,16 @@ public final class SpawnInputUtils {
         .orElseThrow(() -> noSuchInput("spawn input", name, spawn));
   }
 
-  public static Artifact getFilesetArtifactWithName(Spawn spawn, String name) {
-    return spawn.getFilesetMappings().keySet().stream()
-        .filter(filesetArtifact -> filesetArtifact.getExecPathString().contains(name))
-        .findFirst()
-        .orElseThrow(() -> noSuchInput("fileset artifact", name, spawn));
-  }
-
   public static ActionInput getFilesetInputWithName(
-      Spawn spawn, ActionExecutionContext context, String artifactName, String inputName) {
-    Path execRoot = context.getExecRoot();
+      Spawn spawn, String artifactName, String inputName) {
     for (Map.Entry<Artifact, FilesetOutputTree> entry : spawn.getFilesetMappings().entrySet()) {
       Artifact filesetArtifact = entry.getKey();
       if (!filesetArtifact.getExecPathString().contains(artifactName)) {
         continue;
       }
       for (FilesetOutputSymlink filesetOutputSymlink : entry.getValue().symlinks()) {
-        if (filesetOutputSymlink.targetPath().toString().contains(inputName)) {
-          Path inputPath = execRoot.getRelative(filesetOutputSymlink.targetPath());
-          return ActionInputHelper.fromPath(inputPath.asFragment());
+        if (filesetOutputSymlink.targetPath().getPathString().contains(inputName)) {
+          return ActionInputHelper.fromPath(filesetOutputSymlink.targetPath());
         }
       }
     }
@@ -79,8 +69,7 @@ public final class SpawnInputUtils {
     }
     for (FilesetOutputSymlink filesetOutputSymlink : filesetLinks) {
       if (filesetOutputSymlink.targetPath().toString().contains(inputName)) {
-        Path inputPath = context.getExecRoot().getRelative(filesetOutputSymlink.targetPath());
-        return ActionInputHelper.fromPath(inputPath.asFragment());
+        return ActionInputHelper.fromPath(filesetOutputSymlink.targetPath());
       }
     }
     throw noSuchInput("runfiles fileset in " + filesetArtifact, inputName, spawn);

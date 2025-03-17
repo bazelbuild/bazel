@@ -557,7 +557,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
     }
   }
 
-  private SpawnResult execLocally(Spawn spawn, SpawnExecutionContext context)
+  private static SpawnResult execLocally(Spawn spawn, SpawnExecutionContext context)
       throws ExecException, InterruptedException, IOException, ForbiddenActionInputException {
     RemoteLocalFallbackRegistry localFallbackRegistry =
         context.getContext(RemoteLocalFallbackRegistry.class);

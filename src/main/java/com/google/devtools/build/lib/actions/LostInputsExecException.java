@@ -14,42 +14,56 @@
 
 package com.google.devtools.build.lib.actions;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.server.FailureDetails.Execution;
 import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.util.DetailedExitCode;
+import java.util.Optional;
+import javax.annotation.Nullable;
 
 /**
  * An {@link ExecException} thrown when an action fails to execute because one or more of its inputs
  * was lost. In some cases, Bazel may know how to fix this on its own.
  */
-public class LostInputsExecException extends ExecException {
+public final class LostInputsExecException extends ExecException {
 
-  /** Maps lost input digests to their ActionInputs. */
+  /** Maps lost input digests to their {@link ActionInput}. */
   private final ImmutableMap<String, ActionInput> lostInputs;
 
-  private final ActionInputDepOwners owners;
+  /**
+   * Optional mapping of lost inputs to their owning expansion artifacts (tree artifacts, filesets,
+   * runfiles).
+   *
+   * <p>If present, the mapping must be complete. Spawn runners should only provide this if they can
+   * do so correctly and efficiently. If not provided, {@link
+   * com.google.devtools.build.lib.skyframe.rewinding.ActionRewindStrategy} will calculate the
+   * ownership mappings - the only benefit of providing them here is the performance benefit of
+   * skipping that step.
+   */
+  private final Optional<ActionInputDepOwners> owners;
+
+  public LostInputsExecException(ImmutableMap<String, ActionInput> lostInputs) {
+    this(lostInputs, /* owners= */ Optional.empty(), /* cause= */ null);
+  }
 
   public LostInputsExecException(
       ImmutableMap<String, ActionInput> lostInputs, ActionInputDepOwners owners) {
-    super(getMessage(lostInputs));
-    this.lostInputs = lostInputs;
-    this.owners = owners;
+    this(lostInputs, Optional.of(owners), /* cause= */ null);
   }
 
   public LostInputsExecException(
-      ImmutableMap<String, ActionInput> lostInputs, ActionInputDepOwners owners, Throwable cause) {
-    super(getMessage(lostInputs), cause);
+      ImmutableMap<String, ActionInput> lostInputs,
+      Optional<ActionInputDepOwners> owners,
+      @Nullable Throwable cause) {
+    super("lost inputs with digests: " + String.join(",", lostInputs.keySet()), cause);
+    checkArgument(!lostInputs.isEmpty(), "No inputs were lost");
     this.lostInputs = lostInputs;
-    this.owners = owners;
-  }
-
-  private static String getMessage(ImmutableMap<String, ActionInput> lostInputs) {
-    return "lost inputs with digests: " + Joiner.on(",").join(lostInputs.keySet());
+    this.owners = checkNotNull(owners);
   }
 
   @VisibleForTesting
@@ -58,12 +72,11 @@ public class LostInputsExecException extends ExecException {
   }
 
   @VisibleForTesting
-  public ActionInputDepOwners getOwners() {
+  public Optional<ActionInputDepOwners> getOwners() {
     return owners;
   }
 
-  protected ActionExecutionException fromExecException(
-      String message, Action action, DetailedExitCode code) {
+  ActionExecutionException fromExecException(String message, Action action, DetailedExitCode code) {
     return new LostInputsActionExecutionException(
         message, lostInputs, owners, action, /* cause= */ this, code);
   }
@@ -77,42 +90,23 @@ public class LostInputsExecException extends ExecException {
   }
 
   public LostInputsExecException combine(LostInputsExecException other) {
-    // Collisions can happen when the two sources of the original exceptions shared knowledge of
-    // what was lost. For example, a SpawnRunner may discover a lost input and look it up in an
-    // action filesystem in which it's also lost. The SpawnRunner and the filesystem may then each
-    // throw a LostInputsExecException with the same information.
-    var map =
+    ImmutableMap<String, ActionInput> combinedLostInputs =
         ImmutableMap.<String, ActionInput>builder()
             .putAll(lostInputs)
             .putAll(other.lostInputs)
+            // Key collisions are expected when the two sources of the original exceptions shared
+            // knowledge of what was lost. For example, a SpawnRunner may discover a lost input and
+            // look it up in an action filesystem in which it's also lost. The SpawnRunner and the
+            // filesystem may then each throw a LostInputsExecException with the same information.
             .buildKeepingLast();
     LostInputsExecException combined =
         new LostInputsExecException(
-            map, new MergedActionInputDepOwners(owners, other.owners), this);
+            combinedLostInputs, /* owners= */ Optional.empty(), /* cause= */ this);
     combined.addSuppressed(other);
     return combined;
   }
 
   public void combineAndThrow(LostInputsExecException other) throws LostInputsExecException {
     throw combine(other);
-  }
-
-  private static class MergedActionInputDepOwners implements ActionInputDepOwners {
-
-    private final ActionInputDepOwners left;
-    private final ActionInputDepOwners right;
-
-    MergedActionInputDepOwners(ActionInputDepOwners left, ActionInputDepOwners right) {
-      this.left = left;
-      this.right = right;
-    }
-
-    @Override
-    public ImmutableSet<Artifact> getDepOwners(ActionInput input) {
-      return ImmutableSet.<Artifact>builder()
-          .addAll(left.getDepOwners(input))
-          .addAll(right.getDepOwners(input))
-          .build();
-    }
   }
 }

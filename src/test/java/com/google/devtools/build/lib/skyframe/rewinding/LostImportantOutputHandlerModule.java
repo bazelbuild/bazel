@@ -85,7 +85,7 @@ public class LostImportantOutputHandlerModule extends BlazeModule {
 
   @ForOverride
   protected ImportantOutputHandler createOutputHandler(CommandEnvironment env) {
-    return new MockImportantOutputHandler(env.getExecRoot().asFragment());
+    return new MockImportantOutputHandler();
   }
 
   /**
@@ -99,11 +99,6 @@ public class LostImportantOutputHandlerModule extends BlazeModule {
   }
 
   private final class MockImportantOutputHandler implements ImportantOutputHandler {
-    private final PathFragment execRoot;
-
-    MockImportantOutputHandler(PathFragment execRoot) {
-      this.execRoot = execRoot;
-    }
 
     @Override
     public LostArtifacts processOutputsAndGetLostArtifacts(
@@ -143,11 +138,7 @@ public class LostImportantOutputHandlerModule extends BlazeModule {
       for (OutputAndOwner outputAndOwner : expand(outputs, expander)) {
         ActionInput output = outputAndOwner.output;
         Artifact owner = outputAndOwner.owner;
-        PathFragment execPath = output.getExecPath();
-        if (execPath.isAbsolute()) {
-          execPath = execPath.relativeTo(execRoot);
-        }
-        if (!outputIsLost(execPath)) {
+        if (!outputIsLost(output.getExecPath())) {
           continue;
         }
         FileArtifactValue metadata;
@@ -164,14 +155,14 @@ public class LostImportantOutputHandlerModule extends BlazeModule {
       return new LostArtifacts(lost.buildKeepingLast(), owners.build()::get);
     }
 
-    private ImmutableList<OutputAndOwner> expand(
+    private static ImmutableList<OutputAndOwner> expand(
         Iterable<Artifact> outputs, ArtifactExpander expander) {
       return stream(outputs)
           .flatMap(artifact -> expand(artifact, expander))
           .collect(toImmutableList());
     }
 
-    private Stream<OutputAndOwner> expand(Artifact output, ArtifactExpander expander) {
+    private static Stream<OutputAndOwner> expand(Artifact output, ArtifactExpander expander) {
       if (output.isTreeArtifact()) {
         var children = expander.tryExpandTreeArtifact(output).stream();
         var archivedTreeArtifact = expander.getArchivedTreeArtifact(output);
@@ -190,10 +181,7 @@ public class LostImportantOutputHandlerModule extends BlazeModule {
         }
         return links.stream()
             .filter(FilesetOutputSymlink::relativeToExecRoot)
-            .map(
-                link ->
-                    new OutputAndOwner(
-                        ActionInputHelper.fromPath(link.reconstituteTargetPath(execRoot)), output));
+            .map(link -> new OutputAndOwner(ActionInputHelper.fromPath(link.targetPath()), output));
       }
       return Stream.of(new OutputAndOwner(output, null));
     }

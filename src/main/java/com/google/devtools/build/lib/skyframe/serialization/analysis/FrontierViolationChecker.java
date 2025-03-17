@@ -55,11 +55,13 @@ public final class FrontierViolationChecker {
   private static final String DETECTION_MESSAGE =
       "Detected filesystem changes outside of the target's project directories.";
   public static final String WARNING_MESSAGE =
-      DETECTION_MESSAGE + " Remote analysis caching will be disabled. The filesystem changes are: ";
+      DETECTION_MESSAGE
+          + " Remote analysis caching will be disabled. Revert these filesystem changes to"
+          + " continue:\n";
   public static final String STRICT_MESSAGE =
       DETECTION_MESSAGE
           + " Use --experimental_frontier_violation_check=warn or revert these"
-          + " filesystem changes to continue: ";
+          + " filesystem changes to continue:\n";
 
   private FrontierViolationChecker() {}
 
@@ -74,6 +76,7 @@ public final class FrontierViolationChecker {
   public static RemoteAnalysisCachingDependenciesProvider check(
       RemoteAnalysisCachingDependenciesProvider provider,
       FrontierViolationCheck check,
+      boolean verbose,
       EventHandler eventHandler,
       MemoizingEvaluator evaluator,
       String productName,
@@ -112,13 +115,24 @@ public final class FrontierViolationChecker {
       return provider;
     }
 
-    int maxViolationsToPrint = 5;
-    String violationsString =
-        Joiner.on(", ").join(Iterables.limit(violations, maxViolationsToPrint));
-    if (violations.size() > maxViolationsToPrint) {
-      violationsString +=
-          String.format(
-              " and %s more (omitted to avoid spam).", violations.size() - maxViolationsToPrint);
+    String instructions = modifiedFileSet.getInstructionsMessage(violations);
+    String violationsString;
+    if (instructions == null || !verbose) {
+      int maxViolationsToPrint = 5;
+      violationsString = Joiner.on(", ").join(Iterables.limit(violations, maxViolationsToPrint));
+      if (violations.size() > maxViolationsToPrint) {
+        violationsString +=
+            String.format(
+                " and %s more (omitted to avoid spam).", violations.size() - maxViolationsToPrint);
+      }
+      if (instructions != null) {
+        violationsString +=
+            "\nIf you are sure you are on the right client, pass the flag"
+                + " --experimental_frontier_violation_verbose to see instructions to clean up"
+                + " violations.";
+      }
+    } else {
+      violationsString = modifiedFileSet.getInstructionsPrelude(violations) + instructions;
     }
     return switch (check) {
       case WARN -> {

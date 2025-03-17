@@ -59,7 +59,6 @@ import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
 import com.google.devtools.build.lib.util.CommandFailureUtils;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystem;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.io.InterruptedIOException;
@@ -80,13 +79,11 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
    */
   private static final AtomicInteger execCount = new AtomicInteger();
 
-  private final SpawnInputExpander spawnInputExpander;
+  private final SpawnInputExpander spawnInputExpander = new SpawnInputExpander();
   private final SpawnRunner spawnRunner;
   private final ExecutionOptions executionOptions;
 
-  protected AbstractSpawnStrategy(
-      Path execRoot, SpawnRunner spawnRunner, ExecutionOptions executionOptions) {
-    this.spawnInputExpander = new SpawnInputExpander(execRoot);
+  protected AbstractSpawnStrategy(SpawnRunner spawnRunner, ExecutionOptions executionOptions) {
     this.spawnRunner = spawnRunner;
     this.executionOptions = executionOptions;
   }

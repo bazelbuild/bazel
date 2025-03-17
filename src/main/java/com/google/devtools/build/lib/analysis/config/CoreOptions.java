@@ -200,7 +200,11 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       converter = AutoCpuConverter.class,
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.CHANGES_INPUTS, OptionEffectTag.AFFECTS_OUTPUTS},
-      help = "The target CPU.")
+      // Don't set an actual deprecation notice: this is still heavily used and will be ignored.
+      help =
+          "Deprecated: this flag is not used internally by Blaze although there are legacy platform"
+              + " mappings to allow for backwards compatibility. Do not use this flag, instead use"
+              + " --platforms with an appropriate platform definition.")
   public String cpu;
 
   @Option(

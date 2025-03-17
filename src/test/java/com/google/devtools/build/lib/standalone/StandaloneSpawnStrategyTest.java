@@ -138,7 +138,6 @@ public class StandaloneSpawnStrategyTest {
     BinTools binTools = BinTools.forIntegrationTesting(directories, ImmutableList.of());
     StandaloneSpawnStrategy strategy =
         new StandaloneSpawnStrategy(
-            execRoot,
             new LocalSpawnRunner(
                 execRoot,
                 localExecutionOptions,

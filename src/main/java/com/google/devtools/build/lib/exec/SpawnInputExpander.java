@@ -39,7 +39,6 @@ import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.util.List;
@@ -54,23 +53,19 @@ import java.util.TreeMap;
  */
 public final class SpawnInputExpander {
 
-  private final Path execRoot;
   private final RelativeSymlinkBehavior relSymlinkBehavior;
   private final boolean expandArchivedTreeArtifacts;
 
-  public SpawnInputExpander(Path execRoot) {
-    this(execRoot, RelativeSymlinkBehavior.ERROR);
+  public SpawnInputExpander() {
+    this(RelativeSymlinkBehavior.ERROR);
   }
 
-  public SpawnInputExpander(Path execRoot, RelativeSymlinkBehavior relSymlinkBehavior) {
-    this(execRoot, relSymlinkBehavior, /* expandArchivedTreeArtifacts= */ true);
+  public SpawnInputExpander(RelativeSymlinkBehavior relSymlinkBehavior) {
+    this(relSymlinkBehavior, /* expandArchivedTreeArtifacts= */ true);
   }
 
   public SpawnInputExpander(
-      Path execRoot,
-      RelativeSymlinkBehavior relSymlinkBehavior,
-      boolean expandArchivedTreeArtifacts) {
-    this.execRoot = execRoot;
+      RelativeSymlinkBehavior relSymlinkBehavior, boolean expandArchivedTreeArtifacts) {
     this.relSymlinkBehavior = relSymlinkBehavior;
     this.expandArchivedTreeArtifacts = expandArchivedTreeArtifacts;
   }
@@ -85,7 +80,7 @@ public final class SpawnInputExpander {
   }
 
   @VisibleForTesting
-  public void addSingleRunfilesTreeToInputs(
+  void addSingleRunfilesTreeToInputs(
       RunfilesTree runfilesTree,
       Map<PathFragment, ActionInput> inputMap,
       ArtifactExpander artifactExpander,
@@ -140,7 +135,7 @@ public final class SpawnInputExpander {
                   NestedSetBuilder.create(Order.STABLE_ORDER, artifact),
                   artifactExpander,
                   /* keepEmptyTreeArtifacts= */ false,
-                  /* keepRunfilesTreeArtifacts= */ false);
+                  /* keepRunfilesTrees= */ false);
           for (ActionInput input : expandedInputs) {
             addMapping(
                 inputMap,
@@ -193,7 +188,7 @@ public final class SpawnInputExpander {
             addMapping(
                 inputMap,
                 location.getRelative(name),
-                ActionInputHelper.fromPath(execRoot.getRelative(target).asFragment()),
+                ActionInputHelper.fromPath(target),
                 baseDirectory));
   }
 
@@ -213,7 +208,7 @@ public final class SpawnInputExpander {
             inputFiles,
             artifactExpander,
             /* keepEmptyTreeArtifacts= */ true,
-            /* keepRunfilesTreeArtifacts= */ true);
+            /* keepRunfilesTrees= */ true);
     for (ActionInput input : inputs) {
       if (input instanceof TreeFileArtifact) {
         addMapping(
