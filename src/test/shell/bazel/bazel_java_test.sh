@@ -1595,6 +1595,7 @@ function setup_jni_targets() {
   repo="${1:-.}"
   if [ "$repo" != "." ]; then
     mkdir $repo
+    touch $repo/WORKSPACE
     cat >> WORKSPACE <<EOF
 load("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(
