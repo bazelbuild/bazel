@@ -199,6 +199,16 @@ public class BzlCompileFunction implements SkyFunction {
             // matching the error message or reworking the interpreter API to put more structured
             // detail in errors (i.e. new fields or error subclasses).
             .stringLiteralsAreAsciiOnly(key.isSclDialect())
+            .allowTypeAnnotations(
+                semantics.getBool(BuildLanguageOptions.EXPERIMENTAL_STARLARK_TYPES)
+                    && !key.isBuildPrelude() // annotations in prelude not allowed
+                    && (semantics
+                            .get(BuildLanguageOptions.EXPERIMENTAL_STARLARK_TYPES_ALLOWED_PATHS)
+                            .isEmpty()
+                        || semantics
+                            .get(BuildLanguageOptions.EXPERIMENTAL_STARLARK_TYPES_ALLOWED_PATHS)
+                            .stream()
+                            .anyMatch(s -> key.label.getCanonicalForm().startsWith(s))))
             .build();
     StarlarkFile file = StarlarkFile.parse(input, options);
 
