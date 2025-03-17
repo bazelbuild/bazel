@@ -96,13 +96,16 @@ assert_([d1] <= [d2])  # distinct objects
 assert_([d1] <= [d1, d2])
 assert_([None] <= [None])
 
-# Starlark/Java Strings are ordered lexicographically by elements (chars).
-# With UTF-16, this is not the same as code point order, because
-# surrogates DXXX are not at the top of the 16-bit range. For example:
+# Starlark/Java Strings are ordered lexicographically by elements.
+# With UTF-16, where elements are chars, this is not the same as code point
+# order, because surrogates DXXX are not at the top of the 16-bit range.
+# For example:
 #  U+FFFD  � 	= [FFFD]       REPLACEMENT CHAR
 #  U+1F33F 🌿	= [D83C DF3F]  HERB
 # The first compares greater than the second.
-assert_eq(sorted(["�", "🌿"]), ["🌿", "�"])
+# With UTF-8 byte strings, the order is just the lexicographic order of the
+# bytes.
+assert_eq(sorted(["�", "🌿"]), ["�", "🌿"] if _utf8_byte_strings else ["🌿", "�"])
 
 assert_(False < True)
 assert_fails(lambda: False < 1, "unsupported comparison: bool <=> int")
