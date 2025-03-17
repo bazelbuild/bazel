@@ -324,15 +324,20 @@ class MetricsCollector {
   private ActionData buildActionData(ActionStats actionStats) {
     NanosToMillisSinceEpochConverter nanosToMillisSinceEpochConverter =
         BlazeClock.createNanosToMillisSinceEpochConverter();
+    long numActionsExecuted = actionStats.numActions.get();
     ActionData.Builder builder =
         ActionData.newBuilder()
             .setMnemonic(actionStats.mnemonic)
-            .setFirstStartedMs(
-                nanosToMillisSinceEpochConverter.toEpochMillis(
-                    actionStats.firstStarted.longValue()))
-            .setLastEndedMs(
-                nanosToMillisSinceEpochConverter.toEpochMillis(actionStats.lastEnded.longValue()))
-            .setActionsExecuted(actionStats.numActions.get());
+            .setActionsExecuted(numActionsExecuted);
+
+    if (numActionsExecuted > 0) {
+      builder
+          .setFirstStartedMs(
+              nanosToMillisSinceEpochConverter.toEpochMillis(actionStats.firstStarted.longValue()))
+          .setLastEndedMs(
+              nanosToMillisSinceEpochConverter.toEpochMillis(actionStats.lastEnded.longValue()));
+    }
+
     long systemTime = actionStats.systemTime.get();
     if (systemTime > 0) {
       builder.setSystemTime(Durations.fromMillis(systemTime));
