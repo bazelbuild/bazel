@@ -471,7 +471,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
 
           @Override
           public ModifiedFileSet getDiffFromEvaluatingVersion(
-              OptionsProvider options, FileSystem fs) throws BrokenDiffAwarenessException {
+              OptionsProvider options, FileSystem fs) {
             throw new UnsupportedOperationException("not implemented");
           }
 
@@ -2269,7 +2269,6 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
                       null,
                       new TopLevelArtifactContext(
                           /* runTestsExclusively= */ false,
-                          false,
                           false,
                           OutputGroupInfo.determineOutputGroups(
                               ImmutableList.of(),

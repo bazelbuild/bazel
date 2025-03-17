@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.server.FailureDetails.Execution;
 import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.skyframe.rewinding.LostInputOwners;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import java.util.Optional;
 import javax.annotation.Nullable;
@@ -45,20 +46,20 @@ public final class LostInputsExecException extends ExecException {
    * ownership mappings - the only benefit of providing them here is the performance benefit of
    * skipping that step.
    */
-  private final Optional<ActionInputDepOwners> owners;
+  private final Optional<LostInputOwners> owners;
 
   public LostInputsExecException(ImmutableMap<String, ActionInput> lostInputs) {
     this(lostInputs, /* owners= */ Optional.empty(), /* cause= */ null);
   }
 
   public LostInputsExecException(
-      ImmutableMap<String, ActionInput> lostInputs, ActionInputDepOwners owners) {
+      ImmutableMap<String, ActionInput> lostInputs, LostInputOwners owners) {
     this(lostInputs, Optional.of(owners), /* cause= */ null);
   }
 
   public LostInputsExecException(
       ImmutableMap<String, ActionInput> lostInputs,
-      Optional<ActionInputDepOwners> owners,
+      Optional<LostInputOwners> owners,
       @Nullable Throwable cause) {
     super("lost inputs with digests: " + String.join(",", lostInputs.keySet()), cause);
     checkArgument(!lostInputs.isEmpty(), "No inputs were lost");
@@ -72,7 +73,7 @@ public final class LostInputsExecException extends ExecException {
   }
 
   @VisibleForTesting
-  public Optional<ActionInputDepOwners> getOwners() {
+  public Optional<LostInputOwners> getOwners() {
     return owners;
   }
 

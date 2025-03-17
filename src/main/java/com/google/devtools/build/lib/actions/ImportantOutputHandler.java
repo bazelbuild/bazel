@@ -16,10 +16,10 @@ package com.google.devtools.build.lib.actions;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSetMultimap;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.DetailedException;
+import com.google.devtools.build.lib.skyframe.rewinding.LostInputOwners;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -132,15 +132,15 @@ public interface ImportantOutputHandler extends ActionContext {
   /**
    * Represents artifacts that need to be regenerated via action rewinding, along with their owners.
    */
-  record LostArtifacts(ImmutableMap<String, ActionInput> byDigest, ActionInputDepOwners owners) {
+  record LostArtifacts(ImmutableMap<String, ActionInput> byDigest, LostInputOwners owners) {
 
     /** An empty instance of {@link LostArtifacts}. */
     public static final LostArtifacts EMPTY =
-        new LostArtifacts(ImmutableMap.of(), ImmutableSetMultimap.<ActionInput, Artifact>of()::get);
+        new LostArtifacts(ImmutableMap.of(), new LostInputOwners());
 
-    public LostArtifacts(ImmutableMap<String, ActionInput> byDigest, ActionInputDepOwners owners) {
-      this.byDigest = checkNotNull(byDigest);
-      this.owners = checkNotNull(owners);
+    public LostArtifacts {
+      checkNotNull(byDigest);
+      checkNotNull(owners);
     }
 
     public boolean isEmpty() {

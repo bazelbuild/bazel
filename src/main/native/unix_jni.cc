@@ -822,7 +822,7 @@ static void PostDeleteTreesBelowException(
     path = entry;
   }
   BAZEL_CHECK(!env->ExceptionOccurred());
-  PostException(env, errno, std::string(function) + " (" + path + ")");
+  PostException(env, error, std::string(function) + " (" + path + ")");
 }
 
 // Tries to open a directory and, if the first attempt fails, retries after

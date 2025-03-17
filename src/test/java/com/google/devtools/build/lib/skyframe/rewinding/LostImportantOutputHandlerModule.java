@@ -20,7 +20,6 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
@@ -134,7 +133,7 @@ public class LostImportantOutputHandlerModule extends BlazeModule {
         ArtifactExpander expander,
         InputMetadataProvider metadataProvider) {
       ImmutableMap.Builder<String, ActionInput> lost = ImmutableMap.builder();
-      ImmutableSetMultimap.Builder<ActionInput, Artifact> owners = ImmutableSetMultimap.builder();
+      LostInputOwners owners = new LostInputOwners();
       for (OutputAndOwner outputAndOwner : expand(outputs, expander)) {
         ActionInput output = outputAndOwner.output;
         Artifact owner = outputAndOwner.owner;
@@ -149,10 +148,10 @@ public class LostImportantOutputHandlerModule extends BlazeModule {
         }
         lost.put(digestFn.apply(metadata.getDigest(), metadata.getSize()), output);
         if (owner != null) {
-          owners.put(output, owner);
+          owners.addOwner(output, owner);
         }
       }
-      return new LostArtifacts(lost.buildKeepingLast(), owners.build()::get);
+      return new LostArtifacts(lost.buildKeepingLast(), owners);
     }
 
     private static ImmutableList<OutputAndOwner> expand(

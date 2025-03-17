@@ -288,7 +288,7 @@ public class TargetCompleteEventTest extends AnalysisTestCase {
 
   private static ArtifactsToBuild getArtifactsToBuild(ConfiguredTargetAndData ctAndData) {
     TopLevelArtifactContext context =
-        new TopLevelArtifactContext(false, false, false, OutputGroupInfo.DEFAULT_GROUPS);
+        new TopLevelArtifactContext(false, false, OutputGroupInfo.DEFAULT_GROUPS);
     return TopLevelArtifactHelper.getAllArtifactsToBuild(ctAndData.getConfiguredTarget(), context);
   }
 
@@ -312,7 +312,6 @@ public class TargetCompleteEventTest extends AnalysisTestCase {
         baselineCoverageValue,
         ArtifactPathResolver.IDENTITY,
         inputMap,
-        /* expandFilesets= */ false,
-        /* fullyResolveFilesetLinks= */ false);
+        /* expandFilesets= */ false);
   }
 }

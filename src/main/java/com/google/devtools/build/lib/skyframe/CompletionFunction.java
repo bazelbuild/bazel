@@ -280,7 +280,6 @@ public final class CompletionFunction<
             expandedFilesets,
             baselineCoverageValue,
             key.topLevelArtifactContext().expandFilesets(),
-            key.topLevelArtifactContext().fullyResolveFilesetSymlinks(),
             inputMap,
             importantInputMap,
             pathResolverFactory,
@@ -481,7 +480,7 @@ public final class CompletionFunction<
       // rewinding is successful, we'll report them later on.
       for (ActionInput lostOutput : lostOutputs.byDigest().values()) {
         builtArtifacts.remove(lostOutput);
-        builtArtifacts.removeAll(lostOutputs.owners().getDepOwners(lostOutput));
+        builtArtifacts.removeAll(lostOutputs.owners().getOwners(lostOutput));
       }
 
       return actionRewindStrategy.prepareRewindPlanForLostTopLevelOutputs(

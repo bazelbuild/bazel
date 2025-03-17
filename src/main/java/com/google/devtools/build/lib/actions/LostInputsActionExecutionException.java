@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.actions;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.skyframe.rewinding.LostInputOwners;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Path;
@@ -37,7 +38,7 @@ public final class LostInputsActionExecutionException extends ActionExecutionExc
    *
    * <p>See {@link LostInputsExecException} for details on whether this should be provided.
    */
-  private final Optional<ActionInputDepOwners> owners;
+  private final Optional<LostInputOwners> owners;
 
   /**
    * The {@link ActionLookupData} for the action whose evaluation failed. Used to distinguish
@@ -72,7 +73,7 @@ public final class LostInputsActionExecutionException extends ActionExecutionExc
   public LostInputsActionExecutionException(
       String message,
       ImmutableMap<String, ActionInput> lostInputs,
-      Optional<ActionInputDepOwners> owners,
+      Optional<LostInputOwners> owners,
       Action action,
       Exception cause,
       DetailedExitCode detailedExitCode) {
@@ -85,7 +86,7 @@ public final class LostInputsActionExecutionException extends ActionExecutionExc
     return lostInputs;
   }
 
-  public Optional<ActionInputDepOwners> getOwners() {
+  public Optional<LostInputOwners> getOwners() {
     return owners;
   }
 

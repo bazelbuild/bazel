@@ -14,11 +14,7 @@
 package com.google.devtools.build.lib.exec;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.actions.FilesetOutputTree.RelativeSymlinkBehavior.ERROR;
-import static com.google.devtools.build.lib.actions.FilesetOutputTree.RelativeSymlinkBehavior.IGNORE;
-import static com.google.devtools.build.lib.actions.FilesetOutputTree.RelativeSymlinkBehavior.RESOLVE;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -35,7 +31,6 @@ import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.FilesetOutputTree;
-import com.google.devtools.build.lib.actions.FilesetOutputTree.ForbiddenRelativeSymlinkException;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.RunfilesTree;
@@ -338,7 +333,7 @@ public final class SpawnInputExpanderTest {
     RunfilesTree runfilesTree =
         AnalysisTestUtil.createRunfilesTree(PathFragment.create("runfiles"), runfiles);
 
-    expander = new SpawnInputExpander(IGNORE, /* expandArchivedTreeArtifacts= */ false);
+    expander = new SpawnInputExpander(/* expandArchivedTreeArtifacts= */ false);
     expander.addSingleRunfilesTreeToInputs(
         runfilesTree, inputMap, artifactExpander, PathMapper.NOOP, PathFragment.EMPTY_FRAGMENT);
 
@@ -426,24 +421,24 @@ public final class SpawnInputExpanderTest {
   }
 
   @Test
-  public void testEmptyManifest() throws Exception {
+  public void testEmptyManifest() {
     ImmutableMap<Artifact, FilesetOutputTree> filesetMappings =
         ImmutableMap.of(createFileset("out"), FilesetOutputTree.EMPTY);
 
-    expander.addFilesetManifests(filesetMappings, inputMap, PathFragment.EMPTY_FRAGMENT);
+    SpawnInputExpander.addFilesetManifests(filesetMappings, inputMap, PathFragment.EMPTY_FRAGMENT);
 
     assertThat(inputMap).isEmpty();
   }
 
   @Test
-  public void testManifestWithSingleFile() throws Exception {
+  public void testManifestWithSingleFile() {
     Artifact fileset = createFileset("out");
     ImmutableMap<Artifact, FilesetOutputTree> filesetMappings =
         ImmutableMap.of(
             fileset,
             FilesetOutputTree.create(ImmutableList.of(filesetSymlink("foo/bar", "/dir/file"))));
 
-    expander.addFilesetManifests(filesetMappings, inputMap, PathFragment.EMPTY_FRAGMENT);
+    SpawnInputExpander.addFilesetManifests(filesetMappings, inputMap, PathFragment.EMPTY_FRAGMENT);
 
     assertThat(inputMap)
         .containsExactly(
@@ -451,7 +446,7 @@ public final class SpawnInputExpanderTest {
   }
 
   @Test
-  public void testManifestWithTwoFiles() throws Exception {
+  public void testManifestWithTwoFiles() {
     Artifact fileset = createFileset("out");
     ImmutableMap<Artifact, FilesetOutputTree> filesetMappings =
         ImmutableMap.of(
@@ -461,7 +456,7 @@ public final class SpawnInputExpanderTest {
                     filesetSymlink("foo/bar", "/dir/file"),
                     filesetSymlink("foo/baz", "/dir/file"))));
 
-    expander.addFilesetManifests(filesetMappings, inputMap, PathFragment.EMPTY_FRAGMENT);
+    SpawnInputExpander.addFilesetManifests(filesetMappings, inputMap, PathFragment.EMPTY_FRAGMENT);
 
     assertThat(inputMap)
         .containsExactly(
@@ -470,14 +465,14 @@ public final class SpawnInputExpanderTest {
   }
 
   @Test
-  public void testManifestWithDirectory() throws Exception {
+  public void testManifestWithDirectory() {
     Artifact fileset = createFileset("out");
     ImmutableMap<Artifact, FilesetOutputTree> filesetMappings =
         ImmutableMap.of(
             fileset,
             FilesetOutputTree.create(ImmutableList.of(filesetSymlink("foo/bar", "/some"))));
 
-    expander.addFilesetManifests(filesetMappings, inputMap, PathFragment.EMPTY_FRAGMENT);
+    SpawnInputExpander.addFilesetManifests(filesetMappings, inputMap, PathFragment.EMPTY_FRAGMENT);
 
     assertThat(inputMap)
         .containsExactly(PathFragment.create("out/foo/bar"), ActionInputHelper.fromPath("/some"));
@@ -494,68 +489,5 @@ public final class SpawnInputExpanderTest {
         PathFragment.create(execPath),
         ActionsTestUtil.NULL_ARTIFACT_OWNER,
         SpecialArtifactType.FILESET);
-  }
-
-  @Test
-  public void testManifestWithErrorOnRelativeSymlink() {
-    expander = new SpawnInputExpander(ERROR);
-    Artifact fileset = createFileset("out");
-    ImmutableMap<Artifact, FilesetOutputTree> filesetMappings =
-        ImmutableMap.of(
-            fileset,
-            FilesetOutputTree.create(
-                ImmutableList.of(
-                    filesetSymlink("workspace/bar", "foo"),
-                    filesetSymlink("workspace/foo", "/root/bar"))));
-
-    var e =
-        assertThrows(
-            ForbiddenRelativeSymlinkException.class,
-            () ->
-                expander.addFilesetManifests(
-                    filesetMappings, inputMap, PathFragment.EMPTY_FRAGMENT));
-
-    assertThat(e).hasMessageThat().contains("Fileset symlink workspace/bar -> foo is not absolute");
-  }
-
-  @Test
-  public void testManifestWithIgnoredRelativeSymlink() throws Exception {
-    expander = new SpawnInputExpander(IGNORE);
-    Artifact fileset = createFileset("out");
-    ImmutableMap<Artifact, FilesetOutputTree> filesetMappings =
-        ImmutableMap.of(
-            fileset,
-            FilesetOutputTree.create(
-                ImmutableList.of(
-                    filesetSymlink("workspace/bar", "foo"),
-                    filesetSymlink("workspace/foo", "/root/bar"))));
-
-    expander.addFilesetManifests(filesetMappings, inputMap, PathFragment.EMPTY_FRAGMENT);
-
-    assertThat(inputMap)
-        .containsExactly(
-            PathFragment.create("out/workspace/foo"), ActionInputHelper.fromPath("bar"));
-  }
-
-  @Test
-  public void testManifestWithResolvedRelativeSymlink() throws Exception {
-    expander = new SpawnInputExpander(RESOLVE);
-    Artifact fileset = createFileset("out");
-    ImmutableMap<Artifact, FilesetOutputTree> filesetMappings =
-        ImmutableMap.of(
-            fileset,
-            FilesetOutputTree.create(
-                ImmutableList.of(
-                    filesetSymlink("workspace/bar", "foo"),
-                    filesetSymlink("workspace/foo", "/root/bar"))));
-
-    expander.addFilesetManifests(filesetMappings, inputMap, PathFragment.EMPTY_FRAGMENT);
-
-    assertThat(inputMap)
-        .containsExactly(
-            PathFragment.create("out/workspace/bar"),
-            ActionInputHelper.fromPath("bar"),
-            PathFragment.create("out/workspace/foo"),
-            ActionInputHelper.fromPath("bar"));
   }
 }
