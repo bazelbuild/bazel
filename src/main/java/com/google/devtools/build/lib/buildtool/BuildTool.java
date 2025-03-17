@@ -1109,6 +1109,7 @@ public class BuildTool {
           return FrontierViolationChecker.check(
               dependenciesProvider,
               env.getOptions().getOptions(SkyfocusOptions.class).frontierViolationCheck,
+              env.getOptions().getOptions(SkyfocusOptions.class).frontierViolationVerbose,
               env.getReporter(),
               env.getSkyframeExecutor().getEvaluator(),
               env.getRuntime().getProductName(),

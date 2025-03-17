@@ -98,6 +98,14 @@ public final class SkyfocusOptions extends OptionsBase {
               + " outside the working set)")
   public FrontierViolationCheck frontierViolationCheck;
 
+  @Option(
+      name = "experimental_frontier_violation_verbose",
+      defaultValue = "false",
+      effectTags = OptionEffectTag.TERMINAL_OUTPUT,
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      help = "If true, Bazel will print instructions for fixing Skycache violations")
+  public boolean frontierViolationVerbose;
+
   /**
    * Strategies for handing the "sad path" in Skyfocus and analysis caching, where it needs to
    * handle changes outside of the working set. This usually requires some reanalysis to rebuild the
