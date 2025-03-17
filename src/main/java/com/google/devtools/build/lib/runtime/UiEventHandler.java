@@ -106,7 +106,7 @@ public final class UiEventHandler implements EventHandler {
   private final EventBus eventBus;
   private final AnsiTerminal terminal;
   private final boolean debugAllEvents;
-  private final UiStateTracker stateTracker;
+  private UiStateTracker stateTracker;
   private final LocationPrinter locationPrinter;
   private volatile boolean showProgress;
   private final boolean progressInTermTitle;
