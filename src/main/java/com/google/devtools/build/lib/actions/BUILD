@@ -408,7 +408,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
         "//third_party:flogger",
         "//third_party:guava",
-        "//third_party:jsr305",
     ],
 )
 
@@ -417,11 +416,9 @@ java_library(
     srcs = ["FilesetOutputSymlink.java"],
     deps = [
         ":artifacts",
-        ":has_digest",
+        ":file_metadata",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//third_party:auto_value",
-        "//third_party:error_prone_annotations",
         "//third_party:guava",
         "//third_party:jsr305",
     ],

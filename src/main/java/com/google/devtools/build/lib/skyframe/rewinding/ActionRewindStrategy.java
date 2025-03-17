@@ -461,9 +461,6 @@ public final class ActionRewindStrategy {
               outputTree.visitSymlinks(
                   RelativeSymlinkBehaviorWithoutError.RESOLVE,
                   (name, target, metadata) -> {
-                    if (metadata == null) {
-                      return;
-                    }
                     ActionInput input = ActionInputHelper.fromPath(target);
                     if (lostInputsAndOwners.contains(input)) {
                       lostInputsAndOwners.add(fileset);

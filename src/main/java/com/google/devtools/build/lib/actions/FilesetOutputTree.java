@@ -30,7 +30,6 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
-import javax.annotation.Nullable;
 
 /** A collection of {@link FilesetOutputSymlink}s comprising the output tree of a fileset. */
 public final class FilesetOutputTree implements RichArtifactData {
@@ -75,13 +74,12 @@ public final class FilesetOutputTree implements RichArtifactData {
      * Called for each symlink in the fileset's output tree.
      *
      * @param name path of the symlink relative to the fileset's root; equivalent to {@link
-     *     FilesetOutputSymlink#getName}
+     *     FilesetOutputSymlink#name()}
      * @param target symlink target; either an absolute path if the symlink points to a source file
      *     or an execroot-relative path if the symlink points to an output
-     * @param metadata a {@link FileArtifactValue} representing the target's metadata if available,
-     *     or {@code null}
+     * @param metadata a {@link FileArtifactValue} representing the target's metadata
      */
-    void acceptSymlink(PathFragment name, PathFragment target, @Nullable FileArtifactValue metadata)
+    void acceptSymlink(PathFragment name, PathFragment target, FileArtifactValue metadata)
         throws E1, E2;
   }
 
@@ -122,10 +120,7 @@ public final class FilesetOutputTree implements RichArtifactData {
     if (!hasRelativeSymlinks || relSymlinkBehavior == RelativeSymlinkBehaviorWithoutError.IGNORE) {
       for (FilesetOutputSymlink symlink : symlinks) {
         if (!isRelativeSymlink(symlink)) {
-          visitor.acceptSymlink(
-              symlink.name(),
-              symlink.targetPath(),
-              symlink.metadata() instanceof FileArtifactValue metadata ? metadata : null);
+          visitor.acceptSymlink(symlink.name(), symlink.targetPath(), symlink.metadata());
         }
       }
       return;
@@ -146,9 +141,7 @@ public final class FilesetOutputTree implements RichArtifactData {
       // Symlinks are already deduplicated by name in SkyframeFilesetManifestAction.
       checkState(map.put(name, targetPath) == null, "Duplicate fileset entry at %s", name);
 
-      if (outputSymlink.metadata() instanceof FileArtifactValue metadata) {
-        artifactValues.put(targetPath, metadata);
-      }
+      artifactValues.put(targetPath, outputSymlink.metadata());
     }
 
     if (relSymlinkBehavior == RelativeSymlinkBehaviorWithoutError.RESOLVE_FULLY) {

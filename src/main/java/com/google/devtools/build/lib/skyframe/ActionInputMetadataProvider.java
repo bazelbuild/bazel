@@ -67,11 +67,7 @@ final class ActionInputMetadataProvider implements InputMetadataProvider {
     for (FilesetOutputTree filesetOutput : filesets.values()) {
       filesetOutput.visitSymlinks(
           RelativeSymlinkBehaviorWithoutError.RESOLVE,
-          (name, target, metadata) -> {
-            if (metadata != null && metadata.getDigest() != null) {
-              filesetMap.put(target.getPathString(), metadata);
-            }
-          });
+          (name, target, metadata) -> filesetMap.put(target.getPathString(), metadata));
     }
     return ImmutableMap.copyOf(filesetMap);
   }
