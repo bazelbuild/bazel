@@ -24,22 +24,27 @@ import org.junit.runners.JUnit4;
 /** Tests {@link Node#toString} and {@code NodePrinter}. */
 @RunWith(JUnit4.class)
 public final class NodePrinterTest {
+  private FileOptions fileOptions = FileOptions.DEFAULT;
 
-  private static StarlarkFile parseFile(String... lines) throws SyntaxError.Exception {
+  private void setFileOptions(FileOptions fileOptions) {
+    this.fileOptions = fileOptions;
+  }
+
+  private StarlarkFile parseFile(String... lines) throws SyntaxError.Exception {
     ParserInput input = ParserInput.fromLines(lines);
-    StarlarkFile file = StarlarkFile.parse(input);
+    StarlarkFile file = StarlarkFile.parse(input, fileOptions);
     if (!file.ok()) {
       throw new SyntaxError.Exception(file.errors());
     }
     return file;
   }
 
-  private static Statement parseStatement(String... lines) throws SyntaxError.Exception {
+  private Statement parseStatement(String... lines) throws SyntaxError.Exception {
     return parseFile(lines).getStatements().get(0);
   }
 
-  private static Expression parseExpression(String... lines) throws SyntaxError.Exception {
-    return Expression.parse(ParserInput.fromLines(lines));
+  private Expression parseExpression(String... lines) throws SyntaxError.Exception {
+    return Expression.parse(ParserInput.fromLines(lines), fileOptions);
   }
 
   private static String join(String... lines) {
@@ -74,27 +79,27 @@ public final class NodePrinterTest {
    * Parses the given string as an expression, and asserts that its pretty print matches the given
    * string.
    */
-  private static void assertExprPrettyMatches(String source, String expected)
+  private void assertExprPrettyMatches(String source, String expected)
       throws SyntaxError.Exception {
-      Expression node = parseExpression(source);
-      assertPrettyMatches(node, expected);
+    Expression node = parseExpression(source);
+    assertPrettyMatches(node, expected);
   }
 
   /**
    * Parses the given string as an expression, and asserts that its {@code toString} matches the
    * given string.
    */
-  private static void assertExprTostringMatches(String source, String expected)
+  private void assertExprTostringMatches(String source, String expected)
       throws SyntaxError.Exception {
-      Expression node = parseExpression(source);
-      assertThat(node.toString()).isEqualTo(expected);
+    Expression node = parseExpression(source);
+    assertThat(node.toString()).isEqualTo(expected);
   }
 
   /**
    * Parses the given string as an expression, and asserts that both its pretty print and {@code
    * toString} return the original string.
    */
-  private static void assertExprBothRoundTrip(String source) throws SyntaxError.Exception {
+  private void assertExprBothRoundTrip(String source) throws SyntaxError.Exception {
     assertExprPrettyMatches(source, source);
     assertExprTostringMatches(source, source);
   }
@@ -103,7 +108,7 @@ public final class NodePrinterTest {
    * Parses the given string as a statement, and asserts that its pretty print with one indent
    * matches the given string.
    */
-  private static void assertStmtIndentedPrettyMatches(String source, String expected)
+  private void assertStmtIndentedPrettyMatches(String source, String expected)
       throws SyntaxError.Exception {
     Statement node = parseStatement(source);
     assertIndentedPrettyMatches(node, expected);
@@ -113,7 +118,7 @@ public final class NodePrinterTest {
    * Parses the given string as an statement, and asserts that its {@code toString} matches the
    * given string.
    */
-  private static void assertStmtTostringMatches(String source, String expected)
+  private void assertStmtTostringMatches(String source, String expected)
       throws SyntaxError.Exception {
     Statement node = parseStatement(source);
     assertThat(node.toString()).isEqualTo(expected);
@@ -158,6 +163,7 @@ public final class NodePrinterTest {
     assertExprBothRoundTrip("f(a)");
     assertExprBothRoundTrip("f(a, b = B, c = C, *d, **e)");
     assertExprBothRoundTrip("o.f()");
+    assertExprBothRoundTrip("f(1 + 1)");
   }
 
   @Test
@@ -168,6 +174,9 @@ public final class NodePrinterTest {
   @Test
   public void indexExpression() throws SyntaxError.Exception {
     assertExprBothRoundTrip("a[i]");
+    assertExprBothRoundTrip("a[(1,)]");
+    assertExprPrettyMatches("a[1,2]", "a[(1, 2)]");
+    assertExprTostringMatches("a[1,2]", "a[(1, 2)]");
   }
 
   @Test
@@ -276,16 +285,37 @@ public final class NodePrinterTest {
             "  print(x)"),
         "def f(a, b=B, *c, d=D, **e): ...\n");
 
+    assertStmtIndentedPrettyMatches(join("def f():", "  pass"), join("  def f():", "    pass", ""));
+    assertStmtTostringMatches(join("def f():", "  pass"), "def f(): ...\n");
+  }
+
+  @Test
+  public void defStatementWithTypeAnnotations() throws SyntaxError.Exception {
+    setFileOptions(FileOptions.builder().allowTypeAnnotations(true).build());
     assertStmtIndentedPrettyMatches(
-        join("def f():",
-             "  pass"),
-        join("  def f():",
-             "    pass",
-             ""));
+        join("def f(x:int):", "  print(x)"), join("  def f(x: int):", "    print(x)", ""));
+    assertStmtTostringMatches(join("def f(x:bool):", "  print(x)"), "def f(x: bool): ...\n");
+
+    assertStmtIndentedPrettyMatches(
+        join("def f()->int:", "  print(x)"), join("  def f() -> int:", "    print(x)", ""));
+    assertStmtTostringMatches(join("def f() -> bool:", "  print(x)"), "def f() -> bool: ...\n");
+  }
+
+  @Test
+  public void typeAnnotations() throws SyntaxError.Exception {
+    // TODO(ilist@): replace with parsing type annotations directly (remove `def` from this test)
+    setFileOptions(FileOptions.builder().allowTypeAnnotations(true).build());
+    assertStmtTostringMatches("def f(x:bool): pass", "def f(x: bool): ...\n");
+    assertStmtTostringMatches("def f(x:None | bool): pass", "def f(x: None | bool): ...\n");
+    assertStmtTostringMatches("def f(x:list[str]): pass", "def f(x: list[str]): ...\n");
+    assertStmtTostringMatches("def f(x:dict[str,int]): pass", "def f(x: dict[str, int]): ...\n");
     assertStmtTostringMatches(
-        join("def f():",
-             "  pass"),
-        "def f(): ...\n");
+        "def f(x:Callable[[str],int]): pass", "def f(x: Callable[[str], int]): ...\n");
+    assertStmtTostringMatches(
+        "def f(x:Callable[[str|int],int]): pass", "def f(x: Callable[[str | int], int]): ...\n");
+    assertStmtTostringMatches(
+        "def f(x:TypedDict[{'field1': int}]): pass",
+        "def f(x: TypedDict[{\"field1\": int}]): ...\n");
   }
 
   @Test
