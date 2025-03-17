@@ -50,11 +50,11 @@ public class NativePosixFilesTest {
   public void nativeExceptionContainsFileAndLine() throws Exception {
     File foo = new File("/non-existent");
     try {
-      NativePosixFiles.remove(foo.getPath());
+      NativePosixFiles.readlink(foo.getPath());
       fail("Expected some exception");
     } catch (IOException e) {
       assertThat(e).hasMessageThat().startsWith("[src/main/native/unix_jni.cc:");
-      assertThat(e).hasMessageThat().endsWith("/non-existent (Read-only file system)");
+      assertThat(e).hasMessageThat().endsWith("/non-existent (No such file or directory)");
     }
   }
 
