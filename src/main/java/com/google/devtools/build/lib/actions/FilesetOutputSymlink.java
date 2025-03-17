@@ -32,7 +32,6 @@ import javax.annotation.Nullable;
  *       <li>Relative to the execution root, in which case {@link #isRelativeToExecRoot} will return
  *           {@code true}.
  *       <li>An absolute path to the source tree.
- *       <li>A relative path that should be considered relative to the link.
  *     </ol>
  *
  * @param metadata {@link FileArtifactValue} representing metadata of the symlink target; guaranteed
@@ -44,6 +43,7 @@ import javax.annotation.Nullable;
  *     <p>To simplify serialization, only the exec path is stored, not the whole {@link
  *     SpecialArtifact} .
  */
+// TODO: b/403610723 - Relativization can be simplified now that all symlinks point to an Artifact.
 @AutoCodec
 public record FilesetOutputSymlink(
     PathFragment name,

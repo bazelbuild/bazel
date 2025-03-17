@@ -28,8 +28,6 @@ import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ArtifactExpander.MissingExpansionException;
 import com.google.devtools.build.lib.actions.FilesetOutputTree;
-import com.google.devtools.build.lib.actions.FilesetOutputTree.ForbiddenRelativeSymlinkException;
-import com.google.devtools.build.lib.actions.FilesetOutputTree.RelativeSymlinkBehavior;
 import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.PathMapper;
@@ -53,20 +51,13 @@ import java.util.TreeMap;
  */
 public final class SpawnInputExpander {
 
-  private final RelativeSymlinkBehavior relSymlinkBehavior;
   private final boolean expandArchivedTreeArtifacts;
 
   public SpawnInputExpander() {
-    this(RelativeSymlinkBehavior.ERROR);
+    this(/* expandArchivedTreeArtifacts= */ true);
   }
 
-  public SpawnInputExpander(RelativeSymlinkBehavior relSymlinkBehavior) {
-    this(relSymlinkBehavior, /* expandArchivedTreeArtifacts= */ true);
-  }
-
-  public SpawnInputExpander(
-      RelativeSymlinkBehavior relSymlinkBehavior, boolean expandArchivedTreeArtifacts) {
-    this.relSymlinkBehavior = relSymlinkBehavior;
+  public SpawnInputExpander(boolean expandArchivedTreeArtifacts) {
     this.expandArchivedTreeArtifacts = expandArchivedTreeArtifacts;
   }
 
@@ -163,27 +154,24 @@ public final class SpawnInputExpander {
   }
 
   @VisibleForTesting
-  void addFilesetManifests(
+  static void addFilesetManifests(
       Map<Artifact, FilesetOutputTree> filesetMappings,
       Map<PathFragment, ActionInput> inputMap,
-      PathFragment baseDirectory)
-      throws ForbiddenRelativeSymlinkException {
+      PathFragment baseDirectory) {
     for (Map.Entry<Artifact, FilesetOutputTree> entry : filesetMappings.entrySet()) {
       Artifact fileset = entry.getKey();
       addFilesetManifest(fileset.getExecPath(), fileset, entry.getValue(), inputMap, baseDirectory);
     }
   }
 
-  private void addFilesetManifest(
+  private static void addFilesetManifest(
       PathFragment location,
       Artifact filesetArtifact,
       FilesetOutputTree filesetOutput,
       Map<PathFragment, ActionInput> inputMap,
-      PathFragment baseDirectory)
-      throws ForbiddenRelativeSymlinkException {
+      PathFragment baseDirectory) {
     Preconditions.checkArgument(filesetArtifact.isFileset(), filesetArtifact);
     filesetOutput.visitSymlinks(
-        relSymlinkBehavior,
         (name, target, metadata) ->
             addMapping(
                 inputMap,
@@ -334,8 +322,7 @@ public final class SpawnInputExpander {
         ImmutableList.of(filesetMappings, baseDirectory, spawn.getPathMapper().cacheKey()),
         new InputWalker() {
           @Override
-          public SortedMap<PathFragment, ActionInput> getLeavesInputMapping()
-              throws ForbiddenRelativeSymlinkException {
+          public SortedMap<PathFragment, ActionInput> getLeavesInputMapping() {
             TreeMap<PathFragment, ActionInput> inputMap = new TreeMap<>();
             addFilesetManifests(filesetMappings, inputMap, baseDirectory);
             return inputMap;

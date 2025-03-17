@@ -42,7 +42,6 @@ import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.FilesetOutputTree;
-import com.google.devtools.build.lib.actions.FilesetOutputTree.RelativeSymlinkBehaviorWithoutError;
 import com.google.devtools.build.lib.actions.LostInputsActionExecutionException;
 import com.google.devtools.build.lib.actions.RunfilesArtifactValue;
 import com.google.devtools.build.lib.actions.RunfilesTree;
@@ -459,7 +458,6 @@ public final class ActionRewindStrategy {
       expandedFilesets.forEach(
           (fileset, outputTree) ->
               outputTree.visitSymlinks(
-                  RelativeSymlinkBehaviorWithoutError.RESOLVE,
                   (name, target, metadata) -> {
                     ActionInput input = ActionInputHelper.fromPath(target);
                     if (lostInputsAndOwners.contains(input)) {

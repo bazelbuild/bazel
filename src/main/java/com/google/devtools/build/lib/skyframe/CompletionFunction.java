@@ -296,7 +296,6 @@ public final class CompletionFunction<
             expandedFilesets,
             baselineCoverageValue,
             key.topLevelArtifactContext().expandFilesets(),
-            key.topLevelArtifactContext().fullyResolveFilesetSymlinks(),
             inputMap,
             importantInputMap,
             pathResolverFactory,

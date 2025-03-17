@@ -401,12 +401,8 @@ java_library(
     deps = [
         ":file_metadata",
         ":fileset_output_symlink",
-        ":forbidden_action_input_exception",
         "//src/main/java/com/google/devtools/build/lib/util",
-        "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
-        "//third_party:flogger",
         "//third_party:guava",
     ],
 )
