@@ -952,7 +952,9 @@ final class Parser {
       nextToken();
       return parseTypeExpr();
     } else if (token.kind == expectedToken) {
-      syntaxError("type annotations are disallowed.");
+      syntaxError(
+          "type annotations are disallowed. Enable them with --experimental_starlark_types and"
+              + " --experimental_starlark_types_allowed_paths.");
     }
     return null;
   }

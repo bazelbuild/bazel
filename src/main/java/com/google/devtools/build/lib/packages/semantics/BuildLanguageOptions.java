@@ -737,6 +737,27 @@ public final class BuildLanguageOptions extends OptionsBase {
   public boolean experimentalDormantDeps;
 
   @Option(
+      name = "experimental_starlark_types",
+      defaultValue = FlagConstants.DEFAULT_EXPERIMENTAL_STARLARK_TYPES,
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "Enables type annotations and type checking. Locations where the annotations are "
+              + "allowed is further controlled by `--experimental_starlark_types_allowed_paths`.")
+  public boolean experimentalStarlarkTypes;
+
+  @Option(
+      name = "experimental_starlark_types_allowed_paths",
+      converter = CommaSeparatedOptionListConverter.class,
+      defaultValue = FlagConstants.DEFAULT_EXPERIMENTAL_STARLARK_TYPES_ALLOWED_PATHS,
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help = "List of canonical Label prefixes under which Starlark type annotations are allowed.")
+  public List<String> experimentalStarlarkTypesAllowedPaths;
+
+  @Option(
       name = "incompatible_enable_deprecated_label_apis",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -937,6 +958,8 @@ public final class BuildLanguageOptions extends OptionsBase {
                 incompatibleDisableTargetDefaultProviderFields)
             .setBool(EXPERIMENTAL_RULE_EXTENSION_API, experimentalRuleExtensionApi)
             .setBool(EXPERIMENTAL_DORMANT_DEPS, experimentalDormantDeps)
+            .setBool(EXPERIMENTAL_STARLARK_TYPES, experimentalStarlarkTypes)
+            .set(EXPERIMENTAL_STARLARK_TYPES_ALLOWED_PATHS, experimentalStarlarkTypesAllowedPaths)
             .setBool(INCOMPATIBLE_ENABLE_DEPRECATED_LABEL_APIS, enableDeprecatedLabelApis)
             .setBool(
                 INCOMPATIBLE_STOP_EXPORTING_BUILD_FILE_PATH, incompatibleStopExportingBuildFilePath)
@@ -1046,6 +1069,8 @@ public final class BuildLanguageOptions extends OptionsBase {
   public static final String EXPERIMENTAL_RULE_EXTENSION_API =
       FlagConstants.DEFAULT_EXPERIMENTAL_RULE_EXTENSION_API_NAME;
   public static final String EXPERIMENTAL_DORMANT_DEPS = "-experimental_dormant_deps";
+
+  public static final String EXPERIMENTAL_STARLARK_TYPES = "-experimental_starlark_types";
   public static final String INCOMPATIBLE_ENABLE_DEPRECATED_LABEL_APIS =
       "+incompatible_enable_deprecated_label_apis";
   public static final String INCOMPATIBLE_STOP_EXPORTING_BUILD_FILE_PATH =
@@ -1078,6 +1103,15 @@ public final class BuildLanguageOptions extends OptionsBase {
       INCOMPATIBLE_ENFORCE_STARLARK_UTF8 =
           new StarlarkSemantics.Key<>(
               "incompatible_enforce_starlark_utf8", Utf8EnforcementMode.WARNING);
+  public static final StarlarkSemantics.Key<List<String>>
+      EXPERIMENTAL_STARLARK_TYPES_ALLOWED_PATHS =
+          new StarlarkSemantics.Key<>(
+              "experimental_starlark_types",
+              FlagConstants.DEFAULT_EXPERIMENTAL_STARLARK_TYPES_ALLOWED_PATHS.isEmpty()
+                  ? ImmutableList.of()
+                  : ImmutableList.copyOf(
+                      FlagConstants.DEFAULT_EXPERIMENTAL_STARLARK_TYPES_ALLOWED_PATHS.split(",")));
+
   public static final StarlarkSemantics.Key<Long> MAX_COMPUTATION_STEPS =
       new StarlarkSemantics.Key<>("max_computation_steps", 0L);
   public static final StarlarkSemantics.Key<Integer> NESTED_SET_DEPTH_LIMIT =

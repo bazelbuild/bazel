@@ -34,6 +34,10 @@ class FlagConstants {
       "@rules_shell," +
       "@rules_android";
 
+  public static final String DEFAULT_EXPERIMENTAL_STARLARK_TYPES = "false";
+  // If enabled with --experimental_starlark_type, the annotations may be used in main and external repos.
+  public static final String DEFAULT_EXPERIMENTAL_STARLARK_TYPES_ALLOWED_PATHS = "";
+
   public static final String DEFAULT_INCOMPATIBLE_PACKAGE_GROUP_HAS_PUBLIC_SYNTAX = "true";
   public static final String DEFAULT_INCOMPATIBLE_FIX_PACKAGE_GROUP_REPOROOT_SYNTAX = "true";
 
