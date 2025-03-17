@@ -455,21 +455,24 @@ public final class Json implements StarlarkValue {
       throw Starlark.errorf("unexpected character %s", quoteChar(c));
     }
 
-    // The default encoding behavior for Java's UTF-8 encoder is to replace with '?', not the
-    // Unicode replacement character U+FFFD. This also applies to String#getBytes(...).
-    private static final CharsetEncoder UTF_8_ENCODER =
-        UTF_8
-            .newEncoder()
-            .onMalformedInput(CodingErrorAction.REPLACE)
-            .onUnmappableCharacter(CodingErrorAction.REPLACE)
-            .replaceWith("\uFFFD".getBytes(UTF_8));
-    // The default encoding behavior for Java's UTF-16 encoder is to replace with the Unicode
-    // replacement character U+FFFD, but this doesn't apply to String#getBytes(...).
-    private static final CharsetEncoder UTF_16_ENCODER =
-        UTF_16
-            .newEncoder()
-            .onMalformedInput(CodingErrorAction.REPLACE)
-            .onUnmappableCharacter(CodingErrorAction.REPLACE);
+    private static CharsetEncoder createUtf8Encoder() {
+      // The default encoding behavior for Java's UTF-8 encoder is to replace with '?', not the
+      // Unicode replacement character U+FFFD. This also applies to String#getBytes(...).
+      return UTF_8
+          .newEncoder()
+          .onMalformedInput(CodingErrorAction.REPLACE)
+          .onUnmappableCharacter(CodingErrorAction.REPLACE)
+          .replaceWith("\uFFFD".getBytes(UTF_8));
+    }
+
+    private static CharsetEncoder createUtf16Encoder() {
+      // The default encoding behavior for Java's UTF-16 encoder is to replace with the Unicode
+      // replacement character U+FFFD, but this doesn't apply to String#getBytes(...).
+      return UTF_16
+          .newEncoder()
+          .onMalformedInput(CodingErrorAction.REPLACE)
+          .onUnmappableCharacter(CodingErrorAction.REPLACE);
+    }
 
     private String parseString() throws EvalException {
       i++; // '"'
@@ -524,7 +527,7 @@ public final class Json implements StarlarkValue {
             ByteBuffer byteBuffer;
             try {
               byteBuffer =
-                  (utf8ByteStrings ? UTF_8_ENCODER : UTF_16_ENCODER)
+                  (utf8ByteStrings ? createUtf8Encoder() : createUtf16Encoder())
                       .encode(CharBuffer.wrap(utf16String));
             } catch (CharacterCodingException e) {
               // Cannot happen because we replace with U+FFFD.
