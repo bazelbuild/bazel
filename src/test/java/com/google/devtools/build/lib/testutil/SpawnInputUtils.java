@@ -40,13 +40,6 @@ public final class SpawnInputUtils {
         .orElseThrow(() -> noSuchInput("spawn input", name, spawn));
   }
 
-  public static Artifact getFilesetArtifactWithName(Spawn spawn, String name) {
-    return spawn.getFilesetMappings().keySet().stream()
-        .filter(filesetArtifact -> filesetArtifact.getExecPathString().contains(name))
-        .findFirst()
-        .orElseThrow(() -> noSuchInput("fileset artifact", name, spawn));
-  }
-
   public static ActionInput getFilesetInputWithName(
       Spawn spawn, String artifactName, String inputName) {
     for (Map.Entry<Artifact, FilesetOutputTree> entry : spawn.getFilesetMappings().entrySet()) {

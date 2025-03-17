@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.ActionInputDepOwnerMap;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher.Priority;
@@ -949,14 +948,12 @@ public class RemoteActionFileSystem extends AbstractFileSystem
     }
     throw (LostInputsActionExecutionException)
         ActionExecutionException.fromExecException(
-            new LostInputsExecException(
-                ImmutableMap.copyOf(lostInputs), new ActionInputDepOwnerMap()),
-            action);
+            new LostInputsExecException(ImmutableMap.copyOf(lostInputs)), action);
   }
 
   static class RemoteInMemoryFileSystem extends InMemoryFileSystem {
 
-    public RemoteInMemoryFileSystem(DigestHashFunction hashFunction) {
+    RemoteInMemoryFileSystem(DigestHashFunction hashFunction) {
       super(hashFunction);
     }
 

@@ -23,6 +23,7 @@ import static java.util.stream.Collectors.joining;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ConcurrentHashMultiset;
 import com.google.common.collect.HashMultimap;
+import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -165,13 +166,13 @@ public final class ActionRewindStrategy {
       ActionLookupData failedKey,
       Action failedAction,
       Set<SkyKey> failedActionDeps,
-      LostInputsActionExecutionException lostInputsException,
+      LostInputsActionExecutionException e,
       ActionInputMap inputArtifactData,
       ImmutableMap<Artifact, FilesetOutputTree> expandedFilesets,
       Environment env,
       long actionStartTimeNanos)
       throws ActionRewindException, InterruptedException {
-    ImmutableMap<String, ActionInput> lostInputsByDigest = lostInputsException.getLostInputs();
+    ImmutableMap<String, ActionInput> lostInputsByDigest = e.getLostInputs();
     if (!skyframeActionExecutor.rewindingEnabled()) {
       throw new ActionRewindException(
           "Unexpected lost inputs (pass --rewind_lost_inputs to enable recovery): "
@@ -182,7 +183,10 @@ public final class ActionRewindStrategy {
     ImmutableList<LostInputRecord> lostInputRecords =
         checkIfActionLostInputTooManyTimes(failedKey, failedAction, lostInputsByDigest);
     ActionInputDepOwners inputDepOwners =
-        createAugmentedInputDepOwners(lostInputsException, inputArtifactData, expandedFilesets);
+        e.getOwners().isPresent()
+            ? e.getOwners().get()
+            : calculateLostInputOwners(
+                lostInputsByDigest.values(), inputArtifactData, expandedFilesets);
 
     ImmutableList.Builder<Action> depsToRewind = ImmutableList.builder();
     Reset rewindPlan;
@@ -201,7 +205,7 @@ public final class ActionRewindStrategy {
           createLostInputRewindEvent(failedAction, rewindPlan, lostInputRecords));
     }
 
-    if (lostInputsException.isActionStartedEventAlreadyEmitted()) {
+    if (e.isActionStartedEventAlreadyEmitted()) {
       env.getListener()
           .post(new ActionRewoundEvent(actionStartTimeNanos, BlazeClock.nanoTime(), failedAction));
     }
@@ -429,33 +433,25 @@ public final class ActionRewindStrategy {
   }
 
   /**
-   * Returns an augmented version of {@link LostInputsActionExecutionException#getOwners} adding
-   * ownership information from tree artifacts and runfiles trees.
+   * Calculates the {@link ActionInputDepOwners} for {@code lostInputs}.
    *
-   * <p>This compensates for how the ownership information in {@link
-   * LostInputsActionExecutionException#getOwners} is potentially incomplete. E.g., it may lack
-   * knowledge of a runfiles tree owning a fileset, even if it knows that fileset owns a lost input.
+   * <p>This is only necessary when {@link LostInputsActionExecutionException#getOwners} is not
+   * present.
    */
-  // TODO: b/321128298 - Make ownership tracking optional.
-  private static ActionInputDepOwners createAugmentedInputDepOwners(
-      LostInputsActionExecutionException e,
+  private static ActionInputDepOwners calculateLostInputOwners(
+      ImmutableCollection<ActionInput> lostInputs,
       ActionInputMap inputArtifactData,
       ImmutableMap<Artifact, FilesetOutputTree> expandedFilesets) {
     Set<ActionInput> lostInputsAndOwners = new HashSet<>();
-    ActionInputDepOwnerMap augmentedOwners = new ActionInputDepOwnerMap();
-    ActionInputDepOwners owners = e.getOwners();
+    ActionInputDepOwnerMap owners = new ActionInputDepOwnerMap();
     boolean sawLostFilesetFile = false;
-    for (ActionInput lostInput : e.getLostInputs().values()) {
+    for (ActionInput lostInput : lostInputs) {
       lostInputsAndOwners.add(lostInput);
-      for (Artifact depOwner : owners.getDepOwners(lostInput)) {
-        lostInputsAndOwners.add(depOwner);
-        augmentedOwners.addOwner(lostInput, depOwner);
-      }
       if (!(lostInput instanceof Artifact artifact)) {
         sawLostFilesetFile = true;
       } else if (artifact.hasParent()) {
         lostInputsAndOwners.add(artifact.getParent());
-        augmentedOwners.addOwner(artifact, artifact.getParent());
+        owners.addOwner(artifact, artifact.getParent());
       }
     }
 
@@ -471,7 +467,7 @@ public final class ActionRewindStrategy {
                     ActionInput input = ActionInputHelper.fromPath(target);
                     if (lostInputsAndOwners.contains(input)) {
                       lostInputsAndOwners.add(fileset);
-                      augmentedOwners.addOwner(input, fileset);
+                      owners.addOwner(input, fileset);
                     }
                   }));
     }
@@ -487,12 +483,12 @@ public final class ActionRewindStrategy {
       RunfilesArtifactValue runfilesValue = inputArtifactData.getRunfilesMetadata(runfilesArtifact);
       for (Artifact artifact : runfilesValue.getAllArtifacts()) {
         if (lostInputsAndOwners.contains(artifact)) {
-          augmentedOwners.addOwner(artifact, runfilesArtifact);
+          owners.addOwner(artifact, runfilesArtifact);
         }
       }
     }
 
-    return augmentedOwners;
+    return owners;
   }
 
   private Set<DerivedArtifact> getLostInputOwningDirectDeps(

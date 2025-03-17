@@ -389,7 +389,10 @@ java_library(
         "ExecException.java",
         "UserExecException.java",
     ],
-    deps = ["//src/main/protobuf:failure_details_java_proto"],
+    deps = [
+        "//src/main/protobuf:failure_details_java_proto",
+        "//third_party:jsr305",
+    ],
 )
 
 java_library(
