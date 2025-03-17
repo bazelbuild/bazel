@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.actions.ImportantOutputHandler;
 import com.google.devtools.build.lib.actions.ImportantOutputHandler.ImportantOutputException;
 import com.google.devtools.build.lib.actions.ImportantOutputHandler.LostArtifacts;
 import com.google.devtools.build.lib.actions.InputFileErrorException;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.TopLevelOutputException;
 import com.google.devtools.build.lib.analysis.ConfiguredObjectValue;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -436,7 +437,7 @@ public final class CompletionFunction<
       CompletionContext ctx,
       ArtifactsToBuild artifactsToBuild,
       Set<Artifact> builtArtifacts,
-      ActionInputMap inputMap)
+      InputMetadataProvider metadataProvider)
       throws CompletionFunctionException, InterruptedException {
     var importantOutputHandler =
         skyframeActionExecutor.getActionContextRegistry().getContext(ImportantOutputHandler.class);
@@ -457,7 +458,7 @@ public final class CompletionFunction<
                     ? importantArtifacts
                     : Iterables.filter(importantArtifacts, artifact -> !artifact.isFileset()),
                 ctx,
-                inputMap,
+                metadataProvider,
                 artifact ->
                     ActionUtils.getActionForLookupData(env, artifact.getGeneratingActionKey()));
       }
