@@ -1581,7 +1581,7 @@ public abstract class FileSystemTest {
     createSymbolicLink(symlink, PathFragment.create("something"));
     xFile.renameTo(symlink); // succeeds
     assertThat(xFile.exists()).isFalse();
-    assertThat(symlink.isFile()).isTrue();
+    assertThat(symlink.isFile(Symlinks.NOFOLLOW)).isTrue();
   }
 
   @Test
@@ -1596,7 +1596,7 @@ public abstract class FileSystemTest {
     assertThat(symlink.isWritable()).isFalse();
     xFile.renameTo(symlink); // succeeds
     assertThat(xFile.exists()).isFalse();
-    assertThat(symlink.isFile()).isTrue();
+    assertThat(symlink.isFile(Symlinks.NOFOLLOW)).isTrue();
     assertThat(symlink.isWritable()).isTrue();
   }
 

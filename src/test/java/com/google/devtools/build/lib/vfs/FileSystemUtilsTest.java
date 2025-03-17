@@ -388,6 +388,24 @@ public class FileSystemUtilsTest {
   }
 
   @Test
+  public void testMoveFileAcrossDevicesToResolvedSymlink() throws Exception {
+    FileSystem fs = new MultipleDeviceFS();
+    Path source = fs.getPath("/fs1/source");
+    source.getParentDirectory().createDirectoryAndParents();
+    Path target = fs.getPath("/fs2/target");
+    target.getParentDirectory().createDirectoryAndParents();
+    FileSystemUtils.writeContent(source, UTF_8, "hello, world");
+    Path symlinkTarget = target.getParentDirectory().getChild("symlinkTarget");
+    FileSystemUtils.touchFile(symlinkTarget);
+    target.createSymbolicLink(PathFragment.create(symlinkTarget.getBaseName()));
+
+    assertThat(FileSystemUtils.moveFile(source, target)).isEqualTo(MoveResult.FILE_COPIED);
+    assertThat(source.exists(Symlinks.NOFOLLOW)).isFalse();
+    assertThat(target.isFile(Symlinks.NOFOLLOW)).isTrue();
+    assertThat(FileSystemUtils.readContent(target, UTF_8)).isEqualTo("hello, world");
+  }
+
+  @Test
   public void testMoveFileFixPermissions() throws Exception {
     FileSystem fs = new MultipleDeviceFS();
     Path source = fs.getPath("/fs1/source");

@@ -449,6 +449,9 @@ public class FileSystemUtils {
       // Fallback to a copy.
       FileStatus stat = from.stat(Symlinks.NOFOLLOW);
       if (stat.isFile()) {
+        // Target may be a symlink, in which case opening a stream below would not actually replace
+        // it.
+        to.delete();
         try (InputStream in = from.getInputStream();
             OutputStream out = to.getOutputStream()) {
           copyLargeBuffer(in, out);
