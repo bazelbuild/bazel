@@ -19,8 +19,132 @@ import static com.google.errorprone.scanner.BuiltInCheckerSuppliers.getSuppliers
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.BugCheckerInfo;
-import com.google.errorprone.bugpatterns.*;
+import com.google.errorprone.bugpatterns.AlwaysThrows;
+import com.google.errorprone.bugpatterns.ArrayEquals;
+import com.google.errorprone.bugpatterns.ArrayFillIncompatibleType;
+import com.google.errorprone.bugpatterns.ArrayHashCode;
+import com.google.errorprone.bugpatterns.ArrayToString;
+import com.google.errorprone.bugpatterns.ArraysAsListPrimitiveArray;
+import com.google.errorprone.bugpatterns.AsyncCallableReturnsNull;
+import com.google.errorprone.bugpatterns.AsyncFunctionReturnsNull;
+import com.google.errorprone.bugpatterns.AutoValueBuilderDefaultsInConstructor;
+import com.google.errorprone.bugpatterns.BadAnnotationImplementation;
+import com.google.errorprone.bugpatterns.BadShiftAmount;
+import com.google.errorprone.bugpatterns.BanJNDI;
+import com.google.errorprone.bugpatterns.BoxedPrimitiveEquality;
+import com.google.errorprone.bugpatterns.ChainingConstructorIgnoresParameter;
+import com.google.errorprone.bugpatterns.CheckNotNullMultipleTimes;
+import com.google.errorprone.bugpatterns.CheckReturnValue;
+import com.google.errorprone.bugpatterns.CollectionToArraySafeParameter;
+import com.google.errorprone.bugpatterns.ComparableType;
+import com.google.errorprone.bugpatterns.ComparingThisWithNull;
+import com.google.errorprone.bugpatterns.ComparisonOutOfRange;
+import com.google.errorprone.bugpatterns.CompileTimeConstantChecker;
+import com.google.errorprone.bugpatterns.ComputeIfAbsentAmbiguousReference;
+import com.google.errorprone.bugpatterns.ConditionalExpressionNumericPromotion;
+import com.google.errorprone.bugpatterns.ConstantOverflow;
+import com.google.errorprone.bugpatterns.DangerousLiteralNullChecker;
+import com.google.errorprone.bugpatterns.DeadException;
+import com.google.errorprone.bugpatterns.DeadThread;
+import com.google.errorprone.bugpatterns.DiscardedPostfixExpression;
+import com.google.errorprone.bugpatterns.DoNotCallChecker;
+import com.google.errorprone.bugpatterns.DoNotMockChecker;
+import com.google.errorprone.bugpatterns.DoubleBraceInitialization;
+import com.google.errorprone.bugpatterns.DuplicateMapKeys;
+import com.google.errorprone.bugpatterns.EqualsHashCode;
+import com.google.errorprone.bugpatterns.EqualsNaN;
+import com.google.errorprone.bugpatterns.EqualsNull;
+import com.google.errorprone.bugpatterns.EqualsReference;
+import com.google.errorprone.bugpatterns.EqualsWrongThing;
+import com.google.errorprone.bugpatterns.ForOverrideChecker;
+import com.google.errorprone.bugpatterns.FunctionalInterfaceMethodChanged;
+import com.google.errorprone.bugpatterns.FuturesGetCheckedIllegalExceptionType;
+import com.google.errorprone.bugpatterns.FuzzyEqualsShouldNotBeUsedInEqualsMethod;
+import com.google.errorprone.bugpatterns.GetClassOnAnnotation;
+import com.google.errorprone.bugpatterns.GetClassOnClass;
+import com.google.errorprone.bugpatterns.HashtableContains;
+import com.google.errorprone.bugpatterns.IdentityBinaryExpression;
+import com.google.errorprone.bugpatterns.IdentityHashMapBoxing;
+import com.google.errorprone.bugpatterns.ImpossibleNullComparison;
+import com.google.errorprone.bugpatterns.Incomparable;
+import com.google.errorprone.bugpatterns.IncompatibleModifiersChecker;
+import com.google.errorprone.bugpatterns.IndexOfChar;
+import com.google.errorprone.bugpatterns.InexactVarargsConditional;
+import com.google.errorprone.bugpatterns.InfiniteRecursion;
+import com.google.errorprone.bugpatterns.InvalidPatternSyntax;
+import com.google.errorprone.bugpatterns.InvalidTimeZoneID;
+import com.google.errorprone.bugpatterns.InvalidZoneId;
+import com.google.errorprone.bugpatterns.IsInstanceIncompatibleType;
+import com.google.errorprone.bugpatterns.IsInstanceOfClass;
+import com.google.errorprone.bugpatterns.JUnit3TestNotRun;
+import com.google.errorprone.bugpatterns.JUnit4ClassAnnotationNonStatic;
+import com.google.errorprone.bugpatterns.JUnit4SetUpNotRun;
+import com.google.errorprone.bugpatterns.JUnit4TearDownNotRun;
+import com.google.errorprone.bugpatterns.JUnit4TestNotRun;
+import com.google.errorprone.bugpatterns.JUnit4TestsNotRunWithinEnclosed;
+import com.google.errorprone.bugpatterns.JUnitAssertSameCheck;
+import com.google.errorprone.bugpatterns.JUnitParameterMethodNotFound;
+import com.google.errorprone.bugpatterns.LenientFormatStringValidation;
+import com.google.errorprone.bugpatterns.LiteByteStringUtf8;
+import com.google.errorprone.bugpatterns.LockOnBoxedPrimitive;
+import com.google.errorprone.bugpatterns.LoopConditionChecker;
+import com.google.errorprone.bugpatterns.LossyPrimitiveCompare;
+import com.google.errorprone.bugpatterns.MathRoundIntLong;
+import com.google.errorprone.bugpatterns.MissingSuperCall;
+import com.google.errorprone.bugpatterns.MissingTestCall;
+import com.google.errorprone.bugpatterns.MisusedDayOfYear;
+import com.google.errorprone.bugpatterns.MisusedWeekYear;
+import com.google.errorprone.bugpatterns.MixedDescriptors;
+import com.google.errorprone.bugpatterns.MockitoUsage;
+import com.google.errorprone.bugpatterns.ModifyingCollectionWithItself;
+import com.google.errorprone.bugpatterns.MustBeClosedChecker;
+import com.google.errorprone.bugpatterns.NCopiesOfChar;
+import com.google.errorprone.bugpatterns.NonCanonicalStaticImport;
+import com.google.errorprone.bugpatterns.NonFinalCompileTimeConstant;
+import com.google.errorprone.bugpatterns.NonRuntimeAnnotation;
+import com.google.errorprone.bugpatterns.NullTernary;
+import com.google.errorprone.bugpatterns.NullableOnContainingClass;
+import com.google.errorprone.bugpatterns.OptionalEquality;
+import com.google.errorprone.bugpatterns.OptionalMapUnusedValue;
+import com.google.errorprone.bugpatterns.OptionalOfRedundantMethod;
+import com.google.errorprone.bugpatterns.PackageInfo;
+import com.google.errorprone.bugpatterns.ParametersButNotParameterized;
+import com.google.errorprone.bugpatterns.PreconditionsInvalidPlaceholder;
+import com.google.errorprone.bugpatterns.PrivateSecurityContractProtoAccess;
+import com.google.errorprone.bugpatterns.ProtoBuilderReturnValueIgnored;
+import com.google.errorprone.bugpatterns.ProtoStringFieldReferenceEquality;
+import com.google.errorprone.bugpatterns.ProtoTruthMixedDescriptors;
+import com.google.errorprone.bugpatterns.ProtocolBufferOrdinal;
+import com.google.errorprone.bugpatterns.RandomCast;
+import com.google.errorprone.bugpatterns.RandomModInteger;
+import com.google.errorprone.bugpatterns.RequiredModifiersChecker;
+import com.google.errorprone.bugpatterns.RestrictedApiChecker;
+import com.google.errorprone.bugpatterns.ReturnValueIgnored;
 import com.google.errorprone.bugpatterns.SelfAssertion;
+import com.google.errorprone.bugpatterns.SelfAssignment;
+import com.google.errorprone.bugpatterns.SelfComparison;
+import com.google.errorprone.bugpatterns.SelfEquals;
+import com.google.errorprone.bugpatterns.ShouldHaveEvenArgs;
+import com.google.errorprone.bugpatterns.SizeGreaterThanOrEqualsZero;
+import com.google.errorprone.bugpatterns.StreamToString;
+import com.google.errorprone.bugpatterns.StringBuilderInitWithChar;
+import com.google.errorprone.bugpatterns.SubstringOfZero;
+import com.google.errorprone.bugpatterns.SuppressWarningsDeprecated;
+import com.google.errorprone.bugpatterns.TestParametersNotInitialized;
+import com.google.errorprone.bugpatterns.TheoryButNoTheories;
+import com.google.errorprone.bugpatterns.ThrowIfUncheckedKnownChecked;
+import com.google.errorprone.bugpatterns.ThrowNull;
+import com.google.errorprone.bugpatterns.TreeToString;
+import com.google.errorprone.bugpatterns.TryFailThrowable;
+import com.google.errorprone.bugpatterns.TypeParameterQualifier;
+import com.google.errorprone.bugpatterns.UnicodeDirectionalityCharacters;
+import com.google.errorprone.bugpatterns.UnicodeInCode;
+import com.google.errorprone.bugpatterns.UnnecessaryTypeArgument;
+import com.google.errorprone.bugpatterns.UnusedAnonymousClass;
+import com.google.errorprone.bugpatterns.UnusedCollectionModifiedInPlace;
+import com.google.errorprone.bugpatterns.VarTypeName;
+import com.google.errorprone.bugpatterns.WrongOneof;
+import com.google.errorprone.bugpatterns.XorPower;
 import com.google.errorprone.bugpatterns.android.BundleDeserializationCast;
 import com.google.errorprone.bugpatterns.android.IsLoggableTagLength;
 import com.google.errorprone.bugpatterns.android.MislabeledAndroidString;
@@ -232,6 +356,7 @@ final class BazelScannerSuppliers {
           RequiredModifiersChecker.class,
           RestrictedApiChecker.class,
           ReturnValueIgnored.class,
+          SelfAssertion.class,
           SelfAssignment.class,
           SelfComparison.class,
           SelfEquals.class,
@@ -247,7 +372,6 @@ final class BazelScannerSuppliers {
           ThrowIfUncheckedKnownChecked.class,
           ThrowNull.class,
           TreeToString.class,
-          SelfAssertion.class,
           TryFailThrowable.class,
           TypeParameterQualifier.class,
           UnicodeDirectionalityCharacters.class,
