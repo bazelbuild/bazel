@@ -124,8 +124,7 @@ class DirectoryTreeBuilder {
             throw new IOException(String.format("Input '%s' is not a file.", input));
           }
           Digest d = digestUtil.compute(input);
-          boolean childAdded =
-              currDir.addChild(FileNode.createExecutable(path.getBaseName(), input, d));
+          boolean childAdded = currDir.addChild(FileNode.create(path.getBaseName(), input, d));
           return childAdded ? 1 : 0;
         });
   }
@@ -156,7 +155,7 @@ class DirectoryTreeBuilder {
             Digest d = digestUtil.compute(virtualActionInput);
             boolean childAdded =
                 currDir.addChild(
-                    FileNode.createExecutable(
+                    FileNode.create(
                         path.getBaseName(), virtualActionInput, d, toolInputs.contains(path)));
             return childAdded ? 1 : 0;
           }
@@ -172,8 +171,7 @@ class DirectoryTreeBuilder {
               Path inputPath = artifactPathResolver.toPath(input);
               boolean childAdded =
                   currDir.addChild(
-                      FileNode.createExecutable(
-                          path.getBaseName(), inputPath, d, toolInputs.contains(path)));
+                      FileNode.create(path.getBaseName(), inputPath, d, toolInputs.contains(path)));
               return childAdded ? 1 : 0;
             }
             case DIRECTORY -> {
