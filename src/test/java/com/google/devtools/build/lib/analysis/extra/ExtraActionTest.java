@@ -15,6 +15,8 @@ package com.google.devtools.build.lib.analysis.extra;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.NULL_ACTION_OWNER;
+import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.ensureMemoizedIsInitializedIsSet;
+import static com.google.devtools.build.lib.skyframe.serialization.testutils.Dumper.dumpStructureWithEquivalenceReduction;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -43,11 +45,16 @@ import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.actions.extra.JavaCompileInfo;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil.NullAction;
+import com.google.devtools.build.lib.analysis.config.BuildOptions.MapBackedChecksumCache;
+import com.google.devtools.build.lib.analysis.config.BuildOptions.OptionsChecksumCache;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.exec.BlazeExecutor;
 import com.google.devtools.build.lib.exec.util.FakeActionInputFileCache;
 import com.google.devtools.build.lib.exec.util.TestExecutorBuilder;
+import com.google.devtools.build.lib.skyframe.serialization.ArrayCodec;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationDepsUtils;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
@@ -205,5 +212,64 @@ public class ExtraActionTest extends FoundationTestCase {
             "bla bla");
     extraAction.updateInputs(NestedSetBuilder.create(Order.STABLE_ORDER, extraIn, discoveredIn));
     verify(shadowedAction, Mockito.never()).updateInputs(ArgumentMatchers.any());
+  }
+
+  @Test
+  public void testSerializationRoundTrip_resetsInputs() throws Exception {
+    Path execRoot = scratch.getFileSystem().getPath("/");
+    ArtifactRoot out = ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "out");
+    ArtifactRoot src = ArtifactRoot.asSourceRoot(Root.fromPath(scratch.dir("/src")));
+    Artifact extraInput = ActionsTestUtil.createArtifact(src, scratch.file("/src/extra.in"));
+    Artifact discoveredInput =
+        ActionsTestUtil.createArtifact(src, scratch.file("/src/discovered.in"));
+    var output =
+        (Artifact.DerivedArtifact)
+            ActionsTestUtil.createArtifact(out, scratch.file("/out/test.out"));
+    output.setGeneratingActionKey(ActionsTestUtil.NULL_ACTION_LOOKUP_DATA);
+    ExtraAction extraAction =
+        new ExtraAction(
+            NULL_ACTION_OWNER,
+            NestedSetBuilder.create(Order.STABLE_ORDER, extraInput),
+            ImmutableSet.of(output),
+            /* shadowedAction= */ new InputDiscoveringNullAction(),
+            /* createDummyOutput= */ false,
+            CommandLine.of(ImmutableList.of()),
+            ActionEnvironment.EMPTY,
+            ImmutableMap.of(),
+            "Executing extra action bla bla",
+            "bla bla");
+    ensureMemoizedIsInitializedIsSet(extraAction);
+    String originalStructure = dumpStructureWithEquivalenceReduction(extraAction);
+
+    extraAction.updateInputs(
+        NestedSetBuilder.create(Order.STABLE_ORDER, extraInput, discoveredInput));
+
+    new SerializationTester(extraAction)
+        .makeMemoizingAndAllowFutureBlocking(/* allowFutureBlocking= */ true)
+        .addCodec(ArrayCodec.forComponentType(Artifact.class))
+        .setVerificationFunction(
+            (unusedInput, deserialized) ->
+                assertThat(dumpStructureWithEquivalenceReduction(deserialized))
+                    .isEqualTo(originalStructure))
+        .addDependencies(getCommonSerializationDependencies())
+        .addDependencies(SerializationDepsUtils.SERIALIZATION_DEPS_FOR_TEST)
+        .addDependency(OptionsChecksumCache.class, new MapBackedChecksumCache())
+        .runTests();
+  }
+
+  /**
+   * Exists to work around the check in {@link
+   * com.google.devtools.build.lib.actions.AbstractAction#updateInputs}.
+   */
+  private static final class InputDiscoveringNullAction extends NullAction {
+    @Override
+    public boolean discoversInputs() {
+      return true;
+    }
+
+    @Override
+    protected boolean inputsDiscovered() {
+      return false;
+    }
   }
 }

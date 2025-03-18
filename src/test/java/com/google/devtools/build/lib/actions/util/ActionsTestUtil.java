@@ -361,10 +361,13 @@ public final class ActionsTestUtil {
   public static final ActionTemplateExpansionKey NULL_TEMPLATE_EXPANSION_ARTIFACT_OWNER =
       ActionTemplateExpansionValue.key(NULL_ARTIFACT_OWNER, /*actionIndex=*/ 0);
 
+  @SerializationConstant
+  static final InMemoryFileSystem DUMMY_ARTIFACT_FILE_SYSTEM =
+      new InMemoryFileSystem(DigestHashFunction.SHA256);
+
   public static final Artifact DUMMY_ARTIFACT =
       new Artifact.SourceArtifact(
-          ArtifactRoot.asSourceRoot(
-              Root.absoluteRoot(new InMemoryFileSystem(DigestHashFunction.SHA256))),
+          ArtifactRoot.asSourceRoot(Root.absoluteRoot(DUMMY_ARTIFACT_FILE_SYSTEM)),
           PathFragment.create("/dummy"),
           NULL_ARTIFACT_OWNER);
 
@@ -966,5 +969,23 @@ public final class ActionsTestUtil {
     public void resetOutputs(Iterable<? extends Artifact> outputs) {
       throw new UnsupportedOperationException();
     }
+  }
+
+  /**
+   * Ensures the special, meaningless, `memoizedIsInitialized` field in {@link ActionOwner} is set.
+   *
+   * <p>This field is set upon serializing a proto. It's intended to memoize checking that all the
+   * required fields are set. Since the protos in question are proto3, there are no required fields
+   * so the field is meaningless. However, serialization tests sometimes use reflection to compare
+   * the round tripped output to the input.
+   *
+   * <p>In particular, {@link BuildConfigurationEvent} contains a couple of instances of this field.
+   */
+  public static void ensureMemoizedIsInitializedIsSet(ActionAnalysisMetadata action) {
+    BuildConfigurationEvent buildConfigurationEvent =
+        action.getOwner().getBuildConfigurationEvent();
+    assertThat(buildConfigurationEvent.getEventId().isInitialized()).isTrue();
+    assertThat(buildConfigurationEvent.asStreamProto(/* unusedConverters= */ null).isInitialized())
+        .isTrue();
   }
 }
