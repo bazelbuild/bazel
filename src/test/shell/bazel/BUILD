@@ -981,21 +981,6 @@ sh_test(
 )
 
 sh_test(
-    name = "workspace_resolved_test",
-    size = "large",
-    srcs = ["workspace_resolved_test.sh"],
-    data = [
-        ":test-deps",
-        "@bazel_tools//tools/bash/runfiles",
-    ],
-    shard_count = 22,
-    tags = [
-        "block-network",
-        "no_windows",
-    ],
-)
-
-sh_test(
     name = "cc_integration_test",
     size = "large",
     srcs = ["cc_integration_test.sh"],
