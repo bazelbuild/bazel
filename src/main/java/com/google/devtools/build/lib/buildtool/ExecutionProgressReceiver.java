@@ -64,7 +64,6 @@ public final class ExecutionProgressReceiver
 
   private final Set<ActionLookupData> enqueuedActions = Sets.newConcurrentHashSet();
   private final Set<ActionLookupData> completedActions = Sets.newConcurrentHashSet();
-  private final Set<ActionLookupData> ignoredActions = Sets.newConcurrentHashSet();
   private final EventBus eventBus;
 
   /** Number of exclusive tests. To be accounted for in progress messages. */
@@ -83,13 +82,11 @@ public final class ExecutionProgressReceiver
   public void enqueueing(SkyKey skyKey) {
     if (skyKey.functionName().equals(SkyFunctions.ACTION_EXECUTION)) {
       ActionLookupData actionLookupData = (ActionLookupData) skyKey.argument();
-      if (!ignoredActions.contains(actionLookupData)) {
-        // Remember all enqueued actions for the benefit of progress reporting.
-        // We discover most actions early in the build, well before we start executing them.
-        // Some of these will be cache hits and won't be executed, so we'll need to account for them
-        // in the evaluated method too.
-        enqueuedActions.add(actionLookupData);
-      }
+      // Remember all enqueued actions for the benefit of progress reporting.
+      // We discover most actions early in the build, well before we start executing them.
+      // Some of these will be cache hits and won't be executed, so we'll need to account for them
+      // in the evaluated method too.
+      enqueuedActions.add(actionLookupData);
     }
   }
 
@@ -178,10 +175,8 @@ public final class ExecutionProgressReceiver
    */
   @Override
   public void actionCompleted(ActionLookupData actionLookupData) {
-    if (!ignoredActions.contains(actionLookupData)) {
-      enqueuedActions.add(actionLookupData);
-      completedActions.add(actionLookupData);
-    }
+    enqueuedActions.add(actionLookupData);
+    completedActions.add(actionLookupData);
   }
 
   private static boolean isActionReportWorthy(Action action) {
