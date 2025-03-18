@@ -52,6 +52,7 @@ import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.analysis.AspectCompleteEvent;
 import com.google.devtools.build.lib.analysis.TargetCompleteEvent;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
+import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions.OutputGroupFileModes;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions.JobsConverter;
@@ -193,6 +194,22 @@ public class RewindingTestsHelper {
   @ForOverride
   LostImportantOutputHandlerModule createLostOutputsModule() {
     return new LostImportantOutputHandlerModule(this::toHex);
+  }
+
+  /**
+   * Filters out spawn descriptions that only appear in Bazel or Blaze and aren't relevant to the
+   * test.
+   */
+  private Object[] filterExecutedSpawnDescriptions(String... expectedDescriptions) {
+    if (AnalysisMock.get().isThisBazel()) {
+      return stream(expectedDescriptions)
+          // Bazel doesn't support spawn-based include scanning without additional
+          // toolchain tools.
+          .filter(s -> !s.startsWith("Extracting include lines "))
+          .toArray(String[]::new);
+    } else {
+      return expectedDescriptions;
+    }
   }
 
   public final ControllableActionStrategyModule makeControllableActionStrategyModule(
@@ -1614,6 +1631,10 @@ public class RewindingTestsHelper {
 
     addSpawnShim("Linking tree/libconsumes_tree.so", shim);
 
+    if (!supportsConcurrentRewinding()) {
+      testCase.addOptions("--jobs=1");
+    }
+
     List<SkyKey> rewoundKeys = collectOrderedRewoundKeys();
     testCase.buildTarget("//tree:consumes_tree");
     verifyAllSpawnShimsConsumed();
@@ -2265,33 +2286,26 @@ public class RewindingTestsHelper {
     // is found by remote include scanning, which happens in input discovery.
     writeGeneratedHeaderDirectDepPackage(testCase);
 
-    addSpawnShim(
-        String.format(
-            "Extracting include lines from %s-out/k8-fastbuild/bin/genheader/gen.h",
-            TestConstants.PRODUCT_NAME),
-        shim);
+    addSpawnShim("Extracting include lines from blaze-out/k8-fastbuild/bin/genheader/gen.h", shim);
 
     List<SkyKey> rewoundKeys = collectOrderedRewoundKeys();
     testCase.buildTarget("//genheader:consumes_header");
     verifyAllSpawnShimsConsumed();
 
     assertThat(getExecutedSpawnDescriptions())
-        .containsExactly(
-            "Executing genrule //genheader:gen_header",
-            "Extracting include lines from genheader/consumes.cc",
-            "Extracting include lines from tools/cpp/malloc.cc",
-            "Compiling tools/cpp/malloc.cc",
-            "Extracting include lines from tools/cpp/linkextra.cc",
-            "Compiling tools/cpp/linkextra.cc",
-            String.format(
-                "Extracting include lines from %s-out/k8-fastbuild/bin/genheader/gen.h",
-                TestConstants.PRODUCT_NAME),
-            "Executing genrule //genheader:gen_header",
-            String.format(
-                "Extracting include lines from %s-out/k8-fastbuild/bin/genheader/gen.h",
-                TestConstants.PRODUCT_NAME),
-            "Compiling genheader/consumes.cc",
-            "Linking genheader/consumes_header");
+        .containsExactlyElementsIn(
+            filterExecutedSpawnDescriptions(
+                "Executing genrule //genheader:gen_header",
+                "Extracting include lines from genheader/consumes.cc",
+                "Extracting include lines from tools/cpp/malloc.cc",
+                "Compiling tools/cpp/malloc.cc",
+                "Extracting include lines from tools/cpp/linkextra.cc",
+                "Compiling tools/cpp/linkextra.cc",
+                "Extracting include lines from blaze-out/k8-fastbuild/bin/genheader/gen.h",
+                "Executing genrule //genheader:gen_header",
+                "Extracting include lines from blaze-out/k8-fastbuild/bin/genheader/gen.h",
+                "Compiling genheader/consumes.cc",
+                "Linking genheader/consumes_header"));
 
     // Input discovery actions do not result in action lifecycle events. E.g., the "Extracting
     // [...]" action is run, but results in no ActionStartedEvent/ActionCompletionEvent/etc.
@@ -2330,20 +2344,19 @@ public class RewindingTestsHelper {
     testCase.buildTarget("//genheader:consumes_header");
     verifyAllSpawnShimsConsumed();
     assertThat(getExecutedSpawnDescriptions())
-        .containsExactly(
-            "Executing genrule //genheader:gen_header",
-            "Extracting include lines from genheader/consumes.cc",
-            "Extracting include lines from tools/cpp/malloc.cc",
-            "Compiling tools/cpp/malloc.cc",
-            "Extracting include lines from tools/cpp/linkextra.cc",
-            "Compiling tools/cpp/linkextra.cc",
-            String.format(
-                "Extracting include lines from %s-out/k8-fastbuild/bin/genheader/gen.h",
-                TestConstants.PRODUCT_NAME),
-            "Compiling genheader/consumes.cc",
-            "Executing genrule //genheader:gen_header",
-            "Compiling genheader/consumes.cc",
-            "Linking genheader/consumes_header");
+        .containsExactlyElementsIn(
+            filterExecutedSpawnDescriptions(
+                "Executing genrule //genheader:gen_header",
+                "Extracting include lines from genheader/consumes.cc",
+                "Extracting include lines from tools/cpp/malloc.cc",
+                "Compiling tools/cpp/malloc.cc",
+                "Extracting include lines from tools/cpp/linkextra.cc",
+                "Compiling tools/cpp/linkextra.cc",
+                "Extracting include lines from blaze-out/k8-fastbuild/bin/genheader/gen.h",
+                "Compiling genheader/consumes.cc",
+                "Executing genrule //genheader:gen_header",
+                "Compiling genheader/consumes.cc",
+                "Linking genheader/consumes_header"));
 
     recorder.assertEvents(
         /* runOnce= */ ImmutableList.of("Linking genheader/consumes_header"),
@@ -2411,11 +2424,7 @@ public class RewindingTestsHelper {
     // discovered during execution.
     writeGeneratedHeaderIndirectDepPackage(testCase);
 
-    addSpawnShim(
-        String.format(
-            "Extracting include lines from %s-out/k8-fastbuild/bin/genheader/gen.h",
-            TestConstants.PRODUCT_NAME),
-        shim);
+    addSpawnShim("Extracting include lines from blaze-out/k8-fastbuild/bin/genheader/gen.h", shim);
 
     List<SkyKey> rewoundKeys = collectOrderedRewoundKeys();
     testCase.buildTarget("//genheader:consumes_header");
@@ -2434,13 +2443,9 @@ public class RewindingTestsHelper {
             "Extracting include lines from tools/cpp/linkextra.cc",
             "Compiling tools/cpp/linkextra.cc",
             "Compiling genheader/intermediate.cc",
-            String.format(
-                "Extracting include lines from %s-out/k8-fastbuild/bin/genheader/gen.h",
-                TestConstants.PRODUCT_NAME),
+            "Extracting include lines from blaze-out/k8-fastbuild/bin/genheader/gen.h",
             "Executing genrule //genheader:gen_header",
-            String.format(
-                "Extracting include lines from %s-out/k8-fastbuild/bin/genheader/gen.h",
-                TestConstants.PRODUCT_NAME),
+            "Extracting include lines from blaze-out/k8-fastbuild/bin/genheader/gen.h",
             "Compiling genheader/consumes.cc",
             "Linking genheader/consumes_header");
 
@@ -2488,22 +2493,21 @@ public class RewindingTestsHelper {
     testCase.buildTarget("//genheader:consumes_header");
     verifyAllSpawnShimsConsumed();
     assertThat(getExecutedSpawnDescriptions())
-        .containsExactly(
-            "Executing genrule //genheader:gen_header",
-            "Extracting include lines from genheader/intermediate.cc",
-            "Extracting include lines from tools/cpp/malloc.cc",
-            "Compiling tools/cpp/malloc.cc",
-            "Extracting include lines from tools/cpp/linkextra.cc",
-            "Compiling tools/cpp/linkextra.cc",
-            "Extracting include lines from genheader/consumes.cc",
-            "Compiling genheader/intermediate.cc",
-            String.format(
-                "Extracting include lines from %s-out/k8-fastbuild/bin/genheader/gen.h",
-                TestConstants.PRODUCT_NAME),
-            "Compiling genheader/consumes.cc",
-            "Executing genrule //genheader:gen_header",
-            "Compiling genheader/consumes.cc",
-            "Linking genheader/consumes_header");
+        .containsExactlyElementsIn(
+            filterExecutedSpawnDescriptions(
+                "Executing genrule //genheader:gen_header",
+                "Extracting include lines from genheader/intermediate.cc",
+                "Extracting include lines from tools/cpp/malloc.cc",
+                "Compiling tools/cpp/malloc.cc",
+                "Extracting include lines from tools/cpp/linkextra.cc",
+                "Compiling tools/cpp/linkextra.cc",
+                "Extracting include lines from genheader/consumes.cc",
+                "Compiling genheader/intermediate.cc",
+                "Extracting include lines from blaze-out/k8-fastbuild/bin/genheader/gen.h",
+                "Compiling genheader/consumes.cc",
+                "Executing genrule //genheader:gen_header",
+                "Compiling genheader/consumes.cc",
+                "Linking genheader/consumes_header"));
 
     recorder.assertEvents(
         /* runOnce= */ ImmutableList.of(
