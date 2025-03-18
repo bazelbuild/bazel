@@ -25,8 +25,6 @@ import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
-import com.google.devtools.build.lib.analysis.config.BuildOptions.MapBackedChecksumCache;
-import com.google.devtools.build.lib.analysis.config.BuildOptions.OptionsChecksumCache;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.analysis.util.TestAspects.FileProviderAspect;
@@ -36,8 +34,6 @@ import com.google.devtools.build.lib.skyframe.serialization.testutils.Dumper;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationDepsUtils;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
-import com.google.devtools.build.lib.vfs.FileSystem;
-import com.google.devtools.build.lib.vfs.Root;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -187,11 +183,7 @@ public class RemoteActionLookupValueSerializationTest extends AnalysisTestCase {
         .makeMemoizingAndAllowFutureBlocking(true)
         .addDependency(RuleClassProvider.class, ruleClassProvider)
         .addDependencies(SerializationDepsUtils.SERIALIZATION_DEPS_FOR_TEST)
-        .addDependency(FileSystem.class, scratch.getFileSystem())
-        .addDependency(
-            Root.RootCodecDependencies.class,
-            new Root.RootCodecDependencies(Root.absoluteRoot(scratch.getFileSystem())))
-        .addDependency(OptionsChecksumCache.class, new MapBackedChecksumCache())
+        .addDependencies(getCommonSerializationDependencies())
         .addDependency(PrerequisitePackageFunction.class, skyframeExecutor::getExistingPackage)
         .addCodec(RemoteConfiguredTargetValue.codec());
   }

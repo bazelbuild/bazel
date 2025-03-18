@@ -45,8 +45,6 @@ import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.actions.extra.JavaCompileInfo;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil.NullAction;
-import com.google.devtools.build.lib.analysis.config.BuildOptions.MapBackedChecksumCache;
-import com.google.devtools.build.lib.analysis.config.BuildOptions.OptionsChecksumCache;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.exec.BlazeExecutor;
@@ -253,7 +251,6 @@ public class ExtraActionTest extends FoundationTestCase {
                     .isEqualTo(originalStructure))
         .addDependencies(getCommonSerializationDependencies())
         .addDependencies(SerializationDepsUtils.SERIALIZATION_DEPS_FOR_TEST)
-        .addDependency(OptionsChecksumCache.class, new MapBackedChecksumCache())
         .runTests();
   }
 
