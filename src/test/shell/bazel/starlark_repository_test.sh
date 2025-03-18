@@ -903,8 +903,13 @@ genrule(
   cmd = "cp $< $@",
 )
 EOF
+  if "$is_windows"; then
+    local repo_env_path="%bazel_workspace%/repo_tools;$PATH"
+  else
+    local repo_env_path="%bazel_workspace%/repo_tools:$PATH"
+  fi
   cat > .bazelrc <<EOF
-common --repo_env=PATH=/bin:/usr/bin:%bazel_workspace%/repo_tools
+common --repo_env=PATH="$repo_env_path"
 EOF
 
   mkdir -p repo_tools
