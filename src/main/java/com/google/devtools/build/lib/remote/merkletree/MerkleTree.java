@@ -397,7 +397,12 @@ public class MerkleTree {
         FileNode.newBuilder()
             .setName(internalToUnicode(file.getPathSegment()))
             .setDigest(file.getDigest())
-            .setIsExecutable(file.isExecutable());
+            // We always treat files as executable since Bazel will `chmod 555` on the output files
+            // of an action within ActionOutputMetadataStore#getMetadata after action execution if
+            // no metadata was injected. We can't use real executable bit of the file until this
+            // behavior is changed. See https://github.com/bazelbuild/bazel/issues/13262 for more
+            // details.
+            .setIsExecutable(true);
     if (file.isToolInput()) {
       node.getNodePropertiesBuilder().addPropertiesBuilder().setName(BAZEL_TOOL_INPUT_MARKER);
     }
