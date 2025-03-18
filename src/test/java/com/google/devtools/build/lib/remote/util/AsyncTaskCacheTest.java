@@ -463,6 +463,9 @@ public class AsyncTaskCacheTest {
     assertThat(cache.isShutdown()).isTrue();
     assertThat(cache.isTerminated()).isTrue();
     ob.assertValue("value");
+
+    assertThat(cache.getInProgressTasks()).isEmpty();
+    assertThat(cache.getFinishedTasks()).isEmpty();
   }
 
   @Test
