@@ -173,7 +173,6 @@ public class BuildEventProtocolOptions extends OptionsBase {
   public OutputGroupFileModes getOutputGroupFileModesMapping() {
     var modeMap =
         ImmutableMap.<String, OutputGroupFileMode>builder()
-            .put(TestFileNameConstants.BASELINE_COVERAGE, OutputGroupFileMode.BOTH)
             .putAll(outputGroupFileModes)
             .buildKeepingLast();
     return (outputGroup) ->
