@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.actions;
 
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import javax.annotation.Nullable;
 
 /**
  * An exception indication that the execution of an action has failed OR could not be attempted OR
@@ -65,8 +66,8 @@ public abstract class ExecException extends Exception {
     this.catastrophe = false;
   }
 
-  public ExecException(String message, Throwable cause) {
-    super(message + ": " + cause.getMessage(), cause);
+  public ExecException(String message, @Nullable Throwable cause) {
+    super(cause == null ? message : message + ": " + cause.getMessage(), cause);
     this.catastrophe = false;
   }
 

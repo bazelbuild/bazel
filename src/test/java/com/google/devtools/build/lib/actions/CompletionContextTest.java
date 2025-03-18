@@ -174,7 +174,6 @@ public final class CompletionContextTest {
         /* baselineCoverageValue= */ null,
         ArtifactPathResolver.IDENTITY,
         inputMap,
-        expandFilesets,
-        /* fullyResolveFilesetLinks= */ false);
+        expandFilesets);
   }
 }

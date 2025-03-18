@@ -37,7 +37,6 @@ import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.ActionInputDepOwnerMap;
 import com.google.devtools.build.lib.actions.CommandLines.ParamFileActionInput;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
@@ -560,7 +559,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
     }
   }
 
-  private SpawnResult execLocally(Spawn spawn, SpawnExecutionContext context)
+  private static SpawnResult execLocally(Spawn spawn, SpawnExecutionContext context)
       throws ExecException, InterruptedException, IOException, ForbiddenActionInputException {
     RemoteLocalFallbackRegistry localFallbackRegistry =
         context.getContext(RemoteLocalFallbackRegistry.class);
@@ -600,7 +599,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
       ImmutableMap<String, ActionInput> lostInputs =
           e.getLostInputs(context.getInputMetadataProvider()::getInput);
       if (!lostInputs.isEmpty()) {
-        throw new LostInputsExecException(lostInputs, new ActionInputDepOwnerMap());
+        throw new LostInputsExecException(lostInputs);
       }
     }
     if (remoteOptions.remoteLocalFallback && !RemoteRetrierUtils.causedByExecTimeout(cause)) {

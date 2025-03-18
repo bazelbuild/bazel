@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.ActionInputDepOwnerMap;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher.Priority;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher.Reason;
 import com.google.devtools.build.lib.actions.ArtifactExpander;
@@ -304,7 +303,7 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
               ImmutableMap<String, ActionInput> lostInputs =
                   e.getLostInputs(actionExecutionContext.getInputMetadataProvider()::getInput);
               if (!lostInputs.isEmpty()) {
-                throw new LostInputsExecException(lostInputs, new ActionInputDepOwnerMap());
+                throw new LostInputsExecException(lostInputs);
               } else {
                 throw new EnvironmentalExecException(
                     e,

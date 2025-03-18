@@ -63,8 +63,7 @@ public class TopLevelArtifactHelperTest {
       outputGroups.put(pair.first, newArtifacts(pair.second));
     }
     groupProvider = OutputGroupInfo.fromBuilders(outputGroups);
-    ctx =
-        new TopLevelArtifactContext(false, false, false, ImmutableSortedSet.copyOf(groupProvider));
+    ctx = new TopLevelArtifactContext(false, false, ImmutableSortedSet.copyOf(groupProvider));
   }
 
   @Test

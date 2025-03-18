@@ -838,8 +838,10 @@ EOF
   expect_log "worker_memory_in_kb: [0-9][0-9]*"
   # And see that we collected metrics several times
   mv "${TEST_log}".profile "${TEST_log}"
-  local metric_events=$(grep -sc -- "Workers memory usage" $TEST_log)
-  (( metric_events >= 2 )) || fail "Expected at least 2 worker metric collections"
+  local metric_events=$(grep -sc -- "Total worker memory usage" $TEST_log)
+  (( metric_events >= 2 )) || fail "Expected at least 2 \"Total worker memory usage\"metric collections"
+  local metric_events=$(grep -sc -- "Per-mnemonic worker memory usage" $TEST_log)
+  (( metric_events >= 2 )) || fail "Expected at least 2 \"Per-mnemonic worker memory usage\"metric collections"
 }
 
 function do_test_sandbox_cleanup {

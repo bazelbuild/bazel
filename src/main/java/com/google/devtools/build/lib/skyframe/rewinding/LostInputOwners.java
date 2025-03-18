@@ -11,19 +11,25 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.actions;
+package com.google.devtools.build.lib.skyframe.rewinding;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import com.google.common.base.MoreObjects;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.SetMultimap;
+import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.Artifact;
 
-/** A mutable {@link ActionInputDepOwners}. */
-public final class ActionInputDepOwnerMap implements ActionInputDepOwners {
+/**
+ * Association between lost inputs and the aggregation artifacts (tree artifacts, filesets,
+ * runfiles) that are responsible for a failed action's inclusion of those inputs.
+ */
+public final class LostInputOwners {
 
-  private final SetMultimap<ActionInput, Artifact> depOwnersByInputs = HashMultimap.create();
+  private final SetMultimap<ActionInput, Artifact> owners = HashMultimap.create();
 
   public void addOwner(ActionInput input, Artifact owner) {
     checkNotNull(input);
@@ -33,7 +39,7 @@ public final class ActionInputDepOwnerMap implements ActionInputDepOwners {
         "Invalid owner relationship (input=%s, owner=%s)",
         input,
         owner);
-    depOwnersByInputs.put(input, owner);
+    owners.put(input, owner);
   }
 
   private static boolean isValidOwnerRelationship(ActionInput input, Artifact owner) {
@@ -49,8 +55,12 @@ public final class ActionInputDepOwnerMap implements ActionInputDepOwners {
     return false;
   }
 
+  public ImmutableSet<Artifact> getOwners(ActionInput input) {
+    return ImmutableSet.copyOf(owners.get(input));
+  }
+
   @Override
-  public ImmutableSet<Artifact> getDepOwners(ActionInput input) {
-    return ImmutableSet.copyOf(depOwnersByInputs.get(input));
+  public String toString() {
+    return MoreObjects.toStringHelper(this).add("owners", owners).toString();
   }
 }

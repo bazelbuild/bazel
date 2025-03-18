@@ -18,6 +18,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.DetailedException;
+import com.google.devtools.build.lib.skyframe.rewinding.LostInputOwners;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -113,11 +114,11 @@ public interface ImportantOutputHandler extends ActionContext {
   /**
    * Represents artifacts that need to be regenerated via action rewinding, along with their owners.
    */
-  record LostArtifacts(ImmutableMap<String, ActionInput> byDigest, ActionInputDepOwners owners) {
+  record LostArtifacts(ImmutableMap<String, ActionInput> byDigest, LostInputOwners owners) {
 
-    public LostArtifacts(ImmutableMap<String, ActionInput> byDigest, ActionInputDepOwners owners) {
-      this.byDigest = checkNotNull(byDigest);
-      this.owners = checkNotNull(owners);
+    public LostArtifacts {
+      checkNotNull(byDigest);
+      checkNotNull(owners);
     }
 
     public boolean isEmpty() {

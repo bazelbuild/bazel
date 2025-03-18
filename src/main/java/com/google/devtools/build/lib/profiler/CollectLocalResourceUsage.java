@@ -45,6 +45,7 @@ import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryMXBean;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -141,7 +142,8 @@ public class CollectLocalResourceUsage implements LocalResourceCollector {
         && (OS.getCurrent() == OS.LINUX || OS.getCurrent() == OS.DARWIN)) {
       // Enabling the WorkerMemoryUsageCollector will cause hangs on Windows. We should only enable
       // it on Linux and Darwin.
-      collectors.add(new WorkerMemoryUsageCollector(workerProcessMetricsCollector));
+      collectors.add(new TotalWorkerMemoryUsageCollector(workerProcessMetricsCollector));
+      collectors.add(new PerMnemonicWorkerMemoryUsageCollector(workerProcessMetricsCollector));
     }
     if (collectLoadAverage) {
       collectors.add(new SystemLoadAverageCollector(osBean));
@@ -382,13 +384,13 @@ public class CollectLocalResourceUsage implements LocalResourceCollector {
     }
   }
 
-  private static class WorkerMemoryUsageCollector implements CounterSeriesCollector {
+  private static class TotalWorkerMemoryUsageCollector implements CounterSeriesCollector {
     private static final CounterSeriesTask WORKERS_MEMORY_USAGE =
         new CounterSeriesTask(
-            "Workers memory usage", "workers memory", CounterSeriesTask.Color.RAIL_ANIMATION);
+            "Total worker memory usage", "workers memory", CounterSeriesTask.Color.RAIL_ANIMATION);
     private final WorkerProcessMetricsCollector workerProcessMetricsCollector;
 
-    private WorkerMemoryUsageCollector(
+    private TotalWorkerMemoryUsageCollector(
         WorkerProcessMetricsCollector workerProcessMetricsCollector) {
       this.workerProcessMetricsCollector = workerProcessMetricsCollector;
     }
@@ -404,6 +406,41 @@ public class CollectLocalResourceUsage implements LocalResourceCollector {
                 / 1024;
       }
       consumer.accept(WORKERS_MEMORY_USAGE, (double) workerMemoryUsageMb);
+    }
+  }
+
+  private static class PerMnemonicWorkerMemoryUsageCollector implements CounterSeriesCollector {
+    private static final HashMap<String, CounterSeriesTask> workerMemoryUsageSeries =
+        new HashMap<>();
+    private static final String SERIES_LANE_NAME = "Per-mnemonic worker memory usage";
+    private final WorkerProcessMetricsCollector workerProcessMetricsCollector;
+
+    private PerMnemonicWorkerMemoryUsageCollector(
+        WorkerProcessMetricsCollector workerProcessMetricsCollector) {
+      this.workerProcessMetricsCollector = workerProcessMetricsCollector;
+    }
+
+    private static CounterSeriesTask getWorkerMemoryUsageSeries(String mnemonic) {
+      return workerMemoryUsageSeries.computeIfAbsent(
+          mnemonic,
+          key ->
+              new CounterSeriesTask(
+                  SERIES_LANE_NAME, mnemonic, CounterSeriesTask.Color.RAIL_ANIMATION));
+    }
+
+    @Override
+    public void collect(double deltaNanos, BiConsumer<CounterSeriesTask, Double> consumer) {
+
+      workerProcessMetricsCollector
+          .getLiveWorkerProcessMetrics()
+          .forEach(
+              collector -> {
+                try (SilentCloseable c = Profiler.instance().profile(collector.getMnemonic())) {
+                  consumer.accept(
+                      getWorkerMemoryUsageSeries(collector.getMnemonic()),
+                      (double) collector.getUsedMemoryInKb() / 1024);
+                }
+              });
     }
   }
 

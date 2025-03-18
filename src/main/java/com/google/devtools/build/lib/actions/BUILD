@@ -50,8 +50,6 @@ java_library(
         "ActionExecutionStatusReporter.java",
         "ActionGraph.java",
         "ActionGraphVisitor.java",
-        "ActionInputDepOwnerMap.java",
-        "ActionInputDepOwners.java",
         "ActionInputMap.java",
         "ActionInputPrefetcher.java",
         "ActionKeyComputer.java",
@@ -177,6 +175,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:detailed_exceptions",
         "//src/main/java/com/google/devtools/build/lib/skyframe:sane_analysis_exception",
         "//src/main/java/com/google/devtools/build/lib/skyframe:tree_artifact_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/rewinding:lost_input_owners",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:visible-for-serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
@@ -389,7 +388,10 @@ java_library(
         "ExecException.java",
         "UserExecException.java",
     ],
-    deps = ["//src/main/protobuf:failure_details_java_proto"],
+    deps = [
+        "//src/main/protobuf:failure_details_java_proto",
+        "//third_party:jsr305",
+    ],
 )
 
 java_library(
@@ -398,14 +400,9 @@ java_library(
     deps = [
         ":file_metadata",
         ":fileset_output_symlink",
-        ":forbidden_action_input_exception",
         "//src/main/java/com/google/devtools/build/lib/util",
-        "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
-        "//third_party:flogger",
         "//third_party:guava",
-        "//third_party:jsr305",
     ],
 )
 
@@ -414,11 +411,9 @@ java_library(
     srcs = ["FilesetOutputSymlink.java"],
     deps = [
         ":artifacts",
-        ":has_digest",
+        ":file_metadata",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//third_party:auto_value",
-        "//third_party:error_prone_annotations",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
@@ -492,6 +487,7 @@ java_library(
         ":artifact_expander",
         ":artifacts",
         "//src/main/java/com/google/devtools/build/lib/skyframe:detailed_exceptions",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/rewinding:lost_input_owners",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",

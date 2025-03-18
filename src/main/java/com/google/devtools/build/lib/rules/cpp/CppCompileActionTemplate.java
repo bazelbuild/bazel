@@ -215,8 +215,9 @@ public final class CppCompileActionTemplate extends ActionKeyComputer
           cppCompileActionBuilder.getBuiltinIncludeDirectories(),
           cppCompileActionBuilder.getInputsForInvalidation(),
           getMnemonic(),
-          // TODO(fmeum): Replace this with the actual value once CppCompileActionTemplate supports
-          //  path mapping.
+          // This method is not called during actual execution (action templates are always expanded
+          // into individual actions that then have their action key computed), so path mapping is
+          // supported and fingerprinted correctly even with this set to OFF.
           OutputPathsMode.OFF);
     } catch (EvalException e) {
       throw new CommandLineExpansionException(e.getMessage());
