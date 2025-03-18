@@ -93,7 +93,8 @@ public record CompiledModuleFile(
   static ImmutableList<IncludeStatement> checkModuleFileSyntax(StarlarkFile starlarkFile)
       throws SyntaxError.Exception {
     var includeStatements = ImmutableList.<IncludeStatement>builder();
-    new DotBazelFileSyntaxChecker("MODULE.bazel files", /* canLoadBzl= */ false) {
+    new DotBazelFileSyntaxChecker(
+        "MODULE.bazel files", /* canLoadBzl= */ false, /* allowLiteralStarStarArgs= */ true) {
       // Once `include` the identifier is assigned to, we no longer care about its appearance
       // anywhere. This allows `include` to be used as a module extension proxy (and technically
       // any other variable binding).
