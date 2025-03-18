@@ -305,6 +305,10 @@ launcher_flag_alias(
     config.create(
         "embedded_tools/tools/test/BUILD",
         """
+
+        toolchain_type(
+            name = "default_test_toolchain_type",
+        )
         filegroup(
             name = "runtime",
             srcs = [
