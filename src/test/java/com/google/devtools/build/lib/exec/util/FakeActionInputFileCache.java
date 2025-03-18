@@ -33,6 +33,7 @@ import javax.annotation.Nullable;
 /** A fake implementation of the {@link InputMetadataProvider} interface. */
 public final class FakeActionInputFileCache implements InputMetadataProvider {
   private final Map<ActionInput, FileArtifactValue> inputs = new HashMap<>();
+  private final Map<ActionInput, TreeArtifactValue> treeArtifacts = new HashMap<>();
   private final Map<ActionInput, RunfilesArtifactValue> runfilesInputs = new HashMap<>();
   private final Map<Artifact, FilesetOutputTree> filesets = new HashMap<>();
   private final List<RunfilesTree> runfilesTrees = new ArrayList<>();
@@ -41,6 +42,10 @@ public final class FakeActionInputFileCache implements InputMetadataProvider {
 
   public void put(ActionInput artifact, FileArtifactValue metadata) {
     inputs.put(artifact, metadata);
+  }
+
+  public void putTreeArtifact(ActionInput actionInput, TreeArtifactValue treeArtifactValue) {
+    treeArtifacts.put(actionInput, treeArtifactValue);
   }
 
   public void putRunfilesTree(ActionInput runfilesTreeArtifact, RunfilesTree runfilesTree) {
@@ -70,7 +75,7 @@ public final class FakeActionInputFileCache implements InputMetadataProvider {
   @Nullable
   @Override
   public TreeArtifactValue getTreeMetadata(ActionInput actionInput) {
-    throw new UnsupportedOperationException();
+    return treeArtifacts.get(actionInput);
   }
 
   @Override
@@ -99,5 +104,9 @@ public final class FakeActionInputFileCache implements InputMetadataProvider {
   @Nullable
   public ActionInput getInput(String execPath) {
     return null;
+  }
+
+  public ImmutableMap<ActionInput, TreeArtifactValue> getAllTreeArtifacts() {
+    return ImmutableMap.copyOf(treeArtifacts);
   }
 }

@@ -27,8 +27,5 @@ import javax.annotation.Nullable;
 public interface RichDataProducingAction {
   @Nullable
   RichArtifactData reconstructRichDataOnActionCacheHit(
-      Path execRoot,
-      InputMetadataProvider inputMetadataProvider,
-      ArtifactExpander artifactExpander)
-      throws ActionExecutionException;
+      Path execRoot, InputMetadataProvider inputMetadataProvider) throws ActionExecutionException;
 }

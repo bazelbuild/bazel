@@ -770,8 +770,7 @@ public final class ActionExecutionFunction implements SkyFunction {
                 : skyframeActionExecutor.getExecRoot();
 
         reconstructedRichArtifactData =
-            rdpa.reconstructRichDataOnActionCacheHit(
-                execRoot, inputMetadataProvider, artifactExpander);
+            rdpa.reconstructRichDataOnActionCacheHit(execRoot, inputMetadataProvider);
       } else {
         reconstructedRichArtifactData = null;
       }

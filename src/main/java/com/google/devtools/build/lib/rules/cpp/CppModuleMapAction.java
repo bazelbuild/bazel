@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.PathMappers;
@@ -144,7 +145,7 @@ public final class CppModuleMapAction extends AbstractFileWriteAction {
 
   @Override
   public DeterministicWriter newDeterministicWriter(ActionExecutionContext ctx) {
-    final ArtifactExpander artifactExpander = ctx.getArtifactExpander();
+    final InputMetadataProvider inputMetadataProvider = ctx.getInputMetadataProvider();
     // TODO: It is possible that compile actions consuming the module map have path mapping disabled
     //  due to inputs conflicting across configurations. Since these inputs aren't inputs of the
     //  module map action, the generated map still contains mapped paths, which then results in
@@ -160,7 +161,7 @@ public final class CppModuleMapAction extends AbstractFileWriteAction {
       String leadingPeriods = moduleMapHomeIsCwd ? "" : "../".repeat(segmentsToExecPath);
 
       Iterable<Artifact> separateModuleHdrs =
-          expandedHeaders(artifactExpander, separateModuleHeaders);
+          expandedHeaders(inputMetadataProvider, separateModuleHeaders);
 
       // For details about the different header types, see:
       // http://clang.llvm.org/docs/Modules.html#header-declaration
@@ -179,7 +180,7 @@ public final class CppModuleMapAction extends AbstractFileWriteAction {
             /*isUmbrellaHeader*/ true,
             pathMapper);
       } else {
-        for (Artifact artifact : expandedHeaders(artifactExpander, publicHeaders)) {
+        for (Artifact artifact : expandedHeaders(inputMetadataProvider, publicHeaders)) {
           appendHeader(
               content,
               "",
@@ -190,7 +191,7 @@ public final class CppModuleMapAction extends AbstractFileWriteAction {
               /*isUmbrellaHeader*/ false,
               pathMapper);
         }
-        for (Artifact artifact : expandedHeaders(artifactExpander, privateHeaders)) {
+        for (Artifact artifact : expandedHeaders(inputMetadataProvider, privateHeaders)) {
           appendHeader(
               content,
               "private",
@@ -268,11 +269,12 @@ public final class CppModuleMapAction extends AbstractFileWriteAction {
   }
 
   private static ImmutableList<Artifact> expandedHeaders(
-      ArtifactExpander artifactExpander, Iterable<Artifact> unexpandedHeaders) {
+      InputMetadataProvider inputMetadataProvider, Iterable<Artifact> unexpandedHeaders) {
     List<Artifact> expandedHeaders = new ArrayList<>();
     for (Artifact unexpandedHeader : unexpandedHeaders) {
       if (unexpandedHeader.isTreeArtifact()) {
-        expandedHeaders.addAll(artifactExpander.tryExpandTreeArtifact(unexpandedHeader));
+        expandedHeaders.addAll(
+            inputMetadataProvider.getTreeMetadata(unexpandedHeader).getChildren());
       } else {
         expandedHeaders.add(unexpandedHeader);
       }
