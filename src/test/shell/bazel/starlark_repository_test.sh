@@ -880,6 +880,43 @@ EOF
       || fail "Expected unrelated action to not be rerun"
 }
 
+function test_repo_env_workspace_interpolation() {
+  setup_starlark_repository
+
+  cat > test.bzl <<'EOF'
+def _impl(ctx):
+  result = ctx.execute(["my_tool"])
+  if result.return_code != 0:
+    fail("Non-zero return code from my_tool: " + str(result.return_code))
+  ctx.file("out.txt", result.stdout)
+  ctx.file("BUILD", 'exports_files(["out.txt"])')
+
+repo = repository_rule(
+  implementation = _impl,
+)
+EOF
+  cat > BUILD <<'EOF'
+genrule(
+  name = "repoenv",
+  outs = ["repoenv.txt"],
+  srcs = ["@foo//:out.txt"],
+  cmd = "cp $< $@",
+)
+EOF
+  cat > .bazelrc <<EOF
+common --repo_env=PATH=/bin:/usr/bin:%bazel_workspace%/repo_tools
+EOF
+
+  mkdir -p repo_tools
+  cat > repo_tools/my_tool <<'EOF'
+echo "Hello from my_tool"
+EOF
+  chmod +x repo_tools/my_tool
+
+  bazel build //:repoenv &> $TEST_log || fail "Failed to build"
+  assert_contains "Hello from my_tool" `bazel info bazel-bin 2>/dev/null`/repoenv.txt
+}
+
 function test_repo_env_inverse() {
   # This test makes sure that a repository rule that has no dependencies on
   # environment variables does _not_ get refetched when --repo_env changes.
