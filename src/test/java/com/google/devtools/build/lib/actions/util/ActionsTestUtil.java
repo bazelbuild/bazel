@@ -57,6 +57,7 @@ import com.google.devtools.build.lib.actions.BuildConfigurationEvent;
 import com.google.devtools.build.lib.actions.DiscoveredModulesPruner;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.FilesetOutputTree;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.PackageRootResolver;
 import com.google.devtools.build.lib.actions.RunfilesArtifactValue;
@@ -163,7 +164,6 @@ public final class ActionsTestUtil {
         fileOutErr,
         eventHandler,
         ImmutableMap.copyOf(clientEnv),
-        /* topLevelFilesets= */ ImmutableMap.of(),
         treeArtifact -> ImmutableSortedSet.of(),
         /* actionFileSystem= */ null,
         DiscoveredModulesPruner.DEFAULT,
@@ -188,7 +188,6 @@ public final class ActionsTestUtil {
         /* fileOutErr= */ null,
         eventHandler,
         /* clientEnv= */ ImmutableMap.of(),
-        /* topLevelFilesets= */ ImmutableMap.of(),
         treeArtifact -> ImmutableSortedSet.of(),
         /* actionFileSystem= */ null,
         DiscoveredModulesPruner.DEFAULT,
@@ -264,6 +263,11 @@ public final class ActionsTestUtil {
   public static SpecialArtifact createRunfilesArtifact(ArtifactRoot root, String execPath) {
     return SpecialArtifact.create(
         root, PathFragment.create(execPath), NULL_ARTIFACT_OWNER, SpecialArtifactType.RUNFILES);
+  }
+
+  public static SpecialArtifact createFilesetArtifact(ArtifactRoot root, String execPath) {
+    return SpecialArtifact.create(
+        root, PathFragment.create(execPath), NULL_ARTIFACT_OWNER, SpecialArtifactType.FILESET);
   }
 
   public static SpecialArtifact createTreeArtifactWithGeneratingAction(
@@ -927,6 +931,17 @@ public final class ActionsTestUtil {
     @Nullable
     @Override
     public TreeArtifactValue getTreeMetadata(ActionInput actionInput) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    @Nullable
+    public FilesetOutputTree getFileset(ActionInput input) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Map<Artifact, FilesetOutputTree> getFilesets() {
       throw new UnsupportedOperationException();
     }
 

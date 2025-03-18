@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import java.io.IOException;
+import java.util.Map;
 import javax.annotation.Nullable;
 
 /** Provides {@link ActionInput} metadata. */
@@ -60,6 +61,23 @@ public interface InputMetadataProvider {
       throw new IllegalStateException(e);
     }
   }
+
+  /**
+   * Returns the contents of a given Fileset on the inputs of the action.
+   *
+   * <p>Works both for Filesets that are directly on the inputs and those that are included in a
+   * runfiles tree.
+   */
+  @Nullable
+  FilesetOutputTree getFileset(ActionInput input);
+
+  /**
+   * Returns the Filesets on the inputs of the action.
+   *
+   * <p>Contains both Filesets that are directly on the inputs and those that are included in a
+   * runfiles tree.
+   */
+  Map<Artifact, FilesetOutputTree> getFilesets();
 
   /**
    * Returns the {@link RunfilesArtifactValue} for the given {@link ActionInput}, which must be a

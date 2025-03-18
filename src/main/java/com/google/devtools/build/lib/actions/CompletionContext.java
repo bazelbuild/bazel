@@ -115,10 +115,6 @@ public final class CompletionContext implements ArtifactExpander {
     return importantInputMap;
   }
 
-  public Map<Artifact, FilesetOutputTree> getExpandedFilesets() {
-    return filesets;
-  }
-
   @Nullable
   public FileArtifactValue getFileArtifactValue(Artifact artifact) {
     return importantInputMap.getInputMetadata(artifact);

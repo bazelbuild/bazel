@@ -39,7 +39,6 @@ import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
-import com.google.devtools.build.lib.actions.FilesetOutputTree;
 import com.google.devtools.build.lib.actions.LostInputsActionExecutionException;
 import com.google.devtools.build.lib.actions.RunfilesArtifactValue;
 import com.google.devtools.build.lib.actions.RunfilesTree;
@@ -165,7 +164,6 @@ public final class ActionRewindStrategy {
       Set<SkyKey> failedActionDeps,
       LostInputsActionExecutionException e,
       ActionInputMap inputArtifactData,
-      ImmutableMap<Artifact, FilesetOutputTree> expandedFilesets,
       Environment env,
       long actionStartTimeNanos)
       throws ActionRewindException, InterruptedException {
@@ -182,8 +180,7 @@ public final class ActionRewindStrategy {
     LostInputOwners owners =
         e.getOwners().isPresent()
             ? e.getOwners().get()
-            : calculateLostInputOwners(
-                lostInputsByDigest.values(), inputArtifactData, expandedFilesets);
+            : calculateLostInputOwners(lostInputsByDigest.values(), inputArtifactData);
 
     ImmutableList.Builder<Action> depsToRewind = ImmutableList.builder();
     Reset rewindPlan;
@@ -436,9 +433,7 @@ public final class ActionRewindStrategy {
    * present.
    */
   private static LostInputOwners calculateLostInputOwners(
-      ImmutableCollection<ActionInput> lostInputs,
-      ActionInputMap inputArtifactData,
-      ImmutableMap<Artifact, FilesetOutputTree> expandedFilesets) {
+      ImmutableCollection<ActionInput> lostInputs, ActionInputMap inputArtifactData) {
     Set<ActionInput> lostInputsAndOwners = new HashSet<>();
     LostInputOwners owners = new LostInputOwners();
     boolean sawLostFilesetFile = false;
@@ -453,16 +448,18 @@ public final class ActionRewindStrategy {
     }
 
     if (sawLostFilesetFile) {
-      expandedFilesets.forEach(
-          (fileset, outputTree) ->
-              outputTree.visitSymlinks(
-                  (name, target, metadata) -> {
-                    ActionInput input = ActionInputHelper.fromPath(target);
-                    if (lostInputsAndOwners.contains(input)) {
-                      lostInputsAndOwners.add(fileset);
-                      owners.addOwner(input, fileset);
-                    }
-                  }));
+      inputArtifactData
+          .getFilesets()
+          .forEach(
+              (fileset, outputTree) ->
+                  outputTree.visitSymlinks(
+                      (name, target, metadata) -> {
+                        ActionInput input = ActionInputHelper.fromPath(target);
+                        if (lostInputsAndOwners.contains(input)) {
+                          lostInputsAndOwners.add(fileset);
+                          owners.addOwner(input, fileset);
+                        }
+                      }));
     }
 
     // Runfiles trees may contain tree artifacts and filesets, but not vice versa. Runfiles are

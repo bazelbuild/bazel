@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.vfs.Path;
 import javax.annotation.Nullable;
 
@@ -29,7 +28,6 @@ public interface RichDataProducingAction {
   @Nullable
   RichArtifactData reconstructRichDataOnActionCacheHit(
       Path execRoot,
-      ImmutableMap<Artifact, FilesetOutputTree> topLevelFilesets,
       InputMetadataProvider inputMetadataProvider,
       ArtifactExpander artifactExpander)
       throws ActionExecutionException;

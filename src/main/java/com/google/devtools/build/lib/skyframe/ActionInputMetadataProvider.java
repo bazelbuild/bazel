@@ -54,10 +54,10 @@ final class ActionInputMetadataProvider implements InputMetadataProvider {
    */
   private final Supplier<ImmutableMap<String, FileArtifactValue>> filesetMapping;
 
-  ActionInputMetadataProvider(
-      ActionInputMap inputArtifactData, Map<Artifact, FilesetOutputTree> filesets) {
+  ActionInputMetadataProvider(ActionInputMap inputArtifactData) {
     this.inputArtifactData = inputArtifactData;
-    this.filesetMapping = Suppliers.memoize(() -> createFilesetMapping(filesets));
+    this.filesetMapping =
+        Suppliers.memoize(() -> createFilesetMapping(inputArtifactData.getFilesets()));
   }
 
   private static ImmutableMap<String, FileArtifactValue> createFilesetMapping(
@@ -89,6 +89,17 @@ final class ActionInputMetadataProvider implements InputMetadataProvider {
   @Override
   public TreeArtifactValue getTreeMetadata(ActionInput actionInput) {
     return inputArtifactData.getTreeMetadata(actionInput);
+  }
+
+  @Nullable
+  @Override
+  public FilesetOutputTree getFileset(ActionInput input) {
+    return inputArtifactData.getFileset(input);
+  }
+
+  @Override
+  public Map<Artifact, FilesetOutputTree> getFilesets() {
+    return inputArtifactData.getFilesets();
   }
 
   @Nullable

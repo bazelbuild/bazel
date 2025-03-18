@@ -52,6 +52,7 @@ import com.google.devtools.build.lib.actions.CommandLines.CommandLineAndParamFil
 import com.google.devtools.build.lib.actions.CommandLines.ExpandedCommandLines;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.FilesetOutputTree;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.ResourceSetOrBuilder;
@@ -377,6 +378,25 @@ public class SpawnAction extends AbstractAction implements CommandAction {
             getPrimaryOutput().getExecPath(),
             pathMapper,
             getCommandLineLimits());
+    Map<Artifact, FilesetOutputTree> topLevelFilesets;
+    InputMetadataProvider inputMetadataProvider = actionExecutionContext.getInputMetadataProvider();
+    if (inputMetadataProvider.getFilesets().isEmpty()) {
+      topLevelFilesets = ImmutableMap.of();
+    } else if (inputMetadataProvider.getRunfilesTrees().isEmpty()) {
+      topLevelFilesets = inputMetadataProvider.getFilesets();
+    } else {
+      ImmutableMap.Builder<Artifact, FilesetOutputTree> topLevelFilesetsBuilder =
+          ImmutableMap.builder();
+      // This flattening of the inputs nested set is awkward, but we only pay the price when there
+      // are Filesets AND runfiles trees on the inputs, which makes it palatable.
+      for (Artifact input : getInputs().toList()) {
+        if (input.isFileset()) {
+          topLevelFilesetsBuilder.put(input, inputMetadataProvider.getFileset(input));
+        }
+      }
+      topLevelFilesets = topLevelFilesetsBuilder.buildOrThrow();
+    }
+
     return new ActionSpawn(
         expandedCommandLines.arguments(),
         this,
@@ -384,7 +404,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
         envResolved,
         getInputs(),
         expandedCommandLines.getParamFiles(),
-        actionExecutionContext.getTopLevelFilesets(),
+        topLevelFilesets,
         reportOutputs,
         pathMapper);
   }

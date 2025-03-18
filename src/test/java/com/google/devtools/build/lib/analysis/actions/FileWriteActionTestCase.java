@@ -75,7 +75,6 @@ public abstract class FileWriteActionTestCase extends BuildViewTestCase {
             new FileOutErr(),
             new StoredEventHandler(),
             /* clientEnv= */ ImmutableMap.of(),
-            /* topLevelFilesets= */ ImmutableMap.of(),
             /* artifactExpander= */ null,
             /* actionFileSystem= */ null,
             DiscoveredModulesPruner.DEFAULT,

@@ -14,8 +14,11 @@
 package com.google.devtools.build.lib.exec.util;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.FilesetOutputTree;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.RunfilesArtifactValue;
 import com.google.devtools.build.lib.actions.RunfilesTree;
@@ -31,6 +34,7 @@ import javax.annotation.Nullable;
 public final class FakeActionInputFileCache implements InputMetadataProvider {
   private final Map<ActionInput, FileArtifactValue> inputs = new HashMap<>();
   private final Map<ActionInput, RunfilesArtifactValue> runfilesInputs = new HashMap<>();
+  private final Map<Artifact, FilesetOutputTree> filesets = new HashMap<>();
   private final List<RunfilesTree> runfilesTrees = new ArrayList<>();
 
   public FakeActionInputFileCache() {}
@@ -53,6 +57,10 @@ public final class FakeActionInputFileCache implements InputMetadataProvider {
     runfilesTrees.add(runfilesTree);
   }
 
+  public void putFileset(Artifact fileset, FilesetOutputTree filesetOutputTree) {
+    filesets.put(fileset, filesetOutputTree);
+  }
+
   @Override
   @Nullable
   public FileArtifactValue getInputMetadataChecked(ActionInput input) throws IOException {
@@ -63,6 +71,17 @@ public final class FakeActionInputFileCache implements InputMetadataProvider {
   @Override
   public TreeArtifactValue getTreeMetadata(ActionInput actionInput) {
     throw new UnsupportedOperationException();
+  }
+
+  @Override
+  @Nullable
+  public FilesetOutputTree getFileset(ActionInput input) {
+    return filesets.get(input);
+  }
+
+  @Override
+  public ImmutableMap<Artifact, FilesetOutputTree> getFilesets() {
+    return ImmutableMap.copyOf(filesets);
   }
 
   @Override

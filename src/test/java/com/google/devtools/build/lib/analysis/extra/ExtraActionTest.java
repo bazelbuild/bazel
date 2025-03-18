@@ -173,7 +173,6 @@ public class ExtraActionTest extends FoundationTestCase {
                 /* fileOutErr= */ null,
                 /* eventHandler= */ null,
                 /* clientEnv= */ ImmutableMap.of(),
-                /* topLevelFilesets= */ ImmutableMap.of(),
                 /* artifactExpander= */ null,
                 /* actionFileSystem= */ null,
                 DiscoveredModulesPruner.DEFAULT,
