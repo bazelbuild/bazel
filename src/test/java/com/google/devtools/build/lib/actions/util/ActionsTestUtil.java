@@ -444,6 +444,19 @@ public final class ActionsTestUtil {
     }
   }
 
+  /** {@link NullAction} that can be used in place of a shadowed action that discovers inputs. */
+  public static final class InputDiscoveringNullAction extends NullAction {
+    @Override
+    public boolean discoversInputs() {
+      return true;
+    }
+
+    @Override
+    protected boolean inputsDiscovered() {
+      return false;
+    }
+  }
+
   /**
    * A mocked action containing the inputs and outputs of the action. Used for tests that do not
    * need to execute the action.

@@ -44,6 +44,7 @@ import com.google.devtools.build.lib.actions.ThreadStateReceiver;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.actions.extra.JavaCompileInfo;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
+import com.google.devtools.build.lib.actions.util.ActionsTestUtil.InputDiscoveringNullAction;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil.NullAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -252,21 +253,5 @@ public class ExtraActionTest extends FoundationTestCase {
         .addDependencies(getCommonSerializationDependencies())
         .addDependencies(SerializationDepsUtils.SERIALIZATION_DEPS_FOR_TEST)
         .runTests();
-  }
-
-  /**
-   * Exists to work around the check in {@link
-   * com.google.devtools.build.lib.actions.AbstractAction#updateInputs}.
-   */
-  private static final class InputDiscoveringNullAction extends NullAction {
-    @Override
-    public boolean discoversInputs() {
-      return true;
-    }
-
-    @Override
-    protected boolean inputsDiscovered() {
-      return false;
-    }
   }
 }
