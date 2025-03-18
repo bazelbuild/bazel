@@ -395,13 +395,76 @@ launcher_flag_alias(
     config.create(
         "embedded_tools/tools/BUILD",
         "alias(name='host_platform',actual='" + TestConstants.PLATFORM_LABEL + "')");
+    // Contains a stripped down version of @bazel_tools//tools/test.
     config.create(
         "embedded_tools/tools/test/BUILD",
         """
+        load(":default_test_toolchain.bzl", "bool_flag", "empty_toolchain")
 
         toolchain_type(
             name = "default_test_toolchain_type",
         )
+
+        empty_toolchain(name = "empty_toolchain")
+
+        bool_flag(
+            name = "incompatible_use_default_test_toolchain",
+            build_setting_default = False,
+            visibility = ["//visibility:private"],
+        )
+
+        config_setting(
+            name = "use_default_test_toolchain",
+            values = {
+                "use_target_platform_for_tests": "false",
+            },
+            flag_values = {
+                ":incompatible_use_default_test_toolchain": "true",
+            },
+            visibility = ["//visibility:private"],
+        )
+
+        config_setting(
+            name = "use_legacy_test_toolchain_due_to_use_target_platform_for_tests",
+            values = {
+                "use_target_platform_for_tests": "true",
+            },
+            visibility = ["//visibility:private"],
+        )
+
+        config_setting(
+            name = "use_legacy_test_toolchain_due_to_incompatible_flag",
+            flag_values = {
+                ":incompatible_use_default_test_toolchain": "false",
+            },
+            visibility = ["//visibility:private"],
+        )
+
+        toolchain(
+            name = "default_test_toolchain",
+            toolchain_type = ":default_test_toolchain_type",
+            use_target_platform_constraints = True,
+            target_settings = [":use_default_test_toolchain"],
+            toolchain = ":empty_toolchain",
+            visibility = ["//visibility:private"],
+        )
+
+        toolchain(
+            name = "legacy_test_toolchain",
+            toolchain_type = ":default_test_toolchain_type",
+            target_settings = [":use_legacy_test_toolchain_due_to_incompatible_flag"],
+            toolchain = ":empty_toolchain",
+            visibility = ["//visibility:private"],
+        )
+
+        toolchain(
+            name = "legacy_test_toolchain_use_target_platform_for_tests",
+            toolchain_type = ":default_test_toolchain_type",
+            target_settings = [":use_legacy_test_toolchain_due_to_use_target_platform_for_tests"],
+            toolchain = ":empty_toolchain",
+            visibility = ["//visibility:private"],
+        )
+
         filegroup(
             name = "runtime",
             srcs = [
@@ -453,6 +516,21 @@ launcher_flag_alias(
         filegroup(
             name = "lcov_merger",
             srcs = ["lcov_merger.sh"],
+        )
+        """);
+    config.create(
+        "embedded_tools/tools/test/default_test_toolchain.bzl",
+        """
+        visibility("private")
+
+        bool_flag = rule(
+            implementation = lambda _: None,
+            build_setting = config.bool(flag = True),
+            doc = "A bool-typed build setting that can be set on the command line",
+        )
+
+        empty_toolchain = rule(
+            implementation = lambda ctx: platform_common.ToolchainInfo(),
         )
         """);
 
@@ -708,7 +786,12 @@ launcher_flag_alias(
   @Override
   public void setupMockToolsRepository(MockToolsConfig config) throws IOException {
     config.create("embedded_tools/WORKSPACE", "workspace(name = 'bazel_tools')");
-    config.create("embedded_tools/MODULE.bazel", "module(name='bazel_tools')");
+    config.create(
+        "embedded_tools/MODULE.bazel",
+        """
+        module(name='bazel_tools')
+        register_toolchains("//tools/test:all")
+        """);
     config.create("embedded_tools/tools/build_defs/repo/BUILD");
     config.create(
         "embedded_tools/tools/build_defs/build_info/bazel_cc_build_info.bzl",
