@@ -885,9 +885,9 @@ function test_repo_env_workspace_interpolation() {
 
   cat > test.bzl <<'EOF'
 def _impl(ctx):
-  result = ctx.execute(["my_tool"])
+  result = ctx.execute(["my_tool.bat"])
   if result.return_code != 0:
-    fail("Non-zero return code from my_tool: " + str(result.return_code))
+    fail("my_tool.bat failed ({}): {}".format(result.return_code, result.stderr))
   ctx.file("out.txt", result.stdout)
   ctx.file("BUILD", 'exports_files(["out.txt"])')
 
@@ -908,10 +908,10 @@ common --repo_env=PATH=/bin:/usr/bin:%bazel_workspace%/repo_tools
 EOF
 
   mkdir -p repo_tools
-  cat > repo_tools/my_tool <<'EOF'
-echo "Hello from my_tool"
+  cat > repo_tools/my_tool.bat <<'EOF'
+echo Hello from my_tool
 EOF
-  chmod +x repo_tools/my_tool
+  chmod +x repo_tools/my_tool.bat
 
   bazel build //:repoenv &> $TEST_log || fail "Failed to build"
   assert_contains "Hello from my_tool" `bazel info bazel-bin 2>/dev/null`/repoenv.txt
