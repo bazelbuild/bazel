@@ -32,6 +32,8 @@ import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.vfs.FileSystem.NotASymlinkException;
 import com.google.devtools.build.lib.vfs.FileSystemUtils.MoveResult;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.Arrays;
@@ -39,10 +41,9 @@ import java.util.Collection;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 /** This class tests the file system utilities. */
-@RunWith(JUnit4.class)
+@RunWith(TestParameterInjector.class)
 public class FileSystemUtilsTest {
   private ManualClock clock;
   private FileSystem fileSystem;
@@ -346,13 +347,14 @@ public class FileSystemUtilsTest {
   }
 
   @Test
-  public void testMoveFile() throws IOException {
+  public void testMoveFile(@TestParameter boolean targetIsWritable) throws IOException {
     createTestDirectoryTree();
     Path originalFile = file1;
     byte[] content = new byte[] { 'a', 'b', 'c', 23, 42 };
     FileSystemUtils.writeContent(originalFile, content);
 
     Path moveTarget = file2;
+    moveTarget.setWritable(targetIsWritable);
 
     assertThat(moveFile(originalFile, moveTarget)).isEqualTo(MoveResult.FILE_MOVED);
 
@@ -383,6 +385,24 @@ public class FileSystemUtilsTest {
     assertThat(source.exists(Symlinks.NOFOLLOW)).isFalse();
     assertThat(target.isSymbolicLink()).isTrue();
     assertThat(target.readSymbolicLink()).isEqualTo(PathFragment.create("link-target"));
+  }
+
+  @Test
+  public void testMoveFileAcrossDevicesToResolvedSymlink() throws Exception {
+    FileSystem fs = new MultipleDeviceFS();
+    Path source = fs.getPath("/fs1/source");
+    source.getParentDirectory().createDirectoryAndParents();
+    Path target = fs.getPath("/fs2/target");
+    target.getParentDirectory().createDirectoryAndParents();
+    FileSystemUtils.writeContent(source, UTF_8, "hello, world");
+    Path symlinkTarget = target.getParentDirectory().getChild("symlinkTarget");
+    FileSystemUtils.touchFile(symlinkTarget);
+    target.createSymbolicLink(PathFragment.create(symlinkTarget.getBaseName()));
+
+    assertThat(FileSystemUtils.moveFile(source, target)).isEqualTo(MoveResult.FILE_COPIED);
+    assertThat(source.exists(Symlinks.NOFOLLOW)).isFalse();
+    assertThat(target.isFile(Symlinks.NOFOLLOW)).isTrue();
+    assertThat(FileSystemUtils.readContent(target, UTF_8)).isEqualTo("hello, world");
   }
 
   @Test
