@@ -361,5 +361,10 @@ public final class QueryUtil {
           ? depth < previousDepth.get()
           : true;
     }
+
+    @Override
+    public int uniqueElementsCount() {
+      return alreadySeenAtDepth.size();
+    }
   }
 }
