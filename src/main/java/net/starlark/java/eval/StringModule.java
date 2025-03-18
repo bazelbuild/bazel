@@ -383,7 +383,7 @@ final class StringModule implements StarlarkValue {
               + "separator, optionally limiting the number of splits to <code>maxsplit</code>.",
       parameters = {
         @Param(name = "self", doc = "This string."),
-        @Param(name = "sep", doc = "The string to split on."),
+        @Param(name = "sep", doc = "The string to split on.", named = true),
         @Param(
             name = "maxsplit",
             allowedTypes = {
@@ -391,7 +391,8 @@ final class StringModule implements StarlarkValue {
               @ParamType(type = NoneType.class),
             },
             defaultValue = "None",
-            doc = "The maximum number of splits.")
+            doc = "The maximum number of splits.",
+            named = true)
       },
       useStarlarkThread = true)
   public StarlarkList<String> split(
@@ -425,7 +426,7 @@ final class StringModule implements StarlarkValue {
               + "Except for splitting from the right, this method behaves like split().",
       parameters = {
         @Param(name = "self", doc = "This string."),
-        @Param(name = "sep", doc = "The string to split on."),
+        @Param(name = "sep", doc = "The string to split on.", named = true),
         @Param(
             name = "maxsplit",
             allowedTypes = {
@@ -433,7 +434,8 @@ final class StringModule implements StarlarkValue {
               @ParamType(type = NoneType.class),
             },
             defaultValue = "None",
-            doc = "The maximum number of splits.")
+            doc = "The maximum number of splits.",
+            named = true)
       },
       useStarlarkThread = true)
   public StarlarkList<String> rsplit(
