@@ -53,7 +53,7 @@ public class NativePosixFilesTest {
       NativePosixFiles.readlink(foo.getPath());
       fail("Expected some exception");
     } catch (IOException e) {
-      assertThat(e).hasMessageThat().startsWith("[src/main/native/unix_jni.cc:");
+      assertThat(e).hasMessageThat().startsWith("[unix_jni.cc:");
       assertThat(e).hasMessageThat().endsWith("/non-existent (No such file or directory)");
     }
   }

@@ -54,6 +54,8 @@
 
 namespace blaze_jni {
 
+#define FILE_BASENAME "unix_jni.cc"
+
 struct DIROrError {
   DIR *dir;
   int error;
@@ -156,13 +158,13 @@ static void PostAssertionError(JNIEnv *env, const std::string& message) {
 
 #define POST_EXCEPTION_FROM_ERRNO(env, error, message)                         \
   PostException(env, error,                                                    \
-                std::string("[" __FILE__ ":" TOSTRING(__LINE__) "] ") +        \
+                std::string("[" FILE_BASENAME ":" TOSTRING(__LINE__) "] ") +   \
                     std::string(message))
 
 #define POST_ASSERTION_ERROR(env, message)                                     \
-  PostAssertionError(env,                                                      \
-                     std::string("[" __FILE__ ":" TOSTRING(__LINE__) "] ") +   \
-                         std::string(message))
+  PostAssertionError(                                                          \
+      env, std::string("[" FILE_BASENAME ":" TOSTRING(__LINE__) "] ") +        \
+               std::string(message))
 
 // Throws RuntimeExceptions for IO operations which fail unexpectedly.
 // See package-info.html.
@@ -842,10 +844,10 @@ static void PostDeleteTreesBelowException(
                     ")");
 }
 
-#define POST_DELETE_TREES_BELOW_EXCEPTION(env, error, function, dir_path, \
-                                          entry)                          \
-  PostDeleteTreesBelowException(env, error, function, dir_path, entry,    \
-                                "[" __FILE__ ":" TOSTRING(__LINE__) "] ")
+#define POST_DELETE_TREES_BELOW_EXCEPTION(env, error, function, dir_path,      \
+                                          entry)                               \
+  PostDeleteTreesBelowException(env, error, function, dir_path, entry,         \
+                                "[" FILE_BASENAME ":" TOSTRING(__LINE__) "] ")
 
 
 // Tries to open a directory and, if the first attempt fails, retries after
