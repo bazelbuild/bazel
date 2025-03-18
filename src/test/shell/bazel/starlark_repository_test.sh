@@ -887,7 +887,7 @@ function test_repo_env_workspace_interpolation() {
 def _impl(ctx):
   result = ctx.execute(["my_tool.bat"])
   if result.return_code != 0:
-    fail("my_tool.bat failed ({}): {}".format(result.return_code, result.stderr))
+    fail("my_tool.bat failed ({}, PATH = {}): {}".format(result.return_code, ctx.os.environ["PATH"], result.stderr))
   ctx.file("out.txt", result.stdout)
   ctx.file("BUILD", 'exports_files(["out.txt"])')
 
