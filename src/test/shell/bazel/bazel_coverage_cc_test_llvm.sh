@@ -356,7 +356,7 @@ LH:5
 LF:7
 end_of_record'
 
-  local expected_a_cc='SF:external/+_repo_rules+other_repo/a.cc
+  local expected_a_cc='external/other_repo/a.cc
 FN:4,_Z1ab
 FNDA:1,_Z1ab
 FNF:1
@@ -562,7 +562,7 @@ LH:3
 LF:3
 end_of_record"
 
-  bazel coverage --nobuild_runfile_links --test_output=all //:foo_test \
+  bazel coverage --test_output=all //:foo_test \
     &>$TEST_log || fail "Coverage for //:foo_test failed"
 
   cov_file="$(get_coverage_file_path_from_test_log)"
