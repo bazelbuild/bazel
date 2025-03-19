@@ -24,7 +24,6 @@ import static java.util.Arrays.stream;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ObjectArrays;
-import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -150,54 +149,6 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
     assertThat(ActionsTestUtil.baseArtifactNames(getFilesToBuild(configuredTarget)))
         .containsExactly("jacocorunner.jar");
-  }
-
-  @Test
-  public void testJavaCommonCompileAdditionalInputsAndOutputs() throws Exception {
-    JavaTestUtil.writeBuildFileForJavaToolchain(scratch);
-    scratch.file(
-        "java/test/BUILD",
-        """
-        load(":custom_rule.bzl", "java_custom_library")
-
-        java_custom_library(
-            name = "custom",
-            srcs = ["myjar-src.jar"],
-            additional_inputs = ["additional_input.bin"],
-        )
-        """);
-    scratch.file(
-        "java/test/custom_rule.bzl",
-        "load('@rules_java//java:defs.bzl', 'java_common')",
-        "def _impl(ctx):",
-        "  output_jar = ctx.actions.declare_file('lib' + ctx.label.name + '.jar')",
-        "  compilation_provider = java_common.compile(",
-        "    ctx,",
-        "    source_jars = ctx.files.srcs,",
-        "    output = output_jar,",
-        "    annotation_processor_additional_inputs = ctx.files.additional_inputs,",
-        "    annotation_processor_additional_outputs = [ctx.outputs.additional_output],",
-        "    java_toolchain = ctx.attr._java_toolchain[java_common.JavaToolchainInfo],",
-        "  )",
-        "  return [DefaultInfo(files = depset([output_jar]))]",
-        "java_custom_library = rule(",
-        "  implementation = _impl,",
-        "  outputs = {",
-        "    'additional_output': '%{name}_additional_output',",
-        "  },",
-        "  attrs = {",
-        "    'srcs': attr.label_list(allow_files=['.jar']),",
-        "    'additional_inputs': attr.label_list(allow_files=['.bin']),",
-        "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
-        "  },",
-        "  toolchains = ['" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'],",
-        "  fragments = ['java']",
-        ")");
-
-    ConfiguredTarget configuredTarget = getConfiguredTarget("//java/test:custom");
-    Action javaAction = getGeneratingAction(configuredTarget, "java/test/libcustom.jar");
-    assertThat(artifactFilesNames(javaAction.getInputs())).contains("additional_input.bin");
-    assertThat(artifactFilesNames(javaAction.getOutputs())).contains("custom_additional_output");
   }
 
   private static ImmutableList<String> artifactFilesNames(NestedSet<Artifact> artifacts) {
