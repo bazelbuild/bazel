@@ -1048,19 +1048,9 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     }
     IncludeProblems errors = new IncludeProblems();
     Set<Artifact> allowedIncludes = new HashSet<>();
-    for (NestedSet<Artifact> set :
-        ImmutableList.of(
-            mandatoryInputs,
-            ccCompilationContext.getDeclaredIncludeSrcs(),
-            additionalPrunableHeaders)) {
-      for (Artifact input : set.toList()) {
-        if (input.isTreeArtifact()) {
-          allowedIncludes.addAll(
-              actionExecutionContext.getArtifactExpander().tryExpandTreeArtifact(input));
-        }
-        allowedIncludes.add(input);
-      }
-    }
+    allowedIncludes.addAll(mandatoryInputs.toList());
+    allowedIncludes.addAll(ccCompilationContext.getDeclaredIncludeSrcs().toList());
+    allowedIncludes.addAll(additionalPrunableHeaders.toList());
 
     Iterable<PathFragment> ignoreDirs =
         cppConfiguration().isStrictSystemIncludes()
@@ -1615,7 +1605,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
           ImmutableList.copyOf(getArguments(pathMapper)),
           getEffectiveEnvironment(clientEnv, pathMapper),
           executionInfo.buildOrThrow(),
-          /* filesetMappings= */ ImmutableMap.of(),
           inputs,
           /* tools= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
           getOutputs(),

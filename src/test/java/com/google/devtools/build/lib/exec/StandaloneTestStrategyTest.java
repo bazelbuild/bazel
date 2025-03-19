@@ -156,7 +156,6 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
           fileOutErr,
           /* eventHandler= */ null,
           /* clientEnv= */ ImmutableMap.of("PATH", "/usr/bin:/bin"),
-          /* topLevelFilesets= */ ImmutableMap.of(),
           /* artifactExpander= */ null,
           /* actionFileSystem= */ null,
           DiscoveredModulesPruner.DEFAULT,

@@ -204,7 +204,6 @@ public class TemplateExpansionActionTest extends FoundationTestCase {
         new FileOutErr(),
         new StoredEventHandler(),
         /* clientEnv= */ ImmutableMap.of(),
-        /* topLevelFilesets= */ ImmutableMap.of(),
         /* artifactExpander= */ null,
         /* actionFileSystem= */ null,
         DiscoveredModulesPruner.DEFAULT,

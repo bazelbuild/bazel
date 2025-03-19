@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.actions.FilesetOutputTree;
 import com.google.devtools.build.lib.actions.RunfilesArtifactValue;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue.ArchivedRepresentation;
 import com.google.devtools.build.skyframe.SkyValue;
-import java.util.Map;
 import java.util.function.BiConsumer;
 
 /** Static utilities for working with action inputs. */
@@ -33,8 +32,6 @@ final class ActionInputMapHelper {
   static void addToMap(
       ActionInputMap inputMap,
       BiConsumer<Artifact, TreeArtifactValue> treeArtifactConsumer,
-      Map<Artifact, FilesetOutputTree> filesetsInsideRunfiles,
-      Map<Artifact, FilesetOutputTree> topLevelFilesets,
       Artifact key,
       SkyValue value,
       MetadataConsumerForMetrics consumer) {
@@ -62,7 +59,7 @@ final class ActionInputMapHelper {
           inputMap.put(key, metadata);
           FilesetOutputTree filesetOutput =
               (FilesetOutputTree) actionExecutionValue.getRichArtifactData();
-          topLevelFilesets.put(key, filesetOutput);
+          inputMap.putFileset(key, filesetOutput);
           consumer.accumulate(filesetOutput);
         } else if (key.isRunfilesTree()) {
           RunfilesArtifactValue runfilesArtifactValue =
@@ -86,7 +83,11 @@ final class ActionInputMapHelper {
 
           runfilesArtifactValue.forEachFileset(
               (fileset, filesetOutputTree) -> {
-                filesetsInsideRunfiles.put(fileset, filesetOutputTree);
+                // NOTE: We don't call inputMap.put(fileset, <appropriate metadata> here.
+                // We should, but filesets inside runfiles don't have that computed Ideally, that
+                // single FileArtifactValue representing the full Fileset would be part of
+                // FilesetOutputTree. Alas, that's not the case today.
+                inputMap.putFileset(fileset, filesetOutputTree);
                 consumer.accumulate(filesetOutputTree);
               });
           // This is used for two purposes:

@@ -31,7 +31,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
 import com.google.common.collect.MultimapBuilder;
 import com.google.common.collect.SetMultimap;
 import com.google.common.flogger.GoogleLogger;
@@ -324,8 +323,6 @@ public final class ActionExecutionFunction implements SkyFunction {
     if (checkedInputs != null) {
       checkState(!state.hasArtifactData(), "%s %s", state, action);
       state.inputArtifactData = checkedInputs.actionInputMap;
-      state.filesetsInsideRunfiles = checkedInputs.filesetsInsideRunfiles;
-      state.topLevelFilesets = checkedInputs.topLevelFilesets;
       if (skyframeActionExecutor.actionFileSystemType().isEnabled()) {
         state.actionFileSystem =
             skyframeActionExecutor.createActionFileSystem(
@@ -341,13 +338,7 @@ public final class ActionExecutionFunction implements SkyFunction {
     try {
       result =
           checkCacheAndExecuteIfNeeded(
-              action,
-              state,
-              env,
-              clientEnv,
-              actionLookupData,
-              previousExecution,
-              actionStartTime);
+              action, state, env, clientEnv, actionLookupData, previousExecution, actionStartTime);
     } catch (LostInputsActionExecutionException e) {
       return handleLostInputs(
           e,
@@ -500,7 +491,6 @@ public final class ActionExecutionFunction implements SkyFunction {
               failedActionDeps,
               e,
               state.inputArtifactData,
-              state.getExpandedFilesets(),
               env,
               actionStartTimeNanos);
     } catch (ActionRewindException rewindingFailedException) {
@@ -523,7 +513,7 @@ public final class ActionExecutionFunction implements SkyFunction {
         // ActionCompletionEvent because it hoped rewinding would fix things. Because it won't, this
         // must emit one to compensate.
         ActionInputMetadataProvider inputMetadataProvider =
-            new ActionInputMetadataProvider(state.inputArtifactData, state.getExpandedFilesets());
+            new ActionInputMetadataProvider(state.inputArtifactData);
         env.getListener()
             .post(
                 new ActionCompletionEvent(
@@ -720,17 +710,14 @@ public final class ActionExecutionFunction implements SkyFunction {
               env.getListener(), state.discoveredInputs != null, action, actionLookupData));
     }
 
-    ImmutableMap<Artifact, FilesetOutputTree> expandedFilesets = state.getExpandedFilesets();
-
-    ArtifactExpander artifactExpander =
-        new ActionInputArtifactExpander(state.inputArtifactData, expandedFilesets);
+    ArtifactExpander artifactExpander = new ActionInputArtifactExpander(state.inputArtifactData);
 
     ArtifactPathResolver pathResolver =
         ArtifactPathResolver.createPathResolver(
             state.actionFileSystem, skyframeActionExecutor.getExecRoot());
 
     ActionInputMetadataProvider inputMetadataProvider =
-        new ActionInputMetadataProvider(state.inputArtifactData, expandedFilesets);
+        new ActionInputMetadataProvider(state.inputArtifactData);
 
     ActionOutputMetadataStore outputMetadataStore =
         ActionOutputMetadataStore.create(
@@ -765,8 +752,7 @@ public final class ActionExecutionFunction implements SkyFunction {
                 : skyframeActionExecutor.getExecRoot();
 
         reconstructedRichArtifactData =
-            rdpa.reconstructRichDataOnActionCacheHit(
-                execRoot, state.topLevelFilesets, inputMetadataProvider, artifactExpander);
+            rdpa.reconstructRichDataOnActionCacheHit(execRoot, inputMetadataProvider);
       } else {
         reconstructedRichArtifactData = null;
       }
@@ -836,8 +822,6 @@ public final class ActionExecutionFunction implements SkyFunction {
         actionStartTime,
         actionLookupData,
         artifactExpander,
-        expandedFilesets,
-        state.topLevelFilesets,
         state.actionFileSystem,
         new ActionPostprocessingImpl(state),
         state.discoveredInputs != null);
@@ -859,10 +843,6 @@ public final class ActionExecutionFunction implements SkyFunction {
         OutputMetadataStore outputMetadataStore,
         Map<String, String> clientEnv)
         throws InterruptedException, ActionExecutionException {
-      // TODO(b/160603797): For the sake of action key computation, we should not need
-      //  state.filesetsInsideRunfiles. In fact, for the outputMetadataStore, we are guaranteed to
-      //  not expand any filesets since we request metadata for input/output Artifacts only.
-      ImmutableMap<Artifact, FilesetOutputTree> expandedFilesets = state.getExpandedFilesets();
       if (action.discoversInputs()) {
         state.discoveredInputs = action.getInputs();
         addDiscoveredInputs(state, env, action);
@@ -875,7 +855,7 @@ public final class ActionExecutionFunction implements SkyFunction {
           action,
           inputMetadataProvider,
           outputMetadataStore,
-          new ActionInputArtifactExpander(state.inputArtifactData, expandedFilesets),
+          new ActionInputArtifactExpander(state.inputArtifactData),
           state.token,
           clientEnv);
     }
@@ -885,8 +865,7 @@ public final class ActionExecutionFunction implements SkyFunction {
    * Implementation of {@link ArtifactExpander} that reads from the {@link ActionInputMap} and map
    * of fileset expansions created during {@link #checkInputs}.
    */
-  private record ActionInputArtifactExpander(
-      ActionInputMap inputArtifactData, Map<Artifact, FilesetOutputTree> expandedFilesets)
+  private record ActionInputArtifactExpander(ActionInputMap inputArtifactData)
       implements ArtifactExpander {
 
     @Override
@@ -903,7 +882,7 @@ public final class ActionExecutionFunction implements SkyFunction {
     @Override
     public FilesetOutputTree expandFileset(Artifact fileset) throws MissingExpansionException {
       checkArgument(fileset.isFileset(), fileset);
-      FilesetOutputTree filesetOutput = expandedFilesets.get(fileset);
+      FilesetOutputTree filesetOutput = inputArtifactData.getFileset(fileset);
       if (filesetOutput == null) {
         throw new MissingExpansionException("Missing expansion for fileset: " + fileset);
       }
@@ -999,19 +978,8 @@ public final class ActionExecutionFunction implements SkyFunction {
     /** Metadata about Artifacts consumed by this Action. */
     private final ActionInputMap actionInputMap;
 
-    /** Artifact expansion mapping for Filesets embedded in Runfiles. */
-    private final ImmutableMap<Artifact, FilesetOutputTree> filesetsInsideRunfiles;
-
-    /** Artifact expansion mapping for top level filesets. */
-    private final ImmutableMap<Artifact, FilesetOutputTree> topLevelFilesets;
-
-    CheckInputResults(
-        ActionInputMap actionInputMap,
-        Map<Artifact, FilesetOutputTree> filesetsInsideRunfiles,
-        Map<Artifact, FilesetOutputTree> topLevelFilesets) {
+    CheckInputResults(ActionInputMap actionInputMap) {
       this.actionInputMap = actionInputMap;
-      this.filesetsInsideRunfiles = ImmutableMap.copyOf(filesetsInsideRunfiles);
-      this.topLevelFilesets = ImmutableMap.copyOf(topLevelFilesets);
     }
   }
 
@@ -1104,8 +1072,6 @@ public final class ActionExecutionFunction implements SkyFunction {
 
     // When there are no missing values or there was an error, we can start checking individual
     // files. We don't bother to optimize the error-ful case since it's rare.
-    Map<Artifact, FilesetOutputTree> filesetsInsideRunfiles = Maps.newHashMapWithExpectedSize(0);
-    Map<Artifact, FilesetOutputTree> topLevelFilesets = Maps.newHashMapWithExpectedSize(0);
     ActionInputMap inputArtifactData = new ActionInputMap(allInputsList.size());
     List<Artifact> undoneInputs = new ArrayList<>(0);
 
@@ -1123,8 +1089,6 @@ public final class ActionExecutionFunction implements SkyFunction {
         ActionInputMapHelper.addToMap(
             inputArtifactData,
             (treeArtifact, treeValue) -> {},
-            filesetsInsideRunfiles,
-            topLevelFilesets,
             input,
             value,
             MetadataConsumerForMetrics.NO_OP);
@@ -1175,13 +1139,11 @@ public final class ActionExecutionFunction implements SkyFunction {
       }
     }
 
-    if (actionExecutionFunctionExceptionHandler != null) {
-      // After accumulating the inputs, we might find some mandatory artifact with
-      // SourceFileInErrorArtifactValue.
-      actionExecutionFunctionExceptionHandler.maybeThrowException();
-    }
+    // After accumulating the inputs, we might find some mandatory artifact with
+    // SourceFileInErrorArtifactValue.
+    actionExecutionFunctionExceptionHandler.maybeThrowException();
 
-    return new CheckInputResults(inputArtifactData, filesetsInsideRunfiles, topLevelFilesets);
+    return new CheckInputResults(inputArtifactData);
   }
 
   @CanIgnoreReturnValue
@@ -1313,8 +1275,6 @@ public final class ActionExecutionFunction implements SkyFunction {
     /** Mutable map containing metadata for known artifacts. */
     ActionInputMap inputArtifactData = null;
 
-    ImmutableMap<Artifact, FilesetOutputTree> filesetsInsideRunfiles = null;
-    ImmutableMap<Artifact, FilesetOutputTree> topLevelFilesets = null;
     Token token = null;
     NestedSet<Artifact> discoveredInputs = null;
     FileSystem actionFileSystem = null;
@@ -1335,20 +1295,6 @@ public final class ActionExecutionFunction implements SkyFunction {
       // If token is null because there was an action cache hit, this method is never called again
       // because we return immediately.
       return token != null;
-    }
-
-    ImmutableMap<Artifact, FilesetOutputTree> getExpandedFilesets() {
-      if (topLevelFilesets.isEmpty()) {
-        return filesetsInsideRunfiles;
-      }
-      if (filesetsInsideRunfiles.isEmpty()) {
-        return topLevelFilesets;
-      }
-      return ImmutableMap.<Artifact, FilesetOutputTree>builderWithExpectedSize(
-              filesetsInsideRunfiles.size() + topLevelFilesets.size())
-          .putAll(filesetsInsideRunfiles)
-          .putAll(topLevelFilesets)
-          .buildKeepingLast();
     }
 
     @Override

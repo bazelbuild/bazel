@@ -203,7 +203,6 @@ public class StandaloneSpawnStrategyTest {
         outErr,
         reporter,
         /* clientEnv= */ ImmutableMap.of(),
-        /* topLevelFilesets= */ ImmutableMap.of(),
         treeArtifact -> ImmutableSortedSet.of(),
         /* actionFileSystem= */ null,
         DiscoveredModulesPruner.DEFAULT,

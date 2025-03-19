@@ -23,12 +23,14 @@ import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.collect.compacthashmap.CompactHashMap;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -159,6 +161,8 @@ public final class ActionInputMap implements InputMetadataProvider {
 
   private TrieArtifact treeArtifactsRoot = new TrieArtifact();
 
+  private final Map<Artifact, FilesetOutputTree> filesets = Maps.newTreeMap();
+
   private List<RunfilesTree> runfilesTrees = new ArrayList<>();
 
   public ActionInputMap(int sizeHint) {
@@ -232,6 +236,19 @@ public final class ActionInputMap implements InputMetadataProvider {
     // This can happen if both a TreeArtifact and a Fileset containing the TreeArtifact are inputs
     // to the same action.
     return getMetadataFromTreeArtifacts(input.getExecPath());
+  }
+
+  @Nullable
+  @Override
+  public FilesetOutputTree getFileset(ActionInput input) {
+    checkArgument(isFileset(input), input);
+
+    return filesets.get(input);
+  }
+
+  @Override
+  public Map<Artifact, FilesetOutputTree> getFilesets() {
+    return Collections.unmodifiableMap(filesets);
   }
 
   @Nullable
@@ -363,6 +380,12 @@ public final class ActionInputMap implements InputMetadataProvider {
         input);
   }
 
+  public void putFileset(Artifact input, FilesetOutputTree outputTree) {
+    checkArgument(input.isFileset(), input);
+
+    filesets.put(input, outputTree);
+  }
+
   public void putRunfilesMetadata(Artifact input, RunfilesArtifactValue metadata) {
     checkArgument(input.isRunfilesTree(), input);
 
@@ -468,5 +491,9 @@ public final class ActionInputMap implements InputMetadataProvider {
 
   private static boolean isRunfilesTree(ActionInput input) {
     return input instanceof Artifact artifact && artifact.isRunfilesTree();
+  }
+
+  private static boolean isFileset(ActionInput input) {
+    return input instanceof Artifact artifact && artifact.isFileset();
   }
 }

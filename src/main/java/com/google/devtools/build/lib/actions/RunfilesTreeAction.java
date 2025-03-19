@@ -57,7 +57,6 @@ public final class RunfilesTreeAction extends AbstractAction implements RichData
   }
 
   private RunfilesArtifactValue createRunfilesArtifactValue(
-      ImmutableMap<Artifact, FilesetOutputTree> topLevelFilesets,
       InputMetadataProvider inputMetadataProvider)
       throws IOException {
     ImmutableList<Artifact> inputs = getInputs().toList();
@@ -74,7 +73,7 @@ public final class RunfilesTreeAction extends AbstractAction implements RichData
     for (Artifact input : sortedInputs) {
       if (input.isFileset()) {
         filesets.add(input);
-        filesetValues.add(topLevelFilesets.get(input));
+        filesetValues.add(inputMetadataProvider.getFileset(input));
       } else if (input.isTreeArtifact()) {
         trees.add(input);
         treeValues.add(inputMetadataProvider.getTreeMetadata(input));
@@ -96,12 +95,9 @@ public final class RunfilesTreeAction extends AbstractAction implements RichData
 
   @Override
   public RichArtifactData reconstructRichDataOnActionCacheHit(
-      Path execRoot,
-      ImmutableMap<Artifact, FilesetOutputTree> topLevelFilesets,
-      InputMetadataProvider inputMetadataProvider,
-      ArtifactExpander artifactExpander) {
+      Path execRoot, InputMetadataProvider inputMetadataProvider) {
     try {
-      return createRunfilesArtifactValue(topLevelFilesets, inputMetadataProvider);
+      return createRunfilesArtifactValue(inputMetadataProvider);
     } catch (IOException e) {
       // On action cache hits, all input metadata should already be in RAM
       throw new IllegalStateException(e);
@@ -113,7 +109,6 @@ public final class RunfilesTreeAction extends AbstractAction implements RichData
     try {
       RunfilesArtifactValue runfilesArtifactValue =
           createRunfilesArtifactValue(
-              actionExecutionContext.getTopLevelFilesets(),
               actionExecutionContext.getInputMetadataProvider());
       actionExecutionContext.setRichArtifactData(runfilesArtifactValue);
     } catch (IOException e) {

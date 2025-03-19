@@ -174,7 +174,6 @@ public class ParamFileWriteActionTest extends BuildViewTestCase {
         new FileOutErr(),
         new StoredEventHandler(),
         /* clientEnv= */ ImmutableMap.of(),
-        /* topLevelFilesets= */ ImmutableMap.of(),
         artifactExpander,
         /* actionFileSystem= */ null,
         DiscoveredModulesPruner.DEFAULT,

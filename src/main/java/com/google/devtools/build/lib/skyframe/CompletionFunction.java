@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.actions.CompletionContext;
 import com.google.devtools.build.lib.actions.CompletionContext.PathResolverFactory;
 import com.google.devtools.build.lib.actions.EventReportingArtifacts;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
-import com.google.devtools.build.lib.actions.FilesetOutputTree;
 import com.google.devtools.build.lib.actions.ImportantOutputHandler;
 import com.google.devtools.build.lib.actions.ImportantOutputHandler.ImportantOutputException;
 import com.google.devtools.build.lib.actions.ImportantOutputHandler.LostArtifacts;
@@ -206,9 +205,6 @@ public final class CompletionFunction<
     // TODO: b/239184359 - Can we just get the tree artifacts from the ActionInputMap?
     Map<Artifact, TreeArtifactValue> treeArtifacts = new HashMap<>();
 
-    Map<Artifact, FilesetOutputTree> expandedFilesets = new HashMap<>();
-    Map<Artifact, FilesetOutputTree> topLevelFilesets = new HashMap<>();
-
     ActionExecutionException firstActionExecutionException = null;
     NestedSetBuilder<Cause> rootCausesBuilder = NestedSetBuilder.stableOrder();
     Set<Artifact> builtArtifacts = new HashSet<>();
@@ -238,8 +234,6 @@ public final class CompletionFunction<
           ActionInputMapHelper.addToMap(
               inputMap,
               treeArtifacts::put,
-              expandedFilesets,
-              topLevelFilesets,
               input,
               artifactValue,
               currentConsumer);
@@ -250,8 +244,6 @@ public final class CompletionFunction<
             ActionInputMapHelper.addToMap(
                 importantInputMap,
                 treeArtifacts::put,
-                expandedFilesets,
-                topLevelFilesets,
                 input,
                 artifactValue,
                 MetadataConsumerForMetrics.NO_OP);
@@ -272,12 +264,10 @@ public final class CompletionFunction<
         handleSourceFileError(input, e.getDetailedExitCode(), rootCausesBuilder, env, value, key);
       }
     }
-    expandedFilesets.putAll(topLevelFilesets);
-
     CompletionContext ctx =
         CompletionContext.create(
             treeArtifacts,
-            expandedFilesets,
+            inputMap.getFilesets(),
             baselineCoverageValue,
             key.topLevelArtifactContext().expandFilesets(),
             inputMap,

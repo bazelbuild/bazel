@@ -2428,7 +2428,6 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
           actionLogBufferPathGenerator.generate(ArtifactPathResolver.IDENTITY),
           reporter,
           clientEnv,
-          /* topLevelFilesets= */ ImmutableMap.of(),
           artifactExpander,
           /* actionFileSystem= */ null,
           DiscoveredModulesPruner.DEFAULT,

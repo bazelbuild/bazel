@@ -21,8 +21,10 @@ import com.google.common.collect.HashBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileContentsProxy;
+import com.google.devtools.build.lib.actions.FilesetOutputTree;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.RunfilesArtifactValue;
 import com.google.devtools.build.lib.actions.RunfilesTree;
@@ -67,6 +69,17 @@ final class FakeActionInputFileCache implements InputMetadataProvider {
   @Nullable
   @Override
   public TreeArtifactValue getTreeMetadata(ActionInput actionInput) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  @Nullable
+  public FilesetOutputTree getFileset(ActionInput input) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public Map<Artifact, FilesetOutputTree> getFilesets() {
     throw new UnsupportedOperationException();
   }
 

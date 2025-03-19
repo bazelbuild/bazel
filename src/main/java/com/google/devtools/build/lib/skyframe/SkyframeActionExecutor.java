@@ -434,7 +434,7 @@ public final class SkyframeActionExecutor {
       FileSystem actionFileSystem,
       Environment env,
       OutputMetadataStore outputMetadataStore,
-      ImmutableMap<Artifact, FilesetOutputTree> filesets) {
+      Map<Artifact, FilesetOutputTree> filesets) {
     outputService.updateActionFileSystemContext(
         action, actionFileSystem, env, outputMetadataStore, filesets);
   }
@@ -533,15 +533,13 @@ public final class SkyframeActionExecutor {
       long actionStartTime,
       ActionLookupData actionLookupData,
       ArtifactExpander artifactExpander,
-      ImmutableMap<Artifact, FilesetOutputTree> expandedFilesets,
-      ImmutableMap<Artifact, FilesetOutputTree> topLevelFilesets,
       @Nullable FileSystem actionFileSystem,
       ActionPostprocessing postprocessing,
       boolean hasDiscoveredInputs)
       throws ActionExecutionException, InterruptedException {
     if (actionFileSystem != null) {
       updateActionFileSystemContext(
-          action, actionFileSystem, env, outputMetadataStore, expandedFilesets);
+          action, actionFileSystem, env, outputMetadataStore, inputMetadataProvider.getFilesets());
     }
 
     ActionExecutionContext actionExecutionContext =
@@ -550,7 +548,6 @@ public final class SkyframeActionExecutor {
             inputMetadataProvider,
             outputMetadataStore,
             artifactExpander,
-            topLevelFilesets,
             actionFileSystem,
             actionLookupData);
 
@@ -628,7 +625,6 @@ public final class SkyframeActionExecutor {
       InputMetadataProvider inputMetadataProvider,
       OutputMetadataStore outputMetadataStore,
       ArtifactExpander artifactExpander,
-      ImmutableMap<Artifact, FilesetOutputTree> topLevelFilesets,
       @Nullable FileSystem actionFileSystem,
       ActionLookupData actionLookupData) {
     boolean emitProgressEvents = shouldEmitProgressEvents(action);
@@ -646,7 +642,6 @@ public final class SkyframeActionExecutor {
         fileOutErr,
         selectEventHandler(emitProgressEvents),
         clientEnv,
-        topLevelFilesets,
         artifactExpander,
         actionFileSystem,
         discoveredModulesPruner,

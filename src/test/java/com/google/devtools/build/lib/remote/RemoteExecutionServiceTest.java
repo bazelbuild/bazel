@@ -1646,7 +1646,6 @@ public class RemoteExecutionServiceTest {
             /* arguments= */ ImmutableList.of(),
             /* environment= */ ImmutableMap.of(),
             /* executionInfo= */ ImmutableMap.of(REMOTE_EXECUTION_INLINE_OUTPUTS, "outputs/file1"),
-            /* filesetMappings= */ ImmutableMap.of(),
             /* inputs= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
             /* tools= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
             /* outputs= */ ImmutableSet.of(a1),
@@ -2282,13 +2281,9 @@ public class RemoteExecutionServiceTest {
     service.buildRemoteAction(spawn1, context1);
 
     // assert first time
-    verify(service, times(6)).uncachedBuildMerkleTreeVisitor(any(), any(), any(), any());
+    verify(service, times(5)).uncachedBuildMerkleTreeVisitor(any(), any(), any(), any());
     assertThat(service.getMerkleTreeCache().asMap().keySet())
         .containsExactly(
-            ImmutableList.of(
-                ImmutableMap.of(),
-                PathFragment.EMPTY_FRAGMENT,
-                PathMapper.NOOP.getClass()), // fileset mapping
             ImmutableList.of(
                 PathFragment.create("tools/tool.runfiles"),
                 PathFragment.EMPTY_FRAGMENT,
@@ -2305,13 +2300,9 @@ public class RemoteExecutionServiceTest {
     service.buildRemoteAction(spawn2, context2);
 
     // assert second time
-    verify(service, times(6 + 2)).uncachedBuildMerkleTreeVisitor(any(), any(), any(), any());
+    verify(service, times(5 + 2)).uncachedBuildMerkleTreeVisitor(any(), any(), any(), any());
     assertThat(service.getMerkleTreeCache().asMap().keySet())
         .containsExactly(
-            ImmutableList.of(
-                ImmutableMap.of(),
-                PathFragment.EMPTY_FRAGMENT,
-                PathMapper.NOOP.getClass()), // fileset mapping
             ImmutableList.of(
                 PathFragment.create("tools/tool.runfiles"),
                 PathFragment.EMPTY_FRAGMENT,

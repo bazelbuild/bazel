@@ -15,10 +15,12 @@
 package com.google.devtools.build.lib.util;
 
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.windows.WindowsProcesses;
 
 /**
  * OS Process related utilities.
+ *
+ * <p>Use {@link ProcessHandle#current()} and {@link ProcessHandle#pid()} to get the PID of the
+ * current process.
  */
 @ThreadSafe
 public final class ProcessUtils {
@@ -36,19 +38,6 @@ public final class ProcessUtils {
       throw new UnsupportedOperationException();
     } else {
       return com.google.devtools.build.lib.unix.ProcessUtils.getgid();
-    }
-  }
-
-  /**
-   * @return the process ID of this process.
-   * @throws UnsatisfiedLinkError when JNI is not available.
-   */
-  public static int getpid() {
-    // TODO(ulfjack): Use ProcessHandle.current().getPid() here.
-    if (OS.getCurrent() == OS.WINDOWS) {
-      return WindowsProcesses.getpid();
-    } else {
-      return com.google.devtools.build.lib.unix.ProcessUtils.getpid();
     }
   }
 

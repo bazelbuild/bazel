@@ -103,8 +103,7 @@ public class BulkTransferException extends IOException {
     var byDigest = byDigestBuilder.build();
     return new LostArtifacts(
         byDigest,
-        ActionRewindStrategy.calculateLostInputOwners(
-            byDigest.values(), metadataProvider, ImmutableMap.of()));
+        ActionRewindStrategy.calculateLostInputOwners(byDigest.values(), metadataProvider));
   }
 
   @Override

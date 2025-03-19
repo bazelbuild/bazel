@@ -267,7 +267,6 @@ public class RemoteSpawnCacheTest {
         ImmutableList.of("cp", inputPath.formatted("cfg"), outputPath.formatted("cfg")),
         ImmutableMap.of("VARIABLE", "value"),
         ImmutableMap.of(ExecutionRequirements.SUPPORTS_PATH_MAPPING, ""),
-        /* filesetMappings= */ ImmutableMap.of(),
         /* inputs= */ NestedSetBuilder.create(
             Order.STABLE_ORDER, ActionInputHelper.fromPath(inputPath.formatted(configSegment))),
         /* tools= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),

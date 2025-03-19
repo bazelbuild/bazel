@@ -14,11 +14,15 @@
 
 package com.google.devtools.build.lib.runtime;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.clock.Clock;
+import com.google.devtools.build.lib.runtime.MemoryPressure.MemoryPressureStats;
+import com.google.devtools.build.lib.runtime.MemoryPressure.MemoryPressureStats.FullGcFractionPoint;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
 
 /**
  * Per-invocation handler of {@link MemoryPressureEvent} to detect GC churning.
@@ -36,7 +40,10 @@ class GcChurningDetector {
   private final Clock clock;
   private final Instant start;
 
-  private GcChurningDetector(Clock clock) {
+  private final ArrayList<FullGcFractionPoint> fullGcFractionPoints = new ArrayList<>();
+
+  @VisibleForTesting
+  GcChurningDetector(Clock clock) {
     this.clock = clock;
     this.start = clock.now();
   }
@@ -56,10 +63,21 @@ class GcChurningDetector {
     Duration invocationWallTimeDuration = Duration.between(start, clock.now());
     double gcFraction =
         cumulativeFullGcDuration.toMillis() * 1.0 / invocationWallTimeDuration.toMillis();
+    fullGcFractionPoints.add(
+        FullGcFractionPoint.newBuilder()
+            // This narrowing conversion is fine in practice since MAX_INT ms is almost 25 days, and
+            // we don't care about supporting an invocation running for that long.
+            .setInvocationWallTimeSoFarMs((int) invocationWallTimeDuration.toMillis())
+            .setFullGcFractionSoFar(gcFraction)
+            .build());
     logger.atInfo().log(
         "cumulativeFullGcDuration=%s invocationWallTimeDuration=%s gcFraction=%.3f",
         cumulativeFullGcDuration, invocationWallTimeDuration, gcFraction);
 
     // TODO: b/389784555 - Crash Blaze when there has been too much GC churn.
+  }
+
+  void populateStats(MemoryPressureStats.Builder memoryPressureStatsBuilder) {
+    memoryPressureStatsBuilder.addAllFullGcFractionPoint(fullGcFractionPoints);
   }
 }

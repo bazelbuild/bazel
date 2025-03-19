@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.remote;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.actions.Action;
@@ -117,7 +116,7 @@ public class RemoteOutputService implements OutputService {
       FileSystem actionFileSystem,
       Environment env,
       OutputMetadataStore outputMetadataStore,
-      ImmutableMap<Artifact, FilesetOutputTree> filesets) {
+      Map<Artifact, FilesetOutputTree> filesets) {
     ((RemoteActionFileSystem) actionFileSystem).updateContext(action);
   }
 

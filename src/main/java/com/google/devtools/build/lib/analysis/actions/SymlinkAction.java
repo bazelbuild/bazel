@@ -205,12 +205,9 @@ public final class SymlinkAction extends AbstractAction implements RichDataProdu
   @Nullable
   @Override
   public RichArtifactData reconstructRichDataOnActionCacheHit(
-      Path execRoot,
-      ImmutableMap<Artifact, FilesetOutputTree> topLevelFilesets,
-      InputMetadataProvider inputMetadataProvider,
-      ArtifactExpander artifactExpander) {
+      Path execRoot, InputMetadataProvider inputMetadataProvider) {
     return targetType == TargetType.FILESET
-        ? FilesetOutputTree.forward(topLevelFilesets.get(getPrimaryInput()))
+        ? FilesetOutputTree.forward(inputMetadataProvider.getFileset(getPrimaryInput()))
         : null;
   }
 
@@ -269,7 +266,7 @@ public final class SymlinkAction extends AbstractAction implements RichDataProdu
       // input can recreate the Fileset.
       actionExecutionContext.setRichArtifactData(
           FilesetOutputTree.forward(
-              actionExecutionContext.getTopLevelFilesets().get(getPrimaryInput())));
+              actionExecutionContext.getInputMetadataProvider().getFileset(getPrimaryInput())));
     } else {
       maybeInjectMetadata(this, actionExecutionContext);
     }
@@ -391,7 +388,7 @@ public final class SymlinkAction extends AbstractAction implements RichDataProdu
       ctx.getOutputMetadataStore()
           .injectFile(
               symlinkAction.getPrimaryOutput(),
-              primaryInput instanceof SourceArtifact sourceArtifact
+              primaryInput instanceof SourceArtifact
                   ? FileArtifactValue.createFromExistingWithResolvedPath(
                       metadata, primaryInput.getPath().asFragment())
                   : metadata);

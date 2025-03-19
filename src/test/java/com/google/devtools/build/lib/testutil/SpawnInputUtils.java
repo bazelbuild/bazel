@@ -25,9 +25,8 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.ArtifactExpander.MissingExpansionException;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
-import com.google.devtools.build.lib.actions.FilesetOutputTree;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.Spawn;
-import java.util.Map;
 import java.util.NoSuchElementException;
 
 /** Utilities for finding {@link ActionInput} instances within a {@link Spawn}. */
@@ -41,13 +40,18 @@ public final class SpawnInputUtils {
   }
 
   public static ActionInput getFilesetInputWithName(
-      Spawn spawn, String artifactName, String inputName) {
-    for (Map.Entry<Artifact, FilesetOutputTree> entry : spawn.getFilesetMappings().entrySet()) {
-      Artifact filesetArtifact = entry.getKey();
-      if (!filesetArtifact.getExecPathString().contains(artifactName)) {
+      Spawn spawn,
+      InputMetadataProvider inputMetadataProvider,
+      String artifactName,
+      String inputName) {
+    for (ActionInput actionInput : spawn.getInputFiles().toList()) {
+      if (!(actionInput instanceof Artifact fileset)
+          || !fileset.isFileset()
+          || !fileset.getExecPathString().contains(artifactName)) {
         continue;
       }
-      for (FilesetOutputSymlink filesetOutputSymlink : entry.getValue().symlinks()) {
+      for (FilesetOutputSymlink filesetOutputSymlink :
+          inputMetadataProvider.getFileset(fileset).symlinks()) {
         if (filesetOutputSymlink.targetPath().getPathString().contains(inputName)) {
           return ActionInputHelper.fromPath(filesetOutputSymlink.targetPath());
         }
