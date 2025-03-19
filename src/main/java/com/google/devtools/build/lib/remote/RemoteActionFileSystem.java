@@ -945,7 +945,8 @@ public class RemoteActionFileSystem extends AbstractFileSystem
         lostInputs.stream()
             .map(
                 lostArtifacts ->
-                    new LostInputsExecException(lostArtifacts.byDigest(), lostArtifacts.owners()))
+                    new LostInputsExecException(
+                        lostArtifacts.byDigest(), lostArtifacts.owners(), /* cause */ null))
             .reduce(LostInputsExecException::combine);
     if (mergedException.isPresent()) {
       throw (LostInputsActionExecutionException)

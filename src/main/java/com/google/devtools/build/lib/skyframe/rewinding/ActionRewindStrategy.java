@@ -35,7 +35,6 @@ import com.google.common.graph.MutableGraph;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
-import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
@@ -72,6 +71,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nullable;
@@ -118,13 +118,17 @@ public final class ActionRewindStrategy {
       TopLevelActionLookupKeyWrapper failedKey,
       Set<SkyKey> failedKeyDeps,
       ImmutableMap<String, ActionInput> lostOutputsByDigest,
-      LostInputOwners owners,
+      Optional<LostInputOwners> maybeOwners,
+      InputMetadataProvider metadataProvider,
       Environment env)
       throws ActionRewindException, InterruptedException {
     checkRewindingEnabled(lostOutputsByDigest, LostType.OUTPUT, env.getListener());
 
     ImmutableList<LostInputRecord> lostOutputRecords =
         checkIfTopLevelOutputLostTooManyTimes(failedKey, lostOutputsByDigest);
+    LostInputOwners owners =
+        maybeOwners.orElseGet(
+            () -> calculateLostInputOwners(lostOutputsByDigest.values(), metadataProvider));
 
     ImmutableList.Builder<Action> depsToRewind = ImmutableList.builder();
     Reset rewindPlan;
@@ -163,7 +167,7 @@ public final class ActionRewindStrategy {
       Action failedAction,
       Set<SkyKey> failedActionDeps,
       LostInputsActionExecutionException e,
-      ActionInputMap inputArtifactData,
+      InputMetadataProvider metadataProvider,
       Environment env,
       long actionStartTimeNanos)
       throws ActionRewindException, InterruptedException {
@@ -173,9 +177,9 @@ public final class ActionRewindStrategy {
     ImmutableList<LostInputRecord> lostInputRecords =
         checkIfActionLostInputTooManyTimes(failedKey, failedAction, lostInputsByDigest);
     LostInputOwners owners =
-        e.getOwners().isPresent()
-            ? e.getOwners().get()
-            : calculateLostInputOwners(lostInputsByDigest.values(), inputArtifactData);
+        e.getOwners()
+            .orElseGet(
+                () -> calculateLostInputOwners(lostInputsByDigest.values(), metadataProvider));
 
     ImmutableList.Builder<Action> depsToRewind = ImmutableList.builder();
     Reset rewindPlan;
@@ -470,7 +474,7 @@ public final class ActionRewindStrategy {
    * <p>This is only necessary when {@link LostInputsActionExecutionException#getOwners} is not
    * present.
    */
-  public static LostInputOwners calculateLostInputOwners(
+  private static LostInputOwners calculateLostInputOwners(
       ImmutableCollection<ActionInput> lostInputs, InputMetadataProvider inputArtifactData) {
     Set<ActionInput> lostInputsAndOwners = new HashSet<>();
     LostInputOwners owners = new LostInputOwners();

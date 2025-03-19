@@ -40,6 +40,7 @@ import com.google.errorprone.annotations.ForOverride;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.BiFunction;
 import java.util.stream.Stream;
@@ -151,7 +152,7 @@ public class LostImportantOutputHandlerModule extends BlazeModule {
           owners.addOwner(output, owner);
         }
       }
-      return new LostArtifacts(lost.buildKeepingLast(), owners);
+      return new LostArtifacts(lost.buildKeepingLast(), Optional.of(owners));
     }
 
     private static ImmutableList<OutputAndOwner> expand(

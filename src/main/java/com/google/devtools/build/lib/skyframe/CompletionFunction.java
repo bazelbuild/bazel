@@ -449,7 +449,10 @@ public final class CompletionFunction<
                 ctx,
                 metadataProvider,
                 artifact ->
-                    ActionUtils.getActionForLookupData(env, artifact.getGeneratingActionKey()));
+                    checkNotNull(
+                        ActionUtils.getActionForLookupData(env, artifact.getGeneratingActionKey()),
+                        "generating action for artifact %s",
+                        artifact));
       }
       if (lostOutputs.isEmpty()) {
         return null;
@@ -470,7 +473,9 @@ public final class CompletionFunction<
       // rewinding is successful, we'll report them later on.
       for (ActionInput lostOutput : lostOutputs.byDigest().values()) {
         builtArtifacts.remove(lostOutput);
-        builtArtifacts.removeAll(lostOutputs.owners().getOwners(lostOutput));
+        lostOutputs
+            .owners()
+            .ifPresent(owners -> builtArtifacts.removeAll(owners.getOwners(lostOutput)));
       }
 
       return actionRewindStrategy.prepareRewindPlanForLostTopLevelOutputs(
@@ -478,6 +483,7 @@ public final class CompletionFunction<
           ImmutableSet.copyOf(Artifact.keys(artifactsRelevantForRewinding)),
           lostOutputs.byDigest(),
           lostOutputs.owners(),
+          metadataProvider,
           env);
     } catch (ActionRewindException | ImportantOutputException e) {
       LabelCause cause = new LabelCause(label, e.getDetailedExitCode());

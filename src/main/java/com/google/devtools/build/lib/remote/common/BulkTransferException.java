@@ -23,11 +23,11 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ImportantOutputHandler.LostArtifacts;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
-import com.google.devtools.build.lib.skyframe.rewinding.ActionRewindStrategy;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
@@ -101,9 +101,7 @@ public class BulkTransferException extends IOException {
       byDigestBuilder.put(DigestUtil.toString(missingDigest), actionInput);
     }
     var byDigest = byDigestBuilder.build();
-    return new LostArtifacts(
-        byDigest,
-        ActionRewindStrategy.calculateLostInputOwners(byDigest.values(), metadataProvider));
+    return new LostArtifacts(byDigest, Optional.empty());
   }
 
   @Override
