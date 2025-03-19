@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.FilesetOutputTree;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.RunfilesArtifactValue;
@@ -64,8 +65,9 @@ final class ActionInputMetadataProvider implements InputMetadataProvider {
       Map<Artifact, FilesetOutputTree> filesets) {
     Map<String, FileArtifactValue> filesetMap = new HashMap<>();
     for (FilesetOutputTree filesetOutput : filesets.values()) {
-      filesetOutput.visitSymlinks(
-          (name, target, metadata) -> filesetMap.put(target.getPathString(), metadata));
+      for (FilesetOutputSymlink link : filesetOutput.symlinks()) {
+        filesetMap.put(link.targetPath().getPathString(), link.metadata());
+      }
     }
     return ImmutableMap.copyOf(filesetMap);
   }

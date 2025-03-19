@@ -145,6 +145,7 @@ java_library(
         ":commandline_item",
         ":execution_requirements",
         ":file_metadata",
+        ":fileset_output_symlink",
         ":fileset_output_tree",
         ":localhost_capacity",
         ":package_roots",
@@ -401,7 +402,6 @@ java_library(
         ":file_metadata",
         ":fileset_output_symlink",
         "//src/main/java/com/google/devtools/build/lib/util",
-        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//third_party:guava",
     ],
 )

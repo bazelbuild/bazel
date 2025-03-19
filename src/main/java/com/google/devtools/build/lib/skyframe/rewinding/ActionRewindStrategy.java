@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
+import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.LostInputsActionExecutionException;
 import com.google.devtools.build.lib.actions.RunfilesArtifactValue;
 import com.google.devtools.build.lib.actions.RunfilesTree;
@@ -451,15 +452,15 @@ public final class ActionRewindStrategy {
       inputArtifactData
           .getFilesets()
           .forEach(
-              (fileset, outputTree) ->
-                  outputTree.visitSymlinks(
-                      (name, target, metadata) -> {
-                        ActionInput input = ActionInputHelper.fromPath(target);
-                        if (lostInputsAndOwners.contains(input)) {
-                          lostInputsAndOwners.add(fileset);
-                          owners.addOwner(input, fileset);
-                        }
-                      }));
+              (fileset, outputTree) -> {
+                for (FilesetOutputSymlink link : outputTree.symlinks()) {
+                  ActionInput input = ActionInputHelper.fromPath(link.targetPath());
+                  if (lostInputsAndOwners.contains(input)) {
+                    lostInputsAndOwners.add(fileset);
+                    owners.addOwner(input, fileset);
+                  }
+                }
+              });
     }
 
     // Runfiles trees may contain tree artifacts and filesets, but not vice versa. Runfiles are

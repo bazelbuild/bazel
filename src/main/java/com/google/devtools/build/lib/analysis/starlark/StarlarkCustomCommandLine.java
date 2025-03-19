@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.actions.CommandLineItem;
 import com.google.devtools.build.lib.actions.CommandLineLimits;
 import com.google.devtools.build.lib.actions.CommandLines;
 import com.google.devtools.build.lib.actions.CommandLines.ParamFileActionInput;
+import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.FilesetOutputTree;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.SingleStringArgFormatter;
@@ -496,10 +497,10 @@ public class StarlarkCustomCommandLine extends CommandLine {
             e);
       }
       PathFragment mappedExecPath = pathMapper.map(fileset.getExecPath());
-      filesetOutput.visitSymlinks(
-          (name, target, metadata) ->
-              expandedValues.add(
-                  new FilesetSymlinkFile(fileset, mappedExecPath.getRelative(name))));
+      for (FilesetOutputSymlink link : filesetOutput.symlinks()) {
+        expandedValues.add(
+            new FilesetSymlinkFile(fileset, mappedExecPath.getRelative(link.name())));
+      }
     }
 
 

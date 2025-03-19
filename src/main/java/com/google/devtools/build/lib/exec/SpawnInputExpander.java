@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ArtifactExpander.MissingExpansionException;
+import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.FilesetOutputTree;
 import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
@@ -171,13 +172,13 @@ public final class SpawnInputExpander {
       Map<PathFragment, ActionInput> inputMap,
       PathFragment baseDirectory) {
     Preconditions.checkArgument(filesetArtifact.isFileset(), filesetArtifact);
-    filesetOutput.visitSymlinks(
-        (name, target, metadata) ->
-            addMapping(
-                inputMap,
-                location.getRelative(name),
-                ActionInputHelper.fromPath(target),
-                baseDirectory));
+    for (FilesetOutputSymlink link : filesetOutput.symlinks()) {
+      addMapping(
+          inputMap,
+          location.getRelative(link.name()),
+          ActionInputHelper.fromPath(link.targetPath()),
+          baseDirectory);
+    }
   }
 
   private void addInputs(

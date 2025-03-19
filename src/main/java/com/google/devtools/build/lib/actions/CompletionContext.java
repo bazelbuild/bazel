@@ -159,9 +159,10 @@ public final class CompletionContext implements ArtifactExpander {
 
   private void visitFileset(Artifact filesetArtifact, ArtifactReceiver receiver) {
     FilesetOutputTree filesetOutput = filesets.get(filesetArtifact);
-    filesetOutput.visitSymlinks(
-        (name, target, metadata) ->
-            receiver.acceptFilesetMapping(filesetArtifact, name, execRoot.getRelative(target)));
+    for (FilesetOutputSymlink link : filesetOutput.symlinks()) {
+      receiver.acceptFilesetMapping(
+          filesetArtifact, link.name(), execRoot.getRelative(link.targetPath()));
+    }
   }
 
   @Override
