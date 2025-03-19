@@ -87,7 +87,7 @@ public abstract class Version implements Comparable<Version> {
 
     abstract boolean isDigitsOnly();
 
-    abstract int asNumber();
+    abstract long asNumber();
 
     abstract String asString();
 
@@ -96,7 +96,11 @@ public abstract class Version implements Comparable<Version> {
         throw new ParseException("identifier is empty");
       }
       if (string.chars().allMatch(Character::isDigit)) {
-        return new AutoValue_Version_Identifier(true, Integer.parseInt(string), string);
+        try {
+          return new AutoValue_Version_Identifier(true, Long.parseUnsignedLong(string), string);
+        } catch (NumberFormatException e) {
+          throw new ParseException("numeric version segment is too large: " + string, e);
+        }
       } else {
         return new AutoValue_Version_Identifier(false, 0, string);
       }
@@ -104,7 +108,7 @@ public abstract class Version implements Comparable<Version> {
 
     private static final Comparator<Identifier> COMPARATOR =
         comparing(Identifier::isDigitsOnly, trueFirst())
-            .thenComparingInt(Identifier::asNumber)
+            .thenComparing((a, b) -> Long.compareUnsigned(a.asNumber(), b.asNumber()))
             .thenComparing(Identifier::asString);
 
     @Override
