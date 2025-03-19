@@ -153,65 +153,6 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testJavaCommonCompileCustomSourceJar() throws Exception {
-    JavaTestUtil.writeBuildFileForJavaToolchain(scratch);
-    scratch.file(
-        "java/test/BUILD",
-        """
-        load(":custom_rule.bzl", "java_custom_library")
-
-        java_custom_library(
-            name = "custom",
-            srcs = ["myjar-src.jar"],
-        )
-        """);
-    scratch.file(
-        "java/test/custom_rule.bzl",
-        "load('@rules_java//java:defs.bzl', 'java_common')",
-        "def _impl(ctx):",
-        "  output_jar = ctx.actions.declare_file('lib' + ctx.label.name + '.jar')",
-        "  output_source_jar = ctx.actions.declare_file('lib' + ctx.label.name + '-mysrc.jar')",
-        "  compilation_provider = java_common.compile(",
-        "    ctx,",
-        "    source_jars = ctx.files.srcs,",
-        "    output = output_jar,",
-        "    output_source_jar = output_source_jar,",
-        "    java_toolchain = ctx.attr._java_toolchain[java_common.JavaToolchainInfo],",
-        "  )",
-        "  return [",
-        "      DefaultInfo(",
-        "          files = depset([output_source_jar]),",
-        "      ),",
-        "      compilation_provider",
-        "  ]",
-        "java_custom_library = rule(",
-        "  implementation = _impl,",
-        "  outputs = {",
-        "    'my_output': 'lib%{name}.jar'",
-        "  },",
-        "  attrs = {",
-        "    'srcs': attr.label_list(allow_files=['.jar']),",
-        "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
-        "  },",
-        "  toolchains = ['" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'],",
-        "  fragments = ['java']",
-        ")");
-
-    ConfiguredTarget configuredTarget = getConfiguredTarget("//java/test:custom");
-    JavaInfo info = JavaInfo.getJavaInfo(configuredTarget);
-    Sequence<Artifact> sourceJars = info.getSourceJars();
-    assertThat(artifactFilesNames(sourceJars)).containsExactly("libcustom-mysrc.jar");
-    ImmutableList<JavaOutput> javaOutputs = info.getJavaOutputs();
-    assertThat(javaOutputs).hasSize(1);
-    JavaOutput javaOutput = javaOutputs.get(0);
-    assertThat(javaOutput.classJar().getFilename()).isEqualTo("libcustom.jar");
-    assertThat(javaOutput.getSrcJar().getFilename()).isEqualTo("libcustom-mysrc.jar");
-    assertThat(javaOutput.compileJar().getFilename()).isEqualTo("libcustom-hjar.jar");
-    assertThat(javaOutput.jdeps().getFilename()).isEqualTo("libcustom.jdeps");
-    assertThat(javaOutput.compileJdeps().getFilename()).isEqualTo("libcustom-hjar.jdeps");
-  }
-
-  @Test
   public void testJavaCommonCompileAdditionalInputsAndOutputs() throws Exception {
     JavaTestUtil.writeBuildFileForJavaToolchain(scratch);
     scratch.file(
