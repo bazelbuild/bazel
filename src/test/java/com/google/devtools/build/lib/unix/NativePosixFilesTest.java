@@ -49,7 +49,7 @@ public class NativePosixFilesTest {
   @Test
   public void nativeExceptionContainsFileAndLine() throws Exception {
     File foo = new File("/non-existent");
-    var e = assertThrows(IOException.class, () -> NativePosixFiles.readlink(foo.getPath()));
+    IOException e = assertThrows(IOException.class, () -> NativePosixFiles.readlink(foo.getPath()));
     assertThat(e).hasMessageThat().startsWith("[unix_jni.cc:");
     assertThat(e).hasMessageThat().endsWith("/non-existent (No such file or directory)");
   }
