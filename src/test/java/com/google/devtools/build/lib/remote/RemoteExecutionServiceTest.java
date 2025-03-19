@@ -14,7 +14,7 @@ package com.google.devtools.build.lib.remote;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSortedMap.toImmutableSortedMap;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.extensions.proto.ProtoTruth.assertThat;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
@@ -134,8 +134,8 @@ import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
 import java.util.Collection;
-import java.util.Map;
 import java.util.Random;
+import java.util.SortedMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -2677,8 +2677,9 @@ public class RemoteExecutionServiceTest {
       }
 
       @Override
-      public Map<PathFragment, Artifact> getMapping() {
-        return artifacts.stream().collect(toImmutableMap(Artifact::getExecPath, a -> a));
+      public SortedMap<PathFragment, Artifact> getMapping() {
+        return artifacts.stream()
+            .collect(toImmutableSortedMap(PathFragment::compareTo, Artifact::getExecPath, a -> a));
       }
 
       @Override
