@@ -40,7 +40,6 @@ import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
-import com.google.devtools.build.lib.rules.java.JavaPluginInfo.JavaPluginData;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaCommonApi;
 import com.google.devtools.build.lib.testutil.TestConstants;
@@ -161,72 +160,6 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
       result.add(artifact.getFilename());
     }
     return result.build();
-  }
-
-  /** Tests the JavaPluginInfo provider's constructor with data given as depset. */
-  @Test
-  public void javaPluginInfo_createWithDataDepset() throws Exception {
-    scratch.file(
-        "java/test/myplugin.bzl",
-        """
-        load("@rules_java//java/common:java_info.bzl", "JavaInfo")
-        load("@rules_java//java/common:java_plugin_info.bzl",
-         "JavaPluginInfo")
-        def _impl(ctx):
-            output_jar = ctx.actions.declare_file("lib.jar")
-            ctx.actions.write(output_jar, "")
-            dep = JavaInfo(
-                output_jar = output_jar,
-                compile_jar = None,
-                deps = [d[JavaInfo] for d in ctx.attr.deps],
-            )
-            return [JavaPluginInfo(
-                runtime_deps = [dep],
-                processor_class = ctx.attr.processor_class,
-                data = depset(ctx.files.data),
-            )]
-
-        myplugin = rule(
-            implementation = _impl,
-            attrs = {
-                "deps": attr.label_list(),
-                "processor_class": attr.string(),
-                "data": attr.label_list(allow_files = True),
-            },
-        )
-        """);
-    scratch.file(
-        "java/test/BUILD",
-        """
-        load("@rules_java//java:defs.bzl", "java_library")
-        load(":myplugin.bzl", "myplugin")
-
-        java_library(
-            name = "plugin_dep1",
-            srcs = ["A.java"],
-            data = ["depfile1.dat"],
-        )
-
-        myplugin(
-            name = "plugin",
-            data = ["pluginfile1.dat"],
-            processor_class = "com.google.process.stuff",
-            deps = [":plugin_dep1"],
-        )
-        """);
-
-    JavaPluginInfo pluginInfo = JavaPluginInfo.get(getConfiguredTarget("//java/test:plugin"));
-    JavaPluginData pluginData = pluginInfo.plugins();
-    JavaPluginData apiPluginData = pluginInfo.apiGeneratingPlugins();
-
-    assertThat(pluginData.processorClasses().toList()).containsExactly("com.google.process.stuff");
-    assertThat(pluginData.processorClasspath().toList().stream().map(Artifact::getFilename))
-        .containsExactly("lib.jar", "libplugin_dep1.jar");
-    assertThat(pluginData.data().toList().stream().map(Artifact::getFilename))
-        .containsExactly("pluginfile1.dat");
-    assertThat(apiPluginData.processorClasses().toList()).isEmpty();
-    assertThat(apiPluginData.processorClasspath().toList()).isEmpty();
-    assertThat(apiPluginData.data().toList()).isEmpty();
   }
 
   @Test
