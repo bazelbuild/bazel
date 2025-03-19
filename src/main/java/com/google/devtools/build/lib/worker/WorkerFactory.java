@@ -99,7 +99,12 @@ public class WorkerFactory {
         Path workDir = getMultiplexSandboxedWorkerPath(key, multiplexerId);
         worker =
             new SandboxedWorkerProxy(
-                key, workerId, logFile, workerMultiplexer, workDir, treeDeleter);
+                key,
+                workerId,
+                workerMultiplexer.getLogFile(),
+                workerMultiplexer,
+                workDir,
+                treeDeleter);
         workerMultiplexer.setWorkDir(workDir);
       } else {
         Path workDir = getSandboxedWorkerPath(key, workerId);
