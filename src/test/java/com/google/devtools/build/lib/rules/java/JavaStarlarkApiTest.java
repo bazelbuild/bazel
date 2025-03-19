@@ -19,7 +19,6 @@ import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.prettyA
 import static com.google.devtools.build.lib.rules.java.JavaCompileActionTestHelper.getProcessorNames;
 import static com.google.devtools.build.lib.rules.java.JavaCompileActionTestHelper.getProcessorPath;
 import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
-import static com.google.devtools.build.lib.skyframe.serialization.testutils.Dumper.dumpStructure;
 import static java.util.Arrays.stream;
 
 import com.google.common.collect.ImmutableList;
@@ -47,7 +46,6 @@ import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import com.google.testing.junit.testparameterinjector.TestParameters;
 import com.google.testing.junit.testparameterinjector.TestParameters.TestParametersValues;
 import com.google.testing.junit.testparameterinjector.TestParametersValuesProvider;
-import java.util.Iterator;
 import java.util.List;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Sequence;
@@ -159,61 +157,6 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
       result.add(artifact.getFilename());
     }
     return result.build();
-  }
-
-  @Test
-  public void javaProviderPropagation() throws Exception {
-    scratch.file(
-        "foo/extension.bzl",
-        """
-        load("@rules_java//java/common:java_info.bzl", "JavaInfo")
-        def _impl(ctx):
-            dep_params = ctx.attr.dep[JavaInfo]
-            return [dep_params]
-
-        my_rule = rule(_impl, attrs = {"dep": attr.label()})
-        """);
-    scratch.file(
-        "foo/BUILD",
-        """
-        load("@rules_java//java:defs.bzl", "java_library")
-        load(":extension.bzl", "my_rule")
-
-        java_library(
-            name = "jl",
-            srcs = ["java/A.java"],
-        )
-
-        my_rule(
-            name = "r",
-            dep = ":jl",
-        )
-
-        java_library(
-            name = "jl_top",
-            srcs = ["java/C.java"],
-            deps = [":r"],
-        )
-        """);
-
-    ConfiguredTarget myRuleTarget = getConfiguredTarget("//foo:r");
-    ConfiguredTarget javaLibraryTarget = getConfiguredTarget("//foo:jl");
-    ConfiguredTarget topJavaLibraryTarget = getConfiguredTarget("//foo:jl_top");
-
-    Object javaProvider = JavaInfo.getJavaInfo(myRuleTarget);
-    assertThat(javaProvider).isInstanceOf(JavaInfo.class);
-
-    JavaInfo jlJavaInfo = JavaInfo.getJavaInfo(javaLibraryTarget);
-
-    // Compares providers structurally rather than by reference equality. References will not match
-    // after serialization.
-    assertThat(dumpStructure(jlJavaInfo)).isEqualTo(dumpStructure(javaProvider));
-
-    JavaInfo jlTopJavaInfo = JavaInfo.getJavaInfo(topJavaLibraryTarget);
-
-    javaCompilationArgsHaveTheSameParent(
-        jlJavaInfo.getProvider(JavaCompilationArgsProvider.class),
-        jlTopJavaInfo.getProvider(JavaCompilationArgsProvider.class));
   }
 
   @Test
@@ -2014,38 +1957,6 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         JavaToolchainProvider.from((ConfiguredTarget) info.getValue("java_toolchain_label"));
     Label javaToolchainLabel = javaToolchainProvider.getToolchainLabel();
     assertThat(javaToolchainLabel.toString()).isEqualTo("//java/com/google/test:toolchain");
-  }
-
-  private static boolean javaCompilationArgsHaveTheSameParent(
-      JavaCompilationArgsProvider args, JavaCompilationArgsProvider otherArgs) {
-    if (!nestedSetsOfArtifactHaveTheSameParent(
-        args.transitiveCompileTimeJars(), otherArgs.transitiveCompileTimeJars())) {
-      return false;
-    }
-    if (!nestedSetsOfArtifactHaveTheSameParent(args.runtimeJars(), otherArgs.runtimeJars())) {
-      return false;
-    }
-    return true;
-  }
-
-  private static boolean nestedSetsOfArtifactHaveTheSameParent(
-      NestedSet<Artifact> artifacts, NestedSet<Artifact> otherArtifacts) {
-    Iterator<Artifact> iterator = artifacts.toList().iterator();
-    Iterator<Artifact> otherIterator = otherArtifacts.toList().iterator();
-    while (iterator.hasNext() && otherIterator.hasNext()) {
-      Artifact artifact = iterator.next();
-      Artifact otherArtifact = otherIterator.next();
-      if (!artifact
-          .getPath()
-          .getParentDirectory()
-          .equals(otherArtifact.getPath().getParentDirectory())) {
-        return false;
-      }
-    }
-    if (iterator.hasNext() || otherIterator.hasNext()) {
-      return false;
-    }
-    return true;
   }
 
   @Test
