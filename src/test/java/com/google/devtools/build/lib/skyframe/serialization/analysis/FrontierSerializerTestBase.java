@@ -27,6 +27,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
+import com.google.common.truth.Correspondence;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
@@ -1006,6 +1007,44 @@ project = { "actual": "//A:PROJECT.scl" }
         """
 project = { "active_directories": {"default": ["A"]} }
 """);
+  }
+
+  protected static final void assertContainsExactlyPrefixes(
+      ImmutableList<String> strings, String... prefixes) {
+    Correspondence<String, String> prefixCorrespondence =
+        Correspondence.from(String::startsWith, "starts with");
+    for (String prefix : prefixes) {
+      assertThat(strings).comparingElementsUsing(prefixCorrespondence).contains(prefix);
+    }
+  }
+
+  protected static final void assertContainsPrefixes(
+      ImmutableList<String> strings, String... prefixes) {
+    Correspondence<String, String> prefixCorrespondence =
+        Correspondence.from(String::startsWith, "starts with");
+    for (String prefix : prefixes) {
+      assertThat(strings).comparingElementsUsing(prefixCorrespondence).contains(prefix);
+    }
+  }
+
+  protected static final void assertDoesNotContainPrefixes(
+      ImmutableList<String> strings, String... prefixes) {
+    Correspondence<String, String> prefixCorrespondence =
+        Correspondence.from(String::startsWith, "starts with");
+    assertThat(strings).comparingElementsUsing(prefixCorrespondence).containsNoneIn(prefixes);
+  }
+
+  protected final ImmutableList<String> uploadManifest(String... targets) throws Exception {
+    getSkyframeExecutor().resetEvaluator();
+    addOptions("--experimental_remote_analysis_cache_mode=dump_upload_manifest_only");
+    RecordingOutErr outErr = new RecordingOutErr();
+    this.outErr = outErr;
+    buildTarget(targets);
+    return outErr
+        .outAsLatin1()
+        .lines()
+        .filter(s -> s.startsWith("ACTIVE: ") || s.startsWith("FRONTIER_CANDIDATE:"))
+        .collect(toImmutableList());
   }
 
   protected final void roundtrip(String... targets) throws Exception {
