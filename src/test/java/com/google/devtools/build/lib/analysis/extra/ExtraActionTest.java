@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.analysis.extra;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.NULL_ACTION_OWNER;
+import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.NULL_LABEL;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.ensureMemoizedIsInitializedIsSet;
 import static com.google.devtools.build.lib.skyframe.serialization.testutils.Dumper.dumpStructureWithEquivalenceReduction;
 import static org.mockito.Mockito.mock;
@@ -31,10 +32,12 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext.LostInputsCheck;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
+import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
+import com.google.devtools.build.lib.actions.BuildConfigurationEvent;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.DiscoveredModulesPruner;
 import com.google.devtools.build.lib.actions.Spawn;
@@ -46,6 +49,8 @@ import com.google.devtools.build.lib.actions.extra.JavaCompileInfo;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil.InputDiscoveringNullAction;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil.NullAction;
+import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.exec.BlazeExecutor;
@@ -60,6 +65,7 @@ import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import java.util.HashMap;
 import java.util.Map;
+import net.starlark.java.syntax.Location;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -224,16 +230,32 @@ public class ExtraActionTest extends FoundationTestCase {
         (Artifact.DerivedArtifact)
             ActionsTestUtil.createArtifact(out, scratch.file("/out/test.out"));
     output.setGeneratingActionKey(ActionsTestUtil.NULL_ACTION_LOOKUP_DATA);
+    // Note that this differs from NULL_ACTION_OWNER in that it has non-empty execProperties, which
+    // are important for testing.
+    var dummyActionOwner =
+        ActionOwner.createDummy(
+            NULL_LABEL,
+            new Location("dummy-file", 0, 0),
+            /* targetKind= */ "dummy-kind",
+            /* buildConfigurationMnemonic= */ "dummy-configuration-mnemonic",
+            /* configurationChecksum= */ "dummy-configuration",
+            new BuildConfigurationEvent(
+                BuildEventStreamProtos.BuildEventId.getDefaultInstance(),
+                BuildEventStreamProtos.BuildEvent.getDefaultInstance()),
+            /* isToolConfiguration= */ false,
+            /* executionPlatform= */ PlatformInfo.EMPTY_PLATFORM_INFO,
+            /* aspectDescriptors= */ ImmutableList.of(),
+            /* execProperties= */ ImmutableMap.of("property1", "value1", "property2", "value2"));
     ExtraAction extraAction =
         new ExtraAction(
-            NULL_ACTION_OWNER,
+            dummyActionOwner,
             NestedSetBuilder.create(Order.STABLE_ORDER, extraInput),
             ImmutableSet.of(output),
             /* shadowedAction= */ new InputDiscoveringNullAction(),
             /* createDummyOutput= */ false,
             CommandLine.of(ImmutableList.of()),
             ActionEnvironment.EMPTY,
-            ImmutableMap.of(),
+            /* executionInfo= */ ImmutableMap.of("xyz", "2", "abc", "1"),
             "Executing extra action bla bla",
             "bla bla");
     ensureMemoizedIsInitializedIsSet(extraAction);
