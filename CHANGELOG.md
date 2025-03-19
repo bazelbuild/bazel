@@ -1,3 +1,34 @@
+## Release 9.0.0-pre.20250311.1 (2025-03-19)
+
+```
+Baseline: c422744caa072c66311a937049504901bc674b7d
+```
+
+This release contains contributions from many people at Google, as well as Fabian Meumertzheim.
+
+## Release 9.0.0-pre.20250307.1 (2025-03-14)
+
+```
+Baseline: 8dbfcfae924b014366a0b47cd26632c5076b51a2
+```
+
+Incompatible changes:
+
+  - The canonical names of repos created with `use_repo_rule` have
+    changed, which may require updating command-line flags such as
+    `--override_repository`.
+
+Important changes:
+
+  - Add `no_toolchain_error` to the `platform` rule, to customize
+    error messages when a required toolchain type cannot be found for
+    that platform.
+  - Flag `--incompatible_remote_use_new_exit_code_for_lost_inputs` is
+    deleted.
+  - None:
+
+This release contains contributions from many people at Google, as well as Aaron Sky, Benjamin Peterson, dependabot[bot], Dmitry Ivankov, Fabian Meumertzheim, jjudd, kxxt, Tobias Werth.
+
 ## Release 8.1.1 (2025-02-25)
 
 ```
