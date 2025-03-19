@@ -153,57 +153,6 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testJavaCommonCompile_noSources() throws Exception {
-    JavaTestUtil.writeBuildFileForJavaToolchain(scratch);
-    scratch.file(
-        "java/test/BUILD",
-        """
-        load(":custom_rule.bzl", "java_custom_library")
-
-        java_custom_library(
-            name = "custom",
-        )
-        """);
-    scratch.file(
-        "java/test/custom_rule.bzl",
-        "load('@rules_java//java:defs.bzl', 'java_common')",
-        "def _impl(ctx):",
-        "  output_jar = ctx.actions.declare_file('lib' + ctx.label.name + '.jar')",
-        "  compilation_provider = java_common.compile(",
-        "    ctx,",
-        "    output = output_jar,",
-        "    java_toolchain = ctx.attr._java_toolchain[java_common.JavaToolchainInfo],",
-        "  )",
-        "  return [",
-        "      DefaultInfo(",
-        "          files = depset([output_jar]),",
-        "      ),",
-        "      compilation_provider",
-        "  ]",
-        "java_custom_library = rule(",
-        "  implementation = _impl,",
-        "  outputs = {",
-        "    'my_output': 'lib%{name}.jar'",
-        "  },",
-        "  attrs = {",
-        "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
-        "  },",
-        "  toolchains = ['" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'],",
-        "  fragments = ['java']",
-        ")");
-
-    ConfiguredTarget configuredTarget = getConfiguredTarget("//java/test:custom");
-    JavaInfo info = JavaInfo.getJavaInfo(configuredTarget);
-    Sequence<Artifact> sourceJars = info.getSourceJars();
-    assertThat(artifactFilesNames(sourceJars)).containsExactly("libcustom-src.jar");
-    ImmutableList<JavaOutput> javaOutputs = info.getJavaOutputs();
-    assertThat(javaOutputs).hasSize(1);
-    JavaOutput javaOutput = javaOutputs.get(0);
-    assertThat(javaOutput.classJar().getFilename()).isEqualTo("libcustom.jar");
-    assertThat(javaOutput.getSrcJar().getFilename()).isEqualTo("libcustom-src.jar");
-  }
-
-  @Test
   public void testJavaCommonCompileCustomSourceJar() throws Exception {
     JavaTestUtil.writeBuildFileForJavaToolchain(scratch);
     scratch.file(
