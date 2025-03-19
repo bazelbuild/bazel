@@ -49,13 +49,9 @@ public class NativePosixFilesTest {
   @Test
   public void nativeExceptionContainsFileAndLine() throws Exception {
     File foo = new File("/non-existent");
-    try {
-      NativePosixFiles.readlink(foo.getPath());
-      fail("Expected some exception");
-    } catch (IOException e) {
-      assertThat(e).hasMessageThat().startsWith("[unix_jni.cc:");
-      assertThat(e).hasMessageThat().endsWith("/non-existent (No such file or directory)");
-    }
+    var e = assertThrows(IOException.class, () -> NativePosixFiles.readlink(foo.getPath()));
+    assertThat(e).hasMessageThat().startsWith("[unix_jni.cc:");
+    assertThat(e).hasMessageThat().endsWith("/non-existent (No such file or directory)");
   }
 
   // TODO(tjgq): Move this into FileSystemTest, and add more comprehensive coverage for chmod.
