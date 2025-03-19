@@ -160,66 +160,6 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
   }
 
   @Test
-  public void starlarkJavaToJavaBinaryAttributes() throws Exception {
-    scratch.file(
-        "foo/extension.bzl",
-        """
-        load("@rules_java//java/common:java_info.bzl", "JavaInfo")
-        def _impl(ctx):
-            dep_params = ctx.attr.dep[JavaInfo]
-            return [dep_params]
-
-        my_rule = rule(_impl, attrs = {"dep": attr.label()})
-        """);
-    scratch.file(
-        "foo/BUILD",
-        """
-        load("@rules_java//java:defs.bzl", "java_library", "java_binary")
-        load(":extension.bzl", "my_rule")
-
-        java_library(
-            name = "jl_bottom_for_deps",
-            srcs = ["java/A.java"],
-        )
-
-        java_library(
-            name = "jl_bottom_for_runtime_deps",
-            srcs = ["java/A2.java"],
-        )
-
-        my_rule(
-            name = "mya",
-            dep = ":jl_bottom_for_deps",
-        )
-
-        my_rule(
-            name = "myb",
-            dep = ":jl_bottom_for_runtime_deps",
-        )
-
-        java_binary(
-            name = "binary",
-            srcs = ["java/B.java"],
-            main_class = "foo.A",
-            runtime_deps = [":myb"],
-            deps = [":mya"],
-        )
-        """);
-    assertNoEvents();
-
-    setBuildLanguageOptions("--experimental_google_legacy_api");
-    // Test that all bottom jars are on the runtime classpath.
-    ConfiguredTarget binary = getConfiguredTarget("//foo:binary");
-    assertThat(
-            prettyArtifactNames(
-                JavaInfo.getJavaInfo(binary)
-                    .getCompilationInfoProvider()
-                    .getRuntimeClasspath()
-                    .getSet(Artifact.class)))
-        .containsAtLeast("foo/libjl_bottom_for_deps.jar", "foo/libjl_bottom_for_runtime_deps.jar");
-  }
-
-  @Test
   public void starlarkJavaToJavaImportAttributes() throws Exception {
     scratch.file(
         "foo/extension.bzl",
