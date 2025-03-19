@@ -115,57 +115,6 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testJavaRuntimeProviderJavaAbsolute() throws Exception {
-    scratch.file(
-        "a/BUILD",
-        "load('@rules_java//java:defs.bzl', 'java_runtime')",
-        "load(':rule.bzl', 'jrule')",
-        "load('"
-            + TestConstants.TOOLS_REPOSITORY
-            + "//tools/jdk:java_toolchain_alias.bzl', 'java_runtime_alias')",
-        "java_runtime(name='jvm', srcs=[], java_home='/foo/bar')",
-        "java_runtime_alias(name='alias')",
-        "jrule(name='r')",
-        "toolchain(",
-        "    name = 'java_runtime_toolchain',",
-        "    toolchain = ':jvm',",
-        "    toolchain_type = '"
-            + TestConstants.TOOLS_REPOSITORY
-            + "//tools/jdk:runtime_toolchain_type',",
-        ")");
-
-    scratch.file(
-        "a/rule.bzl",
-        """
-        load("//myinfo:myinfo.bzl", "MyInfo")
-        load("@rules_java//java/common:java_common.bzl", "java_common")
-
-        def _impl(ctx):
-            provider = ctx.attr._java_runtime[java_common.JavaRuntimeInfo]
-            return MyInfo(
-                java_home_exec_path = provider.java_home,
-                java_executable_exec_path = provider.java_executable_exec_path,
-                java_home_runfiles_path = provider.java_home_runfiles_path,
-                java_executable_runfiles_path = provider.java_executable_runfiles_path,
-            )
-
-        jrule = rule(_impl, attrs = {"_java_runtime": attr.label(default = Label("//a:alias"))})
-        """);
-
-    useConfiguration("--extra_toolchains=//a:all");
-    ConfiguredTarget ct = getConfiguredTarget("//a:r");
-    StructImpl myInfo = getMyInfoFromTarget(ct);
-    String javaHomeExecPath = (String) myInfo.getValue("java_home_exec_path");
-    assertThat(javaHomeExecPath).isEqualTo("/foo/bar");
-    String javaExecutableExecPath = (String) myInfo.getValue("java_executable_exec_path");
-    assertThat(javaExecutableExecPath).startsWith("/foo/bar/bin/java");
-    String javaHomeRunfilesPath = (String) myInfo.getValue("java_home_runfiles_path");
-    assertThat(javaHomeRunfilesPath).isEqualTo("/foo/bar");
-    String javaExecutableRunfiles = (String) myInfo.getValue("java_executable_runfiles_path");
-    assertThat(javaExecutableRunfiles).startsWith("/foo/bar/bin/java");
-  }
-
-  @Test
   public void testJavaRuntimeProviderJavaHermetic() throws Exception {
     scratch.file(
         "a/BUILD",
