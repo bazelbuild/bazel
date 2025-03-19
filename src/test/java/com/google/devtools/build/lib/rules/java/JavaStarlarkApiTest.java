@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
@@ -160,51 +159,6 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
       result.add(artifact.getFilename());
     }
     return result.build();
-  }
-
-  @Test
-  public void javaProviderExposedOnJavaLibrary() throws Exception {
-    scratch.file(
-        "foo/extension.bzl",
-        """
-        load("@rules_java//java/common:java_info.bzl", "JavaInfo")
-        my_provider = provider()
-
-        def _impl(ctx):
-            dep_params = ctx.attr.dep[JavaInfo]
-            return [my_provider(p = dep_params)]
-
-        my_rule = rule(_impl, attrs = {"dep": attr.label()})
-        """);
-    scratch.file(
-        "foo/BUILD",
-        """
-        load("@rules_java//java:defs.bzl", "java_library")
-        load(":extension.bzl", "my_rule")
-
-        java_library(
-            name = "jl",
-            srcs = ["java/A.java"],
-        )
-
-        my_rule(
-            name = "r",
-            dep = ":jl",
-        )
-        """);
-
-    ConfiguredTarget myRuleTarget = getConfiguredTarget("//foo:r");
-    ConfiguredTarget javaLibraryTarget = getConfiguredTarget("//foo:jl");
-    StarlarkProvider.Key myProviderKey =
-        new StarlarkProvider.Key(
-            keyForBuild(Label.parseCanonical("//foo:extension.bzl")), "my_provider");
-    StructImpl declaredProvider = (StructImpl) myRuleTarget.get(myProviderKey);
-    // attempting to wrap will error out if not a JavaInfo
-    Object javaProvider = JavaInfo.wrap(declaredProvider.getValue("p", Info.class));
-    // Compares providers structurally rather than by reference equality. References will not match
-    // after serialization.
-    assertThat(dumpStructure(JavaInfo.getJavaInfo(javaLibraryTarget)))
-        .isEqualTo(dumpStructure(javaProvider));
   }
 
   @Test
