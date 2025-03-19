@@ -73,6 +73,7 @@ import com.google.devtools.build.lib.exec.SpawnStrategyResolver;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.starlarkbuildapi.CommandLineArgsApi;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -110,7 +111,8 @@ public class SpawnAction extends AbstractAction implements CommandAction {
   private final String mnemonic;
 
   private final ResourceSetOrBuilder resourceSetOrBuilder;
-  private final ImmutableMap<String, String> executionInfo;
+  @VisibleForSerialization // protected access required due to b/32473060
+  protected final ImmutableSortedMap<String, String> sortedExecutionInfo;
   private final OutputPathsMode outputPathsMode;
 
   /**
@@ -147,7 +149,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     super(owner, inputs, /* outputs= */ outputs);
     this.tools = tools;
     this.resourceSetOrBuilder = resourceSetOrBuilder;
-    this.executionInfo =
+    this.sortedExecutionInfo =
         executionInfo.isEmpty()
             ? ImmutableSortedMap.of()
             : executionInfoInterner.intern(ImmutableSortedMap.copyOf(executionInfo));
@@ -168,17 +170,17 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       ResourceSetOrBuilder resourceSetOrBuilder,
       CommandLines commandLines,
       ActionEnvironment env,
-      ImmutableSortedMap<String, String> executionInfo,
+      ImmutableSortedMap<String, String> sortedExecutionInfo,
       CharSequence progressMessage,
       String mnemonic,
       OutputPathsMode outputPathsMode) {
     super(owner, inputs, /* rawOutputs= */ rawOutputs);
     this.tools = tools;
     this.resourceSetOrBuilder = resourceSetOrBuilder;
-    this.executionInfo =
-        executionInfo.isEmpty()
+    this.sortedExecutionInfo =
+        sortedExecutionInfo.isEmpty()
             ? ImmutableSortedMap.of()
-            : executionInfoInterner.intern(executionInfo);
+            : executionInfoInterner.intern(sortedExecutionInfo);
     this.commandLines = commandLines;
     this.env = env;
     this.progressMessage = progressMessage;
@@ -519,7 +521,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
   /** Returns the out-of-band execution data for this action. */
   @Override
   public ImmutableMap<String, String> getExecutionInfo() {
-    return mergeMaps(super.getExecutionInfo(), executionInfo);
+    return mergeMaps(super.getExecutionInfo(), sortedExecutionInfo);
   }
 
   /** A spawn instance that is tied to a specific SpawnAction. */

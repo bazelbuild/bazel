@@ -14,8 +14,11 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.ensureMemoizedIsInitializedIsSet;
+import static com.google.devtools.build.lib.skyframe.serialization.testutils.Dumper.dumpStructureWithEquivalenceReduction;
 import static org.junit.Assert.assertThrows;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.AbstractAction;
@@ -39,6 +42,9 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.exec.util.TestExecutorBuilder;
+import com.google.devtools.build.lib.skyframe.serialization.ArrayCodec;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationDepsUtils;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -59,7 +65,7 @@ public class LtoBackendActionTest extends BuildViewTestCase {
   private Artifact index2Artifact;
   private Artifact imports1Artifact;
   private Artifact imports2Artifact;
-  private Artifact destinationArtifact;
+  private Artifact.DerivedArtifact destinationArtifact;
   private BitcodeFiles allBitcodeFiles;
   private AnalysisTestUtil.CollectingAnalysisEnvironment collectingAnalysisEnvironment;
   private ActionExecutionContext context;
@@ -243,5 +249,38 @@ public class LtoBackendActionTest extends BuildViewTestCase {
         assertThrows(ActionExecutionException.class, () -> action.discoverInputs(context));
 
     assertThat(e).hasMessageThat().endsWith("(first 10): file1.o, file3.o");
+  }
+
+  @Test
+  public void serializationRoundTrip_resetsInputs() throws Exception {
+    LtoBackendAction action =
+        (LtoBackendAction)
+            new LtoBackendAction.Builder()
+                .addImportsInfo(allBitcodeFiles, imports2Artifact)
+                .addInput(bitcode2Artifact)
+                .addInput(index2Artifact)
+                .addOutput(destinationArtifact)
+                .setExecutable(scratch.file("/bin/clang").asFragment())
+                .setProgressMessage("Test")
+                .build(ActionsTestUtil.NULL_ACTION_OWNER, targetConfig);
+    destinationArtifact.setGeneratingActionKey(ActionsTestUtil.NULL_ACTION_LOOKUP_DATA);
+    ensureMemoizedIsInitializedIsSet(action);
+
+    String originalStructure = dumpStructureWithEquivalenceReduction(action);
+
+    ImmutableList<Artifact> originalInputs = action.getInputs().toList();
+    var unused = action.discoverInputs(context);
+    assertThat(action.getInputs().toList()).isNotEqualTo(originalInputs);
+
+    new SerializationTester(action)
+        .makeMemoizingAndAllowFutureBlocking(/* allowFutureBlocking= */ true)
+        .addCodec(ArrayCodec.forComponentType(Artifact.class))
+        .setVerificationFunction(
+            (unusedInput, deserialized) ->
+                assertThat(dumpStructureWithEquivalenceReduction(deserialized))
+                    .isEqualTo(originalStructure))
+        .addDependencies(getCommonSerializationDependencies())
+        .addDependencies(SerializationDepsUtils.SERIALIZATION_DEPS_FOR_TEST)
+        .runTests();
   }
 }

@@ -26,7 +26,7 @@ import javax.annotation.Nullable;
  * Definition of a symlink in the output tree of a Fileset rule.
  *
  * @param name Final name of the symlink relative to the Fileset's output directory.
- * @param targetPath Target of the symlink.
+ * @param targetPath Target of the symlink. This is never a directory.
  *     <p>This path is one of the following:
  *     <ol>
  *       <li>Relative to the execution root, in which case {@link #isRelativeToExecRoot} will return
@@ -35,7 +35,7 @@ import javax.annotation.Nullable;
  *     </ol>
  *
  * @param metadata {@link FileArtifactValue} representing metadata of the symlink target; guaranteed
- *     to have a non-null {@link FileArtifactValue#getDigest()}
+ *     to have a non-null {@link FileArtifactValue#getDigest()}.
  * @param relativeToExecRoot Returns {@code true} if this symlink is relative to the execution root.
  * @param enclosingTreeArtifactExecPath If this symlink points to a file inside a tree artifact,
  *     returns the exec path of that file's {@linkplain Artifact#getParent parent} tree artifact.
@@ -56,6 +56,7 @@ public record FilesetOutputSymlink(
     checkNotNull(targetPath, "targetPath");
     checkNotNull(metadata, "metadata");
     checkNotNull(metadata.getDigest(), "digest of %s", metadata);
+    checkArgument(!metadata.getType().isDirectory(), "Illegal directory: %s", targetPath);
   }
 
   private static final FileArtifactValue EMPTY_METADATA_FOR_TESTING =

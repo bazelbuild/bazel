@@ -99,7 +99,7 @@ public class StarlarkAction extends SpawnAction {
       ResourceSetOrBuilder resourceSetOrBuilder,
       CommandLines commandLines,
       ActionEnvironment env,
-      ImmutableSortedMap<String, String> executionInfo,
+      ImmutableSortedMap<String, String> sortedExecutionInfo,
       CharSequence progressMessage,
       String mnemonic,
       OutputPathsMode outputPathsMode) {
@@ -111,7 +111,7 @@ public class StarlarkAction extends SpawnAction {
         resourceSetOrBuilder,
         commandLines,
         env,
-        executionInfo,
+        sortedExecutionInfo,
         progressMessage,
         mnemonic,
         outputPathsMode);
@@ -274,7 +274,7 @@ public class StarlarkAction extends SpawnAction {
         ResourceSetOrBuilder resourceSetOrBuilder,
         CommandLines commandLines,
         ActionEnvironment environment,
-        ImmutableSortedMap<String, String> executionInfo,
+        ImmutableSortedMap<String, String> sortedExecutionInfo,
         CharSequence progressMessage,
         String mnemonic,
         OutputPathsMode outputPathsMode,
@@ -290,7 +290,7 @@ public class StarlarkAction extends SpawnAction {
           resourceSetOrBuilder,
           commandLines,
           environment,
-          executionInfo,
+          sortedExecutionInfo,
           progressMessage,
           mnemonic,
           outputPathsMode);

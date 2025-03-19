@@ -106,7 +106,7 @@ public final class ExtraAction extends SpawnAction {
       boolean createDummyOutput,
       CommandLines commandLines,
       ActionEnvironment environment,
-      ImmutableSortedMap<String, String> executionInfo,
+      ImmutableSortedMap<String, String> sortedExecutionInfo,
       CharSequence progressMessage,
       String mnemonic) {
     super(
@@ -120,7 +120,7 @@ public final class ExtraAction extends SpawnAction {
         AbstractAction.DEFAULT_RESOURCE_SET,
         commandLines,
         environment,
-        executionInfo,
+        sortedExecutionInfo,
         progressMessage,
         mnemonic,
         OutputPathsMode.OFF);
