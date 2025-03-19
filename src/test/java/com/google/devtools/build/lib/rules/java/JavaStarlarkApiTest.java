@@ -309,62 +309,6 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         .containsExactly("jacocorunner.jar");
   }
 
-  /**
-   * Test that plugin parameter of java_common.compile does not accept JavaInfo when
-   * incompatible_require_javaplugininfo_in_javacommon is flipped.
-   */
-  @Test
-  public void javaCommonCompile_requiresJavaPluginInfo() throws Exception {
-    JavaTestUtil.writeBuildFileForJavaToolchain(scratch);
-    scratch.file(
-        "java/test/custom_rule.bzl",
-        "load('@rules_java//java:defs.bzl', 'java_common', 'JavaInfo')",
-        "def _impl(ctx):",
-        "  output_jar = ctx.actions.declare_file('lib' + ctx.label.name + '.jar')",
-        "  return java_common.compile(",
-        "    ctx,",
-        "    source_files = ctx.files.srcs,",
-        "    plugins = [p[JavaInfo] for p in ctx.attr.deps],",
-        "    output = output_jar,",
-        "    java_toolchain = ctx.attr._java_toolchain[java_common.JavaToolchainInfo],",
-        "  )",
-        "java_custom_library = rule(",
-        "  implementation = _impl,",
-        "  outputs = {",
-        "    'my_output': 'lib%{name}.jar'",
-        "  },",
-        "  attrs = {",
-        "    'srcs': attr.label_list(allow_files=['.java']),",
-        "    'deps': attr.label_list(),",
-        "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
-        "  },",
-        "  toolchains = ['" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'],",
-        "  fragments = ['java']",
-        ")");
-    scratch.file(
-        "java/test/BUILD",
-        """
-        load("@rules_java//java:defs.bzl", "java_library")
-        load(":custom_rule.bzl", "java_custom_library")
-
-        java_library(
-            name = "dep",
-            srcs = ["ProcessorDep.java"],
-        )
-
-        java_custom_library(
-            name = "to_be_processed",
-            srcs = ["ToBeProcessed.java"],
-            deps = [":dep"],
-        )
-        """);
-
-    reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//java/test:to_be_processed");
-
-    assertContainsEvent("at index 0 of plugins, got element of type JavaInfo, want JavaPluginInfo");
-  }
-
   @Test
   public void testJavaCommonCompileCompilationInfo() throws Exception {
     JavaTestUtil.writeBuildFileForJavaToolchain(scratch);
