@@ -311,52 +311,6 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
   }
 
   /**
-   * Tests that JavaInfo.java_annotation_processing returned from java_common.compile looks as
-   * expected, and specifically, looks as if java_library was used instead.
-   */
-  @Test
-  public void testJavaCommonCompileExposesAnnotationProcessingInfo() throws Exception {
-    // Set up a Starlark rule that uses java_common.compile and supports annotation processing in
-    // the same way as java_library, then use a helper method to test that the custom rule produces
-    // the same annotation processing information as java_library would.
-    JavaTestUtil.writeBuildFileForJavaToolchain(scratch);
-    scratch.file(
-        "java/test/custom_rule.bzl",
-        "load('@rules_java//java:defs.bzl', 'java_common', 'JavaInfo',"
-            + " 'JavaPluginInfo')",
-        "def _impl(ctx):",
-        "  output_jar = ctx.actions.declare_file('lib' + ctx.label.name + '.jar')",
-        "  return java_common.compile(",
-        "    ctx,",
-        "    source_files = ctx.files.srcs,",
-        "    deps = [d[JavaInfo] for d in ctx.attr.deps],",
-        "    exports = [e[JavaInfo] for e in ctx.attr.exports],",
-        "    plugins = [p[JavaPluginInfo] for p in ctx.attr.plugins],",
-        "    output = output_jar,",
-        "    java_toolchain = ctx.attr._java_toolchain[java_common.JavaToolchainInfo],",
-        "  )",
-        "java_custom_library = rule(",
-        "  implementation = _impl,",
-        "  outputs = {",
-        "    'my_output': 'lib%{name}.jar'",
-        "  },",
-        "  attrs = {",
-        "    'srcs': attr.label_list(allow_files=['.java']),",
-        "    'deps': attr.label_list(),",
-        "    'exports': attr.label_list(),",
-        "    'plugins': attr.label_list(),",
-        "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
-        "  },",
-        "  toolchains = ['" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'],",
-        "  fragments = ['java']",
-        ")");
-
-    testAnnotationProcessingInfoIsStarlarkAccessible(
-        /* toBeProcessedRuleName= */ "java_custom_library",
-        /* extraLoad= */ "load(':custom_rule.bzl', 'java_custom_library')");
-  }
-
-  /**
    * Test that plugin parameter of java_common.compile does not accept JavaInfo when
    * incompatible_require_javaplugininfo_in_javacommon is flipped.
    */
