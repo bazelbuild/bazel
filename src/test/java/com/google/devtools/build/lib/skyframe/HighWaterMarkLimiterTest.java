@@ -166,7 +166,9 @@ public final class HighWaterMarkLimiterTest {
   }
 
   private static void assertStats(
-      HighWaterMarkLimiter underTest, MemoryPressureStats.Builder expected) {
-    assertThat(underTest.getStats()).isEqualTo(expected.build());
+      HighWaterMarkLimiter underTest, MemoryPressureStats.Builder expectedBuilder) {
+    MemoryPressureStats.Builder actualBuilder = MemoryPressureStats.newBuilder();
+    underTest.populateStats(actualBuilder);
+    assertThat(actualBuilder.build()).isEqualTo(expectedBuilder.build());
   }
 }
