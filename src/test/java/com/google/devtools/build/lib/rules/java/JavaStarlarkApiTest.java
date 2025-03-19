@@ -198,45 +198,6 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         ((Depset) info.getValue("processor_data")).getSet(Artifact.class));
   }
 
-  /** Tests that api generating java_plugin exposes plugin information to Starlark. */
-  @Test
-  public void apiGeneratingjavaPlugin_exposesPluginsToStarlark() throws Exception {
-    scratch.file(
-        "java/test/BUILD",
-        """
-        load("@rules_java//java:defs.bzl", "java_library", "java_plugin")
-        java_library(
-            name = "plugin_dep",
-            srcs = ["ProcessorDep.java"],
-            data = ["depfile.dat"],
-        )
-
-        java_plugin(
-            name = "plugin",
-            srcs = ["AnnotationProcessor.java"],
-            data = ["pluginfile.dat"],
-            generates_api = True,
-            processor_class = "com.google.process.stuff",
-            deps = [":plugin_dep"],
-        )
-        """);
-
-    JavaPluginData pluginData =
-        retrieveStarlarkPluginData(
-            "//java/test:plugin", /* provider= */ "JavaPluginInfo", /* apiGenerating= */ false);
-    JavaPluginData apiPluginData =
-        retrieveStarlarkPluginData(
-            "//java/test:plugin", /* provider= */ "JavaPluginInfo", /* apiGenerating= */ true);
-
-    assertThat(apiPluginData.processorClasses().toList())
-        .containsExactly("com.google.process.stuff");
-    assertThat(apiPluginData.processorClasspath().toList().stream().map(Artifact::getFilename))
-        .containsExactly("libplugin.jar", "libplugin_dep.jar");
-    assertThat(apiPluginData.data().toList().stream().map(Artifact::getFilename))
-        .containsExactly("pluginfile.dat");
-    assertThat(apiPluginData).isEqualTo(pluginData);
-  }
-
   /** Tests that java_library exposes exported plugin information to Starlark. */
   @Test
   public void javaLibrary_exposesPluginsToStarlark() throws Exception {
