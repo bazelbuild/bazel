@@ -225,7 +225,6 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
             ImmutableList.of("/bin/echo", "Hi!"),
             ImmutableMap.of("VARIABLE", "value"),
             /* executionInfo= */ ImmutableMap.<String, String>of(),
-            /* filesetMappings= */ ImmutableMap.of(),
             /* inputs= */ NestedSetBuilder.create(
                 Order.STABLE_ORDER, ActionInputHelper.fromPath("input")),
             /* tools= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),

@@ -401,7 +401,6 @@ java_library(
     name = "standalone_test_strategy",
     srcs = ["StandaloneTestStrategy.java"],
     deps = [
-        ":bin_tools",
         ":execution_options",
         ":spawn_exec_exception",
         ":spawn_strategy_resolver",

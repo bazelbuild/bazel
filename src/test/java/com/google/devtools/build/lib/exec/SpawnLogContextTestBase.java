@@ -36,7 +36,6 @@ import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.CommandLines.ParamFileActionInput;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
-import com.google.devtools.build.lib.actions.FilesetOutputTree;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.PathMapper;
@@ -1723,8 +1722,6 @@ public abstract class SpawnLogContextTestBase {
     Spawn spawn =
         defaultSpawnBuilder()
             .withInput(filesetInput)
-            // The implementation only relies on the map keys, so the value can be empty.
-            .withFilesetMapping(filesetInput, FilesetOutputTree.EMPTY)
             .build();
 
     SpawnLogContext context = createSpawnLogContext();

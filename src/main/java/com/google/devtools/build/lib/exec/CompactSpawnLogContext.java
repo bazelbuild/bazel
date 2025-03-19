@@ -18,7 +18,6 @@ import static com.google.common.base.Preconditions.checkState;
 
 import com.github.luben.zstd.ZstdOutputStream;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionInput;
@@ -60,7 +59,6 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.time.Duration;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.SortedMap;
@@ -310,25 +308,8 @@ public class CompactSpawnLogContext extends SpawnLogContext {
       Spawn spawn, InputMetadataProvider inputMetadataProvider, FileSystem fileSystem)
       throws IOException, InterruptedException {
 
-    // Add filesets as additional direct members of the top-level nested set of inputs. This
-    // prevents it from being shared, but experimentally, the top-level input nested set for a spawn
-    // is almost never a transitive member of other nested sets, and not recording its entry ID
-    // turns out to be a very significant memory optimization.
-
-    ImmutableList.Builder<Integer> additionalDirectoryIds = ImmutableList.builder();
-
-    for (Artifact fileset : spawn.getFilesetMappings().keySet()) {
-      // The fileset symlink tree is always materialized on disk.
-      additionalDirectoryIds.add(
-          logDirectory(
-              fileset,
-              fileSystem.getPath(execRoot.getRelative(fileset.getExecPath())),
-              inputMetadataProvider));
-    }
-
     return logInputSet(
         spawn.getInputFiles(),
-        additionalDirectoryIds.build(),
         inputMetadataProvider,
         fileSystem,
         /* shared= */ false,
@@ -346,7 +327,6 @@ public class CompactSpawnLogContext extends SpawnLogContext {
       throws IOException, InterruptedException {
     return logInputSet(
         spawn.getToolFiles(),
-        ImmutableList.of(),
         inputMetadataProvider,
         fileSystem,
         /* shared= */ true,
@@ -357,8 +337,6 @@ public class CompactSpawnLogContext extends SpawnLogContext {
    * Logs a nested set.
    *
    * @param set the nested set
-   * @param additionalDirectoryIds the entry IDs of additional {@link ExecLogEntry.Directory}
-   *     entries to include as direct members
    * @param shared whether this nested set is likely to be a transitive member of other sets
    * @param isTestRunnerSpawn whether this nested set is logged for a test runner spawn
    * @return the entry ID of the {@link ExecLogEntry.InputSet} describing the nested set, or 0 if
@@ -366,28 +344,25 @@ public class CompactSpawnLogContext extends SpawnLogContext {
    */
   private int logInputSet(
       NestedSet<? extends ActionInput> set,
-      Collection<Integer> additionalDirectoryIds,
       InputMetadataProvider inputMetadataProvider,
       FileSystem fileSystem,
       boolean shared,
       boolean isTestRunnerSpawn)
       throws IOException, InterruptedException {
-    if (set.isEmpty() && additionalDirectoryIds.isEmpty()) {
+    if (set.isEmpty()) {
       return 0;
     }
 
     return logEntry(
         shared ? set.toNode() : null,
         () -> {
-          ExecLogEntry.InputSet.Builder builder =
-              ExecLogEntry.InputSet.newBuilder().addAllInputIds(additionalDirectoryIds);
+          ExecLogEntry.InputSet.Builder builder = ExecLogEntry.InputSet.newBuilder();
 
           for (NestedSet<? extends ActionInput> transitive : set.getNonLeaves()) {
             checkState(!transitive.isEmpty());
             builder.addTransitiveSetIds(
                 logInputSet(
                     transitive,
-                    /* additionalDirectoryIds= */ ImmutableList.of(),
                     inputMetadataProvider,
                     fileSystem,
                     /* shared= */ true,
@@ -411,9 +386,13 @@ public class CompactSpawnLogContext extends SpawnLogContext {
               continue;
             }
 
-            // Filesets are logged separately.
             if (input instanceof Artifact artifact && artifact.isFileset()) {
-              continue;
+              // The fileset symlink tree is always materialized on disk.
+              builder.addInputIds(
+                  logDirectory(
+                      input,
+                      fileSystem.getPath(execRoot.getRelative(input.getExecPath())),
+                      inputMetadataProvider));
             }
 
             builder.addInputIds(logInput(input, inputMetadataProvider, fileSystem));
@@ -570,7 +549,6 @@ public class CompactSpawnLogContext extends SpawnLogContext {
           builder.setInputSetId(
               logInputSet(
                   runfilesTree.getArtifactsAtCanonicalLocationsForLogging(),
-                  /* additionalDirectoryIds= */ ImmutableList.of(),
                   inputMetadataProvider,
                   fileSystem,
                   // The runfiles tree itself is shared, but the nested set is unique to the tree as

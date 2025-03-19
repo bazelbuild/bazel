@@ -1605,7 +1605,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
           ImmutableList.copyOf(getArguments(pathMapper)),
           getEffectiveEnvironment(clientEnv, pathMapper),
           executionInfo.buildOrThrow(),
-          /* filesetMappings= */ ImmutableMap.of(),
           inputs,
           /* tools= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
           getOutputs(),

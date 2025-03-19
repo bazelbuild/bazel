@@ -548,7 +548,7 @@ public final class ActionsTestUtil {
   }
 
   /** For a bunch of artifacts, gets the basenames and accumulates them in a List. */
-  public static List<String> baseArtifactNames(Iterable<Artifact> artifacts) {
+  public static List<String> baseArtifactNames(Iterable<? extends ActionInput> artifacts) {
     return transform(artifacts, artifact -> artifact.getExecPath().getBaseName());
   }
 

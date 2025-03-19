@@ -132,7 +132,6 @@ public class StandaloneTestStrategy extends TestStrategy {
             getArgs(action),
             ImmutableMap.copyOf(testEnvironment),
             ImmutableMap.copyOf(executionInfo),
-            ImmutableMap.of(),
             /* inputs= */ action.getInputs(),
             NestedSetBuilder.emptySet(Order.STABLE_ORDER),
             ImmutableSet.copyOf(action.getSpawnOutputs()),
@@ -473,7 +472,6 @@ public class StandaloneTestStrategy extends TestStrategy {
         // Pass the execution info of the action which is identical to the supported tags set on the
         // test target. In particular, this does not set the test timeout on the spawn.
         action.getExecutionInfo(),
-        ImmutableMap.of(),
         /* inputs= */ NestedSetBuilder.create(
             Order.STABLE_ORDER, action.getTestXmlGeneratorScript(), action.getTestLog()),
         /* tools= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
@@ -505,7 +503,6 @@ public class StandaloneTestStrategy extends TestStrategy {
         args,
         ImmutableMap.copyOf(testEnvironment),
         action.getExecutionInfo(),
-        /* filesetMappings= */ ImmutableMap.of(),
         /* inputs= */ NestedSetBuilder.<ActionInput>compileOrder()
             .addTransitive(action.getInputs())
             .addAll(expandedCoverageDir)
