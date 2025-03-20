@@ -49,6 +49,7 @@ import java.nio.charset.Charset;
 import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.attribute.PosixFilePermission;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.HashSet;
 import java.util.Set;
@@ -1259,6 +1260,17 @@ public abstract class FileSystemTest {
     FileNotFoundException x =
         assertThrows(FileNotFoundException.class, () -> newPath.getLastModifiedTime());
     assertThat(x).hasMessageThat().isEqualTo(newPath + " (No such file or directory)");
+  }
+
+  @Test
+  public void testGetLastChangeTime() throws Exception {
+    Path file = absolutize("file");
+    FileSystemUtils.createEmptyFile(file);
+
+    // Expect the change time to be only slightly behind the current time.
+    assertThat(
+            Duration.between(Instant.ofEpochMilli(file.stat().getLastChangeTime()), Instant.now()))
+        .isLessThan(Duration.ofSeconds(1));
   }
 
   // Test file size
