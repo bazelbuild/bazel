@@ -96,6 +96,7 @@ java_library(
         "HasDigest.java",
         "InputFileErrorException.java",
         "InputMetadataProvider.java",
+        "InputMetadataProviderArtifactExpander.java",
         "LostInputsActionExecutionException.java",
         "LostInputsExecException.java",
         "MapBasedActionGraph.java",

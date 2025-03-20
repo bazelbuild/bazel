@@ -84,7 +84,7 @@ public class RunfilesRepoMappingManifestTest extends BuildViewTestCase {
   private String computeKey(RepoMappingManifestAction action)
       throws CommandLineExpansionException, EvalException, InterruptedException {
     Fingerprint fp = new Fingerprint();
-    action.computeKey(actionKeyContext, /* artifactExpander= */ null, fp);
+    action.computeKey(actionKeyContext, /* inputMetadataProvider= */ null, fp);
     return fp.hexDigestAndReset();
   }
 

@@ -48,6 +48,8 @@ import com.google.devtools.build.lib.actions.CommandLines.CommandLineAndParamFil
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
+import com.google.devtools.build.lib.actions.InputMetadataProviderArtifactExpander;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile;
 import com.google.devtools.build.lib.actions.PathMapper;
@@ -218,7 +220,7 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
   @Override
   protected void computeKey(
       ActionKeyContext actionKeyContext,
-      @Nullable ArtifactExpander artifactExpander,
+      @Nullable InputMetadataProvider inputMetadataProvider,
       Fingerprint fp)
       throws CommandLineExpansionException, InterruptedException {
     fp.addUUID(GUID);
@@ -226,6 +228,8 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
     CoreOptions.OutputPathsMode outputPathsMode = PathMappers.getOutputPathsMode(configuration);
     CoreOptions.OutputPathsMode effectiveOutputPathsMode =
         PathMappers.getEffectiveOutputPathsMode(outputPathsMode, getMnemonic(), getExecutionInfo());
+    ArtifactExpander artifactExpander =
+        InputMetadataProviderArtifactExpander.maybeFrom(inputMetadataProvider);
     executableLine.addToFingerprint(
         actionKeyContext, artifactExpander, effectiveOutputPathsMode, fp);
     flagLine.addToFingerprint(actionKeyContext, artifactExpander, effectiveOutputPathsMode, fp);

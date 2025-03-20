@@ -199,7 +199,6 @@ public class ActionCacheCheckerTest {
             /* handler= */ null,
             inputMetadataProvider,
             outputMetadataStore,
-            /* artifactExpander= */ null,
             platform,
             outputChecker);
     runAction(action, clientEnv, platform, inputMetadataProvider, outputMetadataStore, token);
@@ -307,7 +306,7 @@ public class ActionCacheCheckerTest {
           @Override
           protected void computeKey(
               ActionKeyContext actionKeyContext,
-              @Nullable ArtifactExpander artifactExpander,
+              @Nullable InputMetadataProvider inputMetadataProvider,
               Fingerprint fp) {
             fp.addString("key1");
           }
@@ -318,7 +317,7 @@ public class ActionCacheCheckerTest {
           @Override
           protected void computeKey(
               ActionKeyContext actionKeyContext,
-              @Nullable ArtifactExpander artifactExpander,
+              @Nullable InputMetadataProvider inputMetadataProvider,
               Fingerprint fp) {
             fp.addString("key2");
           }
@@ -451,7 +450,6 @@ public class ActionCacheCheckerTest {
                 /* handler= */ null,
                 fakeMetadataHandler,
                 fakeMetadataHandler,
-                /* artifactExpander= */ null,
                 /* remoteDefaultPlatformProperties= */ ImmutableMap.of(),
                 OutputChecker.TRUST_ALL))
         .isNotNull();
@@ -596,7 +594,6 @@ public class ActionCacheCheckerTest {
             /* handler= */ null,
             metadataHandler,
             metadataHandler,
-            /* artifactExpander= */ null,
             /* remoteDefaultPlatformProperties= */ ImmutableMap.of(),
             OutputChecker.TRUST_ALL);
 
@@ -630,7 +627,6 @@ public class ActionCacheCheckerTest {
             /* handler= */ null,
             metadataHandler,
             metadataHandler,
-            /* artifactExpander= */ null,
             /* remoteDefaultPlatformProperties= */ ImmutableMap.of(),
             CHECK_TTL);
 
@@ -659,7 +655,6 @@ public class ActionCacheCheckerTest {
             /* handler= */ null,
             metadataHandler,
             metadataHandler,
-            /* artifactExpander= */ null,
             /* remoteDefaultPlatformProperties= */ ImmutableMap.of(),
             /* outputChecker= */ null);
 
@@ -720,7 +715,6 @@ public class ActionCacheCheckerTest {
             /* handler= */ null,
             metadataHandler,
             metadataHandler,
-            /* artifactExpander= */ null,
             /* remoteDefaultPlatformProperties= */ ImmutableMap.of(),
             outputChecker);
     verify(outputChecker)
@@ -922,7 +916,6 @@ public class ActionCacheCheckerTest {
             /* handler= */ null,
             metadataHandler,
             metadataHandler,
-            /* artifactExpander= */ null,
             /* remoteDefaultPlatformProperties= */ ImmutableMap.of(),
             OutputChecker.TRUST_ALL);
 
@@ -1022,7 +1015,6 @@ public class ActionCacheCheckerTest {
             /* handler= */ null,
             metadataHandler,
             metadataHandler,
-            /* artifactExpander= */ null,
             /* remoteDefaultPlatformProperties= */ ImmutableMap.of(),
             OutputChecker.TRUST_ALL);
 
@@ -1082,7 +1074,6 @@ public class ActionCacheCheckerTest {
             /* handler= */ null,
             metadataHandler,
             metadataHandler,
-            /* artifactExpander= */ null,
             /* remoteDefaultPlatformProperties= */ ImmutableMap.of(),
             outputChecker);
     verify(outputChecker)
@@ -1153,7 +1144,6 @@ public class ActionCacheCheckerTest {
             /* handler= */ null,
             metadataHandler,
             metadataHandler,
-            /* artifactExpander= */ null,
             /* remoteDefaultPlatformProperties= */ ImmutableMap.of(),
             outputChecker);
     when(outputChecker.shouldTrustMetadata(any(), any())).thenReturn(true);
@@ -1219,7 +1209,6 @@ public class ActionCacheCheckerTest {
             /* handler= */ null,
             metadataHandler,
             metadataHandler,
-            /* artifactExpander= */ null,
             /* remoteDefaultPlatformProperties= */ ImmutableMap.of(),
             CHECK_TTL);
 
@@ -1263,7 +1252,6 @@ public class ActionCacheCheckerTest {
             /* handler= */ null,
             metadataHandler,
             metadataHandler,
-            /* artifactExpander= */ null,
             /* remoteDefaultPlatformProperties= */ ImmutableMap.of(),
             CHECK_TTL);
 
@@ -1309,7 +1297,6 @@ public class ActionCacheCheckerTest {
             /* handler= */ null,
             metadataHandler,
             metadataHandler,
-            /* artifactExpander= */ null,
             /* remoteDefaultPlatformProperties= */ ImmutableMap.of(),
             OutputChecker.TRUST_ALL);
 

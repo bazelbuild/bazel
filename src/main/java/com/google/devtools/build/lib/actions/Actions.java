@@ -90,8 +90,8 @@ public final class Actions {
         // Non-Actions cannot be shared.
         && a instanceof Action
         && b instanceof Action
-        && a.getKey(actionKeyContext, /* artifactExpander= */ null)
-            .equals(b.getKey(actionKeyContext, /* artifactExpander= */ null))
+        && a.getKey(actionKeyContext, /* inputMetadataProvider= */ null)
+            .equals(b.getKey(actionKeyContext, /* inputMetadataProvider= */ null))
         && artifactsEqualWithoutOwner(
             a.getMandatoryInputs().toList(), b.getMandatoryInputs().toList())
         && artifactsEqualWithoutOwner(a.getOutputs(), b.getOutputs());

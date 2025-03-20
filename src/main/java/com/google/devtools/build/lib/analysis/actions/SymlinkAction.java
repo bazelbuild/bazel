@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
-import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FilesetOutputTree;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
@@ -409,7 +408,7 @@ public final class SymlinkAction extends AbstractAction implements RichDataProdu
   @Override
   protected void computeKey(
       ActionKeyContext actionKeyContext,
-      @Nullable ArtifactExpander artifactExpander,
+      @Nullable InputMetadataProvider inputMetadataProvider,
       Fingerprint fp) {
     fp.addString(GUID);
     // We don't normally need to add inputs to the key. In this case, however, the inputPath can be

@@ -249,8 +249,8 @@ public sealed class ActionConflictException extends AbstractSaneAnalysisExceptio
       addStringDetail(
           sb,
           "Action key",
-          a.getKey(actionKeyContext, /* artifactExpander= */ null),
-          b.getKey(actionKeyContext, /* artifactExpander= */ null));
+          a.getKey(actionKeyContext, /* inputMetadataProvider= */ null),
+          b.getKey(actionKeyContext, /* inputMetadataProvider= */ null));
     } catch (InterruptedException e) {
       // Only for debugging - skip the key and carry on.
       addStringDetail(sb, "Action key", "<elided due to interrupt>", "<elided due to interrupt>");

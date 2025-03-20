@@ -145,7 +145,7 @@ public class UnresolvedSymlinkActionTest extends BuildViewTestCase {
 
   private String computeKey(UnresolvedSymlinkAction action) {
     Fingerprint fp = new Fingerprint();
-    action.computeKey(actionKeyContext, /*artifactExpander=*/ null, fp);
+    action.computeKey(actionKeyContext, /* inputMetadataProvider= */ null, fp);
     return fp.hexDigestAndReset();
   }
 }

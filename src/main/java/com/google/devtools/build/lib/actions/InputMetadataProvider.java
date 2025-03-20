@@ -108,5 +108,4 @@ public interface InputMetadataProvider {
   default FileSystem getFileSystemForInputResolution() {
     return null;
   }
-
 }

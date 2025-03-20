@@ -29,6 +29,8 @@ import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
+import com.google.devtools.build.lib.actions.InputMetadataProviderArtifactExpander;
 import com.google.devtools.build.lib.actions.ParameterFile;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.PathMapper;
@@ -173,13 +175,16 @@ public final class ParameterFileWriteAction extends AbstractFileWriteAction {
   @Override
   protected void computeKey(
       ActionKeyContext actionKeyContext,
-      @Nullable ArtifactExpander artifactExpander,
+      @Nullable InputMetadataProvider inputMetadataProvider,
       Fingerprint fp)
       throws CommandLineExpansionException, InterruptedException {
     fp.addString(GUID);
     fp.addString(type.toString());
     commandLine.addToFingerprint(
-        actionKeyContext, artifactExpander, CoreOptions.OutputPathsMode.OFF, fp);
+        actionKeyContext,
+        InputMetadataProviderArtifactExpander.maybeFrom(inputMetadataProvider),
+        CoreOptions.OutputPathsMode.OFF,
+        fp);
   }
 
   @Override
