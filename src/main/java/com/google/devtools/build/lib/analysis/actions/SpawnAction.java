@@ -51,7 +51,6 @@ import com.google.devtools.build.lib.actions.CommandLines.CommandLineAndParamFil
 import com.google.devtools.build.lib.actions.CommandLines.ExpandedCommandLines;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
-import com.google.devtools.build.lib.actions.InputMetadataProviderArtifactExpander;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.ResourceSetOrBuilder;
@@ -374,7 +373,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
         PathMappers.create(this, outputPathsMode, this instanceof StarlarkAction);
     ExpandedCommandLines expandedCommandLines =
         commandLines.expand(
-            actionExecutionContext.getArtifactExpander(),
+            actionExecutionContext.getInputMetadataProvider(),
             getPrimaryOutput().getExecPath(),
             pathMapper,
             getCommandLineLimits());
@@ -404,7 +403,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     fp.addString(GUID);
     commandLines.addToFingerprint(
         actionKeyContext,
-        InputMetadataProviderArtifactExpander.maybeFrom(inputMetadataProvider),
+        inputMetadataProvider,
         PathMappers.getEffectiveOutputPathsMode(outputPathsMode, getMnemonic(), getExecutionInfo()),
         fp);
     fp.addString(mnemonic);

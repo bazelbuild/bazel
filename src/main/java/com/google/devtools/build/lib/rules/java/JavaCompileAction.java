@@ -38,7 +38,6 @@ import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.BaseSpawn;
 import com.google.devtools.build.lib.actions.CommandAction;
 import com.google.devtools.build.lib.actions.CommandLine;
@@ -49,7 +48,6 @@ import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
-import com.google.devtools.build.lib.actions.InputMetadataProviderArtifactExpander;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile;
 import com.google.devtools.build.lib.actions.PathMapper;
@@ -228,11 +226,10 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
     CoreOptions.OutputPathsMode outputPathsMode = PathMappers.getOutputPathsMode(configuration);
     CoreOptions.OutputPathsMode effectiveOutputPathsMode =
         PathMappers.getEffectiveOutputPathsMode(outputPathsMode, getMnemonic(), getExecutionInfo());
-    ArtifactExpander artifactExpander =
-        InputMetadataProviderArtifactExpander.maybeFrom(inputMetadataProvider);
     executableLine.addToFingerprint(
-        actionKeyContext, artifactExpander, effectiveOutputPathsMode, fp);
-    flagLine.addToFingerprint(actionKeyContext, artifactExpander, effectiveOutputPathsMode, fp);
+        actionKeyContext, inputMetadataProvider, effectiveOutputPathsMode, fp);
+    flagLine.addToFingerprint(
+        actionKeyContext, inputMetadataProvider, effectiveOutputPathsMode, fp);
     // As the classpath is no longer part of commandLines implicitly, we need to explicitly add
     // the transitive inputs to the key here.
     actionKeyContext.addNestedSetToFingerprint(fp, transitiveInputs);
@@ -328,7 +325,7 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
             .build();
     CommandLines.ExpandedCommandLines expandedCommandLines =
         reducedCommandLine.expand(
-            actionExecutionContext.getArtifactExpander(),
+            actionExecutionContext.getInputMetadataProvider(),
             getPrimaryOutput().getExecPath(),
             pathMapper,
             configuration.getCommandLineLimits());
@@ -354,7 +351,7 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
     CommandLines.ExpandedCommandLines expandedCommandLines =
         getCommandLines()
             .expand(
-                actionExecutionContext.getArtifactExpander(),
+                actionExecutionContext.getInputMetadataProvider(),
                 getPrimaryOutput().getExecPath(),
                 pathMapper,
                 configuration.getCommandLineLimits());

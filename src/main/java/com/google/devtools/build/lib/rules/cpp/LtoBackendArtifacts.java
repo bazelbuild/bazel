@@ -24,6 +24,8 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
+import com.google.devtools.build.lib.actions.InputMetadataProviderArtifactExpander;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
@@ -354,14 +356,16 @@ public final class LtoBackendArtifacts implements LtoBackendArtifactsApi<Artifac
 
           @Override
           public Iterable<String> arguments() throws CommandLineExpansionException {
-            return arguments(/* artifactExpander= */ null, PathMapper.NOOP);
+            return arguments(/* inputMetadataProvider= */ null, PathMapper.NOOP);
           }
 
           @Override
           public ImmutableList<String> arguments(
-              ArtifactExpander artifactExpander, PathMapper pathMapper)
+              InputMetadataProvider inputMetadataProvider, PathMapper pathMapper)
               throws CommandLineExpansionException {
             ImmutableList.Builder<String> args = ImmutableList.builder();
+            ArtifactExpander artifactExpander =
+                InputMetadataProviderArtifactExpander.maybeFrom(inputMetadataProvider);
             try {
               args.addAll(
                   featureConfiguration.getCommandLine(

@@ -23,6 +23,8 @@ import com.google.devtools.build.lib.actions.AbstractCommandLine;
 import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.CommandLines;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
+import com.google.devtools.build.lib.actions.InputMetadataProviderArtifactExpander;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.PathMapper;
@@ -90,9 +92,11 @@ public final class LinkCommandLine extends AbstractCommandLine {
   }
 
   public ImmutableList<String> getParamCommandLine(
-      @Nullable ArtifactExpander expander, PathMapper pathMapper)
+      @Nullable InputMetadataProvider inputMetadataProvider, PathMapper pathMapper)
       throws CommandLineExpansionException {
     ImmutableList.Builder<String> argv = ImmutableList.builder();
+    ArtifactExpander expander =
+        InputMetadataProviderArtifactExpander.maybeFrom(inputMetadataProvider);
     try {
       if (variables.isAvailable(LINKER_PARAM_FILE.getVariableName())) {
         // Filter out linker_param_file
@@ -158,9 +162,9 @@ public final class LinkCommandLine extends AbstractCommandLine {
   }
 
   @Override
-  public List<String> arguments(ArtifactExpander artifactExpander, PathMapper pathMapper)
+  public List<String> arguments(InputMetadataProvider inputMetadataProvider, PathMapper pathMapper)
       throws CommandLineExpansionException {
-    return getParamCommandLine(artifactExpander, pathMapper);
+    return getParamCommandLine(inputMetadataProvider, pathMapper);
   }
 
   /** A builder for a {@link LinkCommandLine}. */

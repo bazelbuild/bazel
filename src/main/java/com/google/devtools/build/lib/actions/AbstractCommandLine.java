@@ -30,9 +30,9 @@ public abstract class AbstractCommandLine extends CommandLine {
   }
 
   @Override
-  public final ArgChunk expand(ArtifactExpander artifactExpander, PathMapper pathMapper)
+  public final ArgChunk expand(InputMetadataProvider inputMetadataProvider, PathMapper pathMapper)
       throws CommandLineExpansionException, InterruptedException {
-    return new SimpleArgChunk(arguments(artifactExpander, pathMapper));
+    return new SimpleArgChunk(arguments(inputMetadataProvider, pathMapper));
   }
 
   /**
@@ -44,7 +44,8 @@ public abstract class AbstractCommandLine extends CommandLine {
    * need to expand them for proper argument evaluation.
    */
   @Override
-  public Iterable<String> arguments(ArtifactExpander artifactExpander, PathMapper pathMapper)
+  public Iterable<String> arguments(
+      InputMetadataProvider inputMetadataProvider, PathMapper pathMapper)
       throws CommandLineExpansionException, InterruptedException {
     return arguments();
   }
@@ -52,13 +53,13 @@ public abstract class AbstractCommandLine extends CommandLine {
   @Override
   public void addToFingerprint(
       ActionKeyContext actionKeyContext,
-      @Nullable ArtifactExpander artifactExpander,
+      @Nullable InputMetadataProvider inputMetadataProvider,
       CoreOptions.OutputPathsMode effectiveOutputPathsMode,
       Fingerprint fingerprint)
       throws CommandLineExpansionException, InterruptedException {
     for (String s :
         arguments(
-            /* artifactExpander= */ null, PathMapper.forActionKey(effectiveOutputPathsMode))) {
+            /* inputMetadataProvider= */ null, PathMapper.forActionKey(effectiveOutputPathsMode))) {
       fingerprint.addString(s);
     }
   }
