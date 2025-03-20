@@ -21,7 +21,6 @@ import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.ArtifactExpander.MissingExpansionException;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
@@ -116,17 +115,11 @@ public final class SymlinkTreeStrategy implements SymlinkTreeActionContext {
 
   private ImmutableMap<PathFragment, PathFragment> getFilesetMap(
       SymlinkTreeAction action, ActionExecutionContext actionExecutionContext) {
-    ImmutableList<FilesetOutputSymlink> filesetLinks;
-    try {
-      filesetLinks =
-          actionExecutionContext
-              .getArtifactExpander()
-              .expandFileset(action.getInputManifest())
-              .symlinks();
-    } catch (MissingExpansionException e) {
-      throw new IllegalStateException(e);
-    }
-
+    ImmutableList<FilesetOutputSymlink> filesetLinks =
+        actionExecutionContext
+            .getInputMetadataProvider()
+            .getFileset(action.getInputManifest())
+            .symlinks();
     return SymlinkTreeHelper.processFilesetLinks(
         filesetLinks, action.getWorkspaceNameForFileset(), execRoot.asFragment());
   }
