@@ -111,11 +111,10 @@ maven.install(
         "com.google.code.findbugs:jsr305:3.0.2",
         "com.google.code.gson:gson:2.10.1",
         "com.google.code.java-allocation-instrumenter:java-allocation-instrumenter:3.3.4",
-        "com.google.errorprone:error_prone_annotation:2.36.0",
-        "com.google.errorprone:error_prone_annotations:2.36.0",
-        "com.google.errorprone:error_prone_check_api:2.36.0",
-        "com.google.errorprone:error_prone_core:2.36.0",
-        "com.google.errorprone:error_prone_type_annotations:2.36.0",
+        "com.google.errorprone:error_prone_annotation:2.37.0",
+        "com.google.errorprone:error_prone_annotations:2.37.0",
+        "com.google.errorprone:error_prone_check_api:2.37.0",
+        "com.google.errorprone:error_prone_core:2.37.0",
         "com.google.flogger:flogger:0.5.1",
         "com.google.flogger:flogger-system-backend:0.5.1",
         "com.google.flogger:google-extensions:0.5.1",
@@ -195,6 +194,7 @@ maven.install(
         "org.hamcrest:hamcrest-core:1.3",
     ],
     excluded_artifacts = [
+        "com.google.errorprone:error_prone_type_annotations",
         # org.apache.httpcomponents and org.eclipse.jgit:org.eclipse.jgit
         # require java.security.jgss module to be embedded in the Bazel binary.
         "org.apache.httpcomponents:httpclient",
