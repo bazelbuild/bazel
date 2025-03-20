@@ -72,6 +72,7 @@ if [[ "$UNAME" =~ msys_nt* ]]; then
   modules="$modules,jdk.crypto.mscapi"
   ./bin/jlink --module-path ./jmods/ --add-modules "$modules" \
     --vm=server --strip-debug --no-man-pages \
+    --add-options=' --enable-native-access=ALL-UNNAMED' \
     --output reduced
   "$(rlocation "io_bazel/src/patch_java_manifest_for_utf8.exe")" reduced/bin/java.exe
   cp $DOCS legal/java.base/ASSEMBLY_EXCEPTION \
@@ -90,6 +91,7 @@ else
   cd $FULL_JDK_DIR
   ./bin/jlink --module-path ./jmods/ --add-modules "$modules" \
     --vm=server --strip-debug --no-man-pages \
+    --add-options=' --enable-native-access=ALL-UNNAMED' \
     --output reduced
   cp $DOCS legal/java.base/ASSEMBLY_EXCEPTION \
     reduced/
