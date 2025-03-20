@@ -50,10 +50,10 @@ import com.google.bytestream.ByteStreamProto.ReadRequest;
 import com.google.bytestream.ByteStreamProto.ReadResponse;
 import com.google.bytestream.ByteStreamProto.WriteRequest;
 import com.google.bytestream.ByteStreamProto.WriteResponse;
+import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
@@ -69,12 +69,14 @@ import com.google.devtools.build.lib.authandtls.GoogleAuthUtils;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
+import com.google.devtools.build.lib.exec.util.SpawnBuilder;
 import com.google.devtools.build.lib.remote.RemoteRetrier.ExponentialBackoff;
 import com.google.devtools.build.lib.remote.Retrier.Backoff;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver;
-import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
+import com.google.devtools.build.lib.remote.merkletree.v2.MerkleTreeComputer;
+import com.google.devtools.build.lib.remote.merkletree.v2.MerkleTreeComputer.MerkleTree;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TestUtils;
@@ -289,13 +291,15 @@ public class GrpcCacheClientTest {
     VirtualActionInput virtualActionInput =
         ActionsTestUtil.createVirtualActionInput(execPath, "hello");
     MerkleTree merkleTree =
-        MerkleTree.build(
-            ImmutableSortedMap.of(execPath, virtualActionInput),
-            fakeFileCache,
-            execRoot,
-            ArtifactPathResolver.forExecRoot(execRoot),
-            /* spawnScrubber= */ null,
-            DIGEST_UTIL);
+        new MerkleTreeComputer(DIGEST_UTIL)
+            .buildForSpawn(
+                new SpawnBuilder("unused")
+                    .withInputs(virtualActionInput)
+                    .withOutputs("foo")
+                    .build(),
+                Predicates.alwaysFalse(),
+                fakeFileCache,
+                ArtifactPathResolver.forExecRoot(execRoot));
     Digest digest = DIGEST_UTIL.compute(virtualActionInput.getBytes().toByteArray());
 
     // Add a fake CAS that responds saying that the above virtual action input is missing

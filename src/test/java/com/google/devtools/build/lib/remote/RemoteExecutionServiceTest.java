@@ -107,7 +107,7 @@ import com.google.devtools.build.lib.remote.common.RemoteExecutionClient;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver.DefaultRemotePathResolver;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver.SiblingRepositoryLayoutResolver;
-import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
+import com.google.devtools.build.lib.remote.merkletree.v2.MerkleTreeComputer;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.salt.CacheSalt;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
@@ -2378,7 +2378,8 @@ public class RemoteExecutionServiceTest {
         DirectoryNode.newBuilder()
             .setName("worker_input.runfiles")
             .setDigest(toolRunfilesDirectoryDigest);
-    var runfilesDirectory = merkleTree.getDirectoryByDigest(toolRunfilesDirectoryDigest);
+    var runfilesDirectory =
+        Directory.parseFrom((byte[]) merkleTree.blobs().get(toolRunfilesDirectoryDigest));
     var runfilesSubdirectoryDigest =
         Digest.newBuilder()
             .setHash("2773ed2d89aed9db55b83230eb8c66f56a02884e151009a3b070164bb6800cc8")
@@ -2392,7 +2393,8 @@ public class RemoteExecutionServiceTest {
                         .setName("outputs")
                         .setDigest(runfilesSubdirectoryDigest))
                 .build());
-    var runfilesSubdirectory = merkleTree.getDirectoryByDigest(runfilesSubdirectoryDigest);
+    var runfilesSubdirectory =
+        Directory.parseFrom((byte[]) merkleTree.blobs().get(runfilesSubdirectoryDigest));
     assertThat(runfilesSubdirectory)
         .isEqualTo(
             Directory.newBuilder()
@@ -2411,8 +2413,10 @@ public class RemoteExecutionServiceTest {
                                     NodeProperty.newBuilder().setName("bazel_tool_input")))
                         .build())
                 .build());
+    var rootProto = Directory.parseFrom((byte[]) merkleTree.blobs().get(merkleTree.rootDigest()));
     var outputDirectory =
-        merkleTree.getDirectoryByDigest(merkleTree.getRootProto().getDirectories(0).getDigest());
+        Directory.parseFrom(
+            (byte[]) merkleTree.blobs().get(rootProto.getDirectories(0).getDigest()));
     var inputFile =
         FileNode.newBuilder()
             .setName("input")
@@ -2502,9 +2506,11 @@ public class RemoteExecutionServiceTest {
 
     RemoteAction remoteAction = service.buildRemoteAction(spawn, context);
 
-    MerkleTree merkleTree = remoteAction.getMerkleTree();
-    Directory actualRootDir =
-        merkleTree.getDirectoryByDigest(merkleTree.getRootProto().getDirectories(0).getDigest());
+    MerkleTreeComputer.MerkleTree merkleTree = remoteAction.getMerkleTree();
+    var rootProto = Directory.parseFrom((byte[]) merkleTree.blobs().get(merkleTree.rootDigest()));
+    var actualRootDir =
+        Directory.parseFrom(
+            (byte[]) merkleTree.blobs().get(rootProto.getDirectories(0).getDigest()));
 
     Directory expectedRootDir =
         Directory.newBuilder()
@@ -2570,11 +2576,14 @@ public class RemoteExecutionServiceTest {
 
     // Check that the Merkle tree nodes are mapped correctly, including the output directory.
     var merkleTree = remoteAction.getMerkleTree();
+    var rootProto = Directory.parseFrom((byte[]) merkleTree.blobs().get(merkleTree.rootDigest()));
     var outputsDirectory =
-        merkleTree.getDirectoryByDigest(merkleTree.getRootProto().getDirectories(0).getDigest());
+        Directory.parseFrom(
+            (byte[]) merkleTree.blobs().get(rootProto.getDirectories(0).getDigest()));
     assertThat(outputsDirectory.getDirectoriesCount()).isEqualTo(1);
     var binDirectory =
-        merkleTree.getDirectoryByDigest(outputsDirectory.getDirectories(0).getDigest());
+        Directory.parseFrom(
+            (byte[]) merkleTree.blobs().get(outputsDirectory.getDirectories(0).getDigest()));
     assertThat(
             binDirectory.getFilesList().stream().map(FileNode::getName).collect(toImmutableList()))
         .containsExactly("input1", "input2");

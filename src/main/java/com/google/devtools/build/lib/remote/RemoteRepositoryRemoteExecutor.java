@@ -37,7 +37,7 @@ import com.google.devtools.build.lib.remote.common.OperationObserver;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
 import com.google.devtools.build.lib.remote.common.RemoteExecutionClient;
-import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
+import com.google.devtools.build.lib.remote.merkletree.v2.MerkleTreeComputer;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.remote.util.Utils;
@@ -137,11 +137,12 @@ public class RemoteRepositoryRemoteExecutor implements RepositoryRemoteExecutor 
 
     Command command = commandBuilder.build();
     Digest commandHash = digestUtil.compute(command);
-    MerkleTree merkleTree = MerkleTree.build(inputFiles, digestUtil);
+    MerkleTreeComputer.MerkleTree merkleTree =
+        new MerkleTreeComputer(digestUtil).buildForFiles(inputFiles);
     Action action =
         buildAction(
             commandHash,
-            merkleTree.getRootDigest(),
+            merkleTree.rootDigest(),
             platform,
             timeout,
             acceptCached,

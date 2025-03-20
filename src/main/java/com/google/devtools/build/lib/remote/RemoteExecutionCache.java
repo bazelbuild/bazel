@@ -25,7 +25,6 @@ import static com.google.devtools.build.lib.remote.util.RxUtils.toTransferResult
 import static java.lang.String.format;
 
 import build.bazel.remote.execution.v2.Digest;
-import build.bazel.remote.execution.v2.Directory;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
@@ -43,8 +42,7 @@ import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.Blob;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver;
 import com.google.devtools.build.lib.remote.disk.DiskCacheClient;
-import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
-import com.google.devtools.build.lib.remote.merkletree.MerkleTree.ContentSource;
+import com.google.devtools.build.lib.remote.merkletree.v2.MerkleTreeComputer;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.RxUtils.TransferResult;
@@ -131,14 +129,14 @@ public class RemoteExecutionCache extends CombinedCache {
    */
   public void ensureInputsPresent(
       RemoteActionExecutionContext context,
-      MerkleTree merkleTree,
+      MerkleTreeComputer.MerkleTree merkleTree,
       Map<Digest, Message> additionalInputs,
       boolean force,
       @Nullable RemotePathResolver remotePathResolver)
       throws IOException, InterruptedException {
     Iterable<Digest> merkleTreeAllDigests;
     try (SilentCloseable s = Profiler.instance().profile("merkleTree.getAllDigests()")) {
-      merkleTreeAllDigests = merkleTree.getAllDigests();
+      merkleTreeAllDigests = merkleTree.blobs().keySet();
     }
     Iterable<Digest> allDigests = Iterables.concat(merkleTreeAllDigests, additionalInputs.keySet());
 
@@ -209,42 +207,50 @@ public class RemoteExecutionCache extends CombinedCache {
   private ListenableFuture<Void> uploadBlob(
       RemoteActionExecutionContext context,
       Digest digest,
-      MerkleTree merkleTree,
+      MerkleTreeComputer.MerkleTree merkleTree,
       Map<Digest, Message> additionalInputs,
       @Nullable RemotePathResolver remotePathResolver) {
-    Directory node = merkleTree.getDirectoryByDigest(digest);
-    if (node != null) {
-      return remoteCacheClient.uploadBlob(context, digest, node.toByteString());
-    }
-
-    ContentSource file = merkleTree.getFileByDigest(digest);
-    if (file != null) {
-      return switch (file) {
-        case ContentSource.VirtualActionInputSource(VirtualActionInput virtualActionInput) ->
-            remoteCacheClient.uploadBlob(
-                context, digest, new VirtualActionInputBlob(virtualActionInput));
-        case ContentSource.PathSource(Path path) -> {
-          try {
-            if (remotePathChecker.isRemote(context, path)) {
-              // If we get here, the remote input was determined to exist in the remote or disk
-              // cache at some point before action execution, but reported to be missing when
-              // querying the remote for missing action inputs; possibly because it was evicted in
-              // the interim.
-              if (remotePathResolver != null) {
-                throw new CacheNotFoundException(
-                    digest, remotePathResolver.localPathToExecPath(path.asFragment()));
-              } else {
-                // This path should only be taken for RemoteRepositoryRemoteExecutor, which has no
-                // way to handle lost inputs.
-                throw new CacheNotFoundException(digest, path.getPathString());
-              }
-            }
-          } catch (IOException e) {
-            yield immediateFailedFuture(e);
+    // TODO: Move this into context.
+    MerkleTreeComputer.BlobUploader blobUploader =
+        new MerkleTreeComputer.BlobUploader() {
+          @Override
+          public ListenableFuture<Void> upload(Digest digest, byte[] data) {
+            return remoteCacheClient.uploadBlob(context, digest, ByteString.copyFrom(data));
           }
-          yield remoteCacheClient.uploadFile(context, digest, path);
-        }
-      };
+
+          @Override
+          public ListenableFuture<Void> upload(Digest digest, Path path) {
+            try {
+              if (remotePathChecker.isRemote(context, path)) {
+                // If we get here, the remote input was determined to exist in the remote or disk
+                // cache at some point before action execution, but reported to be missing when
+                // querying the remote for missing action inputs; possibly because it was evicted in
+                // the interim.
+                if (remotePathResolver != null) {
+                  throw new CacheNotFoundException(
+                      digest, remotePathResolver.localPathToExecPath(path.asFragment()));
+                } else {
+                  // This path should only be taken for RemoteRepositoryRemoteExecutor, which has no
+                  // way to handle lost inputs.
+                  throw new CacheNotFoundException(digest, path.getPathString());
+                }
+              }
+            } catch (IOException e) {
+              return immediateFailedFuture(e);
+            }
+            return remoteCacheClient.uploadFile(context, digest, path);
+          }
+
+          @Override
+          public ListenableFuture<Void> upload(
+              Digest digest, VirtualActionInput virtualActionInput) {
+            return remoteCacheClient.uploadBlob(
+                context, digest, new VirtualActionInputBlob(virtualActionInput));
+          }
+        };
+    var upload = merkleTree.upload(blobUploader, digest);
+    if (upload.isPresent()) {
+      return upload.get();
     }
 
     Message message = additionalInputs.get(digest);
@@ -268,7 +274,7 @@ public class RemoteExecutionCache extends CombinedCache {
 
   private Single<List<UploadTask>> createUploadTasks(
       RemoteActionExecutionContext context,
-      MerkleTree merkleTree,
+      MerkleTreeComputer.MerkleTree merkleTree,
       Map<Digest, Message> additionalInputs,
       Iterable<Digest> allDigests,
       boolean force,
@@ -292,7 +298,7 @@ public class RemoteExecutionCache extends CombinedCache {
 
   private Maybe<UploadTask> maybeCreateUploadTask(
       RemoteActionExecutionContext context,
-      MerkleTree merkleTree,
+      MerkleTreeComputer.MerkleTree merkleTree,
       Map<Digest, Message> additionalInputs,
       Digest digest,
       boolean force,
