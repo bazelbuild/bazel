@@ -160,61 +160,6 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
   }
 
   @Test
-  public void starlarkJavaToJavaImportAttributes() throws Exception {
-    scratch.file(
-        "foo/extension.bzl",
-        """
-        load("@rules_java//java/common:java_info.bzl", "JavaInfo")
-        def _impl(ctx):
-            dep_params = ctx.attr.dep[JavaInfo]
-            return [dep_params]
-
-        my_rule = rule(_impl, attrs = {"dep": attr.label()})
-        """);
-    scratch.file(
-        "foo/BUILD",
-        """
-        load("@rules_java//java:defs.bzl", "java_library", "java_import")
-        load(":extension.bzl", "my_rule")
-
-        java_library(
-            name = "jl_bottom_for_deps",
-            srcs = ["java/A.java"],
-        )
-
-        java_library(
-            name = "jl_bottom_for_runtime_deps",
-            srcs = ["java/A2.java"],
-        )
-
-        my_rule(
-            name = "mya",
-            dep = ":jl_bottom_for_deps",
-        )
-
-        my_rule(
-            name = "myb",
-            dep = ":jl_bottom_for_runtime_deps",
-        )
-
-        java_import(
-            name = "import",
-            jars = ["B.jar"],
-            runtime_deps = [":myb"],
-            deps = [":mya"],
-        )
-        """);
-    assertNoEvents();
-
-    // Test that all bottom jars are on the runtime classpath.
-    ConfiguredTarget importTarget = getConfiguredTarget("//foo:import");
-    JavaCompilationArgsProvider compilationProvider =
-        JavaInfo.getProvider(JavaCompilationArgsProvider.class, importTarget);
-    assertThat(prettyArtifactNames(compilationProvider.runtimeJars()))
-        .containsAtLeast("foo/libjl_bottom_for_deps.jar", "foo/libjl_bottom_for_runtime_deps.jar");
-  }
-
-  @Test
   public void testJavaInfoSequenceParametersTypeChecked() throws Exception {
     scratch.file(
         "foo/bad_rules.bzl",
