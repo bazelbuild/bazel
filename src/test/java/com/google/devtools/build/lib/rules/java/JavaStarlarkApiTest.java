@@ -160,34 +160,6 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
   }
 
   @Test
-  public void javaInfo_compileJarNotSet() throws Exception {
-    scratch.file(
-        "foo/javainfo_rules.bzl",
-        """
-        load("@rules_java//java/common:java_info.bzl", "JavaInfo")
-        def make_file(ctx):
-            f = ctx.actions.declare_file("out")
-            ctx.actions.write(f, "out")
-            return f
-
-        def _only_outputjar_impl(ctx):
-            f = make_file(ctx)
-            return [JavaInfo(output_jar = f)]
-
-        only_outputjar = rule(_only_outputjar_impl)
-        """);
-    scratch.file(
-        "foo/BUILD",
-        """
-        load(":javainfo_rules.bzl", "only_outputjar")
-
-        only_outputjar(name = "only_outputjar")
-        """);
-
-    checkError("//foo:only_outputjar", "missing 1 required positional argument: compile_jar");
-  }
-
-  @Test
   public void javaInfo_compileJarSetToNone() throws Exception {
     scratch.file(
         "foo/javainfo_rules.bzl",
