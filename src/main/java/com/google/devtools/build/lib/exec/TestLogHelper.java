@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.exec;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.exec.ExecutionOptions.TestOutputFormat;
-import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.BufferedOutputStream;
 import java.io.FilterOutputStream;
@@ -57,7 +56,7 @@ public class TestLogHelper {
       throws IOException {
     PrintStream printOut = new PrintStream(new BufferedOutputStream(out));
     try {
-      printOut.println("==================== Test output for " + testName + ":");
+      printOut.print("==================== Test output for " + testName + ":\n");
       printOut.flush();
 
       if (maxTestOutputBytes < 0) {
@@ -73,8 +72,8 @@ public class TestLogHelper {
         }
       }
 
-      printOut.println(
-          "================================================================================");
+      printOut.print(
+          "================================================================================\n");
     } finally {
       printOut.flush();
     }
@@ -111,10 +110,7 @@ public class TestLogHelper {
       } else if (b == NEWLINE) {
         String line = lineBuilder.toString();
         lineBuilder = new StringBuilder();
-        if (line.equals(TestLogHelper.HEADER_DELIMITER)
-            ||
-            // On Windows, the line break could be \r\n, we want this case to work as well.
-            (OS.getCurrent() == OS.WINDOWS && line.equals(TestLogHelper.HEADER_DELIMITER + "\r"))) {
+        if (line.equals(TestLogHelper.HEADER_DELIMITER)) {
           seenDelimiter = true;
         }
       } else if (lineBuilder.length() <= TestLogHelper.HEADER_DELIMITER.length()) {

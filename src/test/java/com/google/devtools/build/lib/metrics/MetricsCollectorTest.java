@@ -237,15 +237,8 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
         "genrule(name = 'b', srcs = ['b.in', 'c.in'], outs = ['b.out'], cmd = 'cat $(SRCS) > $@')",
         "genrule(name = 'c', srcs = ['c.in', 'c2.in'], outs = ['c.out'], cmd = 'cat $(SRCS) >"
             + " $@')");
-    if (OS.getCurrent() == OS.WINDOWS) {
-      // On Windows we have \r\n line endings while on other platforms only \n. So make the file one
-      // byte shorter on Windows so that the byte counts below match.
-      write("b/b.in", "1234");
-      write("b/c.in", "1");
-    } else {
-      write("b/b.in", "12345");
-      write("b/c.in", "12");
-    }
+    write("b/b.in", "12345");
+    write("b/c.in", "12");
     createSymlink("c.in", "b/c2.in");
     write(
         "e/BUILD",
@@ -262,13 +255,7 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
             cmd = "cat $(SRCS) > $@",
         )
         """);
-    if (OS.getCurrent() == OS.WINDOWS) {
-      // On Windows we have \r\n line endings while on other platforms only \n. So make the file one
-      // byte shorter on Windows so that the byte counts below match.
-      write("e/e.in", "ab");
-    } else {
-      write("e/e.in", "abc");
-    }
+    write("e/e.in", "abc");
 
     // Do one build of a target in a standalone package. Gets us a baseline for analysis/execution.
     buildTarget("//e:facade");
@@ -483,9 +470,7 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
         .isEqualTo(
             ArtifactMetrics.newBuilder()
                 .setSourceArtifactsRead(
-                    ArtifactMetrics.FilesMetric.newBuilder()
-                        .setSizeInBytes(OS.getCurrent() == OS.WINDOWS ? 6 : 10)
-                        .setCount(OS.getCurrent() == OS.WINDOWS ? 1 : 2))
+                    ArtifactMetrics.FilesMetric.newBuilder().setSizeInBytes(10).setCount(2))
                 .setOutputArtifactsSeen(
                     ArtifactMetrics.FilesMetric.newBuilder()
                         .setSizeInBytes(42L)

@@ -103,7 +103,7 @@ class BuildOutputFormatterCallback extends CqueryThreadsafeCallback {
             // selects. Going forward we could expand this to show both the complete select
             // and which path is chosen, which people may find even more informative.
             (rule, attr) -> false,
-            System.lineSeparator(),
+            "\n",
             labelPrinter);
     for (CqueryNode configuredTarget : partialResult) {
       Target target = accessor.getTarget(configuredTarget);
