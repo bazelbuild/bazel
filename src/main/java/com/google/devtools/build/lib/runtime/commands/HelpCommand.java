@@ -57,6 +57,7 @@ import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParser.HelpVerbosity;
 import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
@@ -409,11 +410,11 @@ public final class HelpCommand implements BlazeCommand {
       result.append("\n");
 
       result.append("<h2>Startup Options</h2>\n");
-      appendOptionsHtml(result, BlazeCommandUtils.getStartupOptions(runtime.getBlazeModules()));
+      appendOptionsHtml(result, BlazeCommandUtils.getStartupOptions(runtime.getBlazeModules()), ImmutableList.of(), "startup_options");
       result.append("\n");
 
       result.append("<h2><a name=\"common_options\">Options Common to all Commands</a></h2>\n");
-      appendOptionsHtml(result, BlazeCommandUtils.getCommonOptions(runtime.getBlazeModules()));
+      appendOptionsHtml(result, BlazeCommandUtils.getCommonOptions(runtime.getBlazeModules()), ImmutableList.of(), "common_options");
       result.append("\n");
 
       for (Map.Entry<String, BlazeCommand> e : commandsByName.entrySet()) {
@@ -441,7 +442,7 @@ public final class HelpCommand implements BlazeCommand {
         for (BlazeModule blazeModule : runtime.getBlazeModules()) {
           Iterables.addAll(options, blazeModule.getCommandOptions(annotation));
         }
-        List<String> optionsToIgnore = appendOptionsHtml(result, options);
+        List<String> optionsToIgnore = appendOptionsHtml(result, options, ImmutableList.of(), e.getKey());
         result.append("\n");
 
         // For now, we print all the configuration options in a list after all the non-configuration
@@ -450,7 +451,7 @@ public final class HelpCommand implements BlazeCommand {
           options.clear();
           Collections.addAll(options, annotation.options());
           options.addAll(runtime.getRuleClassProvider().getFragmentRegistry().getOptionsClasses());
-          appendOptionsHtml(result, options, optionsToIgnore);
+          appendOptionsHtml(result, options, optionsToIgnore, null);
           result.append("\n");
         }
       }
@@ -500,21 +501,15 @@ public final class HelpCommand implements BlazeCommand {
     // Returns the list of appended option names.
     @CanIgnoreReturnValue
     private List<String> appendOptionsHtml(
-        StringBuilder result, Iterable<Class<? extends OptionsBase>> optionsClasses) {
-      return appendOptionsHtml(result, optionsClasses, ImmutableList.of());
-    }
-
-    // Returns the list of appended option names.
-    @CanIgnoreReturnValue
-    private List<String> appendOptionsHtml(
         StringBuilder result,
         Iterable<Class<? extends OptionsBase>> optionsClasses,
-        List<String> optionsToIgnore) {
+        List<String> optionsToIgnore,
+        @Nullable String commandName) {
       OptionsParser parser = OptionsParser.builder().optionsClasses(optionsClasses).build();
       String productName = runtime.getProductName();
       result.append(
           parser
-              .describeOptionsHtml(HTML_ESCAPER, productName, optionsToIgnore)
+              .describeOptionsHtml(HTML_ESCAPER, productName, optionsToIgnore, commandName)
               .replace("%{product}", productName));
 
       List<String> optionNames = new ArrayList<>();

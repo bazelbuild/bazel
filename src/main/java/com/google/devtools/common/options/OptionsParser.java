@@ -551,7 +551,7 @@ public class OptionsParser implements OptionsParsingResult {
    * intuitive short description for the options.
    */
   public String describeOptionsHtml(
-      Escaper escaper, String productName, List<String> optionsToIgnore) {
+      Escaper escaper, String productName, List<String> optionsToIgnore, String commandName) {
     StringBuilder desc = new StringBuilder();
     LinkedHashMap<OptionDocumentationCategory, List<OptionDefinition>> optionsByCategory =
         getOptionsSortedByCategory();
@@ -576,7 +576,7 @@ public class OptionsParser implements OptionsParsingResult {
 
       desc.append("<dl>").append(escaper.escape(categoryDescription)).append(":\n");
       for (OptionDefinition optionDef : categorizedOptionsList) {
-        OptionsUsage.getUsageHtml(optionDef, desc, escaper, impl.getOptionsData(), true);
+        OptionsUsage.getUsageHtml(optionDef, desc, escaper, impl.getOptionsData(), true, commandName);
       }
       desc.append("</dl>\n");
     }
