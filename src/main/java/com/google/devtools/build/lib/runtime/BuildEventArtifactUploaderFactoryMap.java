@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.runtime;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import javax.annotation.Nullable;
@@ -47,6 +48,7 @@ public class BuildEventArtifactUploaderFactoryMap {
 
     public Builder() {}
 
+    @CanIgnoreReturnValue
     public Builder add(String name, BuildEventArtifactUploaderFactory uploader) {
       uploaders.put(name, uploader);
       return this;

@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -124,6 +123,13 @@ public class ConditionalEdges {
         // skip non configurable attributes
         continue;
       }
+      if (rule.getAttr(attr.getName()) instanceof Attribute.ComputedDefault) {
+        // isConfigurable above checks that the attribute is either a `select()` or a computed
+        // default. We don't currently handle the latter so skip it.
+        // TODO: b/375344172 - (bazel-team) Decide how to resolve computed defaults.
+        // TODO: b/375344172 - (bazel-team) Add a regression test for this case.
+        continue;
+      }
 
       for (BuildType.Selector<?> selector :
           ((BuildType.SelectorList<?>) attributeMap.getRawAttributeValue(rule, attr))
@@ -132,20 +138,20 @@ public class ConditionalEdges {
           // skip unconditional selectors
           continue;
         }
-        for (Map.Entry<Label, ?> entry : selector.getEntries().entrySet()) {
-          if (entry.getValue() instanceof List<?>) {
-            List<?> deps = (List<?>) entry.getValue();
-            for (Object dep : deps) {
-              if (dep instanceof Label) {
-                conditions.put((Label) dep, entry.getKey());
+        selector.forEach(
+            (key, value) -> {
+              if (value instanceof List<?> deps) {
+                for (Object dep : deps) {
+                  if (dep instanceof Label label) {
+                    conditions.put(label, key);
+                  }
+                }
+              } else if (value instanceof Label label) {
+                conditions.put(label, key);
               }
-            }
-          } else if (entry.getValue() instanceof Label) {
-            conditions.put((Label) entry.getValue(), entry.getKey());
-          }
-        }
+            });
       }
     }
     return conditions;
   }
-};
+}

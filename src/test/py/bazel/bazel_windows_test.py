@@ -13,18 +13,40 @@
 # limitations under the License.
 
 import os
-import unittest
+from absl.testing import absltest
 from src.test.py.bazel import test_base
 
 
 class BazelWindowsTest(test_base.TestBase):
 
   def createProjectFiles(self):
-    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
-    self.ScratchFile('foo/BUILD', ['cc_binary(name="x", srcs=["x.cc"])'])
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'bazel_dep(name = "platforms", version = "0.0.9")',
+            'bazel_dep(name = "rules_cc", version = "0.0.12")',
+            (
+                'cc_configure ='
+                ' use_extension("@rules_cc//cc:extensions.bzl",'
+                ' "cc_configure_extension")'
+            ),
+            'use_repo(cc_configure, "local_config_cc")',
+        ],
+    )
+    self.ScratchFile('foo/BUILD', [
+        'platform(',
+        '    name = "x64_windows-msys-gcc",',
+        '    constraint_values = [',
+        '        "@platforms//cpu:x86_64",',
+        '        "@platforms//os:windows",',
+        '        "@bazel_tools//tools/cpp:msys",',
+        '    ],',
+        ')',
+        'cc_binary(name="x", srcs=["x.cc"])',
+    ])
     self.ScratchFile('foo/x.cc', [
         '#include <stdio.h>',
-        'int main(int, char**) {'
+        'int main(int, char**) {',
         '  printf("hello\\n");',
         '  return 0;',
         '}',
@@ -33,39 +55,46 @@ class BazelWindowsTest(test_base.TestBase):
   def testWindowsUnixRoot(self):
     self.createProjectFiles()
 
-    exit_code, _, stderr = self.RunBazel([
-        '--batch', '--host_jvm_args=-Dbazel.windows_unix_root=', 'build',
-        '//foo:x', '--cpu=x64_windows_msys'
-    ])
-    self.AssertExitCode(exit_code, 37, stderr)
-    self.assertIn('"bazel.windows_unix_root" JVM flag is not set',
-                  '\n'.join(stderr))
-
     exit_code, _, stderr = self.RunBazel(
-        ['--batch', 'build', '//foo:x', '--cpu=x64_windows_msys'])
-    self.AssertExitCode(exit_code, 0, stderr)
+        [
+            '--batch',
+            '--host_jvm_args=-Dbazel.windows_unix_root=',
+            'build',
+            '//foo:x',
+            '--extra_toolchains=@local_config_cc//:cc-toolchain-x64_windows_msys',
+            '--extra_execution_platforms=//foo:x64_windows-msys-gcc',
+        ],
+        allow_failure=True,
+    )
+    self.AssertExitCode(exit_code, 37, stderr)
+    self.assertIn(
+        '"bazel.windows_unix_root" JVM flag is not set', '\n'.join(stderr)
+    )
+
+    self.RunBazel([
+        '--batch', 'build',
+        '--extra_toolchains=@local_config_cc//:cc-toolchain-x64_windows_msys',
+        '--extra_execution_platforms=//foo:x64_windows-msys-gcc',
+        '//foo:x',
+    ])
 
   def testWindowsParameterFile(self):
     self.createProjectFiles()
 
-    _, stdout, _ = self.RunBazel(['info', 'bazel-bin'])
+    _, stdout, _ = self.RunBazel(['info', 'bazel-bin'], allow_failure=True)
     bazel_bin = stdout[0]
 
-    exit_code, _, stderr = self.RunBazel([
+    self.RunBazel([
         'build',
         '--materialize_param_files',
         '--features=compiler_param_file',
         '//foo:x',
     ])
-
-    self.AssertExitCode(exit_code, 0, stderr)
     self.assertTrue(
         os.path.exists(os.path.join(bazel_bin, 'foo\\_objs\\x\\x.obj.params')))
 
   def testWindowsCompilesAssembly(self):
-    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
-    exit_code, stdout, stderr = self.RunBazel(['info', 'bazel-bin'])
-    self.AssertExitCode(exit_code, 0, stderr)
+    _, stdout, _ = self.RunBazel(['info', 'bazel-bin'])
     bazel_bin = stdout[0]
     self.ScratchFile('BUILD', [
         'cc_binary(',
@@ -111,23 +140,16 @@ class BazelWindowsTest(test_base.TestBase):
         '}',
     ])
 
-    exit_code, _, stderr = self.RunBazel([
-        'build',
-        '//:x',
-    ])
-
-    self.AssertExitCode(exit_code, 0, stderr)
+    self.RunBazel(['build', '//:x'])
     self.assertTrue(os.path.exists(os.path.join(bazel_bin, 'x.exe')))
 
   def testWindowsEnvironmentVariablesSetting(self):
     self.ScratchFile('BUILD')
     rule_definition = [
-        'load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")',
-        'load(":repo.bzl", "my_repo")',
+        'my_repo = use_repo_rule("//:repo.bzl", "my_repo")',
         'my_repo(name = "env_test")',
     ]
-    rule_definition.extend(self.GetDefaultRepoRules())
-    self.ScratchFile('WORKSPACE', rule_definition)
+    self.ScratchFile('MODULE.bazel', rule_definition)
     self.ScratchFile('repo.bzl', [
         'def my_repo_impl(repository_ctx):',
         '  repository_ctx.file("env.bat", "set FOO\\n")',
@@ -141,21 +163,19 @@ class BazelWindowsTest(test_base.TestBase):
         ')',
     ])
 
-    exit_code, _, stderr = self.RunBazel(
+    _, _, stderr = self.RunBazel(
         [
             'build',
             '@env_test//...',
         ],
         env_add={'FOO': 'bar1'},
     )
-    self.AssertExitCode(exit_code, 0, stderr)
     result_in_lower_case = ''.join(stderr).lower()
     self.assertNotIn('foo=bar1', result_in_lower_case)
     self.assertNotIn('foo=bar2', result_in_lower_case)
     self.assertIn('foo=bar3', result_in_lower_case)
 
   def testRunPowershellInAction(self):
-    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
     self.ScratchFile('BUILD', [
         'load(":execute.bzl", "run_powershell")',
         'run_powershell(name = "powershell_test", out = "out.txt")',
@@ -177,7 +197,7 @@ class BazelWindowsTest(test_base.TestBase):
         '        "out": attr.output(mandatory = True),',
         '        "tool": attr.label(',
         '            executable = True,',
-        '            cfg = "host",',
+        '            cfg = "exec",',
         '            allow_files = True,',
         '            default = Label("//:write.bat"),',
         '        ),',
@@ -185,15 +205,15 @@ class BazelWindowsTest(test_base.TestBase):
         ')',
     ])
 
-    exit_code, _, stderr = self.RunBazel([
-        'build',
-        '//:powershell_test',
-        '--incompatible_strict_action_env',
-    ],)
-    self.AssertExitCode(exit_code, 0, stderr)
+    self.RunBazel(
+        [
+            'build',
+            '//:powershell_test',
+            '--incompatible_strict_action_env',
+        ],
+    )
 
   def testAnalyzeCcRuleWithoutVCInstalled(self):
-    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
     self.ScratchFile('BUILD', [
         'cc_binary(',
         '  name = "bin",',
@@ -205,7 +225,7 @@ class BazelWindowsTest(test_base.TestBase):
         '  printf("Hello world");',
         '}',
     ])
-    exit_code, _, stderr = self.RunBazel(
+    self.RunBazel(
         [
             'build',
             '--nobuild',
@@ -215,10 +235,8 @@ class BazelWindowsTest(test_base.TestBase):
         # Bazel should still work when analyzing cc rules .
         env_add={'BAZEL_VC': 'C:/not/exists/VC'},
     )
-    self.AssertExitCode(exit_code, 0, stderr)
 
   def testBuildNonCcRuleWithoutVCInstalled(self):
-    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
     self.ScratchFile('BUILD', [
         'genrule(',
         '  name="gen",',
@@ -255,7 +273,7 @@ class BazelWindowsTest(test_base.TestBase):
     self.ScratchFile('main.sh', [
         'echo "Hello world"',
     ])
-    exit_code, _, stderr = self.RunBazel(
+    self.RunBazel(
         [
             'build',
             '//...',
@@ -265,32 +283,57 @@ class BazelWindowsTest(test_base.TestBase):
         # require cc toolchain.
         env_add={'BAZEL_VC': 'C:/not/exists/VC'},
     )
-    self.AssertExitCode(exit_code, 0, stderr)
 
-  def testDeleteReadOnlyFileAndDirectory(self):
-    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
-    self.ScratchFile('BUILD', [
-        'genrule(',
-        '  name = "gen_read_only_dir",',
-        '  cmd_bat = "mkdir $@ && attrib +r $@",',
-        '  outs = ["dir_foo"],',
-        ')',
-        '',
-        'genrule(',
-        '  name = "gen_read_only_file",',
-        '  cmd_bat = "echo hello > $@ && attrib +r $@",',
-        '  outs = ["file_foo"],',
-        ')',
-    ])
+  def testDeleteReadOnlyFile(self):
+    self.ScratchFile(
+        'BUILD',
+        [
+            'genrule(',
+            '  name = "gen_read_only_file",',
+            '  cmd_bat = "echo hello > $@ && attrib +r $@",',
+            '  outs = ["file_foo"],',
+            ')',
+        ],
+    )
 
-    exit_code, _, stderr = self.RunBazel(['build', '//...'])
-    self.AssertExitCode(exit_code, 0, stderr)
+    self.RunBazel(['build', '//...'])
+    self.RunBazel(['clean'])
 
-    exit_code, _, stderr = self.RunBazel(['clean'])
-    self.AssertExitCode(exit_code, 0, stderr)
+  def testDeleteReadOnlyDirectory(self):
+    self.ScratchFile(
+        'defs.bzl',
+        [
+            'def _impl(ctx):',
+            '  dir = ctx.actions.declare_directory(ctx.label.name)',
+            '  bat = ctx.actions.declare_file(ctx.label.name + ".bat")',
+            '  ctx.actions.write(',
+            '    output = bat,',
+            '    content = "attrib +r " + dir.path,',
+            '    is_executable = True,',
+            '  )',
+            '  ctx.actions.run(',
+            '    outputs = [dir],',
+            '    executable = bat,',
+            '    use_default_shell_env = True,',
+            '  )',
+            '  return DefaultInfo(files = depset([dir]))',
+            'read_only_dir = rule(_impl)',
+        ],
+    )
+    self.ScratchFile(
+        'BUILD',
+        [
+            'load(":defs.bzl", "read_only_dir")',
+            'read_only_dir(',
+            '  name = "gen_read_only_dir",',
+            ')',
+        ],
+    )
+
+    self.RunBazel(['build', '--subcommands', '--verbose_failures', '//...'])
+    self.RunBazel(['clean'])
 
   def testBuildJavaTargetWithClasspathJar(self):
-    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
     self.ScratchFile('BUILD', [
         'java_binary(',
         '  name = "java_bin",',
@@ -331,26 +374,27 @@ class BazelWindowsTest(test_base.TestBase):
         '  }',
         '}',
     ])
-    exit_code, stdout, stderr = self.RunBazel([
-        'run',
-        '//:java_bin',
-        '--',
-        '--wrapper_script_flag=--classpath_limit=0',
-    ],)
-    self.AssertExitCode(exit_code, 0, stderr)
+    _, stdout, _ = self.RunBazel(
+        [
+            'run',
+            '//:java_bin',
+            '--',
+            '--wrapper_script_flag=--classpath_limit=0',
+        ],
+    )
     self.assertIn('Hello World!', '\n'.join(stdout))
 
-    exit_code, stdout, stderr = self.RunBazel([
-        'run',
-        '//:special_java_bin',
-        '--',
-        '--wrapper_script_flag=--classpath_limit=0',
-    ],)
-    self.AssertExitCode(exit_code, 0, stderr)
+    _, stdout, _ = self.RunBazel(
+        [
+            'run',
+            '//:special_java_bin',
+            '--',
+            '--wrapper_script_flag=--classpath_limit=0',
+        ],
+    )
     self.assertIn('Hello World!', '\n'.join(stdout))
 
   def testRunWithScriptPath(self):
-    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
     self.ScratchFile('BUILD', [
         'sh_binary(',
         '  name = "foo_bin",',
@@ -368,31 +412,224 @@ class BazelWindowsTest(test_base.TestBase):
     ])
 
     # Test generating a script from binary run
-    exit_code, _, stderr = self.RunBazel([
-        'run',
-        '--script_path=bin_output_script.bat',
-        '//:foo_bin',
-    ],)
-    self.AssertExitCode(exit_code, 0, stderr)
+    self.RunBazel(
+        [
+            'run',
+            '--script_path=bin_output_script.bat',
+            '//:foo_bin',
+        ],
+    )
 
-    exit_code, stdout, stderr = self.RunProgram(
-        ['bin_output_script.bat', 'binary'])
-    self.AssertExitCode(exit_code, 0, stderr)
+    _, stdout, _ = self.RunProgram(
+        ['bin_output_script.bat', 'binary'], allow_failure=True
+    )
     self.assertIn('Hello from binary!', '\n'.join(stdout))
 
     # Test generating a script from test run
-    exit_code, _, stderr = self.RunBazel([
-        'run',
-        '--script_path=test_output_script.bat',
-        '//:foo_test',
-    ],)
-    self.AssertExitCode(exit_code, 0, stderr)
+    self.RunBazel(
+        [
+            'run',
+            '--script_path=test_output_script.bat',
+            '//:foo_test',
+        ],
+        allow_failure=True,
+    )
 
-    exit_code, stdout, stderr = self.RunProgram(
-        ['test_output_script.bat', 'test'])
-    self.AssertExitCode(exit_code, 0, stderr)
+    _, stdout, _ = self.RunProgram(
+        ['test_output_script.bat', 'test'], allow_failure=True
+    )
     self.assertIn('Hello from test!', '\n'.join(stdout))
+
+  def testZipUndeclaredTestOutputs(self):
+    self.ScratchFile(
+        'BUILD',
+        [
+            'sh_test(',
+            '  name = "foo_test",',
+            '  srcs = ["foo.sh"],',
+            ')',
+            '',
+        ],
+    )
+    self.ScratchFile(
+        'foo.sh',
+        [
+            'touch "$TEST_UNDECLARED_OUTPUTS_DIR/foo.txt"',
+        ],
+    )
+
+    _, stdout, _ = self.RunBazel(['info', 'bazel-testlogs'])
+    bazel_testlogs = stdout[0]
+
+    output_file = os.path.join(bazel_testlogs, 'foo_test/test.outputs/foo.txt')
+    output_zip = os.path.join(
+        bazel_testlogs, 'foo_test/test.outputs/outputs.zip'
+    )
+
+    # Run the test with undeclared outputs zipping.
+    self.RunBazel(
+        [
+            'test',
+            '--zip_undeclared_test_outputs',
+            '//:foo_test',
+        ],
+    )
+    self.assertFalse(os.path.exists(output_file))
+    self.assertTrue(os.path.exists(output_zip))
+
+    # Run the test without undeclared outputs zipping.
+    self.RunBazel(
+        [
+            'test',
+            '--nozip_undeclared_test_outputs',
+            '//:foo_test',
+        ],
+    )
+    self.assertTrue(os.path.exists(output_file))
+    self.assertFalse(os.path.exists(output_zip))
+
+  def testBazelForwardsRequiredEnvVariable(self):
+    self.ScratchFile(
+        'BUILD',
+        [
+            'sh_test(',
+            '  name = "foo_test",',
+            '  srcs = ["foo.sh"],',
+            ')',
+            '',
+        ],
+    )
+    self.ScratchFile(
+        'foo.sh',
+        [
+            """
+            if [[ "$BAZEL_TEST" == "1" ]]; then
+                exit 0
+            else
+                echo "BAZEL_TEST is not set to 1"
+                exit 1
+            fi
+            """,
+        ],
+    )
+
+    exit_code, stdout, stderr = self.RunBazel(
+        [
+            'test',
+            '//:foo_test',
+        ],
+    )
+    self.AssertExitCode(exit_code, 0, stderr, stdout)
+
+  def testTestShardStatusFile(self):
+    self.ScratchFile(
+        'BUILD',
+        [
+            'sh_test(',
+            '  name = "foo_test",',
+            '  srcs = ["foo.sh"],',
+            '  shard_count = 2,',
+            ')',
+        ],
+    )
+    self.ScratchFile('foo.sh')
+
+    exit_code, stdout, stderr = self.RunBazel(
+        ['test', '--incompatible_check_sharding_support', '//:foo_test'],
+        allow_failure=True,
+    )
+    # Check for "tests failed" exit code
+    self.AssertExitCode(exit_code, 3, stderr, stdout)
+    self.assertTrue(
+        any(
+            'Sharding requested, but the test runner did not advertise support'
+            ' for it by touching TEST_SHARD_STATUS_FILE.'
+            in line
+            for line in stderr
+        )
+    )
+
+    self.ScratchFile('foo.sh', ['touch "$TEST_SHARD_STATUS_FILE"'])
+
+    self.RunBazel(
+        ['test', '--incompatible_check_sharding_support', '//:foo_test']
+    )
+
+  def testTestPrematureExitFile(self):
+    self.ScratchFile(
+        'BUILD',
+        [
+            'sh_test(',
+            '  name = "foo_test",',
+            '  srcs = ["foo.sh"],',
+            ')',
+        ],
+    )
+    self.ScratchFile(
+        'foo.sh',
+        [
+            '#!/bin/sh',
+            'touch "$TEST_PREMATURE_EXIT_FILE"',
+            'echo "fake pass"',
+            'exit 0',
+        ],
+    )
+
+    exit_code, stdout, stderr = self.RunBazel(
+        ['test', '--test_output=errors', '//:foo_test'],
+        allow_failure=True,
+    )
+    # Check for "tests failed" exit code
+    self.AssertExitCode(exit_code, 3, stderr, stdout)
+    self.assertIn(
+        '-- Test exited prematurely (TEST_PREMATURE_EXIT_FILE exists) --',
+        stdout,
+    )
+
+  def testMakeVariableForDumpbinExecutable(self):
+    if not self.IsWindows():
+      return
+
+    self.ScratchFile(
+        'BUILD',
+        [
+            'cc_binary(',
+            '    name = "test_dll",',
+            '    linkshared = 1,',
+            '    srcs = ["dllexport.c"],',
+            ')',
+            'genrule(',
+            '    name = "dumpbin",',
+            '    srcs = [":test_dll"],',
+            '    outs = ["dumpbin_out.txt"],',
+            # We have to use double quotes due to /S argument in cmd.exe call
+            (
+                '    cmd_bat = \'""$(DUMPBIN)"" /EXPORTS $(location :test_dll)'
+                " > $@',"
+            ),
+            (
+                '    toolchains ='
+                ' ["@bazel_tools//tools/cpp:toolchain_type"],'
+            ),
+            ')',
+        ],
+    )
+    self.ScratchFile(
+        'dllexport.c',
+        [
+            '__declspec(dllexport) int windows_dllexport_test() { return 1; }',
+        ],
+    )
+
+    _, stdout, _ = self.RunBazel(['info', 'bazel-bin'])
+    bazel_bin = stdout[0]
+
+    self.RunBazel(['build', ':dumpbin'])
+
+    dumpbin_out = os.path.join(bazel_bin, 'dumpbin_out.txt')
+    self.assertTrue(os.path.exists(dumpbin_out))
+    self.AssertFileContentContains(dumpbin_out, 'windows_dllexport_test')
 
 
 if __name__ == '__main__':
-  unittest.main()
+  absltest.main()

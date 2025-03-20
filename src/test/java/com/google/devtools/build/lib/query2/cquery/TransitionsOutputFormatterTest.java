@@ -20,14 +20,16 @@ import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
-import com.google.devtools.build.lib.analysis.config.TransitionFactories;
+import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.packages.RuleTransitionData;
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment;
+import com.google.devtools.build.lib.query2.common.CqueryNode;
 import com.google.devtools.build.lib.query2.cquery.CqueryOptions.Transitions;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
@@ -37,7 +39,6 @@ import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
-import javax.annotation.Nullable;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -50,7 +51,7 @@ public class TransitionsOutputFormatterTest extends ConfiguredTargetQueryTest {
   private CqueryOptions options;
   private Reporter reporter;
   private final List<Event> events = new ArrayList<>();
-  @Nullable private TransitionFactory<RuleTransitionData> trimmingTransitionFactory;
+  private ConfiguredRuleClassProvider ruleClassProvider;
 
   @Before
   public final void setUpCqueryOptions() {
@@ -65,32 +66,49 @@ public class TransitionsOutputFormatterTest extends ConfiguredTargetQueryTest {
 
     writeFile(
         "test/BUILD",
-        "my_rule(name = 'rule_with_patch',",
-        "  patched = [':foo', ':foo2', ':trimmed_foo'],",
-        ")",
-        "my_rule(name = 'rule_with_split',",
-        "  split = ':bar',",
-        ")",
-        "simple_rule(name = 'foo')",
-        "simple_rule(name = 'foo2')",
-        "simple_rule(name = 'trimmed_foo')",
-        "simple_rule(name = 'bar')");
+        """
+        my_rule(
+            name = "rule_with_patch",
+            patched = [
+                ":foo",
+                ":foo2",
+                ":trimmed_foo",
+            ],
+        )
+
+        my_rule(
+            name = "rule_with_split",
+            split = ":bar",
+        )
+
+        simple_rule(name = "foo")
+
+        simple_rule(name = "foo2")
+
+        simple_rule(name = "trimmed_foo")
+
+        simple_rule(name = "bar")
+        """);
 
     List<String> result = getOutput("deps(//test:rule_with_patch)", Transitions.FULL);
 
-    assertThat(result.get(0)).startsWith("FooPatchTransition -> //test:rule_with_patch");
+    assertThat(result.get(0)).startsWith("FooPatchRuleTransitionFactory -> //test:rule_with_patch");
     assertThat(result.get(1)).startsWith("  patched#//test:foo#FooPatch");
     assertThat(result.get(2)).isEqualTo("    foo:SET BY RULE CLASS PATCH -> [SET BY PATCH]");
-    assertThat(result.get(3)).startsWith("  patched#//test:foo2#FooPatch");
+    assertThat(result.get(3)).startsWith("  patched#//test:foo2#FooPatchAttrTransitionFactory");
     assertThat(result.get(4)).isEqualTo(result.get(2));
     assertThat(result.get(5))
-        .startsWith("  patched#//test:trimmed_foo#(FooPatchTransition + FooPatchTransition(trim))");
+        .startsWith(
+            "  patched#//test:trimmed_foo#(FooPatchAttrTransitionFactory +"
+                + " FooPatchTransition(trim))");
     assertThat(result.get(6)).isEqualTo("    foo:SET BY RULE CLASS PATCH -> [SET BY TRIM]");
 
     result = getOutput("deps(//test:rule_with_split)", Transitions.FULL);
-    assertThat(result.get(1)).startsWith("  split#//test:bar#FooSplitTransition");
+    assertThat(result.get(1)).startsWith("  split#//test:bar#FooSplitTransitionFactory");
+    // TODO(shahan): the right hand side of the diff below is in split dep ordering, which is
+    // dependent on checksum values. It could be brittle.
     assertThat(result.get(2))
-        .isEqualTo("    foo:SET BY RULE CLASS PATCH -> [SET BY SPLIT 1, SET BY SPLIT 2]");
+        .isEqualTo("    foo:SET BY RULE CLASS PATCH -> [SET BY SPLIT 2, SET BY SPLIT 1]");
   }
 
   @Test
@@ -99,25 +117,36 @@ public class TransitionsOutputFormatterTest extends ConfiguredTargetQueryTest {
 
     writeFile(
         "test/BUILD",
-        "my_rule(name = 'rule_with_patch',",
-        "  patched = [':foo', ':foo2'],",
-        ")",
-        "my_rule(name = 'rule_with_split',",
-        "  split = ':bar',",
-        ")",
-        "simple_rule(name = 'foo')",
-        "simple_rule(name = 'foo2')",
-        "simple_rule(name = 'bar')");
+        """
+        my_rule(
+            name = "rule_with_patch",
+            patched = [
+                ":foo",
+                ":foo2",
+            ],
+        )
+
+        my_rule(
+            name = "rule_with_split",
+            split = ":bar",
+        )
+
+        simple_rule(name = "foo")
+
+        simple_rule(name = "foo2")
+
+        simple_rule(name = "bar")
+        """);
 
     List<String> result = getOutput("deps(//test:rule_with_patch)", Transitions.LITE);
 
-    assertThat(result.get(0)).startsWith("FooPatchTransition -> //test:rule_with_patch");
-    assertThat(result.get(1)).startsWith("  patched#//test:foo#FooPatchTransition");
-    assertThat(result.get(2)).startsWith("  patched#//test:foo2#FooPatchTransition");
+    assertThat(result.get(0)).startsWith("FooPatchRuleTransitionFactory -> //test:rule_with_patch");
+    assertThat(result.get(1)).startsWith("  patched#//test:foo#FooPatchAttrTransitionFactory");
+    assertThat(result.get(2)).startsWith("  patched#//test:foo2#FooPatchAttrTransitionFactory");
 
     result = getOutput("deps(//test:rule_with_split)", Transitions.LITE);
-    assertThat(result.get(0)).startsWith("FooPatchTransition -> //test:rule_with_split");
-    assertThat(result.get(1)).startsWith("  split#//test:bar#FooSplitTransition");
+    assertThat(result.get(0)).startsWith("FooPatchRuleTransitionFactory -> //test:rule_with_split");
+    assertThat(result.get(1)).startsWith("  split#//test:bar#FooSplitTransitionFactory");
   }
 
   @Test
@@ -126,10 +155,14 @@ public class TransitionsOutputFormatterTest extends ConfiguredTargetQueryTest {
 
     writeFile(
         "test/BUILD",
-        "my_rule(name = 'rule_with_patch',",
-        "  patched = [':foo'],",
-        ")",
-        "simple_rule(name = 'foo')");
+        """
+        my_rule(
+            name = "rule_with_patch",
+            patched = [":foo"],
+        )
+
+        simple_rule(name = "foo")
+        """);
 
     List<String> result = getOutput("deps(//test:rule_with_patch)", Transitions.LITE);
     String depEntry = result.get(2);
@@ -155,19 +188,60 @@ public class TransitionsOutputFormatterTest extends ConfiguredTargetQueryTest {
                 + " or 'full'");
   }
 
+  @Test
+  public void nonAttributeDependencySkipped() throws Exception {
+    setUpRules();
+
+    // A visibility dependency on a package_group produces a
+    // DependencyKind.NonAttributeDependencyKind. This test checks that the existence of those
+    // attribute types doesn't crash cquery.
+
+    writeFile(
+        "test/BUILD",
+        """
+        package_group(
+            name = "custom_visibility",
+            packages = ["//test/..."],
+        )
+
+        simple_rule(
+            name = "child",
+        )
+
+        simple_rule(
+            name = "parent",
+            visibility = [":custom_visibility"],
+            deps = [":child"],
+        )
+        """);
+
+    assertThat(getOutput("deps(//test:parent)", Transitions.LITE)).isNotNull();
+    assertThat(events).isEmpty();
+  }
+
   private void setUpRules() throws Exception {
     TransitionFactory<RuleTransitionData> infixTrimmingTransitionFactory =
-        (ruleData) -> {
-          if (!ruleData.rule().getName().contains("trimmed")) {
-            return NoTransition.INSTANCE;
+        new TransitionFactory<>() {
+          @Override
+          public ConfigurationTransition create(RuleTransitionData ruleData) {
+            if (!ruleData.rule().getName().contains("trimmed")) {
+              return NoTransition.INSTANCE;
+            }
+            // rename the transition so it's distinguishable from the others in tests
+            return new FooPatchTransition("SET BY TRIM", "FooPatchTransition(trim)");
           }
-          // rename the transition so it's distinguishable from the others in tests
-          return new FooPatchTransition("SET BY TRIM", "FooPatchTransition(trim)");
+
+          @Override
+          public TransitionType transitionType() {
+            return TransitionType.RULE;
+          }
         };
-    FooPatchTransition ruleClassTransition = new FooPatchTransition("SET BY RULE CLASS PATCH");
-    FooPatchTransition attributePatchTransition = new FooPatchTransition("SET BY PATCH");
-    FooSplitTransition attributeSplitTransitions =
-        new FooSplitTransition("SET BY SPLIT 1", "SET BY SPLIT 2");
+    FooPatchRuleTransitionFactory ruleClassTransition =
+        new FooPatchRuleTransitionFactory("SET BY RULE CLASS PATCH");
+    FooPatchAttrTransitionFactory attributePatchTransition =
+        new FooPatchAttrTransitionFactory("SET BY PATCH");
+    FooSplitTransitionFactory attributeSplitTransitions =
+        new FooSplitTransitionFactory("SET BY SPLIT 1", "SET BY SPLIT 2");
 
     MockRule ruleWithTransitions =
         () ->
@@ -179,11 +253,11 @@ public class TransitionsOutputFormatterTest extends ConfiguredTargetQueryTest {
                         .add(
                             attr("patched", LABEL_LIST)
                                 .allowedFileTypes(FileTypeSet.ANY_FILE)
-                                .cfg(TransitionFactories.of(attributePatchTransition)))
+                                .cfg(attributePatchTransition))
                         .add(
                             attr("split", LABEL)
                                 .allowedFileTypes(FileTypeSet.ANY_FILE)
-                                .cfg(TransitionFactories.of(attributeSplitTransitions))));
+                                .cfg(attributeSplitTransitions)));
     MockRule simpleRule =
         () ->
             MockRule.define(
@@ -192,11 +266,10 @@ public class TransitionsOutputFormatterTest extends ConfiguredTargetQueryTest {
                     builder
                         .add(attr("deps", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE)));
 
-    ConfiguredRuleClassProvider ruleClassProvider =
+    this.ruleClassProvider =
         setRuleClassProviders(ruleWithTransitions, simpleRule)
             .overrideTrimmingTransitionFactoryForTesting(infixTrimmingTransitionFactory)
             .build();
-    this.trimmingTransitionFactory = ruleClassProvider.getTrimmingTransitionFactory();
     helper.useRuleClassProvider(ruleClassProvider);
   }
 
@@ -206,7 +279,7 @@ public class TransitionsOutputFormatterTest extends ConfiguredTargetQueryTest {
     Set<String> targetPatternSet = new LinkedHashSet<>();
     expression.collectTargetPatterns(targetPatternSet);
     helper.setQuerySettings(Setting.NO_IMPLICIT_DEPS);
-    PostAnalysisQueryEnvironment<KeyedConfiguredTarget> env =
+    PostAnalysisQueryEnvironment<CqueryNode> env =
         ((ConfiguredTargetQueryHelper) helper).getPostAnalysisQueryEnvironment(targetPatternSet);
     options.transitions = verbosity;
     // TODO(blaze-configurability): Test late-bound attributes.
@@ -214,11 +287,11 @@ public class TransitionsOutputFormatterTest extends ConfiguredTargetQueryTest {
         new TransitionsOutputFormatterCallback(
             reporter,
             options,
-            /*out=*/ null,
+            /* out= */ null,
             getHelper().getSkyframeExecutor(),
             env.getAccessor(),
-            env.getHostConfiguration(),
-            trimmingTransitionFactory);
+            ruleClassProvider,
+            LabelPrinter.legacy());
     env.evaluateQuery(env.transformParsedQuery(QueryParser.parse(queryExpression, env)), callback);
     return callback.getResult();
   }

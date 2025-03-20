@@ -1,0 +1,25 @@
+name: Remove PR Labels
+
+on:
+  pull_request_target:
+    types: ["closed"]
+
+permissions:
+  contents: read
+
+jobs:
+  remove-label:
+    permissions:
+      pull-requests: write
+    runs-on: ubuntu-latest
+    steps:
+    - name: Harden Runner
+      uses: step-security/harden-runner@4d991eb9b905ef189e4c376166672c3f2f230481 # v2.11.0
+      with:
+        egress-policy: audit
+
+    - uses: actions-ecosystem/action-remove-labels@2ce5d41b4b6aa8503e285553f75ed56e0a40bae0 # v1.3.0
+      with:
+        labels: |
+          awaiting-PR-merge
+          awaiting-review

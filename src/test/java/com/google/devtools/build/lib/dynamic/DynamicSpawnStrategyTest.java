@@ -16,14 +16,13 @@ package com.google.devtools.build.lib.dynamic;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.truth.Truth.assertThat;
+import static java.util.Objects.requireNonNull;
 import static junit.framework.TestCase.fail;
 import static org.junit.Assert.assertThrows;
 
-import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
-import com.google.common.eventbus.EventBus;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.actions.ActionContext;
@@ -35,7 +34,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.BaseSpawn;
 import com.google.devtools.build.lib.actions.DynamicStrategyRegistry;
-import com.google.devtools.build.lib.actions.EmptyRunfilesSupplier;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.ResourceSet;
@@ -47,7 +45,6 @@ import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil.NullAction;
 import com.google.devtools.build.lib.bugreport.BugReporter;
-import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.BlazeExecutor;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.ModuleActionContextRegistry;
@@ -166,7 +163,7 @@ public class DynamicSpawnStrategyTest {
 
       doExecBeforeStop.run(this, spawn, actionExecutionContext);
       if (stopConcurrentSpawns != null) {
-        stopConcurrentSpawns.stop();
+        stopConcurrentSpawns.stop(0, "", outErr);
         doExecAfterStop.run(this, spawn, actionExecutionContext);
       }
 
@@ -311,7 +308,6 @@ public class DynamicSpawnStrategyTest {
     DynamicExecutionOptions options = new DynamicExecutionOptions();
     options.dynamicLocalStrategy = dynamicLocalStrategies.build();
     options.dynamicRemoteStrategy = dynamicRemoteStrategies.build();
-    options.dynamicWorkerStrategy = "mock-local";
     options.internalSpawnScheduler = true;
     options.localExecutionDelay = 0;
 
@@ -330,8 +326,7 @@ public class DynamicSpawnStrategyTest {
     }
 
     DynamicExecutionModule dynamicExecutionModule = new DynamicExecutionModule(executorService);
-    dynamicExecutionModule.registerSpawnStrategies(
-        spawnStrategyRegistryBuilder, options, new Reporter(new EventBus()));
+    dynamicExecutionModule.registerSpawnStrategies(spawnStrategyRegistryBuilder, options, 10, 10);
 
     SpawnStrategyRegistry spawnStrategyRegistry = spawnStrategyRegistryBuilder.build();
 
@@ -356,12 +351,12 @@ public class DynamicSpawnStrategyTest {
 
     ActionExecutionContext actionExecutionContext =
         ActionsTestUtil.createContext(
-            /*executor=*/ executor,
-            /*eventHandler=*/ null,
+            /* executor= */ executor,
+            /* eventHandler= */ null,
             actionKeyContext,
             outErr,
             testRoot,
-            /*metadataHandler=*/ null);
+            /* outputMetadataStore= */ null);
 
     List<? extends SpawnStrategy> dynamicStrategies =
         spawnStrategyRegistry.getStrategies(
@@ -371,8 +366,7 @@ public class DynamicSpawnStrategyTest {
         dynamicStrategies.stream().filter(c -> c instanceof DynamicSpawnStrategy).findAny();
     checkState(optionalContext.isPresent(), "Expected module to register a dynamic strategy");
 
-    return new AutoValue_DynamicSpawnStrategyTest_StrategyAndContext(
-        optionalContext.get(), actionExecutionContext);
+    return new StrategyAndContext(optionalContext.get(), actionExecutionContext);
   }
 
   private static class NullActionWithMnemonic extends NullAction {
@@ -418,7 +412,6 @@ public class DynamicSpawnStrategyTest {
         ImmutableList.of(),
         ImmutableMap.of(),
         executionInfo,
-        EmptyRunfilesSupplier.INSTANCE,
         action,
         ResourceSet.create(1, 0, 0));
   }
@@ -1105,11 +1098,11 @@ public class DynamicSpawnStrategyTest {
         .build();
   }
 
-  @AutoValue
-  abstract static class StrategyAndContext {
-    abstract SpawnStrategy strategy();
-
-    abstract ActionExecutionContext context();
+  record StrategyAndContext(SpawnStrategy strategy, ActionExecutionContext context) {
+    StrategyAndContext {
+      requireNonNull(strategy, "strategy");
+      requireNonNull(context, "context");
+    }
 
     void exec(Spawn spawn) throws ExecException, InterruptedException {
       strategy().exec(spawn, context());

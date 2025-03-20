@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.testutil.Scratch;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.util.Arrays;
 
@@ -147,7 +148,7 @@ public class ScratchAttributeWriter {
    */
   public static ScratchAttributeWriter fromLabelString(
       BuildViewTestCase testCase, String ruleName, String labelString) {
-    return fromLabel(testCase, ruleName, Label.parseAbsoluteUnchecked(labelString));
+    return fromLabel(testCase, ruleName, Label.parseCanonicalUnchecked(labelString));
   }
 
   /**
@@ -176,18 +177,14 @@ public class ScratchAttributeWriter {
   }
 
   /** Sets a string attribute (like ios_application.app_icon) for this target. */
+  @CanIgnoreReturnValue
   public ScratchAttributeWriter set(String name, String value) {
     new StringAttribute(name, value).appendLine(this.buildString);
     return this;
   }
 
-  /** Sets an integer attribute (like cc_binary.linkstatic) for this target. */
-  public ScratchAttributeWriter set(String name, int value) {
-    new IntegerAttribute(name, value).appendLine(this.buildString);
-    return this;
-  }
-
   /** Sets a list attribute (like cc_library.srcs) for this target. */
+  @CanIgnoreReturnValue
   public ScratchAttributeWriter setList(String name, Iterable<String> value) {
     new StringListAttribute(name, value).appendLine(this.buildString);
     return this;

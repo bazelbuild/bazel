@@ -15,15 +15,24 @@ package com.google.devtools.build.lib.exec;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.DigestOfDirectoryException;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
-import com.google.devtools.build.lib.actions.MetadataProvider;
+import com.google.devtools.build.lib.actions.FilesetOutputTree;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
+import com.google.devtools.build.lib.actions.RunfilesArtifactValue;
+import com.google.devtools.build.lib.actions.RunfilesTree;
+import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Symlinks;
+import com.google.devtools.build.lib.vfs.XattrProvider;
 import java.io.IOException;
+import java.util.Map;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.ThreadSafe;
 
@@ -33,7 +42,7 @@ import javax.annotation.concurrent.ThreadSafe;
  * <p>Simply maintains a cached mapping from filename to metadata that may be populated only once.
  */
 @ThreadSafe
-public class SingleBuildFileCache implements MetadataProvider {
+public class SingleBuildFileCache implements InputMetadataProvider {
 
   private final Path execRoot;
 
@@ -46,13 +55,18 @@ public class SingleBuildFileCache implements MetadataProvider {
           // unlikely that this default will adversely affect memory in most cases.
           .initialCapacity(10000)
           .build();
+  private final XattrProvider xattrProvider;
 
-  public SingleBuildFileCache(String cwd, FileSystem fs) {
+  public SingleBuildFileCache(String cwd, FileSystem fs, XattrProvider xattrProvider) {
+    this.xattrProvider = xattrProvider;
     this.execRoot = fs.getPath(cwd);
   }
 
   @Override
-  public FileArtifactValue getMetadata(ActionInput input) throws IOException {
+  public FileArtifactValue getInputMetadataChecked(ActionInput input) throws IOException {
+    // TODO(lberki): It would be nice to assert that only source files are passed here.
+    // Unfortunately, that's not quite true at the moment and an unknown amount of work would be
+    // needed to make that true.
     return pathToMetadata
         .get(
             input.getExecPathString(),
@@ -60,7 +74,12 @@ public class SingleBuildFileCache implements MetadataProvider {
               Path path = ActionInputHelper.toInputPath(input, execRoot);
               FileArtifactValue metadata;
               try {
-                metadata = FileArtifactValue.createFromStat(path, path.stat(Symlinks.FOLLOW), true);
+                metadata =
+                    FileArtifactValue.createFromStat(
+                        path,
+                        // TODO(b/199940216): should we use syscallCache here since caching anyway?
+                        path.stat(Symlinks.FOLLOW),
+                        xattrProvider);
               } catch (IOException e) {
                 return new ActionInputMetadata(input, e);
               }
@@ -71,6 +90,34 @@ public class SingleBuildFileCache implements MetadataProvider {
               return new ActionInputMetadata(input, metadata);
             })
         .getMetadata();
+  }
+
+  @Nullable
+  @Override
+  public TreeArtifactValue getTreeMetadata(ActionInput actionInput) {
+    return null;
+  }
+
+  @Override
+  @Nullable
+  public FilesetOutputTree getFileset(ActionInput input) {
+    return null;
+  }
+
+  @Override
+  public Map<Artifact, FilesetOutputTree> getFilesets() {
+    return ImmutableMap.of();
+  }
+
+  @Override
+  @Nullable
+  public RunfilesArtifactValue getRunfilesMetadata(ActionInput input) {
+    return null;
+  }
+
+  @Override
+  public ImmutableList<RunfilesTree> getRunfilesTrees() {
+    return ImmutableList.of();
   }
 
   @Override

@@ -19,6 +19,7 @@ import static java.util.stream.Collectors.joining;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Streams;
+import javax.annotation.Nullable;
 
 /** Encapsulates available {@link OutputFormatter}s and selection logic. */
 public class OutputFormatters {
@@ -38,6 +39,7 @@ public class OutputFormatters {
         new GraphOutputFormatter(),
         new XmlOutputFormatter(),
         new ProtoOutputFormatter(),
+        new StreamedJSONProtoOutputFormatter(),
         new StreamedProtoOutputFormatter());
   }
 
@@ -55,6 +57,7 @@ public class OutputFormatters {
   }
 
   /** Returns the {@link OutputFormatter} for the specified type. */
+  @Nullable
   public static OutputFormatter getFormatter(Iterable<OutputFormatter> formatters, String type) {
     for (OutputFormatter formatter : formatters) {
       if (formatter.getName().equals(type)) {

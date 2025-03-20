@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.server;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.server.CommandProtos.CancelRequest;
@@ -37,13 +38,13 @@ class CommandManager {
   private final AtomicLong interruptCounter = new AtomicLong(0);
   private final boolean doIdleServerTasks;
 
-  private IdleServerTasks idleServerTasks;
+  private IdleTaskManager idleTaskManager;
   @Nullable private final String slowInterruptMessageSuffix;
 
   CommandManager(boolean doIdleServerTasks, @Nullable String slowInterruptMessageSuffix) {
     this.doIdleServerTasks = doIdleServerTasks;
     this.slowInterruptMessageSuffix = slowInterruptMessageSuffix;
-    idle();
+    idle(ImmutableList.of(), /* stateKeptAfterBuild= */ true);
   }
 
   void preemptEligibleCommands() {
@@ -132,19 +133,19 @@ class CommandManager {
     logger.atInfo().log("Starting command %s on thread %s", command.id, command.thread.getName());
   }
 
-  private void idle() {
-    Preconditions.checkState(idleServerTasks == null);
+  private void idle(ImmutableList<IdleTask> idleTasks, boolean stateKeptAfterBuild) {
+    Preconditions.checkState(idleTaskManager == null);
     if (doIdleServerTasks) {
-      idleServerTasks = new IdleServerTasks();
-      idleServerTasks.idle();
+      idleTaskManager = new IdleTaskManager(idleTasks, stateKeptAfterBuild);
+      idleTaskManager.idle();
     }
   }
 
   private void busy() {
     if (doIdleServerTasks) {
-      Preconditions.checkState(idleServerTasks != null);
-      idleServerTasks.busy();
-      idleServerTasks = null;
+      Preconditions.checkState(idleTaskManager != null);
+      idleTaskManager.busy();
+      idleTaskManager = null;
     }
   }
 
@@ -176,10 +177,12 @@ class CommandManager {
     interruptWatcherThread.start();
   }
 
-  class RunningCommand implements AutoCloseable {
+  final class RunningCommand implements AutoCloseable {
     private final Thread thread;
     private final String id;
     private final boolean preemptible;
+    private ImmutableList<IdleTask> idleTasks = ImmutableList.of();
+    private boolean stateKeptAfterBuild = true;
 
     private RunningCommand(boolean preemptible) {
       thread = Thread.currentThread();
@@ -192,7 +195,7 @@ class CommandManager {
       synchronized (runningCommandsMap) {
         runningCommandsMap.remove(id);
         if (runningCommandsMap.isEmpty()) {
-          idle();
+          idle(idleTasks, stateKeptAfterBuild);
         }
         runningCommandsMap.notify();
       }
@@ -205,7 +208,13 @@ class CommandManager {
     }
 
     boolean isPreemptible() {
-      return this.preemptible;
+      return preemptible;
+    }
+
+    /** Record tasks to be run by {@link IdleTaskManager}. */
+    void setIdleTasks(ImmutableList<IdleTask> idleTasks, boolean stateKeptAfterBuild) {
+      this.idleTasks = idleTasks;
+      this.stateKeptAfterBuild = stateKeptAfterBuild;
     }
   }
 }

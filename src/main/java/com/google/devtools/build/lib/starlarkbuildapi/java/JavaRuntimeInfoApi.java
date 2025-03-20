@@ -16,9 +16,13 @@ package com.google.devtools.build.lib.starlarkbuildapi.java;
 
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
+import com.google.devtools.build.lib.rules.cpp.CcInfo;
+import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
+import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.Sequence;
 
 /** Information about the Java runtime being used. */
 @StarlarkBuiltin(
@@ -68,4 +72,52 @@ public interface JavaRuntimeInfoApi extends StructApi {
       doc = "Returns the files in the Java runtime.",
       structField = true)
   Depset starlarkJavaBaseInputs();
+
+  /** The files in the Java runtime needed for hermetic deployments. */
+  @StarlarkMethod(
+      name = "hermetic_files",
+      doc = "Returns the files in the Java runtime needed for hermetic deployments.",
+      structField = true)
+  Depset starlarkHermeticInputs();
+
+  /** The lib/ct.sym file. */
+  @StarlarkMethod(
+      name = "lib_ct_sym",
+      doc = "Returns the lib/ct.sym file.",
+      structField = true,
+      allowReturnNones = true)
+  @Nullable
+  FileApi libCtSym();
+
+  /** The lib/modules file. */
+  @StarlarkMethod(
+      name = "lib_modules",
+      doc = "Returns the lib/modules file.",
+      structField = true,
+      allowReturnNones = true)
+  @Nullable
+  FileApi libModules();
+
+  /** The JDK default CDS. */
+  @StarlarkMethod(
+      name = "default_cds",
+      doc = "Returns the JDK default CDS archive.",
+      structField = true,
+      allowReturnNones = true)
+  @Nullable
+  FileApi defaultCDS();
+
+  /** The JDK static libraries needed for hermetic deployments. */
+  @StarlarkMethod(
+      name = "hermetic_static_libs",
+      doc = "Returns the JDK static libraries.",
+      structField = true)
+  Sequence<CcInfo> starlarkHermeticStaticLibs();
+
+  /** The Java feature version of the runtime. This is 0 if the version is unknown. */
+  @StarlarkMethod(
+      name = "version",
+      doc = "The Java feature version of the runtime. This is 0 if the version is unknown.",
+      structField = true)
+  int version();
 }

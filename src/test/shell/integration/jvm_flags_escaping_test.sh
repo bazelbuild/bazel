@@ -56,14 +56,14 @@ msys*)
 esac
 
 if "$is_windows"; then
-  # Disable MSYS path conversion that converts path-looking command arguments to
-  # Windows paths (even if they arguments are not in fact paths).
-  export MSYS_NO_PATHCONV=1
-  export MSYS2_ARG_CONV_EXCL="*"
   declare -r EXE_EXT=".exe"
 else
   declare -r EXE_EXT=""
 fi
+
+function set_up() {
+  add_rules_java MODULE.bazel
+}
 
 # ----------------------------------------------------------------------
 # HELPER FUNCTIONS
@@ -104,6 +104,7 @@ function create_build_file_for_untokenizable_flag() {
   local -r pkg="$1"; shift
   mkdir -p "$pkg" || fail "mkdir -p $pkg"
   cat >"$pkg/BUILD" <<'eof'
+load("@rules_java//java:java_binary.bzl", "java_binary")
 java_binary(
     name = "cannot_tokenize",
     srcs = ["A.java"],
@@ -123,6 +124,7 @@ function create_build_file_with_many_jvm_flags() {
   local -r pkg="$1"; shift
   mkdir -p "$pkg" || fail "mkdir -p $pkg"
   cat >"$pkg/BUILD" <<'eof'
+load("@rules_java//java:java_binary.bzl", "java_binary")
 java_binary(
     name = "x",
     srcs = ["A.java"],
@@ -279,7 +281,7 @@ function test_untokenizable_jvm_flag_when_escaping_is_enabled() {
     # On Windows, Bazel will check the flag.
     bazel build --verbose_failures "${pkg}:cannot_tokenize" \
       2>"$TEST_log" && fail "expected failure" || true
-    expect_log "ERROR:.*in jvm_flags attribute of java_binary rule"
+    expect_log "Error in tokenize: unterminated quotation"
   else
     # On other platforms, Bazel will build the target but it fails to run.
     bazel build --verbose_failures "${pkg}:cannot_tokenize" \

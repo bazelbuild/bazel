@@ -14,17 +14,12 @@
 package com.google.devtools.build.lib.actions;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.common.truth.Truth8.assertThat;
 
-import com.google.devtools.build.lib.actions.SpawnResult.MetadataLog;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
-import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.util.FileSystems;
 import com.google.protobuf.ByteString;
-import java.time.Duration;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -40,7 +35,7 @@ public final class SpawnResultTest {
     SpawnResult r =
         new SpawnResult.Builder()
             .setStatus(SpawnResult.Status.TIMEOUT)
-            .setWallTime(Duration.ofSeconds(5))
+            .setWallTimeInMs(5 * 1000)
             .setExitCode(SpawnResult.POSIX_TIMEOUT_EXIT_CODE)
             .setFailureDetail(
                 FailureDetail.newBuilder()
@@ -68,7 +63,7 @@ public final class SpawnResultTest {
   }
 
   @Test
-  public void inMemoryContents() throws Exception {
+  public void inMemoryContents() {
     ActionInput output = ActionInputHelper.fromPath("/foo/bar");
     ByteString contents = ByteString.copyFromUtf8("hello world");
 
@@ -80,24 +75,8 @@ public final class SpawnResultTest {
             .setInMemoryOutput(output, contents)
             .build();
 
-    assertThat(ByteString.readFrom(r.getInMemoryOutput(output))).isEqualTo(contents);
+    assertThat(r.getInMemoryOutput(output)).isEqualTo(contents);
     assertThat(r.getInMemoryOutput(null)).isEqualTo(null);
     assertThat(r.getInMemoryOutput(ActionInputHelper.fromPath("/does/not/exist"))).isEqualTo(null);
-  }
-
-  @Test
-  public void getSpawnResultLogs() {
-    SpawnResult.Builder builder =
-        new SpawnResult.Builder().setStatus(Status.SUCCESS).setExitCode(0).setRunnerName("test");
-
-    assertThat(builder.build().getActionMetadataLog()).isEmpty();
-
-    String logName = "/path/to/logs.txt";
-    Path logPath = FileSystems.getJavaIoFileSystem().getPath(logName);
-    MetadataLog metadataLog = new MetadataLog("test_metadata_log", logPath);
-    SpawnResult withLogs = builder.setActionMetadataLog(metadataLog).build();
-
-    assertThat(withLogs.getActionMetadataLog()).hasValue(metadataLog);
-    assertThat(withLogs.getActionMetadataLog().get().getFilePath()).isEqualTo(logPath);
   }
 }

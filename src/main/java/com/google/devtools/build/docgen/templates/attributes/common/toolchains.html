@@ -1,4 +1,5 @@
-<p><code>List of <a href="../build-ref.html#labels">labels</a>; optional; <a href="#configurable-attributes">nonconfigurable</a></code></p>
+<p>List of <a href="${link build-ref#labels}">labels</a>;
+  <a href="#configurable-attributes">nonconfigurable</a>; default is <code>[]</code></p>
 
 <p>
   The set of targets whose <a href="${link make-variables}">Make variables</a> this target is
@@ -7,13 +8,13 @@
   include:
 
 <ul>
-    <li><code>@bazel_tools//tools/cpp:current_cc_toolchain</code>
-  <li><code>@bazel_tools//tools/cpp:current_java_runtime</code>
+    <li><code>@bazel_tools//tools/cpp:toolchain_type</code>
+  <li><code>@rules_java//toolchains:current_java_runtime</code>
   </ul>
 
 <p>
   Note that this is distinct from the concept of
-    <a href="../toolchains.html#toolchain-resolution">toolchain resolution</a>
+    <a href="/docs/toolchains#toolchain-resolution">toolchain resolution</a>
     that is used by rule implementations for platform-dependent configuration. You cannot use this
   attribute to determine which specific <code>cc_toolchain</code> or <code>java_toolchain</code> a
   target will use.

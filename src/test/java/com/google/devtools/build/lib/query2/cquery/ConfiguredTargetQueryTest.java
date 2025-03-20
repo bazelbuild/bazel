@@ -16,20 +16,12 @@ package com.google.devtools.build.lib.query2.cquery;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
-import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
-import com.google.devtools.build.lib.analysis.config.FragmentOptions;
-import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
-import com.google.devtools.build.lib.analysis.util.DummyTestFragment.DummyTestOptions;
-import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.query2.common.CqueryNode;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 import com.google.devtools.build.lib.query2.testutil.PostAnalysisQueryTest;
 import java.util.HashMap;
 import java.util.Iterator;
-import java.util.Map;
 import java.util.Set;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -37,16 +29,11 @@ import org.junit.runners.JUnit4;
 
 /** Tests for {@link ConfiguredTargetQueryEnvironment}. */
 @RunWith(JUnit4.class)
-public abstract class ConfiguredTargetQueryTest
-    extends PostAnalysisQueryTest<KeyedConfiguredTarget> {
+public abstract class ConfiguredTargetQueryTest extends PostAnalysisQueryTest<CqueryNode> {
 
   @Override
-  protected QueryHelper<KeyedConfiguredTarget> createQueryHelper() {
-    if (helper != null) {
-      getHelper().cleanUp();
-    }
-    helper = new ConfiguredTargetQueryHelper();
-    return helper;
+  protected QueryHelper<CqueryNode> createQueryHelper() {
+    return new ConfiguredTargetQueryHelper();
   }
 
   @Override
@@ -61,48 +48,31 @@ public abstract class ConfiguredTargetQueryTest
   }
 
   @Override
-  protected final BuildConfigurationValue getConfiguration(KeyedConfiguredTarget kct) {
+  protected final BuildConfigurationValue getConfiguration(CqueryNode kct) {
     return getHelper()
         .getSkyframeExecutor()
         .getConfiguration(getHelper().getReporter(), kct.getConfigurationKey());
   }
 
-  /** SplitTransition on --foo */
-  protected static class FooSplitTransition implements SplitTransition {
-    String toOption1;
-    String toOption2;
-
-    public FooSplitTransition(String toOption1, String toOptions2) {
-      this.toOption1 = toOption1;
-      this.toOption2 = toOptions2;
-    }
-
-    @Override
-    public ImmutableSet<Class<? extends FragmentOptions>> requiresOptionFragments() {
-      return ImmutableSet.of(DummyTestOptions.class);
-    }
-
-    @Override
-    public Map<String, BuildOptions> split(BuildOptionsView options, EventHandler eventHandler) {
-      BuildOptionsView result1 = options.clone();
-      BuildOptionsView result2 = options.clone();
-      result1.get(DummyTestOptions.class).foo = toOption1;
-      result2.get(DummyTestOptions.class).foo = toOption2;
-      return ImmutableMap.of("result1", result1.underlying(), "result2", result2.underlying());
-    }
-  }
-
   @Override
   @Test
   public void testMultipleTopLevelConfigurations_nullConfigs() throws Exception {
-    writeFile("test/BUILD", "java_library(name='my_java',", "  srcs = ['foo.java'],", ")");
+    writeFile(
+        "test/BUILD",
+        """
+        load("@rules_java//java:defs.bzl", "java_library")
+        java_library(
+            name = "my_java",
+            srcs = ["foo.java"],
+        )
+        """);
 
-    Set<KeyedConfiguredTarget> result = eval("//test:my_java+//test:foo.java");
+    Set<CqueryNode> result = eval("//test:my_java+//test:foo.java");
 
     assertThat(result).hasSize(2);
 
-    Iterator<KeyedConfiguredTarget> resultIterator = result.iterator();
-    KeyedConfiguredTarget first = resultIterator.next();
+    Iterator<CqueryNode> resultIterator = result.iterator();
+    CqueryNode first = resultIterator.next();
     if (first.getLabel().toString().equals("//test:foo.java")) {
       assertThat(getConfiguration(first)).isNull();
       assertThat(getConfiguration(resultIterator.next())).isNotNull();
@@ -110,11 +80,5 @@ public abstract class ConfiguredTargetQueryTest
       assertThat(getConfiguration(first)).isNotNull();
       assertThat(getConfiguration(resultIterator.next())).isNull();
     }
-  }
-
-  @Override
-  public void testMultipleTopLevelConfigurations_multipleConfigsPrefersTopLevel() {
-    // When the same target exists in multiple configurations, cquery doesn't guarantee which
-    // instance is evaluated first. So disable this test.
   }
 }

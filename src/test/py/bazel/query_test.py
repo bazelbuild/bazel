@@ -13,14 +13,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import unittest
+import os
+import tempfile
+from absl.testing import absltest
 from src.test.py.bazel import test_base
 
 
 class QueryTest(test_base.TestBase):
 
   def testSimpleQuery(self):
-    self.ScratchFile('WORKSPACE')
+    self.ScratchFile('MODULE.bazel')
     self.ScratchFile('foo/BUILD', [
         'exports_files(["exported.txt"])',
         'filegroup(name = "top-rule", srcs = [":dep-rule"])',
@@ -38,14 +40,34 @@ class QueryTest(test_base.TestBase):
     self._AssertQueryOutput('deps(//foo:top-rule, 1)', '//foo:top-rule',
                             '//foo:dep-rule')
 
+  def testQueryWithDifferentOutputBaseAfterBuilding(self):
+    output_base = tempfile.mkdtemp(dir=os.getenv('TEST_TMPDIR'))
+
+    self.ScratchFile('MODULE.bazel')
+    self.ScratchFile(
+        'BUILD',
+        [
+            'py_binary(name="a", srcs=["a.py"])',
+        ],
+    )
+    self.ScratchFile('a.py')
+    self.RunBazel(['build', '//...'])
+    self.RunBazel([f'--output_base={output_base}', 'query', '//...'])
+
   def _AssertQueryOutput(self, query_expr, *expected_results):
-    exit_code, stdout, stderr = self.RunBazel(['query', query_expr])
-    self.AssertExitCode(exit_code, 0, stderr)
+    _, stdout, _ = self.RunBazel(['query', query_expr])
 
     stdout = sorted(x for x in stdout if x)
     self.assertEqual(len(stdout), len(expected_results))
     self.assertListEqual(stdout, sorted(expected_results))
 
+  def _AssertQueryOutputContains(self, query_expr, *expected_content):
+    _, stdout, _ = self.RunBazel(['query', query_expr])
+
+    stdout = {x for x in stdout if x}
+    for item in expected_content:
+      self.assertIn(item, stdout)
+
 
 if __name__ == '__main__':
-  unittest.main()
+  absltest.main()

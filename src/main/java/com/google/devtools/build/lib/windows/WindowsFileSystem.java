@@ -17,6 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
+import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.JavaIoFileSystem;
@@ -27,6 +28,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.attribute.DosFileAttributes;
+import javax.annotation.Nullable;
 
 /** File system implementation for Windows. */
 @ThreadSafe
@@ -53,7 +55,8 @@ public class WindowsFileSystem extends JavaIoFileSystem {
   protected boolean delete(PathFragment path) throws IOException {
     long startTime = Profiler.nanoTimeMaybe();
     try {
-      return WindowsFileOperations.deletePath(path.getPathString());
+      return WindowsFileOperations.deletePath(
+          StringEncoding.internalToPlatform(path.getPathString()));
     } catch (java.nio.file.DirectoryNotEmptyException e) {
       throw new IOException(path.getPathString() + ERR_DIRECTORY_NOT_EMPTY, e);
     } catch (java.nio.file.AccessDeniedException e) {
@@ -70,13 +73,6 @@ public class WindowsFileSystem extends JavaIoFileSystem {
   }
 
   @Override
-  public void renameTo(PathFragment sourcePath, PathFragment targetPath) throws IOException {
-    // Make sure the target path doesn't exist to avoid permission denied error on Windows.
-    delete(targetPath);
-    super.renameTo(sourcePath, targetPath);
-  }
-
-  @Override
   protected void createSymbolicLink(PathFragment linkPath, PathFragment targetFragment)
       throws IOException {
     PathFragment targetPath =
@@ -84,17 +80,17 @@ public class WindowsFileSystem extends JavaIoFileSystem {
             ? targetFragment
             : linkPath.getParentDirectory().getRelative(targetFragment);
     try {
-      java.nio.file.Path link = getIoFile(linkPath).toPath();
-      java.nio.file.Path target = getIoFile(targetPath).toPath();
-      // Still Create a dangling junction if the target doesn't exist.
-      if (!target.toFile().exists() || target.toFile().isDirectory()) {
+      File link = getIoFile(linkPath);
+      File target = getIoFile(targetPath);
+      if (target.isDirectory()) {
+        WindowsFileOperations.createJunction(link.toString(), target.toString());
+      } else if (createSymbolicLinks) {
+        WindowsFileOperations.createSymlink(link.toString(), target.toString());
+      } else if (!target.exists()) {
+        // Still Create a dangling junction if the target doesn't exist.
         WindowsFileOperations.createJunction(link.toString(), target.toString());
       } else {
-        if (createSymbolicLinks) {
-          WindowsFileOperations.createSymlink(link.toString(), target.toString());
-        } else {
-          Files.copy(target, link);
-        }
+        Files.copy(target.toPath(), link.toPath());
       }
     } catch (java.nio.file.FileAlreadyExistsException e) {
       throw new IOException(linkPath + ERR_FILE_EXISTS, e);
@@ -108,15 +104,9 @@ public class WindowsFileSystem extends JavaIoFileSystem {
   @Override
   protected PathFragment readSymbolicLink(PathFragment path) throws IOException {
     java.nio.file.Path nioPath = getNioPath(path);
-    WindowsFileOperations.ReadSymlinkOrJunctionResult result =
-        WindowsFileOperations.readSymlinkOrJunction(nioPath.toString());
-    if (result.getStatus() == WindowsFileOperations.ReadSymlinkOrJunctionResult.Status.OK) {
-      return PathFragment.create(result.getResult());
-    }
-    if (result.getStatus() == WindowsFileOperations.ReadSymlinkOrJunctionResult.Status.NOT_A_LINK) {
-      throw new NotASymlinkException(path);
-    }
-    throw new IOException(result.getResult());
+    return PathFragment.create(
+        StringEncoding.platformToInternal(
+            WindowsFileOperations.readSymlinkOrJunction(nioPath.toString())));
   }
 
   @Override
@@ -155,12 +145,14 @@ public class WindowsFileSystem extends JavaIoFileSystem {
       throw new FileNotFoundException(path + ERR_NO_SUCH_FILE_OR_DIR);
     }
 
-    final boolean isSymbolicLink = !followSymlinks && fileIsSymbolicLink(file);
     FileStatus status =
         new FileStatus() {
+          @Nullable volatile Boolean isSymbolicLink; // null if not yet known
+          volatile long lastChangeTime = -1;
+
           @Override
           public boolean isFile() {
-            return !isSymbolicLink && (attributes.isRegularFile() || isSpecialFile());
+            return !isSymbolicLink() && (attributes.isRegularFile() || isSpecialFile());
           }
 
           @Override
@@ -168,33 +160,40 @@ public class WindowsFileSystem extends JavaIoFileSystem {
             // attributes.isOther() returns false for symlinks but returns true for junctions.
             // Bazel treats junctions like symlinks. So let's return false here for junctions.
             // This fixes https://github.com/bazelbuild/bazel/issues/9176
-            return !isSymbolicLink && attributes.isOther();
+            return !isSymbolicLink() && attributes.isOther();
           }
 
           @Override
           public boolean isDirectory() {
-            return !isSymbolicLink && attributes.isDirectory();
+            return !isSymbolicLink() && attributes.isDirectory();
           }
 
           @Override
           public boolean isSymbolicLink() {
+            if (isSymbolicLink == null) {
+              isSymbolicLink = !followSymlinks && fileIsSymbolicLink(file);
+            }
             return isSymbolicLink;
           }
 
           @Override
-          public long getSize() throws IOException {
+          public long getSize() {
             return attributes.size();
           }
 
           @Override
-          public long getLastModifiedTime() throws IOException {
+          public long getLastModifiedTime() {
             return attributes.lastModifiedTime().toMillis();
           }
 
           @Override
-          public long getLastChangeTime() {
-            // This is the best we can do with Java NIO...
-            return attributes.lastModifiedTime().toMillis();
+          public long getLastChangeTime() throws IOException {
+            if (lastChangeTime == -1) {
+              lastChangeTime =
+                  WindowsFileOperations.getLastChangeTime(
+                      getNioPath(path).toString(), followSymlinks);
+            }
+            return lastChangeTime;
           }
 
           @Override
@@ -202,9 +201,20 @@ public class WindowsFileSystem extends JavaIoFileSystem {
             // TODO(bazel-team): Consider making use of attributes.fileKey().
             return -1;
           }
+
+          @Override
+          public int getPermissions() {
+            // Files on Windows are implicitly readable and executable.
+            return 0555 | (attributes.isReadOnly() ? 0 : 0200);
+          }
         };
 
     return status;
+  }
+
+  @Override
+  protected boolean isSymbolicLink(PathFragment path) {
+    return fileIsSymbolicLink(getIoFile(path));
   }
 
   @Override
@@ -219,6 +229,29 @@ public class WindowsFileSystem extends JavaIoFileSystem {
       }
     }
     return super.isDirectory(path, followSymlinks);
+  }
+
+  @Override
+  protected void setReadable(PathFragment path, boolean readable) {
+    // Windows does not have a notion of readable files.
+    // https://github.com/openjdk/jdk/blob/e52a2aeeacaeb26c801b6e31f8e67e61b1ea2de3/src/java.base/windows/native/libjava/WinNTFileSystem_md.c#L473-L476
+  }
+
+  @Override
+  protected void setExecutable(PathFragment path, boolean executable) {
+    // Windows does not have a notion of executable files.
+    // https://github.com/openjdk/jdk/blob/e52a2aeeacaeb26c801b6e31f8e67e61b1ea2de3/src/java.base/windows/native/libjava/WinNTFileSystem_md.c#L473-L476
+  }
+
+  @Override
+  public void setWritable(PathFragment path, boolean writable) throws IOException {
+    // Windows does not have a notion of read-only directories.
+    // See https://learn.microsoft.com/en-us/windows/win32/fileio/file-attribute-constants.
+    // JavaIoFileSystem#setWritable(dir, true) would throw, so reimplement it here as a no-op.
+    if (isDirectory(path, /* followSymlinks= */ true)) {
+      return;
+    }
+    super.setWritable(path, writable);
   }
 
   /**

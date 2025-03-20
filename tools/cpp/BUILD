@@ -21,6 +21,7 @@ exports_files(glob(["*.bzl"]))
 filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [
+        "//tools/cpp/modules_tools:srcs",
         "//tools/cpp/runfiles:srcs",
     ],
 )
@@ -28,6 +29,7 @@ filegroup(
 filegroup(
     name = "embedded_tools",
     srcs = glob(["**"]) + [
+        "//tools/cpp/modules_tools:embedded_tools",
         "//tools/cpp/runfiles:embedded_tools",
     ],
 )
@@ -36,4 +38,18 @@ filegroup(
     name = "bzl_srcs",
     srcs = glob(["*.bzl"]),
     visibility = ["//tools:__pkg__"],
+)
+
+cc_test(
+    name = "bazel_build_info_translation_helper_test",
+    srcs = ["bazel_build_info_translation_helper_test.cc"],
+    data = [
+        ":test_data/correct_file_format.txt",
+        ":test_data/duplicated_key.txt",
+        ":test_data/no_separator.txt",
+    ],
+    deps = [
+        ":bazel_build_info_translation_helper",
+        "@com_google_googletest//:gtest_main",
+    ],
 )

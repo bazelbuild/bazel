@@ -13,23 +13,23 @@
 // limitations under the License.
 package com.google.devtools.build.lib.buildtool;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.devtools.build.lib.skyframe.CoverageReportValue.COVERAGE_REPORT_KEY;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Strings;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Range;
 import com.google.common.collect.Sets;
-import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.ActionCacheChecker;
-import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionExecutionStatusReporter;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
+import com.google.devtools.build.lib.actions.ActionOutputDirectoryHelper;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.Executor;
-import com.google.devtools.build.lib.actions.InputFileErrorException;
-import com.google.devtools.build.lib.actions.MetadataProvider;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
+import com.google.devtools.build.lib.actions.OutputChecker;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -37,41 +37,26 @@ import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.test.TestProvider;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionProgressReceiverAvailableEvent;
-import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
-import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
-import com.google.devtools.build.lib.server.FailureDetails.Execution;
-import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
-import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
-import com.google.devtools.build.lib.server.FailureDetails.IncludeScanning;
 import com.google.devtools.build.lib.skyframe.ActionExecutionInactivityWatchdog;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.Builder;
-import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
-import com.google.devtools.build.lib.skyframe.DetailedException;
+import com.google.devtools.build.lib.skyframe.SkyframeErrorProcessor;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
-import com.google.devtools.build.lib.skyframe.TopDownActionCache;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.DetailedExitCode.DetailedExitCodeComparator;
-import com.google.devtools.build.lib.util.ExecutionDetailedExitCodeHelper;
-import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
-import com.google.devtools.build.skyframe.CycleInfo;
-import com.google.devtools.build.skyframe.ErrorInfo;
 import com.google.devtools.build.skyframe.EvaluationResult;
-import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.common.options.OptionsProvider;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.logging.Level;
 import javax.annotation.Nullable;
 
 /**
@@ -79,15 +64,13 @@ import javax.annotation.Nullable;
  */
 @VisibleForTesting
 public class SkyframeBuilder implements Builder {
-  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
-
   private final ResourceManager resourceManager;
   private final SkyframeExecutor skyframeExecutor;
   private final ModifiedFileSet modifiedOutputFiles;
-  private final MetadataProvider fileCache;
+  private final InputMetadataProvider fileCache;
   private final ActionInputPrefetcher actionInputPrefetcher;
+  private final ActionOutputDirectoryHelper actionOutputDirectoryHelper;
   private final ActionCacheChecker actionCacheChecker;
-  private final TopDownActionCache topDownActionCache;
   private final BugReporter bugReporter;
 
   @VisibleForTesting
@@ -95,18 +78,18 @@ public class SkyframeBuilder implements Builder {
       SkyframeExecutor skyframeExecutor,
       ResourceManager resourceManager,
       ActionCacheChecker actionCacheChecker,
-      TopDownActionCache topDownActionCache,
       ModifiedFileSet modifiedOutputFiles,
-      MetadataProvider fileCache,
+      InputMetadataProvider fileCache,
       ActionInputPrefetcher actionInputPrefetcher,
+      ActionOutputDirectoryHelper actionOutputDirectoryHelper,
       BugReporter bugReporter) {
     this.resourceManager = resourceManager;
     this.skyframeExecutor = skyframeExecutor;
     this.actionCacheChecker = actionCacheChecker;
-    this.topDownActionCache = topDownActionCache;
     this.modifiedOutputFiles = modifiedOutputFiles;
     this.fileCache = fileCache;
     this.actionInputPrefetcher = actionInputPrefetcher;
+    this.actionOutputDirectoryHelper = actionOutputDirectoryHelper;
     this.bugReporter = bugReporter;
   }
 
@@ -120,19 +103,19 @@ public class SkyframeBuilder implements Builder {
       Set<ConfiguredTarget> targetsToSkip,
       ImmutableSet<AspectKey> aspects,
       Executor executor,
-      Set<ConfiguredTargetKey> builtTargets,
-      Set<AspectKey> builtAspects,
       OptionsProvider options,
       @Nullable Range<Long> lastExecutionTimeRange,
       TopLevelArtifactContext topLevelArtifactContext,
-      boolean trustRemoteArtifacts)
+      OutputChecker outputChecker)
       throws BuildFailedException, AbruptExitException, TestExecException, InterruptedException {
     BuildRequestOptions buildRequestOptions = options.getOptions(BuildRequestOptions.class);
     // TODO(bazel-team): Should use --experimental_fsvc_threads instead of the hardcoded constant
     // but plumbing the flag through is hard.
     int fsvcThreads = buildRequestOptions == null ? 200 : buildRequestOptions.fsvcThreads;
+    boolean skyframeErrorHandlingRefactor =
+        buildRequestOptions != null && buildRequestOptions.skyframeErrorHandlingRefactor;
     skyframeExecutor.detectModifiedOutputFiles(
-        modifiedOutputFiles, lastExecutionTimeRange, trustRemoteArtifacts, fsvcThreads);
+        modifiedOutputFiles, lastExecutionTimeRange, outputChecker, fsvcThreads);
     try (SilentCloseable c = Profiler.instance().profile("configureActionExecutor")) {
       skyframeExecutor.configureActionExecutor(fileCache, actionInputPrefetcher);
     }
@@ -140,9 +123,8 @@ public class SkyframeBuilder implements Builder {
     // synchronized collection), so unsynchronized access to this variable is unsafe while it runs.
     ExecutionProgressReceiver executionProgressReceiver =
         new ExecutionProgressReceiver(
-            Preconditions.checkNotNull(builtTargets),
-            Preconditions.checkNotNull(builtAspects),
-            countTestActions(exclusiveTests));
+            countTestActions(exclusiveTests),
+            skyframeExecutor.getEventBus());
     skyframeExecutor
         .getEventBus()
         .post(new ExecutionProgressReceiverAvailableEvent(executionProgressReceiver));
@@ -165,6 +147,14 @@ public class SkyframeBuilder implements Builder {
         executionProgressReceiver, statusReporter);
     watchdog.start();
 
+    // We need to extract out artifacts for the combined coverage report; these should only be built
+    // after any exclusive tests have been run, otherwise the tests get run as part of the build.
+    ImmutableSet<Artifact> coverageReportArtifacts =
+        artifacts.stream()
+            .filter(artifact -> artifact.getArtifactOwner().equals(COVERAGE_REPORT_KEY))
+            .collect(toImmutableSet());
+    Set<Artifact> artifactsToBuild = Sets.difference(artifacts, coverageReportArtifacts);
+
     targetsToBuild = Sets.difference(targetsToBuild, targetsToSkip);
     parallelTests = Sets.difference(parallelTests, targetsToSkip);
     exclusiveTests = Sets.difference(exclusiveTests, targetsToSkip);
@@ -175,24 +165,28 @@ public class SkyframeBuilder implements Builder {
               reporter,
               resourceManager,
               executor,
-              artifacts,
+              artifactsToBuild,
               targetsToBuild,
               aspects,
               parallelTests,
               exclusiveTests,
               options,
               actionCacheChecker,
-              topDownActionCache,
+              actionOutputDirectoryHelper,
               executionProgressReceiver,
               topLevelArtifactContext);
       // progressReceiver is finished, so unsynchronized access to builtTargets is now safe.
       DetailedExitCode detailedExitCode =
-          processResult(
-              reporter,
-              result,
-              options.getOptions(KeepGoingOption.class).keepGoing,
-              skyframeExecutor,
-              bugReporter);
+          SkyframeErrorProcessor.processExecutionErrors(
+                  result,
+                  skyframeExecutor.getCyclesReporter(),
+                  reporter,
+                  options.getOptions(KeepGoingOption.class).keepGoing,
+                  skyframeExecutor.tracksStateForIncrementality(),
+                  skyframeExecutor.getEventBus(),
+                  bugReporter,
+                  skyframeErrorHandlingRefactor)
+              .executionDetailedExitCode();
 
       if (detailedExitCode != null) {
         detailedExitCodes.add(detailedExitCode);
@@ -212,21 +206,52 @@ public class SkyframeBuilder implements Builder {
                 exclusiveTest,
                 options,
                 actionCacheChecker,
-                topDownActionCache,
+                actionOutputDirectoryHelper,
                 topLevelArtifactContext);
+
         detailedExitCode =
-            processResult(
-                reporter,
-                result,
-                options.getOptions(KeepGoingOption.class).keepGoing,
-                skyframeExecutor,
-                bugReporter);
+            SkyframeErrorProcessor.processExecutionErrors(
+                    result,
+                    skyframeExecutor.getCyclesReporter(),
+                    reporter,
+                    options.getOptions(KeepGoingOption.class).keepGoing,
+                    skyframeExecutor.tracksStateForIncrementality(),
+                    skyframeExecutor.getEventBus(),
+                    bugReporter,
+                    skyframeErrorHandlingRefactor)
+                .executionDetailedExitCode();
         Preconditions.checkState(
             detailedExitCode != null || !result.keyNames().isEmpty(),
             "Build reported as successful but test %s not executed: %s",
             exclusiveTest,
             result);
 
+        if (detailedExitCode != null) {
+          detailedExitCodes.add(detailedExitCode);
+        }
+      }
+      // Build coverage report
+      if (!coverageReportArtifacts.isEmpty()) {
+        result =
+            skyframeExecutor.evaluateSkyKeysWithExecution(
+                reporter,
+                executor,
+                Artifact.keys(coverageReportArtifacts),
+                options,
+                actionCacheChecker,
+                actionOutputDirectoryHelper);
+
+        detailedExitCode =
+            SkyframeErrorProcessor.processExecutionErrors(
+                    result,
+                    skyframeExecutor.getCyclesReporter(),
+                    reporter,
+                    options.getOptions(KeepGoingOption.class).keepGoing,
+                    skyframeExecutor.tracksStateForIncrementality(),
+                    skyframeExecutor.getEventBus(),
+                    bugReporter,
+                    skyframeErrorHandlingRefactor)
+                .executionDetailedExitCode();
         if (detailedExitCode != null) {
           detailedExitCodes.add(detailedExitCode);
         }
@@ -246,161 +271,16 @@ public class SkyframeBuilder implements Builder {
         null, Collections.max(detailedExitCodes, DetailedExitCodeComparator.INSTANCE));
   }
 
-  /**
-   * Process an {@link EvaluationResult}, taking into account the keepGoing setting.
-   *
-   * <p>Returns a nullable {@link DetailedExitCode} value, as follows:
-   *
-   * <ol>
-   *   <li>{@code null}, if {@code result} had no errors
-   *   <li>{@code e} if result had errors and one of them specified a {@link DetailedExitCode} value
-   *       {@code e}
-   *   <li>a {@link DetailedExitCode} with {@link Code#NON_ACTION_EXECUTION_FAILURE} if result had
-   *       errors but none specified a {@link DetailedExitCode} value
-   * </ol>
-   *
-   * <p>Throws on catastrophic failures and, if !keepGoing, on any failure.
-   */
-  @Nullable
-  public static DetailedExitCode processResult(
-      ExtendedEventHandler eventHandler,
-      EvaluationResult<?> result,
-      boolean keepGoing,
-      SkyframeExecutor skyframeExecutor,
-      @Nullable BugReporter bugReporter)
-      throws BuildFailedException, TestExecException {
-    if (result.hasError()) {
-      for (Map.Entry<SkyKey, ErrorInfo> entry : result.errorMap().entrySet()) {
-        Iterable<CycleInfo> cycles = entry.getValue().getCycleInfo();
-        skyframeExecutor.reportCycles(eventHandler, cycles, entry.getKey());
-      }
-
-      if (result.getCatastrophe() != null) {
-        rethrow(result.getCatastrophe(), bugReporter);
-      }
-      if (keepGoing) {
-        return getDetailedExitCode(result);
-      }
-      ErrorInfo errorInfo = Preconditions.checkNotNull(result.getError(), result);
-      Exception exception = errorInfo.getException();
-      if (exception == null) {
-        Preconditions.checkState(!errorInfo.getCycleInfo().isEmpty(), errorInfo);
-        // If a keepGoing=false build found a cycle, that means there were no other errors thrown
-        // during evaluation (otherwise, it wouldn't have bothered to find a cycle). So the best
-        // we can do is throw a generic build failure exception, since we've already reported the
-        // cycles above.
-        throw new BuildFailedException(
-            null,
-            ExecutionDetailedExitCodeHelper.createDetailedExecutionExitCode(
-                "cycle found during execution", Code.CYCLE));
-      } else {
-        rethrow(exception, bugReporter);
-      }
-    }
-
-    return null;
-  }
-
-  private static DetailedExitCode getDetailedExitCode(EvaluationResult<?> result) {
-    // If build fails and keepGoing is true, an exit code is assigned using reported errors
-    // in the following order:
-    //   1. First infrastructure error with non-null exit code
-    //   2. First non-infrastructure error with non-null exit code
-    //   3. If the build fails but no interpretable error is specified, BUILD_FAILURE.
-    DetailedExitCode detailedExitCode = null;
-    Throwable undetailedCause = null;
-    for (Map.Entry<SkyKey, ErrorInfo> error : result.errorMap().entrySet()) {
-      Throwable cause = error.getValue().getException();
-      if (cause instanceof DetailedException) {
-        // Update global exit code when current exit code is not null and global exit code has
-        // a lower 'reporting' priority.
-        detailedExitCode =
-            DetailedExitCodeComparator.chooseMoreImportantWithFirstIfTie(
-                detailedExitCode, ((DetailedException) cause).getDetailedExitCode());
-        if (!(cause instanceof ActionExecutionException)
-            && !(cause instanceof InputFileErrorException)) {
-          logger.atWarning().withCause(cause).log(
-              "Non-action-execution/input-error exception for %s", error);
-        }
-      } else {
-        undetailedCause = cause;
-      }
-    }
-    if (detailedExitCode != null) {
-      return detailedExitCode;
-    }
-    return ExecutionDetailedExitCodeHelper.createDetailedExitCodeForUndetailedExecutionCause(
-        result, undetailedCause);
-  }
-
-  /** Figure out why an action's execution failed and rethrow the right kind of exception. */
-  @VisibleForTesting
-  public static void rethrow(Throwable cause, BugReporter bugReporter)
-      throws BuildFailedException, TestExecException {
-    Throwables.throwIfUnchecked(cause);
-    Throwable innerCause = cause.getCause();
-    if (innerCause instanceof TestExecException) {
-      throw (TestExecException) innerCause;
-    }
-    if (cause instanceof ActionExecutionException) {
-      ActionExecutionException actionExecutionCause = (ActionExecutionException) cause;
-      String message = cause.getMessage();
-      if (actionExecutionCause.getAction() != null) {
-        message = actionExecutionCause.getAction().describe() + " failed: " + message;
-      }
-      // Sometimes ActionExecutionExceptions are caused by Actions with no owner.
-      if (actionExecutionCause.getLocation() != null) {
-        message = actionExecutionCause.getLocation() + " " + message;
-      }
-      throw new BuildFailedException(
-          message,
-          actionExecutionCause.isCatastrophe(),
-          /*errorAlreadyShown=*/ !actionExecutionCause.showError(),
-          actionExecutionCause.getDetailedExitCode());
-    }
-    if (cause instanceof InputFileErrorException) {
-      throw (InputFileErrorException) cause;
-    }
-    if (cause instanceof BuildFileNotFoundException) {
-      // Sadly, this can happen because we may load new packages during input discovery. Any
-      // failures reading those packages shouldn't terminate the build, but in Skyframe they do.
-      LoggingUtil.logToRemote(Level.WARNING, "undesirable loading exception", cause);
-      throw new BuildFailedException(
-          cause.getMessage(),
-          DetailedExitCode.of(
-              FailureDetail.newBuilder()
-                  .setMessage(Strings.nullToEmpty(cause.getMessage()))
-                  .setIncludeScanning(
-                      IncludeScanning.newBuilder()
-                          .setCode(IncludeScanning.Code.PACKAGE_LOAD_FAILURE))
-                  .build()));
-    }
-    // We encountered an exception we don't think we should have encountered. This can indicate
-    // an exception-processing bug in our code, such as lower level exceptions not being properly
-    // handled, or in our expectations in this method.
-    bugReporter.sendBugReport(
-        new IllegalStateException("action terminated with unexpected exception", cause));
-    String message =
-        "Unexpected exception, please file an issue with the Bazel team: " + cause.getMessage();
-    throw new BuildFailedException(
-        message,
-        DetailedExitCode.of(
-            FailureDetail.newBuilder()
-                .setMessage(message)
-                .setExecution(Execution.newBuilder().setCode(Code.UNEXPECTED_EXCEPTION))
-                .build()));
-  }
-
   ActionCacheChecker getActionCacheChecker() {
     return actionCacheChecker;
   }
 
-  TopDownActionCache getTopDownActionCache() {
-    return topDownActionCache;
+  InputMetadataProvider getFileCache() {
+    return fileCache;
   }
 
-  MetadataProvider getFileCache() {
-    return fileCache;
+  ActionOutputDirectoryHelper getActionOutputDirectoryHelper() {
+    return actionOutputDirectoryHelper;
   }
 
   ActionInputPrefetcher getActionInputPrefetcher() {

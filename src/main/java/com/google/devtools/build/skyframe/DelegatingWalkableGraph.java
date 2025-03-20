@@ -45,12 +45,13 @@ public class DelegatingWalkableGraph implements WalkableGraph {
     return entry == null ? null : entry.getValue();
   }
 
+  @Nullable
   private static SkyValue getValueFromNodeEntry(NodeEntry entry) throws InterruptedException {
     return entry.isDone() ? entry.getValue() : null;
   }
 
   @Override
-  public Map<SkyKey, SkyValue> getSuccessfulValues(Iterable<SkyKey> keys)
+  public Map<SkyKey, SkyValue> getSuccessfulValues(Iterable<? extends SkyKey> keys)
       throws InterruptedException {
     Map<SkyKey, ? extends NodeEntry> batchGet = getBatch(null, Reason.WALKABLE_GRAPH_VALUE, keys);
     Map<SkyKey, SkyValue> result = Maps.newHashMapWithExpectedSize(batchGet.size());
@@ -154,7 +155,7 @@ public class DelegatingWalkableGraph implements WalkableGraph {
   protected Map<SkyKey, ? extends NodeEntry> getBatch(
       @Nullable SkyKey requestor, Reason reason, Iterable<? extends SkyKey> keys)
       throws InterruptedException {
-    return graph.getBatch(requestor, reason, keys);
+    return graph.getBatchMap(requestor, reason, keys);
   }
 
   @Override

@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.aquery;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
@@ -55,17 +56,21 @@ public class ActionGraphQueryTest extends PostAnalysisQueryTest<ConfiguredTarget
 
   @Override
   protected QueryHelper<ConfiguredTargetValue> createQueryHelper() {
-    if (helper != null) {
-      getHelper().cleanUp();
-    }
-    helper = new ActionGraphQueryHelper();
-    return helper;
+    return new ActionGraphQueryHelper();
   }
 
   @Override
   @Test
   public void testMultipleTopLevelConfigurations_nullConfigs() throws Exception {
-    writeFile("test/BUILD", "java_library(name='my_java',", "  srcs = ['foo.java'],", ")");
+    writeFile(
+        "test/BUILD",
+        """
+        load("@rules_java//java:defs.bzl", "java_library")
+        java_library(
+            name = "my_java",
+            srcs = ["foo.java"],
+        )
+        """);
 
     Set<ConfiguredTargetValue> result = eval("//test:my_java+//test:foo.java");
 
@@ -80,5 +85,73 @@ public class ActionGraphQueryTest extends PostAnalysisQueryTest<ConfiguredTarget
       assertThat(getConfiguration(first)).isNotNull();
       assertThat(getConfiguration(resultIterator.next())).isNull();
     }
+  }
+
+  // Regression test for b/235526333.
+  @Test
+  public void testImplicitToolchainBinding_containsToolchainTarget() throws Exception {
+    writeFile(
+        "q/BUILD",
+        """
+        load(":q.bzl", "r", "tc")
+
+        genrule(
+            name = "gr",
+            srcs = [],
+            outs = ["gro"],
+            cmd = "echo GRO > $@",
+        )
+
+        tc(
+            name = "tc",
+            dep = ":gr",
+        )
+
+        toolchain_type(name = "type")
+
+        toolchain(
+            name = "tc.toolchain",
+            toolchain = ":tc",
+            toolchain_type = ":type",
+        )
+
+        r(name = "r")
+        """);
+    writeFile(
+        "q/q.bzl",
+        """
+        def _r_impl(ctx):
+            gro = ctx.toolchains["//q:type"].gro
+            o = ctx.actions.declare_file(ctx.label.name + ".output")
+            ctx.actions.run_shell(
+                inputs = depset([gro]),
+                outputs = [o],
+                command = "cp " + gro.path + " " + o.path,
+            )
+            return DefaultInfo(files = depset([o]))
+
+        def _tc_impl(ctx):
+            gro = ctx.files.dep[0]
+            return [platform_common.ToolchainInfo(gro = gro)]
+
+        tc = rule(
+            implementation = _tc_impl,
+            attrs = {"dep": attr.label()},
+        )
+        r = rule(
+            implementation = _r_impl,
+            toolchains = ["//q:type"],
+        )
+        """);
+    overwriteFile("MODULE.bazel", "register_toolchains('//q:tc.toolchain')");
+
+    Set<ConfiguredTargetValue> result = eval("deps('//q:r')");
+
+    assertDoesNotContainEvent("Targets were missing from graph");
+    assertThat(
+            result.stream()
+                .map(x -> x.getConfiguredTarget().getOriginalLabel().getCanonicalForm())
+                .collect(toImmutableList()))
+        .contains("//q:tc");
   }
 }

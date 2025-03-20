@@ -13,23 +13,17 @@
 // limitations under the License.
 package com.google.devtools.build.lib.bazel.repository;
 
-import static com.google.devtools.build.lib.rules.repository.ResolvedHashesFunction.ATTRIBUTES;
-import static com.google.devtools.build.lib.rules.repository.ResolvedHashesFunction.DEFINITION_INFORMATION;
-import static com.google.devtools.build.lib.rules.repository.ResolvedHashesFunction.ORIGINAL_ATTRIBUTES;
-import static com.google.devtools.build.lib.rules.repository.ResolvedHashesFunction.ORIGINAL_RULE_CLASS;
-import static com.google.devtools.build.lib.rules.repository.ResolvedHashesFunction.OUTPUT_TREE_HASH;
-import static com.google.devtools.build.lib.rules.repository.ResolvedHashesFunction.REPOSITORIES;
-import static com.google.devtools.build.lib.rules.repository.ResolvedHashesFunction.RULE_CLASS;
-
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.events.ExtendedEventHandler.ResolvedEvent;
+import com.google.devtools.build.lib.bazel.ResolvedEvent;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.StructImpl;
+import com.google.devtools.build.lib.rules.repository.ResolvedFileValue;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.XattrProvider;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
@@ -41,7 +35,6 @@ import net.starlark.java.eval.StarlarkThread;
  * Event indicating that a repository rule was executed, together with the return value of the rule.
  */
 public class RepositoryResolvedEvent implements ResolvedEvent {
-
   /**
    * The entry for WORSPACE.resolved corresponding to that rule invocation.
    *
@@ -66,10 +59,8 @@ public class RepositoryResolvedEvent implements ResolvedEvent {
    */
   private ImmutableMap.Builder<String, Object> resolvedInformationBuilder = ImmutableMap.builder();
 
-  private ImmutableMap.Builder<String, Object> repositoryBuilder =
-      ImmutableMap.<String, Object>builder();
+  private ImmutableMap.Builder<String, Object> repositoryBuilder = ImmutableMap.builder();
 
-  private String directoryDigest;
   private final Path outputDirectory;
 
   private final String name;
@@ -81,13 +72,17 @@ public class RepositoryResolvedEvent implements ResolvedEvent {
 
     String originalClass =
         rule.getRuleClassObject().getRuleDefinitionEnvironmentLabel() + "%" + rule.getRuleClass();
-    resolvedInformationBuilder.put(ORIGINAL_RULE_CLASS, originalClass);
-    resolvedInformationBuilder.put(DEFINITION_INFORMATION, getRuleDefinitionInformation(rule));
+    resolvedInformationBuilder.put(ResolvedFileValue.ORIGINAL_RULE_CLASS, originalClass);
+    resolvedInformationBuilder.put(
+        ResolvedFileValue.DEFINITION_INFORMATION, getRuleDefinitionInformation(rule));
 
     ImmutableMap.Builder<String, Object> origAttrBuilder = ImmutableMap.builder();
     ImmutableMap.Builder<String, Object> defaults = ImmutableMap.builder();
 
     for (Attribute attr : rule.getAttributes()) {
+      if (!attr.isPublic()) {
+        continue;
+      }
       String name = attr.getPublicName();
       try {
         Object value = attrs.getValue(name, Object.class);
@@ -102,22 +97,22 @@ public class RepositoryResolvedEvent implements ResolvedEvent {
         // Do nothing, just ignore the value.
       }
     }
-    ImmutableMap<String, Object> origAttr = origAttrBuilder.build();
-    resolvedInformationBuilder.put(ORIGINAL_ATTRIBUTES, origAttr);
+    ImmutableMap<String, Object> origAttr = origAttrBuilder.buildOrThrow();
+    resolvedInformationBuilder.put(ResolvedFileValue.ORIGINAL_ATTRIBUTES, origAttr);
 
-    repositoryBuilder.put(RULE_CLASS, originalClass);
+    repositoryBuilder.put(ResolvedFileValue.RULE_CLASS, originalClass);
 
     if (result == Starlark.NONE) {
       // Rule claims to be already reproducible, so wants to be called as is.
-      repositoryBuilder.put(ATTRIBUTES, origAttr);
+      repositoryBuilder.put(ResolvedFileValue.ATTRIBUTES, origAttr);
       this.informationReturned = false;
       this.message = "Repository rule '" + rule.getName() + "' finished.";
     } else if (result instanceof Map) {
       // Rule claims that the returned (probably changed) arguments are a reproducible
       // version of itself.
-      repositoryBuilder.put(ATTRIBUTES, result);
+      repositoryBuilder.put(ResolvedFileValue.ATTRIBUTES, result);
       Pair<Map<String, Object>, List<String>> diff =
-          compare(origAttr, defaults.build(), (Map<?, ?>) result);
+          compare(origAttr, defaults.buildOrThrow(), (Map<?, ?>) result);
       if (diff.getFirst().isEmpty() && diff.getSecond().isEmpty()) {
         this.informationReturned = false;
         this.message = "Repository rule '" + rule.getName() + "' finished.";
@@ -151,7 +146,7 @@ public class RepositoryResolvedEvent implements ResolvedEvent {
     } else {
       // TODO(aehlig): handle strings specially to allow encodings of the former
       // values to be accepted as well.
-      resolvedInformationBuilder.put(REPOSITORIES, result);
+      resolvedInformationBuilder.put(ResolvedFileValue.REPOSITORIES, result);
       repositoryBuilder = null; // We already added the REPOSITORIES entry
       this.informationReturned = true;
       this.message = "Repository rule '" + rule.getName() + "' returned: " + result;
@@ -164,32 +159,34 @@ public class RepositoryResolvedEvent implements ResolvedEvent {
    * Ensure that the {@code resolvedInformation} and the {@code directoryDigest} fields are
    * initialized properly. Does nothing, if the values are computed already.
    */
-  private synchronized void finalizeResolvedInformation() {
+  private synchronized void finalizeResolvedInformation(XattrProvider xattrProvider) {
     if (resolvedInformation != null) {
       return;
     }
     String digest = "[unavailable]";
     try {
-      digest = outputDirectory.getDirectoryDigest();
-      repositoryBuilder.put(OUTPUT_TREE_HASH, digest);
+      digest = outputDirectory.getDirectoryDigest(xattrProvider);
+      repositoryBuilder.put(ResolvedFileValue.OUTPUT_TREE_HASH, digest);
     } catch (IOException e) {
       // Digest not available, but we still have to report that a repository rule
       // was invoked. So we can do nothing, but ignore the event.
     }
-    this.directoryDigest = digest;
     if (repositoryBuilder != null) {
       resolvedInformationBuilder.put(
-          REPOSITORIES, ImmutableList.<Object>of(repositoryBuilder.build()));
+          ResolvedFileValue.REPOSITORIES,
+          ImmutableList.<Object>of(repositoryBuilder.buildOrThrow()));
     }
-    this.resolvedInformation = resolvedInformationBuilder.build();
+    this.resolvedInformation = resolvedInformationBuilder.buildOrThrow();
     this.resolvedInformationBuilder = null;
     this.repositoryBuilder = null;
   }
 
-  /** Return the entry for the given rule invocation in a format suitable for WORKSPACE.resolved. */
+  /**
+   * Returns the entry for the given rule invocation in a format suitable for WORKSPACE.resolved.
+   */
   @Override
-  public Object getResolvedInformation() {
-    finalizeResolvedInformation();
+  public Object getResolvedInformation(XattrProvider xattrProvider) {
+    finalizeResolvedInformation(xattrProvider);
     return resolvedInformation;
   }
 
@@ -197,11 +194,6 @@ public class RepositoryResolvedEvent implements ResolvedEvent {
   @Override
   public String getName() {
     return name;
-  }
-
-  public String getDirectoryDigest() {
-    finalizeResolvedInformation();
-    return directoryDigest;
   }
 
   /**
@@ -223,7 +215,7 @@ public class RepositoryResolvedEvent implements ResolvedEvent {
 
     // Emit stack of rule instantiation.
     buf.append("Repository ").append(rule.getName()).append(" instantiated at:\n");
-    ImmutableList<StarlarkThread.CallStackEntry> stack = rule.getCallStack().toList();
+    ImmutableList<StarlarkThread.CallStackEntry> stack = rule.reconstructCallStack();
     // TODO: Callstack should always be available for bazel.
     if (stack.isEmpty()) {
       buf.append("  callstack not available\n");
@@ -263,10 +255,9 @@ public class RepositoryResolvedEvent implements ResolvedEvent {
    */
   static Pair<Map<String, Object>, List<String>> compare(
       Map<String, Object> orig, Map<String, Object> defaults, Map<?, ?> modified) {
-    ImmutableMap.Builder<String, Object> valuesChanged = ImmutableMap.<String, Object>builder();
+    ImmutableMap.Builder<String, Object> valuesChanged = ImmutableMap.builder();
     for (Map.Entry<?, ?> entry : modified.entrySet()) {
-      if (entry.getKey() instanceof String) {
-        String key = (String) entry.getKey();
+      if (entry.getKey() instanceof String key) {
         if (IGNORED_ATTRIBUTE_NAMES.contains(key)) {
           // The dict returned by the repo rule really shouldn't know about these anyway, but
           // for symmetry we'll ignore them if they happen to be present.
@@ -286,7 +277,7 @@ public class RepositoryResolvedEvent implements ResolvedEvent {
         }
       }
     }
-    ImmutableList.Builder<String> keysDropped = ImmutableList.<String>builder();
+    ImmutableList.Builder<String> keysDropped = ImmutableList.builder();
     for (String key : orig.keySet()) {
       if (IGNORED_ATTRIBUTE_NAMES.contains(key)) {
         continue;
@@ -295,7 +286,7 @@ public class RepositoryResolvedEvent implements ResolvedEvent {
         keysDropped.add(key);
       }
     }
-    return Pair.of(valuesChanged.build(), keysDropped.build());
+    return Pair.of(valuesChanged.buildOrThrow(), keysDropped.build());
   }
 
   static String representModifications(Map<String, Object> changes) {

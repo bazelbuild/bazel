@@ -1,4 +1,3 @@
-# Lint as: python3
 # Copyright 2020 The Bazel Authors. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,11 +14,10 @@
 """Analysis that summarizes basic graph info."""
 from typing import Tuple
 
-# Do not edit this line. Copybara replaces it with PY2 migration helper.
 from dataclasses import dataclass
 
 from tools.ctexplain.types import ConfiguredTarget
-# Do not edit this line. Copybara replaces it with PY2 migration helper..third_party.bazel.tools.ctexplain.util as util
+import tools.ctexplain.util as util
 
 
 @dataclass(frozen=True)

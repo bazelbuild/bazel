@@ -14,26 +14,49 @@
 
 package com.google.devtools.build.lib.events;
 
+import javax.annotation.Nullable;
+
 /**
  * Interface for reporting events during the build. It extends the {@link EventHandler} by also
  * allowing posting more structured information.
  */
 public interface ExtendedEventHandler extends EventHandler {
 
-  /** Interface for declaring events that can be posted via the extended event handler */
-  interface Postable {}
+  public static final ExtendedEventHandler NOOP =
+      new ExtendedEventHandler() {
+        @Override
+        public void handle(Event event) {}
 
-  /** Post an postable object with more refined information about an important build event */
+        @Override
+        public void post(Postable obj) {}
+      };
+
+  /** An event that can be posted via the extended event handler. */
+  interface Postable extends Reportable {
+
+    @Override
+    default void reportTo(ExtendedEventHandler handler) {
+      handler.post(this);
+    }
+
+    @Override
+    default Postable withTag(@Nullable String tag) {
+      return this; // No tag-based filtering.
+    }
+
+    /** Replays a sequence of posts on {@code handler}. */
+    public static void replayPostsOn(ExtendedEventHandler handler, Iterable<Postable> posts) {
+      for (Postable post : posts) {
+        handler.post(post);
+      }
+    }
+  }
+
+  /** Posts a {@link Postable} object about an important build event. */
   void post(Postable obj);
 
-  /**
-   * Interface for declaring postable events that report about progress (as opposed to success or
-   * failure) and hence should not be stored and replayed.
-   */
-  interface ProgressLike extends Postable {}
-
-  /** Interface for progress events that report about fetching from a remote site */
-  interface FetchProgress extends ProgressLike {
+  /** A progress event that reports about fetching from a remote site. */
+  interface FetchProgress extends Postable {
 
     /**
      * The resource that was originally requested and uniquely determines the fetch source. The
@@ -49,13 +72,4 @@ public interface ExtendedEventHandler extends EventHandler {
     boolean isFinished();
   }
 
-  /** Interface for events reporting information to be added to a resolved file. */
-  interface ResolvedEvent extends ProgressLike {
-
-    /** The name of the resolved entity, e.g., the name of an external repository */
-    String getName();
-
-    /** The entry for the list of resolved Information. */
-    Object getResolvedInformation();
-  }
 }

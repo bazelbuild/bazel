@@ -20,6 +20,7 @@ import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.exec.TreeDeleter;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
+import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Symlinks;
@@ -45,8 +46,10 @@ public class HardlinkedSandboxedSpawn extends AbstractContainerizingSandboxedSpa
       SandboxOutputs outputs,
       Set<Path> writableDirs,
       TreeDeleter treeDeleter,
+      @Nullable Path sandboxDebugPath,
       @Nullable Path statisticsPath,
-      boolean sandboxDebug) {
+      boolean sandboxDebug,
+      String mnemonic) {
     super(
         sandboxPath,
         sandboxExecRoot,
@@ -56,7 +59,9 @@ public class HardlinkedSandboxedSpawn extends AbstractContainerizingSandboxedSpa
         outputs,
         writableDirs,
         treeDeleter,
-        statisticsPath);
+        sandboxDebugPath,
+        statisticsPath,
+        mnemonic);
     this.sandboxDebug = sandboxDebug;
   }
 
@@ -72,11 +77,14 @@ public class HardlinkedSandboxedSpawn extends AbstractContainerizingSandboxedSpa
    * path.
    */
   private void hardLinkRecursive(Path source, Path target) throws IOException {
-    if (source.isSymbolicLink()) {
+    FileStatus stat = source.stat(Symlinks.NOFOLLOW);
+
+    if (stat.isSymbolicLink()) {
       source = source.resolveSymbolicLinks();
+      stat = source.stat();
     }
 
-    if (source.isFile(Symlinks.NOFOLLOW)) {
+    if (stat.isFile()) {
       try {
         source.createHardLink(target);
       } catch (IOException e) {
@@ -86,7 +94,7 @@ public class HardlinkedSandboxedSpawn extends AbstractContainerizingSandboxedSpa
         }
         FileSystemUtils.copyFile(source, target);
       }
-    } else if (source.isDirectory()) {
+    } else if (stat.isDirectory()) {
       if (source.startsWith(target)) {
         throw new IllegalArgumentException(source + " is a subdirectory of " + target);
       }

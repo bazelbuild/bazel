@@ -57,9 +57,13 @@ cc_binary(
         "file-jni.cc",
         "jni-util.cc",
         "jni-util.h",
-        "memory_pressure_jni.cc",
         "processes-jni.cc",
         "sleep_prevention_jni.cc",
+        "system_cpu_speed_monitor_jni.cc",
+        "system_disk_space_monitor_jni.cc",
+        "system_load_advisory_monitor_jni.cc",
+        "system_memory_pressure_jni.cc",
+        "system_network_stats.cc",
         "system_suspension_monitor_jni.cc",
         "system_thermal_monitor_jni.cc",
         "//src/main/native:jni.h",
@@ -72,6 +76,8 @@ cc_binary(
     deps = [
         ":lib-file",
         ":lib-process",
+        "//src/main/native:blake3_jni",
+        "//src/main/native:common",
     ],
 )
 

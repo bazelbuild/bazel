@@ -13,16 +13,15 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
-import com.google.common.base.Preconditions;
-import com.google.common.collect.Interner;
-import com.google.devtools.build.lib.concurrent.BlazeInterners;
+import com.google.devtools.build.lib.actions.FileValue.RegularFileValue;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.io.InconsistentFilesystemException;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
@@ -34,10 +33,8 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.Symlinks;
-import com.google.devtools.build.lib.vfs.UnixGlob.FilesystemCalls;
-import com.google.devtools.build.skyframe.AbstractSkyKey;
-import com.google.devtools.build.skyframe.SkyFunctionName;
-import com.google.devtools.build.skyframe.SkyValue;
+import com.google.devtools.build.lib.vfs.SyscallCache;
+import com.google.devtools.build.lib.vfs.XattrProvider;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Objects;
@@ -60,11 +57,14 @@ import javax.annotation.Nullable;
  * com.google.devtools.build.lib.skyframe.FileFunction}. Instead, {@link FileValue} should be used
  * by {@link com.google.devtools.build.skyframe.SkyFunction} consumers that care about files.
  *
+ * <p>The common case for {@link FileValue} is {@link RegularFileValue} (i.e. the path's real path
+ * is itself, and it's an existing file). As a memory optimization for this common case, we have
+ * {@link FileStateValue} be a {@link RegularFileValue} so that we don't need a wrapper object for
+ * the value of the corresponding {@link FileValue} node.
+ *
  * <p>All subclasses must implement {@link #equals} and {@link #hashCode} properly.
  */
-public abstract class FileStateValue implements HasDigest, SkyValue {
-  public static final SkyFunctionName FILE_STATE = SkyFunctionName.createNonHermetic("FILE_STATE");
-
+public abstract class FileStateValue extends RegularFileValue implements HasDigest {
   @SerializationConstant
   public static final DirectoryFileStateValue DIRECTORY_FILE_STATE_NODE =
       new DirectoryFileStateValue();
@@ -76,60 +76,52 @@ public abstract class FileStateValue implements HasDigest, SkyValue {
   private FileStateValue() {}
 
   public static FileStateValue create(
-      RootedPath rootedPath,
-      FilesystemCalls syscallCache,
-      @Nullable TimestampGranularityMonitor tsgm)
+      RootedPath rootedPath, SyscallCache syscallCache, @Nullable TimestampGranularityMonitor tsgm)
       throws IOException {
     Path path = rootedPath.asPath();
-    Dirent.Type type = syscallCache.getType(path, Symlinks.NOFOLLOW);
+    SyscallCache.DirentTypeWithSkip typeWithSkip = syscallCache.getType(path, Symlinks.NOFOLLOW);
+    FileStatus stat = null;
+    Dirent.Type type = null;
+    if (typeWithSkip == SyscallCache.DirentTypeWithSkip.FILESYSTEM_OP_SKIPPED) {
+      stat = syscallCache.statIfFound(path, Symlinks.NOFOLLOW);
+      type = SyscallCache.statusToDirentType(stat);
+    } else if (typeWithSkip != null) {
+      type = typeWithSkip.getType();
+    }
     if (type == null) {
       return NONEXISTENT_FILE_STATE_NODE;
     }
-    switch (type) {
-      case DIRECTORY:
-        return DIRECTORY_FILE_STATE_NODE;
-      case SYMLINK:
-        return new SymlinkFileStateValue(path.readSymbolicLinkUnchecked());
-      case FILE:
-      case UNKNOWN:
-        FileStatus stat = syscallCache.statIfFound(path, Symlinks.NOFOLLOW);
+    return switch (type) {
+      case DIRECTORY -> DIRECTORY_FILE_STATE_NODE;
+      case SYMLINK -> new SymlinkFileStateValue(path.readSymbolicLinkUnchecked());
+      case FILE, UNKNOWN -> {
+        if (stat == null) {
+          stat = syscallCache.statIfFound(path, Symlinks.NOFOLLOW);
+        }
         if (stat == null) {
           throw new InconsistentFilesystemException(
               "File " + rootedPath + " found in directory, but stat failed");
         }
-        return createWithStatNoFollow(
+        yield createWithStatNoFollow(
             rootedPath,
-            FileStatusWithDigestAdapter.adapt(stat),
-            /*digestWillBeInjected=*/ false,
+            checkNotNull(FileStatusWithDigestAdapter.maybeAdapt(stat), rootedPath),
+            syscallCache,
             tsgm);
-    }
-    throw new AssertionError(type);
-  }
-
-  public static FileStateValue create(
-      RootedPath rootedPath, @Nullable TimestampGranularityMonitor tsgm) throws IOException {
-    Path path = rootedPath.asPath();
-    // Stat, but don't throw an exception for the common case of a nonexistent file. This still
-    // throws an IOException in case any other IO error is encountered.
-    FileStatus stat = path.statIfFound(Symlinks.NOFOLLOW);
-    if (stat == null) {
-      return NONEXISTENT_FILE_STATE_NODE;
-    }
-    return createWithStatNoFollow(
-        rootedPath, FileStatusWithDigestAdapter.adapt(stat), /*digestWillBeInjected=*/ false, tsgm);
+      }
+    };
   }
 
   public static FileStateValue createWithStatNoFollow(
       RootedPath rootedPath,
       FileStatusWithDigest statNoFollow,
-      boolean digestWillBeInjected,
+      XattrProvider xattrProvider,
       @Nullable TimestampGranularityMonitor tsgm)
       throws IOException {
     Path path = rootedPath.asPath();
     if (statNoFollow.isFile()) {
       return statNoFollow.isSpecialFile()
           ? SpecialFileStateValue.fromStat(path.asFragment(), statNoFollow, tsgm)
-          : RegularFileStateValue.fromPath(path, statNoFollow, digestWillBeInjected, tsgm);
+          : createRegularFileStateValueFromPath(path, statNoFollow, xattrProvider, tsgm);
     } else if (statNoFollow.isDirectory()) {
       return DIRECTORY_FILE_STATE_NODE;
     } else if (statNoFollow.isSymbolicLink()) {
@@ -139,32 +131,78 @@ public abstract class FileStateValue implements HasDigest, SkyValue {
         + "neither a file nor directory nor symlink.");
   }
 
-  @VisibleForTesting
-  @ThreadSafe
-  public static Key key(RootedPath rootedPath) {
-    return Key.create(rootedPath);
+  /**
+   * Creates a {@link FileStateValue} instance corresponding to the given existing file.
+   *
+   * <p>We use digests only if a fast digest lookup is available from the filesystem. If not, we
+   * fall back to mtime-based digests. This avoids the case where Blaze must read all files involved
+   * in the build in order to check for modifications in the case where fast digest lookups are not
+   * available.
+   *
+   * @param stat must be of type "File". (Not a symlink).
+   */
+  private static FileStateValue createRegularFileStateValueFromPath(
+      Path path,
+      FileStatusWithDigest stat,
+      XattrProvider xattrProvider,
+      @Nullable TimestampGranularityMonitor tsgm)
+      throws InconsistentFilesystemException {
+    checkState(stat.isFile(), path);
+
+    try {
+      byte[] digest = tryGetDigest(path, stat, xattrProvider);
+      if (digest == null) {
+        // Note that TimestampGranularityMonitor#notifyDependenceOnFileTime is a thread-safe method.
+        if (tsgm != null) {
+          tsgm.notifyDependenceOnFileTime(path.asFragment(), stat.getLastChangeTime());
+        }
+        return new RegularFileStateValueWithContentsProxy(
+            stat.getSize(), FileContentsProxy.create(stat));
+      } else {
+        // We are careful here to avoid putting the value ID into FileMetadata if we already have a
+        // digest. Arbitrary filesystems may do weird things with the value ID; a digest is more
+        // robust.
+        return new RegularFileStateValueWithDigest(stat.getSize(), digest);
+      }
+    } catch (IOException e) {
+      String errorMessage = e.getMessage() != null ? "error '" + e.getMessage() + "'" : "an error";
+      throw new InconsistentFilesystemException(
+          "'stat' said "
+              + path
+              + " is a file but then we "
+              + "later encountered "
+              + errorMessage
+              + " which indicates that "
+              + path
+              + " is no "
+              + "longer a file. Did you delete it during the build?");
+    }
   }
 
-  /** Key type for FileStateValue. */
-  @AutoCodec.VisibleForSerialization
-  @AutoCodec
-  public static class Key extends AbstractSkyKey<RootedPath> {
-    private static final Interner<Key> interner = BlazeInterners.newWeakInterner();
-
-    private Key(RootedPath arg) {
-      super(arg);
+  @Nullable
+  private static byte[] tryGetDigest(
+      Path path, FileStatusWithDigest stat, XattrProvider xattrProvider) throws IOException {
+    try {
+      byte[] digest = stat.getDigest();
+      return digest != null ? digest : xattrProvider.getFastDigest(path);
+    } catch (IOException ioe) {
+      if (!path.isReadable()) {
+        return null;
+      }
+      throw ioe;
     }
+  }
 
-    @AutoCodec.VisibleForSerialization
-    @AutoCodec.Instantiator
-    static Key create(RootedPath arg) {
-      return interner.intern(new Key(arg));
-    }
+  @ThreadSafe
+  public static RootedPath key(RootedPath rootedPath) {
+    // RootedPath is already the SkyKey we want; see FileStateKey. This method and that interface
+    // are provided as readability aids.
+    return rootedPath;
+  }
 
-    @Override
-    public SkyFunctionName functionName() {
-      return FILE_STATE;
-    }
+  @Override
+  public FileStateValue realFileStateValue() {
+    return this;
   }
 
   public abstract FileStateType getType();
@@ -174,7 +212,8 @@ public abstract class FileStateValue implements HasDigest, SkyValue {
     throw new IllegalStateException();
   }
 
-  long getSize() {
+  @Override
+  public long getSize() {
     throw new IllegalStateException();
   }
 
@@ -197,78 +236,88 @@ public abstract class FileStateValue implements HasDigest, SkyValue {
   abstract String prettyPrint();
 
   /**
-   * Implementation of {@link FileStateValue} for regular files that exist.
-   *
-   * <p>A union of (digest, mtime). We use digests only if a fast digest lookup is available from
-   * the filesystem. If not, we fall back to mtime-based digests. This avoids the case where Blaze
-   * must read all files involved in the build in order to check for modifications in the case where
-   * fast digest lookups are not available.
+   * Implementation of {@link FileStateValue} for regular files when a {@link #digest} is provided.
    */
-  @ThreadSafe
-  public static final class RegularFileStateValue extends FileStateValue {
+  public static final class RegularFileStateValueWithDigest extends FileStateValue {
     private final long size;
-    @Nullable private final byte[] digest;
-    @Nullable private final FileContentsProxy contentsProxy;
+    private final byte[] digest;
 
     @VisibleForTesting
-    public RegularFileStateValue(long size, byte[] digest, FileContentsProxy contentsProxy) {
-      Preconditions.checkState((digest == null) != (contentsProxy == null));
+    public RegularFileStateValueWithDigest(long size, byte[] digest) {
       this.size = size;
-      this.digest = digest;
-      this.contentsProxy = contentsProxy;
+      this.digest = checkNotNull(digest);
     }
 
-    /**
-     * Creates a FileFileStateValue instance corresponding to the given existing file.
-     *
-     * @param stat must be of type "File". (Not a symlink).
-     */
-    private static RegularFileStateValue fromPath(
-        Path path,
-        FileStatusWithDigest stat,
-        boolean digestWillBeInjected,
-        @Nullable TimestampGranularityMonitor tsgm)
-        throws InconsistentFilesystemException {
-      Preconditions.checkState(stat.isFile(), path);
-
-      try {
-        // If the digest will be injected, we can skip calling getFastDigest, but we need to store a
-        // contents proxy because if the digest is injected but is not available from the
-        // filesystem, we will need the proxy to determine whether the file was modified.
-        byte[] digest = digestWillBeInjected ? null : tryGetDigest(path, stat);
-        if (digest == null) {
-          // Note that TimestampGranularityMonitor#notifyDependenceOnFileTime is a thread-safe
-          // method.
-          if (tsgm != null) {
-            tsgm.notifyDependenceOnFileTime(path.asFragment(), stat.getLastChangeTime());
-          }
-          return new RegularFileStateValue(stat.getSize(), null, FileContentsProxy.create(stat));
-        } else {
-          // We are careful here to avoid putting the value ID into FileMetadata if we already have
-          // a digest. Arbitrary filesystems may do weird things with the value ID; a digest is more
-          // robust.
-          return new RegularFileStateValue(stat.getSize(), digest, null);
-        }
-      } catch (IOException e) {
-        String errorMessage = e.getMessage() != null
-            ? "error '" + e.getMessage() + "'" : "an error";
-        throw new InconsistentFilesystemException("'stat' said " + path + " is a file but then we "
-            + "later encountered " + errorMessage + " which indicates that " + path + " is no "
-            + "longer a file. Did you delete it during the build?");
-      }
+    @Override
+    public FileStateType getType() {
+      return FileStateType.REGULAR_FILE;
     }
 
+    @Override
+    public long getSize() {
+      return size;
+    }
+
+    @Override
+    public byte[] getDigest() {
+      return digest;
+    }
+
+    @Override
     @Nullable
-    private static byte[] tryGetDigest(Path path, FileStatusWithDigest stat) throws IOException {
-      try {
-        byte[] digest = stat.getDigest();
-        return digest != null ? digest : path.getFastDigest();
-      } catch (IOException ioe) {
-        if (!path.isReadable()) {
-          return null;
-        }
-        throw ioe;
+    public FileContentsProxy getContentsProxy() {
+      return null;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      if (obj == this) {
+        return true;
       }
+      if (!(obj instanceof RegularFileStateValueWithDigest other)) {
+        return false;
+      }
+      return size == other.size && Arrays.equals(digest, other.digest);
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(size, Arrays.hashCode(digest));
+    }
+
+    @Override
+    public byte[] getValueFingerprint() {
+      Fingerprint fp = new Fingerprint().addLong(size);
+      fp.addBytes(digest);
+      return fp.digestAndReset();
+    }
+
+    @Override
+    public String toString() {
+      return MoreObjects.toStringHelper(this).add("digest", digest).add("size", size).toString();
+    }
+
+    @Override
+    public String prettyPrint() {
+      String contents = String.format("digest of %s", Arrays.toString(digest));
+      return String.format("regular file with size of %d and %s", size, contents);
+    }
+  }
+
+  /**
+   * Implementation of {@link FileStateValue} for regular files when {@link FileContentsProxy} is
+   * provided.
+   *
+   * <p>{@link #contentsProxy} is used to determine whether the file was modified.
+   */
+  public static final class RegularFileStateValueWithContentsProxy extends FileStateValue {
+    private final long size;
+    private final FileContentsProxy contentsProxy;
+
+    @VisibleForTesting
+    public RegularFileStateValueWithContentsProxy(long size, FileContentsProxy contentsProxy) {
+      this.size = size;
+      this.contentsProxy = checkNotNull(contentsProxy);
     }
 
     @Override
@@ -284,7 +333,7 @@ public abstract class FileStateValue implements HasDigest, SkyValue {
     @Override
     @Nullable
     public byte[] getDigest() {
-      return digest;
+      return null;
     }
 
     @Override
@@ -297,46 +346,36 @@ public abstract class FileStateValue implements HasDigest, SkyValue {
       if (obj == this) {
         return true;
       }
-      if (!(obj instanceof RegularFileStateValue)) {
+      if (!(obj instanceof RegularFileStateValueWithContentsProxy other)) {
         return false;
       }
-      RegularFileStateValue other = (RegularFileStateValue) obj;
-      return size == other.size
-          && Arrays.equals(digest, other.digest)
-          && Objects.equals(contentsProxy, other.contentsProxy);
+      return size == other.size && Objects.equals(contentsProxy, other.contentsProxy);
     }
 
     @Override
     public int hashCode() {
-      return Objects.hash(size, Arrays.hashCode(digest), contentsProxy);
+      return Objects.hash(size, contentsProxy);
     }
 
     @Override
     public byte[] getValueFingerprint() {
       Fingerprint fp = new Fingerprint().addLong(size);
-      if (digest != null) {
-        fp.addBytes(digest);
-      }
-      if (contentsProxy != null) {
-        contentsProxy.addToFingerprint(fp);
-      }
+      contentsProxy.addToFingerprint(fp);
       return fp.digestAndReset();
     }
 
     @Override
     public String toString() {
       return MoreObjects.toStringHelper(this)
-          .add("digest", digest)
           .add("size", size)
-          .add("contentsProxy", contentsProxy).toString();
+          .add("contentsProxy", contentsProxy)
+          .toString();
     }
 
     @Override
     public String prettyPrint() {
-      String contents = digest != null
-          ? String.format("digest of %s", Arrays.toString(digest))
-          : contentsProxy.prettyPrint();
-      return String.format("regular file with size of %d and %s", size, contents);
+      return String.format(
+          "regular file with size of %d and %s", size, contentsProxy.prettyPrint());
     }
   }
 
@@ -347,7 +386,7 @@ public abstract class FileStateValue implements HasDigest, SkyValue {
 
     @VisibleForTesting
     public SpecialFileStateValue(FileContentsProxy contentsProxy) {
-      this.contentsProxy = Preconditions.checkNotNull(contentsProxy);
+      this.contentsProxy = checkNotNull(contentsProxy);
     }
 
     private static SpecialFileStateValue fromStat(
@@ -366,7 +405,7 @@ public abstract class FileStateValue implements HasDigest, SkyValue {
     }
 
     @Override
-    long getSize() {
+    public long getSize() {
       return 0;
     }
 
@@ -386,10 +425,9 @@ public abstract class FileStateValue implements HasDigest, SkyValue {
       if (obj == this) {
         return true;
       }
-      if (!(obj instanceof SpecialFileStateValue)) {
+      if (!(obj instanceof SpecialFileStateValue other)) {
         return false;
       }
-      SpecialFileStateValue other = (SpecialFileStateValue) obj;
       return contentsProxy.equals(other.contentsProxy);
     }
 
@@ -472,10 +510,9 @@ public abstract class FileStateValue implements HasDigest, SkyValue {
 
     @Override
     public boolean equals(Object obj) {
-      if (!(obj instanceof SymlinkFileStateValue)) {
+      if (!(obj instanceof SymlinkFileStateValue other)) {
         return false;
       }
-      SymlinkFileStateValue other = (SymlinkFileStateValue) obj;
       return symlinkTarget.equals(other.symlinkTarget);
     }
 
@@ -484,6 +521,7 @@ public abstract class FileStateValue implements HasDigest, SkyValue {
       return symlinkTarget.hashCode();
     }
 
+    @Nullable
     @Override
     public FileContentsProxy getContentsProxy() {
       return null;

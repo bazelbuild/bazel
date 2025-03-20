@@ -16,41 +16,47 @@ package com.google.devtools.build.lib.analysis.starlark;
 
 import static com.google.devtools.build.lib.analysis.starlark.FunctionTransitionUtil.applyAndValidate;
 
-import com.github.benmanes.caffeine.cache.Cache;
-import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
+import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
-import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.BuildType.SelectorList;
+import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleTransitionData;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.StructProvider;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
+import javax.annotation.Nullable;
 
 /**
- * This class implements {@link TransitionFactory} to provide a starlark-defined transition that
- * rules can apply to their own configuration. This transition has access to (1) the a map of the
- * current configuration's build settings and (2) the configured* attributes of the given rule (not
- * its dependencies').
+ * Implements {@link TransitionFactory} to provide a starlark-defined transition that rules can
+ * apply to their own configuration. This transition has access to (1) a map of the current
+ * configuration's build settings and (2) the configured attributes of the given rule (not its
+ * dependencies').
  *
- * <p>*In some corner cases, we can't access the configured attributes the configuration of the
- * child may be different than the configuration of the parent. For now, forbid all access to
- * attributes that read selects.
+ * <p>In some corner cases, we can't access the configured attributes the configuration of the child
+ * may be different than the configuration of the parent. For now, forbid all access to attributes
+ * that read selects.
  *
  * <p>For starlark-defined attribute transitions, see {@link StarlarkAttributeTransitionProvider}.
  */
-public class StarlarkRuleTransitionProvider implements TransitionFactory<RuleTransitionData> {
+public final class StarlarkRuleTransitionProvider implements TransitionFactory<RuleTransitionData> {
 
   private final StarlarkDefinedConfigTransition starlarkDefinedConfigTransition;
 
@@ -63,57 +69,6 @@ public class StarlarkRuleTransitionProvider implements TransitionFactory<RuleTra
     return starlarkDefinedConfigTransition;
   }
 
-  /**
-   * Key signature for the transition instance cache.
-   *
-   * <p>See {@link #cache} for details.
-   */
-  private static class CacheKey {
-    private final StarlarkDefinedConfigTransition starlarkDefinedConfigTransition;
-    private final Rule rule;
-    private final int hashCode;
-
-    CacheKey(StarlarkDefinedConfigTransition starlarkDefinedConfigTransition, Rule rule) {
-      this.starlarkDefinedConfigTransition = starlarkDefinedConfigTransition;
-      this.rule = rule;
-      this.hashCode = Objects.hash(starlarkDefinedConfigTransition, rule);
-    }
-
-    @Override
-    public boolean equals(Object other) {
-      if (other == this) {
-        return true;
-      }
-      if (!(other instanceof CacheKey)) {
-        return false;
-      }
-      return (this.starlarkDefinedConfigTransition.equals(
-              ((CacheKey) other).starlarkDefinedConfigTransition)
-          && this.rule.equals(((CacheKey) other).rule));
-    }
-
-    @Override
-    public int hashCode() {
-      return hashCode;
-    }
-  }
-
-  /**
-   * Keep a cache to prevent semantically equivalent transition objects from producing distinct
-   * instances.
-   *
-   * <p>Profiling shows that constructing a {@link FunctionPatchTransition} and lazily computing its
-   * hash code contributes real CPU cost. For a build where every target applies a transition, this
-   * produces observable cost, particularly when the transition produces a noop (in which case the
-   * cost is pure overhead of the transition infrastructure).
-   *
-   * <p>Note that the transition instance is different from the transition's use. It's normal best
-   * practice to have few or even one transition invoke multiple times over multiple configured
-   * targets.
-   */
-  private static final Cache<CacheKey, FunctionPatchTransition> cache =
-      Caffeine.newBuilder().softValues().build();
-
   @Override
   public PatchTransition create(RuleTransitionData ruleData) {
     // This wouldn't be safe if rule transitions could read attributes with select(), in which case
@@ -124,9 +79,7 @@ public class StarlarkRuleTransitionProvider implements TransitionFactory<RuleTra
     // that don't. Every transition has a {@code def impl(settings, attr) } signature, even if the
     // transition never reads {@code attr}. If we had a way to formally identify such transitions,
     // we wouldn't need {@code rule} in the cache key.
-    return cache.get(
-        new CacheKey(starlarkDefinedConfigTransition, ruleData.rule()),
-        unused -> new FunctionPatchTransition(starlarkDefinedConfigTransition, ruleData.rule()));
+    return starlarkDefinedConfigTransition.createRuleTransition(ruleData, this::createTransition);
   }
 
   @Override
@@ -134,38 +87,136 @@ public class StarlarkRuleTransitionProvider implements TransitionFactory<RuleTra
     return TransitionType.RULE;
   }
 
-  @Override
-  public boolean isSplit() {
-    // The transitions returned by this factory are guaranteed not to be splits.
+  public boolean allowImmutableFlagChanges() {
+    return false;
+  }
+
+  private FunctionPatchTransition createTransition(RuleTransitionData ruleData) {
+    Rule rule = ruleData.rule();
+    ImmutableMap<Label, ConfigMatchingProvider> configConditions = ruleData.configConditions();
+    String configHash = ruleData.configHash();
+    LinkedHashMap<String, Object> attributes = new LinkedHashMap<>();
+    RawAttributeMapper attributeMapper = RawAttributeMapper.of(rule);
+    ConfiguredAttributeMapper configuredAttributeMapper =
+        ConfiguredAttributeMapper.of(rule, configConditions, configHash, false);
+    ImmutableList<String> transitionOutputs = this.starlarkDefinedConfigTransition.getOutputs();
+
+    for (Attribute attribute : rule.getAttributes()) {
+      // If the value is present, even if it is null, add to the attribute map.
+      Object val = attributeMapper.getRawAttributeValue(rule, attribute);
+      if (val instanceof SelectorList<?> sl) {
+        Result result =
+            handleConfiguredAttribute(
+                configConditions, configuredAttributeMapper, transitionOutputs, attribute, sl);
+        if (!result.success()) {
+          // Skip this attribute.
+          continue;
+        } else {
+          val = result.resolved;
+        }
+      }
+
+      attributes.put(
+          Attribute.getStarlarkName(attribute.getPublicName()), Attribute.valueToStarlark(val));
+    }
+
+    StructImpl attrObject =
+        StructProvider.STRUCT.create(
+            attributes,
+            "No attribute '%s'. Either this attribute does not exist for this rule or the attribute"
+                + " was not resolved because it is set by a select that reads flags the transition"
+                + " may set.");
+    return new FunctionPatchTransition(attrObject);
+  }
+
+  /**
+   * A container class for the result of {@link #handleConfiguredAttribute}.
+   *
+   * <p>The most important point is that the {@code success} field tells whether the attribute was
+   * resolved. It is entirely possible to resolve an attribute to {@code null}.
+   */
+  private record Result(boolean success, @Nullable Object resolved) {
+    static Result failure() {
+      return new Result(false, null);
+    }
+
+    static Result success(@Nullable Object resolved) {
+      return new Result(true, resolved);
+    }
+  }
+
+  private Result handleConfiguredAttribute(
+      @Nullable ImmutableMap<Label, ConfigMatchingProvider> configConditions,
+      ConfiguredAttributeMapper configuredAttributeMapper,
+      ImmutableList<String> transitionOutputs,
+      Attribute attribute,
+      SelectorList<?> val) {
+    // If there are no configConditions then nothing is resolvable.
+    if (configConditions == null || configConditions.isEmpty()) {
+      return Result.failure();
+    }
+
+    // If any of the select keys reference the outputs, this isn't resolvable.
+    if (selectBranchesReferenceOutputs(configConditions, transitionOutputs, val)) {
+      return Result.failure();
+    }
+
+    // Resolve the attribute, ignoring any failures. They will be reported (and fail analysis) later
+    // in the rule analysis.
+    ConfiguredAttributeMapper.AttributeResolutionResult<?> result =
+        configuredAttributeMapper.getResolvedAttribute(attribute);
+    return switch (result.getType()) {
+      case FAILURE -> Result.failure();
+      case SUCCESS -> Result.success(result.getSuccess().orElse(null));
+    };
+  }
+
+  private boolean selectBranchesReferenceOutputs(
+      ImmutableMap<Label, ConfigMatchingProvider> configConditions,
+      ImmutableList<String> transitionOutputs,
+      SelectorList<?> val) {
+    for (Object label : val.getKeyLabels()) {
+      ConfigMatchingProvider configMatchingProvider = configConditions.get(label);
+      if (checkIfAttributeSelectOnAFlagTransitionChanges(
+          configMatchingProvider, transitionOutputs)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private boolean checkIfAttributeSelectOnAFlagTransitionChanges(
+      ConfigMatchingProvider configMatchingProvider, ImmutableList<String> transitionOutputs) {
+    // check settingMap
+    Set<String> nativeFlagLabels = new HashSet<>();
+    for (String key : configMatchingProvider.settingsMap().keySet()) {
+      String modified = "//command_line_option:" + key;
+      nativeFlagLabels.add(modified);
+    }
+    // check flags values
+    ImmutableMap<Label, String> flagSettingsMap = configMatchingProvider.flagSettingsMap();
+    Set<String> flagLabels = new HashSet<>();
+    for (Label flag : flagSettingsMap.keySet()) {
+      flagLabels.add(flag.getCanonicalForm());
+    }
+
+    for (String output : transitionOutputs) {
+      if (nativeFlagLabels.contains(output) || flagLabels.contains(output)) {
+        return true;
+      }
+    }
     return false;
   }
 
   /** The actual transition used by the rule. */
-  final class FunctionPatchTransition extends StarlarkTransition implements PatchTransition {
+  private final class FunctionPatchTransition extends StarlarkTransition
+      implements PatchTransition {
     private final StructImpl attrObject;
     private final int hashCode;
 
-    FunctionPatchTransition(
-        StarlarkDefinedConfigTransition starlarkDefinedConfigTransition, Rule rule) {
+    private FunctionPatchTransition(StructImpl attrObject) {
       super(starlarkDefinedConfigTransition);
-      LinkedHashMap<String, Object> attributes = new LinkedHashMap<>();
-      RawAttributeMapper attributeMapper = RawAttributeMapper.of(rule);
-      for (Attribute attribute : rule.getAttributes()) {
-        Object val = attributeMapper.getRawAttributeValue(rule, attribute);
-        if (val instanceof BuildType.SelectorList) {
-          // For now, don't allow access to attributes that read selects.
-          // TODO(b/121134880): make this restriction more fine grained.
-          continue;
-        }
-        attributes.put(
-            Attribute.getStarlarkName(attribute.getPublicName()), Attribute.valueToStarlark(val));
-      }
-      attrObject =
-          StructProvider.STRUCT.create(
-              attributes,
-              "No attribute '%s'. Either this attribute does "
-                  + "not exist for this rule or is set by a select. Starlark rule transitions "
-                  + "currently cannot read attributes behind selects.");
+      this.attrObject = attrObject;
       this.hashCode = Objects.hash(attrObject, super.hashCode());
     }
 
@@ -183,7 +234,12 @@ public class StarlarkRuleTransitionProvider implements TransitionFactory<RuleTra
       // we just use the original BuildOptions and trust the transition's enforcement logic.
       BuildOptions buildOptions = buildOptionsView.underlying();
       Map<String, BuildOptions> result =
-          applyAndValidate(buildOptions, starlarkDefinedConfigTransition, attrObject, eventHandler);
+          applyAndValidate(
+              buildOptions,
+              starlarkDefinedConfigTransition,
+              allowImmutableFlagChanges(),
+              attrObject,
+              eventHandler);
       if (result == null) {
         return buildOptions.clone();
       }
@@ -202,10 +258,9 @@ public class StarlarkRuleTransitionProvider implements TransitionFactory<RuleTra
       if (object == this) {
         return true;
       }
-      if (!(object instanceof FunctionPatchTransition)) {
+      if (!(object instanceof FunctionPatchTransition other)) {
         return false;
       }
-      FunctionPatchTransition other = (FunctionPatchTransition) object;
       return Objects.equals(attrObject, other.attrObject) && super.equals(other);
     }
 

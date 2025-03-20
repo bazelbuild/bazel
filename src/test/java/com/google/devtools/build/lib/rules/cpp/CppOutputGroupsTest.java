@@ -19,6 +19,7 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -29,12 +30,34 @@ public class CppOutputGroupsTest extends BuildViewTestCase {
 
   @Test
   public void testStaticLibraryOnlyOutputGroups() throws Exception {
+    getAnalysisMock()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder().withFeatures(CppRuleClasses.SUPPORTS_DYNAMIC_LINKER));
     scratch.file("src.cc");
     scratch.file(
         "a/BUILD",
-        "cc_library(name='lib', srcs=['src.cc'], linkstatic=1, alwayslink=0)",
-        "filegroup(name='group_archive', srcs=[':lib'], output_group = 'archive')",
-        "filegroup(name='group_dynamic', srcs=[':lib'], output_group = 'dynamic_library')");
+        """
+        cc_library(
+            name = "lib",
+            srcs = ["src.cc"],
+            linkstatic = 1,
+            alwayslink = 0,
+        )
+
+        filegroup(
+            name = "group_archive",
+            srcs = [":lib"],
+            output_group = "archive",
+        )
+
+        filegroup(
+            name = "group_dynamic",
+            srcs = [":lib"],
+            output_group = "dynamic_library",
+        )
+        """);
 
     ConfiguredTarget groupArchive = getConfiguredTarget("//a:group_archive");
     ConfiguredTarget groupDynamic = getConfiguredTarget("//a:group_dynamic");
@@ -46,12 +69,34 @@ public class CppOutputGroupsTest extends BuildViewTestCase {
 
   @Test
   public void testSharedLibraryOnlyOutputGroups() throws Exception {
+    getAnalysisMock()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder().withFeatures(CppRuleClasses.SUPPORTS_DYNAMIC_LINKER));
     scratch.file("src.cc");
     scratch.file(
         "a/BUILD",
-        "cc_library(name='lib', srcs=['src.cc'], linkstatic=1, alwayslink=1)",
-        "filegroup(name='group_archive', srcs=[':lib'], output_group = 'archive')",
-        "filegroup(name='group_dynamic', srcs=[':lib'], output_group = 'dynamic_library')");
+        """
+        cc_library(
+            name = "lib",
+            srcs = ["src.cc"],
+            linkstatic = 1,
+            alwayslink = 1,
+        )
+
+        filegroup(
+            name = "group_archive",
+            srcs = [":lib"],
+            output_group = "archive",
+        )
+
+        filegroup(
+            name = "group_dynamic",
+            srcs = [":lib"],
+            output_group = "dynamic_library",
+        )
+        """);
 
     ConfiguredTarget groupArchive = getConfiguredTarget("//a:group_archive");
     ConfiguredTarget groupDynamic = getConfiguredTarget("//a:group_dynamic");
@@ -63,12 +108,34 @@ public class CppOutputGroupsTest extends BuildViewTestCase {
 
   @Test
   public void testStaticAndDynamicLibraryOutputGroups() throws Exception {
+    getAnalysisMock()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder().withFeatures(CppRuleClasses.SUPPORTS_DYNAMIC_LINKER));
     scratch.file("src.cc");
     scratch.file(
         "a/BUILD",
-        "cc_library(name='lib', srcs=['src.cc'], linkstatic=0, alwayslink=0)",
-        "filegroup(name='group_archive', srcs=[':lib'], output_group = 'archive')",
-        "filegroup(name='group_dynamic', srcs=[':lib'], output_group = 'dynamic_library')");
+        """
+        cc_library(
+            name = "lib",
+            srcs = ["src.cc"],
+            linkstatic = 0,
+            alwayslink = 0,
+        )
+
+        filegroup(
+            name = "group_archive",
+            srcs = [":lib"],
+            output_group = "archive",
+        )
+
+        filegroup(
+            name = "group_dynamic",
+            srcs = [":lib"],
+            output_group = "dynamic_library",
+        )
+        """);
 
     ConfiguredTarget groupArchive = getConfiguredTarget("//a:group_archive");
     ConfiguredTarget groupDynamic = getConfiguredTarget("//a:group_dynamic");
@@ -83,12 +150,34 @@ public class CppOutputGroupsTest extends BuildViewTestCase {
 
   @Test
   public void testSharedAndDynamicLibraryOutputGroups() throws Exception {
+    getAnalysisMock()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder().withFeatures(CppRuleClasses.SUPPORTS_DYNAMIC_LINKER));
     scratch.file("src.cc");
     scratch.file(
         "a/BUILD",
-        "cc_library(name='lib', srcs=['src.cc'], linkstatic=0, alwayslink=1)",
-        "filegroup(name='group_archive', srcs=[':lib'], output_group = 'archive')",
-        "filegroup(name='group_dynamic', srcs=[':lib'], output_group = 'dynamic_library')");
+        """
+        cc_library(
+            name = "lib",
+            srcs = ["src.cc"],
+            linkstatic = 0,
+            alwayslink = 1,
+        )
+
+        filegroup(
+            name = "group_archive",
+            srcs = [":lib"],
+            output_group = "archive",
+        )
+
+        filegroup(
+            name = "group_dynamic",
+            srcs = [":lib"],
+            output_group = "dynamic_library",
+        )
+        """);
 
     ConfiguredTarget groupArchive = getConfiguredTarget("//a:group_archive");
     ConfiguredTarget groupDynamic = getConfiguredTarget("//a:group_dynamic");
@@ -99,5 +188,35 @@ public class CppOutputGroupsTest extends BuildViewTestCase {
     // So we here use contains instead containsExactly.
     assertThat(ActionsTestUtil.prettyArtifactNames(getFilesToBuild(groupDynamic)))
         .contains("a/liblib.so");
+  }
+
+  @Test
+  public void testModuleOutputGroups() throws Exception {
+    getAnalysisMock()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder().withFeatures("header_modules_feature_configuration"));
+    scratch.file("header.h");
+    scratch.file(
+        "a/BUILD",
+        """
+        cc_library(
+            name = "lib",
+            hdrs = ["src.h"],
+            features = ["header_modules"],
+        )
+
+        filegroup(
+            name = "group_modules",
+            srcs = [":lib"],
+            output_group = "module_files",
+        )
+        """);
+
+    ConfiguredTarget groupArchive = getConfiguredTarget("//a:group_modules");
+
+    assertThat(ActionsTestUtil.prettyArtifactNames(getFilesToBuild(groupArchive)))
+        .containsExactly("a/_objs/lib/lib.pcm");
   }
 }

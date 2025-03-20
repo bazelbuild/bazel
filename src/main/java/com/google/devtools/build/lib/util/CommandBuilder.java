@@ -26,6 +26,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -65,12 +66,14 @@ public final class CommandBuilder {
     this.system = system;
   }
 
+  @CanIgnoreReturnValue
   public CommandBuilder addArg(String arg) {
     Preconditions.checkNotNull(arg, "Argument must not be null");
     argv.add(arg);
     return this;
   }
 
+  @CanIgnoreReturnValue
   public CommandBuilder addArgs(Iterable<String> args) {
     Preconditions.checkArgument(!Iterables.contains(args, null), "Arguments must not be null");
     Iterables.addAll(argv, args);
@@ -81,34 +84,40 @@ public final class CommandBuilder {
     return addArgs(Arrays.asList(args));
   }
 
+  @CanIgnoreReturnValue
   public CommandBuilder addEnv(Map<String, String> env) {
     Preconditions.checkNotNull(env);
     this.env.putAll(env);
     return this;
   }
 
+  @CanIgnoreReturnValue
   public CommandBuilder emptyEnv() {
     env.clear();
     return this;
   }
 
+  @CanIgnoreReturnValue
   public CommandBuilder setEnv(Map<String, String> env) {
     emptyEnv();
     addEnv(env);
     return this;
   }
 
+  @CanIgnoreReturnValue
   public CommandBuilder setWorkingDir(Path path) {
     Preconditions.checkNotNull(path);
     workingDir = path.getPathFile();
     return this;
   }
 
+  @CanIgnoreReturnValue
   public CommandBuilder useTempDir() {
     workingDir = new File(JAVA_IO_TMPDIR.value());
     return this;
   }
 
+  @CanIgnoreReturnValue
   public CommandBuilder useShell(boolean useShell) {
     this.useShell = useShell;
     return this;

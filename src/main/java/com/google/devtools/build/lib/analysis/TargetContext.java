@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.skyframe.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import java.util.List;
 import java.util.Optional;
@@ -70,7 +69,7 @@ public class TargetContext {
     this.target = target;
     this.configuration = configuration;
     this.directPrerequisites =
-        Multimaps.index(directPrerequisites, prereq -> prereq.getTarget().getLabel());
+        Multimaps.index(directPrerequisites, ConfiguredTargetAndData::getTargetLabel);
     this.visibility = visibility;
   }
 
@@ -90,6 +89,11 @@ public class TargetContext {
     return target.getLabel();
   }
 
+  public Label.PackageContext getPackageContext() {
+    return Label.PackageContext.of(
+        getLabel().getPackageIdentifier(), target.getPackageMetadata().repositoryMapping());
+  }
+
   /**
    * Returns the configuration for this target. This may return null if the target is supposed to be
    * configuration-independent (like an input file, or a visibility rule). However, this is
@@ -98,10 +102,6 @@ public class TargetContext {
   @Nullable
   public BuildConfigurationValue getConfiguration() {
     return configuration;
-  }
-
-  public BuildConfigurationKey getConfigurationKey() {
-    return configuration.getKey();
   }
 
   public NestedSet<PackageGroupContents> getVisibility() {

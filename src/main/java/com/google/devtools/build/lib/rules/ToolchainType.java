@@ -14,7 +14,9 @@
 
 package com.google.devtools.build.lib.rules;
 
-import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
+import static com.google.devtools.build.lib.packages.Attribute.attr;
+
+import com.google.devtools.build.lib.actions.ActionConflictException;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
@@ -27,6 +29,8 @@ import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.platform.ToolchainTypeInfo;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.ToolchainResolutionMode;
+import com.google.devtools.build.lib.packages.Type;
+import javax.annotation.Nullable;
 
 /**
  * Implementation of {@code toolchain_type}.
@@ -34,10 +38,14 @@ import com.google.devtools.build.lib.packages.RuleClass.ToolchainResolutionMode;
 public class ToolchainType implements RuleConfiguredTargetFactory {
 
   @Override
+  @Nullable
   public ConfiguredTarget create(RuleContext ruleContext)
       throws ActionConflictException, InterruptedException {
 
-    ToolchainTypeInfo toolchainTypeInfo = ToolchainTypeInfo.create(ruleContext.getLabel());
+    String noMatchError = ruleContext.attributes().get("no_match_error", Type.STRING);
+    ToolchainTypeInfo toolchainTypeInfo =
+        ToolchainTypeInfo.create(
+            ruleContext.getLabel(), noMatchError.isEmpty() ? null : noMatchError);
 
     return new RuleConfiguredTargetBuilder(ruleContext)
         .addProvider(RunfilesProvider.simple(Runfiles.EMPTY))
@@ -51,10 +59,17 @@ public class ToolchainType implements RuleConfiguredTargetFactory {
     @Override
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment environment) {
       return builder
-          .useToolchainResolution(ToolchainResolutionMode.DISABLED)
+          .toolchainResolutionMode(ToolchainResolutionMode.DISABLED)
           .advertiseStarlarkProvider(ToolchainTypeInfo.PROVIDER.id())
           .removeAttribute("licenses")
           .removeAttribute("distribs")
+          .removeAttribute(":action_listener")
+          /*<!-- #BLAZE_RULE(toolchain_type).ATTRIBUTE(no_match_error) -->
+          A custom error message to display when no matching toolchain is found for this type.
+          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+          .add(
+              attr("no_match_error", Type.STRING)
+                  .nonconfigurable("low-level attribute, used in platform configuration"))
           .build();
     }
 
@@ -68,7 +83,7 @@ public class ToolchainType implements RuleConfiguredTargetFactory {
     }
   }
 }
-/*<!-- #BLAZE_RULE (NAME = toolchain_type, FAMILY = Platform)[GENERIC_RULE] -->
+/*<!-- #BLAZE_RULE (NAME = toolchain_type, FAMILY = Platforms and Toolchains)[GENERIC_RULE] -->
 
 <p>
   This rule defines a new type of toolchain -- a simple target that represents a class of tools that
@@ -76,7 +91,7 @@ public class ToolchainType implements RuleConfiguredTargetFactory {
 </p>
 
 <p>
-  See the <a href="../toolchains.html">Toolchains</a> page for more details.
+  See the <a href="${link toolchains}">Toolchains</a> page for more details.
 </p>
 
 <h4 id="toolchain_type_examples">Example</h4>

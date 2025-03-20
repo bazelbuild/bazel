@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.graph.Digraph;
 import com.google.devtools.build.lib.graph.Node;
+import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.query2.query.aspectresolvers.AspectResolver;
 import com.google.devtools.build.lib.query2.query.output.QueryOptions.OrderOutput;
@@ -55,11 +56,12 @@ class MinrankOutputFormatter extends OutputFormatter {
       Label label,
       PrintStream out,
       @Nullable List<RankAndLabel> toSave,
-      final String lineTerminator) {
+      final String lineTerminator,
+      LabelPrinter labelPrinter) {
     if (toSave != null) {
       toSave.add(new RankAndLabel(rank, label));
     } else {
-      out.print(rank + " " + label.getCanonicalForm() + lineTerminator);
+      out.print(rank + " " + labelPrinter.toString(label) + lineTerminator);
     }
   }
 
@@ -70,7 +72,8 @@ class MinrankOutputFormatter extends OutputFormatter {
       OutputStream out,
       AspectResolver aspectResolver,
       EventHandler eventHandler,
-      HashFunction hashFunction)
+      HashFunction hashFunction,
+      LabelPrinter labelPrinter)
       throws IOException {
     PrintStream printStream = new PrintStream(out);
     // getRoots() isn't defined for cyclic graphs, so in order to handle
@@ -90,7 +93,7 @@ class MinrankOutputFormatter extends OutputFormatter {
       for (Node<Set<Node<Target>>> xScc : rankNodes) {
         for (Node<Target> x : xScc.getLabel()) {
           outputToStreamOrSave(
-              rank, x.getLabel().getLabel(), printStream, outputToOrder, lineTerm);
+              rank, x.getLabel().getLabel(), printStream, outputToOrder, lineTerm, labelPrinter);
         }
       }
 
@@ -108,7 +111,7 @@ class MinrankOutputFormatter extends OutputFormatter {
     if (outputToOrder != null) {
       Collections.sort(outputToOrder);
       for (RankAndLabel item : outputToOrder) {
-        printStream.print(item + lineTerm);
+        printStream.print(item.toString(labelPrinter) + lineTerm);
       }
     }
 

@@ -14,13 +14,15 @@
 
 package com.google.devtools.build.lib.bazel.repository;
 
-import com.google.common.base.Optional;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
+import java.nio.channels.ClosedByInterruptException;
+import java.util.Optional;
 import java.util.Set;
 import net.starlark.java.eval.Starlark;
 
@@ -58,9 +60,10 @@ public class DecompressorValue implements SkyValue {
       }
 
       public static Optional<String> maybeMakePrefixSuggestion(PathFragment pathFragment) {
-        return pathFragment.isMultiSegment()
-            ? Optional.of(pathFragment.getSegment(0))
-            : Optional.absent();
+        if (!pathFragment.isMultiSegment()) {
+          return Optional.empty();
+        }
+        return Optional.of(pathFragment.getSegment(0));
       }
     }
 
@@ -74,14 +77,11 @@ public class DecompressorValue implements SkyValue {
     directory = repositoryPath;
   }
 
-  public Path getDirectory() {
-    return directory;
-  }
-
   @Override
   public boolean equals(Object other) {
-    return this == other || (other instanceof DecompressorValue
-        && directory.equals(((DecompressorValue) other).directory));
+    return this == other
+        || (other instanceof DecompressorValue decompressorValue
+            && directory.equals(decompressorValue.directory));
   }
 
   @Override
@@ -89,13 +89,14 @@ public class DecompressorValue implements SkyValue {
     return directory.hashCode();
   }
 
-  static Decompressor getDecompressor(Path archivePath)
-      throws RepositoryFunctionException {
+  @VisibleForTesting
+  static Decompressor getDecompressor(Path archivePath) throws RepositoryFunctionException {
     String baseName = archivePath.getBaseName();
     if (baseName.endsWith(".zip")
         || baseName.endsWith(".jar")
         || baseName.endsWith(".war")
-        || baseName.endsWith(".aar")) {
+        || baseName.endsWith(".aar")
+        || baseName.endsWith(".nupkg")) {
       return ZipDecompressor.INSTANCE;
     } else if (baseName.endsWith(".tar")) {
       return TarFunction.INSTANCE;
@@ -103,13 +104,17 @@ public class DecompressorValue implements SkyValue {
       return TarGzFunction.INSTANCE;
     } else if (baseName.endsWith(".tar.xz") || baseName.endsWith(".txz")) {
       return TarXzFunction.INSTANCE;
-    } else if (baseName.endsWith(".tar.bz2")) {
+    } else if (baseName.endsWith(".tar.zst") || baseName.endsWith(".tzst")) {
+      return TarZstFunction.INSTANCE;
+    } else if (baseName.endsWith(".tar.bz2") || baseName.endsWith(".tbz")) {
       return TarBz2Function.INSTANCE;
+    } else if (baseName.endsWith(".ar") || baseName.endsWith(".deb")) {
+      return ArFunction.INSTANCE;
     } else {
       throw new RepositoryFunctionException(
           Starlark.errorf(
-              "Expected a file with a .zip, .jar, .war, .aar, .tar, .tar.gz, .tgz, .tar.xz, .txz, "
-                  + "or .tar.bz2 suffix (got %s)",
+              "Expected a file with a .zip, .jar, .war, .aar, .nupkg, .tar, .tar.gz, .tgz, .tar.xz,"
+                  + " , .tar.zst, .tzst, .tar.bz2, .tbz, .ar or .deb suffix (got %s)",
               archivePath),
           Transience.PERSISTENT);
     }
@@ -118,7 +123,9 @@ public class DecompressorValue implements SkyValue {
   public static Path decompress(DecompressorDescriptor descriptor)
       throws RepositoryFunctionException, InterruptedException {
     try {
-      return descriptor.getDecompressor().decompress(descriptor);
+      return getDecompressor(descriptor.archivePath()).decompress(descriptor);
+    } catch (ClosedByInterruptException e) {
+      throw new InterruptedException();
     } catch (IOException e) {
       Path destinationDirectory = descriptor.archivePath().getParentDirectory();
       throw new RepositoryFunctionException(

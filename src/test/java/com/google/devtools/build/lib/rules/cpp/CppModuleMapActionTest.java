@@ -16,11 +16,13 @@ package com.google.devtools.build.lib.rules.cpp;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
@@ -51,8 +53,8 @@ public final class CppModuleMapActionTest {
     CppModuleMapAction action1 = createCppModuleMapAction(map, dep);
     CppModuleMapAction action2 = createCppModuleMapAction(map, depWithDifferentName);
 
-    assertThat(action1.getKey(actionKeyContext, /*artifactExpander=*/ null))
-        .isNotEqualTo(action2.getKey(actionKeyContext, /*artifactExpander=*/ null));
+    assertThat(action1.getKey(actionKeyContext, /* inputMetadataProvider= */ null))
+        .isNotEqualTo(action2.getKey(actionKeyContext, /* inputMetadataProvider= */ null));
   }
 
   private static CppModuleMapAction createCppModuleMapAction(
@@ -60,15 +62,17 @@ public final class CppModuleMapActionTest {
     return new CppModuleMapAction(
         ActionsTestUtil.NULL_ACTION_OWNER,
         cppModuleMap,
-        /*privateHeaders=*/ ImmutableList.of(),
-        /*publicHeaders=*/ ImmutableList.of(),
+        /* privateHeaders= */ ImmutableList.of(),
+        /* publicHeaders= */ ImmutableList.of(),
         ImmutableList.copyOf(dependencies),
-        /*additionalExportedHeaders=*/ ImmutableList.of(),
-        /*separateModuleHeaders=*/ ImmutableList.of(),
-        /*compiledModule=*/ false,
-        /*moduleMapHomeIsCwd=*/ false,
-        /*generateSubmodules=*/ false,
-        /*externDependencies=*/ false);
+        /* additionalExportedHeaders= */ ImmutableList.of(),
+        /* separateModuleHeaders= */ ImmutableList.of(),
+        /* compiledModule= */ false,
+        /* moduleMapHomeIsCwd= */ false,
+        /* generateSubmodules= */ false,
+        /* externDependencies= */ false,
+        CoreOptions.OutputPathsMode.OFF,
+        /* executionInfo= */ ImmutableMap.of());
   }
 
   private Artifact createOutputArtifact(String rootRelativePath) {

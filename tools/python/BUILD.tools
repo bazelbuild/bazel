@@ -11,11 +11,6 @@
 ################################################################################
 
 load(":python_version.bzl", "define_python_version_flag")
-load(":toolchain.bzl", "define_autodetecting_toolchain")
-
-# Please do not use write_file.bzl outside of this package.
-# See https://groups.google.com/d/msg/bazel-dev/I8IvJyoyo-s/AttqDcnOCgAJ
-load(":write_file.bzl", "write_file")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -24,20 +19,18 @@ package(default_visibility = ["//visibility:public"])
 # don't have access to Skylib here. See
 # https://github.com/bazelbuild/skydoc/issues/166.
 exports_files([
+    "python_bootstrap_template.txt",
     "python_version.bzl",
     "srcs_version.bzl",
     "toolchain.bzl",
     "utils.bzl",
-    "private/defs.bzl",
     "private/py_test_alias.bzl",
-    # write_file.bzl fortunately doesn't need to be exposed because it's only
     # used in this BUILD file.
 ])
 
 filegroup(
     name = "bzl_srcs",
     srcs = glob(["*.bzl"]) + [
-        "private/defs.bzl",
         "private/py_test_alias.bzl",
     ],
     visibility = ["//tools:__pkg__"],
@@ -108,8 +101,9 @@ constraint_setting(name = "py3_interpreter_path")
 # workspaces. Ideally you should register your own Python toolchain, which will
 # supersede this one so long as its constraints match the target platform.
 
-define_autodetecting_toolchain(
+alias(
     name = "autodetecting_toolchain",
-    pywrapper_template = "pywrapper_template.txt",
-    windows_config_setting = "@bazel_tools//src/conditions:windows",
+    actual = "@rules_python//python:autodetecting_toolchain",
+    deprecation = "Use @rules_python//python:autodetecting_toolchain",
 )
+

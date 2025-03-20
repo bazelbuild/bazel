@@ -124,15 +124,15 @@ public class WindowsProcessesTest {
   }
 
   @Test
-  public void testSmoke() throws Exception {
+  public void testOneShot() throws Exception {
     process =
-        WindowsProcesses.createProcess(
-            mockBinary, mockArgs("Ia5", "Oa"), null, null, null, null);
+        WindowsProcesses.createProcess(mockBinary, mockArgs("Ia0", "Oa"), null, null, null, null);
     assertNoProcessError();
 
     byte[] input = "HELLO".getBytes(UTF_8);
     byte[] output = new byte[5];
-    WindowsProcesses.writeStdin(process, input, 0, 5);
+    assertThat(WindowsProcesses.writeStdin(process, input, 0, 5)).isEqualTo(5);
+    WindowsProcesses.closeStdin(process);
     assertNoProcessError();
     readStdout(output, 0, 5);
     assertNoStreamError(WindowsProcesses.getStdout(process));
@@ -140,7 +140,7 @@ public class WindowsProcessesTest {
   }
 
   @Test
-  public void testPingpong() throws Exception {
+  public void testChunks() throws Exception {
     List<String> args = new ArrayList<>();
     for (int i = 0; i < 100; i++) {
       args.add("Ia3");
@@ -154,6 +154,7 @@ public class WindowsProcessesTest {
       byte[] input = String.format("%03d", i).getBytes(UTF_8);
       assertThat(input.length).isEqualTo(3);
       assertThat(WindowsProcesses.writeStdin(process, input, 0, 3)).isEqualTo(3);
+      assertNoProcessError();
       byte[] output = new byte[3];
       assertThat(readStdout(output, 0, 3)).isEqualTo(3);
       assertThat(Integer.parseInt(new String(output, UTF_8))).isEqualTo(i);
@@ -267,8 +268,7 @@ public class WindowsProcessesTest {
   @Test
   public void testOffsetedOps() throws Exception {
     process =
-        WindowsProcesses.createProcess(
-            mockBinary, mockArgs("Ia3", "Oa"), null, null, null, null);
+        WindowsProcesses.createProcess(mockBinary, mockArgs("Ia3", "Oa"), null, null, null, null);
     byte[] input = "01234".getBytes(UTF_8);
     byte[] output = "abcde".getBytes(UTF_8);
 

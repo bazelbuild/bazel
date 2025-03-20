@@ -375,7 +375,7 @@ public class OptionsTest {
             "  --none\n" + "    An expanded option.\n" + "      Expands to: --host=www.google.com");
   }
 
-  public static class MyURLConverter implements Converter<URL> {
+  public static class MyURLConverter extends Converter.Contextless<URL> {
 
     @Override
     public URL convert(String input) throws OptionsParsingException {
@@ -435,12 +435,36 @@ public class OptionsTest {
   }
 
   @Test
-  public void unknownBooleanOption() {
+  public void unknownBooleanOptionNegativeForm() {
     OptionsParsingException e =
         assertThrows(
             OptionsParsingException.class,
             () -> Options.parse(HttpOptions.class, new String[] {"--no-debug"}));
-    assertThat(e).hasMessageThat().isEqualTo("Unrecognized option: --no-debug");
+    assertThat(e)
+        .hasMessageThat()
+        .isEqualTo("Unrecognized option: --no-debug (did you mean '--nodebug'?)");
+  }
+
+  @Test
+  public void unknownOption() {
+    OptionsParsingException e =
+        assertThrows(
+            OptionsParsingException.class,
+            () -> Options.parse(HttpOptions.class, new String[] {"--pert"}));
+    assertThat(e)
+        .hasMessageThat()
+        .isEqualTo("Unrecognized option: --pert (did you mean '--port'?)");
+  }
+
+  @Test
+  public void unknownBooleanOptionPositiveForm() {
+    OptionsParsingException e =
+        assertThrows(
+            OptionsParsingException.class,
+            () -> Options.parse(HttpOptions.class, new String[] {"--dbg"}));
+    assertThat(e)
+        .hasMessageThat()
+        .isEqualTo("Unrecognized option: --dbg (did you mean '--debug'?)");
   }
 
   public static class J extends OptionsBase {

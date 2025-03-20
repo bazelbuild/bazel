@@ -30,9 +30,10 @@ import com.google.devtools.build.skyframe.SkyKey;
 public final class TransitiveTargetKey implements SkyKey {
   public static final SkyFunctionName NAME = SkyFunctionName.createHermetic("TRANSITIVE_TARGET");
 
+  private static final SkyKeyInterner<TransitiveTargetKey> interner = SkyKey.newInterner();
+
   public static TransitiveTargetKey of(Label label) {
-    Preconditions.checkArgument(!label.getRepository().isDefault());
-    return new TransitiveTargetKey(label);
+    return interner.intern(new TransitiveTargetKey(label));
   }
 
   private final Label label;
@@ -74,5 +75,10 @@ public final class TransitiveTargetKey implements SkyKey {
       return false;
     }
     return ((TransitiveTargetKey) o).label.equals(label);
+  }
+
+  @Override
+  public SkyKeyInterner<?> getSkyKeyInterner() {
+    return interner;
   }
 }

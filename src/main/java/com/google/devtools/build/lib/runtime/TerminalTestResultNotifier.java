@@ -20,6 +20,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.analysis.test.TestResult;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.ExecutionOptions.TestOutputFormat;
 import com.google.devtools.build.lib.exec.ExecutionOptions.TestSummaryFormat;
@@ -28,10 +29,6 @@ import com.google.devtools.build.lib.runtime.TestSummaryPrinter.TestLogPathForma
 import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.util.io.AnsiTerminalPrinter;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
-import com.google.devtools.common.options.Option;
-import com.google.devtools.common.options.OptionDocumentationCategory;
-import com.google.devtools.common.options.OptionEffectTag;
-import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -61,53 +58,15 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
 
     int totalTestCases;
     int totalFailedTestCases;
+    int totalSkippedTestCases;
     int totalUnknownTestCases;
-  }
-
-  /**
-   * Flags specific to test summary reporting.
-   */
-  public static class TestSummaryOptions extends OptionsBase {
-    @Option(
-      name = "verbose_test_summary",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.LOGGING,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-      help =
-          "If true, print additional information (timing, number of failed runs, etc) in the"
-              + " test summary."
-    )
-    public boolean verboseSummary;
-
-    @Option(
-      name = "test_verbose_timeout_warnings",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.LOGGING,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-      help =
-          "If true, print additional warnings when the actual test execution time does not "
-              + "match the timeout defined by the test (whether implied or explicit)."
-    )
-    public boolean testVerboseTimeoutWarnings;
-
-    @Option(
-        name = "print_relative_test_log_paths",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.LOGGING,
-        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-        help =
-            "If true, when printing the path to a test log, use relative path that makes use of "
-                + "the 'testlogs' convenience symlink. N.B. - A subsequent 'build'/'test'/etc "
-                + "invocation with a different configuration can cause the target of this symlink "
-                + "to change, making the path printed previously no longer useful."
-    )
-    public boolean printRelativeTestLogPaths;
   }
 
   private final AnsiTerminalPrinter printer;
   private final TestLogPathFormatter testLogPathFormatter;
   private final OptionsParsingResult options;
   private final TestSummaryOptions summaryOptions;
+  private final RepositoryMapping mainRepoMapping;
 
   /**
    * @param printer The terminal to print to
@@ -115,11 +74,13 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
   public TerminalTestResultNotifier(
       AnsiTerminalPrinter printer,
       TestLogPathFormatter testLogPathFormatter,
-      OptionsParsingResult options) {
+      OptionsParsingResult options,
+      RepositoryMapping mainRepoMapping) {
     this.printer = printer;
     this.testLogPathFormatter = testLogPathFormatter;
     this.options = options;
     this.summaryOptions = options.getOptions(TestSummaryOptions.class);
+    this.mainRepoMapping = mainRepoMapping;
   }
 
   /**
@@ -142,13 +103,13 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
    * @param summaries summaries of tests {@link TestSummary}
    * @param showAllTests if true, print information about each test regardless of its status
    * @param showNoStatusTests if true, print information about not executed tests (no status tests)
-   * @param printFailedTestCases if true, print details about which test cases in a test failed
+   * @param showAllTestCases if true, print all test cases status and detailed information
    */
   private void printSummary(
       Set<TestSummary> summaries,
       boolean showAllTests,
       boolean showNoStatusTests,
-      boolean printFailedTestCases) {
+      boolean showAllTestCases) {
     boolean withConfig = duplicateLabels(summaries);
     int numFailedToBuildReported = 0;
     for (TestSummary summary : summaries) {
@@ -171,8 +132,9 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
           printer,
           testLogPathFormatter,
           summaryOptions.verboseSummary,
-          printFailedTestCases,
-          withConfig);
+          showAllTestCases,
+          withConfig,
+          mainRepoMapping);
     }
   }
 
@@ -216,7 +178,8 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
     for (TestSummary summary : summaries) {
       if (TestResult.isBlazeTestStatusPassed(summary.getStatus())) {
         stats.passCount++;
-      } else if (summary.getStatus() == BlazeTestStatus.NO_STATUS) {
+      } else if (summary.getStatus() == BlazeTestStatus.NO_STATUS
+          || summary.getStatus() == BlazeTestStatus.BLAZE_HALTED_BEFORE_TESTING) {
         stats.noStatusCount++;
       } else if (summary.getStatus() == BlazeTestStatus.FAILED_TO_BUILD) {
         stats.failedToBuildCount++;
@@ -233,6 +196,7 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
       stats.totalTestCases += summary.getTotalTestCases();
       stats.totalUnknownTestCases += summary.getUnkownTestCases();
       stats.totalFailedTestCases += summary.getFailedTestCases().size();
+      stats.totalSkippedTestCases += summary.getSkippedTestCases().size();
     }
 
     stats.failedCount = summaries.size() - stats.passCount;
@@ -242,9 +206,9 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
       case DETAILED:
         printSummary(
             summaries,
-            /* showAllTests= */ false,
+            /* showAllTests= */ true,
             /* showNoStatusTests= */ true,
-            /* printFailedTestCases= */ true);
+            /* showAllTestCases= */ true);
         break;
 
       case SHORT:
@@ -252,7 +216,7 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
             summaries,
             /* showAllTests= */ true,
             /* showNoStatusTests= */ false,
-            /* printFailedTestCases= */ false);
+            /* showAllTestCases= */ false);
         break;
 
       case TERSE:
@@ -260,7 +224,7 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
             summaries,
             /* showAllTests= */ false,
             /* showNoStatusTests= */ false,
-            /* printFailedTestCases= */ false);
+            /* showAllTestCases= */ false);
         break;
 
       case TESTCASE:
@@ -272,14 +236,30 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
   }
 
   private void addFailureToErrorList(List<String> list, String failureDescription, int count) {
-    addToErrorList(list, "fails", "fail", failureDescription, count);
+    addToList(list, AnsiTerminalPrinter.Mode.ERROR, "fails", "fail", failureDescription, count);
   }
 
-  private void addToErrorList(
+  private void addToWarningList(
       List<String> list, String singularPrefix, String pluralPrefix, String message, int count) {
+    addToList(list, AnsiTerminalPrinter.Mode.WARNING, singularPrefix, pluralPrefix, message, count);
+  }
+
+  private void addToList(
+      List<String> list,
+      AnsiTerminalPrinter.Mode mode,
+      String singularPrefix,
+      String pluralPrefix,
+      String message,
+      int count) {
     if (count > 0) {
-      list.add(String.format("%s%d %s %s%s", AnsiTerminalPrinter.Mode.ERROR, count,
-          count == 1 ? singularPrefix : pluralPrefix, message, AnsiTerminalPrinter.Mode.DEFAULT));
+      list.add(
+          String.format(
+              "%s%d %s %s%s",
+              mode,
+              count,
+              count == 1 ? singularPrefix : pluralPrefix,
+              message,
+              AnsiTerminalPrinter.Mode.DEFAULT));
     }
   }
 
@@ -287,12 +267,19 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
     TestSummaryFormat testSummaryFormat = options.getOptions(ExecutionOptions.class).testSummary;
     if (testSummaryFormat == DETAILED || testSummaryFormat == TESTCASE) {
       int passCount =
-          stats.totalTestCases - stats.totalFailedTestCases - stats.totalUnknownTestCases;
+          stats.totalTestCases
+              - stats.totalFailedTestCases
+              - stats.totalUnknownTestCases
+              - stats.totalSkippedTestCases;
       String message =
           String.format(
-              "Test cases: finished with %s%d passing%s and %s%d failing%s out of %d test cases",
+              "Test cases: finished with %s%d passing%s, %s%d skipped%s and %s%d failing%s out of"
+                  + " %d test cases",
               passCount > 0 ? AnsiTerminalPrinter.Mode.INFO : "",
               passCount,
+              AnsiTerminalPrinter.Mode.DEFAULT,
+              stats.totalSkippedTestCases > 0 ? AnsiTerminalPrinter.Mode.WARNING : "",
+              stats.totalSkippedTestCases,
               AnsiTerminalPrinter.Mode.DEFAULT,
               stats.totalFailedTestCases > 0 ? AnsiTerminalPrinter.Mode.ERROR : "",
               stats.totalFailedTestCases,
@@ -316,7 +303,7 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
       addFailureToErrorList(results, "to build", stats.failedToBuildCount);
       addFailureToErrorList(results, "locally", stats.failedLocallyCount);
       addFailureToErrorList(results, "remotely", stats.failedRemotelyCount);
-      addToErrorList(results, "was", "were", "skipped", stats.noStatusCount);
+      addToWarningList(results, "was", "were", "skipped", stats.noStatusCount);
       printer.print(
           String.format(
               "\nExecuted %d out of %d %s: %s.\n",

@@ -18,22 +18,26 @@ import com.google.common.base.Strings;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.exec.Protos.Digest;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.shell.ExecutionStatistics;
 import com.google.devtools.build.lib.shell.TerminationStatus;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.ByteString;
-import java.io.InputStream;
-import java.time.Duration;
+import java.io.IOException;
+import java.time.Instant;
 import java.util.Locale;
-import java.util.Optional;
 import javax.annotation.Nullable;
 
 /** The result of a {@link Spawn}'s execution. */
+@SuppressWarnings("GoodTime") // Use ints instead of Durations to improve build time (cl/505728570)
 public interface SpawnResult {
 
-  int POSIX_TIMEOUT_EXIT_CODE = /*SIGNAL_BASE=*/ 128 + /*SIGALRM=*/ 14;
+  int POSIX_TIMEOUT_EXIT_CODE = /* SIGNAL_BASE= */ 128 + /* SIGALRM= */ 14;
 
   /** The status of the attempted Spawn execution. */
   enum Status {
@@ -170,62 +174,75 @@ public interface SpawnResult {
   String getRunnerSubtype();
 
   /**
-   * Returns the wall time taken by the {@link Spawn}'s execution.
+   * Returns the start time for the {@link Spawn}'s execution.
    *
-   * @return the measurement, or empty in case of execution errors or when the measurement is not
+   * @return the measurement, or null in case of execution errors or when the measurement is not
    *     implemented for the current platform
    */
-  Optional<Duration> getWallTime();
+  @Nullable
+  Instant getStartTime();
+
+  /**
+   * Returns the wall time taken by the {@link Spawn}'s execution.
+   *
+   * @return the measurement, or 0 in case of execution errors or when the measurement is not
+   *     implemented for the current platform
+   */
+  int getWallTimeInMs();
 
   /**
    * Returns the user time taken by the {@link Spawn}'s execution.
    *
-   * @return the measurement, or empty in case of execution errors or when the measurement is not
+   * @return the measurement, or 0 in case of execution errors or when the measurement is not
    *     implemented for the current platform
    */
-  Optional<Duration> getUserTime();
+  int getUserTimeInMs();
 
   /**
    * Returns the system time taken by the {@link Spawn}'s execution.
    *
-   * @return the measurement, or empty in case of execution errors or when the measurement is not
+   * @return the measurement, or 0 in case of execution errors or when the measurement is not
    *     implemented for the current platform
    */
-  Optional<Duration> getSystemTime();
+  int getSystemTimeInMs();
 
   /**
    * Returns the number of block output operations during the {@link Spawn}'s execution.
    *
-   * @return the measurement, or empty in case of execution errors or when the measurement is not
+   * @return the measurement, or null in case of execution errors or when the measurement is not
    *     implemented for the current platform
    */
-  Optional<Long> getNumBlockOutputOperations();
+  @Nullable
+  Long getNumBlockOutputOperations();
 
   /**
    * Returns the number of block input operations during the {@link Spawn}'s execution.
    *
-   * @return the measurement, or empty in case of execution errors or when the measurement is not
+   * @return the measurement, or null in case of execution errors or when the measurement is not
    *     implemented for the current platform
    */
-  Optional<Long> getNumBlockInputOperations();
+  @Nullable
+  Long getNumBlockInputOperations();
 
   /**
    * Returns the number of involuntary context switches during the {@link Spawn}'s execution.
    *
-   * @return the measurement, or empty in case of execution errors or when the measurement is not
+   * @return the measurement, or null in case of execution errors or when the measurement is not
    *     implemented for the current platform
    */
-  Optional<Long> getNumInvoluntaryContextSwitches();
+  @Nullable
+  Long getNumInvoluntaryContextSwitches();
 
   /**
    * Returns the memory in Kilobytes used during the {@link Spawn}'s execution. The spawn memory
    * based on the maximum resident set size during command execution.
    *
-   * @return the measurement, or empty in case of execution errors or when the measurement is not
+   * @return the measurement, or null in case of execution errors or when the measurement is not
    *     implemented for the current platform
    */
   // TODO(b/181317827) implement for windows systems.
-  Optional<Long> getMemoryInKb();
+  @Nullable
+  Long getMemoryInKb();
 
   SpawnMetrics getMetrics();
 
@@ -244,20 +261,24 @@ public interface SpawnResult {
    * ExecutionRequirements#REMOTE_EXECUTION_INLINE_OUTPUTS}.
    */
   @Nullable
-  default InputStream getInMemoryOutput(ActionInput output) {
+  default ByteString getInMemoryOutput(ActionInput output) {
     return null;
   }
 
-  String getDetailMessage(
-      String message,
-      boolean catastrophe,
-      boolean forciblyRunRemotely);
-
-  /** Returns a file path to the action metadata log. */
-  Optional<MetadataLog> getActionMetadataLog();
+  String getDetailMessage(String message, boolean catastrophe, boolean forciblyRunRemotely);
 
   /** Whether the spawn result was obtained through remote strategy. */
   boolean wasRemote();
+
+  /**
+   * Returns the remote or disk cache digest.
+   *
+   * <p>Only available when remote execution, remote cache or disk cache was enabled for the spawn.
+   */
+  @Nullable
+  default Digest getDigest() {
+    return null;
+  }
 
   /** Basic implementation of {@link SpawnResult}. */
   @Immutable
@@ -270,21 +291,23 @@ public interface SpawnResult {
     private final String runnerName;
     private final String runnerSubtype;
     private final SpawnMetrics spawnMetrics;
-    private final Optional<Duration> wallTime;
-    private final Optional<Duration> userTime;
-    private final Optional<Duration> systemTime;
-    private final Optional<Long> numBlockOutputOperations;
-    private final Optional<Long> numBlockInputOperations;
-    private final Optional<Long> numInvoluntaryContextSwitches;
-    private final Optional<Long> memoryKb;
-    private final Optional<MetadataLog> actionMetadataLog;
+    @Nullable private final Instant startTime;
+    private final int wallTimeInMs;
+    private final int userTimeInMs;
+    private final int systemTimeInMs;
+    @Nullable private final Long numBlockOutputOperations;
+    @Nullable private final Long numBlockInputOperations;
+    @Nullable private final Long numInvoluntaryContextSwitches;
+    @Nullable private final Long memoryKb;
     private final boolean cacheHit;
     private final String failureMessage;
 
     // Invariant: Either both have a value or both are null.
     @Nullable private final ActionInput inMemoryOutputFile;
     @Nullable private final ByteString inMemoryContents;
+
     private final boolean remote;
+    @Nullable private final Digest digest;
 
     SimpleSpawnResult(Builder builder) {
       this.exitCode = builder.exitCode;
@@ -293,12 +316,14 @@ public interface SpawnResult {
       this.executorHostName = builder.executorHostName;
       this.runnerName = builder.runnerName;
       this.runnerSubtype = builder.runnerSubtype;
-      this.spawnMetrics = builder.spawnMetrics != null
-          ? builder.spawnMetrics
-          : SpawnMetrics.forLocalExecution(builder.wallTime.orElse(Duration.ZERO));
-      this.wallTime = builder.wallTime;
-      this.userTime = builder.userTime;
-      this.systemTime = builder.systemTime;
+      this.spawnMetrics =
+          builder.spawnMetrics != null
+              ? builder.spawnMetrics
+              : SpawnMetrics.forLocalExecution(builder.wallTimeInMs);
+      this.startTime = builder.startTime;
+      this.wallTimeInMs = builder.wallTimeInMs;
+      this.userTimeInMs = builder.userTimeInMs;
+      this.systemTimeInMs = builder.systemTimeInMs;
       this.numBlockOutputOperations = builder.numBlockOutputOperations;
       this.numBlockInputOperations = builder.numBlockInputOperations;
       this.numInvoluntaryContextSwitches = builder.numInvoluntaryContextSwitches;
@@ -307,8 +332,8 @@ public interface SpawnResult {
       this.failureMessage = builder.failureMessage;
       this.inMemoryOutputFile = builder.inMemoryOutputFile;
       this.inMemoryContents = builder.inMemoryContents;
-      this.actionMetadataLog = builder.actionMetadataLog;
       this.remote = builder.remote;
+      this.digest = builder.digest;
     }
 
     @Override
@@ -348,37 +373,42 @@ public interface SpawnResult {
     }
 
     @Override
-    public Optional<Duration> getWallTime() {
-      return wallTime;
+    public Instant getStartTime() {
+      return startTime;
     }
 
     @Override
-    public Optional<Duration> getUserTime() {
-      return userTime;
+    public int getWallTimeInMs() {
+      return wallTimeInMs;
     }
 
     @Override
-    public Optional<Duration> getSystemTime() {
-      return systemTime;
+    public int getUserTimeInMs() {
+      return userTimeInMs;
     }
 
     @Override
-    public Optional<Long> getNumBlockOutputOperations() {
+    public int getSystemTimeInMs() {
+      return systemTimeInMs;
+    }
+
+    @Override
+    public Long getNumBlockOutputOperations() {
       return numBlockOutputOperations;
     }
 
     @Override
-    public Optional<Long> getNumBlockInputOperations() {
+    public Long getNumBlockInputOperations() {
       return numBlockInputOperations;
     }
 
     @Override
-    public Optional<Long> getNumInvoluntaryContextSwitches() {
+    public Long getNumInvoluntaryContextSwitches() {
       return numInvoluntaryContextSwitches;
     }
 
     @Override
-    public Optional<Long> getMemoryInKb() {
+    public Long getMemoryInKb() {
       return memoryKb;
     }
 
@@ -394,21 +424,19 @@ public interface SpawnResult {
 
     @Override
     public String getDetailMessage(
-        String message,
-        boolean catastrophe,
-        boolean forciblyRunRemotely) {
-      TerminationStatus status = new TerminationStatus(
-          exitCode(), status() == Status.TIMEOUT);
-      String reason = "(" + status.toShortString() + ")"; // e.g "(Exit 1)"
+        String message, boolean catastrophe, boolean forciblyRunRemotely) {
+      TerminationStatus status = new TerminationStatus(exitCode(), status() == Status.TIMEOUT);
+      String reason = "(" + status.toShortString() + ")"; // e.g. "(Exit 1)"
       String explanation = Strings.isNullOrEmpty(message) ? "" : ": " + message;
 
       if (status() == Status.TIMEOUT) {
-        if (getWallTime().isPresent()) {
+        // 0 wall time means no measurement
+        if (getWallTimeInMs() != 0) {
           explanation +=
               String.format(
                   Locale.US,
                   " (failed due to timeout after %.2f seconds.)",
-                  getWallTime().get().toMillis() / 1000.0);
+                  getWallTimeInMs() / 1000.0);
         } else {
           explanation += " (failed due to timeout.)";
         }
@@ -416,29 +444,167 @@ public interface SpawnResult {
         explanation += " (Remote action was terminated due to Out of Memory.)";
       }
       if (status() != Status.TIMEOUT && forciblyRunRemotely) {
-        explanation += " Action tagged as local was forcibly run remotely and failed - it's "
-            + "possible that the action simply doesn't work remotely";
+        explanation +=
+            " Action tagged as local was forcibly run remotely and failed - it's "
+                + "possible that the action simply doesn't work remotely";
       }
       return reason + explanation;
     }
 
     @Nullable
     @Override
-    public InputStream getInMemoryOutput(ActionInput output) {
+    public ByteString getInMemoryOutput(ActionInput output) {
       if (inMemoryOutputFile != null && inMemoryOutputFile.equals(output)) {
-        return inMemoryContents.newInput();
+        return inMemoryContents;
       }
       return null;
     }
 
     @Override
-    public Optional<MetadataLog> getActionMetadataLog() {
-      return actionMetadataLog;
+    public boolean wasRemote() {
+      return remote;
+    }
+
+    @Override
+    public Digest getDigest() {
+      return digest;
+    }
+  }
+
+  /**
+   * A helper class for wrapping an existing {@link SpawnResult} and modifying a subset of its
+   * methods.
+   */
+  class DelegateSpawnResult implements SpawnResult {
+    private final SpawnResult delegate;
+
+    public DelegateSpawnResult(SpawnResult delegate) {
+      this.delegate = delegate;
+    }
+
+    @Override
+    public boolean setupSuccess() {
+      return delegate.setupSuccess();
+    }
+
+    @Override
+    public boolean isCatastrophe() {
+      return delegate.isCatastrophe();
+    }
+
+    @Override
+    public Status status() {
+      return delegate.status();
+    }
+
+    @Override
+    public int exitCode() {
+      return delegate.exitCode();
+    }
+
+    @Override
+    @Nullable
+    public FailureDetail failureDetail() {
+      return delegate.failureDetail();
+    }
+
+    @Override
+    @Nullable
+    public String getExecutorHostName() {
+      return delegate.getExecutorHostName();
+    }
+
+    @Override
+    public String getRunnerName() {
+      return delegate.getRunnerName();
+    }
+
+    @Override
+    public String getRunnerSubtype() {
+      return delegate.getRunnerSubtype();
+    }
+
+    @Override
+    @Nullable
+    public Instant getStartTime() {
+      return delegate.getStartTime();
+    }
+
+    @Override
+    public int getWallTimeInMs() {
+      return delegate.getWallTimeInMs();
+    }
+
+    @Override
+    public int getUserTimeInMs() {
+      return delegate.getUserTimeInMs();
+    }
+
+    @Override
+    public int getSystemTimeInMs() {
+      return delegate.getSystemTimeInMs();
+    }
+
+    @Override
+    @Nullable
+    public Long getNumBlockOutputOperations() {
+      return delegate.getNumBlockOutputOperations();
+    }
+
+    @Override
+    @Nullable
+    public Long getNumBlockInputOperations() {
+      return delegate.getNumBlockInputOperations();
+    }
+
+    @Override
+    @Nullable
+    public Long getNumInvoluntaryContextSwitches() {
+      return delegate.getNumInvoluntaryContextSwitches();
+    }
+
+    @Override
+    @Nullable
+    public Long getMemoryInKb() {
+      return delegate.getMemoryInKb();
+    }
+
+    @Override
+    public SpawnMetrics getMetrics() {
+      return delegate.getMetrics();
+    }
+
+    @Override
+    public boolean isCacheHit() {
+      return delegate.isCacheHit();
+    }
+
+    @Override
+    public String getFailureMessage() {
+      return delegate.getFailureMessage();
+    }
+
+    @Override
+    @Nullable
+    public ByteString getInMemoryOutput(ActionInput output) {
+      return delegate.getInMemoryOutput(output);
+    }
+
+    @Override
+    public String getDetailMessage(
+        String message, boolean catastrophe, boolean forciblyRunRemotely) {
+      return delegate.getDetailMessage(message, catastrophe, forciblyRunRemotely);
     }
 
     @Override
     public boolean wasRemote() {
-      return remote;
+      return delegate.wasRemote();
+    }
+
+    @Override
+    @Nullable
+    public Digest getDigest() {
+      return delegate.getDigest();
     }
   }
 
@@ -451,25 +617,26 @@ public interface SpawnResult {
     private String runnerName = "";
     private String runnerSubtype = "";
     private SpawnMetrics spawnMetrics;
-    private Optional<Duration> wallTime = Optional.empty();
-    private Optional<Duration> userTime = Optional.empty();
-    private Optional<Duration> systemTime = Optional.empty();
-    private Optional<Long> numBlockOutputOperations = Optional.empty();
-    private Optional<Long> numBlockInputOperations = Optional.empty();
-    private Optional<Long> numInvoluntaryContextSwitches = Optional.empty();
-    private Optional<Long> memoryInKb = Optional.empty();
-    private Optional<MetadataLog> actionMetadataLog = Optional.empty();
+    private Instant startTime;
+    private int wallTimeInMs;
+    private int userTimeInMs;
+    private int systemTimeInMs;
+    private Long numBlockOutputOperations;
+    private Long numBlockInputOperations;
+    private Long numInvoluntaryContextSwitches;
+    private Long memoryInKb;
     private boolean cacheHit;
     private String failureMessage = "";
 
     // Invariant: Either both have a value or both are null.
     @Nullable private ActionInput inMemoryOutputFile;
     @Nullable private ByteString inMemoryContents;
+
     private boolean remote;
+    private Digest digest;
 
     public SpawnResult build() {
       Preconditions.checkArgument(!runnerName.isEmpty());
-
       switch (status) {
         case SUCCESS:
           Preconditions.checkArgument(exitCode == 0, exitCode);
@@ -505,114 +672,141 @@ public interface SpawnResult {
       return new SimpleSpawnResult(this);
     }
 
+    @CanIgnoreReturnValue
     public Builder setExitCode(int exitCode) {
       this.exitCode = exitCode;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setStatus(Status status) {
       this.status = status;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setFailureDetail(FailureDetail failureDetail) {
       this.failureDetail = failureDetail;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setExecutorHostname(String executorHostName) {
       this.executorHostName = executorHostName;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setRunnerName(String runnerName) {
       this.runnerName = runnerName;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setSpawnMetrics(SpawnMetrics spawnMetrics) {
       this.spawnMetrics = spawnMetrics;
       return this;
     }
 
-    public Builder setWallTime(Duration wallTime) {
-      this.wallTime = Optional.of(wallTime);
+    @CanIgnoreReturnValue
+    public Builder setStartTime(Instant startTime) {
+      this.startTime = startTime;
       return this;
     }
 
-    public Builder setUserTime(Duration userTime) {
-      this.userTime = Optional.of(userTime);
+    @CanIgnoreReturnValue
+    public Builder setWallTimeInMs(int wallTimeInMs) {
+      this.wallTimeInMs = wallTimeInMs;
       return this;
     }
 
-    public Builder setSystemTime(Duration systemTime) {
-      this.systemTime = Optional.of(systemTime);
+    @CanIgnoreReturnValue
+    public Builder setUserTimeInMs(int userTimeInMs) {
+      this.userTimeInMs = userTimeInMs;
       return this;
     }
 
+    @CanIgnoreReturnValue
+    public Builder setSystemTimeInMs(int systemTimeInMs) {
+      this.systemTimeInMs = systemTimeInMs;
+      return this;
+    }
+
+    @CanIgnoreReturnValue
     public Builder setNumBlockOutputOperations(long numBlockOutputOperations) {
-      this.numBlockOutputOperations = Optional.of(numBlockOutputOperations);
+      this.numBlockOutputOperations = numBlockOutputOperations;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setNumBlockInputOperations(long numBlockInputOperations) {
-      this.numBlockInputOperations = Optional.of(numBlockInputOperations);
+      this.numBlockInputOperations = numBlockInputOperations;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setNumInvoluntaryContextSwitches(long numInvoluntaryContextSwitches) {
-      this.numInvoluntaryContextSwitches = Optional.of(numInvoluntaryContextSwitches);
+      this.numInvoluntaryContextSwitches = numInvoluntaryContextSwitches;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setMemoryInKb(long memoryInKb) {
-      this.memoryInKb = Optional.of(memoryInKb);
+      this.memoryInKb = memoryInKb;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setCacheHit(boolean cacheHit) {
       this.cacheHit = cacheHit;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setFailureMessage(String failureMessage) {
       this.failureMessage = failureMessage;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setInMemoryOutput(ActionInput outputFile, ByteString contents) {
       this.inMemoryOutputFile = Preconditions.checkNotNull(outputFile);
       this.inMemoryContents = Preconditions.checkNotNull(contents);
       return this;
     }
 
-    Builder setActionMetadataLog(MetadataLog actionMetadataLog) {
-      this.actionMetadataLog = Optional.of(actionMetadataLog);
-      return this;
-    }
-
+    @CanIgnoreReturnValue
     public Builder setRemote(boolean remote) {
       this.remote = remote;
       return this;
     }
-  }
 
-  /** A {@link Spawn}'s metadata name and {@link Path}. */
-  final class MetadataLog {
-    private final String name;
-    private final Path filePath;
-
-    public MetadataLog(String name, Path filePath) {
-      this.name = name;
-      this.filePath = filePath;
+    @CanIgnoreReturnValue
+    public Builder setDigest(Digest digest) {
+      this.digest = digest;
+      return this;
     }
 
-    public String getName() {
-      return this.name;
-    }
-
-    public Path getFilePath() {
-      return this.filePath;
+    /** Adds execution statistics based on a {@code execution_statistics.proto} file. */
+    @CanIgnoreReturnValue
+    public Builder setResourceUsageFromProto(Path statisticsPath) throws IOException {
+      ExecutionStatistics.getResourceUsage(statisticsPath)
+          .ifPresent(
+              resourceUsage -> {
+                setUserTimeInMs((int) resourceUsage.getUserExecutionTime().toMillis());
+                setSystemTimeInMs((int) resourceUsage.getSystemExecutionTime().toMillis());
+                setNumBlockOutputOperations(resourceUsage.getBlockOutputOperations());
+                setNumBlockInputOperations(resourceUsage.getBlockInputOperations());
+                setNumInvoluntaryContextSwitches(resourceUsage.getInvoluntaryContextSwitches());
+                // The memory usage of the largest child process. For Darwin maxrss returns size in
+                // bytes.
+                if (OS.getCurrent() == OS.DARWIN) {
+                  setMemoryInKb(resourceUsage.getMaximumResidentSetSize() / 1000);
+                } else {
+                  setMemoryInKb(resourceUsage.getMaximumResidentSetSize());
+                }
+              });
+      return this;
     }
   }
 }

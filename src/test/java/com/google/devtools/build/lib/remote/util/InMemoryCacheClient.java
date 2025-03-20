@@ -13,30 +13,36 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote.util;
 
+import build.bazel.remote.execution.v2.ActionCacheUpdateCapabilities;
 import build.bazel.remote.execution.v2.ActionResult;
+import build.bazel.remote.execution.v2.CacheCapabilities;
 import build.bazel.remote.execution.v2.Digest;
+import build.bazel.remote.execution.v2.ServerCapabilities;
+import build.bazel.remote.execution.v2.SymlinkAbsolutePathStrategy;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.io.ByteStreams;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.ListeningExecutorService;
+import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
-import com.google.devtools.build.lib.vfs.Path;
-import com.google.protobuf.ByteString;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.AbstractMap.SimpleEntry;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 /** A {@link RemoteCacheClient} that stores its contents in memory. */
-public final class InMemoryCacheClient implements RemoteCacheClient {
+public class InMemoryCacheClient implements RemoteCacheClient {
 
+  private final ListeningExecutorService executorService =
+      MoreExecutors.listeningDecorator(Executors.newFixedThreadPool(100));
   private final ConcurrentMap<Digest, Exception> downloadFailures = new ConcurrentHashMap<>();
   private final ConcurrentMap<ActionKey, ActionResult> ac = new ConcurrentHashMap<>();
   private final ConcurrentMap<Digest, byte[]> cas;
@@ -101,13 +107,29 @@ public final class InMemoryCacheClient implements RemoteCacheClient {
   }
 
   @Override
-  public ListenableFuture<CachedActionResult> downloadActionResult(
-      RemoteActionExecutionContext context, ActionKey actionKey, boolean inlineOutErr) {
+  public ServerCapabilities getServerCapabilities() {
+    var cacheCapabilities =
+        CacheCapabilities.newBuilder()
+            .setActionCacheUpdateCapabilities(
+                ActionCacheUpdateCapabilities.newBuilder().setUpdateEnabled(true).build())
+            .setSymlinkAbsolutePathStrategy(SymlinkAbsolutePathStrategy.Value.ALLOWED)
+            .build();
+    return ServerCapabilities.newBuilder().setCacheCapabilities(cacheCapabilities).build();
+  }
+
+  @Override
+  public ListenableFuture<String> getAuthority() {
+    return Futures.immediateFuture("");
+  }
+
+  @Override
+  public ListenableFuture<ActionResult> downloadActionResult(
+      RemoteActionExecutionContext context,
+      ActionKey actionKey,
+      boolean inlineOutErr,
+      Set<String> inlineOutputFiles) {
     ActionResult actionResult = ac.get(actionKey);
-    if (actionResult == null) {
-      return Futures.immediateFailedFuture(new CacheNotFoundException(actionKey.getDigest()));
-    }
-    return Futures.immediateFuture(CachedActionResult.remote(actionResult));
+    return Futures.immediateFuture(actionResult);
   }
 
   @Override
@@ -118,21 +140,10 @@ public final class InMemoryCacheClient implements RemoteCacheClient {
   }
 
   @Override
-  public ListenableFuture<Void> uploadFile(
-      RemoteActionExecutionContext context, Digest digest, Path file) {
-    try (InputStream in = file.getInputStream()) {
-      cas.put(digest, ByteStreams.toByteArray(in));
-    } catch (IOException e) {
-      return Futures.immediateFailedFuture(e);
-    }
-    return Futures.immediateFuture(null);
-  }
-
-  @Override
   public ListenableFuture<Void> uploadBlob(
-      RemoteActionExecutionContext context, Digest digest, ByteString data) {
-    try (InputStream in = data.newInput()) {
-      cas.put(digest, data.toByteArray());
+      RemoteActionExecutionContext context, Digest digest, Blob blob) {
+    try (blob) {
+      cas.put(digest, blob.get().readAllBytes());
     } catch (IOException e) {
       return Futures.immediateFailedFuture(e);
     }
@@ -142,16 +153,19 @@ public final class InMemoryCacheClient implements RemoteCacheClient {
   @Override
   public ListenableFuture<ImmutableSet<Digest>> findMissingDigests(
       RemoteActionExecutionContext context, Iterable<Digest> digests) {
-    ImmutableSet.Builder<Digest> missingBuilder = ImmutableSet.builder();
-    for (Digest digest : digests) {
-      numFindMissingDigests
-          .computeIfAbsent(digest, (key) -> new AtomicInteger(0))
-          .incrementAndGet();
-      if (!cas.containsKey(digest)) {
-        missingBuilder.add(digest);
-      }
-    }
-    return Futures.immediateFuture(missingBuilder.build());
+    return executorService.submit(
+        () -> {
+          ImmutableSet.Builder<Digest> missingBuilder = ImmutableSet.builder();
+          for (Digest digest : digests) {
+            numFindMissingDigests
+                .computeIfAbsent(digest, (key) -> new AtomicInteger(0))
+                .incrementAndGet();
+            if (!cas.containsKey(digest)) {
+              missingBuilder.add(digest);
+            }
+          }
+          return missingBuilder.build();
+        });
   }
 
   @Override

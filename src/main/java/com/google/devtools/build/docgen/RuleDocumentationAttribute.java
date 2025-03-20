@@ -18,21 +18,25 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
+import com.google.devtools.build.lib.packages.Attribute.StarlarkComputedDefaultTemplate;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.packages.Types;
+import com.google.devtools.build.lib.starlarkdocextract.LabelRenderer;
+import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.AttributeInfo;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.Map;
 import java.util.Set;
-import net.starlark.java.eval.StarlarkInt;
+import javax.annotation.Nullable;
 
 /**
- * A class storing a rule attribute documentation along with some meta information. The class
- * provides functionality to compute the ancestry level of this attribute's generator rule
- * definition class compared to other rule definition classes.
+ * A class storing a rule attribute documentation along with some meta information. For native
+ * attributes, the class provides functionality to compute the ancestry level of this attribute's
+ * generator rule definition class compared to other rule definition classes.
  *
  * <p>Warning, two RuleDocumentationAttribute objects are equal based on only the attributeName.
  */
@@ -43,81 +47,187 @@ public class RuleDocumentationAttribute
       ImmutableMap.<Type<?>, String>builder()
           .put(Type.BOOLEAN, "Boolean")
           .put(Type.INTEGER, "Integer")
-          .put(Type.INTEGER_LIST, "List of integers")
+          .put(Types.INTEGER_LIST, "List of integers")
           .put(Type.STRING, "String")
-          .put(Type.STRING_DICT, "Dictionary: String -> String")
-          .put(Type.STRING_LIST, "List of strings")
+          .put(Types.STRING_DICT, "Dictionary: String -> String")
+          .put(Types.STRING_LIST, "List of strings")
           .put(BuildType.TRISTATE, "Integer")
-          .put(BuildType.LABEL, "<a href=\"../build-ref.html#labels\">Label</a>")
-          .put(BuildType.LABEL_LIST, "List of <a href=\"../build-ref.html#labels\">labels</a>")
+          .put(BuildType.LABEL, "<a href=\"${link build-ref#labels}\">Label</a>")
+          .put(
+              BuildType.LABEL_KEYED_STRING_DICT,
+              "Dictionary: <a href=\"${link build-ref#labels}\">label</a> -> String")
+          .put(BuildType.LABEL_LIST, "List of <a href=\"${link build-ref#labels}\">labels</a>")
+          .put(
+              BuildType.GENQUERY_SCOPE_TYPE_LIST,
+              "List of <a href=\"${link build-ref#labels}\">labels</a>")
           .put(
               BuildType.LABEL_DICT_UNARY,
-              "Dictionary mapping strings to <a href=\"../build-ref.html#labels\">labels</a>")
+              "Dictionary mapping strings to <a href=\"${link build-ref#labels}\">labels</a>")
           .put(BuildType.LICENSE, "Licence type")
-          .put(BuildType.NODEP_LABEL, "<a href=\"../build-ref.html#name\">Name</a>")
-          .put(BuildType.NODEP_LABEL_LIST, "List of <a href=\"../build-ref.html#name\">names</a>")
-          .put(BuildType.OUTPUT, "<a href=\"../build-ref.html#filename\">Filename</a>")
+          .put(BuildType.NODEP_LABEL, "<a href=\"${link build-ref#name}\">Name</a>")
+          .put(BuildType.NODEP_LABEL_LIST, "List of <a href=\"${link build-ref#name}\">names</a>")
+          .put(BuildType.OUTPUT, "<a href=\"${link build-ref#filename}\">Filename</a>")
           .put(
-              BuildType.OUTPUT_LIST, "List of <a href=\"../build-ref.html#filename\">filenames</a>")
-          .build();
+              BuildType.OUTPUT_LIST, "List of <a href=\"${link build-ref#filename}\">filenames</a>")
+          .buildOrThrow();
 
-  private final Class<? extends RuleDefinition> definitionClass;
+  @Nullable private final Class<? extends RuleDefinition> definitionClass;
   private final String attributeName;
   private final String htmlDocumentation;
-  private final String commonType;
+  @Nullable private final String commonType;
   // Used to expand rule link references in the attribute documentation.
   private RuleLinkExpander linkExpander;
-  private int startLineCnt;
-  private String fileName;
+  private final String location; // for error messages
   private Set<String> flags;
-  private Attribute attribute;
-
+  // The following are not set by create() or createCommon()
+  @Nullable private final Type<?> type;
+  @Nullable private final String defaultValue;
+  private final boolean mandatory;
+  private final boolean nonconfigurable;
 
   /**
-   * Creates common RuleDocumentationAttribute such as deps or data.
-   * These attribute docs have no definitionClass or htmlDocumentation (it's in the BE header).
+   * Creates a RuleDocumentationAttribute from comments in Java sources. Additional metadata may be
+   * filled in later via {@link copyAndUpdateFrom}.
    */
   static RuleDocumentationAttribute create(
-      String attributeName, String commonType, String htmlDocumentation) {
-    RuleDocumentationAttribute docAttribute = new RuleDocumentationAttribute(
-        null, attributeName, htmlDocumentation, 0, "", ImmutableSet.<String>of(), commonType);
-    return docAttribute;
+      @Nullable Class<? extends RuleDefinition> definitionClass,
+      String attributeName,
+      String htmlDocumentation,
+      String file,
+      int lineNumber,
+      Set<String> flags) {
+    return new RuleDocumentationAttribute(
+        definitionClass,
+        attributeName,
+        htmlDocumentation,
+        BuildEncyclopediaDocException.formatLocation(file, lineNumber),
+        flags,
+        /* commonType= */ null,
+        /* type= */ null,
+        /* defaultValue= */ null,
+        /* mandatory= */ false,
+        /* nonconfigurable= */ false);
   }
 
   /**
-   * Creates a RuleDocumentationAttribute with all the necessary fields for explicitly
-   * defined rule attributes.
+   * Creates common RuleDocumentationAttribute such as deps or data. These attribute docs have no
+   * definitionClass or htmlDocumentation (it's in the BE header).
    */
-  static RuleDocumentationAttribute create(Class<? extends RuleDefinition> definitionClass,
-      String attributeName, String htmlDocumentation, int startLineCnt, String fileName,
-      Set<String> flags) {
-    return new RuleDocumentationAttribute(definitionClass, attributeName, htmlDocumentation,
-        startLineCnt, fileName, flags, null);
+  static RuleDocumentationAttribute createCommon(
+      String attributeName, String commonType, String htmlDocumentation) {
+    return new RuleDocumentationAttribute(
+        null,
+        attributeName,
+        htmlDocumentation,
+        "",
+        ImmutableSet.of(),
+        commonType,
+        /* type= */ null,
+        /* defaultValue= */ null,
+        /* mandatory= */ false,
+        /* nonconfigurable= */ false);
   }
 
-  private RuleDocumentationAttribute(Class<? extends RuleDefinition> definitionClass,
-      String attributeName, String htmlDocumentation, int startLineCnt, String fileName,
-      Set<String> flags, String commonType) {
+  /** Creates a RuleDocumentationAttribute from a stardoc_output.AttributeInfo proto. */
+  static RuleDocumentationAttribute createFromAttributeInfo(
+      AttributeInfo attributeInfo, String location, Set<String> flags)
+      throws BuildEncyclopediaDocException {
+    return new RuleDocumentationAttribute(
+        null,
+        attributeInfo.getName(),
+        attributeInfo.getDocString(),
+        location,
+        flags,
+        /* commonType= */ null,
+        getAttributeInfoType(attributeInfo, location),
+        attributeInfo.getDefaultValue(),
+        attributeInfo.getMandatory(),
+        attributeInfo.getNonconfigurable());
+  }
+
+  /**
+   * Copies this RuleDocumentationAttribute and sets additional metadata (type, default value, and
+   * whether the attribute is mandatory or nonconfigurable) from a native attribute object.
+   */
+  RuleDocumentationAttribute copyAndUpdateFrom(Attribute attribute) {
+    return new RuleDocumentationAttribute(
+        this.definitionClass,
+        this.attributeName,
+        this.htmlDocumentation,
+        this.location,
+        this.flags,
+        this.commonType,
+        attribute.getType(),
+        reprDefaultValue(attribute),
+        attribute.isMandatory(),
+        !attribute.isConfigurable());
+  }
+
+  private static Type<?> getAttributeInfoType(AttributeInfo attributeInfo, String location)
+      throws BuildEncyclopediaDocException {
+    return switch (attributeInfo.getType()) {
+      case INT -> Type.INTEGER;
+      case LABEL -> BuildType.LABEL;
+      case NAME, STRING -> Type.STRING;
+      case STRING_LIST -> Types.STRING_LIST;
+      case INT_LIST -> Types.INTEGER_LIST;
+      case LABEL_LIST -> BuildType.LABEL_LIST;
+      case BOOLEAN -> Type.BOOLEAN;
+      case LABEL_STRING_DICT -> BuildType.LABEL_KEYED_STRING_DICT;
+      case STRING_DICT -> Types.STRING_DICT;
+      case STRING_LIST_DICT -> Types.STRING_LIST_DICT;
+      case LABEL_DICT_UNARY -> BuildType.LABEL_DICT_UNARY;
+      case LABEL_LIST_DICT -> BuildType.LABEL_LIST_DICT;
+      case OUTPUT -> BuildType.OUTPUT;
+      case OUTPUT_LIST -> BuildType.OUTPUT_LIST;
+      default ->
+          throw new BuildEncyclopediaDocException(
+              location,
+              String.format(
+                  "attribute %s: unknown type %s",
+                  attributeInfo.getName(), attributeInfo.getType()));
+    };
+  }
+
+  private RuleDocumentationAttribute(
+      @Nullable Class<? extends RuleDefinition> definitionClass,
+      String attributeName,
+      String htmlDocumentation,
+      String location,
+      Set<String> flags,
+      @Nullable String commonType,
+      @Nullable Type<?> type,
+      @Nullable String defaultValue,
+      boolean mandatory,
+      boolean nonconfigurable) {
     Preconditions.checkNotNull(attributeName, "AttributeName must not be null.");
     this.definitionClass = definitionClass;
     this.attributeName = attributeName;
     this.htmlDocumentation = htmlDocumentation;
-    this.startLineCnt = startLineCnt;
+    this.location = location;
     this.flags = flags;
     this.commonType = commonType;
-    this.fileName = fileName;
+    this.type = type;
+    this.defaultValue = defaultValue;
+    this.mandatory = mandatory;
+    this.nonconfigurable = nonconfigurable;
   }
 
-  @Override
-  protected Object clone() throws CloneNotSupportedException {
-    return super.clone();
-  }
-
-  /**
-   * Sets the Attribute object that this documents.
-   */
-  void setAttribute(Attribute attribute) {
-    this.attribute = attribute;
+  @Nullable
+  private static String reprDefaultValue(Attribute attribute) {
+    Object value = attribute.getDefaultValueUnchecked();
+    if (value instanceof ComputedDefault || value instanceof StarlarkComputedDefaultTemplate) {
+      // We cannot print anything useful here other than "optional". Let's assume the doc string for
+      // the attribute explains the details.
+      return null;
+    } else if (value instanceof TriState triState) {
+      return switch (triState) {
+        case AUTO -> "-1";
+        case NO -> "0";
+        case YES -> "1";
+      };
+    }
+    return LabelRenderer.DEFAULT.reprWithoutLabelConstructor(Attribute.valueToStarlark(value));
   }
 
   /**
@@ -127,9 +237,12 @@ public class RuleDocumentationAttribute
     return attributeName;
   }
 
-  /** Returns the file name where the rule attribute is defined. */
-  public String getFileName() {
-    return fileName;
+  /**
+   * Returns the file name or label, optionally with a line number, where the rule attribute is
+   * defined.
+   */
+  public String getLocation() {
+    return location;
   }
 
   /**
@@ -150,81 +263,49 @@ public class RuleDocumentationAttribute
    * Returns the html documentation of the rule attribute.
    */
   public String getHtmlDocumentation() throws BuildEncyclopediaDocException {
-    String expandedHtmlDoc = htmlDocumentation;
-    if (linkExpander != null) {
-      try {
-        expandedHtmlDoc = linkExpander.expand(expandedHtmlDoc);
-      } catch (IllegalArgumentException e) {
-        throw new BuildEncyclopediaDocException(fileName, startLineCnt, e.getMessage());
-      }
+    return tryExpand(htmlDocumentation);
+  }
+
+  public String tryExpand(String html) throws BuildEncyclopediaDocException {
+    if (linkExpander == null) {
+      return html;
     }
-    return expandedHtmlDoc;
+    try {
+      return linkExpander.expand(html);
+    } catch (IllegalArgumentException e) {
+      throw new BuildEncyclopediaDocException(location, e.getMessage());
+    }
   }
 
   /** Returns whether the param is required or optional. */
   public boolean isMandatory() {
-    if (attribute == null) {
-      return false;
-    }
-    return attribute.isMandatory();
+    return mandatory;
   }
 
-  private String getDefaultValue() {
-    if (attribute == null) {
+  /** Returns a string containing the synopsis for this attribute. */
+  public String getSynopsis() throws BuildEncyclopediaDocException {
+    if (type == null) {
       return "";
     }
-    String prefix = "; default is ";
-    Object value = attribute.getDefaultValueUnchecked();
-    if (value instanceof Boolean) {
-      return prefix + ((Boolean) value ? "True" : "False");
-    } else if (value instanceof StarlarkInt) {
-      return prefix + value;
-    } else if (value instanceof String && !((String) value).isEmpty()) {
-      return prefix + "\"" + value + "\"";
-    } else if (value instanceof TriState) {
-      switch((TriState) value) {
-        case AUTO:
-          return prefix + "-1";
-        case NO:
-          return prefix + "0";
-        case YES:
-          return prefix + "1";
-      }
-    } else if (value instanceof Label) {
-      return prefix + "<code>" + value + "</code>";
-    }
-    return "";
-  }
-
-  /**
-   * Returns a string containing the synopsis for this attribute.
-   */
-  public String getSynopsis() {
-    if (attribute == null) {
-      return "";
-    }
+    String rawType = TYPE_DESC.get(type);
     StringBuilder sb =
         new StringBuilder()
-            .append(TYPE_DESC.get(attribute.getType()))
-            .append("; ")
-            .append(attribute.isMandatory() ? "required" : "optional")
+            .append(rawType == null ? null : tryExpand(rawType))
             .append(
-                !attribute.isConfigurable()
+                nonconfigurable
                     ? String.format(
                         "; <a href=\"%s#configurable-attributes\">nonconfigurable</a>",
                         RuleDocumentation.COMMON_DEFINITIONS_PAGE)
                     : "");
-    if (!attribute.isMandatory()) {
-      sb.append(getDefaultValue());
+    if (isMandatory()) {
+      sb.append("; required");
+    } else if (defaultValue != null && !defaultValue.isEmpty()) {
+      sb.append("; default is <code>").append(defaultValue).append("</code>");
+    } else {
+      // Computed default or other non-representable value
+      sb.append("; optional");
     }
     return sb.toString();
-  }
-
-  /**
-   * Returns the number of first line of the attribute documentation in its declaration file.
-   */
-  int getStartLineCnt() {
-    return startLineCnt;
   }
 
   /**

@@ -17,20 +17,14 @@ import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.io.IOException;
+import javax.annotation.Nullable;
 
 /** A class to help dealing with WORKSPACE.bazel and WORKSAPCE file */
 public class WorkspaceFileHelper {
-
-  public static RootedPath getWorkspaceRootedFile(Root directory, Environment env)
-      throws IOException, InterruptedException {
-    return getWorkspaceRootedFile(
-        RootedPath.toRootedPath(directory, PathFragment.EMPTY_FRAGMENT), env);
-  }
 
   /**
    * Get a RootedPath of the WORKSPACE file we should use for a given directory. This function
@@ -43,6 +37,7 @@ public class WorkspaceFileHelper {
    * @param env Skyframe env
    * @return A RootedPath to the WORKSPACE file we should use for the given directory.
    */
+  @Nullable
   public static RootedPath getWorkspaceRootedFile(RootedPath directory, Environment env)
       throws IOException, InterruptedException {
     RootedPath workspaceRootedFile =
@@ -68,23 +63,17 @@ public class WorkspaceFileHelper {
         directory.getRootRelativePath().getRelative(LabelConstants.WORKSPACE_FILE_NAME));
   }
 
-  public static boolean doesWorkspaceFileExistUnder(Path directory) {
+  public static boolean isValidRepoRoot(Path directory) {
+    // Keep in sync with //src/main/cpp/workspace_layout.h
     return directory.getRelative(LabelConstants.WORKSPACE_DOT_BAZEL_FILE_NAME).exists()
-        || directory.getRelative(LabelConstants.WORKSPACE_FILE_NAME).exists();
-  }
-
-  public static boolean matchWorkspaceFileName(String name) {
-    return matchWorkspaceFileName(PathFragment.create(name));
+        || directory.getRelative(LabelConstants.WORKSPACE_FILE_NAME).exists()
+        || directory.getRelative(LabelConstants.MODULE_DOT_BAZEL_FILE_NAME).exists()
+        || directory.getRelative(LabelConstants.REPO_FILE_NAME).exists();
   }
 
   public static boolean matchWorkspaceFileName(PathFragment name) {
     return name.equals(LabelConstants.WORKSPACE_DOT_BAZEL_FILE_NAME)
         || name.equals(LabelConstants.WORKSPACE_FILE_NAME);
-  }
-
-  public static boolean endsWithWorkspaceFileName(PathFragment pathFragment) {
-    return pathFragment.endsWith(LabelConstants.WORKSPACE_DOT_BAZEL_FILE_NAME)
-        || pathFragment.endsWith(LabelConstants.WORKSPACE_FILE_NAME);
   }
 
   private WorkspaceFileHelper() {}

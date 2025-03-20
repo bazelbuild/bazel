@@ -18,12 +18,32 @@ import net.starlark.java.annot.ParamType;
 
 /** A class containing the documentation for a Starlark method parameter. */
 public final class StarlarkParamDoc extends StarlarkDoc {
-  private StarlarkMethodDoc method;
-  private Param param;
+  /** Repesents the param kind, whether it's a normal param or *arg or **kwargs. */
+  public static enum Kind {
+    NORMAL,
+    // TODO: https://github.com/bazelbuild/stardoc/issues/225 - NORMAL needs to be split into
+    //   NORMAL and KEYWORD_ONLY, since EXTRA_KEYWORDS (or a `*` separator) go before keyword-only
+    //   params, not necessarily immediately before kwargs.
+    EXTRA_POSITIONALS,
+    EXTRA_KEYWORDS,
+  }
 
-  public StarlarkParamDoc(StarlarkMethodDoc method, Param param) {
+  private final StarlarkMethodDoc method;
+  private final Param param;
+  private final Kind kind;
+  private final int paramIndex;
+
+  public StarlarkParamDoc(
+      StarlarkMethodDoc method,
+      Param param,
+      StarlarkDocExpander expander,
+      Kind kind,
+      int paramIndex) {
+    super(expander);
     this.method = method;
     this.param = param;
+    this.kind = kind;
+    this.paramIndex = paramIndex;
   }
 
   /**
@@ -37,19 +57,34 @@ public final class StarlarkParamDoc extends StarlarkDoc {
    */
   public String getType() {
     StringBuilder sb = new StringBuilder();
-    for (int i = 0; i < param.allowedTypes().length; i++) {
-      ParamType paramType = param.allowedTypes()[i];
-      // TODO(adonovan): make generic1 an array.
-      if (paramType.generic1() == Object.class) {
-        sb.append(getTypeAnchor(paramType.type()));
-      } else {
-        sb.append(getTypeAnchor(paramType.type(), paramType.generic1()));
+    if (param.allowedTypes().length == 0) {
+      // There is no `allowedTypes` field; we need to figure it out from the Java type.
+      if (kind == Kind.NORMAL) {
+        // Only deal with normal args for now; unclear what we could do for varargs.
+        Class<?> type = method.getMethod().getParameterTypes()[paramIndex];
+        if (type != Object.class) {
+          sb.append(getTypeAnchor(type));
+        }
       }
-      if (i < param.allowedTypes().length - 1) {
-        sb.append("; or ");
+    } else {
+      for (int i = 0; i < param.allowedTypes().length; i++) {
+        ParamType paramType = param.allowedTypes()[i];
+        // TODO(adonovan): make generic1 an array.
+        if (paramType.generic1() == Object.class) {
+          sb.append(getTypeAnchor(paramType.type()));
+        } else {
+          sb.append(getTypeAnchor(paramType.type(), paramType.generic1()));
+        }
+        if (i < param.allowedTypes().length - 1) {
+          sb.append("; or ");
+        }
       }
     }
     return sb.toString();
+  }
+
+  public Kind getKind() {
+    return kind;
   }
 
   public StarlarkMethodDoc getMethod() {
@@ -65,24 +100,24 @@ public final class StarlarkParamDoc extends StarlarkDoc {
   }
 
   @Override
-  public String getDocumentation() {
+  public String getRawDocumentation() {
     String prefixWarning = "";
     if (!param.enableOnlyWithFlag().isEmpty()) {
       prefixWarning =
           "<b>Experimental</b>. This parameter is experimental and may change at any "
               + "time. Please do not depend on it. It may be enabled on an experimental basis by "
               + "setting <code>--"
-              + param.enableOnlyWithFlag()
+              + param.enableOnlyWithFlag().substring(1)
               + "</code> <br>";
     } else if (!param.disableWithFlag().isEmpty()) {
       prefixWarning =
           "<b>Deprecated</b>. This parameter is deprecated and will be removed soon. "
               + "Please do not depend on it. It is <i>disabled</i> with "
               + "<code>--"
-              + param.disableWithFlag()
+              + param.disableWithFlag().substring(1)
               + "</code>. Use this flag "
               + "to verify your code is compatible with its imminent removal. <br>";
     }
-    return prefixWarning + StarlarkDocUtils.substituteVariables(param.doc());
+    return prefixWarning + param.doc();
   }
 }

@@ -340,6 +340,65 @@ public final class PatchUtilTest {
   }
 
   @Test
+  // regression test for https://github.com/bazelbuild/bazel/issues/17897#issuecomment-1749389613
+  public void testMultipleChunks() throws IOException, PatchFailedException {
+    Path foo =
+        scratch.file(
+            "/root/foo",
+            "1",
+            "2",
+            "3",
+            "4",
+            "5",
+            "6",
+            "7",
+            "8",
+            "9",
+            "10",
+            "11",
+            "12",
+            "13",
+            "14",
+            "15",
+            "16",
+            "17",
+            "18");
+    Path patchFile =
+        scratch.file(
+            "/root/patchfile",
+            "diff --git a/foo b/foo",
+            "index c20ab12..b83bdb1 100644",
+            "--- a/foo",
+            "+++ b/foo",
+            "@@ -1,12 +1,5 @@",
+            " 1",
+            " 2",
+            "-3",
+            "-4",
+            "-5",
+            "-6",
+            "-7",
+            "-8",
+            "-9",
+            " 10",
+            " 11",
+            " 12",
+            "@@ -15,4 +8,7 @@",
+            " 15",
+            " 16",
+            " 17",
+            "+a",
+            "+b",
+            "+c",
+            " 18");
+    PatchUtil.apply(patchFile, 1, root);
+    ImmutableList<String> newFoo =
+        ImmutableList.of(
+            "1", "2", "10", "11", "12", "13", "14", "15", "16", "17", "a", "b", "c", "18");
+    assertThat(FileSystemUtils.readLines(foo, UTF_8)).isEqualTo(newFoo);
+  }
+
+  @Test
   public void testMultipleChunksWithDifferentOffset() throws IOException, PatchFailedException {
     Path foo =
         scratch.file("/root/foo", "1", "3", "4", "5", "6", "7", "8", "9", "10", "11", "13", "14");
@@ -402,26 +461,6 @@ public final class PatchUtilTest {
             PatchFailedException.class,
             () -> PatchUtil.apply(root.getRelative("patchfile"), 1, root));
     assertThat(expected).hasMessageThat().contains("Cannot find patch file: /root/patchfile");
-  }
-
-  @Test
-  public void testMissingBothOldAndNewFile() throws IOException {
-    Path patchFile =
-        scratch.file(
-            "/root/patchfile",
-            "diff --git a/ b/",
-            "index f3008f9..ec4aaa0 100644",
-            "@@ -2,4 +2,5 @@",
-            " ",
-            " void main(){",
-            "   printf(\"Hello foo\");",
-            "+  printf(\"Hello from patch\");",
-            " }");
-    PatchFailedException expected =
-        assertThrows(PatchFailedException.class, () -> PatchUtil.apply(patchFile, 1, root));
-    assertThat(expected)
-        .hasMessageThat()
-        .contains("Wrong patch format near line 3, neither new file or old file are specified.");
   }
 
   @Test
@@ -532,25 +571,12 @@ public final class PatchUtilTest {
     assertThat(expected)
         .hasMessageThat()
         .contains(
-            "Incorrect Chunk: the chunk content doesn't match the target\n"
-                + "**Original Position**: 2\n"
-                + "\n"
-                + "**Original Content**:\n"
-                + "\n"
-                + "void main(){\n"
-                + "  printf(\"Hello bar\");\n"
-                + "}\n"
-                + "\n"
-                + "**Revised Content**:\n"
-                + "\n"
-                + "void main(){\n"
-                + "  printf(\"Hello bar\");\n"
-                + "  printf(\"Hello from patch\");\n"
-                + "}\n");
+            "in patch applied to /root/foo.cc: could not apply patch due to"
+                + " CONTENT_DOES_NOT_MATCH_TARGET");
   }
 
   @Test
-  public void testWrongChunkFormat1() throws IOException {
+  public void testUnexpectedContextLine() throws IOException {
     scratch.file(
         "/root/foo.cc", "#include <stdio.h>", "", "void main(){", "  printf(\"Hello foo\");", "}");
     Path patchFile =
@@ -576,7 +602,7 @@ public final class PatchUtilTest {
   }
 
   @Test
-  public void testWrongChunkFormat2() throws IOException {
+  public void testMissingContextLine() throws IOException {
     scratch.file(
         "/root/foo.cc", "#include <stdio.h>", "", "void main(){", "  printf(\"Hello foo\");", "}");
     Path patchFile =
@@ -597,7 +623,7 @@ public final class PatchUtilTest {
   }
 
   @Test
-  public void testWrongChunkFormat3() throws IOException {
+  public void testMissingChunkHeader() throws IOException {
     scratch.file(
         "/root/foo.cc", "#include <stdio.h>", "", "void main(){", "  printf(\"Hello foo\");", "}");
     Path patchFile =
@@ -618,5 +644,27 @@ public final class PatchUtilTest {
     assertThat(expected)
         .hasMessageThat()
         .contains("Looks like a unified diff at line 3, but no patch chunk was found.");
+  }
+
+  @Test
+  public void testMissingPreludeLines() throws IOException {
+    Path patchFile =
+        scratch.file(
+            "/root/patchfile",
+            "diff --git a/foo.cc b/foo.cc",
+            "index f3008f9..ec4aaa0 100644",
+            // Missing "--- a/foo.cc",
+            // Missing "+++ b/foo.cc",
+            "@@ -2,4 +2,5 @@",
+            " ",
+            " void main(){",
+            "   printf(\"Hello foo\");",
+            "+  printf(\"Hello from patch\");",
+            " }");
+    PatchFailedException expected =
+        assertThrows(PatchFailedException.class, () -> PatchUtil.apply(patchFile, 1, root));
+    assertThat(expected)
+        .hasMessageThat()
+        .contains("The patch content must start with ---/+++ prelude lines at line 3");
   }
 }

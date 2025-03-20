@@ -16,8 +16,6 @@ package com.google.devtools.build.lib.testutil;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
-import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.File;
@@ -65,7 +63,7 @@ public class BlazeTestUtils {
 
   /** Creates an empty file, along with all its parent directories. */
   public static void makeEmptyFile(Path path) throws IOException {
-    FileSystemUtils.createDirectoryAndParents(path.getParentDirectory());
+    path.getParentDirectory().createDirectoryAndParents();
     FileSystemUtils.createEmptyFile(path);
   }
 
@@ -85,25 +83,19 @@ public class BlazeTestUtils {
     } while (path.getLastModifiedTime() == prevMtime);
   }
 
-  public static Label convertLabel(Label label) {
-    try {
-      return label.getRepository().isDefault()
-          ? Label.create(label.getPackageIdentifier().makeAbsolute(), label.getName())
-          : label;
-    } catch (LabelSyntaxException e) {
-      throw new IllegalStateException(e);
-    }
-  }
-
   /**
    * Creates a list of arguments to pass to Bazel, with flags necessary for Bazel to work properly
    * appended to the original {@code args} array.
    */
   public static ArrayList<String> makeArgs(String... args) {
     ArrayList<String> result =
-        new ArrayList<>(args.length + TestConstants.PRODUCT_SPECIFIC_FLAGS.size());
+        new ArrayList<>(
+            args.length
+                + TestConstants.PRODUCT_SPECIFIC_FLAGS.size()
+                + TestConstants.PRODUCT_SPECIFIC_BUILD_LANG_OPTIONS.size());
     Collections.addAll(result, args);
     result.addAll(TestConstants.PRODUCT_SPECIFIC_FLAGS);
+    result.addAll(TestConstants.PRODUCT_SPECIFIC_BUILD_LANG_OPTIONS);
     return result;
   }
 }

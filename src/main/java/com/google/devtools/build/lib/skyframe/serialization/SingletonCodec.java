@@ -27,7 +27,7 @@ import java.util.Arrays;
  * representation, which is useful for debugging and is used to verify the serialized representation
  * during deserialization.
  */
-public class SingletonCodec<T> implements ObjectCodec<T> {
+public class SingletonCodec<T> extends LeafObjectCodec<T> {
 
   /**
    * Create instance wrapping the singleton {@code value}. Will serialize to the byte array
@@ -53,13 +53,13 @@ public class SingletonCodec<T> implements ObjectCodec<T> {
   }
 
   @Override
-  public void serialize(SerializationContext context, T t, CodedOutputStream codedOut)
+  public void serialize(LeafSerializationContext context, T t, CodedOutputStream codedOut)
       throws IOException {
     codedOut.writeByteArrayNoTag(mnemonic);
   }
 
   @Override
-  public T deserialize(DeserializationContext context, CodedInputStream codedIn)
+  public T deserialize(LeafDeserializationContext context, CodedInputStream codedIn)
       throws SerializationException, IOException {
     // Get ByteBuffer instead of raw bytes, as it may be a direct view of the data and not a copy,
     // which is much more efficient.

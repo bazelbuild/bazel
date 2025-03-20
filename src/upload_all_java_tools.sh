@@ -45,54 +45,75 @@ echo Platform: $platform
 if [[ "$platform" == "windows" ]]; then
   export MSYS_NO_PATHCONV=1
   export MSYS2_ARG_CONV_EXCL="*"
+
+  # Enforce a UTF-8 code page for the JVM that runs GraalVM so that the
+  # resulting native image of Turbine can handle UTF-8 characters.
+  reg add "HKLM\SYSTEM\CurrentControlSet\Control\Nls\CodePage" /v ACP /t REG_SZ /d 65001 /f
+elif [[ "$platform" == "linux" ]]; then
+  # This locale is used by Java and GraalVM native image compilation actions.
+  echo "C.UTF-8         en_US.UTF-8" | sudo tee -a /usr/share/locale/locale.alias > /dev/null
 fi
 
 commit_hash=$(git rev-parse HEAD)
 timestamp=$(date +%s)
 bazel_version=$(bazel info release | cut -d' ' -f2)
 
+RELEASE_BUILD_OPTS="-c opt --tool_java_language_version=8 --java_language_version=8"
+
+# Check that the build machine is set up for Unicode.
+bazel run ${RELEASE_BUILD_OPTS} //src:CheckSunJnuEncoding
+
 # Passing the same commit_hash and timestamp to all targets to mark all the artifacts
 # uploaded on GCS with the same identifier.
 
-bazel build //src:java_tools_zip
+bazel build ${RELEASE_BUILD_OPTS} //src:java_tools_zip
 zip_path=${PWD}/bazel-bin/src/java_tools.zip
 
-bazel build //src:java_tools_prebuilt_zip
+bazel build ${RELEASE_BUILD_OPTS} //src:java_tools_prebuilt_zip
 prebuilt_zip_path=${PWD}/bazel-bin/src/java_tools_prebuilt.zip
 
+# copy zips out of bazel-bin so we don't lose them on later bazel invocations
+cp -f ${zip_path} ${prebuilt_zip_path} ./
+zip_path=${PWD}/java_tools.zip
+prebuilt_zip_path=${PWD}/java_tools_prebuilt.zip
+
 if [[ "$platform" == "windows" ]]; then
-    # Windows needs "file:///c:/foo/bar".
-    file_url="file:///$(cygpath -m ${zip_path})"
-    prebuilt_file_url="file:///$(cygpath -m ${prebuilt_zip_path})"
-else
-    # Non-Windows needs "file:///foo/bar".
-    file_url="file://${zip_path}"
-    prebuilt_file_url="file://${prebuilt_zip_path}"
+    zip_path="$(cygpath -m "${zip_path}")"
+    prebuilt_zip_path="$(cygpath -m "${prebuilt_zip_path}")"
+fi
+
+# Temporary workaround for https://github.com/bazelbuild/bazel/issues/20753
+TEST_FLAGS=""
+if [[ "$platform" == "linux" ]]; then
+  TEST_FLAGS="--sandbox_tmpfs_path=/tmp"
 fi
 
 # Skip for now, as the test is broken on Windows.
 # See https://github.com/bazelbuild/bazel/issues/12244 for details
 if [[ "$platform" != "windows" ]]; then
-    for java_version in 11 15 16 17; do
-        bazel test --verbose_failures --test_output=all --nocache_test_results \
-            //src/test/shell/bazel:bazel_java_test_local_java_tools_jdk${java_version} \
-            --define=LOCAL_JAVA_TOOLS_ZIP_URL="${file_url}" \
-            --define=LOCAL_JAVA_TOOLS_PREBUILT_ZIP_URL="${prebuilt_file_url}"
+    JAVA_VERSIONS=`cat src/test/shell/bazel/BUILD | grep '^JAVA_VERSIONS = ' | sed -e 's/JAVA_VERSIONS = //' | sed -e 's/["(),]//g'`
+    TEST_TARGETS=""
+    for java_version in $JAVA_VERSIONS; do
+      TEST_TARGETS="$TEST_TARGETS //src/test/shell/bazel:bazel_java_test_local_java_tools_jdk${java_version}"
     done
+    bazel test $TEST_FLAGS --verbose_failures --test_output=all --nocache_test_results \
+        $TEST_TARGETS \
+        --define=LOCAL_JAVA_TOOLS_ZIP_PATH="${zip_path}" \
+        --define=LOCAL_JAVA_TOOLS_PREBUILT_ZIP_PATH="${prebuilt_zip_path}"
 fi
 
-bazel run //src:upload_java_tools_prebuilt -- \
+bazel run ${RELEASE_BUILD_OPTS} //src:upload_java_tools_prebuilt -- \
     --commit_hash ${commit_hash} \
     --timestamp ${timestamp} \
     --bazel_version ${bazel_version}
 
 if [[ "$platform" == "linux" ]]; then
-    bazel run //src:upload_java_tools -- \
+    bazel run ${RELEASE_BUILD_OPTS} //src:upload_java_tools -- \
         --commit_hash ${commit_hash} \
         --timestamp ${timestamp} \
         --bazel_version ${bazel_version}
 
-    bazel run //src:upload_java_tools_dist -- \
+    bazel run ${RELEASE_BUILD_OPTS} //src:upload_java_tools_dist -- \
         --commit_hash ${commit_hash} \
         --timestamp ${timestamp} \
         --bazel_version ${bazel_version}

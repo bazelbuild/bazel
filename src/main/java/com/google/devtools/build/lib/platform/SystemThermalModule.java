@@ -15,12 +15,12 @@
 package com.google.devtools.build.lib.platform;
 
 import com.google.common.flogger.GoogleLogger;
-import com.google.devtools.build.lib.buildtool.buildevent.SystemThermalEvent;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.jni.JniLoader;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.util.OS;
+import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 
 /** Detects suspension events. */
@@ -32,6 +32,7 @@ public final class SystemThermalModule extends BlazeModule {
   }
 
   @GuardedBy("this")
+  @Nullable
   private Reporter reporter;
 
   private native void registerJNI();
@@ -75,42 +76,36 @@ public final class SystemThermalModule extends BlazeModule {
   }
 
   private String macOSThermalDescription(int value) {
-    switch (value) {
-      case 0:
-        return "Nominal";
-      case 33:
-        return "Moderate";
-      case 50:
-        return "Heavy";
-      case 90:
-        return "Trapping";
-      case 100:
-        return "Sleeping";
-      default:
-        return "Unknown";
-    }
+    return switch (value) {
+      case 0 -> "Nominal";
+      case 33 -> "Moderate";
+      case 50 -> "Heavy";
+      case 90 -> "Trapping";
+      case 100 -> "Sleeping";
+      default -> "Unknown";
+    };
   }
 
   private synchronized void reportThermalEvent(boolean isInitialValue, int value) {
-    if (reporter != null) {
-      String osDescription = "Unknown";
-      if (OS.getCurrent() == OS.DARWIN) {
-        osDescription = macOSThermalDescription(value);
-      }
-      SystemThermalEvent event = new SystemThermalEvent(value, osDescription);
-      String logString = event.logString();
-      reporter.post(event);
+    String osDescription = "Unknown";
+    if (OS.getCurrent() == OS.DARWIN) {
+      osDescription = macOSThermalDescription(value);
+    }
+    SystemThermalEvent event = new SystemThermalEvent(value, osDescription);
+    String logString = event.logString();
 
-      if (value < 0 || value > 100) {
-        // values outside this range are not expected.
-        logger.atSevere().log(logString);
-      } else if (value > 50) {
-        // 50 arbitrarily chosen as point where user is likely to be more concerned.
-        logger.atWarning().log(logString);
-      } else if (!isInitialValue || value != 0) {
-        // Don't spam the logs if we have a nominal value at startup.
-        logger.atInfo().log(logString);
-      }
+    if (value < 0 || value > 100) {
+      // values outside this range are not expected.
+      logger.atSevere().log("%s", logString);
+    } else if (value > 50) {
+      // 50 arbitrarily chosen as point where user is likely to be more concerned.
+      logger.atWarning().log("%s", logString);
+    } else if (!isInitialValue || value != 0) {
+      // Don't spam the logs if we have a nominal value at startup.
+      logger.atInfo().log("%s", logString);
+    }
+    if (reporter != null) {
+      reporter.post(event);
     }
   }
 }

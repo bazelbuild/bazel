@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Arrays;
 
 /**
@@ -93,15 +94,13 @@ import java.util.Arrays;
  */
 public interface MockRule extends RuleDefinition {
   // MockRule is designed to be easy to use. That doesn't necessarily mean its implementation is
-  // easy to undestand.
+  // easy to understand.
   //
   // If you just want to mock a rule, it's best to rely on the interface javadoc above, rather than
   // trying to parse what's going on below. You really only need to understand the below if you want
   // to customize MockRule itself.
 
-  /**
-   * Container for the desired name and custom settings for this rule class.
-   */
+  /** Container for the desired name and custom settings for this rule class. */
   class State {
     private final String name;
     private final MockRuleCustomBehavior customBehavior;
@@ -132,16 +131,19 @@ public interface MockRule extends RuleDefinition {
       private ImmutableList<Class<? extends RuleDefinition>> ancestors = DEFAULT_ANCESTORS;
       private RuleClassType type = RuleClassType.NORMAL;
 
+      @CanIgnoreReturnValue
       public Builder factory(Class<? extends RuleConfiguredTargetFactory> factory) {
         this.factory = factory;
         return this;
       }
 
+      @CanIgnoreReturnValue
       public Builder ancestor(Class<? extends RuleDefinition>... ancestor) {
         this.ancestors = ImmutableList.copyOf(ancestor);
         return this;
       }
 
+      @CanIgnoreReturnValue
       public Builder type(RuleClassType type) {
         this.type = type;
         return this;
@@ -178,15 +180,6 @@ public interface MockRule extends RuleDefinition {
    */
   static State.Builder ancestor(Class<? extends RuleDefinition>... ancestor) {
     return new State.Builder().ancestor(ancestor);
-  }
-
-  /**
-   * Sets a custom {@link RuleClassType} for this mock rule.
-   *
-   * <p>If not set, {@link RuleClassType#NORMAL} is used.
-   */
-  static State.Builder type(RuleClassType type) {
-    return new State.Builder().type(type);
   }
 
   /**

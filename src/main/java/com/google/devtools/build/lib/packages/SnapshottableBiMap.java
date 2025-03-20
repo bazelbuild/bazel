@@ -30,6 +30,7 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.function.Predicate;
+import javax.annotation.Nullable;
 
 /**
  * A bimap with the following features and restrictions:
@@ -115,6 +116,7 @@ final class SnapshottableBiMap<K, V> implements BiMap<K, V> {
   }
 
   @Override
+  @Nullable
   public V get(Object key) {
     return contents.get(key);
   }
@@ -152,6 +154,7 @@ final class SnapshottableBiMap<K, V> implements BiMap<K, V> {
    *     given value is already bound to a different key in this map.
    */
   @Override
+  @Nullable
   public V put(K key, V value) {
     if (startedOrderTracking()) {
       boolean oldWasTracked = getTrackedKeyOrder(key) >= 0;
@@ -177,6 +180,7 @@ final class SnapshottableBiMap<K, V> implements BiMap<K, V> {
    */
   @Deprecated
   @Override
+  @Nullable
   public V forcePut(K key, V value) {
     throw new UnsupportedOperationException("Append-only data structure");
   }
@@ -187,6 +191,7 @@ final class SnapshottableBiMap<K, V> implements BiMap<K, V> {
    */
   @Deprecated
   @Override
+  @Nullable
   public V remove(Object key) {
     throw new UnsupportedOperationException("Append-only data structure");
   }
@@ -328,6 +333,7 @@ final class SnapshottableBiMap<K, V> implements BiMap<K, V> {
     }
 
     @Override
+    @Nullable
     public V get(Object key) {
       if (containsKey(key)) {
         return underlying.get(key);
@@ -342,6 +348,7 @@ final class SnapshottableBiMap<K, V> implements BiMap<K, V> {
      */
     @Deprecated
     @Override
+    @Nullable
     public V put(K key, V value) {
       throw new UnsupportedOperationException("Read-only snapshot");
     }
@@ -352,6 +359,7 @@ final class SnapshottableBiMap<K, V> implements BiMap<K, V> {
      */
     @Deprecated
     @Override
+    @Nullable
     public V remove(Object key) {
       throw new UnsupportedOperationException("Read-only snapshot");
     }

@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.collect.nestedset;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.HashMultiset;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multiset;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.CommandLineItem;
@@ -43,6 +44,18 @@ public class NestedSetFingerprintCache {
   }
 
   public <T> void addNestedSetToFingerprint(
+      CommandLineItem.ExceptionlessMapFn<? super T> mapFn,
+      Fingerprint fingerprint,
+      NestedSet<T> nestedSet) {
+    try {
+      addNestedSetToFingerprint((CommandLineItem.MapFn<? super T>) mapFn, fingerprint, nestedSet);
+    } catch (CommandLineExpansionException | InterruptedException e) {
+      // addNestedSetToFingerprint only throws these exceptions if mapFn does.
+      throw new IllegalStateException(e);
+    }
+  }
+
+  public <T> void addNestedSetToFingerprint(
       CommandLineItem.MapFn<? super T> mapFn, Fingerprint fingerprint, NestedSet<T> nestedSet)
       throws CommandLineExpansionException, InterruptedException {
     if (mapFn instanceof CommandLineItem.CapturingMapFn) {
@@ -58,6 +71,27 @@ public class NestedSetFingerprintCache {
     fingerprint.addInt(nestedSet.getOrder().ordinal());
     Object children = nestedSet.getChildren();
     addToFingerprint(mapFn, fingerprint, digestMap, children);
+  }
+
+  public static <T> String describedNestedSetFingerprint(
+      CommandLineItem.ExceptionlessMapFn<? super T> mapFn, NestedSet<T> nestedSet) {
+    if (nestedSet.isEmpty()) {
+      return "<empty>";
+    }
+    StringBuilder sb = new StringBuilder();
+    sb.append("order: ")
+        .append(nestedSet.getOrder())
+        .append(
+            " (fingerprinting considers internal"
+                + " nested set structure, which is not reflected in values reported below)\n");
+    ImmutableList<T> list = nestedSet.toList();
+    sb.append("size: ").append(list.size()).append('\n');
+    for (T item : list) {
+      sb.append("  ");
+      mapFn.expandToCommandLine(item, s -> sb.append(s).append(", "));
+      sb.append('\n');
+    }
+    return sb.toString();
   }
 
   private <T> void addNestedSetToFingerprintSlow(
@@ -113,7 +147,7 @@ public class NestedSetFingerprintCache {
         throw new IllegalArgumentException(
             String.format(
                 "Too many instances of CommandLineItem.ParametrizedMapFn '%s' detected. "
-                    + "Please construct fewer instances or use CommandLineItem.CapturingMapFn.",
+                    + "Please construct fewer instances.",
                 mapFnClass.getName()));
       }
     } else {
@@ -121,9 +155,8 @@ public class NestedSetFingerprintCache {
         throw new IllegalArgumentException(
             String.format(
                 "Illegal mapFn implementation: '%s'. "
-                    + "CommandLineItem.MapFn instances must be singletons. "
-                    + "Please see CommandLineItem.ParametrizedMapFn or "
-                    + "CommandLineItem.CapturingMapFn for alternatives.",
+                    + "CommandLineItem.MapFn instances must be singletons."
+                    + "Please see CommandLineItem.ParametrizedMapFn for an alternative.",
                 mapFnClass.getName()));
       }
     }

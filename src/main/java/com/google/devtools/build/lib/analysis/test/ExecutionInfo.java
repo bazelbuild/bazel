@@ -13,12 +13,16 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.test;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
+import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.starlarkbuildapi.test.ExecutionInfoApi;
 import java.util.Map;
+import net.starlark.java.eval.Dict;
+import net.starlark.java.eval.EvalException;
 
 /**
  * This provider can be implemented by rules which need special environments to run in (especially
@@ -28,13 +32,18 @@ import java.util.Map;
 public final class ExecutionInfo extends NativeInfo implements ExecutionInfoApi {
 
   /** Starlark constructor and identifier for ExecutionInfo. */
-  public static final BuiltinProvider<ExecutionInfo> PROVIDER =
-      new BuiltinProvider<ExecutionInfo>("ExecutionInfo", ExecutionInfo.class) {};
+  public static final ExecutionInfoProvider PROVIDER = new ExecutionInfoProvider();
 
   private final ImmutableMap<String, String> executionInfo;
+  private final String execGroup;
 
   public ExecutionInfo(Map<String, String> requirements) {
+    this(requirements, RuleClass.DEFAULT_TEST_RUNNER_EXEC_GROUP_NAME);
+  }
+
+  public ExecutionInfo(Map<String, String> requirements, String execGroup) {
     this.executionInfo = ImmutableMap.copyOf(requirements);
+    this.execGroup = Preconditions.checkNotNull(execGroup);
   }
 
   @Override
@@ -50,5 +59,26 @@ public final class ExecutionInfo extends NativeInfo implements ExecutionInfoApi 
   @Override
   public ImmutableMap<String, String> getExecutionInfo() {
     return executionInfo;
+  }
+
+  /** Returns the name of the exec group that is used to execute the test. */
+  @Override
+  public String getExecGroup() {
+    return execGroup;
+  }
+
+  public static class ExecutionInfoProvider extends BuiltinProvider<ExecutionInfo>
+      implements ExecutionInfoApi.ExecutionInfoApiProvider {
+
+    private ExecutionInfoProvider() {
+      super("ExecutionInfo", ExecutionInfo.class);
+    }
+
+    @Override
+    public ExecutionInfoApi constructor(
+        Dict<?, ?> requirements /* <String, String> */, String execGroup) throws EvalException {
+      return new ExecutionInfo(
+          Dict.cast(requirements, String.class, String.class, "requirements"), execGroup);
+    }
   }
 }

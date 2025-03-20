@@ -35,8 +35,15 @@ fi
 #### HELPER FUNCTIONS ##################################################
 
 function set_up() {
+  add_rules_java "MODULE.bazel"
+  add_rules_python "MODULE.bazel"
   mkdir -p pkg pkg/java
   cat > pkg/BUILD << 'EOF'
+load("@rules_java//java:java_binary.bzl", "java_binary")
+load("@rules_java//java:java_test.bzl", "java_test")
+load("@rules_python//python:py_binary.bzl", "py_binary")
+load("@rules_python//python:py_test.bzl", "py_test")
+
 java_binary(name = "javabin",
             main_class = "test.ExitZero",
             srcs = [ "java/ExitZero.java", ])

@@ -45,10 +45,9 @@ class TargetExcludingFilteringPolicy implements FilteringPolicy {
     if (this == o) {
       return true;
     }
-    if (!(o instanceof TargetExcludingFilteringPolicy)) {
+    if (!(o instanceof TargetExcludingFilteringPolicy that)) {
       return false;
     }
-    TargetExcludingFilteringPolicy that = (TargetExcludingFilteringPolicy) o;
     return Objects.equals(excludedSingleTargets, that.excludedSingleTargets);
   }
 

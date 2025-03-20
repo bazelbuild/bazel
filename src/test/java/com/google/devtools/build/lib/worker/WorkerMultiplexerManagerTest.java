@@ -43,12 +43,12 @@ public class WorkerMultiplexerManagerTest {
   @Before
   public void setUp() {
     fileSystem = new InMemoryFileSystem(BlazeClock.instance(), DigestHashFunction.SHA256);
-    WorkerMultiplexerManager.reset();
+    WorkerMultiplexerManager.resetForTesting();
   }
 
   @After
   public void tearDown() {
-    WorkerMultiplexerManager.reset();
+    WorkerMultiplexerManager.resetForTesting();
   }
 
   @Test
@@ -63,6 +63,7 @@ public class WorkerMultiplexerManagerTest {
             "mnemonic1",
             HashCode.fromInt(1),
             ImmutableSortedMap.of(),
+            false,
             false,
             false,
             /* cancellable= */ false,
@@ -82,6 +83,7 @@ public class WorkerMultiplexerManagerTest {
             "mnemonic2",
             HashCode.fromInt(1),
             ImmutableSortedMap.of(),
+            false,
             false,
             false,
             /* cancellable= */ false,

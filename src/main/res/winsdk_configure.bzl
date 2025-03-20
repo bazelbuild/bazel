@@ -35,8 +35,8 @@ Usage:
     register_local_rc_exe_toolchains()
 """
 
-load("@bazel_tools//tools/cpp:windows_cc_configure.bzl", "find_vc_path", "setup_vc_env_vars")
 load("@bazel_tools//tools/cpp:cc_configure.bzl", "MSVC_ENVVARS")
+load("@bazel_tools//tools/cpp:windows_cc_configure.bzl", "find_vc_path", "setup_vc_env_vars")
 
 # Keys: target architecture, as in <Windows-SDK-path>/<target-architecture>/bin/rc.exe
 # Values: corresponding Bazel CPU value under @platforms//cpu:*

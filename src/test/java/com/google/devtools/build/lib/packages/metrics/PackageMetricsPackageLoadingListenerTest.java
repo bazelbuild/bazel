@@ -17,15 +17,12 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.protobuf.util.Durations;
-import java.util.List;
 import java.util.Map;
 import java.util.OptionalLong;
 import net.starlark.java.eval.StarlarkSemantics;
@@ -82,30 +79,21 @@ public class PackageMetricsPackageLoadingListenerTest {
   private void recordSlowPackages() {
     underTest.onLoadingCompleteAndSuccessful(
         mockPackage(
-            "my/pkg1",
-            /*targets=*/ ImmutableMap.of(),
-            /*starlarkDependencies=*/ ImmutableList.of()),
+            "my/pkg1", /* targets= */ ImmutableMap.of(), /* transitivelyLoadedStarlarkFiles= */ 0),
         StarlarkSemantics.DEFAULT,
-        /*loadTimeNanos=*/ 42_000_000,
-        /*packageOverhead=*/ OptionalLong.empty());
+        /* loadTimeNanos= */ 42_000_000);
 
     underTest.onLoadingCompleteAndSuccessful(
         mockPackage(
-            "my/pkg2",
-            /*targets=*/ ImmutableMap.of(),
-            /*starlarkDependencies=*/ ImmutableList.of()),
+            "my/pkg2", /* targets= */ ImmutableMap.of(), /* transitivelyLoadedStarlarkFiles= */ 0),
         StarlarkSemantics.DEFAULT,
-        /*loadTimeNanos=*/ 43_000_000,
-        /*packageOverhead=*/ OptionalLong.empty());
+        /* loadTimeNanos= */ 43_000_000);
 
     underTest.onLoadingCompleteAndSuccessful(
         mockPackage(
-            "my/pkg3",
-            /*targets=*/ ImmutableMap.of(),
-            /*starlarkDependencies=*/ ImmutableList.of()),
+            "my/pkg3", /* targets= */ ImmutableMap.of(), /* transitivelyLoadedStarlarkFiles= */ 0),
         StarlarkSemantics.DEFAULT,
-        /*loadTimeNanos=*/ 44_000_000,
-        /*packageOverhead=*/ OptionalLong.empty());
+        /* loadTimeNanos= */ 44_000_000);
   }
 
   @Test
@@ -150,19 +138,17 @@ public class PackageMetricsPackageLoadingListenerTest {
         mockPackage(
             "my/pkg1",
             ImmutableMap.of("target1", mock(Target.class)),
-            /*starlarkDependencies=*/ ImmutableList.of()),
+            /* transitivelyLoadedStarlarkFiles= */ 0),
         StarlarkSemantics.DEFAULT,
-        /*loadTimeNanos=*/ 100,
-        /*packageOverhead=*/ OptionalLong.empty());
+        /* loadTimeNanos= */ 100);
 
     underTest.onLoadingCompleteAndSuccessful(
         mockPackage(
             "my/pkg2",
             ImmutableMap.of("target1", mock(Target.class), "target2", mock(Target.class)),
-            /*starlarkDependencies=*/ ImmutableList.of()),
+            /* transitivelyLoadedStarlarkFiles= */ 0),
         StarlarkSemantics.DEFAULT,
-        /*loadTimeNanos=*/ 100,
-        /*packageOverhead=*/ OptionalLong.empty());
+        /* loadTimeNanos= */ 100);
 
     underTest.onLoadingCompleteAndSuccessful(
         mockPackage(
@@ -174,10 +160,9 @@ public class PackageMetricsPackageLoadingListenerTest {
                 mock(Target.class),
                 "target3",
                 mock(Target.class)),
-            /*starlarkDependencies=*/ ImmutableList.of()),
+            /* transitivelyLoadedStarlarkFiles= */ 0),
         StarlarkSemantics.DEFAULT,
-        /*loadTimeNanos=*/ 100,
-        /*packageOverhead=*/ OptionalLong.empty());
+        /* loadTimeNanos= */ 100);
   }
 
   @Test
@@ -219,35 +204,21 @@ public class PackageMetricsPackageLoadingListenerTest {
   private void recordTransitiveLoads() {
     underTest.onLoadingCompleteAndSuccessful(
         mockPackage(
-            "my/pkg1",
-            /*targets=*/ ImmutableMap.of(),
-            ImmutableList.of(Label.parseAbsoluteUnchecked("//load:1.bzl"))),
+            "my/pkg1", /* targets= */ ImmutableMap.of(), /* transitivelyLoadedStarlarkFiles= */ 1),
         StarlarkSemantics.DEFAULT,
-        /*loadTimeNanos=*/ 100,
-        /*packageOverhead=*/ OptionalLong.empty());
+        /* loadTimeNanos= */ 100);
 
     underTest.onLoadingCompleteAndSuccessful(
         mockPackage(
-            "my/pkg2",
-            /*targets=*/ ImmutableMap.of(),
-            ImmutableList.of(
-                Label.parseAbsoluteUnchecked("//load:1.bzl"),
-                Label.parseAbsoluteUnchecked("//load:2.bzl"))),
+            "my/pkg2", /* targets= */ ImmutableMap.of(), /* transitivelyLoadedStarlarkFiles= */ 2),
         StarlarkSemantics.DEFAULT,
-        /*loadTimeNanos=*/ 100,
-        /*packageOverhead=*/ OptionalLong.empty());
+        /* loadTimeNanos= */ 100);
 
     underTest.onLoadingCompleteAndSuccessful(
         mockPackage(
-            "my/pkg3",
-            /*targets=*/ ImmutableMap.of(),
-            ImmutableList.of(
-                Label.parseAbsoluteUnchecked("//load:1.bzl"),
-                Label.parseAbsoluteUnchecked("//load:2.bzl"),
-                Label.parseAbsoluteUnchecked("//load:3.bzl"))),
+            "my/pkg3", /* targets= */ ImmutableMap.of(), /* transitivelyLoadedStarlarkFiles= */ 3),
         StarlarkSemantics.DEFAULT,
-        /*loadTimeNanos=*/ 100,
-        /*packageOverhead=*/ OptionalLong.empty());
+        /* loadTimeNanos= */ 100);
   }
 
   @Test
@@ -290,42 +261,27 @@ public class PackageMetricsPackageLoadingListenerTest {
     assertAllMapsEmpty(recorder);
   }
 
-  void recordComputationSteps() {
+  private void recordComputationSteps() {
     Package mockPackage1 =
         mockPackage(
-            "my/pkg1",
-            /*targets=*/ ImmutableMap.of(),
-            /*starlarkDependencies=*/ ImmutableList.of());
+            "my/pkg1", /* targets= */ ImmutableMap.of(), /* transitivelyLoadedStarlarkFiles= */ 0);
     when(mockPackage1.getComputationSteps()).thenReturn(1000L);
     underTest.onLoadingCompleteAndSuccessful(
-        mockPackage1,
-        StarlarkSemantics.DEFAULT,
-        /*loadTimeNanos=*/ 100,
-        /*packageOverhead=*/ OptionalLong.empty());
+        mockPackage1, StarlarkSemantics.DEFAULT, /* loadTimeNanos= */ 100);
 
     Package mockPackage2 =
         mockPackage(
-            "my/pkg2",
-            /*targets=*/ ImmutableMap.of(),
-            /*starlarkDependencies=*/ ImmutableList.of());
+            "my/pkg2", /* targets= */ ImmutableMap.of(), /* transitivelyLoadedStarlarkFiles= */ 0);
     when(mockPackage2.getComputationSteps()).thenReturn(100L);
     underTest.onLoadingCompleteAndSuccessful(
-        mockPackage2,
-        StarlarkSemantics.DEFAULT,
-        /*loadTimeNanos=*/ 100,
-        /*packageOverhead=*/ OptionalLong.empty());
+        mockPackage2, StarlarkSemantics.DEFAULT, /* loadTimeNanos= */ 100);
 
     Package mockPackage3 =
         mockPackage(
-            "my/pkg3",
-            /*targets=*/ ImmutableMap.of(),
-            /*starlarkDependencies=*/ ImmutableList.of());
+            "my/pkg3", /* targets= */ ImmutableMap.of(), /* transitivelyLoadedStarlarkFiles= */ 0);
     when(mockPackage3.getComputationSteps()).thenReturn(10L);
     underTest.onLoadingCompleteAndSuccessful(
-        mockPackage3,
-        StarlarkSemantics.DEFAULT,
-        /*loadTimeNanos=*/ 100,
-        /*packageOverhead=*/ OptionalLong.empty());
+        mockPackage3, StarlarkSemantics.DEFAULT, /* loadTimeNanos= */ 100);
   }
 
   @Test
@@ -366,41 +322,29 @@ public class PackageMetricsPackageLoadingListenerTest {
     assertAllMapsEmpty(recorder);
   }
 
-  void recordPackageOverhead() {
+  private void recordPackageOverhead() {
     Package mockPackage1 =
         mockPackage(
-            "my/pkg1",
-            /*targets=*/ ImmutableMap.of(),
-            /*starlarkDependencies=*/ ImmutableList.of());
+            "my/pkg1", /* targets= */ ImmutableMap.of(), /* transitivelyLoadedStarlarkFiles= */ 0);
+    when(mockPackage1.getPackageOverhead()).thenReturn(OptionalLong.of(100));
     underTest.onLoadingCompleteAndSuccessful(
-        mockPackage1,
-        StarlarkSemantics.DEFAULT,
-        /*loadTimeNanos=*/ 100,
-        /*packageOverhead=*/ OptionalLong.of(100));
+        mockPackage1, StarlarkSemantics.DEFAULT, /* loadTimeNanos= */ 100);
 
     // Record nothing for pkg2, will be missing from metrics.
     Package mockPackage2 =
         mockPackage(
-            "my/pkg2",
-            /*targets=*/ ImmutableMap.of(),
-            /*starlarkDependencies=*/ ImmutableList.of());
+            "my/pkg2", /* targets= */ ImmutableMap.of(), /* transitivelyLoadedStarlarkFiles= */ 0);
     underTest.onLoadingCompleteAndSuccessful(
-        mockPackage2,
-        StarlarkSemantics.DEFAULT,
-        /*loadTimeNanos=*/ 100,
-        /*packageOverhead=*/ OptionalLong.empty());
+        mockPackage2, StarlarkSemantics.DEFAULT, /* loadTimeNanos= */ 100);
 
     Package mockPackage3 =
         mockPackage(
-            "my/pkg3",
-            /*targets=*/ ImmutableMap.of(),
-            /*starlarkDependencies=*/ ImmutableList.of());
+            "my/pkg3", /* targets= */ ImmutableMap.of(), /* transitivelyLoadedStarlarkFiles= */ 0);
     when(mockPackage3.getComputationSteps()).thenReturn(10L);
+    when(mockPackage3.getPackageOverhead()).thenReturn(OptionalLong.of(300));
+
     underTest.onLoadingCompleteAndSuccessful(
-        mockPackage3,
-        StarlarkSemantics.DEFAULT,
-        /*loadTimeNanos=*/ 100,
-        /*packageOverhead=*/ OptionalLong.of(300));
+        mockPackage3, StarlarkSemantics.DEFAULT, /* loadTimeNanos= */ 100);
   }
 
   @Test
@@ -410,8 +354,8 @@ public class PackageMetricsPackageLoadingListenerTest {
 
     recordEverything();
 
-    PackageMetrics pkg1 =
-        PackageMetrics.newBuilder()
+    PackageLoadMetrics pkg1 =
+        PackageLoadMetrics.newBuilder()
             .setName("my/pkg1")
             .setLoadDuration(Durations.fromMillis(42))
             .setComputationSteps(1000)
@@ -420,8 +364,8 @@ public class PackageMetricsPackageLoadingListenerTest {
             .setPackageOverhead(100_000)
             .build();
 
-    PackageMetrics pkg2 =
-        PackageMetrics.newBuilder()
+    PackageLoadMetrics pkg2 =
+        PackageLoadMetrics.newBuilder()
             .setName("my/pkg2")
             .setLoadDuration(Durations.fromMillis(43))
             .setComputationSteps(100)
@@ -430,8 +374,8 @@ public class PackageMetricsPackageLoadingListenerTest {
             .setPackageOverhead(200_000)
             .build();
 
-    PackageMetrics pkg3 =
-        PackageMetrics.newBuilder()
+    PackageLoadMetrics pkg3 =
+        PackageLoadMetrics.newBuilder()
             .setName("my/pkg3")
             .setLoadDuration(Durations.fromMillis(44))
             .setComputationSteps(10)
@@ -440,7 +384,7 @@ public class PackageMetricsPackageLoadingListenerTest {
             .setPackageOverhead(300_000)
             .build();
 
-    assertThat(underTest.getPackageMetricsRecorder().getPackageMetrics())
+    assertThat(underTest.getPackageMetricsRecorder().getPackageLoadMetrics())
         .containsExactly(pkg1, pkg2, pkg3);
     recorder.loadingFinished();
     assertAllMapsEmpty(recorder);
@@ -453,8 +397,8 @@ public class PackageMetricsPackageLoadingListenerTest {
 
     recordEverything();
 
-    PackageMetrics pkg1 =
-        PackageMetrics.newBuilder()
+    PackageLoadMetrics pkg1 =
+        PackageLoadMetrics.newBuilder()
             .setName("my/pkg1")
             .setLoadDuration(Durations.fromMillis(42))
             .setComputationSteps(1000)
@@ -463,8 +407,8 @@ public class PackageMetricsPackageLoadingListenerTest {
             .setPackageOverhead(100_000)
             .build();
 
-    PackageMetrics pkg2 =
-        PackageMetrics.newBuilder()
+    PackageLoadMetrics pkg2 =
+        PackageLoadMetrics.newBuilder()
             .setName("my/pkg2")
             .setLoadDuration(Durations.fromMillis(43))
             .setComputationSteps(100)
@@ -473,8 +417,8 @@ public class PackageMetricsPackageLoadingListenerTest {
             .setPackageOverhead(200_000)
             .build();
 
-    PackageMetrics pkg3 =
-        PackageMetrics.newBuilder()
+    PackageLoadMetrics pkg3 =
+        PackageLoadMetrics.newBuilder()
             .setName("my/pkg3")
             .setLoadDuration(Durations.fromMillis(44))
             .setComputationSteps(10)
@@ -483,61 +427,50 @@ public class PackageMetricsPackageLoadingListenerTest {
             .setPackageOverhead(300_000)
             .build();
 
-    assertThat(underTest.getPackageMetricsRecorder().getPackageMetrics())
+    assertThat(underTest.getPackageMetricsRecorder().getPackageLoadMetrics())
         .containsExactly(pkg1, pkg2, pkg3);
     recorder.loadingFinished();
     assertAllMapsEmpty(recorder);
   }
 
-  void recordEverything() {
+  private void recordEverything() {
     Package mockPackage1 =
         mockPackage(
             "my/pkg1",
-            /*targets=*/ ImmutableMap.of("target1", mock(Target.class)),
-            /*starlarkDependencies=*/ ImmutableList.of(
-                Label.parseAbsoluteUnchecked("//load:1.bzl")));
+            /* targets= */ ImmutableMap.of("target1", mock(Target.class)),
+            /* transitivelyLoadedStarlarkFiles= */ 1);
     when(mockPackage1.getComputationSteps()).thenReturn(1000L);
+    when(mockPackage1.getPackageOverhead()).thenReturn(OptionalLong.of(100_000));
+
     underTest.onLoadingCompleteAndSuccessful(
-        mockPackage1,
-        StarlarkSemantics.DEFAULT,
-        /*loadTimeNanos=*/ 42_000_000,
-        /*packageOverhead=*/ OptionalLong.of(100_000));
+        mockPackage1, StarlarkSemantics.DEFAULT, /* loadTimeNanos= */ 42_000_000);
 
     Package mockPackage2 =
         mockPackage(
             "my/pkg2",
-            /*targets=*/ ImmutableMap.of(
+            /* targets= */ ImmutableMap.of(
                 "target1", mock(Target.class), "target2", mock(Target.class)),
-            /*starlarkDependencies=*/ ImmutableList.of(
-                Label.parseAbsoluteUnchecked("//load:1.bzl"),
-                Label.parseAbsoluteUnchecked("//load:2.bzl")));
+            /* transitivelyLoadedStarlarkFiles= */ 2);
     when(mockPackage2.getComputationSteps()).thenReturn(100L);
+    when(mockPackage2.getPackageOverhead()).thenReturn(OptionalLong.of(200_000));
     underTest.onLoadingCompleteAndSuccessful(
-        mockPackage2,
-        StarlarkSemantics.DEFAULT,
-        /*loadTimeNanos=*/ 43_000_000,
-        /*packageOverhead=*/ OptionalLong.of(200_000));
+        mockPackage2, StarlarkSemantics.DEFAULT, /* loadTimeNanos= */ 43_000_000);
 
     Package mockPackage3 =
         mockPackage(
             "my/pkg3",
-            /*targets=*/ ImmutableMap.of(
+            /* targets= */ ImmutableMap.of(
                 "target1",
                 mock(Target.class),
                 "target2",
                 mock(Target.class),
                 "target3",
                 mock(Target.class)),
-            /*starlarkDependencies=*/ ImmutableList.of(
-                Label.parseAbsoluteUnchecked("//load:1.bzl"),
-                Label.parseAbsoluteUnchecked("//load:2.bzl"),
-                Label.parseAbsoluteUnchecked("//load:3.bzl")));
+            /* transitivelyLoadedStarlarkFiles= */ 3);
     when(mockPackage3.getComputationSteps()).thenReturn(10L);
+    when(mockPackage3.getPackageOverhead()).thenReturn(OptionalLong.of(300_000));
     underTest.onLoadingCompleteAndSuccessful(
-        mockPackage3,
-        StarlarkSemantics.DEFAULT,
-        /*loadTimeNanos=*/ 44_000_000,
-        /*packageOverhead=*/ OptionalLong.of(300_000));
+        mockPackage3, StarlarkSemantics.DEFAULT, /* loadTimeNanos= */ 44_000_000);
   }
 
   @Test
@@ -547,12 +480,9 @@ public class PackageMetricsPackageLoadingListenerTest {
 
     underTest.onLoadingCompleteAndSuccessful(
         mockPackage(
-            "my/pkg1",
-            /*targets=*/ ImmutableMap.of(),
-            /*starlarkDependencies=*/ ImmutableList.of()),
+            "my/pkg1", /* targets= */ ImmutableMap.of(), /* transitivelyLoadedStarlarkFiles= */ 0),
         StarlarkSemantics.DEFAULT,
-        /*loadTimeNanos=*/ 42_000_000,
-        /*packageOverhead=*/ OptionalLong.empty());
+        /* loadTimeNanos= */ 42_000_000);
 
     assertAllMapsEmpty(underTest.getPackageMetricsRecorder());
   }
@@ -565,13 +495,15 @@ public class PackageMetricsPackageLoadingListenerTest {
   }
 
   private static Package mockPackage(
-      String pkgIdString, Map<String, Target> targets, List<Label> starlarkDependencies) {
+      String pkgIdString, Map<String, Target> targets, int transitivelyLoadedStarlarkFiles) {
+    Package.Declarations mockDeclarations = mock(Package.Declarations.class);
     Package mockPackage = mock(Package.class);
     when(mockPackage.getPackageIdentifier())
         .thenReturn(PackageIdentifier.createInMainRepo(pkgIdString));
     when(mockPackage.getTargets()).thenReturn(ImmutableSortedMap.copyOf(targets));
-    when(mockPackage.getStarlarkFileDependencies())
-        .thenReturn(ImmutableList.copyOf(starlarkDependencies));
+    when(mockPackage.getDeclarations()).thenReturn(mockDeclarations);
+    when(mockDeclarations.countTransitivelyLoadedStarlarkFiles())
+        .thenReturn(transitivelyLoadedStarlarkFiles);
     return mockPackage;
   }
 }

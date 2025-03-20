@@ -1,10 +1,13 @@
 # Description:
 #   SingleJar combines multiple zip files and additional files
 #   into a single zip file.
-package(default_visibility = [
-    "//scripts/bootstrap:__subpackages__",
-    "//src/java_tools:__subpackages__",
-])
+package(
+    default_applicable_licenses = ["//:license"],
+    default_visibility = [
+        "//scripts/bootstrap:__subpackages__",
+        "//src/java_tools:__subpackages__",
+    ],
+)
 
 filegroup(
     name = "srcs",

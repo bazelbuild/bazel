@@ -59,13 +59,6 @@ msys*)
   ;;
 esac
 
-if "$is_windows"; then
-  # Disable MSYS path conversion that converts path-looking command arguments to
-  # Windows paths (even if they arguments are not in fact paths).
-  export MSYS_NO_PATHCONV=1
-  export MSYS2_ARG_CONV_EXCL="*"
-fi
-
 function expect_path_in_java_tools() {
   path="$1"; shift
 
@@ -124,18 +117,6 @@ function test_java_tools_has_junitrunner() {
   expect_path_in_java_tools "src/java_tools/junitrunner/java/com/google/testing/junit/runner/model"
   expect_path_in_java_tools "src/java_tools/junitrunner/java/com/google/testing/junit/runner/sharding"
   expect_path_in_java_tools "src/java_tools/junitrunner/java/com/google/testing/junit/runner/util"
-}
-
-function test_java_tools_has_jdk_compiler() {
-  expect_path_in_java_tools "jdk_compiler-src.jar"
-}
-
-function test_java_tools_has_java_compiler() {
-  expect_path_in_java_tools "java_compiler-src.jar"
-}
-
-function test_java_tools_has_javac() {
-  expect_path_in_java_tools "javac-9+181-r4173-1.srcjar"
 }
 
 function test_java_tools_has_jacocoagent() {

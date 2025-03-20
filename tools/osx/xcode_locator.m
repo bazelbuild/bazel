@@ -29,7 +29,7 @@
 #import <Foundation/Foundation.h>
 
 // Simple data structure for tracking a version of Xcode (i.e. 6.4) with an URL
-// to the appplication.
+// to the application.
 @interface XcodeVersionEntry : NSObject
 @property(readonly) NSString *version;
 @property(readonly) NSString *productVersion;
@@ -62,7 +62,7 @@
 // optionally add it for 6.4 and 6 if it is "better" than any entry that may
 // already be there, where "better" is defined as:
 //
-// 1. Under /Applications/. (This avoids mounted xcode versions taking
+// 1. Under /Applications/. (This avoids mounted Xcode versions taking
 //    precedence over installed versions.)
 //
 // 2. Not older (at least as high version number).

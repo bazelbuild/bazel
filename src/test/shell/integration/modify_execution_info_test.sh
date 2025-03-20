@@ -51,11 +51,6 @@ msys*|mingw*|cygwin*)
   ;;
 esac
 
-if "$is_windows"; then
-  export MSYS_NO_PATHCONV=1
-  export MSYS2_ARG_CONV_EXCL="*"
-fi
-
 #### HELPER FUNCTIONS ##################################################
 
 if ! type try_with_timeout >&/dev/null; then
@@ -66,6 +61,7 @@ fi
 
 function set_up() {
     cd ${WORKSPACE_DIR}
+    add_rules_java MODULE.bazel
 }
 
 function tear_down() {
@@ -151,37 +147,17 @@ Genrule=+requires-a,CppCompile=+requires-b,CppCompile=+requires-c \
 
 function test_modify_execution_info_various_types() {
   if [[ "$PRODUCT_NAME" = "bazel" ]]; then
-    # proto_library requires this external workspace.
-    cat >> WORKSPACE << EOF
-# TODO(#9029): May require some adjustment if/when we depend on the real
-# @rules_python in the real source tree, since this third_party/ package won't
-# be available.
-new_local_repository(
-    name = "rules_python",
-    path = "$(dirname $(rlocation io_bazel/third_party/rules_python/rules_python.WORKSPACE))",
-    build_file = "$(rlocation io_bazel/third_party/rules_python/BUILD)",
-    workspace_file = "$(rlocation io_bazel/third_party/rules_python/rules_python.WORKSPACE)",
-)
-EOF
-    cat "$(rlocation "io_bazel/src/test/shell/integration/rules_proto_stanza.txt")" >>WORKSPACE
-    cat >> WORKSPACE << EOF
-load("@rules_proto//proto:repositories.bzl", "rules_proto_dependencies", "rules_proto_toolchains")
-rules_proto_dependencies()
-rules_proto_toolchains()
-
-# @com_google_protobuf//:protoc depends on @io_bazel//third_party/zlib.
-new_local_repository(
-    name = "io_bazel",
-    path = "$(dirname $(rlocation io_bazel/third_party/rules_python/rules_python.WORKSPACE))/../..",
-    build_file_content = "# Intentionally left empty.",
-    workspace_file_content = "workspace(name = 'io_bazel')",
-)
-EOF
+    add_rules_python "MODULE.bazel"
+    add_protobuf "MODULE.bazel"
   fi
   local pkg="${FUNCNAME[0]}"
   mkdir -p "$pkg" || fail "mkdir -p $pkg"
   echo "load('//$pkg:shell.bzl', 'starlark_shell')" > "$pkg/BUILD"
   cat >> "$pkg/BUILD" <<'EOF'
+load("@rules_java//java:java_library.bzl", "java_library")
+load("@rules_python//python:py_binary.bzl", "py_binary")
+load("@com_google_protobuf//bazel:proto_library.bzl", "proto_library")
+
 starlark_shell(
   name = "shelly",
   output = "ok.txt",
@@ -241,7 +217,7 @@ TestRunner=+requires-test-runner,\
 Turbine=+requires-turbine,\
 JavaSourceJar=+requires-java-source-jar,\
 Javac=+requires-javac,\
-PyTinypar=+requires-py-tinypar,\
+Py.*=+requires-py,\
 Action=+requires-action \
    > output 2> "$TEST_log" || fail "Expected success"
 
@@ -260,9 +236,7 @@ Action=+requires-action \
   assert_contains "requires-java-source-jar: ''" output
   assert_contains "requires-proto: ''" output  # GenProtoDescriptorSet should match
   if [[ "$PRODUCT_NAME" != "bazel" ]]; then
-    # Python rules generate some cpp actions and local actions, but py-tinypar
-    # is the main unique-to-python rule which runs remotely for a py_binary.
-    assert_contains "requires-py-tinypar: ''" output
+    assert_contains "requires-py: ''" output
   fi
 }
 

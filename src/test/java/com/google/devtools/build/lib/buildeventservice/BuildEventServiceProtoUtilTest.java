@@ -59,6 +59,7 @@ public class BuildEventServiceProtoUtilTest {
           .projectId(PROJECT_ID)
           .commandName(COMMAND_NAME)
           .keywords(ImmutableSet.of(ADDITIONAL_KEYWORD))
+          .attemptNumber(1)
           .build();
   private final ManualClock clock = new ManualClock();
 
@@ -70,6 +71,7 @@ public class BuildEventServiceProtoUtilTest {
             PublishLifecycleEventRequest.newBuilder()
                 .setServiceLevel(ServiceLevel.INTERACTIVE)
                 .setProjectId(PROJECT_ID)
+                .addAllNotificationKeywords(EXPECTED_KEYWORDS)
                 .setBuildEvent(
                     OrderedBuildEvent.newBuilder()
                         .setStreamId(
@@ -92,6 +94,7 @@ public class BuildEventServiceProtoUtilTest {
             PublishLifecycleEventRequest.newBuilder()
                 .setServiceLevel(ServiceLevel.INTERACTIVE)
                 .setProjectId(PROJECT_ID)
+                .addAllNotificationKeywords(EXPECTED_KEYWORDS)
                 .setBuildEvent(
                     OrderedBuildEvent.newBuilder()
                         .setStreamId(
@@ -105,6 +108,40 @@ public class BuildEventServiceProtoUtilTest {
                                 .setEventTime(expected)
                                 .setInvocationAttemptStarted(
                                     InvocationAttemptStarted.newBuilder().setAttemptNumber(1))))
+                .build());
+  }
+
+  @Test
+  public void invocationAttemptStarted_attemptNumber() {
+    var besProtoUtil =
+        new BuildEventServiceProtoUtil.Builder()
+            .buildRequestId(BUILD_REQUEST_ID)
+            .invocationId(BUILD_INVOCATION_ID)
+            .projectId(PROJECT_ID)
+            .commandName(COMMAND_NAME)
+            .keywords(ImmutableSet.of(ADDITIONAL_KEYWORD))
+            .attemptNumber(2)
+            .build();
+    Timestamp expected = Timestamps.fromMillis(clock.advanceMillis(100));
+    assertThat(besProtoUtil.invocationStarted(expected))
+        .isEqualTo(
+            PublishLifecycleEventRequest.newBuilder()
+                .setServiceLevel(ServiceLevel.INTERACTIVE)
+                .setProjectId(PROJECT_ID)
+                .addAllNotificationKeywords(EXPECTED_KEYWORDS)
+                .setBuildEvent(
+                    OrderedBuildEvent.newBuilder()
+                        .setStreamId(
+                            StreamId.newBuilder()
+                                .setBuildId(BUILD_REQUEST_ID)
+                                .setInvocationId(BUILD_INVOCATION_ID)
+                                .setComponent(BuildComponent.CONTROLLER))
+                        .setSequenceNumber(1)
+                        .setEvent(
+                            BuildEvent.newBuilder()
+                                .setEventTime(expected)
+                                .setInvocationAttemptStarted(
+                                    InvocationAttemptStarted.newBuilder().setAttemptNumber(2))))
                 .build());
   }
 
@@ -143,6 +180,7 @@ public class BuildEventServiceProtoUtilTest {
             PublishLifecycleEventRequest.newBuilder()
                 .setServiceLevel(ServiceLevel.INTERACTIVE)
                 .setProjectId(PROJECT_ID)
+                .addAllNotificationKeywords(EXPECTED_KEYWORDS)
                 .setBuildEvent(
                     OrderedBuildEvent.newBuilder()
                         .setStreamId(
@@ -226,5 +264,35 @@ public class BuildEventServiceProtoUtilTest {
                                         .setType(FinishType.FINISHED)))
                         .build())
                 .build());
+  }
+
+  @Test
+  public void testStreamEventsWithCheckPrecedingLifecycleEventsEnabled() {
+    Any anything = Any.getDefaultInstance();
+    BuildEventServiceProtoUtil besProtoUtil =
+        new BuildEventServiceProtoUtil.Builder()
+            .buildRequestId(BUILD_REQUEST_ID)
+            .invocationId(BUILD_INVOCATION_ID)
+            .commandName(COMMAND_NAME)
+            .checkPrecedingLifecycleEvents(true)
+            .keywords(ImmutableSet.of(ADDITIONAL_KEYWORD))
+            .attemptNumber(1)
+            .build();
+    assertThat(
+            besProtoUtil
+                .bazelEvent(1, Timestamps.fromMillis(100), anything)
+                .getCheckPrecedingLifecycleEventsPresent())
+        .isTrue();
+    // check_preceding_lifecycle_events_present is always false for events with sequence_number > 1.
+    assertThat(
+            besProtoUtil
+                .bazelEvent(2, Timestamps.fromMillis(100), anything)
+                .getCheckPrecedingLifecycleEventsPresent())
+        .isFalse();
+    assertThat(
+            besProtoUtil
+                .bazelEvent(3, Timestamps.fromMillis(100), anything)
+                .getCheckPrecedingLifecycleEventsPresent())
+        .isFalse();
   }
 }

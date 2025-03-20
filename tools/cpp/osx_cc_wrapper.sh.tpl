@@ -27,9 +27,8 @@
 #
 set -eu
 
-INSTALL_NAME_TOOL="/usr/bin/install_name_tool"
-
 LIBS=
+LIB_PATHS=
 LIB_DIRS=
 RPATHS=
 OUTPUT=
@@ -40,9 +39,13 @@ function parse_option() {
         OUTPUT=$opt
     elif [[ "$opt" =~ ^-l(.*)$ ]]; then
         LIBS="${BASH_REMATCH[1]} $LIBS"
+    elif [[ "$opt" =~ ^(.*)\.so$ ]]; then
+        LIB_PATHS="${opt} $LIB_PATHS"
+    elif [[ "$opt" =~ ^(.*)\.dylib$ ]]; then
+        LIB_PATHS="${opt} $LIB_PATHS"
     elif [[ "$opt" =~ ^-L(.*)$ ]]; then
         LIB_DIRS="${BASH_REMATCH[1]} $LIB_DIRS"
-    elif [[ "$opt" =~ ^-Wl,-rpath,\@loader_path/(.*)$ ]]; then
+    elif [[ "$opt" =~ ^\@loader_path/(.*)$ ]]; then
         RPATHS="${BASH_REMATCH[1]} ${RPATHS}"
     elif [[ "$opt" = "-o" ]]; then
         # output is coming
@@ -52,7 +55,7 @@ function parse_option() {
 
 # let parse the option list
 for i in "$@"; do
-    if [[ "$i" = @* ]]; then
+    if [[ "$i" = @* && -r "${i:1}" ]]; then
         while IFS= read -r opt
         do
             parse_option "$opt"
@@ -67,6 +70,11 @@ done
 
 # Call the C++ compiler
 %{cc} "$@"
+
+# Generate an empty file if header processing succeeded.
+if [[ "${OUTPUT}" == *.h.processed ]]; then
+  echo -n > "${OUTPUT}"
+fi
 
 function get_library_path() {
     for libdir in ${LIB_DIRS}; do
@@ -96,6 +104,11 @@ function get_otool_path() {
     get_realpath $1 | sed 's|^.*/bazel-out/|bazel-out/|'
 }
 
+function call_install_name() {
+    /usr/bin/xcrun install_name_tool -change $(get_otool_path "$1") \
+        "@loader_path/$2/$3" "${OUTPUT}"
+}
+
 # Do replacements in the output
 for rpath in ${RPATHS}; do
     for lib in ${LIBS}; do
@@ -110,10 +123,16 @@ for rpath in ${RPATHS}; do
         if [[ -n "${libname-}" ]]; then
             libpath=$(get_library_path ${lib})
             if [ -n "${libpath}" ]; then
-                ${INSTALL_NAME_TOOL} -change $(get_otool_path "${libpath}") \
-                    "@loader_path/${rpath}/${libname}" "${OUTPUT}"
+                call_install_name "${libpath}" "${rpath}" "${libname}"
+            fi
+        fi
+    done
+    for libpath in ${LIB_PATHS}; do
+        if [ -f "$libpath" ]; then
+            libname=$(basename "$libpath")
+            if [ -f "$(dirname ${OUTPUT})/${rpath}/${libname}" ]; then
+                call_install_name "${libpath}" "${rpath}" "${libname}"
             fi
         fi
     done
 done
-

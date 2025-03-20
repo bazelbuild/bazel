@@ -28,10 +28,10 @@ import net.starlark.java.eval.StarlarkThread;
 @StarlarkBuiltin(
     name = "ToolchainInfo",
     doc =
-        "Provider returned by <a href=\"../../toolchains.html#defining-toolchains\">toolchain "
+        "Provider returned by <a href=\"${link toolchains#defining-toolchains}\">toolchain "
             + "rules</a> to share data with "
-            + "<a href=\"../../toolchains.html#writing-rules-that-use-toolchains\">rules which "
-            + "depend on toolchains</a>. Read about <a href='../../toolchains.html'>"
+            + "<a href=\"${link toolchains#writing-rules-that-use-toolchains}\">rules which "
+            + "depend on toolchains</a>. Read about <a href='${link toolchains}'>"
             + "toolchains</a> for more information.",
     category = DocCategory.PROVIDER)
 public interface ToolchainInfoApi extends StructApi {

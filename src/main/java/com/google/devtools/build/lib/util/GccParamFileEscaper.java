@@ -19,6 +19,7 @@ import com.google.common.base.Function;
 import com.google.common.collect.Iterables;
 import com.google.common.escape.CharEscaper;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import javax.annotation.Nullable;
 
 /**
  * Utility class to escape strings for use in param files for gcc or clang.
@@ -48,6 +49,7 @@ public final class GccParamFileEscaper extends CharEscaper {
   }
 
   @Override
+  @Nullable
   public char[] escape(char c) {
     if (!UNSAFECHAR_MATCHER.matches(c)) {
       return null;

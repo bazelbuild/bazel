@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.bazel.repository.starlark;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Maps;
@@ -28,15 +28,16 @@ import com.google.devtools.build.lib.shell.TerminationStatus;
 import com.google.devtools.build.lib.util.io.DelegatingOutErr;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.util.io.RecordingOutErr;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
-import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.StarlarkValue;
 
 /**
@@ -49,9 +50,11 @@ import net.starlark.java.eval.StarlarkValue;
     name = "exec_result",
     category = DocCategory.BUILTIN,
     doc =
-        "A structure storing result of repository_ctx.execute() method. It contains the standard"
-            + " output stream content, the standard error stream content and the execution return"
-            + " code.")
+        """
+        A structure storing result of repository_ctx.execute() method. It contains the standard \
+        output stream content, the standard error stream content and the execution return \
+        code.
+        """)
 final class StarlarkExecutionResult implements StarlarkValue {
   private final int returnCode;
   private final String stdout;
@@ -72,9 +75,11 @@ final class StarlarkExecutionResult implements StarlarkValue {
       name = "return_code",
       structField = true,
       doc =
-          "The return code returned after the execution of the program. 256 if the process was"
-              + " terminated by a time out; values larger than 128 indicate termination by a"
-              + " signal.")
+          """
+          The return code returned after the execution of the program. 256 if the process was \
+          terminated by a time out; values larger than 128 indicate termination by a \
+          signal.
+          """)
   public int getReturnCode() {
     return returnCode;
   }
@@ -126,6 +131,7 @@ final class StarlarkExecutionResult implements StarlarkValue {
      * expected to be the binary to execute. The subsequent arguments are the arguments passed to
      * the binary.
      */
+    @CanIgnoreReturnValue
     Builder addArguments(List<String> args) {
       this.args.addAll(args);
       return this;
@@ -135,30 +141,39 @@ final class StarlarkExecutionResult implements StarlarkValue {
      * Set the path to the directory to execute the result process. This method must be called
      * before calling {@link #execute()}.
      */
+    @CanIgnoreReturnValue
     Builder setDirectory(File path) {
       this.directory = path;
       return this;
     }
 
     /**
-     * Add an environment variables to be added to the list of environment variables. For all
-     * key <code>k</code> of <code>variables</code>, the resulting process will have the variable
-     * <code>k=variables.get(k)</code> defined.
+     * Add an environment variables to be added to the list of environment variables. For all key
+     * <code>k</code> of <code>variables</code>, the resulting process will have the variable <code>
+     * k=variables.get(k)</code> defined.
      */
+    @CanIgnoreReturnValue
     Builder addEnvironmentVariables(Map<String, String> variables) {
       this.envBuilder.putAll(variables);
       return this;
     }
 
-    /**
-     * Sets the timeout, in milliseconds, after which the executed command will be terminated.
-     */
+    /** Ensure that an environment variable is not passed to the process. */
+    @CanIgnoreReturnValue
+    Builder removeEnvironmentVariables(Set<String> removeEnvVariables) {
+      removeEnvVariables.forEach(envBuilder::remove);
+      return this;
+    }
+
+    /** Sets the timeout, in milliseconds, after which the executed command will be terminated. */
+    @CanIgnoreReturnValue
     Builder setTimeout(long timeout) {
       Preconditions.checkArgument(timeout > 0, "Timeout must be a positive number.");
       this.timeout = timeout;
       return this;
     }
 
+    @CanIgnoreReturnValue
     Builder setQuiet(boolean quiet) {
       this.quiet = quiet;
       return this;
@@ -166,14 +181,14 @@ final class StarlarkExecutionResult implements StarlarkValue {
 
     private static String toString(ByteArrayOutputStream stream) {
       try {
-        return new String(stream.toByteArray(), UTF_8);
+        return stream.toString(ISO_8859_1);
       } catch (IllegalStateException e) {
         return "";
       }
     }
 
-    /** Execute the command specified by {@link #addArguments(Iterable)}. */
-    StarlarkExecutionResult execute() throws EvalException, InterruptedException {
+    /** Execute the command specified by {@link #addArguments}. */
+    StarlarkExecutionResult execute() throws InterruptedException {
       Preconditions.checkArgument(timeout > 0, "Timeout must be set prior to calling execute().");
       Preconditions.checkArgument(!args.isEmpty(), "No command specified.");
       Preconditions.checkState(!executed, "Command was already executed, cannot re-use builder.");
@@ -198,23 +213,24 @@ final class StarlarkExecutionResult implements StarlarkValue {
         CommandResult result =
             command.execute(delegator.getOutputStream(), delegator.getErrorStream());
         return new StarlarkExecutionResult(
-            result.getTerminationStatus().getExitCode(),
+            result.terminationStatus().getExitCode(),
             recorder.outAsLatin1(),
             recorder.errAsLatin1());
       } catch (BadExitStatusException e) {
         return new StarlarkExecutionResult(
-            e.getResult().getTerminationStatus().getExitCode(), recorder.outAsLatin1(),
+            e.getResult().terminationStatus().getExitCode(),
+            recorder.outAsLatin1(),
             recorder.errAsLatin1());
       } catch (AbnormalTerminationException e) {
-        TerminationStatus status = e.getResult().getTerminationStatus();
+        TerminationStatus status = e.getResult().terminationStatus();
         if (status.timedOut()) {
           // Signal a timeout by an exit code outside the normal range
           return new StarlarkExecutionResult(256, "", e.getMessage());
         } else if (status.exited()) {
           return new StarlarkExecutionResult(
               status.getExitCode(),
-              toString(e.getResult().getStdoutStream()),
-              toString(e.getResult().getStderrStream()));
+              toString(e.getResult().stdoutStream()),
+              toString(e.getResult().stderrStream()));
         } else if (status.getTerminatingSignal() == 15) {
           // We have a bit of a problem here: we cannot distingusih between the case where
           // the SIGTERM was sent by something that the calling rule wants to legitimately handle,
@@ -227,8 +243,8 @@ final class StarlarkExecutionResult implements StarlarkValue {
         } else {
           return new StarlarkExecutionResult(
               status.getRawExitCode(),
-              toString(e.getResult().getStdoutStream()),
-              toString(e.getResult().getStderrStream()));
+              toString(e.getResult().stdoutStream()),
+              toString(e.getResult().stderrStream()));
         }
       } catch (CommandException e) {
         // 256 is outside of the standard range for exit code on Unixes. We are not guaranteed that

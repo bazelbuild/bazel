@@ -28,6 +28,7 @@ import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.annotation.Nullable;
+import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.StarlarkValue;
 
@@ -138,10 +139,12 @@ public final class DottedVersion implements DottedVersionApi<DottedVersion> {
     }
   }
 
+  @Nullable
   public static DottedVersion maybeUnwrap(DottedVersion.Option option) {
     return option != null ? option.get() : null;
   }
 
+  @Nullable
   public static Option option(DottedVersion version) {
     return version == null ? null : new Option(version);
   }
@@ -355,6 +358,10 @@ public final class DottedVersion implements DottedVersionApi<DottedVersion> {
   }
 
   @Override
+  @StarlarkMethod(
+      name = "to_string",
+      doc = "Returns the string representation of a dotted version.",
+      structField = true)
   public String toString() {
     return stringRepresentation;
   }

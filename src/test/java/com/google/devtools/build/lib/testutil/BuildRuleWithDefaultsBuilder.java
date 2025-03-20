@@ -23,7 +23,9 @@ import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Type.LabelClass;
 import com.google.devtools.build.lib.packages.Type.ListType;
+import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.util.FileTypeSet;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -90,8 +92,9 @@ public class BuildRuleWithDefaultsBuilder extends BuildRuleBuilder {
    * Populates the label type attribute with generated values. Populates with a file if possible, or
    * generates an appropriate rule. Note, that the rules are always generated in the same package.
    */
-  public BuildRuleWithDefaultsBuilder populateLabelAttribute(String rulePkg, String filePkg,
-      Attribute attribute) {
+  @CanIgnoreReturnValue
+  public BuildRuleWithDefaultsBuilder populateLabelAttribute(
+      String rulePkg, String filePkg, Attribute attribute) {
     Type<?> attrType = attribute.getType();
     String label = null;
     if (attribute.getAllowedFileTypesPredicate() != FileTypeSet.NO_FILE) {
@@ -110,7 +113,7 @@ public class BuildRuleWithDefaultsBuilder extends BuildRuleBuilder {
       }
       label = getDummyFileLabel(rulePkg, filePkg, extension, attrType);
     } else {
-      Predicate<RuleClass> allowedRuleClasses = attribute.getAllowedRuleClassesPredicate();
+      Predicate<RuleClass> allowedRuleClasses = attribute.getAllowedRuleClassObjectPredicate();
       if (allowedRuleClasses != Predicates.<RuleClass>alwaysFalse()) {
         // See if there is an applicable rule among the already enqueued rules
         BuildRuleBuilder referencedRuleBuilder = getFirstApplicableRule(attribute);
@@ -138,7 +141,7 @@ public class BuildRuleWithDefaultsBuilder extends BuildRuleBuilder {
 
   private boolean doesRuleClassMatch(Attribute attribute, RuleClass ruleClass) {
     // The rule class isn't in the allowed list.
-    if (!attribute.getAllowedRuleClassesPredicate().apply(ruleClass)) {
+    if (!attribute.getAllowedRuleClassObjectPredicate().apply(ruleClass)) {
       return false;
     }
 
@@ -178,26 +181,31 @@ public class BuildRuleWithDefaultsBuilder extends BuildRuleBuilder {
     return result.orElse(null);
   }
 
+  @CanIgnoreReturnValue
   public BuildRuleWithDefaultsBuilder populateStringListAttribute(Attribute attribute) {
     addMultiValueAttributes(attribute.getName(), "x");
     return this;
   }
 
+  @CanIgnoreReturnValue
   public BuildRuleWithDefaultsBuilder populateStringAttribute(Attribute attribute) {
     setSingleValueAttribute(attribute.getName(), "x");
     return this;
   }
 
+  @CanIgnoreReturnValue
   public BuildRuleWithDefaultsBuilder populateBooleanAttribute(Attribute attribute) {
     setSingleValueAttribute(attribute.getName(), "false");
     return this;
   }
 
+  @CanIgnoreReturnValue
   public BuildRuleWithDefaultsBuilder populateIntegerAttribute(Attribute attribute) {
     setSingleValueAttribute(attribute.getName(), 1);
     return this;
   }
 
+  @CanIgnoreReturnValue
   public BuildRuleWithDefaultsBuilder populateAttributes(String rulePkg, boolean heuristics) {
     for (Attribute attribute : ruleClass.getAttributes()) {
       if (attribute.isMandatory()) {
@@ -218,7 +226,7 @@ public class BuildRuleWithDefaultsBuilder extends BuildRuleBuilder {
             populateBooleanAttribute(attribute);
           } else if (attribute.getType() == Type.INTEGER) {
             populateIntegerAttribute(attribute);
-          } else if (attribute.getType() == Type.STRING_LIST) {
+          } else if (attribute.getType() == Types.STRING_LIST) {
             populateStringListAttribute(attribute);
           }
         }

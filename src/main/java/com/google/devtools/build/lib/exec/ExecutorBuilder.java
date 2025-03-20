@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.exec;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.LinkedHashSet;
 import java.util.Set;
 
@@ -40,6 +41,7 @@ public class ExecutorBuilder {
    * Sets the action input prefetcher. Only one module may set the prefetcher. If multiple modules
    * set it, this method will throw an {@link IllegalStateException}.
    */
+  @CanIgnoreReturnValue
   public ExecutorBuilder setActionInputPrefetcher(ActionInputPrefetcher prefetcher) {
     Preconditions.checkState(this.prefetcher == null);
     this.prefetcher = Preconditions.checkNotNull(prefetcher);
@@ -52,6 +54,7 @@ public class ExecutorBuilder {
    *
    * @see ExecutorLifecycleListener for events that can be listened to
    */
+  @CanIgnoreReturnValue
   public ExecutorBuilder addExecutorLifecycleListener(ExecutorLifecycleListener listener) {
     executorLifecycleListeners.add(listener);
     return this;

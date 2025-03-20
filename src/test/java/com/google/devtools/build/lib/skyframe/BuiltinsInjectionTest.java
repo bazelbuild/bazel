@@ -20,8 +20,9 @@ import static com.google.common.truth.Truth.assertWithMessage;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
+import com.google.devtools.build.lib.actions.ActionConflictException;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
+import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
@@ -29,9 +30,11 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
+import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.analysis.util.MockRuleDefaults;
+import com.google.devtools.build.lib.bazel.bzlmod.NonRegistryOverride;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Event;
@@ -165,18 +168,48 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
     // Override BuildViewTestCase's behavior of setting all sorts of extra options that don't exist
     // on our minimal rule class provider.
     // We do need the host platform. Set it to something trivial.
-    return ImmutableList.of("--host_platform=//minimal_buildenv/platforms:default_host");
+    return ImmutableList.of(
+        "--host_platform=//minimal_buildenv/platforms:default",
+        "--platforms=//minimal_buildenv/platforms:default",
+        // Since this file tests builtins injection, replace the standard exec transition (which is
+        // in builtins) with a no-op to avoid interference.
+        "--experimental_exec_config=//pkg2:dummy_exec_platforms.bzl%noop_exec_transition");
+  }
+
+  @Override
+  protected AnalysisMock getAnalysisMock() {
+    return new AnalysisMock.Delegate(super.getAnalysisMock()) {
+      @Override
+      public ImmutableMap<String, NonRegistryOverride> getBuiltinModules(
+          BlazeDirectories directories) {
+        return ImmutableMap.of();
+      }
+    };
   }
 
   @Override
   protected void initializeMockClient() throws IOException {
-    // Don't let the AnalysisMock sneak in any WORKSPACE file content, which may depend on
-    // repository rules that our minimal rule class provider doesn't have.
-    analysisMock.setupMockClient(mockToolsConfig, ImmutableList.of());
+    analysisMock.setupMockClient(mockToolsConfig);
     // Provide a trivial platform definition.
     mockToolsConfig.create(
         "minimal_buildenv/platforms/BUILD", //
-        "platform(name = 'default_host')");
+        "platform(name = 'default')");
+    // No-op exec transition:
+    scratch.overwriteFile("pkg2/BUILD", "");
+    scratch.file(
+        "pkg2/dummy_exec_platforms.bzl",
+        """
+        # Since this isn't in builtins, use `transition`, not `exec_transition`
+        # This is fine, since this is a no-op and doesn't use any of the features that exec
+        # transitions are allowed to use.
+        noop_exec_transition = transition(
+            implementation = lambda settings, attr: {
+                '//command_line_option:is exec configuration': True,
+            },
+            inputs = [],
+            outputs = ['//command_line_option:is exec configuration'],
+        )
+        """);
   }
 
   @Override
@@ -192,8 +225,8 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
         .addRuleDefinition(SANDWICH_RULE)
         .addRuleDefinition(SANDWICH_LOGIC_RULE)
         .addRuleDefinition(SANDWICH_CTX_RULE)
-        .addStarlarkAccessibleTopLevels("overridable_symbol", "original_value")
-        .addStarlarkAccessibleTopLevels(
+        .addBzlToplevel("overridable_symbol", "original_value")
+        .addBzlToplevel(
             "flag_guarded_symbol",
             // For this mock symbol, we reuse the same flag that guards the production
             // _builtins_dummy symbol.
@@ -206,6 +239,20 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
   @Before
   public void setUp() throws Exception {
     setBuildLanguageOptionsWithBuiltinsStaging();
+  }
+
+  @Override
+  protected List<String> getDefaultBuildLanguageOptions() throws Exception {
+    ImmutableList.Builder<String> builder = ImmutableList.builder();
+    builder.addAll(super.getDefaultBuildLanguageOptions());
+    // This is important for test initialization. BuildViewTestCase calls initializeSkyframeExecutor
+    // which creates the top-level build configuration. That loads the Starlark exec transition from
+    // a .bzl file (see --experimental_exec_config above). Without this, BzlLoadFunction tries to
+    // resolve the builtins path and exports.bzl, which fails.
+    //
+    // Most tests override this by calling setBuildLanguageOptionsWithBuiltinsStaging()
+    builder.add("--experimental_builtins_bzl_path=");
+    return builder.build();
   }
 
   private void setBuildLanguageOptionsWithBuiltinsStaging(String... options) throws Exception {
@@ -222,6 +269,8 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
    */
   private void writeExportsBzl(String... lines) throws Exception {
     scratch.overwriteFile("tools/builtins_staging/exports.bzl", lines);
+    // Since builtins have changed, we need to be sure the cache is reset to re-load them.
+    invalidatePackages(/* alsoConfigs= */ false);
   }
 
   /**
@@ -305,25 +354,34 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
     // Define a few files that we can load with different kinds of label syntax. In each case,
     // access the `_builtins` symbol to demonstrate that we're being loaded as a builtins bzl.
     scratch.file(
-        "tools/builtins_staging/absolute.bzl", //
-        "_builtins",
-        "a = 'A'");
+        "tools/builtins_staging/absolute.bzl",
+        """
+        _builtins
+        a = "A"
+        """);
     scratch.file(
-        "tools/builtins_staging/repo_relative.bzl", //
-        "_builtins",
-        "b = 'B'");
+        "tools/builtins_staging/repo_relative.bzl",
+        """
+        _builtins
+        b = "B"
+        """);
     scratch.file(
-        "tools/builtins_staging/subdir/pkg_relative1.bzl", //
-        // Do a relative load within a load, to show it's relative to the (pseudo) package, i.e. the
-        // root, and not relative to the file. That is, we specify 'subdir/pkg_relative2.bzl', not
-        // just 'pkg_relative2.bzl'.
-        "load('subdir/pkg_relative2.bzl', 'c2')",
-        "_builtins",
-        "c = c2");
+        "tools/builtins_staging/subdir/pkg_relative1.bzl",
+        """
+        # Do a relative load within a load, to show it's relative to the (pseudo) package, i.e. the
+        # root, and not relative to the file. That is, we specify 'subdir/pkg_relative2.bzl', not
+        # just 'pkg_relative2.bzl'.
+        load("subdir/pkg_relative2.bzl", "c2")
+
+        _builtins
+        c = c2
+        """);
     scratch.file(
-        "tools/builtins_staging/subdir/pkg_relative2.bzl", //
-        "_builtins",
-        "c2 = 'C'");
+        "tools/builtins_staging/subdir/pkg_relative2.bzl",
+        """
+        _builtins
+        c2 = "C"
+        """);
 
     // Also create a file in the main repo whose package path coincides with a file in the builtins
     // pseudo-repo, to show that we get the right one.
@@ -345,7 +403,7 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void otherBzlsCannotLoadFromBuiltins() throws Exception {
+  public void otherBzlsCannotLoadFromBuiltins_apparent() throws Exception {
     writeExportsBzl(
         "exported_toplevels = {}", //
         "exported_rules = {}",
@@ -354,7 +412,20 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
     writePkgBzl("load('@_builtins//:exports.bzl', 'exported_toplevels')");
 
     buildAndAssertFailure();
-    assertContainsEvent("The repository '@_builtins' could not be resolved");
+    assertContainsEvent("No repository visible as '@_builtins' from");
+  }
+
+  @Test
+  public void otherBzlsCannotLoadFromBuiltins_canonical() throws Exception {
+    writeExportsBzl(
+        "exported_toplevels = {}", //
+        "exported_rules = {}",
+        "exported_to_java = {}");
+    writePkgBuild();
+    writePkgBzl("load('@@_builtins//:exports.bzl', 'exported_toplevels')");
+
+    buildAndAssertFailure();
+    assertContainsEvent("The repository '@@_builtins' could not be resolved");
   }
 
   @Test
@@ -483,39 +554,6 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
     assertContainsEvent("In bzl: overridable_symbol :: original_value");
     assertContainsEvent("In bzl: overridable_rule :: <built-in rule overridable_rule>");
     assertContainsEvent("In BUILD: overridable_rule :: <built-in rule overridable_rule>");
-  }
-
-  // TODO(#11954): Once WORKSPACE- and BUILD-loaded bzls use the exact same environments, we'll want
-  // to apply injection to both. This is for uniformity, not because we actually care about builtins
-  // injection for WORKSPACE bzls. In the meantime, assert the status quo: WORKSPACE bzls do not use
-  // injection. WORKSPACE and BUILD files themselves probably won't be unified, so WORKSPACE will
-  // likely continue to not use injection.
-  @Test
-  public void workspaceAndWorkspaceBzlDoNotUseInjection() throws Exception {
-    writeExportsBzl(
-        "exported_toplevels = {'overridable_symbol': 'new_value'}",
-        "exported_rules = {'overridable_rule': 'new_rule'}",
-        "exported_to_java = {}");
-    writePkgBuild();
-    writePkgBzl();
-    scratch.appendFile(
-        "WORKSPACE", //
-        "load(':foo.bzl', 'dummy_symbol')",
-        "print('In WORKSPACE: overridable_rule :: %s' % overridable_rule)",
-        "print(dummy_symbol)");
-    scratch.file("BUILD");
-    scratch.file(
-        "foo.bzl",
-        "dummy_symbol = None",
-        "print('In bzl: overridable_symbol :: %s' % overridable_symbol)");
-
-    buildAndAssertSuccess();
-    // Builtins for WORKSPACE bzls are populated essentially the same as for BUILD bzls, except that
-    // injection doesn't apply.
-    assertContainsEvent("In bzl: overridable_symbol :: original_value");
-    // We don't assert that the rule isn't injected because the workspace native object doesn't
-    // contain our original mock rule. We can test this for WORKSPACE files at the top-level though.
-    assertContainsEvent("In WORKSPACE: overridable_rule :: <built-in function overridable_rule>");
   }
 
   @Test

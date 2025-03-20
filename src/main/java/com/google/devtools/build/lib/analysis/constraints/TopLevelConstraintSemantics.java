@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
-import com.google.devtools.build.lib.packages.EnvironmentGroup;
 import com.google.devtools.build.lib.packages.EnvironmentLabels;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
@@ -42,14 +41,17 @@ import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.server.FailureDetails.Analysis;
 import com.google.devtools.build.lib.server.FailureDetails.Analysis.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
-import com.google.devtools.build.lib.skyframe.BuildConfigurationKey;
+import com.google.devtools.build.lib.skyframe.AbstractSaneAnalysisException;
+import com.google.devtools.build.lib.skyframe.PackageValue;
+import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
+import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.StringJoiner;
-import java.util.function.Function;
 import javax.annotation.Nullable;
 
 /**
@@ -61,33 +63,35 @@ import javax.annotation.Nullable;
  * <p>For all other targets see {@link ConstraintSemantics}.
  */
 public class TopLevelConstraintSemantics {
-  private final RuleContextConstraintSemantics constraintSemantics;
-  private final PackageManager packageManager;
-  private final Function<BuildConfigurationKey, BuildConfigurationValue> configurationProvider;
-  private final ExtendedEventHandler eventHandler;
+
   private static final String TARGET_INCOMPATIBLE_ERROR_TEMPLATE =
       "Target %s is incompatible and cannot be built, but was explicitly requested.%s";
+
+  private final RuleContextConstraintSemantics constraintSemantics;
+  private final PackageManager packageManager;
+  private final MemoizingEvaluator evaluator;
+  private final ExtendedEventHandler eventHandler;
 
   /**
    * Constructor with helper classes for loading targets.
    *
    * @param constraintSemantics core constraints implementation logic
    * @param packageManager object for retrieving loaded targets
-   * @param configurationProvider gets configurations from {@link ConfiguredTarget}s
+   * @param evaluator for looking up already evaluated values
    * @param eventHandler the build's event handler
    */
   public TopLevelConstraintSemantics(
       RuleContextConstraintSemantics constraintSemantics,
       PackageManager packageManager,
-      Function<BuildConfigurationKey, BuildConfigurationValue> configurationProvider,
+      MemoizingEvaluator evaluator,
       ExtendedEventHandler eventHandler) {
     this.constraintSemantics = constraintSemantics;
     this.packageManager = packageManager;
-    this.configurationProvider = configurationProvider;
+    this.evaluator = evaluator;
     this.eventHandler = eventHandler;
   }
 
-  private static class MissingEnvironment {
+  static class MissingEnvironment {
     private final Label environment;
     @Nullable
     // If null, the top-level target just didn't declare a required environment. If not null, that
@@ -101,6 +105,115 @@ public class TopLevelConstraintSemantics {
   }
 
   /**
+   * Returns the compatibility of a ConfiguredTarget with the platform.
+   *
+   * <p>See {@link #checkPlatformRestrictions}.
+   */
+  public static PlatformCompatibility compatibilityWithPlatformRestrictions(
+      ConfiguredTarget configuredTarget,
+      ExtendedEventHandler eventHandler,
+      boolean eagerlyThrowError,
+      boolean explicitlyRequested,
+      boolean skipIncompatibleExplicitTargets)
+      throws TargetCompatibilityCheckException {
+
+    RuleContextConstraintSemantics.IncompatibleCheckResult incompatibleCheckResult =
+        RuleContextConstraintSemantics.checkForIncompatibility(configuredTarget);
+    if (!incompatibleCheckResult.isIncompatible()) {
+      return PlatformCompatibility.COMPATIBLE;
+    }
+
+    // We need the label in unambiguous form here. I.e. with the "@" prefix for targets in the
+    // main repository. explicitTargetPatterns is also already in the unambiguous form to make
+    // comparison succeed regardless of the provided form.
+    if (!skipIncompatibleExplicitTargets && explicitlyRequested) {
+      if (eagerlyThrowError) {
+        // Use the slightly simpler form for printing error messages. I.e. no "@" prefix for
+        // targets in the main repository.
+        throw getExceptionForExplicitlyRequestedIncompatibleTarget(
+            configuredTarget, incompatibleCheckResult.underlyingTarget());
+      }
+      eventHandler.handle(
+          Event.warn(
+              String.format(TARGET_INCOMPATIBLE_ERROR_TEMPLATE, configuredTarget.getLabel(), "")));
+      return PlatformCompatibility.INCOMPATIBLE_EXPLICIT;
+    }
+    // We can safely skip this target if it wasn't explicitly requested or we've been instructed
+    // to skip explicitly requested targets.
+    return PlatformCompatibility.INCOMPATIBLE_IMPLICIT;
+  }
+
+  private static TargetCompatibilityCheckException
+      getExceptionForExplicitlyRequestedIncompatibleTarget(
+          ConfiguredTarget configuredTarget, ConfiguredTarget underlyingTarget) {
+    String targetIncompatibleMessage =
+        String.format(
+            TARGET_INCOMPATIBLE_ERROR_TEMPLATE,
+            configuredTarget.getOriginalLabel(),
+            // We need access to the provider so we pass in the underlying target here that is
+            // responsible for the incompatibility.
+            reportOnIncompatibility(underlyingTarget));
+    return new TargetCompatibilityCheckException(
+        targetIncompatibleMessage,
+        FailureDetail.newBuilder()
+            .setMessage(targetIncompatibleMessage)
+            .setAnalysis(Analysis.newBuilder().setCode(Code.INCOMPATIBLE_TARGET_REQUESTED))
+            .build());
+  }
+
+  /**
+   * Returns the compatibility with the target environment.
+   *
+   * <p>See {@link #checkTargetEnvironmentRestrictions}.
+   *
+   * @return null if the {@code targetLookup} performs a Skyframe lookup and the value is missing.
+   */
+  @Nullable
+  public static EnvironmentCompatibility compatibilityWithTargetEnvironment(
+      ConfiguredTarget configuredTarget,
+      @Nullable BuildConfigurationValue buildConfigurationValue,
+      TargetLookup targetLookup,
+      ExtendedEventHandler eventHandler)
+      throws InterruptedException, TargetCompatibilityCheckException {
+    // TODO(bazel-team): support file targets (they should apply package-default constraints).
+    if (buildConfigurationValue == null
+        || !buildConfigurationValue.enforceConstraints()
+        || buildConfigurationValue.getTargetEnvironments().isEmpty()) {
+      return EnvironmentCompatibility.compatible();
+    }
+
+    Target target;
+    try {
+      target = Preconditions.checkNotNull(targetLookup.getTarget(configuredTarget.getLabel()));
+    } catch (NoSuchPackageException | NoSuchTargetException e) {
+      eventHandler.handle(
+          Event.error(
+              "Unable to get target from package when checking environment restrictions. " + e));
+      return EnvironmentCompatibility.compatible();
+    }
+
+    if (target.getAssociatedRule() == null
+        || !target.getAssociatedRule().getRuleClassObject().supportsConstraintChecking()) {
+      return EnvironmentCompatibility.compatible();
+    }
+
+    // Check explicitly expected environments.
+    ImmutableSet<MissingEnvironment> severeMissingEnvironments =
+        getMissingEnvironments(
+            configuredTarget, buildConfigurationValue.getTargetEnvironments(), targetLookup);
+    // Missing value.
+    if (severeMissingEnvironments == null) {
+      return null;
+    }
+
+    if (!severeMissingEnvironments.isEmpty()) {
+      return EnvironmentCompatibility.severeIncompatible(severeMissingEnvironments);
+    }
+
+    return EnvironmentCompatibility.compatible();
+  }
+
+  /**
    * Checks that the all top-level targets are compatible with the target platform.
    *
    * <p>If any target doesn't support the target platform it will be either marked as "to be
@@ -110,8 +223,8 @@ public class TopLevelConstraintSemantics {
    * the command line should be skipped.
    *
    * <p>Targets that are incompatible with the target platform and *are* explicitly requested on the
-   * command line are errored. Having one or more errored targets will cause the entire build to
-   * fail with an error message.
+   * command line are errored unless --skip_incompatible_explicit_targets is enabled. Having one or
+   * more errored targets will cause the entire build to fail with an error message.
    *
    * @param topLevelTargets the build's top-level targets
    * @param explicitTargetPatterns the set of explicit target patterns specified by the user on the
@@ -122,51 +235,31 @@ public class TopLevelConstraintSemantics {
    *     command line.
    */
   public PlatformRestrictionsResult checkPlatformRestrictions(
-      ImmutableList<ConfiguredTarget> topLevelTargets,
-      ImmutableSet<String> explicitTargetPatterns,
-      boolean keepGoing)
+      ImmutableSet<ConfiguredTarget> topLevelTargets,
+      ImmutableSet<Label> explicitTargetPatterns,
+      boolean keepGoing,
+      boolean skipIncompatibleExplicitTargets)
       throws ViewCreationFailedException {
     ImmutableSet.Builder<ConfiguredTarget> incompatibleTargets = ImmutableSet.builder();
     ImmutableSet.Builder<ConfiguredTarget> incompatibleButRequestedTargets = ImmutableSet.builder();
 
-    for (ConfiguredTarget target : topLevelTargets) {
-      RuleContextConstraintSemantics.IncompatibleCheckResult result =
-          RuleContextConstraintSemantics.checkForIncompatibility(target);
-
-      // Move on to the next target if this one is compatible.
-      if (!result.isIncompatible()) {
-        continue;
-      }
-
-      // We need the label in unambiguous form here. I.e. with the "@" prefix for targets in the
-      // main repository. explicitTargetPatterns is also already in the unambiguous form to make
-      // comparison succeed regardless of the provided form.
-      String labelString = target.getLabel().getUnambiguousCanonicalForm();
-      if (explicitTargetPatterns.contains(labelString)) {
-        if (!keepGoing) {
-          // Use the slightly simpler form for printing error messages. I.e. no "@" prefix for
-          // targets in the main repository.
-          String targetIncompatibleMessage =
-              String.format(
-                  TARGET_INCOMPATIBLE_ERROR_TEMPLATE,
-                  target.getLabel().toString(),
-                  // We need access to the provider so we pass in the underlying target here that is
-                  // responsible for the incompatibility.
-                  reportOnIncompatibility(result.underlyingTarget()));
-          throw new ViewCreationFailedException(
-              targetIncompatibleMessage,
-              FailureDetail.newBuilder()
-                  .setMessage(targetIncompatibleMessage)
-                  .setAnalysis(Analysis.newBuilder().setCode(Code.INCOMPATIBLE_TARGET_REQUESTED))
-                  .build());
+    try {
+      for (ConfiguredTarget target : topLevelTargets) {
+        PlatformCompatibility platformCompatibility =
+            compatibilityWithPlatformRestrictions(
+                target,
+                eventHandler,
+                /* eagerlyThrowError= */ !keepGoing,
+                explicitTargetPatterns.contains(target.getOriginalLabel()),
+                skipIncompatibleExplicitTargets);
+        if (PlatformCompatibility.INCOMPATIBLE_EXPLICIT.equals(platformCompatibility)) {
+          incompatibleButRequestedTargets.add(target);
+        } else if (PlatformCompatibility.INCOMPATIBLE_IMPLICIT.equals(platformCompatibility)) {
+          incompatibleTargets.add(target);
         }
-        this.eventHandler.handle(
-            Event.warn(String.format(TARGET_INCOMPATIBLE_ERROR_TEMPLATE, labelString, "")));
-        incompatibleButRequestedTargets.add(target);
-      } else {
-        // If this is not an explicitly requested target we can safely skip it.
-        incompatibleTargets.add(target);
       }
+    } catch (TargetCompatibilityCheckException e) {
+      throw new ViewCreationFailedException(e.getFailureDetail(), /*cause=*/ e);
     }
 
     return PlatformRestrictionsResult.builder()
@@ -191,10 +284,13 @@ public class TopLevelConstraintSemantics {
     String message = "\nDependency chain:";
     IncompatiblePlatformProvider provider = null;
 
-    // TODO(austinschuh): While the first eror is helpful, reporting all the errors at once would
+    // TODO(austinschuh): While the first error is helpful, reporting all the errors at once would
     // save the user bazel round trips.
     while (target != null) {
-      message += "\n    " + target.getLabel();
+      message +=
+          String.format(
+              "\n    %s (%s)",
+              target.getLabel(), target.getConfigurationChecksum().substring(0, 6));
       provider = target.get(IncompatiblePlatformProvider.PROVIDER);
       ImmutableList<ConfiguredTarget> targetList = provider.targetsResponsibleForIncompatibility();
       if (targetList == null) {
@@ -249,7 +345,7 @@ public class TopLevelConstraintSemantics {
    *     environment declared through {@link CoreOptions#targetEnvironments}
    */
   public Set<ConfiguredTarget> checkTargetEnvironmentRestrictions(
-      ImmutableList<ConfiguredTarget> topLevelTargets)
+      ImmutableSet<ConfiguredTarget> topLevelTargets)
       throws ViewCreationFailedException, InterruptedException {
     ImmutableSet.Builder<ConfiguredTarget> badTargets = ImmutableSet.builder();
     // Maps targets that are missing *explicitly* required environments to the set of environments
@@ -258,45 +354,26 @@ public class TopLevelConstraintSemantics {
     // continues while skipping them.
     Multimap<ConfiguredTarget, MissingEnvironment> exceptionInducingTargets =
         ArrayListMultimap.create();
-    for (ConfiguredTarget topLevelTarget : topLevelTargets) {
-      BuildConfigurationValue config =
-          configurationProvider.apply(topLevelTarget.getConfigurationKey());
-      Target target = null;
-      try {
-        target = packageManager.getTarget(eventHandler, topLevelTarget.getLabel());
-      } catch (NoSuchPackageException | NoSuchTargetException e) {
-        eventHandler.handle(
-            Event.error(
-                "Unable to get target from package when checking environment restrictions. " + e));
-        continue;
-      }
-      if (config == null) {
-        // TODO(bazel-team): support file targets (they should apply package-default constraints).
-        continue;
-      } else if (!config.enforceConstraints()) {
-        continue;  // Constraint checking is disabled for all targets.
-      } else if (target.getAssociatedRule() == null) {
-        continue;
-      } else if (!target.getAssociatedRule().getRuleClassObject().supportsConstraintChecking()) {
-        continue; // This target doesn't participate in constraints.
-      }
-
-      // Check explicitly expected environments.
-      exceptionInducingTargets.putAll(topLevelTarget, // This is a no-op on empty collections.
-          getMissingEnvironments(topLevelTarget, config.getTargetEnvironments()));
-
-      // Check auto-detected CPU environments.
-      try {
-        if (!getMissingEnvironments(
-                topLevelTarget,
-                autoConfigureTargetEnvironments(config, config.getAutoCpuEnvironmentGroup()))
-            .isEmpty()) {
-          badTargets.add(topLevelTarget);
+    try {
+      for (ConfiguredTarget topLevelTarget : topLevelTargets) {
+        EnvironmentCompatibility compatibility =
+            Preconditions.checkNotNull(
+                compatibilityWithTargetEnvironment(
+                    topLevelTarget,
+                    getConfigurationValue(topLevelTarget.getConfigurationKey()),
+                    this::getOrLoadTarget,
+                    eventHandler));
+        if (compatibility.isCompatible()) {
+          continue;
         }
-      } catch (NoSuchPackageException | NoSuchTargetException e) {
-        throw new ViewCreationFailedException(
-            "invalid target environment", e.getDetailedExitCode().getFailureDetail(), e);
+        if (compatibility.severeMissingEnvironments() != null) {
+          exceptionInducingTargets.putAll(
+              topLevelTarget, compatibility.severeMissingEnvironments());
+        }
+        badTargets.add(topLevelTarget);
       }
+    } catch (TargetCompatibilityCheckException e) {
+      throw new ViewCreationFailedException(e.getMessage(), e.getFailureDetail(), e);
     }
 
     if (!exceptionInducingTargets.isEmpty()) {
@@ -309,31 +386,28 @@ public class TopLevelConstraintSemantics {
               .setAnalysis(Analysis.newBuilder().setCode(Code.TARGETS_MISSING_ENVIRONMENTS))
               .build());
     }
-    return ImmutableSet.copyOf(badTargets.addAll(exceptionInducingTargets.keySet()).build());
+    return badTargets.build();
   }
 
-  /**
-   * Helper method for {@link #checkTargetEnvironmentRestrictions} that populates inferred expected
-   * environments.
-   */
-  private List<Label> autoConfigureTargetEnvironments(
-      BuildConfigurationValue config, @Nullable Label environmentGroupLabel)
-      throws InterruptedException, NoSuchTargetException, NoSuchPackageException {
-    if (environmentGroupLabel == null) {
-      return ImmutableList.of();
+  @Nullable
+  private BuildConfigurationValue getConfigurationValue(@Nullable BuildConfigurationKey key)
+      throws InterruptedException {
+    if (key == null) {
+      return null;
     }
+    return (BuildConfigurationValue) evaluator.getExistingValue(key);
+  }
 
-    EnvironmentGroup environmentGroup = (EnvironmentGroup)
-        packageManager.getTarget(eventHandler, environmentGroupLabel);
-
-    ImmutableList.Builder<Label> targetEnvironments = new ImmutableList.Builder<>();
-    for (Label environmentLabel : environmentGroup.getEnvironments()) {
-      if (environmentLabel.getName().equals(config.getCpu())) {
-        targetEnvironments.add(environmentLabel);
-      }
+  @Nullable
+  private Target getOrLoadTarget(Label label)
+      throws NoSuchPackageException, NoSuchTargetException, InterruptedException {
+    var pkgVal = (PackageValue) evaluator.getExistingValue(label.getPackageIdentifier());
+    if (pkgVal != null) {
+      return pkgVal.getPackage().getTarget(label.getName());
     }
-
-    return targetEnvironments.build();
+    // Fall back to loading the target. Top-level targets are already in the graph, but referenced
+    // environment targets may not yet be loaded.
+    return packageManager.getTarget(eventHandler, label);
   }
 
   /**
@@ -341,29 +415,34 @@ public class TopLevelConstraintSemantics {
    *
    * @param topLevelTarget the top-level target to check
    * @param expectedEnvironmentLabels the environments this target is expected to support
-   *
-   * @throw InterruptedException if environment target resolution fails
-   * @throw ViewCreationFailedException if an expected environment isn't a valid target
+   * @param targetLookup a function that is used to look up a Target given its Label.
+   * @throws InterruptedException if environment target resolution fails
+   * @throws TargetCompatibilityCheckException if an expected environment isn't a valid target
    */
-  private Collection<MissingEnvironment> getMissingEnvironments(ConfiguredTarget topLevelTarget,
-      Collection<Label> expectedEnvironmentLabels)
-      throws InterruptedException, ViewCreationFailedException {
-    if (expectedEnvironmentLabels.isEmpty()) {
-      return ImmutableList.of();
-    }
-
+  @Nullable
+  private static ImmutableSet<MissingEnvironment> getMissingEnvironments(
+      ConfiguredTarget topLevelTarget,
+      List<Label> expectedEnvironmentLabels,
+      TargetLookup targetLookup)
+      throws InterruptedException, TargetCompatibilityCheckException {
     // Convert expected environment labels to actual environments.
     EnvironmentCollection.Builder expectedEnvironmentsBuilder = new EnvironmentCollection.Builder();
     for (Label envLabel : expectedEnvironmentLabels) {
       try {
-        Target env = packageManager.getTarget(eventHandler, envLabel);
+        Target env = targetLookup.getTarget(envLabel);
+        // Missing value.
+        if (env == null) {
+          return null;
+        }
         expectedEnvironmentsBuilder.put(
             ConstraintSemantics.getEnvironmentGroup(env).getEnvironmentLabels(), envLabel);
       } catch (NoSuchPackageException
           | NoSuchTargetException
           | ConstraintSemantics.EnvironmentLookupException e) {
-        throw new ViewCreationFailedException(
-            "invalid target environment", e.getDetailedExitCode().getFailureDetail(), e);
+        throw new TargetCompatibilityCheckException(
+            "invalid target environment: " + e.getMessage(),
+            e.getDetailedExitCode().getFailureDetail(),
+            e);
       }
     }
     EnvironmentCollection expectedEnvironments = expectedEnvironmentsBuilder.build();
@@ -372,8 +451,8 @@ public class TopLevelConstraintSemantics {
     topLevelTarget = topLevelTarget.getActual();
     // Now check the target against expected environments.
     TransitiveInfoCollection asProvider;
-    if (topLevelTarget instanceof OutputFileConfiguredTarget) {
-      asProvider = ((OutputFileConfiguredTarget) topLevelTarget).getGeneratingRule();
+    if (topLevelTarget instanceof OutputFileConfiguredTarget outputFileConfiguredTarget) {
+      asProvider = outputFileConfiguredTarget.getGeneratingRule();
     } else {
       asProvider = topLevelTarget;
     }
@@ -416,51 +495,120 @@ public class TopLevelConstraintSemantics {
     msg.add("This is a restricted-environment build.");
     for (Map.Entry<ConfiguredTarget, Collection<MissingEnvironment>> entry :
         badTargets.asMap().entrySet()) {
-      ConfiguredTarget curTarget = entry.getKey();
-      ConfiguredTarget targetWithProvider = curTarget.getActual();
-      if (targetWithProvider instanceof OutputFileConfiguredTarget) {
-        targetWithProvider = ((OutputFileConfiguredTarget) targetWithProvider).getGeneratingRule();
-      }
-      SupportedEnvironmentsProvider supportedEnvironments =
-          targetWithProvider.getProvider(SupportedEnvironmentsProvider.class);
-      String declaredEnvs =
-          supportedEnvironments.getStaticEnvironments().getEnvironments().stream()
-              .map(Label::toString)
-              .collect(joining(", "));
-      ;
-      msg.add(" ")
-          .add(curTarget.getLabel() + " declares compatibility with:")
-          .add("  [" + declaredEnvs + "]")
-          .add("but does not support:");
-      boolean isFirst = true;
-      boolean lastEntryWasMultiline = false;
-      for (MissingEnvironment missingEnvironment : entry.getValue()) {
-        if (missingEnvironment.culprit == null) {
-          // The target didn't declare support for this environment.
-          if (lastEntryWasMultiline) {
-            // Pretty-format: if the last environment message was multi-line, make it clear this
-            // one is a different entry. But we don't want to do that if all entries are single-line
-            // because that would be pointlessly long.
-            msg.add(" ");
-          }
-          msg.add("  " + missingEnvironment.environment);
-          lastEntryWasMultiline = false;
-        } else {
-          // The target declared support, but it was refined out by a select() somewhere in its
-          // transitive deps.
-          if (!isFirst) {
-            msg.add(" "); // Pretty-format for clarity.
-          }
-          msg.add(
-              constraintSemantics.getMissingEnvironmentCulpritMessage(
-                  curTarget.getLabel(),
-                  missingEnvironment.environment,
-                  missingEnvironment.culprit));
-          lastEntryWasMultiline = true;
-        }
-        isFirst = false;
-      }
+      msg.add(getErrorMessageForTarget(constraintSemantics, entry.getKey(), entry.getValue()));
     }
     return msg.add(" ").toString();
+  }
+
+  public static String getErrorMessageForTarget(
+      RuleContextConstraintSemantics constraintSemantics,
+      ConfiguredTarget configuredTarget,
+      Collection<MissingEnvironment> missingEnvironments) {
+    StringJoiner msg = new StringJoiner("\n");
+    ConfiguredTarget targetWithProvider = configuredTarget.getActual();
+    if (targetWithProvider instanceof OutputFileConfiguredTarget outputFileConfiguredTarget) {
+      targetWithProvider = outputFileConfiguredTarget.getGeneratingRule();
+    }
+    SupportedEnvironmentsProvider supportedEnvironments =
+        targetWithProvider.getProvider(SupportedEnvironmentsProvider.class);
+    String declaredEnvs =
+        supportedEnvironments.getStaticEnvironments().getEnvironments().stream()
+            .map(Label::toString)
+            .collect(joining(", "));
+    ;
+    msg.add(" ")
+        .add(configuredTarget.getLabel() + " declares compatibility with:")
+        .add("  [" + declaredEnvs + "]")
+        .add("but does not support:");
+    boolean isFirst = true;
+    boolean lastEntryWasMultiline = false;
+    for (MissingEnvironment missingEnvironment : missingEnvironments) {
+      if (missingEnvironment.culprit == null) {
+        // The target didn't declare support for this environment.
+        if (lastEntryWasMultiline) {
+          // Pretty-format: if the last environment message was multi-line, make it clear this
+          // one is a different entry. But we don't want to do that if all entries are single-line
+          // because that would be pointlessly long.
+          msg.add(" ");
+        }
+        msg.add("  " + missingEnvironment.environment);
+        lastEntryWasMultiline = false;
+      } else {
+        // The target declared support, but it was refined out by a select() somewhere in its
+        // transitive deps.
+        if (!isFirst) {
+          msg.add(" "); // Pretty-format for clarity.
+        }
+        msg.add(
+            constraintSemantics.getMissingEnvironmentCulpritMessage(
+                configuredTarget.getLabel(),
+                missingEnvironment.environment,
+                missingEnvironment.culprit));
+        lastEntryWasMultiline = true;
+      }
+      isFirst = false;
+    }
+    return msg.toString();
+  }
+
+  /** Tells the compatibility of a ConfiguredTarget with the target environment. */
+  public record EnvironmentCompatibility(
+      boolean isCompatible, @Nullable ImmutableSet<MissingEnvironment> severeMissingEnvironments) {
+
+    public static EnvironmentCompatibility compatible() {
+      return new EnvironmentCompatibility(
+          /* isCompatible= */ true, /* severeMissingEnvironments= */ null);
+    }
+
+    public static EnvironmentCompatibility nonSevereIncompatible() {
+      return new EnvironmentCompatibility(
+          /* isCompatible= */ false, /* severeMissingEnvironments= */ null);
+    }
+
+    public static EnvironmentCompatibility severeIncompatible(
+        ImmutableSet<MissingEnvironment> severeMissingEnvironments) {
+      return new EnvironmentCompatibility(/* isCompatible= */ false, severeMissingEnvironments);
+    }
+  }
+
+  /** Tells the compatibility of a ConfiguredTarget with the platform. */
+  public enum PlatformCompatibility {
+    COMPATIBLE,
+    INCOMPATIBLE_IMPLICIT,
+    INCOMPATIBLE_EXPLICIT
+  }
+
+  /** For Exceptions that arise during the compatibility checking of a target. */
+  public static class TargetCompatibilityCheckException extends AbstractSaneAnalysisException {
+    private final FailureDetail failureDetail;
+
+    public TargetCompatibilityCheckException(String message, FailureDetail failureDetail) {
+      super(message);
+      this.failureDetail = failureDetail;
+    }
+
+    public TargetCompatibilityCheckException(
+        String message, FailureDetail failureDetail, Throwable cause) {
+      super(message, cause);
+      this.failureDetail = failureDetail;
+    }
+
+    public FailureDetail getFailureDetail() {
+      return failureDetail;
+    }
+
+    @Override
+    public DetailedExitCode getDetailedExitCode() {
+      return DetailedExitCode.of(failureDetail);
+    }
+  }
+
+  /** Provides a method to look up a Target, given its Label. */
+  @FunctionalInterface
+  public interface TargetLookup {
+    // Returns null if the implementation involves a Skyframe lookup and the value is missing.
+    @Nullable
+    Target getTarget(Label label)
+        throws NoSuchPackageException, NoSuchTargetException, InterruptedException;
   }
 }

@@ -16,6 +16,7 @@ package com.google.devtools.common.options;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.common.reflect.TypeToken;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -71,5 +72,35 @@ public class GenericTypeHelperTest {
   @Test
   public void getConverterTypeForGenericExtensionSecondGrade() throws Exception {
     assertDoIt(String.class, AlphabetTwoSomething.class);
+  }
+
+  @Test
+  public void getConverterTypeForParameterizedType() throws Exception {
+    TypeToken<EnumSomething<String>> enSthTypeToken = new TypeToken<>() {};
+    EnumSomething<String> instance = new EnumSomething<>();
+    assertThat(
+            GenericTypeHelper.getActualReturnType(
+                enSthTypeToken.getType(), instance.getClass().getMethod("doIt")))
+        .isEqualTo(String.class);
+  }
+
+  @Test
+  public void assignableFromPrimitive() {
+    assertThat(GenericTypeHelper.isAssignableFrom(Integer.TYPE, Integer.class)).isTrue();
+    assertThat(GenericTypeHelper.isAssignableFrom(Integer.TYPE, Long.TYPE)).isFalse();
+    assertThat(GenericTypeHelper.isAssignableFrom(Integer.TYPE, Integer.TYPE)).isFalse();
+  }
+
+  @Test
+  public void assignableFromSuper() {
+    assertThat(GenericTypeHelper.isAssignableFrom(DoSomething.class, EnumSomething.class)).isTrue();
+    assertThat(GenericTypeHelper.isAssignableFrom(EnumSomething.class, AlphabetSomething.class))
+        .isTrue();
+  }
+
+  @Test
+  public void assignableFromSuperSecondGrade() {
+    assertThat(GenericTypeHelper.isAssignableFrom(EnumSomething.class, AlphabetTwoSomething.class))
+        .isTrue();
   }
 }

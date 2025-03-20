@@ -13,14 +13,15 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.cquery;
 
-
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.query2.NamedThreadSafeOutputFormatterCallback;
+import com.google.devtools.build.lib.query2.common.CqueryNode;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetAccessor;
-import com.google.devtools.build.lib.skyframe.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
+import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import java.io.BufferedWriter;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -41,7 +42,7 @@ import javax.annotation.Nullable;
  * focused on completeness, should output full configuration checksums.
  */
 public abstract class CqueryThreadsafeCallback
-    extends NamedThreadSafeOutputFormatterCallback<KeyedConfiguredTarget> {
+    extends NamedThreadSafeOutputFormatterCallback<CqueryNode> {
 
   protected final ExtendedEventHandler eventHandler;
   protected final CqueryOptions options;
@@ -55,6 +56,7 @@ public abstract class CqueryThreadsafeCallback
   protected final ConfiguredTargetAccessor accessor;
 
   private final List<String> result = new ArrayList<>();
+  private final boolean uniquifyResults;
 
   @SuppressWarnings("DefaultCharset")
   CqueryThreadsafeCallback(
@@ -62,7 +64,8 @@ public abstract class CqueryThreadsafeCallback
       CqueryOptions options,
       OutputStream out,
       SkyframeExecutor skyframeExecutor,
-      TargetAccessor<KeyedConfiguredTarget> accessor) {
+      TargetAccessor<CqueryNode> accessor,
+      boolean uniquifyResults) {
     this.eventHandler = eventHandler;
     this.options = options;
     if (out != null) {
@@ -72,6 +75,7 @@ public abstract class CqueryThreadsafeCallback
     }
     this.skyframeExecutor = skyframeExecutor;
     this.accessor = (ConfiguredTargetAccessor) accessor;
+    this.uniquifyResults = uniquifyResults;
   }
 
   public void addResult(String string) {
@@ -86,7 +90,8 @@ public abstract class CqueryThreadsafeCallback
   @Override
   public void close(boolean failFast) throws InterruptedException, IOException {
     if (!failFast && printStream != null) {
-      for (String s : result) {
+      List<String> resultsToPrint = uniquifyResults ? ImmutableSet.copyOf(result).asList() : result;
+      for (String s : resultsToPrint) {
         // TODO(ulfjack): We should use queryOptions.getLineTerminator() instead.
         printStream.append(s).append("\n");
       }
@@ -94,6 +99,7 @@ public abstract class CqueryThreadsafeCallback
     }
   }
 
+  @Nullable
   protected BuildConfigurationValue getConfiguration(BuildConfigurationKey configKey) {
     // Experiments querying:
     //     cquery --output=graph "deps(//src:main/java/com/google/devtools/build/lib:runtime)"
@@ -105,32 +111,11 @@ public abstract class CqueryThreadsafeCallback
     return configCache.computeIfAbsent(
         configKey, key -> skyframeExecutor.getConfiguration(eventHandler, key));
   }
-  /**
-   * Returns a user-friendly configuration identifier as a prefix of <code>fullId</code>.
-   *
-   * <p>This helps users read and manipulate what are otherwise distractingly long strings, in the
-   * same spirit as Git short commit hashes.
-   */
-  protected static String shortId(String fullId) {
-    // Inherit Git's default commit hash prefix length. It's a principled choice with similar usage
-    // patterns. cquery, which uses this, has access to every configuration in the build. If it
-    // turns out this setting produces ambiguous prefixes, we could always compare configurations
-    // to find the actual minimal unambiguous length.
-    return fullId.substring(0, 7);
-  }
 
   /**
-   * Returns a user-friendly configuration identifier, using special IDs for null and host
-   * configurations and {@link #shortId(String)} for others.
+   * Returns a user-friendly configuration identifier, using special IDs for null configurations.
    */
   protected static String shortId(@Nullable BuildConfigurationValue config) {
-    if (config == null) {
-      return "null";
-    } else if (config.isHostConfiguration()) {
-      return "HOST";
-    } else {
-      return shortId(config.checksum());
-    }
+    return config == null ? "null" : config.shortId();
   }
 }
-

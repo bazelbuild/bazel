@@ -119,10 +119,6 @@ EOF
 }
 
 function test_env_vars() {
-  cat > WORKSPACE <<EOF
-workspace(name = "bar")
-EOF
-  add_rules_cc_to_workspace WORKSPACE
   mkdir -p foo
   cat > foo/testenv.sh <<'EOF'
 #!/bin/sh
@@ -139,9 +135,94 @@ sh_test(
 EOF
 
   bazel test --test_output=all //foo &> $TEST_log || fail "Test failed"
-  expect_log "pwd: .*/foo.runfiles/bar$"
+  expect_log "pwd: .*/foo.runfiles/_main$"
   expect_log "src: .*/foo.runfiles$"
-  expect_log "ws: bar$"
+  expect_log "ws: _main$"
+}
+
+function test_env_vars_override() {
+  mkdir -p foo
+  cat > foo/testenv.sh <<'EOF'
+#!/bin/sh
+echo "foo: $FOO"
+echo "bar: $BAR"
+echo "baz: $BAZ"
+echo "test_size: $TEST_SIZE"
+echo "ws: $TEST_WORKSPACE"
+EOF
+  chmod +x foo/testenv.sh
+  cat > foo/BUILD <<EOF
+sh_test(
+    name = "foo",
+    srcs = ["testenv.sh"],
+    size = "small",
+    env = {
+      "FOO": "frombuild",
+      "TEST_SIZE": "ignored",
+    },
+    env_inherit = [
+      "BAZ"
+    ],
+)
+EOF
+
+ # The next line ensures that the test passes in IPv6-only networks on macOS.
+  if is_darwin; then
+    export JAVA_TOOL_OPTIONS="-Djava.net.preferIPv6Addresses=true"
+    export STARTUP_OPTS="--host_jvm_args=-Djava.net.preferIPv6Addresses=true"
+  else
+    export STARTUP_OPTS=""
+  fi
+
+  # Test BAR is set from --action_env
+  BAZ=fromaction bazel --ignore_all_rc_files $STARTUP_OPTS test --test_output=all \
+    --action_env=BAR=fromcli --action_env=BAZ \
+    //foo &> $TEST_log || fail "Test failed"
+  expect_log "foo: frombuild"
+  expect_log "bar: fromcli"
+  expect_log "baz: fromaction"
+  expect_log "test_size: small"
+  expect_log "ws: _main$"
+
+  # Test FOO from the BUILD file wins
+  # Test BAR is set from --test_env
+  # Test BAZ is set from --test_env
+  BAZ=fromtest bazel --ignore_all_rc_files $STARTUP_OPTS test --test_output=all \
+    --action_env=FOO=fromcli --test_env=FOO=fromcli --test_env=BAR=fromcli \
+    --test_env=BAZ //foo &> $TEST_log || fail "Test failed"
+  expect_log "foo: frombuild"
+  expect_log "bar: fromcli"
+  expect_log "baz: fromtest"
+  expect_log "test_size: small"
+  expect_log "ws: _main$"
+}
+
+function test_runfiles_java_runfiles_merges_env_vars() {
+  runfiles_merges_runfiles_env_vars JAVA_RUNFILES PYTHON_RUNFILES
+}
+
+function test_runfiles_python_runfiles_merges_env_vars() {
+  runfiles_merges_runfiles_env_vars PYTHON_RUNFILES JAVA_RUNFILES
+}
+
+# Usage: runfiles_merges_runfiles_env_vars overridden unchanged
+function runfiles_merges_runfiles_env_vars() {
+  local -r overridden=$1
+  local -r unchanged=$2
+  mkdir -p foo
+  cat > foo/foo.sh <<'EOF'
+#!/bin/sh
+echo "JAVA_RUNFILES: ${JAVA_RUNFILES}"
+echo "PYTHON_RUNFILES: ${PYTHON_RUNFILES}"
+EOF
+  chmod +x foo/foo.sh
+  echo 'sh_test(name = "foo", srcs = ["foo.sh"])' > foo/BUILD
+
+  bazel test --test_env="${overridden}"=override --test_output=all \
+      //foo >& "${TEST_log}" || fail "Test failed"
+
+  expect_log "${overridden}: /.*/execroot/_main/override"
+  expect_log "${unchanged}: /.*/execroot/_main/bazel-out/[^/]\+-fastbuild/bin/foo/foo.runfiles"
 }
 
 function test_run_under_external_label_with_options() {
@@ -153,7 +234,7 @@ sh_binary(
 )
 EOF
 
-touch run/WORKSPACE
+  touch run/REPO.bazel
 
   cat <<EOF > run/under.sh
 #!/bin/sh
@@ -173,7 +254,8 @@ sh_test(
   srcs = [ "passing_test.sh" ])
 EOF
 
-  cat <<EOF > WORKSPACE
+  cat <<EOF > MODULE.bazel
+local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(
     name = "run",
     path = "./run",
@@ -222,7 +304,7 @@ EOF
   expect_log '1 test passes.$'
 }
 
-# This test uses "--nomaster_bazelrc" since outside .bazelrc files can pollute
+# This test uses "--ignore_all_rc_files" since outside .bazelrc files can pollute
 # this environment. Just "--bazelrc=/dev/null" is not sufficient to fix.
 function test_run_under_path() {
   mkdir -p testing || fail "mkdir testing failed"
@@ -241,7 +323,7 @@ EOF
   chmod u+x scripts/hello
 
   # We don't just use the local PATH, but use the test's PATH, which is more restrictive.
-  PATH=$PATH:$PWD/scripts bazel --nomaster_bazelrc test //testing:t1 -s --run_under=hello \
+  PATH=$PATH:$PWD/scripts bazel --ignore_all_rc_files test //testing:t1 -s --run_under=hello \
     --test_output=all --incompatible_strict_action_env=true >& $TEST_log && fail "Expected failure"
 
   # With --action_env=PATH, the local PATH is forwarded to the test.
@@ -270,7 +352,7 @@ function test_run_under_external_file_with_options() {
   # Set up the external repo.
   local run_repo=$TEST_TMPDIR/run
   mkdir -p $run_repo || fail "mkdir run_repo failed"
-  touch $run_repo/WORKSPACE
+  touch $run_repo/REPO.bazel
 
   cat <<EOF > $run_repo/BUILD
 exports_files(["under.sh"])
@@ -283,7 +365,8 @@ EOF
 
 
   # Set up the main repo.
-  cat <<EOF > WORKSPACE
+  cat <<EOF > MODULE.bazel
+local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(
     name = "run",
     path = "../run",
@@ -367,8 +450,10 @@ EOF
     cat <<EOF > BUILD
 sh_test(name = "test$i", srcs = [ "test$i.sh" ])
 EOF
-    bazel test --spawn_strategy=standalone --jobs=1 \
-        --runs_per_test=5 --runs_per_test_detects_flakes \
+    bazel test --spawn_strategy=standalone \
+        --jobs=1 \
+        --runs_per_test=5 \
+        --runs_per_test_detects_flakes \
         //:test$i &> $TEST_log || fail "should have succeeded"
     expect_log "FLAKY"
   done
@@ -431,6 +516,9 @@ function test_xml_is_present_when_timingout() {
   bazel test -s --test_timeout=1 --nocache_test_results \
      --noexperimental_split_xml_generation \
      //dir:test &> $TEST_log && fail "should have failed" || true
+
+  # Print the log before it's overridden for debugging flakiness
+  cat $TEST_log
 
   xml_log=bazel-testlogs/dir/test/test.xml
   [[ -s "${xml_log}" ]] || fail "${xml_log} was not present after test"
@@ -508,9 +596,10 @@ EOF
 function test_xml_fallback_for_sharded_test() {
   mkdir -p dir
 
-  cat <<EOF > dir/test.sh
+  cat <<'EOF' > dir/test.sh
 #!/bin/sh
-exit \$((TEST_SHARD_INDEX == 1))
+touch "$TEST_SHARD_STATUS_FILE"
+exit $((TEST_SHARD_INDEX == 1))
 EOF
 
   chmod +x dir/test.sh
@@ -613,9 +702,9 @@ EOF
   expect_log "name=\"dir/fail\""
 }
 
-function test_detailed_test_summary() {
+function test_detailed_test_summary_for_failed_test() {
   copy_examples
-  create_workspace_with_default_repos WORKSPACE
+  add_rules_java "MODULE.bazel"
   setup_javatest_support
 
   local java_native_tests=//examples/java-native/src/test/java/com/example/myproject
@@ -626,7 +715,20 @@ function test_detailed_test_summary() {
   expect_log 'FAILED.*com\.example\.myproject\.Fail\.testFail'
 }
 
-# This test uses "--nomaster_bazelrc" since outside .bazelrc files can pollute
+function test_detailed_test_summary_for_passed_test() {
+  copy_examples
+  add_rules_java "MODULE.bazel"
+  setup_javatest_support
+
+  local java_native_tests=//examples/java-native/src/test/java/com/example/myproject
+
+  bazel test --test_summary=detailed "${java_native_tests}:hello" >& $TEST_log \
+    || fail "expected success"
+  expect_log 'PASSED.*com\.example\.myproject\.TestHello\.testNoArgument'
+  expect_log 'PASSED.*com\.example\.myproject\.TestHello\.testWithArgument'
+}
+
+# This test uses "--ignore_all_rc_files" since outside .bazelrc files can pollute
 # this environment. Just "--bazelrc=/dev/null" is not sufficient to fix.
 function test_flaky_test() {
   cat >BUILD <<EOF
@@ -657,8 +759,16 @@ exit 1
 EOF
   chmod +x true.sh flaky.sh false.sh
 
+  # The next line ensures that the test passes in IPv6-only networks on macOS.
+  if is_darwin; then
+    export JAVA_TOOL_OPTIONS="-Djava.net.preferIPv6Addresses=true"
+    export STARTUP_OPTS="--host_jvm_args=-Djava.net.preferIPv6Addresses=true"
+  else
+    export STARTUP_OPTS=""
+  fi
+
   # We do not use sandboxing so we can trick to be deterministically flaky
-  bazel --nomaster_bazelrc test --experimental_ui_debug_all_events \
+  bazel --ignore_all_rc_files $STARTUP_OPTS test --experimental_ui_debug_all_events \
       --spawn_strategy=standalone //:flaky &> $TEST_log \
       || fail "//:flaky should have passed with flaky support"
   [ -f "${FLAKE_FILE}" ] || fail "Flaky test should have created the flake-file!"
@@ -672,7 +782,7 @@ EOF
   cat bazel-testlogs/flaky/test.log &> $TEST_log
   assert_equals "pass" "$(awk "NR == $(wc -l < $TEST_log)" $TEST_log)"
 
-  bazel --nomaster_bazelrc test --experimental_ui_debug_all_events //:pass \
+  bazel --ignore_all_rc_files $STARTUP_OPTS test --experimental_ui_debug_all_events //:pass \
       &> $TEST_log || fail "//:pass should have passed"
   expect_log_once "PASS.*: //:pass"
   expect_log_once "PASSED"
@@ -681,7 +791,7 @@ EOF
   cat bazel-testlogs/flaky/test.log &> $TEST_log
   assert_equals "pass" "$(tail -1 bazel-testlogs/flaky/test.log)"
 
-  bazel --nomaster_bazelrc test --experimental_ui_debug_all_events //:fail \
+  bazel --ignore_all_rc_files $STARTUP_OPTS test --experimental_ui_debug_all_events //:fail \
       &> $TEST_log && fail "//:fail should have failed" \
       || true
   expect_log_n "FAIL.*: //:fail (.*/fail/test_attempts/attempt_..log)" 2
@@ -695,55 +805,170 @@ EOF
   assert_equals "fail" "$(awk "NR == $(wc -l < $TEST_log)" $TEST_log)"
 }
 
-function test_undeclared_outputs_are_zipped_and_manifest_exists() {
+function setup_undeclared_outputs_test() {
   mkdir -p dir
 
   cat <<'EOF' > dir/test.sh
-#!/bin/sh
+#!/bin/bash
+mkdir -p "$TEST_UNDECLARED_OUTPUTS_DIR/deeply/nested"
 echo "some text" > "$TEST_UNDECLARED_OUTPUTS_DIR/text.txt"
-echo "<!DOCTYPE html>" > "$TEST_UNDECLARED_OUTPUTS_DIR/fake.html"
-echo "pass"
-exit 0
+echo "<!DOCTYPE html>" > "$TEST_UNDECLARED_OUTPUTS_DIR/deeply/nested/index.html"
+if [[ -z "$FLAKY_FILE" ]]; then
+  # Non-flaky execution.
+  exit 0
+elif [[ -e "$FLAKY_FILE" ]]; then
+  # Flaky execution, second run.
+  exit 0
+else
+  # Flaky execution, first run.
+  touch "$FLAKY_FILE"
+  exit 1
+fi
 EOF
 
   chmod +x dir/test.sh
 
   cat <<'EOF' > dir/BUILD
 sh_test(
-    name = "test",
-    srcs = [ "test.sh" ],
-  )
+  name = "test",
+  srcs = ["test.sh"],
+)
 EOF
+}
+
+function test_undeclared_outputs_are_zipped() {
+  setup_undeclared_outputs_test
+
+  local -r outputs_manifest=bazel-testlogs/dir/test/test.outputs_manifest/MANIFEST
+  local -r outputs_dir=bazel-testlogs/dir/test/test.outputs
+  local -r outputs_zip=$outputs_dir/outputs.zip
+  local -r output_text=$outputs_dir/text.txt
+  local -r output_html=$outputs_dir/deeply/nested/index.html
+
+  bazel test -s --zip_undeclared_test_outputs //dir:test &> $TEST_log || fail "expected success"
+
+  assert_exists "$outputs_zip"
+  assert_not_exists "$output_text"
+  assert_not_exists "$output_html"
+
+  unzip -q "$outputs_zip" -d unzipped_outputs || fail "failed to unzip $outputs_zip"
+  assert_equals "$(cat unzipped_outputs/text.txt)" "some text"
+  assert_equals "$(cat unzipped_outputs/deeply/nested/index.html)" "<!DOCTYPE html>"
+
+  assert_exists "$outputs_manifest"
+  cat > expected_manifest <<EOF
+deeply/nested/index.html	16	text/html
+text.txt	10	text/plain
+EOF
+  assert_equals "$(cat "$outputs_manifest")" "$(cat expected_manifest)"
+}
+
+function test_undeclared_outputs_are_zipped_multiple_attempts() {
+  setup_undeclared_outputs_test
+
+  local -r outputs_dir=bazel-testlogs/dir/test/test_attempts/attempt_1.outputs
+  local -r outputs_zip=$outputs_dir/outputs.zip
+  local -r output_text=$outputs_dir/text.txt
+  local -r output_html=$outputs_dir/deeply/nested/index.html
+
+  local -r flaky_file=$TEST_TMPDIR/flaky
+  rm -f "$flaky_file"
+
+  bazel test -s --zip_undeclared_test_outputs --spawn_strategy=local \
+      --flaky_test_attempts=2 --test_env=FLAKY_FILE="$flaky_file" \
+      //dir:test &> $TEST_log || fail "expected success"
+
+  assert_exists "$outputs_zip"
+  assert_not_exists "$output_text"
+  assert_not_exists "$output_html"
+}
+
+function test_undeclared_outputs_are_not_zipped() {
+  setup_undeclared_outputs_test
+
+  local -r outputs_manifest=bazel-testlogs/dir/test/test.outputs_manifest/MANIFEST
+  local -r outputs_dir=bazel-testlogs/dir/test/test.outputs
+  local -r outputs_zip=$outputs_dir/outputs.zip
+  local -r output_text=$outputs_dir/text.txt
+  local -r output_html=$outputs_dir/deeply/nested/index.html
 
   bazel test -s //dir:test &> $TEST_log || fail "expected success"
 
-  # Newlines are useful around diffs. This helps us get them in bash strings.
-  N=$'\n'
+  assert_not_exists "$outputs_zip"
+  assert_exists "$output_text"
+  assert_exists "$output_html"
 
-  # Check that the undeclared outputs zip file exists.
-  outputs_zip=bazel-testlogs/dir/test/test.outputs/outputs.zip
-  [ -s $outputs_zip ] || fail "$outputs_zip was not present after test"
+  assert_equals "$(cat "$output_text")" "some text"
+  assert_equals "$(cat "$output_html")" "<!DOCTYPE html>"
 
-  # Check the contents of the zip file.
-  unzip -q "$outputs_zip" -d unzipped_outputs || fail "failed to unzip $outputs_zip"
-  cat > expected_text <<EOF
-some text
-EOF
-diff "unzipped_outputs/text.txt" expected_text > d || fail "unzipped_outputs/text.txt differs from expected:$N$(cat d)$N"
-  cat > expected_html <<EOF
-<!DOCTYPE html>
-EOF
-diff expected_html "unzipped_outputs/fake.html" > d || fail "unzipped_outputs/fake.html differs from expected:$N$(cat d)$N"
-
-  # Check that the undeclared outputs manifest exists and that it has the
-  # correct contents.
-  outputs_manifest=bazel-testlogs/dir/test/test.outputs_manifest/MANIFEST
-  [ -s $outputs_manifest ] || fail "$outputs_manifest was not present after test"
+  assert_exists "$outputs_manifest"
   cat > expected_manifest <<EOF
-fake.html	16	text/html
+deeply/nested/index.html	16	text/html
 text.txt	10	text/plain
 EOF
-diff expected_manifest "$outputs_manifest" > d || fail "$outputs_manifest differs from expected:$N$(cat d)$N"
+  assert_equals "$(cat "$outputs_manifest")" "$(cat expected_manifest)"
+}
+
+function test_undeclared_outputs_are_not_zipped_multiple_attempts() {
+  setup_undeclared_outputs_test
+
+  local -r outputs_dir=bazel-testlogs/dir/test/test_attempts/attempt_1.outputs
+  local -r outputs_zip=$outputs_dir/outputs.zip
+  local -r output_text=$outputs_dir/text.txt
+  local -r output_html=$outputs_dir/deeply/nested/index.html
+
+  local -r flaky_file=$TEST_TMPDIR/flaky
+  rm -f "$flaky_file"
+
+  bazel test -s --spawn_strategy=local \
+      --flaky_test_attempts=2 --test_env=FLAKY_FILE="$flaky_file" \
+      //dir:test &> $TEST_log || fail "expected success"
+
+  assert_not_exists "$outputs_zip"
+  assert_exists "$output_text"
+  assert_exists "$output_html"
+}
+
+function test_undeclared_outputs_zipped_then_unzipped() {
+  setup_undeclared_outputs_test
+
+  local -r outputs_dir=bazel-testlogs/dir/test/test.outputs
+  local -r outputs_zip=$outputs_dir/outputs.zip
+  local -r output_text=$outputs_dir/text.txt
+  local -r output_html=$outputs_dir/deeply/nested/index.html
+
+  bazel test -s --zip_undeclared_test_outputs //dir:test &> $TEST_log || fail "expected success"
+
+  assert_exists "$outputs_zip"
+  assert_not_exists "$output_text"
+  assert_not_exists "$output_html"
+
+  bazel test -s //dir:test &> $TEST_log || fail "expected success"
+
+  assert_not_exists "$outputs_zip"
+  assert_exists "$output_text"
+  assert_exists "$output_html"
+}
+
+function test_undeclared_outputs_unzipped_then_zipped() {
+  setup_undeclared_outputs_test
+
+  local -r outputs_dir=bazel-testlogs/dir/test/test.outputs
+  local -r outputs_zip=$outputs_dir/outputs.zip
+  local -r output_text=$outputs_dir/text.txt
+  local -r output_html=$outputs_dir/deeply/nested/index.html
+
+  bazel test -s //dir:test &> $TEST_log || fail "expected success"
+
+  assert_not_exists "$outputs_zip"
+  assert_exists "$output_text"
+  assert_exists "$output_html"
+
+  bazel test -s --zip_undeclared_test_outputs //dir:test &> $TEST_log || fail "expected success"
+
+  assert_exists "$outputs_zip"
+  assert_not_exists "$output_text"
+  assert_not_exists "$output_html"
 }
 
 function test_undeclared_outputs_annotations_are_added() {
@@ -827,7 +1052,8 @@ EOF
 }
 
 function test_run_from_external_repo_sibling_repository_layout() {
-  cat <<EOF > WORKSPACE
+  cat <<EOF > MODULE.bazel
+local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(
     name = "a",
     path = "./a",
@@ -835,7 +1061,7 @@ local_repository(
 EOF
 
   mkdir -p a
-  touch a/WORKSPACE
+  touch a/REPO.bazel
   cat <<'EOF' > a/BUILD
 py_test(
     name = 'x',
@@ -847,13 +1073,12 @@ EOF
   bazel test --experimental_sibling_repository_layout @a//:x &> $TEST_log \
       || fail "expected success"
 
-  cp $(testlogs_dir a)/x/test.xml $TEST_log
-  expect_log "<testsuite name=\"a/x\""
-  expect_log "<testcase name=\"a/x\""
+  cp $(testlogs_dir +local_repository+a)/x/test.xml $TEST_log
+  expect_log "<testsuite name=\"+local_repository+a/x\""
+  expect_log "<testcase name=\"+local_repository+a/x\""
 }
 
 function test_xml_output_format() {
-  touch WORKSPACE
   cat <<'EOF' > BUILD
 py_test(
     name = 'x',
@@ -868,6 +1093,74 @@ EOF
   cat bazel-testlogs/x/test.xml > $TEST_log
   expect_log "<testsuite name=\"x\""
   expect_log "<testcase name=\"x\""
+}
+
+function test_shard_status_file_checked() {
+  cat <<'EOF' > BUILD
+sh_test(
+    name = 'x',
+    srcs = ['x.sh'],
+    shard_count = 2,
+)
+EOF
+  touch x.sh
+  chmod +x x.sh
+
+  bazel test \
+      --incompatible_check_sharding_support \
+      //:x  &> $TEST_log && fail "expected failure"
+  expect_log "Sharding requested, but the test runner did not advertise support for it by touching TEST_SHARD_STATUS_FILE."
+
+  echo 'touch "$TEST_SHARD_STATUS_FILE"' > x.sh
+  bazel test \
+      --incompatible_check_sharding_support \
+      //:x  &> $TEST_log || fail "expected success"
+}
+
+function test_premature_exit_file_checked() {
+  cat <<'EOF' > BUILD
+sh_test(
+    name = 'x',
+    srcs = ['x.sh'],
+)
+EOF
+  cat <<'EOF' > x.sh
+#!/bin/sh
+touch "$TEST_PREMATURE_EXIT_FILE"
+echo "fake pass"
+exit 0
+EOF
+  chmod +x x.sh
+
+  bazel test //:x --test_output=errors &> $TEST_log && fail "expected failure"
+  expect_log "-- Test exited prematurely (TEST_PREMATURE_EXIT_FILE exists) --"
+}
+
+function test_test_env_change_preserves_cache() {
+  local -r pkg="pkg${LINENO}"
+  mkdir -p "${pkg}"
+  cat > "$pkg/BUILD" <<'EOF'
+load(":defs.bzl", "my_rule")
+my_rule(
+  name = "my_rule",
+)
+EOF
+  cat > "$pkg/defs.bzl" <<'EOF'
+def _my_rule_impl(ctx):
+  print("my_rule is being analyzed")
+  out = ctx.actions.declare_file(ctx.label.name)
+  ctx.actions.write(out, "hi")
+  return [DefaultInfo(files = depset([out]))]
+my_rule = rule(_my_rule_impl)
+EOF
+
+  bazel build "${pkg}:my_rule" >$TEST_log 2>&1 \
+   || fail "expected build to pass"
+  expect_log "my_rule is being analyzed"
+
+  bazel build --test_env=FOO=bar "${pkg}:my_rule" >$TEST_log 2>&1 \
+   || fail "expected build to pass"
+  expect_not_log "my_rule is being analyzed"
 }
 
 run_suite "bazel test tests"

@@ -21,6 +21,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -31,23 +33,18 @@ import java.util.Map;
 import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.Tuple;
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Test of type-conversions using Type.
- */
+/** Test of type-conversions using Type. */
+// TODO: blaze-team - Rewrite to use TestParameterInjector
 @RunWith(JUnit4.class)
 public class TypeTest {
 
-  private Label currentRule;
-
-  @Before
-  public final void setCurrentRule() throws Exception  {
-    this.currentRule = Label.parseAbsolute("//quux:baz", ImmutableMap.of());
-  }
+  private final LabelConverter labelConverter =
+      new LabelConverter(
+          PackageIdentifier.createInMainRepo("quux"), RepositoryMapping.ALWAYS_FALLBACK);
 
   @Test
   public void testInteger() throws Exception {
@@ -89,7 +86,7 @@ public class TypeTest {
     Type.ConversionException e =
         assertThrows(
             Type.ConversionException.class,
-            () -> Type.STRING_LIST.convert("[(1,2), 3, 4]", "myexpr", null));
+            () -> Types.STRING_LIST.convert("[(1,2), 3, 4]", "myexpr"));
     assertThat(e)
         .hasMessageThat()
         .isEqualTo(
@@ -132,16 +129,20 @@ public class TypeTest {
             Type.ConversionException.class, () -> Type.BOOLEAN.convert("unexpected", null));
     assertThat(e)
         .hasMessageThat()
-        .isEqualTo("expected value of type 'int', but got \"unexpected\" (string)");
+        .isEqualTo("expected one of [False, True, 0, 1], but got \"unexpected\" (string)");
     // Integers other than [0, 1] should fail.
     e =
         assertThrows(
             Type.ConversionException.class, () -> Type.BOOLEAN.convert(StarlarkInt.of(2), null));
-    assertThat(e).hasMessageThat().isEqualTo("boolean is not one of [0, 1]");
+    assertThat(e)
+        .hasMessageThat()
+        .isEqualTo("expected one of [False, True, 0, 1], but got 2 (int)");
     e =
         assertThrows(
             Type.ConversionException.class, () -> Type.BOOLEAN.convert(StarlarkInt.of(-1), null));
-    assertThat(e).hasMessageThat().isEqualTo("boolean is not one of [0, 1]");
+    assertThat(e)
+        .hasMessageThat()
+        .isEqualTo("expected one of [False, True, 0, 1], but got -1 (int)");
   }
 
   @Test
@@ -188,7 +189,7 @@ public class TypeTest {
         .containsExactlyElementsIn(Sets.newHashSet("whiskey"));
 
     assertThat(
-            Type.STRING_LIST.toTagSet(
+            Types.STRING_LIST.toTagSet(
                 Lists.newArrayList("cheddar", "ementaler", "gruyere"), "cheeses"))
         .containsExactlyElementsIn(Sets.newHashSet("cheddar", "ementaler", "gruyere"));
   }
@@ -210,24 +211,24 @@ public class TypeTest {
 
   @Test
   public void testLabel() throws Exception {
-    Label label = Label.parseAbsolute("//foo:bar", ImmutableMap.of());
-    assertThat(BuildType.LABEL.convert("//foo:bar", null, currentRule)).isEqualTo(label);
+    Label label = Label.parseCanonical("//foo:bar");
+    assertThat(BuildType.LABEL.convert("//foo:bar", null, labelConverter)).isEqualTo(label);
     assertThat(collectLabels(BuildType.LABEL, label)).containsExactly(label);
   }
 
   @Test
   public void testNodepLabel() throws Exception {
-    Label label = Label.parseAbsolute("//foo:bar", ImmutableMap.of());
-    assertThat(BuildType.NODEP_LABEL.convert("//foo:bar", null, currentRule)).isEqualTo(label);
+    Label label = Label.parseCanonical("//foo:bar");
+    assertThat(BuildType.NODEP_LABEL.convert("//foo:bar", null, labelConverter)).isEqualTo(label);
     assertThat(collectLabels(BuildType.NODEP_LABEL, label)).containsExactly(label);
   }
 
   @Test
   public void testRelativeLabel() throws Exception {
-    assertThat(BuildType.LABEL.convert(":wiz", null, currentRule))
-        .isEqualTo(Label.parseAbsolute("//quux:wiz", ImmutableMap.of()));
-    assertThat(BuildType.LABEL.convert("wiz", null, currentRule))
-        .isEqualTo(Label.parseAbsolute("//quux:wiz", ImmutableMap.of()));
+    assertThat(BuildType.LABEL.convert(":wiz", null, labelConverter))
+        .isEqualTo(Label.parseCanonical("//quux:wiz"));
+    assertThat(BuildType.LABEL.convert("wiz", null, labelConverter))
+        .isEqualTo(Label.parseCanonical("//quux:wiz"));
     assertThrows(Type.ConversionException.class, () -> BuildType.LABEL.convert("wiz", null));
   }
 
@@ -236,7 +237,7 @@ public class TypeTest {
     Type.ConversionException e =
         assertThrows(
             Type.ConversionException.class,
-            () -> BuildType.LABEL.convert("not//a label", null, currentRule));
+            () -> BuildType.LABEL.convert("not//a label", null, labelConverter));
     MoreAsserts.assertContainsWordsWithQuotes(e.getMessage(), "not//a label");
   }
 
@@ -251,27 +252,26 @@ public class TypeTest {
   @Test
   public void testStringList() throws Exception {
     Object input = Arrays.asList("foo", "bar", "wiz");
-    List<String> converted =
-        Type.STRING_LIST.convert(input, null);
+    List<String> converted = Types.STRING_LIST.convert(input, null);
     assertThat(converted).isEqualTo(input);
     assertThat(converted).isNotSameInstanceAs(input);
-    assertThat(collectLabels(Type.STRING_LIST, input)).isEmpty();
+    assertThat(collectLabels(Types.STRING_LIST, input)).isEmpty();
   }
 
   @Test
   public void testStringDict() throws Exception {
     Object input = ImmutableMap.of("foo", "bar", "wiz", "bang");
-    Map<String, String> converted = Type.STRING_DICT.convert(input, null);
+    Map<String, String> converted = Types.STRING_DICT.convert(input, null);
     assertThat(converted).isEqualTo(input);
     assertThat(converted).isNotSameInstanceAs(input);
-    assertThat(collectLabels(Type.STRING_DICT, converted)).isEmpty();
+    assertThat(collectLabels(Types.STRING_DICT, converted)).isEmpty();
   }
 
   @Test
   public void testStringDictBadElements() throws Exception {
     Object input = ImmutableMap.of("foo", StarlarkList.of(null, "bar", "baz"), "wiz", "bang");
     Type.ConversionException e =
-        assertThrows(Type.ConversionException.class, () -> Type.STRING_DICT.convert(input, null));
+        assertThrows(Type.ConversionException.class, () -> Types.STRING_DICT.convert(input, null));
     assertThat(e)
         .hasMessageThat()
         .isEqualTo(
@@ -284,7 +284,7 @@ public class TypeTest {
     Type.ConversionException e =
         assertThrows(
             Type.ConversionException.class,
-            () -> Type.STRING_LIST.convert(StarlarkInt.of(3), "blah"));
+            () -> Types.STRING_LIST.convert(StarlarkInt.of(3), "blah"));
     assertThat(e)
         .hasMessageThat()
         .isEqualTo("expected value of type 'list(string)' for blah, but got 3 (int)");
@@ -295,7 +295,8 @@ public class TypeTest {
     Object input = Arrays.<Object>asList("foo", "bar", StarlarkInt.of(1));
     Type.ConversionException e =
         assertThrows(
-            Type.ConversionException.class, () -> Type.STRING_LIST.convert(input, "argument quux"));
+            Type.ConversionException.class,
+            () -> Types.STRING_LIST.convert(input, "argument quux"));
     assertThat(e)
         .hasMessageThat()
         .isEqualTo(
@@ -305,19 +306,16 @@ public class TypeTest {
   @Test
   public void testListDepsetConversion() throws Exception {
     Object input =
-        Depset.of(
-            Depset.ElementType.STRING, NestedSetBuilder.create(Order.STABLE_ORDER, "a", "b", "c"));
-    Type.STRING_LIST.convert(input, null);
+        Depset.of(String.class, NestedSetBuilder.create(Order.STABLE_ORDER, "a", "b", "c"));
+    Types.STRING_LIST.convert(input, null);
   }
 
   @Test
   public void testLabelList() throws Exception {
     Object input = Arrays.asList("//foo:bar", ":wiz");
-    List<Label> converted = BuildType.LABEL_LIST.convert(input, null, currentRule);
+    List<Label> converted = BuildType.LABEL_LIST.convert(input, null, labelConverter);
     List<Label> expected =
-        Arrays.asList(
-            Label.parseAbsolute("//foo:bar", ImmutableMap.of()),
-            Label.parseAbsolute("//quux:wiz", ImmutableMap.of()));
+        Arrays.asList(Label.parseCanonical("//foo:bar"), Label.parseCanonical("//quux:wiz"));
     assertThat(converted).isEqualTo(expected);
     assertThat(converted).isNotSameInstanceAs(expected);
     assertThat(collectLabels(BuildType.LABEL_LIST, converted)).containsExactlyElementsIn(expected);
@@ -328,7 +326,7 @@ public class TypeTest {
     Type.ConversionException e =
         assertThrows(
             Type.ConversionException.class,
-            () -> BuildType.LABEL_LIST.convert(StarlarkInt.of(3), "foo", currentRule));
+            () -> BuildType.LABEL_LIST.convert(StarlarkInt.of(3), "foo", labelConverter));
     assertThat(e)
         .hasMessageThat()
         .isEqualTo("expected value of type 'list(label)' for foo, but got 3 (int)");
@@ -340,7 +338,7 @@ public class TypeTest {
     Type.ConversionException e =
         assertThrows(
             Type.ConversionException.class,
-            () -> BuildType.LABEL_LIST.convert(list, null, currentRule));
+            () -> BuildType.LABEL_LIST.convert(list, null, labelConverter));
     assertThat(e)
         .hasMessageThat()
         .isEqualTo("expected value of type 'string' for element 1 of null, but got 2 (int)");
@@ -352,7 +350,7 @@ public class TypeTest {
     Type.ConversionException e =
         assertThrows(
             Type.ConversionException.class,
-            () -> BuildType.LABEL_LIST.convert(list, "myexpr", currentRule));
+            () -> BuildType.LABEL_LIST.convert(list, "myexpr", labelConverter));
     assertThat(e)
         .hasMessageThat()
         .isEqualTo(
@@ -366,14 +364,43 @@ public class TypeTest {
     Object input =
         ImmutableMap.of("foo", Arrays.asList("foo", "bar"), "wiz", Arrays.asList("bang"));
     Map<String, List<String>> converted =
-        Type.STRING_LIST_DICT.convert(input, null, currentRule);
+        Types.STRING_LIST_DICT.convert(input, null, labelConverter);
     Map<?, ?> expected =
         ImmutableMap.of(
             "foo", Arrays.asList("foo", "bar"),
             "wiz", Arrays.asList("bang"));
     assertThat(converted).isEqualTo(expected);
     assertThat(converted).isNotSameInstanceAs(expected);
-    assertThat(collectLabels(Type.STRING_LIST_DICT, converted)).isEmpty();
+    assertThat(collectLabels(Types.STRING_LIST_DICT, converted)).isEmpty();
+  }
+
+  @Test
+  public void testStringListDict_concat() throws Exception {
+    assertThat(Types.STRING_LIST_DICT.concat(ImmutableList.of())).isEmpty();
+
+    ImmutableMap<String, List<String>> expected =
+        ImmutableMap.of(
+            "foo", Arrays.asList("foo", "bar"),
+            "wiz", Arrays.asList("bang"));
+    assertThat(Types.STRING_LIST_DICT.concat(ImmutableList.of(expected))).isEqualTo(expected);
+
+    ImmutableMap<String, List<String>> map1 =
+        ImmutableMap.of(
+            "foo", Arrays.asList("a", "b"),
+            "bar", Arrays.asList("c", "d"));
+    ImmutableMap<String, List<String>> map2 =
+        ImmutableMap.of(
+            "bar", Arrays.asList("x", "y"),
+            "baz", Arrays.asList("z"));
+
+    ImmutableMap<String, List<String>> expectedAfterConcat =
+        ImmutableMap.of(
+            "foo", Arrays.asList("a", "b"),
+            "bar", Arrays.asList("x", "y"),
+            "baz", Arrays.asList("z"));
+
+    assertThat(Types.STRING_LIST_DICT.concat(ImmutableList.of(map1, map2)))
+        .isEqualTo(expectedAfterConcat);
   }
 
   @Test
@@ -384,7 +411,7 @@ public class TypeTest {
     Type.ConversionException e =
         assertThrows(
             Type.ConversionException.class,
-            () -> Type.STRING_LIST_DICT.convert(input, null, currentRule));
+            () -> Types.STRING_LIST_DICT.convert(input, null, labelConverter));
     assertThat(e)
         .hasMessageThat()
         .isEqualTo("expected value of type 'string' for dict key element, but got 2 (int)");
@@ -396,7 +423,7 @@ public class TypeTest {
     Type.ConversionException e =
         assertThrows(
             Type.ConversionException.class,
-            () -> Type.STRING_LIST_DICT.convert(input, null, currentRule));
+            () -> Types.STRING_LIST_DICT.convert(input, null, labelConverter));
     assertThat(e)
         .hasMessageThat()
         .isEqualTo(
@@ -409,7 +436,7 @@ public class TypeTest {
     Object input = ImmutableMap.of(Tuple.of("foo"), Tuple.of("bang"), "wiz", Tuple.of("bang"));
     Type.ConversionException e =
         assertThrows(
-            Type.ConversionException.class, () -> Type.STRING_LIST_DICT.convert(input, null));
+            Type.ConversionException.class, () -> Types.STRING_LIST_DICT.convert(input, null));
     assertThat(e)
         .hasMessageThat()
         .isEqualTo(
@@ -421,7 +448,7 @@ public class TypeTest {
   public void testStringDictThrowsConversionException() {
     Type.ConversionException e =
         assertThrows(
-            Type.ConversionException.class, () -> Type.STRING_DICT.convert("some string", null));
+            Type.ConversionException.class, () -> Types.STRING_DICT.convert("some string", null));
     assertThat(e)
         .hasMessageThat()
         .isEqualTo(

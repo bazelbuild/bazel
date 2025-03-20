@@ -22,6 +22,9 @@ public enum ProfilePhase {
   INIT("init", "Initialize command"),
   TARGET_PATTERN_EVAL("target pattern evaluation", "Evaluate target patterns"),
   ANALYZE("interleaved loading-and-analysis", "Load and analyze dependencies"),
+  ANALYZE_AND_EXECUTE(
+      "interleaved loading, analysis and execution",
+      "Load, analyze dependencies and build artifacts"),
   LICENSE("license checking", "Analyze licenses"),
   PREPARE("preparation", "Prepare for build"),
   EXECUTE("execution", "Build artifacts"),

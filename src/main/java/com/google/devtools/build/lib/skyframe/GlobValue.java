@@ -13,65 +13,23 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.packages.Globber;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.UnixGlob;
 import com.google.devtools.build.skyframe.SkyValue;
 
-/** A value corresponding to a glob. */
-@Immutable
-@ThreadSafe
-public final class GlobValue implements SkyValue {
+/**
+ * A value corresponding to a glob. It has two subclasses, {@link GlobValueWithNestedSet} and {@link
+ * GlobValueWithImmutableSet}.
+ */
+public abstract class GlobValue implements SkyValue {
 
-  public static final GlobValue EMPTY = new GlobValue(
-      NestedSetBuilder.<PathFragment>emptySet(Order.STABLE_ORDER));
-
-  private final NestedSet<PathFragment> matches;
-
-  /**
-   * Create a GlobValue wrapping {@code matches}. {@code matches} must have order
-   * {@link Order#STABLE_ORDER}.
-   */
-  public GlobValue(NestedSet<PathFragment> matches) {
-    this.matches = Preconditions.checkNotNull(matches);
-    Preconditions.checkState(matches.getOrder() == Order.STABLE_ORDER,
-        "Only STABLE_ORDER is supported, but got %s", matches.getOrder());
-  }
-
-  /**
-   * Returns glob matches. The matches will be in a deterministic but unspecified order. If a
-   * particular order is required, the returned iterable should be sorted.
-   */
-  public NestedSet<PathFragment> getMatches() {
-    return matches;
-  }
-
-  @Override
-  public boolean equals(Object other) {
-    if (other == this) {
-      return true;
-    }
-    if (!(other instanceof GlobValue)) {
-      return false;
-    }
-    // shallowEquals() may fail to detect that two equivalent (according to toString())
-    // NestedSets are equal, but will always detect when two NestedSets are different.
-    // This makes this implementation of equals() overly strict, but we only call this
-    // method when doing change pruning, which can accept false negatives.
-    return getMatches().shallowEquals(((GlobValue) other).getMatches());
-  }
-
-  @Override
-  public int hashCode() {
-    return matches.shallowHashCode();
-  }
+  /** Returns all glob matching {@link PathFragment}s in {@link ImmutableSet}. */
+  public abstract ImmutableSet<PathFragment> getMatches();
 
   /**
    * Constructs a {@link GlobDescriptor} for a glob lookup. {@code packageName} is assumed to be an
@@ -84,7 +42,7 @@ public final class GlobValue implements SkyValue {
       PackageIdentifier packageId,
       Root packageRoot,
       String pattern,
-      boolean excludeDirs,
+      Globber.Operation globOperation,
       PathFragment subdir)
       throws InvalidGlobPatternException {
     if (pattern.indexOf('?') != -1) {
@@ -96,7 +54,7 @@ public final class GlobValue implements SkyValue {
       throw new InvalidGlobPatternException(pattern, error);
     }
 
-    return internalKey(packageId, packageRoot, subdir, pattern, excludeDirs);
+    return internalKey(packageId, packageRoot, subdir, pattern, globOperation);
   }
 
   /**
@@ -110,25 +68,7 @@ public final class GlobValue implements SkyValue {
       Root packageRoot,
       PathFragment subdir,
       String pattern,
-      boolean excludeDirs) {
-    return GlobDescriptor.create(packageId, packageRoot, subdir, pattern, excludeDirs);
-  }
-
-  /**
-   * An exception that indicates that a glob pattern is syntactically invalid.
-   */
-  @ThreadSafe
-  public static final class InvalidGlobPatternException extends Exception {
-    private final String pattern;
-
-    InvalidGlobPatternException(String pattern, String error) {
-      super(error);
-      this.pattern = pattern;
-    }
-
-    @Override
-    public String toString() {
-      return String.format("invalid glob pattern '%s': %s", pattern, getMessage());
-    }
+      Globber.Operation globOperation) {
+    return GlobDescriptor.create(packageId, packageRoot, subdir, pattern, globOperation);
   }
 }

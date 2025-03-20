@@ -17,13 +17,11 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.bazel.repository.downloader.Downloader;
-import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.query2.QueryEnvironmentFactory;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 import com.google.devtools.build.lib.query2.query.output.OutputFormatter;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
-import java.util.function.Supplier;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 
 /**
  * Builder class to create a {@link BlazeRuntime} instance. This class is part of the module API,
@@ -37,14 +35,11 @@ public final class ServerBuilder {
   private final ImmutableList.Builder<QueryFunction> queryFunctions = ImmutableList.builder();
   private final ImmutableList.Builder<OutputFormatter> queryOutputFormatters =
       ImmutableList.builder();
-  private final ImmutableList.Builder<PackageFactory.EnvironmentExtension> environmentExtensions =
-      ImmutableList.builder();
   private final BuildEventArtifactUploaderFactoryMap.Builder buildEventArtifactUploaderFactories =
       new BuildEventArtifactUploaderFactoryMap.Builder();
-  private final ImmutableMap.Builder<String, AuthHeadersProvider> authHeadersProvidersMap =
-      ImmutableMap.builder();
   private RepositoryRemoteExecutorFactory repositoryRemoteExecutorFactory;
-  private Supplier<Downloader> downloaderSupplier = () -> null;
+  private final InstrumentationOutputFactory.Builder instrumentationOutputFactoryBuilder =
+      new InstrumentationOutputFactory.Builder();
 
   @VisibleForTesting
   public ServerBuilder() {}
@@ -60,7 +55,7 @@ public final class ServerBuilder {
   }
 
   ImmutableMap<String, InfoItem> getInfoItems() {
-    return infoItems.build();
+    return infoItems.buildOrThrow();
   }
 
   ImmutableList<QueryFunction> getQueryFunctions() {
@@ -69,11 +64,6 @@ public final class ServerBuilder {
 
   ImmutableList<OutputFormatter> getQueryOutputFormatters() {
     return queryOutputFormatters.build();
-  }
-
-  // Visible for WorkspaceResolver.
-  public ImmutableList<PackageFactory.EnvironmentExtension> getEnvironmentExtensions() {
-    return environmentExtensions.build();
   }
 
   @VisibleForTesting
@@ -89,16 +79,13 @@ public final class ServerBuilder {
     return repositoryRemoteExecutorFactory;
   }
 
-  public Supplier<Downloader> getDownloaderSupplier() {
-    return downloaderSupplier;
-  }
-
   /**
    * Merges the given invocation policy into the per-server invocation policy. While this can accept
    * any number of policies, the end result is order-dependent if multiple policies attempt to
    * police the same options, so it's probably a good idea to not have too many modules that call
    * this.
    */
+  @CanIgnoreReturnValue
   public ServerBuilder addInvocationPolicy(InvocationPolicy policy) {
     invocationPolicyBuilder.mergeFrom(Preconditions.checkNotNull(policy));
     return this;
@@ -110,6 +97,7 @@ public final class ServerBuilder {
    * only one factory per server is allowed. If none is set, the server uses the default
    * implementation.
    */
+  @CanIgnoreReturnValue
   public ServerBuilder setQueryEnvironmentFactory(QueryEnvironmentFactory queryEnvironmentFactory) {
     Preconditions.checkState(
         this.queryEnvironmentFactory == null,
@@ -124,12 +112,14 @@ public final class ServerBuilder {
    * Adds the given command to the server. This overload only exists to avoid array object creation
    * in the common case.
    */
+  @CanIgnoreReturnValue
   public ServerBuilder addCommands(BlazeCommand command) {
     this.commands.add(Preconditions.checkNotNull(command));
     return this;
   }
 
   /** Adds the given commands to the server. */
+  @CanIgnoreReturnValue
   public ServerBuilder addCommands(BlazeCommand... commands) {
     this.commands.add(commands);
     return this;
@@ -140,6 +130,7 @@ public final class ServerBuilder {
    * the same name to the same builder, regardless of whether that happens within the same module or
    * across modules.
    */
+  @CanIgnoreReturnValue
   public ServerBuilder addInfoItems(InfoItem... infoItems) {
     for (InfoItem item : infoItems) {
       this.infoItems.put(item.getName(), item);
@@ -147,55 +138,51 @@ public final class ServerBuilder {
     return this;
   }
 
+  @CanIgnoreReturnValue
   public ServerBuilder addQueryFunctions(QueryFunction... functions) {
     this.queryFunctions.add(functions);
     return this;
   }
 
+  @CanIgnoreReturnValue
   public ServerBuilder addQueryOutputFormatters(OutputFormatter... formatters) {
     this.queryOutputFormatters.add(formatters);
     return this;
   }
 
+  @CanIgnoreReturnValue
   public ServerBuilder addQueryOutputFormatters(Iterable<OutputFormatter> formatters) {
     this.queryOutputFormatters.addAll(formatters);
     return this;
   }
 
-  public ServerBuilder addEnvironmentExtension(PackageFactory.EnvironmentExtension extension) {
-    this.environmentExtensions.add(extension);
-    return this;
-  }
-
+  @CanIgnoreReturnValue
   public ServerBuilder addBuildEventArtifactUploaderFactory(
       BuildEventArtifactUploaderFactory uploaderFactory, String name) {
     buildEventArtifactUploaderFactories.add(name, uploaderFactory);
     return this;
   }
 
+  @CanIgnoreReturnValue
   public ServerBuilder setRepositoryRemoteExecutorFactory(
       RepositoryRemoteExecutorFactory repositoryRemoteExecutorFactory) {
     this.repositoryRemoteExecutorFactory = repositoryRemoteExecutorFactory;
     return this;
   }
 
-  public ServerBuilder setDownloaderSupplier(Supplier<Downloader> downloaderSupplier) {
-    this.downloaderSupplier = downloaderSupplier;
-    return this;
+  /**
+   * Returns the builder for {@link InstrumentationOutputFactory} so that suppliers for different
+   * types of {@link InstrumentationOutputBuilder} can be added.
+   */
+  public InstrumentationOutputFactory.Builder getInstrumentationOutputFactoryBuilder() {
+    return instrumentationOutputFactoryBuilder;
   }
 
   /**
-   * Register a provider of authentication headers that blaze modules can use. See {@link
-   * AuthHeadersProvider} for more details.
+   * Creates the {@link InstrumentationOutputFactory} so that user can choose to create the {@link
+   * InstrumentationOutputBuilder} object.
    */
-  public ServerBuilder addAuthHeadersProvider(
-      String name, AuthHeadersProvider authHeadersProvider) {
-    authHeadersProvidersMap.put(name, authHeadersProvider);
-    return this;
-  }
-
-  /** Returns a map of all registered {@link AuthHeadersProvider}s. */
-  public ImmutableMap<String, AuthHeadersProvider> getAuthHeadersProvidersMap() {
-    return authHeadersProvidersMap.build();
+  public InstrumentationOutputFactory createInstrumentationOutputFactory() {
+    return instrumentationOutputFactoryBuilder.build();
   }
 }

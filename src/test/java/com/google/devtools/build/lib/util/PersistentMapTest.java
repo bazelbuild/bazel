@@ -31,35 +31,40 @@ import org.junit.runners.JUnit4;
 
 /** Unit tests for {@link PersistentMap}. */
 @RunWith(JUnit4.class)
-public class PersistentMapTest {
+public final class PersistentMapTest {
   private static class PersistentStringMap extends PersistentMap<String, String> {
     boolean updateJournal = true;
     boolean keepJournal = false;
 
+    private static final MapCodec<String, String> CODEC =
+        new MapCodec<String, String>() {
+          @Override
+          protected String readKey(DataInputStream in) throws IOException {
+            return in.readUTF();
+          }
+
+          @Override
+          protected String readValue(DataInputStream in) throws IOException {
+            return in.readUTF();
+          }
+
+          @Override
+          protected void writeKey(String key, DataOutputStream out) throws IOException {
+            out.writeUTF(key);
+          }
+
+          @Override
+          protected void writeValue(String value, DataOutputStream out) throws IOException {
+            out.writeUTF(value);
+          }
+        };
+
     PersistentStringMap(ConcurrentMap<String, String> map, Path mapFile, Path journalFile)
         throws IOException {
-      super(0x0, map, mapFile, journalFile);
+      super(0x0, CODEC, map, mapFile, journalFile);
       load();
     }
 
-    @Override
-    protected String readKey(DataInputStream in) throws IOException {
-      return in.readUTF();
-    }
-    @Override
-    protected String readValue(DataInputStream in) throws IOException {
-      return in.readUTF();
-    }
-    @Override
-    protected void writeKey(String key, DataOutputStream out)
-        throws IOException {
-      out.writeUTF(key);
-    }
-    @Override
-    protected void writeValue(String value, DataOutputStream out)
-        throws IOException {
-      out.writeUTF(value);
-    }
     @Override
     protected boolean updateJournal() {
       return updateJournal;
@@ -78,8 +83,9 @@ public class PersistentMapTest {
 
   @Before
   public final void createFiles() throws Exception  {
-    mapFile = scratch.resolve("/tmp/map.txt");
-    journalFile = scratch.resolve("/tmp/journal.txt");
+    Path root = scratch.dir("/tmp");
+    mapFile = root.getChild("map.txt");
+    journalFile = root.getChild("journal.txt");
     createMap();
   }
 
@@ -93,6 +99,28 @@ public class PersistentMapTest {
     createMap();
     map.put("foo", "bar");
     map.put("baz", "bang");
+    assertThat(map).containsEntry("foo", "bar");
+    assertThat(map).containsEntry("baz", "bang");
+    assertThat(map).hasSize(2);
+    long size = map.save();
+    assertThat(size).isEqualTo(mapFile.getFileSize());
+    assertThat(map).containsEntry("foo", "bar");
+    assertThat(map).containsEntry("baz", "bang");
+    assertThat(map).hasSize(2);
+
+    createMap(); // create a new map
+    assertThat(map).containsEntry("foo", "bar");
+    assertThat(map).containsEntry("baz", "bang");
+    assertThat(map).hasSize(2);
+  }
+
+  @Test
+  public void putIfAbsent() throws Exception {
+    createMap();
+    assertThat(map.putIfAbsent("foo", "bar")).isNull();
+    assertThat(map.putIfAbsent("foo", "ignored")).isEqualTo("bar");
+    assertThat(map.putIfAbsent("baz", "bang")).isNull();
+    assertThat(map.putIfAbsent("baz", "ignored")).isEqualTo("bang");
     assertThat(map).containsEntry("foo", "bar");
     assertThat(map).containsEntry("baz", "bang");
     assertThat(map).hasSize(2);

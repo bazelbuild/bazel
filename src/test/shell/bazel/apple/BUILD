@@ -6,16 +6,11 @@ filegroup(
     visibility = ["//src/test/shell/bazel:__pkg__"],
 )
 
-config_setting(
-    name = "darwin",
-    values = {"host_cpu": "darwin"},
-)
-
 filegroup(
     name = "objc-deps",
     testonly = 1,
     srcs = select({
-        ":darwin": [
+        "//src/conditions:darwin": [
             "//tools/osx:xcode-locator",
         ],
         "//conditions:default": [],
@@ -28,10 +23,8 @@ sh_test(
     srcs = ["bazel_apple_test.sh"],
     data = [
         ":objc-deps",
-        "//:workspace-file",
         "//src/test/shell/bazel:test-deps",
     ],
-    shard_count = 3,
     tags = ["no_windows"],
 )
 

@@ -14,9 +14,12 @@
 package com.google.devtools.build.lib.server;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.testutil.TestUtils.WAIT_TIMEOUT_SECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.CommandDispatcher;
@@ -35,6 +38,7 @@ import com.google.devtools.build.lib.server.FailureDetails.Interrupted.Code;
 import com.google.devtools.build.lib.server.GrpcServerImpl.BlockingStreamObserver;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.Pair;
+import com.google.devtools.build.lib.util.io.CommandExtensionReporter;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -43,6 +47,7 @@ import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.protobuf.Any;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.BytesValue;
+import com.google.protobuf.Int32Value;
 import com.google.protobuf.StringValue;
 import io.grpc.ManagedChannel;
 import io.grpc.Server;
@@ -135,10 +140,12 @@ public final class GrpcServerTest {
               List<String> args,
               OutErr outErr,
               LockingMode lockingMode,
+              UiVerbosity uiVerbosity,
               String clientDescription,
               long firstContactTimeMillis,
               Optional<List<Pair<String, String>>> startupOptionsTaggedWithBazelRc,
-              List<Any> commandExtensions) {
+              List<Any> commandExtensions,
+              CommandExtensionReporter commandExtensionReporter) {
             argsReceived.set(args);
             commandExtensionsReceived.set(commandExtensions);
             return BlazeCommandResult.success();
@@ -168,6 +175,74 @@ public final class GrpcServerTest {
   }
 
   @Test
+  public void testReceiveStreamingCommandExtensions() throws Exception {
+    // Arrange: Set up a command that streams back three command extensions, using latches to
+    // pause between each extension sent back.
+    Any commandExtension1 = Any.pack(Int32Value.of(4));
+    Any commandExtension2 = Any.pack(Int32Value.of(8));
+    Any commandExtension3 = Any.pack(Int32Value.of(15));
+
+    CountDownLatch afterFirstExtensionLatch = new CountDownLatch(1);
+    CountDownLatch beforeSecondExtensionLatch = new CountDownLatch(1);
+    CountDownLatch afterSecondExtensionLatch = new CountDownLatch(1);
+    CountDownLatch beforeThirdExtensionLatch = new CountDownLatch(1);
+    CountDownLatch afterThirdExtensionLatch = new CountDownLatch(1);
+    CommandDispatcher dispatcher =
+        (policy,
+            args,
+            outErr,
+            lockMode,
+            uiVerbosity,
+            clientDesc,
+            startMs,
+            startOpts,
+            cmdExts,
+            cmdExtOut) -> {
+          // Send the first extension.
+          cmdExtOut.report(commandExtension1);
+          afterFirstExtensionLatch.countDown();
+          // Send the second extension.
+          beforeSecondExtensionLatch.await(WAIT_TIMEOUT_SECONDS, SECONDS);
+          cmdExtOut.report(commandExtension2);
+          afterSecondExtensionLatch.countDown();
+          // Send the third extension.
+          beforeThirdExtensionLatch.await(WAIT_TIMEOUT_SECONDS, SECONDS);
+          cmdExtOut.report(commandExtension3);
+          afterThirdExtensionLatch.countDown();
+          // Finish the fake command.
+          return BlazeCommandResult.success();
+        };
+    createServer(dispatcher);
+    CommandServerStub stub = CommandServerGrpc.newStub(channel);
+
+    // Act: Start the streaming RPC.
+    List<RunResponse> responses = new ArrayList<>();
+    CountDownLatch done = new CountDownLatch(1);
+    stub.run(createRequest("Foo"), createResponseObserver(responses, done));
+
+    // Assert: Verify extensions arrive in a streaming fashion.
+    // Wait for the first extension and check it.
+    afterFirstExtensionLatch.await();
+    assertThat(Iterables.getLast(responses).getCommandExtensionsList())
+        .containsExactly(commandExtension1);
+    beforeSecondExtensionLatch.countDown();
+    // Wait for the second extension and check it.
+    afterSecondExtensionLatch.await();
+    assertThat(Iterables.getLast(responses).getCommandExtensionsList())
+        .containsExactly(commandExtension2);
+    beforeThirdExtensionLatch.countDown();
+    // Wait for the RPC to complete and look for the third extension in the second-to-last response.
+    afterThirdExtensionLatch.await();
+    done.await();
+    assertThat(responses.get(responses.size() - 2).getCommandExtensionsList())
+        .containsExactly(commandExtension3);
+
+    // Clean up RPC and server.
+    server.shutdown();
+    server.awaitTermination();
+  }
+
+  @Test
   public void testClosingClientShouldInterrupt() throws Exception {
     CountDownLatch done = new CountDownLatch(1);
     CommandDispatcher dispatcher =
@@ -178,10 +253,12 @@ public final class GrpcServerTest {
               List<String> args,
               OutErr outErr,
               LockingMode lockingMode,
+              UiVerbosity uiVerbosity,
               String clientDescription,
               long firstContactTimeMillis,
               Optional<List<Pair<String, String>>> startupOptionsTaggedWithBazelRc,
-              List<Any> commandExtensions) {
+              List<Any> commandExtensions,
+              CommandExtensionReporter commandExtensionReporter) {
             synchronized (this) {
               assertThrows(InterruptedException.class, this::wait);
             }
@@ -225,15 +302,19 @@ public final class GrpcServerTest {
               List<String> args,
               OutErr outErr,
               LockingMode lockingMode,
+              UiVerbosity uiVerbosity,
               String clientDescription,
               long firstContactTimeMillis,
               Optional<List<Pair<String, String>>> startupOptionsTaggedWithBazelRc,
-              List<Any> commandExtensions) {
+              List<Any> commandExtensions,
+              CommandExtensionReporter commandExtensionReporter) {
             OutputStream out = outErr.getOutputStream();
             try {
+              commandExtensionReporter.report(Any.pack(Int32Value.of(23)));
               for (int i = 0; i < 10; i++) {
                 out.write(new byte[1024]);
               }
+              commandExtensionReporter.report(Any.pack(Int32Value.of(42)));
             } catch (IOException e) {
               throw new IllegalStateException(e);
             }
@@ -241,7 +322,8 @@ public final class GrpcServerTest {
                 BlazeCommandResult.success(),
                 ImmutableList.of(
                     Any.pack(StringValue.of("foo")),
-                    Any.pack(BytesValue.of(ByteString.copyFromUtf8("bar")))));
+                    Any.pack(BytesValue.of(ByteString.copyFromUtf8("bar")))),
+                true);
           }
         };
     createServer(dispatcher);
@@ -254,18 +336,26 @@ public final class GrpcServerTest {
     server.shutdown();
     server.awaitTermination();
 
-    assertThat(responses).hasSize(12);
+    assertThat(responses).hasSize(14);
     assertThat(responses.get(0).getFinished()).isFalse();
     assertThat(responses.get(0).getCookie()).isNotEmpty();
-    for (int i = 1; i < 11; i++) {
+    assertThat(responses.get(1).getFinished()).isFalse();
+    assertThat(responses.get(1).getCookie()).isNotEmpty();
+    assertThat(responses.get(1).getCommandExtensionsList())
+        .containsExactly(Any.pack(Int32Value.of(23)));
+    for (int i = 2; i < 12; i++) {
       assertThat(responses.get(i).getFinished()).isFalse();
       assertThat(responses.get(i).getStandardOutput().toByteArray()).isEqualTo(new byte[1024]);
       assertThat(responses.get(i).getCommandExtensionsList()).isEmpty();
     }
-    assertThat(responses.get(11).getFinished()).isTrue();
-    assertThat(responses.get(11).getExitCode()).isEqualTo(0);
-    assertThat(responses.get(11).hasFailureDetail()).isFalse();
-    assertThat(responses.get(11).getCommandExtensionsList())
+    assertThat(responses.get(12).getFinished()).isFalse();
+    assertThat(responses.get(12).getCookie()).isNotEmpty();
+    assertThat(responses.get(12).getCommandExtensionsList())
+        .containsExactly(Any.pack(Int32Value.of(42)));
+    assertThat(responses.get(13).getFinished()).isTrue();
+    assertThat(responses.get(13).getExitCode()).isEqualTo(0);
+    assertThat(responses.get(13).hasFailureDetail()).isFalse();
+    assertThat(responses.get(13).getCommandExtensionsList())
         .containsExactly(
             Any.pack(StringValue.of("foo")),
             Any.pack(BytesValue.of(ByteString.copyFromUtf8("bar"))));
@@ -357,10 +447,12 @@ public final class GrpcServerTest {
               List<String> args,
               OutErr outErr,
               LockingMode lockingMode,
+              UiVerbosity uiVerbosity,
               String clientDescription,
               long firstContactTimeMillis,
               Optional<List<Pair<String, String>>> startupOptionsTaggedWithBazelRc,
-              List<Any> commandExtensions) {
+              List<Any> commandExtensions,
+              CommandExtensionReporter commandExtensionReporter) {
             OutputStream out = outErr.getOutputStream();
             try {
               while (true) {
@@ -417,10 +509,12 @@ public final class GrpcServerTest {
               List<String> args,
               OutErr outErr,
               LockingMode lockingMode,
+              UiVerbosity uiVerbosity,
               String clientDescription,
               long firstContactTimeMillis,
               Optional<List<Pair<String, String>>> startupOptionsTaggedWithBazelRc,
-              List<Any> commandExtensions)
+              List<Any> commandExtensions,
+              CommandExtensionReporter commandExtensionReporter)
               throws InterruptedException {
             synchronized (this) {
               this.wait();
@@ -506,10 +600,12 @@ public final class GrpcServerTest {
               List<String> args,
               OutErr outErr,
               LockingMode lockingMode,
+              UiVerbosity uiVerbosity,
               String clientDescription,
               long firstContactTimeMillis,
               Optional<List<Pair<String, String>>> startupOptionsTaggedWithBazelRc,
-              List<Any> commandExtensions) {
+              List<Any> commandExtensions,
+              CommandExtensionReporter commandExtensionReporter) {
             if (args.contains(firstCommandArg)) {
               while (true) {
                 try {
@@ -585,7 +681,7 @@ public final class GrpcServerTest {
 
   /**
    * Ensure that if a command is marked as preemptible, running a second preemptible command
-   * interupts the first command.
+   * interrupts the first command.
    */
   @Test
   public void testMultiPreeempt() throws Exception {
@@ -600,10 +696,12 @@ public final class GrpcServerTest {
               List<String> args,
               OutErr outErr,
               LockingMode lockingMode,
+              UiVerbosity uiVerbosity,
               String clientDescription,
               long firstContactTimeMillis,
               Optional<List<Pair<String, String>>> startupOptionsTaggedWithBazelRc,
-              List<Any> commandExtensions)
+              List<Any> commandExtensions,
+              CommandExtensionReporter commandExtensionReporter)
               throws InterruptedException {
             if (args.contains(firstCommandArg)) {
               while (true) {
@@ -700,10 +798,12 @@ public final class GrpcServerTest {
               List<String> args,
               OutErr outErr,
               LockingMode lockingMode,
+              UiVerbosity uiVerbosity,
               String clientDescription,
               long firstContactTimeMillis,
               Optional<List<Pair<String, String>>> startupOptionsTaggedWithBazelRc,
-              List<Any> commandExtensions)
+              List<Any> commandExtensions,
+              CommandExtensionReporter commandExtensionReporter)
               throws InterruptedException {
             if (args.contains(firstCommandArg)) {
               fooBlocked.countDown();
@@ -1064,10 +1164,12 @@ public final class GrpcServerTest {
         args,
         outErr,
         lockingMode,
+        uiVerbosity,
         clientDescription,
         firstContactTimeMillis,
         startupOptionsTaggedWithBazelRc,
-        commandExtensions) -> {
+        commandExtensions,
+        commandExtensionReporter) -> {
       throw new IllegalStateException("Command exec not expected");
     };
   }

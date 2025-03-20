@@ -23,8 +23,13 @@ package_group(
     packages = ["//src/..."],
 )
 
-# Approved clients of java.starlark.net.
+# The Java Starlark interpreter is not supported for general use as a public
+# API. However, Copybara and Stardoc are approved clients.
+#
+# We do not use visibility to prevent other dependencies, because cross-repo
+# visibility restrictions do not make sense. Just be aware this is not
+# guaranteed as a stable API.
 package_group(
     name = "clients",
-    packages = ["//..."],  # anyone
+    packages = ["public"],
 )

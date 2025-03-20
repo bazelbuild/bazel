@@ -16,15 +16,17 @@ package com.google.devtools.build.lib.query2;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.CachingPackageLocator;
+import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
-import com.google.devtools.build.lib.pkgcache.QueryTransitivePackagePreloader;
 import com.google.devtools.build.lib.pkgcache.TargetPatternPreloader;
 import com.google.devtools.build.lib.pkgcache.TargetProvider;
 import com.google.devtools.build.lib.query2.common.AbstractBlazeQueryEnvironment;
+import com.google.devtools.build.lib.query2.common.QueryTransitivePackagePreloader;
 import com.google.devtools.build.lib.query2.common.UniverseScope;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
@@ -39,11 +41,12 @@ import javax.annotation.Nullable;
 public class QueryEnvironmentFactory {
   /** Creates an appropriate {@link AbstractBlazeQueryEnvironment} based on the given options. */
   public AbstractBlazeQueryEnvironment<Target> create(
-      QueryTransitivePackagePreloader queryTransitivePackagePreloader,
+      @Nullable QueryTransitivePackagePreloader queryTransitivePackagePreloader,
       WalkableGraphFactory graphFactory,
       TargetProvider targetProvider,
       CachingPackageLocator cachingPackageLocator,
       TargetPatternPreloader targetPatternPreloader,
+      TargetPattern.Parser targetParser,
       PathFragment relativeWorkingDirectory,
       boolean keepGoing,
       boolean strictScope,
@@ -55,8 +58,8 @@ public class QueryEnvironmentFactory {
       Set<Setting> settings,
       Iterable<QueryFunction> extraFunctions,
       @Nullable PathPackageLocator packagePath,
-      boolean blockUniverseEvaluationErrors,
-      boolean useGraphlessQuery) {
+      boolean useGraphlessQuery,
+      LabelPrinter labelPrinter) {
     Preconditions.checkNotNull(universeScope);
     if (canUseSkyQuery(orderedResults, universeScope, packagePath, strictScope, labelFilter)) {
       return new SkyQueryEnvironment(
@@ -65,39 +68,42 @@ public class QueryEnvironmentFactory {
           eventHandler,
           settings,
           extraFunctions,
+          targetParser,
           relativeWorkingDirectory,
           graphFactory,
           universeScope,
           packagePath,
-          blockUniverseEvaluationErrors);
+          labelPrinter);
     } else if (useGraphlessQuery) {
       return new GraphlessBlazeQueryEnvironment(
           queryTransitivePackagePreloader,
           targetProvider,
           cachingPackageLocator,
           targetPatternPreloader,
-          relativeWorkingDirectory,
+          targetParser,
           keepGoing,
           strictScope,
           loadingPhaseThreads,
           labelFilter,
           eventHandler,
           settings,
-          extraFunctions);
+          extraFunctions,
+          labelPrinter);
     } else {
       return new BlazeQueryEnvironment(
           queryTransitivePackagePreloader,
           targetProvider,
           cachingPackageLocator,
           targetPatternPreloader,
-          relativeWorkingDirectory,
+          targetParser,
           keepGoing,
           strictScope,
           loadingPhaseThreads,
           labelFilter,
           eventHandler,
           settings,
-          extraFunctions);
+          extraFunctions,
+          labelPrinter);
     }
   }
 
@@ -114,4 +120,3 @@ public class QueryEnvironmentFactory {
         && labelFilter == Rule.ALL_LABELS;
   }
 }
-

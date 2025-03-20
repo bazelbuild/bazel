@@ -12,7 +12,7 @@ cc_library(
     srcs = [
         "zip.cc",
     ] + select({
-        "//src:windows": [
+        "//src/conditions:windows": [
             "mapped_file_windows.cc",
         ],
         "//conditions:default": [
@@ -33,7 +33,7 @@ cc_library(
         ":platform_utils",
         ":zlib_client",
     ] + select({
-        "//src:windows": [
+        "//src/conditions:windows": [
             "//src/main/cpp/util:errors",
             "//src/main/cpp/util:filesystem",
             "//src/main/cpp/util:logging",
@@ -95,18 +95,18 @@ filegroup(
 filegroup(
     name = "embedded_zipper_sources",
     srcs = [
-        "zip.cc",
-        "zip.h",
-        "zip_main.cc",
+        "BUILD",
         "common.h",
         "mapped_file.h",
         "platform_utils.cc",
         "platform_utils.h",
+        "zip.cc",
+        "zip.h",
+        "zip_main.cc",
         "zlib_client.cc",
         "zlib_client.h",
-        "BUILD",
     ] + select({
-        "//src:windows": [
+        "//src/conditions:windows": [
             "mapped_file_windows.cc",
         ],
         "//conditions:default": [

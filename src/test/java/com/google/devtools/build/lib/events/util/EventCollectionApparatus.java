@@ -159,6 +159,10 @@ public final class EventCollectionApparatus {
     MoreAsserts.assertNoEvents(errors());
   }
 
+  public void assertNoWarnings() {
+    MoreAsserts.assertNoEvents(warnings());
+  }
+
   /**
    * Utility method: Assert that the {@link #collector()} has received an
    * info message with the {@code expectedMessage}.
@@ -191,36 +195,10 @@ public final class EventCollectionApparatus {
     return MoreAsserts.assertContainsEvent(eventCollector, expectedMessage, EventKind.WARNING);
   }
 
-  /**
-   * Utility method: Assert that the {@link #collector()} has received a
-   * debug message with the {@code expectedMessage}.
-   */
-  public Event assertContainsDebug(String expectedMessage) {
-    return MoreAsserts.assertContainsEvent(eventCollector, expectedMessage, EventKind.DEBUG);
-  }
-
-  /**
-   * Utility method: Assert that the {@link #collector()} has received an event of the given type
-   * and with the {@code expectedMessage}.
-   */
-  public Event assertContainsEvent(EventKind kind, String expectedMessage) {
-    return MoreAsserts.assertContainsEvent(eventCollector, expectedMessage, kind);
-  }
-
   public List<Event> assertContainsEventWithFrequency(String expectedMessage,
       int expectedFrequency) {
     return MoreAsserts.assertContainsEventWithFrequency(eventCollector, expectedMessage,
         expectedFrequency);
-  }
-
-  /**
-   * Utility method: Assert that the {@link #collector()} has received an
-   * event with the {@code expectedMessage} in quotes.
-   */
-
-  public Event assertContainsEventWithWordsInQuotes(String... words) {
-    return MoreAsserts.assertContainsEventWithWordsInQuotes(
-        eventCollector, words);
   }
 
   public void assertDoesNotContainEvent(String unexpectedEvent) {

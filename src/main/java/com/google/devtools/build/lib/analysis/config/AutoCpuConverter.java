@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.analysis.config;
 
 import com.google.devtools.build.lib.util.CPU;
 import com.google.devtools.build.lib.util.OS;
-import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.OptionsParsingException;
 
@@ -26,102 +25,43 @@ import com.google.devtools.common.options.OptionsParsingException;
  * <p>If the compilation happens remotely then the cpu of the remote machine might be different from
  * the auto-detected one and the --cpu and --host_cpu options must be set explicitly.
  */
-public class AutoCpuConverter implements Converter<String> {
+public class AutoCpuConverter extends Converter.Contextless<String> {
   @Override
   public String convert(String input) throws OptionsParsingException {
     if (input.isEmpty()) {
       // TODO(philwo) - replace these deprecated names with more logical ones (e.g. k8 becomes
       // linux-x86_64, darwin includes the CPU architecture, ...).
-      switch (OS.getCurrent()) {
-        case DARWIN:
-          switch (CPU.getCurrent()) {
-            case X86_64:
-              return "darwin";
-            case AARCH64:
-              return "darwin_arm64";
-            default:
-              return "unknown";
-          }
-        case FREEBSD:
-          return "freebsd";
-        case OPENBSD:
-          return "openbsd";
-        case WINDOWS:
-          switch (CPU.getCurrent()) {
-            case X86_64:
-              return "x64_windows";
-            default:
-              // We only support x64 Windows for now.
-              return "unknown";
-          }
-        case LINUX:
-          switch (CPU.getCurrent()) {
-            case X86_32:
-              return "piii";
-            case X86_64:
-              return "k8";
-            case PPC:
-              return "ppc";
-            case ARM:
-              return "arm";
-            case AARCH64:
-              return "aarch64";
-            case S390X:
-              return "s390x";
-            case MIPS64:
-              return "mips64";
-            case RISCV64:
-              return "riscv64";
-            default:
-              return "unknown";
-          }
-        default:
-          return "unknown";
-      }
+      return switch (OS.getCurrent()) {
+        case DARWIN ->
+            switch (CPU.getCurrent()) {
+              case X86_64 -> "darwin_x86_64";
+              case AARCH64 -> "darwin_arm64";
+              default -> "unknown";
+            };
+        case FREEBSD -> "freebsd";
+        case OPENBSD -> "openbsd";
+        case WINDOWS ->
+            switch (CPU.getCurrent()) {
+              case X86_64 -> "x64_windows";
+              case AARCH64 -> "arm64_windows";
+              default -> "unknown";
+            };
+        case LINUX ->
+            switch (CPU.getCurrent()) {
+              case X86_32 -> "piii";
+              case X86_64 -> "k8";
+              case PPC -> "ppc";
+              case ARM -> "arm";
+              case AARCH64 -> "aarch64";
+              case S390X -> "s390x";
+              case MIPS64 -> "mips64";
+              case RISCV64 -> "riscv64";
+              default -> "unknown";
+            };
+        default -> "unknown";
+      };
     }
     return input;
-  }
-
-  /** Reverses the conversion performed by {@link #convert} to return the matching OS, CPU pair. */
-  public static Pair<CPU, OS> reverse(String input) {
-    if (input == null || input.length() == 0 || "unknown".equals(input)) {
-      // Use the auto-detected values.
-      return Pair.of(CPU.getCurrent(), OS.getCurrent());
-    }
-
-    // Handle the easy cases.
-    if (input.startsWith("darwin")) {
-      return Pair.of(CPU.getCurrent(), OS.DARWIN);
-    } else if (input.startsWith("freebsd")) {
-      return Pair.of(CPU.getCurrent(), OS.FREEBSD);
-    } else if (input.startsWith("openbsd")) {
-      return Pair.of(CPU.getCurrent(), OS.OPENBSD);
-    } else if (input.startsWith("x64_windows")) {
-      return Pair.of(CPU.getCurrent(), OS.WINDOWS);
-    }
-
-    // Handle the Linux cases.
-    switch (input) {
-      case "piii":
-        return Pair.of(CPU.X86_32, OS.LINUX);
-      case "k8":
-        return Pair.of(CPU.X86_64, OS.LINUX);
-      case "ppc":
-        return Pair.of(CPU.PPC, OS.LINUX);
-      case "arm":
-        return Pair.of(CPU.ARM, OS.LINUX);
-      case "s390x":
-        return Pair.of(CPU.S390X, OS.LINUX);
-      case "mips64":
-        return Pair.of(CPU.MIPS64, OS.LINUX);
-      case "riscv64":
-        return Pair.of(CPU.RISCV64, OS.LINUX);
-      default:
-        // fall through
-    }
-
-    // Use the auto-detected values.
-    return Pair.of(CPU.getCurrent(), OS.getCurrent());
   }
 
   @Override

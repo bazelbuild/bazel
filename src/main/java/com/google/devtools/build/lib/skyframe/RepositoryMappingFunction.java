@@ -16,55 +16,132 @@ package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Maps;
-import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleResolutionValue;
+import com.google.devtools.build.lib.bazel.bzlmod.BazelDepGraphValue;
+import com.google.devtools.build.lib.bazel.bzlmod.Module;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleExtensionId;
-import com.google.devtools.build.lib.bazel.bzlmod.ModuleExtensionResolutionValue;
+import com.google.devtools.build.lib.bazel.bzlmod.ModuleExtensionRepoMappingEntriesValue;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleKey;
+import com.google.devtools.build.lib.bazel.bzlmod.Version;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.Package;
-import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
+import com.google.devtools.build.lib.packages.RuleClassProvider;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import java.util.HashMap;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
-import java.util.stream.Collectors;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.StarlarkSemantics;
 
 /** {@link SkyFunction} for {@link RepositoryMappingValue}s. */
 public class RepositoryMappingFunction implements SkyFunction {
+  public static final PrecomputedValue.Precomputed<Map<RepositoryName, PathFragment>>
+      REPOSITORY_OVERRIDES = new PrecomputedValue.Precomputed<>("repository_overrides");
+  private final RuleClassProvider ruleClassProvider;
+
+  public RepositoryMappingFunction(RuleClassProvider ruleClassProvider) {
+    this.ruleClassProvider = ruleClassProvider;
+  }
 
   @Nullable
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws SkyFunctionException, InterruptedException {
-    RepositoryName repositoryName = (RepositoryName) skyKey.argument();
+    RepositoryMappingValue.Key key = (RepositoryMappingValue.Key) skyKey;
+    RepositoryMappingValue repositoryMappingValue = computeInternal(key, env);
+    if (repositoryMappingValue == null) {
+      return null;
+    }
+    if (repositoryMappingValue == RepositoryMappingValue.NOT_FOUND_VALUE
+        && REPOSITORY_OVERRIDES.get(env).containsKey(key.repoName())) {
+      throw new RepositoryMappingFunctionException(
+          String.format(
+              "the repository %s does not exist, but has been specified as overridden with"
+                  + " --override_repository. Use --inject_repository instead to add a new"
+                  + " repository.",
+              key.repoName()));
+    }
+    return repositoryMappingValue;
+  }
 
-    BazelModuleResolutionValue bazelModuleResolutionValue = null;
-    if (Preconditions.checkNotNull(RepositoryDelegatorFunction.ENABLE_BZLMOD.get(env))) {
-      bazelModuleResolutionValue =
-          (BazelModuleResolutionValue) env.getValue(BazelModuleResolutionValue.KEY);
-      if (env.valuesMissing()) {
+  private RepositoryMappingValue computeInternal(RepositoryMappingValue.Key skyKey, Environment env)
+      throws SkyFunctionException, InterruptedException {
+    StarlarkSemantics starlarkSemantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
+    if (starlarkSemantics == null) {
+      return null;
+    }
+    RepositoryName repositoryName = skyKey.repoName();
+    boolean enableBzlmod = starlarkSemantics.getBool(BuildLanguageOptions.ENABLE_BZLMOD);
+    boolean enableWorkspace = starlarkSemantics.getBool(BuildLanguageOptions.ENABLE_WORKSPACE);
+
+    if (!enableBzlmod && !enableWorkspace) {
+      throw new RepositoryMappingFunctionException(
+          "Both --enable_bzlmod and --enable_workspace are disabled, but one of them must be"
+              + " enabled to fetch external dependencies.");
+    }
+
+    if (enableBzlmod) {
+      if (StarlarkBuiltinsValue.isBuiltinsRepo(repositoryName)) {
+        // If tools repo is not set, repo mapping for @_builtins should be always fallback.
+        if (ruleClassProvider.getToolsRepository() == null) {
+          return RepositoryMappingValue.createForWorkspaceRepo(RepositoryMapping.ALWAYS_FALLBACK);
+        }
+        // Builtins .bzl files should use the repo mapping of @bazel_tools, to get access to repos
+        // such as @platforms.
+        RepositoryMappingValue bazelToolsMapping =
+            (RepositoryMappingValue)
+                env.getValue(
+                    RepositoryMappingValue.Key.create(
+                        ruleClassProvider.getToolsRepository(),
+                        /* rootModuleShouldSeeWorkspaceRepos= */ false));
+        if (bazelToolsMapping == null) {
+          return null;
+        }
+        // We need to make sure that @_builtins maps to @_builtins too.
+        return RepositoryMappingValue.createForBzlmodRepo(
+            RepositoryMapping.create(
+                    ImmutableMap.of(
+                        StarlarkBuiltinsValue.BUILTINS_NAME,
+                        StarlarkBuiltinsValue.BUILTINS_REPO,
+                        // TODO(wyv): Google internal tests that have Bzlmod enabled fail because
+                        //  they try to access cpp tools targets in the main repo from inside the
+                        //  @_builtin repo. This is just a workaround and needs a proper way to
+                        //  inject this mapping for google internal tests only.
+                        "",
+                        RepositoryName.MAIN),
+                    StarlarkBuiltinsValue.BUILTINS_REPO)
+                .withAdditionalMappings(bazelToolsMapping.repositoryMapping()),
+            // The "associated module" doesn't exist here (@_builtins doesn't come from a module),
+            // so we just supply dummy values.
+            "",
+            Version.EMPTY);
+      }
+
+      BazelDepGraphValue bazelDepGraphValue =
+          (BazelDepGraphValue) env.getValue(BazelDepGraphValue.KEY);
+      if (bazelDepGraphValue == null) {
         return null;
       }
 
-      // The root module should be able to see repos defined in WORKSPACE. Therefore, we find all
-      // workspace repos and add them as extra visible repos in root module's repo mappings.
-      if (repositoryName.isMain()) {
-        SkyKey externalPackageKey = PackageValue.key(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER);
-        PackageValue externalPackageValue = (PackageValue) env.getValue(externalPackageKey);
+      if (repositoryName.isMain()
+          && skyKey.rootModuleShouldSeeWorkspaceRepos()
+          && enableWorkspace) {
+        // The root module should be able to see repos defined in WORKSPACE. Therefore, we find all
+        // workspace repos and add them as extra visible repos in root module's repo mappings.
+        PackageValue externalPackageValue =
+            (PackageValue) env.getValue(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER);
         if (env.valuesMissing()) {
           return null;
         }
-        Map<RepositoryName, RepositoryName> additionalMappings =
+        ImmutableMap<String, RepositoryName> additionalMappings =
             externalPackageValue.getPackage().getTargets().entrySet().stream()
                 // We need to filter out the non repository rule targets in the //external package.
                 .filter(
@@ -72,168 +149,128 @@ public class RepositoryMappingFunction implements SkyFunction {
                         entry.getValue().getAssociatedRule() != null
                             && !entry.getValue().getAssociatedRule().getRuleClass().equals("bind"))
                 .collect(
-                    Collectors.toMap(
-                        entry -> RepositoryName.createFromValidStrippedName(entry.getKey()),
-                        entry -> RepositoryName.createFromValidStrippedName(entry.getKey())));
-        return RepositoryMappingValue.withMapping(
-            computeForBazelModuleRepo(repositoryName, bazelModuleResolutionValue)
-                .get()
-                .withAdditionalMappings(additionalMappings));
+                    toImmutableMap(
+                        Entry::getKey, entry -> RepositoryName.createUnvalidated(entry.getKey())));
+        return computeForBazelModuleRepo(repositoryName, bazelDepGraphValue)
+            .get()
+            // For the transitional period, we need to map the workspace name to the main repo.
+            .withAdditionalMappings(
+                ImmutableMap.of(
+                    externalPackageValue.getPackage().getWorkspaceName(), RepositoryName.MAIN))
+            .withAdditionalMappings(additionalMappings)
+            .withCachedInverseMap();
       }
 
       // Try and see if this is a repo generated from a Bazel module.
-      Optional<RepositoryMapping> mapping =
-          computeForBazelModuleRepo(repositoryName, bazelModuleResolutionValue);
-      if (mapping.isPresent()) {
-        return RepositoryMappingValue.withMapping(mapping.get());
+      Optional<RepositoryMappingValue> mappingValue =
+          computeForBazelModuleRepo(repositoryName, bazelDepGraphValue);
+      if (mappingValue.isPresent()) {
+        return repositoryName.isMain()
+            ? mappingValue.get().withCachedInverseMap()
+            : mappingValue.get();
       }
 
       // Now try and see if this is a repo generated from a module extension.
-      // @bazel_tools and @local_config_platform are loaded most of the time, but we don't want
-      // them to always trigger module extension resolution.
-      // Keep this in sync with {@BzlmodRepoRuleFunction}
-      if (!repositoryName.equals(RepositoryName.BAZEL_TOOLS)
-          && !repositoryName.equals(RepositoryName.LOCAL_CONFIG_PLATFORM)) {
-        ModuleExtensionResolutionValue moduleExtensionResolutionValue =
-            (ModuleExtensionResolutionValue) env.getValue(ModuleExtensionResolutionValue.KEY);
-        if (env.valuesMissing()) {
+      Optional<ModuleExtensionId> moduleExtensionId =
+          maybeGetModuleExtensionForRepo(repositoryName, bazelDepGraphValue);
+
+      if (moduleExtensionId.isPresent()) {
+        var repoMappingEntriesValue =
+            (ModuleExtensionRepoMappingEntriesValue)
+                env.getValue(ModuleExtensionRepoMappingEntriesValue.key(moduleExtensionId.get()));
+        if (repoMappingEntriesValue == null) {
           return null;
         }
-        mapping =
-            computeForModuleExtensionRepo(
-                repositoryName, bazelModuleResolutionValue, moduleExtensionResolutionValue);
-        if (mapping.isPresent()) {
-          return RepositoryMappingValue.withMapping(mapping.get());
-        }
+        return RepositoryMappingValue.createForBzlmodRepo(
+            RepositoryMapping.create(repoMappingEntriesValue.entries(), repositoryName),
+            repoMappingEntriesValue.moduleKey().name(),
+            repoMappingEntriesValue.moduleKey().version());
       }
     }
 
-    SkyKey externalPackageKey = PackageValue.key(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER);
-    PackageValue externalPackageValue = (PackageValue) env.getValue(externalPackageKey);
-    if (env.valuesMissing()) {
-      return null;
+    if (enableWorkspace) {
+      PackageValue externalPackageValue =
+          (PackageValue) env.getValue(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER);
+      RepositoryMappingValue rootModuleRepoMappingValue =
+          enableBzlmod
+              ? (RepositoryMappingValue)
+                  env.getValue(RepositoryMappingValue.KEY_FOR_ROOT_MODULE_WITHOUT_WORKSPACE_REPOS)
+              : null;
+      if (env.valuesMissing()) {
+        return null;
+      }
+
+      RepositoryMapping rootModuleRepoMapping =
+          rootModuleRepoMappingValue == null
+              ? null
+              : rootModuleRepoMappingValue.repositoryMapping();
+      return computeFromWorkspace(repositoryName, externalPackageValue, rootModuleRepoMapping);
     }
 
-    return computeFromWorkspace(repositoryName, externalPackageValue, bazelModuleResolutionValue);
+    return RepositoryMappingValue.NOT_FOUND_VALUE;
   }
 
   /**
-   * Calculate repo mappings for a repo generated from a Bazel module. Such a repo can see all its
+   * Calculates repo mappings for a repo generated from a Bazel module. Such a repo can see all its
    * {@code bazel_dep}s, as well as any repos generated by an extension it has a {@code use_repo}
    * clause for.
    *
    * @return the repo mappings for the repo if it's generated from a Bazel module, otherwise return
    *     Optional.empty().
    */
-  private Optional<RepositoryMapping> computeForBazelModuleRepo(
-      RepositoryName repositoryName, BazelModuleResolutionValue bazelModuleResolutionValue) {
-    ModuleKey moduleKey =
-        bazelModuleResolutionValue.getCanonicalRepoNameLookup().get(repositoryName.strippedName());
+  private Optional<RepositoryMappingValue> computeForBazelModuleRepo(
+      RepositoryName repositoryName, BazelDepGraphValue bazelDepGraphValue) {
+    ModuleKey moduleKey = bazelDepGraphValue.getCanonicalRepoNameLookup().get(repositoryName);
     if (moduleKey == null) {
       return Optional.empty();
     }
-    return Optional.of(bazelModuleResolutionValue.getFullRepoMapping(moduleKey));
+    Module module = bazelDepGraphValue.getDepGraph().get(moduleKey);
+    return Optional.of(
+        RepositoryMappingValue.createForBzlmodRepo(
+            bazelDepGraphValue.getFullRepoMapping(moduleKey),
+            module.getName(),
+            module.getVersion()));
   }
 
   /**
-   * Calculate repo mappings for a repo generated from a module extension. Such a repo can see all
-   * repos generated by the same module extension, as well as all repos that the Bazel module
-   * hosting the extension can see (see above).
-   *
-   * @return the repo mappings for the repo if it's generated from a module extension, otherwise
-   *     return Optional.empty().
+   * Calculate repo mappings for a repo generated from WORKSPACE. Such a repo is not subject to
+   * strict deps, and can additionally see all repos that the root module can see.
    */
-  private Optional<RepositoryMapping> computeForModuleExtensionRepo(
-      RepositoryName repositoryName,
-      BazelModuleResolutionValue bazelModuleResolutionValue,
-      ModuleExtensionResolutionValue moduleExtensionResolutionValue) {
-    ModuleExtensionId extensionId =
-        moduleExtensionResolutionValue
-            .getCanonicalRepoNameToExtensionId()
-            .get(repositoryName.strippedName());
-    if (extensionId == null) {
-      return Optional.empty();
-    }
-    String extensionUniqueName =
-        bazelModuleResolutionValue.getExtensionUniqueNames().get(extensionId);
-    // Compute the "internal mappings", containing the mappings from the "internal" names to
-    // canonical names of all repos generated by this extension.
-    ImmutableMap<RepositoryName, RepositoryName> internalMapping =
-        moduleExtensionResolutionValue.getExtensionIdToRepoInternalNames().get(extensionId).stream()
-            .collect(
-                toImmutableMap(
-                    RepositoryName::createFromValidStrippedName,
-                    internalName ->
-                        RepositoryName.createFromValidStrippedName(
-                            extensionUniqueName + "." + internalName)));
-    // Find the key of the module containing this extension. This will be used to compute additional
-    // mappings -- any repo generated by an extension contained in the module "foo" can additionally
-    // see all repos that "foo" can see.
-    ModuleKey moduleKey =
-        bazelModuleResolutionValue
-            .getCanonicalRepoNameLookup()
-            .get(extensionId.getBzlFileLabel().getRepository().strippedName());
-    // NOTE(wyv): This means that if "foo" has a bazel_dep with the repo name "bar", and the
-    // extension generates an internal repo name "bar", then within a repo generated by the
-    // extension, "bar" will refer to the latter. We should explore a way to differentiate between
-    // the two to avoid any surprises.
-    return Optional.of(
-        RepositoryMapping.create(internalMapping, repositoryName.strippedName())
-            .withAdditionalMappings(bazelModuleResolutionValue.getFullRepoMapping(moduleKey)));
-  }
-
-  private SkyValue computeFromWorkspace(
+  private RepositoryMappingValue computeFromWorkspace(
       RepositoryName repositoryName,
       PackageValue externalPackageValue,
-      @Nullable BazelModuleResolutionValue bazelModuleResolutionValue)
+      @Nullable RepositoryMapping rootModuleRepoMapping)
       throws RepositoryMappingFunctionException {
     Package externalPackage = externalPackageValue.getPackage();
     if (externalPackage.containsErrors()) {
-      throw new RepositoryMappingFunctionException();
+      throw new RepositoryMappingFunctionException("error evaluating WORKSPACE");
     }
-    if (bazelModuleResolutionValue == null) {
-      return RepositoryMappingValue.withMapping(
-          RepositoryMapping.createAllowingFallback(
-              externalPackage.getRepositoryMapping(repositoryName)));
+    RepositoryMapping workspaceMapping =
+        RepositoryMapping.createAllowingFallback(
+            externalPackage.getExternalPackageRepositoryMapping(repositoryName));
+    if (rootModuleRepoMapping == null) {
+      // This means Bzlmod is disabled.
+      return RepositoryMappingValue.createForWorkspaceRepo(workspaceMapping);
     }
-    // If bzlmod is in play, we need to transform mappings to "foo" into mappings for "foo.1.3" (if
-    // there is a module called "foo" in the dep graph and its version is 1.3, that is).
-    ImmutableMap<String, ModuleKey> moduleNameLookup =
-        bazelModuleResolutionValue.getModuleNameLookup();
-    HashMap<RepositoryName, RepositoryName> mapping = new HashMap<>();
-    mapping.putAll(
-        Maps.transformValues(
-            externalPackage.getRepositoryMapping(repositoryName),
-            toRepo -> {
-              if (toRepo.isMain()) {
-                return toRepo;
-              }
-              ModuleKey moduleKey = moduleNameLookup.get(toRepo.strippedName());
-              return moduleKey == null
-                  ? toRepo
-                  : RepositoryName.createFromValidStrippedName(moduleKey.getCanonicalRepoName());
-            }));
-    // If there's no existing mapping to "foo", we should add a mapping from "foo" to "foo.1.3"
-    // anyways.
-    for (Map.Entry<String, ModuleKey> entry : moduleNameLookup.entrySet()) {
-      mapping.putIfAbsent(
-          RepositoryName.createFromValidStrippedName(entry.getKey()),
-          RepositoryName.createFromValidStrippedName(entry.getValue().getCanonicalRepoName()));
-    }
-    return RepositoryMappingValue.withMapping(
-        RepositoryMapping.createAllowingFallback(ImmutableMap.copyOf(mapping)));
+    // If Bzlmod is in play, we need to make sure that WORKSPACE repos see all repos that the root
+    // module can see, taking care to compose the existing WORKSPACE mapping with the main repo
+    // mapping from Bzlmod.
+    return RepositoryMappingValue.createForWorkspaceRepo(
+        workspaceMapping.composeWith(rootModuleRepoMapping));
   }
 
-  @Nullable
-  @Override
-  public String extractTag(SkyKey skyKey) {
-    return null;
+  private static Optional<ModuleExtensionId> maybeGetModuleExtensionForRepo(
+      RepositoryName repositoryName, BazelDepGraphValue bazelDepGraphValue) {
+    return bazelDepGraphValue.getExtensionUniqueNames().entrySet().stream()
+        .filter(e -> repositoryName.getName().startsWith(e.getValue() + "+"))
+        .map(Entry::getKey)
+        .findFirst();
   }
 
   private static class RepositoryMappingFunctionException extends SkyFunctionException {
-    RepositoryMappingFunctionException() {
+    RepositoryMappingFunctionException(String message) {
       super(
-          new BuildFileContainsErrorsException(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER),
+          new BuildFileContainsErrorsException(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER, message),
           Transience.PERSISTENT);
     }
   }

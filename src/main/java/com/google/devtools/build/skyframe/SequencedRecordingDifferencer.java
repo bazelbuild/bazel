@@ -15,6 +15,7 @@ package com.google.devtools.build.skyframe;
 
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
+import com.google.devtools.build.skyframe.Differencer.DiffWithDelta.Delta;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -25,7 +26,7 @@ import java.util.Map;
 public class SequencedRecordingDifferencer implements RecordingDifferencer {
 
   private List<SkyKey> valuesToInvalidate;
-  private Map<SkyKey, SkyValue> valuesToInject;
+  private Map<SkyKey, Delta> valuesToInject;
 
   public SequencedRecordingDifferencer() {
     clear();
@@ -49,12 +50,12 @@ public class SequencedRecordingDifferencer implements RecordingDifferencer {
   }
 
   @Override
-  public void inject(Map<SkyKey, ? extends SkyValue> values) {
-    valuesToInject.putAll(values);
+  public void inject(Map<SkyKey, Delta> deltas) {
+    valuesToInject.putAll(deltas);
   }
 
   @Override
-  public void inject(SkyKey key, SkyValue value) {
-    valuesToInject.put(key, value);
+  public void inject(SkyKey key, Delta delta) {
+    valuesToInject.put(key, delta);
   }
 }

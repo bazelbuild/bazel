@@ -1,4 +1,3 @@
-# Lint as: python3
 # Copyright 2020 The Bazel Authors. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,8 +14,8 @@
 """Tests for lib.py."""
 import unittest
 from src.test.py.bazel import test_base
-# Do not edit this line. Copybara replaces it with PY2 migration helper..third_party.bazel.tools.ctexplain.bazel_api as bazel_api
-# Do not edit this line. Copybara replaces it with PY2 migration helper..third_party.bazel.tools.ctexplain.lib as lib
+import tools.ctexplain.bazel_api as bazel_api
+import tools.ctexplain.lib as lib
 from tools.ctexplain.types import Configuration
 from tools.ctexplain.types import HostConfiguration
 from tools.ctexplain.types import NullConfiguration
@@ -30,7 +29,6 @@ class LibTest(test_base.TestBase):
     test_base.TestBase.setUp(self)
     self._bazel = bazel_api.BazelApi(self.RunBazel)
     self.ScratchFile('WORKSPACE')
-    self.CreateWorkspaceWithDefaultRepos('repo/WORKSPACE')
 
   def tearDown(self):
     test_base.TestBase.tearDown(self)
@@ -41,7 +39,7 @@ class LibTest(test_base.TestBase):
         '    pass',
         'rule_with_host_dep = rule(',
         '    implementation = _impl,',
-        '    attrs = { "host_deps": attr.label_list(cfg = "host") })',
+        '    attrs = { "host_deps": attr.label_list(cfg = "exec") })',
     ])
     self.ScratchFile('testapp/BUILD', [
         'load("//testapp:defs.bzl", "rule_with_host_dep")',
@@ -67,7 +65,7 @@ class LibTest(test_base.TestBase):
         '    pass',
         'rule_with_host_dep = rule(',
         '    implementation = _impl,',
-        '    attrs = { "host_deps": attr.label_list(cfg = "host") })',
+        '    attrs = { "host_deps": attr.label_list(cfg = "exec") })',
     ])
     self.ScratchFile('testapp/BUILD', [
         'load("//testapp:defs.bzl", "rule_with_host_dep")',

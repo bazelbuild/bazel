@@ -27,7 +27,17 @@ def distrib_java_import(name, visibility = None, enable_distributions = [], **kw
     if "debian" in enable_distributions:
         conditions["//src/conditions:debian_build"] = "@debian_java_deps//:" + name
 
-    native.alias(name = name, actual = select(conditions), visibility = visibility)
+    if "applicable_licenses" in kwargs:
+        licenses = kwargs["applicable_licenses"]
+    else:
+        licenses = None
+
+    native.alias(
+        name = name,
+        actual = select(conditions),
+        visibility = visibility,
+        applicable_licenses = licenses,
+    )
 
 def distrib_cc_library(name, visibility = None, enable_distributions = [], **kwargs):
     """A macro for cc_library rule to support distributions build (eg. Debian)"""

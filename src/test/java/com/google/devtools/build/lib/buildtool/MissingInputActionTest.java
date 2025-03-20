@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.analysis.TargetCompleteEvent;
 import com.google.devtools.build.lib.bazel.BazelWorkspaceStatusModule;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
-import com.google.devtools.build.lib.packages.util.MockGenruleSupport;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -47,12 +46,14 @@ public final class MissingInputActionTest extends BuildIntegrationTestCase {
   public void testNoInput() throws Exception {
     // Multiple missing inputs means error is non-deterministic in --nokeep_going case.
     this.addOptions("--keep_going");
-    MockGenruleSupport.setup(mockToolsConfig);
-    write("dummy/BUILD",
-          "genrule(name = 'dummy', ",
-          "        srcs = ['in1', 'in2', 'in3'], ",
-          "        outs = ['out1', 'out2'],  ",
-          "        cmd = '/bin/true')");
+    write(
+        "dummy/BUILD",
+        """
+        genrule(name = 'dummy',
+                srcs = ['in1', 'in2', 'in3'],
+                outs = ['out1', 'out2'],
+                cmd = '/bin/true')
+        """);
     write("dummy/in1");
 
     assertMissingInputOnBuild("//dummy", 2);
@@ -68,11 +69,10 @@ public final class MissingInputActionTest extends BuildIntegrationTestCase {
 
   @Test
   public void testMissingInputRacesWithWorkspaceStatusAction() throws Exception {
-    MockGenruleSupport.setup(mockToolsConfig);
     write(
         "dummy/BUILD",
         "genrule(name = 'dummy', srcs = ['in'], outs = ['out'], cmd = '/bin/false')");
-    Path sleepPath = write("sleep.sh", "sleep infinity");
+    Path sleepPath = write("sleep.sh", "sleep 300");
     sleepPath.setExecutable(true);
     addOptions("--workspace_status_command=" + sleepPath.getPathString());
     for (int i = 0; i < 2; i++) {
@@ -82,7 +82,6 @@ public final class MissingInputActionTest extends BuildIntegrationTestCase {
               + " '//dummy:in'");
       events.assertContainsEventWithFrequency("missing input file", 1);
       events.assertDoesNotContainEvent("Failed to determine build info");
-      events.clear();
     }
   }
 
@@ -92,18 +91,22 @@ public final class MissingInputActionTest extends BuildIntegrationTestCase {
     // file will be detected by the TargetCompletion function, not an ActionExecution function.
     write(
         "foo/missing.bzl",
-        "def _missing_impl(ctx):",
-        "    return DefaultInfo(files = depset(ctx.files.srcs))",
-        "",
-        "missing = rule(",
-        "               implementation = _missing_impl,",
-        "               attrs = { 'srcs': attr.label_list(allow_files = True) }",
-        ")");
+        """
+        def _missing_impl(ctx):
+            return DefaultInfo(files = depset(ctx.files.srcs))
+
+        missing = rule(
+                       implementation = _missing_impl,
+                       attrs = { 'srcs': attr.label_list(allow_files = True) }
+        )
+        """);
     write(
         "foo/BUILD",
-        "load('missing.bzl', 'missing')",
-        "missing(name = 'foo', srcs = ['missing.sh'])");
-    Path sleepPath = write("sleep.sh", "sleep infinity");
+        """
+        load('missing.bzl', 'missing')
+        missing(name = 'foo', srcs = ['missing.sh'])
+        """);
+    Path sleepPath = write("sleep.sh", "sleep 300");
     sleepPath.setExecutable(true);
     addOptions("--workspace_status_command=" + sleepPath.getPathString());
     for (int i = 0; i < 2; i++) {
@@ -111,7 +114,6 @@ public final class MissingInputActionTest extends BuildIntegrationTestCase {
       events.assertContainsError("foo/BUILD:2:8: //foo:foo: missing input file '//foo:missing.sh'");
       events.assertContainsEventWithFrequency("missing input file", 1);
       events.assertDoesNotContainEvent("Failed to determine build info");
-      events.clear();
     }
   }
 
@@ -121,17 +123,21 @@ public final class MissingInputActionTest extends BuildIntegrationTestCase {
     // file will be detected by the TargetCompletion function, not an ActionExecution function.
     write(
         "foo/missing.bzl",
-        "def _missing_impl(ctx):",
-        "    return DefaultInfo(files = depset(ctx.files.srcs))",
-        "",
-        "missing = rule(",
-        "               implementation = _missing_impl,",
-        "               attrs = { 'srcs': attr.label_list(allow_files = True) }",
-        ")");
+        """
+        def _missing_impl(ctx):
+            return DefaultInfo(files = depset(ctx.files.srcs))
+
+        missing = rule(
+                       implementation = _missing_impl,
+                       attrs = { 'srcs': attr.label_list(allow_files = True) }
+        )
+        """);
     write(
         "foo/BUILD",
-        "load('missing.bzl', 'missing')",
-        "missing(name = 'foo', srcs = ['missing.sh'])");
+        """
+        load('missing.bzl', 'missing')
+        missing(name = 'foo', srcs = ['missing.sh'])
+        """);
     addOptions("--keep_going");
     assertMissingInputOnBuild("//foo:foo", 1);
     events.assertContainsError("foo/BUILD:2:8: //foo:foo: missing input file '//foo:missing.sh'");
@@ -152,8 +158,10 @@ public final class MissingInputActionTest extends BuildIntegrationTestCase {
   public void allErrorsAggregated() throws Exception {
     write(
         "foo/BUILD",
-        "genrule(name = 'foo', srcs = [':in', ':genin'], outs = ['out'], cmd = 'touch $@')",
-        "genrule(name = 'gen', outs = ['genin'], cmd = 'false')");
+        """
+        genrule(name = 'foo', srcs = [':in', ':genin'], outs = ['out'], cmd = 'touch $@')
+        genrule(name = 'gen', outs = ['genin'], cmd = 'false')
+        """);
     AtomicReference<TargetCompleteEvent> targetCompleteEventRef = new AtomicReference<>();
     runtimeWrapper.registerSubscriber(
         new Object() {

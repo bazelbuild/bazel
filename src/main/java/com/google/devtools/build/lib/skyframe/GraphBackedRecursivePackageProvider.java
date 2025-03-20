@@ -23,6 +23,7 @@ import com.google.common.collect.Sets;
 import com.google.common.collect.Sets.SetView;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.cmdline.BatchCallback.SafeBatchCallback;
+import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
@@ -30,7 +31,6 @@ import com.google.devtools.build.lib.cmdline.TargetPattern.TargetsBelowDirectory
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
-import com.google.devtools.build.lib.io.InconsistentFilesystemException;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
@@ -44,7 +44,6 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import java.util.Map;
-import java.util.Set;
 
 /**
  * A {@link com.google.devtools.build.lib.pkgcache.RecursivePackageProvider} backed by a {@link
@@ -116,17 +115,15 @@ public final class GraphBackedRecursivePackageProvider extends AbstractRecursive
   @Override
   public Package getPackage(ExtendedEventHandler eventHandler, PackageIdentifier packageName)
       throws NoSuchPackageException, InterruptedException {
-    SkyKey pkgKey = PackageValue.key(packageName);
-
-    PackageValue pkgValue = (PackageValue) graph.getValue(pkgKey);
+    PackageValue pkgValue = (PackageValue) graph.getValue(packageName);
     if (pkgValue != null) {
       return pkgValue.getPackage();
     }
-    NoSuchPackageException nspe = (NoSuchPackageException) graph.getException(pkgKey);
+    NoSuchPackageException nspe = (NoSuchPackageException) graph.getException(packageName);
     if (nspe != null) {
       throw nspe;
     }
-    if (graph.isCycle(pkgKey)) {
+    if (graph.isCycle(packageName)) {
       throw new NoSuchPackageException(packageName, "Package depends on a cycle");
     } else {
       // If the package key does not exist in the graph, then it must not correspond to any package,
@@ -136,9 +133,9 @@ public final class GraphBackedRecursivePackageProvider extends AbstractRecursive
   }
 
   @Override
-  public Map<PackageIdentifier, Package> bulkGetPackages(Iterable<PackageIdentifier> pkgIds)
-      throws NoSuchPackageException, InterruptedException {
-    Set<SkyKey> pkgKeys = ImmutableSet.copyOf(PackageValue.keys(pkgIds));
+  public ImmutableMap<PackageIdentifier, Package> bulkGetPackages(
+      Iterable<PackageIdentifier> pkgIds) throws NoSuchPackageException, InterruptedException {
+    ImmutableSet<SkyKey> pkgKeys = ImmutableSet.copyOf(pkgIds);
 
     ImmutableMap.Builder<PackageIdentifier, Package> pkgResults = ImmutableMap.builder();
     Map<SkyKey, SkyValue> packages = graph.getSuccessfulValues(pkgKeys);
@@ -167,7 +164,7 @@ public final class GraphBackedRecursivePackageProvider extends AbstractRecursive
       Throwables.propagateIfInstanceOf(exception, NoSuchPackageException.class);
       Throwables.propagate(exception);
     }
-    return pkgResults.build();
+    return pkgResults.buildOrThrow();
   }
 
   @Override
@@ -184,11 +181,16 @@ public final class GraphBackedRecursivePackageProvider extends AbstractRecursive
         // package, because the SkyQuery environment has already loaded the universe.
         return false;
       } else {
-        if (exception instanceof NoSuchPackageException
-            || exception instanceof InconsistentFilesystemException) {
+        if (exception instanceof NoSuchPackageException) {
           eventHandler.handle(Event.error(exception.getMessage()));
           return false;
         } else {
+          // InconsistentFilesystemException can theoretically be thrown by PackageLookupFunction.
+          // However, such exceptions are catastrophic. If we evaluated this PackageLookupFunction
+          // immediately prior to doing the current graph traversal, we should have already failed
+          // catastrophically. On the other hand, if PackageLookupFunction was evaluated on a
+          // previous evaluation, it would not have been committed to the graph, since a
+          // catastrophe triggers error bubbling, which does not commit nodes to the graph.
           throw new IllegalStateException(
               "During package lookup for '" + packageName + "', got unexpected exception type",
               exception);
@@ -243,15 +245,13 @@ public final class GraphBackedRecursivePackageProvider extends AbstractRecursive
       ExtendedEventHandler eventHandler,
       RepositoryName repository,
       PathFragment directory,
-      ImmutableSet<PathFragment> ignoredSubdirectories,
+      IgnoredSubdirectories ignoredSubdirectories,
       ImmutableSet<PathFragment> excludedSubdirectories)
       throws InterruptedException, QueryException {
-    ImmutableList<Root> roots = checkValidDirectoryAndGetRoots(repository, directory);
-
     rootPackageExtractor.streamPackagesFromRoots(
         results,
         graph,
-        roots,
+        checkValidDirectoryAndGetRoots(repository, directory),
         eventHandler,
         repository,
         directory,

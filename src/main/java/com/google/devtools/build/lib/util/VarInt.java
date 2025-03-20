@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.util;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
 
@@ -50,58 +49,10 @@ public class VarInt {
   }
 
   /**
-   * Reads a varint  from src, places its values into the first element of
-   * dst and returns the offset in to src of the first byte after the varint.
+   * Reads a varint from the current position of the given ByteBuffer and returns the decoded value
+   * as 32 bit integer.
    *
-   * @param src source buffer to retrieve from
-   * @param offset offset within src
-   * @param dst the resulting int value
-   * @return the updated offset after reading the varint
-   */
-  public static int getVarInt(byte[] src, int offset, int[] dst) {
-    int result = 0;
-    int shift = 0;
-    int b;
-    do {
-      if (shift >= 32) {
-        // Out of range
-        throw new IndexOutOfBoundsException("varint too long");
-      }
-      // Get 7 bits from next byte
-      b = src[offset++];
-      result |= (b & 0x7F) << shift;
-      shift += 7;
-    } while ((b & 0x80) != 0);
-    dst[0] = result;
-    return offset;
-  }
-
-  /**
-   * Encodes an integer in a variable-length encoding, 7 bits per byte, into a
-   * destination byte[], following the protocol buffer convention.
-   *
-   * @param v the int value to write to sink
-   * @param sink the sink buffer to write to
-   * @param offset the offset within sink to begin writing
-   * @return the updated offset after writing the varint
-   */
-  public static int putVarInt(int v, byte[] sink, int offset) {
-    do {
-      // Encode next 7 bits + terminator bit
-      int bits = v & 0x7F;
-      v >>>= 7;
-      byte b = (byte) (bits + ((v != 0) ? 0x80 : 0));
-      sink[offset++] = b;
-    } while (v != 0);
-    return offset;
-  }
-
-  /**
-   * Reads a varint from the current position of the given ByteBuffer and
-   * returns the decoded value as 32 bit integer.
-   *
-   * <p>The position of the buffer is advanced to the first byte after the
-   * decoded varint.
+   * <p>The position of the buffer is advanced to the first byte after the decoded varint.
    *
    * @param src the ByteBuffer to get the var int from
    * @return The integer value of the decoded varint
@@ -138,49 +89,28 @@ public class VarInt {
   }
 
   /**
-   * Encodes an integer in a variable-length encoding, 7 bits per byte, to a
-   * ByteBuffer sink.
-   * @param v the value to encode
-   * @param sink the ByteBuffer to add the encoded value
-   */
-  public static void putVarInt(int v, ByteBuffer sink) {
-    while (true) {
-      int bits = v & 0x7f;
-      v >>>= 7;
-      if (v == 0) {
-        sink.put((byte) bits);
-        return;
-      }
-      sink.put((byte) (bits | 0x80));
-    }
-  }
-
-  /**
-   * Reads a varint from the given InputStream and returns the decoded value
-   * as an int.
+   * Encodes an integer in a variable-length encoding, 7 bits per byte, into a destination byte[],
+   * following the protocol buffer convention.
    *
-   * @param inputStream the InputStream to read from
+   * @param v the int value to write to sink
+   * @param sink the sink buffer to write to
+   * @param offset the offset within sink to begin writing
+   * @return the updated offset after writing the varint
    */
-  public static int getVarInt(InputStream inputStream) throws IOException {
-    int result = 0;
-    int shift = 0;
-    int b;
+  public static int putVarInt(int v, byte[] sink, int offset) {
     do {
-      if (shift >= 32) {
-        // Out of range
-        throw new IndexOutOfBoundsException("varint too long");
-      }
-      // Get 7 bits from next byte
-      b = inputStream.read();
-      result |= (b & 0x7F) << shift;
-      shift += 7;
-    } while ((b & 0x80) != 0);
-    return result;
+      // Encode next 7 bits + terminator bit
+      int bits = v & 0x7F;
+      v >>>= 7;
+      byte b = (byte) (bits + ((v != 0) ? 0x80 : 0));
+      sink[offset++] = b;
+    } while (v != 0);
+    return offset;
   }
 
   /**
-   * Encodes an integer in a variable-length encoding, 7 bits per byte, and
-   * writes it to the given OutputStream.
+   * Encodes an integer in a variable-length encoding, 7 bits per byte, and writes it to the given
+   * OutputStream.
    *
    * @param v the value to encode
    * @param outputStream the OutputStream to write to

@@ -54,6 +54,16 @@ public interface QuiescingExecutor extends Executor {
   void awaitQuiescence(boolean interruptWorkers) throws InterruptedException;
 
   /**
+   * Similar to {@link #awaitQuiescence}, but without shutting down the ExecutorService.
+   *
+   * <p>This is ideal for situations where tasks, that can spawn other tasks, are submitted in waves
+   * and we'd like to reuse the same QuiescingExecutor for them.
+   */
+  default void awaitQuiescenceWithoutShutdown(boolean interruptWorkers)
+      throws InterruptedException {}
+  ;
+
+  /**
    * Prevent quiescence of the executor until the given future is completed. If the executor is
    * interrupted, then the executor will call {@link ListenableFuture#cancel} with a parameter of
    * {@code true}.

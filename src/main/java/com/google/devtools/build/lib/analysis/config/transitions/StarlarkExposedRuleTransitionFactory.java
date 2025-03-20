@@ -14,28 +14,22 @@
 
 package com.google.devtools.build.lib.analysis.config.transitions;
 
-import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleTransitionData;
-import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.eval.StarlarkValue;
 
-/** A {@link TransitionFactory} that is exposed to Starlark. */
-@StarlarkBuiltin(
-    name = "native_rule_transition",
-    category = DocCategory.BUILTIN,
-    doc =
-        "Represents a native transition that can be applied to a Starlark rule as an incoming edge."
-            + " This is a valid value for cfg in rule() but not attr().")
+/**
+ * A {@link TransitionFactory} that is exposed to Starlark and requires extra coordination with the
+ * {@link RuleClass.Builder}, such as validating attributes or using an AllowlistChecker.
+ */
 public interface StarlarkExposedRuleTransitionFactory
-    extends TransitionFactory<RuleTransitionData>, StarlarkValue {
+    extends TransitionFactory<RuleTransitionData> {
 
   /**
    * Called during RuleClass construction, when the transition is used by a Starlark rule cfg.
    *
    * <p>Intent is to allow transition to e.g. add or validate attributes it needs to function, add
-   * an AllowlistChecker to even engage the transtion, etc.
+   * an AllowlistChecker to even engage the transition, etc.
    */
-  default void addToStarlarkRule(RuleDefinitionEnvironment env, RuleClass.Builder builder) {}
+  void addToRuleFromStarlark(RuleDefinitionEnvironment env, RuleClass.Builder builder);
 }

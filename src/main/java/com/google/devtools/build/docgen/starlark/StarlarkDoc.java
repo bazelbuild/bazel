@@ -14,14 +14,11 @@
 package com.google.devtools.build.docgen.starlark;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.docgen.StarlarkDocumentationProcessor.Category;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import java.lang.reflect.Method;
-import java.util.Arrays;
 import java.util.Map;
-import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkAnnotations;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
@@ -29,18 +26,29 @@ import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.Tuple;
 
 /** Abstract class for containing documentation for a Starlark syntactic entity. */
-abstract class StarlarkDoc {
-  protected static final String TOP_LEVEL_ID = "globals";
+public abstract class StarlarkDoc {
+  protected final StarlarkDocExpander expander;
 
-  /**
-   * Returns a string containing the name of the entity being documented.
-   */
+  protected StarlarkDoc(StarlarkDocExpander expander) {
+    this.expander = expander;
+  }
+
+  /** Returns a string containing the name of the entity being documented. */
   public abstract String getName();
 
   /**
-   * Returns a string containing the formatted HTML documentation of the entity being documented.
+   * Returns a string containing the formatted HTML documentation of the entity being documented
+   * (without any variables).
    */
-  public abstract String getDocumentation();
+  public String getDocumentation() {
+    return expander.expand(getRawDocumentation());
+  }
+
+  /**
+   * Returns the HTML documentation of the entity being documented, which potentially contains
+   * variables and unresolved links.
+   */
+  public abstract String getRawDocumentation();
 
   protected String getTypeAnchor(Class<?> returnType, Class<?> generic1) {
     return getTypeAnchor(returnType) + " of " + getTypeAnchor(generic1) + "s";
@@ -48,44 +56,31 @@ abstract class StarlarkDoc {
 
   protected String getTypeAnchor(Class<?> type) {
     if (type.equals(Boolean.class) || type.equals(boolean.class)) {
-      return "<a class=\"anchor\" href=\"bool.html\">bool</a>";
+      return "<a class=\"anchor\" href=\"../core/bool.html\">bool</a>";
     } else if (type.equals(int.class) || type.equals(Integer.class)) {
-      return "<a class=\"anchor\" href=\"int.html\">int</a>";
+      return "<a class=\"anchor\" href=\"../core/int.html\">int</a>";
     } else if (type.equals(String.class)) {
-      return "<a class=\"anchor\" href=\"string.html\">string</a>";
+      return "<a class=\"anchor\" href=\"../core/string.html\">string</a>";
     } else if (Map.class.isAssignableFrom(type)) {
-      return "<a class=\"anchor\" href=\"dict.html\">dict</a>";
+      return "<a class=\"anchor\" href=\"../core/dict.html\">dict</a>";
     } else if (type.equals(Tuple.class)) {
-      return "<a class=\"anchor\" href=\"tuple.html\">tuple</a>";
+      return "<a class=\"anchor\" href=\"../core/tuple.html\">tuple</a>";
     } else if (type.equals(StarlarkList.class) || type.equals(ImmutableList.class)) {
-      return "<a class=\"anchor\" href=\"list.html\">list</a>";
+      return "<a class=\"anchor\" href=\"../core/list.html\">list</a>";
     } else if (type.equals(Sequence.class)) {
-      return "<a class=\"anchor\" href=\"list.html\">sequence</a>";
+      return "<a class=\"anchor\" href=\"../core/list.html\">sequence</a>";
     } else if (type.equals(Void.TYPE) || type.equals(NoneType.class)) {
-      return "<a class=\"anchor\" href=\"" + TOP_LEVEL_ID + ".html#None\">None</a>";
+      return "<code>None</code>";
     } else if (type.equals(NestedSet.class)) {
-      return "<a class=\"anchor\" href=\"depset.html\">depset</a>";
+      return "<a class=\"anchor\" href=\"../builtins/depset.html\">depset</a>";
     } else if (StarlarkAnnotations.getStarlarkBuiltin(type) != null) {
-      StarlarkBuiltin module = StarlarkAnnotations.getStarlarkBuiltin(type);
-      if (module.documented()) {
-        return String.format("<a class=\"anchor\" href=\"%1$s.html\">%1$s</a>",
-                             module.name());
+      StarlarkBuiltin starlarkBuiltin = StarlarkAnnotations.getStarlarkBuiltin(type);
+      if (starlarkBuiltin.documented()) {
+        return String.format(
+            "<a class=\"anchor\" href=\"../%1$s/%2$s.html\">%2$s</a>",
+            Category.of(starlarkBuiltin).getPath(), starlarkBuiltin.name());
       }
     }
     return Starlark.classType(type);
-  }
-
-  // Omit self parameter from parameters in class methods.
-  protected static Param[] withoutSelfParam(StarlarkMethod annotation, Method method) {
-    Param[] params = annotation.parameters();
-    if (params.length > 0) {
-      StarlarkBuiltin module = method.getDeclaringClass().getAnnotation(StarlarkBuiltin.class);
-      if (module != null && module.name().equals("string")) {
-        // Skip the self parameter, which is the first mandatory
-        // positional parameter in each method of the "string" module.
-        return Arrays.copyOfRange(params, 1, params.length);
-      }
-    }
-    return params;
   }
 }

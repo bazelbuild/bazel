@@ -15,10 +15,9 @@ package com.google.devtools.build.lib.pkgcache;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
+import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
 import com.google.devtools.build.lib.skyframe.TransitiveTargetKey;
 import com.google.devtools.build.lib.skyframe.TransitiveTargetValue;
@@ -56,13 +55,13 @@ public class IOExceptionsTest extends PackageLoadingTestCase {
 
   @Before
   public final void initializeVisitor() {
-    setUpSkyframe(ConstantRuleVisibility.PRIVATE);
+    setUpSkyframe(RuleVisibility.PRIVATE);
   }
 
   private boolean visitTransitively(Label label) throws InterruptedException {
     SkyKey key = TransitiveTargetKey.of(label);
     EvaluationContext evaluationContext =
-        EvaluationContext.newBuilder().setNumThreads(5).setEventHandler(reporter).build();
+        EvaluationContext.newBuilder().setParallelism(5).setEventHandler(reporter).build();
     EvaluationResult<SkyValue> result =
         skyframeExecutor.prepareAndGet(ImmutableSet.of(key), evaluationContext);
     TransitiveTargetValue value = (TransitiveTargetValue) result.get(key);
@@ -93,19 +92,26 @@ public class IOExceptionsTest extends PackageLoadingTestCase {
   @Test
   public void testBasicFailure() throws Exception {
     reporter.removeHandler(failFastHandler); // expect errors
-    final Path buildPath = scratch.file("pkg/BUILD",
-        "sh_library(name = 'x')");
+    final Path buildPath =
+        scratch.file(
+            "pkg/BUILD",
+            "load('//test_defs:foo_library.bzl', 'foo_library')",
+            "foo_library(name = 'x')");
     crashMessage =
         path -> buildPath.asFragment().equals(path) ? "custom crash: " + buildPath : null;
-    assertThat(visitTransitively(Label.parseAbsolute("//pkg:x", ImmutableMap.of()))).isFalse();
-    scratch.overwriteFile("pkg/BUILD",
-        "# another comment to force reload",
-        "sh_library(name = 'x')");
+    assertThat(visitTransitively(Label.parseCanonical("//pkg:x"))).isFalse();
+    scratch.overwriteFile(
+        "pkg/BUILD",
+        """
+        load('//test_defs:foo_library.bzl', 'foo_library')
+        # another comment to force reload
+        foo_library(name = "x")
+        """);
     crashMessage = IOExceptionsTest::nullFunction;
     syncPackages();
     eventCollector.clear();
     reporter.addHandler(failFastHandler);
-    assertThat(visitTransitively(Label.parseAbsolute("//pkg:x", ImmutableMap.of()))).isTrue();
+    assertThat(visitTransitively(Label.parseCanonical("//pkg:x"))).isTrue();
     assertNoEvents();
   }
 
@@ -113,34 +119,47 @@ public class IOExceptionsTest extends PackageLoadingTestCase {
   @Test
   public void testNestedFailure() throws Exception {
     reporter.removeHandler(failFastHandler); // expect errors
-    scratch.file("top/BUILD",
-        "sh_library(name = 'top', deps = ['//pkg:x'])");
-    final Path buildPath = scratch.file("pkg/BUILD",
-        "sh_library(name = 'x')");
+    scratch.file(
+        "top/BUILD",
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
+        "foo_library(name = 'top', deps = ['//pkg:x'])");
+    final Path buildPath =
+        scratch.file(
+            "pkg/BUILD",
+            "load('//test_defs:foo_library.bzl', 'foo_library')",
+            "foo_library(name = 'x')");
     crashMessage =
         path -> buildPath.asFragment().equals(path) ? "custom crash: " + buildPath : null;
-    assertThat(visitTransitively(Label.parseAbsolute("//top:top", ImmutableMap.of()))).isFalse();
+    assertThat(visitTransitively(Label.parseCanonical("//top:top"))).isFalse();
     assertContainsEvent("no such package 'pkg'");
     assertContainsEvent("custom crash");
     assertThat(eventCollector).hasSize(1);
     scratch.overwriteFile(
-        "pkg/BUILD", "# another comment to force reload", "sh_library(name = 'x')");
+        "pkg/BUILD",
+        """
+        load('//test_defs:foo_library.bzl', 'foo_library')
+        # another comment to force reload
+        foo_library(name = "x")
+        """);
     crashMessage = IOExceptionsTest::nullFunction;
     syncPackages();
     eventCollector.clear();
     reporter.addHandler(failFastHandler);
-    assertThat(visitTransitively(Label.parseAbsolute("//top:top", ImmutableMap.of()))).isTrue();
+    assertThat(visitTransitively(Label.parseCanonical("//top:top"))).isTrue();
     assertNoEvents();
   }
 
   @Test
   public void testOneLevelUpFailure() throws Exception {
     reporter.removeHandler(failFastHandler); // expect errors
-    final Path buildPath = scratch.file("top/BUILD",
-        "sh_library(name = 'x')");
+    final Path buildPath =
+        scratch.file(
+            "top/BUILD",
+            "load('//test_defs:foo_library.bzl', 'foo_library')",
+            "foo_library(name = 'x')");
     buildPath.getParentDirectory().getRelative("pkg").createDirectory();
     crashMessage =
         path -> buildPath.asFragment().equals(path) ? "custom crash: " + buildPath : null;
-    assertThat(visitTransitively(Label.parseAbsolute("//top/pkg:x", ImmutableMap.of()))).isFalse();
+    assertThat(visitTransitively(Label.parseCanonical("//top/pkg:x"))).isFalse();
   }
 }

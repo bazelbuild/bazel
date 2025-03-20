@@ -19,9 +19,13 @@ import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.util.HashCodes;
 import com.google.devtools.build.lib.vfs.Path;
 import java.util.Collection;
+import javax.annotation.Nullable;
 
 /**
  * Interface for objects that can be posted on the public event stream.
@@ -34,6 +38,9 @@ public interface BuildEvent extends ChainableEvent, ExtendedEventHandler.Postabl
   /**
    * A local file that is referenced by the build event. These can be uploaded to a separate backend
    * storage.
+   *
+   * <p>Despite the name, it is possible that a {@code LocalFile} is already stored remotely. If
+   * {@link #artifactMetadata} {@link FileArtifactValue#isRemote}, the upload may be skipped.
    */
   final class LocalFile {
 
@@ -42,25 +49,46 @@ public interface BuildEvent extends ChainableEvent, ExtendedEventHandler.Postabl
      * associated files for.
      */
     public enum LocalFileType {
-      OUTPUT,
-      /** An OUTPUT_FILE is an OUTPUT that is known to be a file, not a directory. */
+      OUTPUT, /* of uncertain file type */
       OUTPUT_FILE,
+      OUTPUT_DIRECTORY,
+      OUTPUT_SYMLINK,
       SUCCESSFUL_TEST_OUTPUT,
       FAILED_TEST_OUTPUT,
       COVERAGE_OUTPUT,
+      QUERY_OUTPUT,
       STDOUT,
       STDERR,
       LOG,
       PERFORMANCE_LOG;
 
-      /** Returns true if the LocalFile is a generic output from an Action. */
+      /** Returns whether the LocalFile is a declared action output. */
       public boolean isOutput() {
-        return this == OUTPUT || this == OUTPUT_FILE;
+        return this == OUTPUT
+            || this == OUTPUT_FILE
+            || this == OUTPUT_DIRECTORY
+            || this == OUTPUT_SYMLINK;
       }
 
-      /** Returns true if the LocalFile is known by construction to be a file, not a directory. */
-      public boolean isGuaranteedFile() {
-        return this != OUTPUT;
+      /**
+       * Returns the {@link LocalFileType} implied by a {@link FileArtifactValue}, or the associated
+       * {@link Artifact} if metadata is not available.
+       */
+      public static LocalFileType forArtifact(
+          Artifact artifact, @Nullable FileArtifactValue metadata) {
+        if (metadata != null) {
+          return switch (metadata.getType()) {
+            case DIRECTORY -> LocalFileType.OUTPUT_DIRECTORY;
+            case SYMLINK -> LocalFileType.OUTPUT_SYMLINK;
+            default -> LocalFileType.OUTPUT_FILE;
+          };
+        }
+        if (artifact.isDirectory()) {
+          return LocalFileType.OUTPUT_DIRECTORY;
+        } else if (artifact.isSymlink()) {
+          return LocalFileType.OUTPUT_SYMLINK;
+        }
+        return LocalFileType.OUTPUT_FILE;
       }
     }
 
@@ -73,15 +101,21 @@ public interface BuildEvent extends ChainableEvent, ExtendedEventHandler.Postabl
     public final Path path;
     public final LocalFileType type;
     public final LocalFileCompression compression;
+    @Nullable public final FileArtifactValue artifactMetadata;
 
-    public LocalFile(Path path, LocalFileType type) {
-      this(path, type, LocalFileCompression.NONE);
+    public LocalFile(Path path, LocalFileType type, @Nullable FileArtifactValue artifactMetadata) {
+      this(path, type, LocalFileCompression.NONE, artifactMetadata);
     }
 
-    public LocalFile(Path path, LocalFileType type, LocalFileCompression compression) {
+    public LocalFile(
+        Path path,
+        LocalFileType type,
+        LocalFileCompression compression,
+        @Nullable FileArtifactValue artifactMetadata) {
       this.path = Preconditions.checkNotNull(path);
       this.type = Preconditions.checkNotNull(type);
       this.compression = Preconditions.checkNotNull(compression);
+      this.artifactMetadata = artifactMetadata;
     }
 
     @Override
@@ -89,25 +123,27 @@ public interface BuildEvent extends ChainableEvent, ExtendedEventHandler.Postabl
       if (this == o) {
         return true;
       }
-      if (o == null || getClass() != o.getClass()) {
+      if (!(o instanceof LocalFile that)) {
         return false;
       }
-      LocalFile localFile = (LocalFile) o;
-      return Objects.equal(path, localFile.path)
-          && type == localFile.type
-          && compression == localFile.compression;
+      return path.equals(that.path)
+          && type == that.type
+          && compression == that.compression
+          && Objects.equal(artifactMetadata, that.artifactMetadata);
     }
 
     @Override
     public int hashCode() {
-      return Objects.hashCode(path, type, compression);
+      return HashCodes.hashObjects(path, type, compression, artifactMetadata);
     }
 
     @Override
     public String toString() {
-      return MoreObjects.toStringHelper(LocalFile.class)
+      return MoreObjects.toStringHelper(this)
           .add("path", path)
           .add("type", type)
+          .add("compression", compression)
+          .add("artifactMetadata", artifactMetadata)
           .toString();
     }
   }

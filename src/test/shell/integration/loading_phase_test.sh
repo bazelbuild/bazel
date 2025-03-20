@@ -52,14 +52,6 @@ msys*|mingw*|cygwin*)
   ;;
 esac
 
-if "$is_windows"; then
-  export MSYS_NO_PATHCONV=1
-  export MSYS2_ARG_CONV_EXCL="*"
-fi
-
-# Our tests use the static crosstool, so make it the default.
-# add_to_bazelrc "build --crosstool_top=@bazel_tools//tools/cpp:default-toolchain"
-
 output_base=$TEST_TMPDIR/out
 TEST_stderr=$(dirname $TEST_log)/stderr
 
@@ -243,13 +235,13 @@ function test_glob_with_subpackage() {
     assert_equals "3" $(wc -l "$TEST_log")
 
     # glob returns an empty list, because t3.txt is outside the package
-    echo "exports_files(glob(['subpkg/t3.txt']))" >$pkg/p/BUILD
+    echo "exports_files(glob(['subpkg/t3.txt'], allow_empty = True))" >$pkg/p/BUILD
     bazel query "$pkg/p:*" -k >$TEST_log || fail "Expected success"
     expect_log "//$pkg/p:BUILD"
     assert_equals "1" $(wc -l "$TEST_log")
 
     # same test, with a nonexisting file
-    echo "exports_files(glob(['subpkg/no_glob.txt']))" >$pkg/p/BUILD
+    echo "exports_files(glob(['subpkg/no_glob.txt'], allow_empty = True))" >$pkg/p/BUILD
     bazel query "$pkg/p:*" -k >$TEST_log || fail "Expected success"
     expect_log "//$pkg/p:BUILD"
     assert_equals "1" $(wc -l "$TEST_log")
@@ -292,60 +284,27 @@ function test_incremental_deleting_package_roots() {
   local -r pkg="${FUNCNAME}"
   mkdir -p "$pkg" || fail "could not create \"$pkg\""
 
-  local other_root=$TEST_TMPDIR/other_root/${WORKSPACE_NAME}
+  local other_root=other_root/${WORKSPACE_NAME}
   mkdir -p $other_root/$pkg/a
   touch $other_root/WORKSPACE
   echo 'sh_library(name="external")' > $other_root/$pkg/a/BUILD
   mkdir -p $pkg/a
   echo 'sh_library(name="internal")' > $pkg/a/BUILD
 
-  bazel query --package_path=$other_root:. $pkg/a:all >& $TEST_log \
+  bazel query --package_path=%workspace%/$other_root:. $pkg/a:all >& $TEST_log \
       || fail "Expected success"
   expect_log "//$pkg/a:external"
   expect_not_log "//$pkg/a:internal"
   rm -r $other_root
-  bazel query --package_path=$other_root:. $pkg/a:all >& $TEST_log \
+  bazel query --package_path=%workspace%/$other_root:. $pkg/a:all >& $TEST_log \
       || fail "Expected success"
   expect_log "//$pkg/a:internal"
   expect_not_log "//$pkg/a:external"
   mkdir -p $other_root
-  bazel query --package_path=$other_root:. $pkg/a:all >& $TEST_log \
+  bazel query --package_path=%workspace%/$other_root:. $pkg/a:all >& $TEST_log \
       || fail "Expected success"
   expect_log "//$pkg/a:internal"
   expect_not_log "//$pkg/a:external"
-}
-
-function test_no_package_loading_on_benign_workspace_file_changes() {
-  local -r pkg="${FUNCNAME}"
-  mkdir -p "$pkg" || fail "could not create \"$pkg\""
-
-  mkdir $pkg/foo
-
-  echo 'workspace(name="wsname1")' > WORKSPACE
-  echo 'sh_library(name="shname1")' > $pkg/foo/BUILD
-  bazel query --experimental_ui_debug_all_events //$pkg/foo:all >& "$TEST_log" \
-      || fail "Expected success"
-  expect_log "Loading package: $pkg/foo"
-  expect_log "//$pkg/foo:shname1"
-
-  echo 'sh_library(name="shname2")' > $pkg/foo/BUILD
-  bazel query --experimental_ui_debug_all_events //$pkg/foo:all >& "$TEST_log" \
-      || fail "Expected success"
-  expect_log "Loading package: $pkg/foo"
-  expect_log "//$pkg/foo:shname2"
-
-  # Test that comment changes do not cause package reloading
-  echo '#benign comment' >> WORKSPACE
-  bazel query --experimental_ui_debug_all_events //$pkg/foo:all >& "$TEST_log" \
-      || fail "Expected success"
-  expect_not_log "Loading package: $pkg/foo"
-  expect_log "//$pkg/foo:shname2"
-
-  echo 'workspace(name="wsname2")' > WORKSPACE
-  bazel query --experimental_ui_debug_all_events //$pkg/foo:all >& "$TEST_log" \
-      || fail "Expected success"
-  expect_log "Loading package: $pkg/foo"
-  expect_log "//$pkg/foo:shname2"
 }
 
 function test_disallow_load_labels_to_cross_package_boundaries() {
@@ -460,10 +419,14 @@ function test_bazel_bin_is_not_a_package() {
   local -r pkg="${FUNCNAME[0]}"
   mkdir "$pkg" || fail "Could not mkdir $pkg"
   echo "filegroup(name = '$pkg')" > "$pkg/BUILD"
-  setup_skylib_support
   # Ensure bazel-<pkg> is created.
   bazel build --symlink_prefix="foo_prefix-" "//$pkg" || fail "build failed"
   [[ -d "foo_prefix-bin" ]] || fail "bazel-bin was not created"
+
+  if [[ $PRODUCT_NAME == "bazel" ]]; then
+    # Remove tools dir set up by copy_tools_directory from testenv.sh
+    rm -rf tools
+  fi
 
   # Assert that "//..." does not expand to //foo_prefix-*
   bazel query //... >& "$TEST_log"
@@ -588,18 +551,6 @@ EOF
     fail "Expected build to succeed"
   )
   assert_contains "^${filename}$" $(bazel info "${PRODUCT_NAME}-bin")/$pkg/paths.txt
-}
-
-function test_path_from_subdir() {
-  local -r pkg="${FUNCNAME}"
-  mkdir -p "$pkg/subdir" || fail "could not create \"$pkg/subdir\""
-  touch "$pkg/subdir/BUILD" || fail "Could not touch"
-  echo 'filegroup(name = "foo", srcs = [])' > "$pkg/BUILD" || fail "echo"
-  cd "$pkg/subdir"
-  bazel query '../BUILD + ../foo' >output 2> "$TEST_log" \
-      || fail "Expected success"
-  assert_contains "^//$pkg:BUILD" output
-  assert_contains "^//$pkg:foo" output
 }
 
 function test_target_with_BUILD() {

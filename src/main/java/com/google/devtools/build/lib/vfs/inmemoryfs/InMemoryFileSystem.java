@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.util.OS;
-import com.google.devtools.build.lib.vfs.AbstractFileSystemWithCustomStat;
+import com.google.devtools.build.lib.vfs.AbstractFileSystem;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileAccessException;
 import com.google.devtools.build.lib.vfs.FileStatus;
@@ -34,7 +34,6 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.nio.channels.ReadableByteChannel;
 import java.nio.channels.SeekableByteChannel;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -56,7 +55,7 @@ import javax.annotation.Nullable;
  * to achieve.
  */
 @ThreadSafe
-public class InMemoryFileSystem extends AbstractFileSystemWithCustomStat {
+public class InMemoryFileSystem extends AbstractFileSystem {
 
   protected final Clock clock;
 
@@ -182,6 +181,7 @@ public class InMemoryFileSystem extends AbstractFileSystemWithCustomStat {
    * Inserts inode 'childInode' into the existing directory 'dir' under the specified 'name'. Dual
    * to unlink. Fails if the directory was read-only.
    */
+  @Nullable
   @CheckReturnValue
   private static Errno insert(
       InMemoryDirectoryInfo dir, String child, InMemoryContentInfo childInode) {
@@ -406,6 +406,7 @@ public class InMemoryFileSystem extends AbstractFileSystemWithCustomStat {
    * path segments are statted, and each stat requires a linear amount of work in the "kernel"
    * routine.
    */
+  @Nullable
   @Override
   protected PathFragment resolveOneLink(PathFragment path) throws IOException {
     // Beware, this seemingly simple code belies the complex specification of
@@ -597,7 +598,8 @@ public class InMemoryFileSystem extends AbstractFileSystemWithCustomStat {
   @Override
   public synchronized void setLastModifiedTime(PathFragment path, long newTime) throws IOException {
     InMemoryContentInfo status = inodeStat(path, true);
-    status.setLastModifiedTime(newTime == -1L ? clock.currentTimeMillis() : newTime);
+    status.setLastModifiedTime(
+        newTime == Path.NOW_SENTINEL_TIME ? clock.currentTimeMillis() : newTime);
   }
 
   @Override
@@ -606,15 +608,10 @@ public class InMemoryFileSystem extends AbstractFileSystemWithCustomStat {
   }
 
   @Override
-  protected synchronized ReadableByteChannel createReadableByteChannel(PathFragment path)
+  protected synchronized SeekableByteChannel createReadWriteByteChannel(PathFragment path)
       throws IOException {
-    return statFile(path).createReadableByteChannel();
-  }
-
-  @Override
-  protected synchronized SeekableByteChannel createReadWriteByteChannel(PathFragment path) {
-    // It's feasible to implement, but so far it is not needed.
-    throw new UnsupportedOperationException("Not implemented");
+    InMemoryContentInfo status = getOrCreateWritableInode(path);
+    return ((FileInfo) status).createReadWriteByteChannel();
   }
 
   @Override
@@ -670,8 +667,8 @@ public class InMemoryFileSystem extends AbstractFileSystemWithCustomStat {
   }
 
   @Override
-  protected synchronized OutputStream getOutputStream(PathFragment path, boolean append)
-      throws IOException {
+  protected synchronized OutputStream getOutputStream(
+      PathFragment path, boolean append, boolean internal) throws IOException {
     InMemoryContentInfo status = getOrCreateWritableInode(path);
     return ((FileInfo) status).getOutputStream(append);
   }

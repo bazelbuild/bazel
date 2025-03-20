@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.worker;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.sandbox.Cgroup;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
 import com.google.devtools.build.lib.vfs.Path;
@@ -28,17 +29,30 @@ import java.util.Optional;
 import java.util.Set;
 
 /** A proxy that talks to the multiplexer */
-final class WorkerProxy extends Worker {
+class WorkerProxy extends Worker {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
-  private final WorkerMultiplexer workerMultiplexer;
-  /** The execution root of the worker. */
-  private final Path workDir;
+  protected final WorkerMultiplexer workerMultiplexer;
+
+  /** The execution root of the worker. This is the CWD of the worker process. */
+  protected final Path workDir;
 
   WorkerProxy(
-      WorkerKey workerKey, int workerId, Path logFile, WorkerMultiplexer workerMultiplexer) {
-    super(workerKey, workerId, logFile);
-    this.workDir = workerKey.getExecRoot();
+      WorkerKey workerKey,
+      int workerId,
+      Path logFile,
+      WorkerMultiplexer workerMultiplexer,
+      Path workDir) {
+    // Worker proxies of the same multiplexer share a WorkerProcessStatus.
+    super(workerKey, workerId, logFile, workerMultiplexer.getStatus());
+    this.workDir = workDir;
     this.workerMultiplexer = workerMultiplexer;
+  }
+
+  @Override
+  public Cgroup getCgroup() {
+    // WorkerProxy does not have a cgroup at the momemnt. Consider adding it to the
+    // multiplexer and returning it here?
+    return null;
   }
 
   @Override
@@ -55,7 +69,7 @@ final class WorkerProxy extends Worker {
   @Override
   public void prepareExecution(
       SandboxInputs inputFiles, SandboxOutputs outputs, Set<PathFragment> workerFiles)
-      throws IOException {
+      throws IOException, InterruptedException {
     workerMultiplexer.createProcess(workDir);
   }
 
@@ -70,18 +84,15 @@ final class WorkerProxy extends Worker {
 
   /** Send the WorkRequest to multiplexer. */
   @Override
-  void putRequest(WorkRequest request) throws IOException {
+  protected void putRequest(WorkRequest request) throws IOException {
     workerMultiplexer.putRequest(request);
   }
 
   /** Wait for WorkResponse from multiplexer. */
   @Override
-  WorkResponse getResponse(int requestId) throws InterruptedException {
+  WorkResponse getResponse(int requestId) throws InterruptedException, IOException {
     return workerMultiplexer.getResponse(requestId);
   }
-
-  @Override
-  public void finishExecution(Path execRoot, SandboxOutputs outputs) {}
 
   @Override
   boolean diedUnexpectedly() {

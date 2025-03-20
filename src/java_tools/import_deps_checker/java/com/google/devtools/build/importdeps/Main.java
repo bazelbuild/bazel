@@ -228,7 +228,7 @@ public class Main {
   }
 
   /** Validating converter for Paths. A Path is considered valid if it resolves to a file. */
-  public static class PathConverter implements Converter<Path> {
+  public static class PathConverter extends Converter.Contextless<Path> {
 
     private final boolean mustExist;
 

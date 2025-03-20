@@ -15,9 +15,9 @@
 package com.google.devtools.build.lib.bazel.repository;
 
 import static com.google.devtools.build.lib.bazel.repository.StripPrefixedPath.maybeDeprefixSymlink;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.bazel.repository.DecompressorValue.Decompressor;
@@ -29,11 +29,11 @@ import com.google.devtools.build.zip.ZipReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.nio.charset.Charset;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import javax.annotation.Nullable;
 
@@ -51,14 +51,15 @@ public class ZipDecompressor implements Decompressor {
   private static final int S_IFREG = 0100000;
   private static final int S_IFLNK = 0120000;
   private static final int EXECUTABLE_MASK = 0755;
-  @VisibleForTesting
-  static final int WINDOWS_DIRECTORY = 0x10;
-  @VisibleForTesting
-  static final int WINDOWS_FILE = 0x20;
+
+  // source: https://docs.microsoft.com/en-us/windows/win32/fileio/file-attribute-constants
+  @VisibleForTesting static final int WINDOWS_FILE_ATTRIBUTE_DIRECTORY = 0x10;
+  @VisibleForTesting static final int WINDOWS_FILE_ATTRIBUTE_ARCHIVE = 0x20;
+  @VisibleForTesting static final int WINDOWS_FILE_ATTRIBUTE_NORMAL = 0x80;
 
   /**
-   * This unzips the zip file to directory {@link DecompressorDescriptor#repositoryPath()}, which by
-   * default is empty relative [to the calling external repository rule] path. The zip file is
+   * This unzips the zip file to directory {@link DecompressorDescriptor#destinationPath()}, which
+   * by default is empty relative [to the calling external repository rule] path. The zip file is
    * expected to have the WORKSPACE file at the top level, e.g.:
    *
    * <pre>
@@ -76,8 +77,9 @@ public class ZipDecompressor implements Decompressor {
   @Nullable
   public Path decompress(DecompressorDescriptor descriptor)
       throws IOException, InterruptedException {
-    Path destinationDirectory = descriptor.repositoryPath();
+    Path destinationDirectory = descriptor.destinationPath();
     Optional<String> prefix = descriptor.prefix();
+    Map<String, String> renameFiles = descriptor.renameFiles();
     boolean foundPrefix = false;
     // Store link, target info of symlinks, we create them after regular files are extracted.
     Map<Path, PathFragment> symlinks = new HashMap<>();
@@ -85,7 +87,10 @@ public class ZipDecompressor implements Decompressor {
     try (ZipReader reader = new ZipReader(descriptor.archivePath().getPathFile())) {
       Collection<ZipFileEntry> entries = reader.entries();
       for (ZipFileEntry entry : entries) {
-        StripPrefixedPath entryPath = StripPrefixedPath.maybeDeprefix(entry.getName(), prefix);
+        String entryName = entry.getName();
+        entryName = renameFiles.getOrDefault(entryName, entryName);
+        StripPrefixedPath entryPath =
+            StripPrefixedPath.maybeDeprefix(entryName.getBytes(UTF_8), prefix);
         foundPrefix = foundPrefix || entryPath.foundPrefix();
         if (entryPath.skip()) {
           continue;
@@ -98,12 +103,9 @@ public class ZipDecompressor implements Decompressor {
         Set<String> prefixes = new HashSet<>();
         for (ZipFileEntry entry : entries) {
           StripPrefixedPath entryPath =
-              StripPrefixedPath.maybeDeprefix(entry.getName(), Optional.absent());
-          Optional<String> suggestion =
-              CouldNotFindPrefixException.maybeMakePrefixSuggestion(entryPath.getPathFragment());
-          if (suggestion.isPresent()) {
-            prefixes.add(suggestion.get());
-          }
+              StripPrefixedPath.maybeDeprefix(entry.getName().getBytes(UTF_8), Optional.empty());
+          CouldNotFindPrefixException.maybeMakePrefixSuggestion(entryPath.getPathFragment())
+              .ifPresent(prefixes::add);
         }
         throw new CouldNotFindPrefixException(prefix.get(), prefixes);
       }
@@ -131,28 +133,33 @@ public class ZipDecompressor implements Decompressor {
     }
     Path outputPath = destinationDirectory.getRelative(strippedRelativePath);
     int permissions = getPermissions(entry.getExternalAttributes(), entry.getName());
-    FileSystemUtils.createDirectoryAndParents(outputPath.getParentDirectory());
+    outputPath.getParentDirectory().createDirectoryAndParents();
     boolean isDirectory = (permissions & S_IFDIR) == S_IFDIR;
     boolean isSymlink = (permissions & S_IFLNK) == S_IFLNK;
     if (isDirectory) {
-      FileSystemUtils.createDirectoryAndParents(outputPath);
+      outputPath.createDirectoryAndParents();
     } else if (isSymlink) {
       Preconditions.checkState(entry.getSize() < MAX_PATH_LENGTH);
       byte[] buffer = new byte[(int) entry.getSize()];
       // For symlinks, the "compressed data" is actually the target name.
       int read = reader.getInputStream(entry).read(buffer);
       Preconditions.checkState(read == buffer.length);
-      PathFragment target = PathFragment.create(new String(buffer, Charset.defaultCharset()));
+
+      PathFragment target = StripPrefixedPath.createPathFragment(buffer);
       if (target.containsUplevelReferences()) {
         PathFragment pointsTo = strippedRelativePath.getParentDirectory().getRelative(target);
         if (pointsTo.containsUplevelReferences()) {
-          throw new IOException("Zip entries cannot refer to files outside of their directory: "
-              + reader.getFilename() + " has a symlink " + strippedRelativePath + " pointing to "
-              + target);
+          throw new IOException(
+              "Zip entries cannot refer to files outside of their directory: "
+                  + reader.getFilename()
+                  + " has a symlink "
+                  + strippedRelativePath
+                  + " pointing to "
+                  + new String(buffer, UTF_8));
         }
       }
-      target = maybeDeprefixSymlink(target, prefix, destinationDirectory);
-      symlinks.put(outputPath, target);
+
+      symlinks.put(outputPath, maybeDeprefixSymlink(buffer, prefix, destinationDirectory));
     } else {
       try (InputStream input = reader.getInputStream(entry);
           OutputStream output = outputPath.getOutputStream()) {
@@ -186,10 +193,13 @@ public class ZipDecompressor implements Decompressor {
     // https://github.com/miloyip/rapidjson/archive/v1.0.2.zip, it looks like executables end up
     // with "normal" (posix) permissions (oddly), so they'll be handled above.
     int windowsPermission = permissions & 0xff;
-    if ((windowsPermission & WINDOWS_DIRECTORY) == WINDOWS_DIRECTORY) {
+    if ((windowsPermission & WINDOWS_FILE_ATTRIBUTE_DIRECTORY)
+        == WINDOWS_FILE_ATTRIBUTE_DIRECTORY) {
       // Directory.
       return S_IFDIR | EXECUTABLE_MASK;
-    } else if (permissions == 0 || (windowsPermission & WINDOWS_FILE) == WINDOWS_FILE) {
+    } else if (permissions == 0
+        || (windowsPermission & WINDOWS_FILE_ATTRIBUTE_ARCHIVE) == WINDOWS_FILE_ATTRIBUTE_ARCHIVE
+        || (windowsPermission & WINDOWS_FILE_ATTRIBUTE_NORMAL) == WINDOWS_FILE_ATTRIBUTE_NORMAL) {
       // File.
       return S_IFREG | EXECUTABLE_MASK;
     }

@@ -1,5 +1,7 @@
-load("@com_google_protobuf//:protobuf.bzl", "py_proto_library")
-load("@rules_proto//proto:defs.bzl", "proto_library")
+load("@com_google_protobuf//bazel:cc_proto_library.bzl", "cc_proto_library")
+load("@com_google_protobuf//bazel:java_proto_library.bzl", "java_proto_library")
+load("@com_google_protobuf//bazel:proto_library.bzl", "proto_library")
+load("@com_google_protobuf//bazel:py_proto_library.bzl", "py_proto_library")
 load("//third_party/grpc:build_defs.bzl", "java_grpc_library")
 load("//third_party/grpc/bazel:cc_grpc_library.bzl", "cc_grpc_library")
 load("//tools/build_rules:utilities.bzl", "java_library_srcs")
@@ -8,19 +10,21 @@ package(default_visibility = ["//visibility:public"])
 
 FILES = [
     "action_cache",
-    "android_deploy_info",
     "bazel_flags",
-    "build",
     "builtin",
+    "crash_debugging",
     "crosstool_config",
     "deps",
     "desugar_deps",
     "execution_statistics",
     "extra_actions_base",
-    "invocation_policy",
     "java_compilation",
+    "memory_pressure",
+    "strategy_policy",
     "test_status",
     "worker_protocol",
+    "execution_graph",
+    "file_invalidation_data",
 ]
 
 [proto_library(
@@ -39,27 +43,19 @@ FILES = [
 ) for s in FILES]
 
 proto_library(
-    name = "analysis_proto",
-    srcs = ["analysis.proto"],
-    deps = [":build_proto"],
-)
-
-py_proto_library(
-    name = "analysis_py_proto",
-    srcs = ["analysis.proto"],
-    default_runtime = "//third_party/protobuf:protobuf_python",
-    protoc = "//third_party/protobuf:protoc",
-    deps = [":build_pb_py"],
+    name = "build_proto",
+    srcs = ["build.proto"],
+    deps = [":stardoc_output_proto"],
 )
 
 java_proto_library(
-    name = "analysis_java_proto",
-    deps = [":analysis_proto"],
+    name = "build_java_proto",
+    deps = [":build_proto"],
 )
 
 java_library_srcs(
-    name = "analysis_java_proto_srcs",
-    deps = [":analysis_java_proto"],
+    name = "build_java_proto_srcs",
+    deps = [":build_java_proto"],
 )
 
 proto_library(
@@ -70,10 +66,7 @@ proto_library(
 
 py_proto_library(
     name = "analysis_v2_py_proto",
-    srcs = ["analysis_v2.proto"],
-    default_runtime = "//third_party/protobuf:protobuf_python",
-    protoc = "//third_party/protobuf:protoc",
-    deps = [":build_pb_py"],
+    deps = [":analysis_v2_proto"],
 )
 
 java_proto_library(
@@ -131,45 +124,50 @@ java_library_srcs(
     deps = [":failure_details_java_proto"],
 )
 
-# This new option tagging method is in flux while being applied to the options
-# in the Bazel code base. The visibility should not be changed to allow external
-# dependencies until the interface has stabilized and can commit to maintaining
-# backwards compatibility for 6 months' time.
-# TODO(bazel-team) Make these visibility:public when the interface is stable.
+proto_library(
+    name = "invocation_policy_proto",
+    srcs = ["invocation_policy.proto"],
+    deps = [":strategy_policy_proto"],
+)
+
+java_proto_library(
+    name = "invocation_policy_java_proto",
+    deps = [":invocation_policy_proto"],
+)
+
+java_library_srcs(
+    name = "invocation_policy_java_proto_srcs",
+    deps = [":invocation_policy_java_proto"],
+)
+
 proto_library(
     name = "option_filters_proto",
     srcs = ["option_filters.proto"],
-    visibility = ["//visibility:private"],
 )
 
 java_proto_library(
     name = "option_filters_java_proto",
-    visibility = ["//src:__subpackages__"],
     deps = [":option_filters_proto"],
 )
 
 java_library_srcs(
     name = "option_filters_java_proto_srcs",
-    visibility = ["//visibility:private"],
     deps = [":option_filters_java_proto"],
 )
 
 proto_library(
     name = "command_line_proto",
     srcs = ["command_line.proto"],
-    visibility = ["//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:__pkg__"],
     deps = [":option_filters_proto"],
 )
 
 java_proto_library(
     name = "command_line_java_proto",
-    visibility = ["//src:__subpackages__"],
     deps = [":command_line_proto"],
 )
 
 java_library_srcs(
     name = "command_line_java_proto_srcs",
-    visibility = ["//visibility:private"],
     deps = [":command_line_java_proto"],
 )
 
@@ -221,9 +219,7 @@ cc_grpc_library(
 
 py_proto_library(
     name = "build_pb_py",
-    srcs = ["build.proto"],
-    default_runtime = "//third_party/protobuf:protobuf_python",
-    protoc = "//third_party/protobuf:protoc",
+    deps = [":build_proto"],
 )
 
 java_library_srcs(
@@ -242,9 +238,9 @@ proto_library(
     srcs = ["remote_execution_log.proto"],
     deps = [
         "@com_google_protobuf//:timestamp_proto",
-        "@googleapis//:google_bytestream_bytestream_proto",
-        "@googleapis//:google_longrunning_operations_proto",
-        "@googleapis//:google_rpc_status_proto",
+        "@googleapis//google/bytestream:bytestream_proto",
+        "@googleapis//google/longrunning:operations_proto",
+        "@googleapis//google/rpc:status_proto",
         "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_proto",
     ],
 )
@@ -260,10 +256,100 @@ java_library_srcs(
 )
 
 proto_library(
+    name = "cache_salt_proto",
+    srcs = ["cache_salt.proto"],
+)
+
+java_proto_library(
+    name = "cache_salt_java_proto",
+    deps = [":cache_salt_proto"],
+)
+
+java_library_srcs(
+    name = "cache_salt_java_proto_srcs",
+    deps = [":cache_salt_java_proto"],
+)
+
+proto_library(
+    name = "remote_scrubbing_proto",
+    srcs = ["remote_scrubbing.proto"],
+)
+
+java_proto_library(
+    name = "remote_scrubbing_java_proto",
+    deps = [":remote_scrubbing_proto"],
+)
+
+java_library_srcs(
+    name = "remote_scrubbing_java_proto_srcs",
+    deps = [":remote_scrubbing_java_proto"],
+)
+
+proto_library(
+    name = "bazel_output_service_proto",
+    srcs = ["bazel_output_service.proto"],
+    deps = [
+        "@com_google_protobuf//:any_proto",
+        "@googleapis//google/rpc:status_proto",
+    ],
+)
+
+java_proto_library(
+    name = "bazel_output_service_java_proto",
+    deps = [":bazel_output_service_proto"],
+)
+
+java_library_srcs(
+    name = "bazel_output_service_java_proto_srcs",
+    deps = [":bazel_output_service_java_proto"],
+)
+
+cc_proto_library(
+    name = "bazel_output_service_cc_proto",
+    deps = [":bazel_output_service_proto"],
+)
+
+proto_library(
+    name = "bazel_output_service_rev2_proto",
+    srcs = ["bazel_output_service_rev2.proto"],
+    deps = [
+        "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_proto",
+    ],
+)
+
+java_proto_library(
+    name = "bazel_output_service_rev2_java_proto",
+    deps = [":bazel_output_service_rev2_proto"],
+)
+
+java_library_srcs(
+    name = "bazel_output_service_rev2_java_proto_srcs",
+    deps = [":bazel_output_service_rev2_java_proto"],
+)
+
+cc_proto_library(
+    name = "bazel_output_service_rev2_cc_proto",
+    deps = [":bazel_output_service_rev2_proto"],
+)
+
+java_grpc_library(
+    name = "bazel_output_service_java_grpc",
+    srcs = [":bazel_output_service_proto"],
+    deps = [":bazel_output_service_java_proto"],
+)
+
+cc_grpc_library(
+    name = "bazel_output_service_cc_grpc",
+    srcs = [":bazel_output_service_proto"],
+    deps = [":bazel_output_service_cc_proto"],
+)
+
+proto_library(
     name = "spawn_proto",
     srcs = ["spawn.proto"],
     deps = [
         "@com_google_protobuf//:duration_proto",
+        "@com_google_protobuf//:timestamp_proto",
     ],
 )
 
@@ -275,6 +361,38 @@ java_proto_library(
 java_library_srcs(
     name = "spawn_java_proto_srcs",
     deps = [":spawn_java_proto"],
+)
+
+# Note that stardoc_output_proto and stardoc_output_java_proto are vendored by
+# Stardoc: https://github.com/bazelbuild/stardoc/tree/master/stardoc/proto
+package_group(
+    name = "stardoc_output_users",
+    packages = [
+        "//src/main/java/com/google/devtools/build/docgen/...",
+        "//src/main/java/com/google/devtools/build/lib/rules/starlarkdocextract/...",
+        "//src/main/java/com/google/devtools/build/lib/starlarkdocextract/...",
+        "//src/test/java/com/google/devtools/build/docgen/...",
+        "//src/test/java/com/google/devtools/build/lib/rules/starlarkdocextract/...",
+        "//src/test/java/com/google/devtools/build/lib/starlarkdocextract/...",
+    ],
+)
+
+proto_library(
+    name = "stardoc_output_proto",
+    srcs = ["stardoc_output.proto"],
+    visibility = [":stardoc_output_users"],
+)
+
+java_proto_library(
+    name = "stardoc_output_java_proto",
+    visibility = [":stardoc_output_users"],
+    deps = [":stardoc_output_proto"],
+)
+
+java_library_srcs(
+    name = "stardoc_output_java_proto_srcs",
+    visibility = [":stardoc_output_users"],
+    deps = [":stardoc_output_java_proto"],
 )
 
 proto_library(
@@ -306,16 +424,23 @@ filegroup(
 filegroup(
     name = "dist_jars",
     srcs = [s + "_java_proto_srcs" for s in FILES] + [
-        ":analysis_java_proto_srcs",
         ":analysis_v2_java_proto_srcs",
+        ":bazel_output_service_java_grpc_srcs",
+        ":bazel_output_service_java_proto_srcs",
+        ":bazel_output_service_rev2_java_proto_srcs",
+        ":build_java_proto_srcs",
+        ":cache_salt_java_proto_srcs",
         ":command_line_java_proto_srcs",
         ":command_server_java_grpc_srcs",
         ":command_server_java_proto_srcs",
         ":failure_details_java_proto_srcs",
+        ":invocation_policy_java_proto_srcs",
         ":option_filters_java_proto_srcs",
         ":profile_java_proto_srcs",
         ":remote_execution_log_java_proto_srcs",
+        ":remote_scrubbing_java_proto_srcs",
         ":spawn_java_proto_srcs",
+        ":stardoc_output_java_proto_srcs",
         ":xcode_java_proto_srcs",
     ],
 )

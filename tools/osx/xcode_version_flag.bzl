@@ -98,6 +98,16 @@ def _tvos_sdk_version_flag_impl(ctx):
         ),
     ))
 
+def _visionos_sdk_version_flag_impl(ctx):
+    """A rule that allows select() to select based on the visionOS SDK version."""
+    xcode_config = ctx.attr._xcode_config[apple_common.XcodeVersionConfig]
+
+    return config_common.FeatureFlagInfo(value = _strip_version(
+        xcode_config.sdk_version_for_platform(
+            apple_common.platform.visionos_device,
+        ),
+    ))
+
 def _watchos_sdk_version_flag_impl(ctx):
     """A rule that allows select() to select based on the watchOS SDK version."""
     xcode_config = ctx.attr._xcode_config[apple_common.XcodeVersionConfig]
@@ -192,6 +202,16 @@ ios_sdk_version_flag = rule(
 
 tvos_sdk_version_flag = rule(
     implementation = _tvos_sdk_version_flag_impl,
+    attrs = {
+        "_xcode_config": attr.label(default = configuration_field(
+            fragment = "apple",
+            name = "xcode_config_label",
+        )),
+    },
+)
+
+visionos_sdk_version_flag = rule(
+    implementation = _visionos_sdk_version_flag_impl,
     attrs = {
         "_xcode_config": attr.label(default = configuration_field(
             fragment = "apple",

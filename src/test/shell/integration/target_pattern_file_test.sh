@@ -55,13 +55,6 @@ msys*)
   ;;
 esac
 
-if "$is_windows"; then
-  # Disable MSYS path conversion that converts path-looking command arguments to
-  # Windows paths (even if they arguments are not in fact paths).
-  export MSYS_NO_PATHCONV=1
-  export MSYS2_ARG_CONV_EXCL="*"
-fi
-
 add_to_bazelrc "build --package_path=%workspace%"
 
 #### SETUP #############################################################
@@ -73,8 +66,10 @@ sh_test(name = "y", srcs = ["x.out"])
 EOF
 
   cat >build.params <<'EOF'
-//:x
+# Test comment
+//:x # Trailing comment
 //:y
+#
 EOF
 }
 

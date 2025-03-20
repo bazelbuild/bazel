@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
+import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 
 /**
@@ -35,13 +36,18 @@ public abstract class Link {
    * but will never be expanded to their constituent {@code .o} files. {@link CppLinkAction} checks
    * that these files are never added as non-libraries.
    */
-  public static final FileTypeSet SHARED_LIBRARY_FILETYPES = FileTypeSet.of(
-      CppFileTypes.SHARED_LIBRARY,
-      CppFileTypes.VERSIONED_SHARED_LIBRARY,
-      CppFileTypes.INTERFACE_SHARED_LIBRARY);
+  public static final FileTypeSet SHARED_LIBRARY_FILETYPES =
+      FileTypeSet.of(
+          CppFileTypes.SHARED_LIBRARY,
+          CppFileTypes.VERSIONED_SHARED_LIBRARY,
+          CppFileTypes.INTERFACE_SHARED_LIBRARY,
+          FileType.NO_EXTENSION);
 
   public static final FileTypeSet ONLY_SHARED_LIBRARY_FILETYPES =
-      FileTypeSet.of(CppFileTypes.SHARED_LIBRARY, CppFileTypes.VERSIONED_SHARED_LIBRARY);
+      FileTypeSet.of(
+          CppFileTypes.SHARED_LIBRARY,
+          CppFileTypes.VERSIONED_SHARED_LIBRARY,
+          FileType.NO_EXTENSION);
 
   public static final FileTypeSet ONLY_INTERFACE_LIBRARY_FILETYPES =
       FileTypeSet.of(CppFileTypes.INTERFACE_SHARED_LIBRARY);
@@ -52,10 +58,15 @@ public abstract class Link {
           CppFileTypes.PIC_ARCHIVE,
           CppFileTypes.ALWAYS_LINK_LIBRARY,
           CppFileTypes.ALWAYS_LINK_PIC_LIBRARY,
-          CppFileTypes.RUST_RLIB);
+          CppFileTypes.RUST_RLIB,
+          FileType.NO_EXTENSION);
 
   public static final FileTypeSet ARCHIVE_FILETYPES =
-      FileTypeSet.of(CppFileTypes.ARCHIVE, CppFileTypes.PIC_ARCHIVE, CppFileTypes.RUST_RLIB);
+      FileTypeSet.of(
+          CppFileTypes.ARCHIVE,
+          CppFileTypes.PIC_ARCHIVE,
+          CppFileTypes.RUST_RLIB,
+          FileType.NO_EXTENSION);
 
   public static final FileTypeSet LINK_LIBRARY_FILETYPES = FileTypeSet.of(
       CppFileTypes.ALWAYS_LINK_LIBRARY,
@@ -69,9 +80,9 @@ public abstract class Link {
           CppFileTypes.CLIF_OUTPUT_PROTO,
           CppFileTypes.BC_SOURCE);
 
-  /**
-   * Whether a particular link target requires PIC code.
-   */
+  // LINT.IfChange
+
+  /** Whether a particular link target requires PIC code. */
   public enum Picness {
     PIC,
     NOPIC
@@ -104,14 +115,6 @@ public abstract class Link {
         ArtifactCategory.STATIC_LIBRARY,
         Executable.NOT_EXECUTABLE),
 
-    /** An objc static archive. */
-    OBJC_ARCHIVE(
-        LinkerOrArchiver.ARCHIVER,
-        CppActionNames.OBJC_ARCHIVE,
-        Picness.NOPIC,
-        ArtifactCategory.STATIC_LIBRARY,
-        Executable.NOT_EXECUTABLE),
-
     /** An objc fully linked static archive. */
     OBJC_FULLY_LINKED_ARCHIVE(
         LinkerOrArchiver.ARCHIVER,
@@ -124,14 +127,6 @@ public abstract class Link {
     OBJC_EXECUTABLE(
         LinkerOrArchiver.LINKER,
         CppActionNames.OBJC_EXECUTABLE,
-        Picness.NOPIC,
-        ArtifactCategory.EXECUTABLE,
-        Executable.EXECUTABLE),
-
-    /** An objc executable that includes objc++/c++ source. */
-    OBJCPP_EXECUTABLE(
-        LinkerOrArchiver.LINKER,
-        CppActionNames.OBJCPP_EXECUTABLE,
         Picness.NOPIC,
         ArtifactCategory.EXECUTABLE,
         Executable.EXECUTABLE),
@@ -190,6 +185,8 @@ public abstract class Link {
         Picness.NOPIC, // Picness is not indicate in the file name
         ArtifactCategory.EXECUTABLE,
         Executable.EXECUTABLE);
+
+    // LINT.ThenChange(//src/main/starlark/builtins_bzl/common/cc/link/target_types.bzl)
 
     private final LinkerOrArchiver linkerOrArchiver;
     private final String actionName;
@@ -293,7 +290,7 @@ public abstract class Link {
     START_END_LIB   // Put the object files enclosed by --start-lib / --end-lib on the command line
   }
 
-  static boolean useStartEndLib(LinkerInput linkerInput, ArchiveType archiveType) {
+  static boolean useStartEndLib(LegacyLinkerInput linkerInput, ArchiveType archiveType) {
     // TODO(bazel-team): Figure out if PicArchives are actually used. For it to be used, both
     // linkingStatically and linkShared must me true, we must be in opt mode and cpu has to be k8.
     return archiveType == ArchiveType.START_END_LIB

@@ -15,10 +15,12 @@
 package com.google.devtools.build.lib.rules.python;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.rules.python.PythonTestUtils.getPyLoad;
 
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.FileConfiguredTarget;
 import com.google.devtools.build.lib.testutil.TestConstants;
+import java.util.regex.Pattern;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -31,49 +33,11 @@ public class PyBinaryConfiguredTargetTest extends PyExecutableConfiguredTargetTe
     super("py_binary");
   }
 
-  /**
-   * Creates a target //pkg:bin with the given version attr and that depends on a target //pkg:lib
-   * having the given sources version attr.
-   */
-  private void declareBinDependingOnLibWithVersions(String binVersion, String libSrcsVersion)
-      throws Exception {
-    scratch.file(
-        "pkg/BUILD",
-        "py_library(name = 'lib',",
-        "    srcs = [],",
-        "    srcs_version = '" + libSrcsVersion + "')",
-        "py_binary(name = 'bin',",
-        "    srcs = ['bin.py'],",
-        "    deps = [':lib'],",
-        "    python_version = '" + binVersion + "')");
-  }
-
-  @Test
-  public void python2WithPy3SrcsVersionDependency() throws Exception {
-    declareBinDependingOnLibWithVersions("PY2", "PY3");
-    assertThat(getPyExecutableDeferredError("//pkg:bin"))
-        .startsWith(
-            "//pkg:bin: This target is being built for Python 2 but (transitively) "
-                + "includes Python 3-only sources");
-  }
-
-  @Test
-  public void python2WithPy3OnlySrcsVersionDependency() throws Exception {
-    declareBinDependingOnLibWithVersions("PY2", "PY3ONLY");
-    assertThat(getPyExecutableDeferredError("//pkg:bin"))
-        .contains("being built for Python 2 but (transitively) includes Python 3-only sources");
-  }
-
-  @Test
-  public void python3WithPy2OnlySrcsVersionDependency_NewSemantics() throws Exception {
-    declareBinDependingOnLibWithVersions("PY3", "PY2ONLY");
-    assertThat(getPyExecutableDeferredError("//pkg:bin"))
-        .contains("being built for Python 3 but (transitively) includes Python 2-only sources");
-  }
-
   @Test
   public void filesToBuild() throws Exception {
-    scratch.file("pkg/BUILD",
+    scratch.file(
+        "pkg/BUILD",
+        getPyLoad("py_binary"),
         "py_binary(",
         "    name = 'foo',",
         "    srcs = ['foo.py'])");
@@ -89,10 +53,14 @@ public class PyBinaryConfiguredTargetTest extends PyExecutableConfiguredTargetTe
   public void srcsIsMandatory() throws Exception {
     // This case is somewhat dominated by the test that the default main must be in srcs, but the
     // error message is different here.
-    checkError("pkg", "foo",
+    checkError(
+        "pkg",
+        "foo",
         // error:
         "missing value for mandatory attribute 'srcs'",
         // build file:
+        getPyLoad("py_binary"),
+        getPyLoad("py_library"),
         "py_binary(",
         "    name = 'foo',",
         "    deps = [':bar'])",
@@ -103,10 +71,13 @@ public class PyBinaryConfiguredTargetTest extends PyExecutableConfiguredTargetTe
 
   @Test
   public void defaultMainMustBeInSrcs() throws Exception {
-    checkError("pkg", "app",
+    checkError(
+        "pkg",
+        "app",
         // error:
         "corresponding default 'app.py' does not appear",
         // build file:
+        getPyLoad("py_binary"),
         "py_binary(",
         "    name = 'app',",
         "    srcs = ['foo.py', 'bar.py'])");
@@ -114,7 +85,9 @@ public class PyBinaryConfiguredTargetTest extends PyExecutableConfiguredTargetTe
 
   @Test
   public void explicitMain() throws Exception {
-    scratch.file("pkg/BUILD",
+    scratch.file(
+        "pkg/BUILD",
+        getPyLoad("py_binary"),
         "py_binary(",
         "    name = 'foo',",
         "    main = 'foo.py',",
@@ -124,10 +97,13 @@ public class PyBinaryConfiguredTargetTest extends PyExecutableConfiguredTargetTe
 
   @Test
   public void explicitMainMustBeInSrcs() throws Exception {
-    checkError("pkg", "foo",
+    checkError(
+        "pkg",
+        "foo",
         // error:
         "could not find 'foo.py'",
         // build file:
+        getPyLoad("py_binary"),
         "py_binary(",
         "    name = 'foo',",
         "    main = 'foo.py',",
@@ -136,15 +112,19 @@ public class PyBinaryConfiguredTargetTest extends PyExecutableConfiguredTargetTe
 
   @Test
   public void defaultMainCannotBeAmbiguous() throws Exception {
-    scratch.file("pkg1/BUILD",
+    scratch.file(
+        "pkg1/BUILD",
+        getPyLoad("py_binary"),
         "py_binary(",
         "    name = 'foo',",
         "    srcs = ['bar.py'])");
-    checkError("pkg2", "bar",
+    checkError(
+        "pkg2",
+        "bar",
         // error:
-        "default main file name 'bar.py' matches multiple files.  Perhaps specify an explicit file "
-            + "with 'main' attribute?  Matches were: 'pkg2/bar.py' and 'pkg1/bar.py'",
+        Pattern.compile(".*bar.py.*matches multiple.*"),
         // build file:
+        getPyLoad("py_binary"),
         "py_binary(",
         "    name = 'bar',",
         "    srcs = ['bar.py', '//pkg1:bar.py'])");
@@ -152,15 +132,19 @@ public class PyBinaryConfiguredTargetTest extends PyExecutableConfiguredTargetTe
 
   @Test
   public void explicitMainCannotBeAmbiguous() throws Exception {
-    scratch.file("pkg1/BUILD",
+    scratch.file(
+        "pkg1/BUILD",
+        getPyLoad("py_binary"),
         "py_binary(",
         "    name = 'foo',",
         "    srcs = ['bar.py'])");
-    checkError("pkg2", "foo",
+    checkError(
+        "pkg2",
+        "foo",
         // error:
-        "file name 'bar.py' specified by 'main' attribute matches multiple files: e.g., "
-            + "'pkg2/bar.py' and 'pkg1/bar.py'",
+        Pattern.compile(".*bar.py.*matches multiple.*"),
         // build file:
+        getPyLoad("py_binary"),
         "py_binary(",
         "    name = 'foo',",
         "    main = 'bar.py',",
@@ -169,10 +153,13 @@ public class PyBinaryConfiguredTargetTest extends PyExecutableConfiguredTargetTe
 
   @Test
   public void nameCannotEndInPy() throws Exception {
-    checkError("pkg", "foo.py",
+    checkError(
+        "pkg",
+        "foo.py",
         // error:
         "name must not end in '.py'",
         // build file:
+        getPyLoad("py_binary"),
         "py_binary(",
         "    name = 'foo.py',",
         "    srcs = ['bar.py'])");
@@ -180,7 +167,9 @@ public class PyBinaryConfiguredTargetTest extends PyExecutableConfiguredTargetTe
 
   @Test
   public void defaultMainCanBeGenerated() throws Exception {
-    scratch.file("pkg/BUILD",
+    scratch.file(
+        "pkg/BUILD",
+        getPyLoad("py_binary"),
         "genrule(",
         "    name = 'gen_py',",
         "    cmd = 'touch $(location foo.py)',",
@@ -194,7 +183,9 @@ public class PyBinaryConfiguredTargetTest extends PyExecutableConfiguredTargetTe
   @Test
   public void defaultMainCanHaveMultiplePathSegments() throws Exception {
     // Regression test for crash caused by use of getChild on a multi-segment rule name.
-    scratch.file("pkg/BUILD",
+    scratch.file(
+        "pkg/BUILD",
+        getPyLoad("py_binary"),
         "py_binary(",
         "    name = 'foo/bar',",
         "    srcs = ['foo/bar.py'])");

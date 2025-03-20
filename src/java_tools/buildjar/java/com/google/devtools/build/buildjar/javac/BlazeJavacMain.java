@@ -19,6 +19,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.MoreCollectors.toOptional;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Comparator.comparing;
+import static java.util.Locale.ENGLISH;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -35,7 +36,6 @@ import com.sun.tools.javac.api.JavacTaskImpl;
 import com.sun.tools.javac.api.JavacTool;
 import com.sun.tools.javac.file.CacheFSInfo;
 import com.sun.tools.javac.file.JavacFileManager;
-import com.sun.tools.javac.main.JavaCompiler;
 import com.sun.tools.javac.main.Main.Result;
 import com.sun.tools.javac.util.Context;
 import com.sun.tools.javac.util.Log;
@@ -49,15 +49,12 @@ import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.file.Path;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import javax.tools.Diagnostic;
 import javax.tools.DiagnosticListener;
-import javax.tools.JavaFileObject;
-import javax.tools.JavaFileObject.Kind;
 import javax.tools.StandardLocation;
 
 /**
@@ -68,6 +65,15 @@ import javax.tools.StandardLocation;
  * warnings.
  */
 public class BlazeJavacMain {
+
+  private static final Pattern INCOMPATIBLE_SYSTEM_CLASS_PATH_ERROR =
+      Pattern.compile(
+          "(?s)bad class file: /modules/.*class file has wrong version (?<version>[4-9][0-9])\\.");
+
+  private static final Pattern UNSUPPORTED_CLASS_VERSION_ERROR =
+      Pattern.compile(
+          "^(?<class>[^ ]*) has been compiled by a more recent version of the Java Runtime "
+              + "\\(class file version (?<version>[4-9][0-9])\\.");
 
   /**
    * Sets up a BlazeJavaCompiler with the given plugins within the given context.
@@ -95,6 +101,12 @@ public class BlazeJavacMain {
       return BlazeJavacResult.error(e.getMessage());
     }
 
+    Optional<WerrorCustomOption> maybeWerrorCustom =
+        arguments.blazeJavacOptions().stream()
+            .filter(arg -> arg.startsWith("-Werror:"))
+            .collect(toOptional())
+            .map(WerrorCustomOption::create);
+
     Context context = new Context();
     BlazeJavacStatistics.preRegister(context);
     CacheFSInfo.preRegister(context);
@@ -106,17 +118,17 @@ public class BlazeJavacMain {
     // TODO(cushon): where is this used when a diagnostic listener is registered? Consider removing
     // it and handling exceptions directly in callers.
     PrintWriter errWriter = new PrintWriter(errOutput);
-    Listener diagnosticsBuilder = new Listener(arguments.failFast(), context);
-    BlazeJavaCompiler compiler;
+    Listener diagnosticsBuilder =
+        new Listener(arguments.failFast(), maybeWerrorCustom, context, arguments.workDir());
 
     // Initialize parts of context that the filemanager depends on
     context.put(DiagnosticListener.class, diagnosticsBuilder);
     Log.instance(context).setWriters(errWriter);
-    Options.instance(context).put("-Xlint:path", "path");
+    Options options = Options.instance(context);
+    options.put("-Xlint:path", "path");
+    options.put("expandJarClassPaths", "false");
 
-    try (ClassloaderMaskingFileManager fileManager =
-        new ClassloaderMaskingFileManager(
-            context, arguments.builtinProcessors(), getMatchingBootFileManager(arguments))) {
+    try (ClassloaderMaskingFileManager fileManager = new ClassloaderMaskingFileManager(context)) {
 
       setLocations(fileManager, arguments);
 
@@ -136,53 +148,47 @@ public class BlazeJavacMain {
       } catch (PropagatedException e) {
         throw e.getCause();
       }
-    } catch (Throwable t) {
-      if (t.getCause() instanceof CancelRequestException) {
-        return BlazeJavacResult.cancelled(t.getCause().getMessage());
+    } catch (Exception t) {
+      Throwable cause = t.getCause();
+      if (cause instanceof CancelRequestException) {
+        return BlazeJavacResult.cancelled(cause.getMessage());
+      }
+      Matcher matcher;
+      if (cause instanceof UnsupportedClassVersionError
+          && (matcher = UNSUPPORTED_CLASS_VERSION_ERROR.matcher(cause.getMessage())).find()) {
+        // Java 8 corresponds to class file major version 52.
+        int processorVersion = Integer.parseUnsignedInt(matcher.group("version")) - 44;
+        errWriter.printf(
+            "The Java %d runtime used to run javac is not recent enough to run the processor %s, "
+                + "which has been compiled targeting Java %d. Either register a Java toolchain "
+                + "with a newer java_runtime or, if this processor has been built with Bazel, "
+                + "specify a lower --tool_java_language_version.%n",
+            Runtime.version().feature(),
+            matcher.group("class").replace('/', '.'),
+            processorVersion);
       }
       t.printStackTrace(errWriter);
       status = Status.CRASH;
-    } finally {
-      compiler = (BlazeJavaCompiler) JavaCompiler.instance(context);
-      if (status == Status.OK) {
-        // There could be situations where we incorrectly skip Error Prone and the compilation
-        // ends up succeeding, e.g., if there are errors that are fixed by subsequent round of
-        // annotation processing.  This check ensures that if there were any flow events at all,
-        // then plugins were run.  There may legitimately not be any flow events, e.g. -proc:only
-        // or empty source files.
-        if (compiler.skippedFlowEvents() > 0 && compiler.flowEvents() == 0) {
-          errWriter.println("Expected at least one FLOW event");
-          status = Status.ERROR;
-        }
-      }
     }
     errWriter.flush();
     ImmutableList<FormattedDiagnostic> diagnostics = diagnosticsBuilder.build();
 
+    diagnostics.stream()
+        .map(d -> maybeGetJavaConfigurationError(arguments, d))
+        .flatMap(Optional::stream)
+        .findFirst()
+        .ifPresent(errOutput::append);
+
     boolean werror =
         diagnostics.stream().anyMatch(d -> d.getCode().equals("compiler.err.warnings.and.werror"));
-    if (status.equals(Status.OK)) {
-      Optional<WerrorCustomOption> maybeWerrorCustom =
-          arguments.blazeJavacOptions().stream()
-              .filter(arg -> arg.startsWith("-Werror:"))
-              .collect(toOptional())
-              .map(WerrorCustomOption::create);
-      if (maybeWerrorCustom.isPresent()) {
-        WerrorCustomOption werrorCustom = maybeWerrorCustom.get();
-        if (diagnostics.stream().anyMatch(d -> isWerror(werrorCustom, d))) {
-          errOutput.append("error: warnings found and -Werror specified\n");
-          status = Status.ERROR;
-          werror = true;
-        }
-      }
+    if (status.equals(Status.OK) && diagnosticsBuilder.werror()) {
+      errOutput.append("error: warnings found and -Werror specified\n");
+      status = Status.ERROR;
+      werror = true;
     }
 
     return BlazeJavacResult.createFullResult(
-        status,
-        filterDiagnostics(werror, diagnostics),
-        errOutput.toString(),
-        compiler,
-        builder.build());
+        status, filterDiagnostics(werror, diagnostics), errOutput.toString(), builder.build());
   }
 
   private static Status fromResult(Result result) {
@@ -197,16 +203,6 @@ public class BlazeJavacMain {
         return Status.CRASH;
     }
     throw new AssertionError(result);
-  }
-
-  private static boolean isWerror(WerrorCustomOption werrorCustom, FormattedDiagnostic diagnostic) {
-    switch (diagnostic.getKind()) {
-      case WARNING:
-      case MANDATORY_WARNING:
-        return werrorCustom.isEnabled(diagnostic.getLintCategory());
-      default:
-        return false;
-    }
   }
 
   private static final ImmutableSet<String> IGNORED_DIAGNOSTIC_CODES =
@@ -255,6 +251,33 @@ public class BlazeJavacMain {
     return false;
   }
 
+  private static Optional<String> maybeGetJavaConfigurationError(
+      BlazeJavacArguments arguments, Diagnostic<?> diagnostic) {
+    if (!diagnostic.getKind().equals(Diagnostic.Kind.ERROR)) {
+      return Optional.empty();
+    }
+    Matcher matcher;
+    if (!diagnostic.getCode().equals("compiler.err.cant.access")
+        || arguments.system() == null
+        || !(matcher = INCOMPATIBLE_SYSTEM_CLASS_PATH_ERROR.matcher(diagnostic.getMessage(ENGLISH)))
+            .find()) {
+      return Optional.empty();
+    }
+    // The output path is of the form $PRODUCT-out/$CPU-$MODE[-exec-...]/bin/...
+    boolean isForTool = arguments.classOutput().subpath(1, 2).toString().contains("-exec-");
+    // Java 8 corresponds to class file major version 52.
+    int systemClasspathVersion = Integer.parseUnsignedInt(matcher.group("version")) - 44;
+    return Optional.of(
+        String.format(
+            "error: [BazelJavaConfiguration] The Java %d runtime used to run javac is not recent "
+                + "enough to compile for the Java %d runtime in %s. Either register a Java "
+                + "toolchain with a newer java_runtime or specify a lower %s.\n",
+            Runtime.version().feature(),
+            systemClasspathVersion,
+            arguments.system(),
+            isForTool ? "--tool_java_runtime_version" : "--java_runtime_version"));
+  }
+
   /** Processes Plugin-specific arguments and removes them from the args array. */
   @VisibleForTesting
   static void processPluginArgs(
@@ -292,7 +315,7 @@ public class BlazeJavacMain {
                 .filter(f -> f.getFileName().toString().equals("module-info.java"))
                 .collect(toImmutableList());
         if (moduleInfos.size() == 1) {
-          sourcePath = ImmutableList.of(getOnlyElement(moduleInfos).getParent());
+          sourcePath = ImmutableList.of(getOnlyElement(moduleInfos).toAbsolutePath().getParent());
         }
       }
       fileManager.setLocationFromPaths(StandardLocation.SOURCE_PATH, sourcePath);
@@ -319,100 +342,40 @@ public class BlazeJavacMain {
   }
 
   /**
-   * Multiple javac file manager instances each specific for a combination of bootClassPaths with
-   * their digest.
-   */
-  private static final Map<BootClassPathCachingFileManager.Key, BootClassPathCachingFileManager>
-      bootFileManagers = new HashMap<>();
-
-  /**
-   * Returns a BootClassPathCachingFileManager instance that matches the combination of
-   * bootClassPaths and their digest in the case of a worker with valid arguments.
-   */
-  private static synchronized BootClassPathCachingFileManager getMatchingBootFileManager(
-      BlazeJavacArguments arguments) {
-    if (!arguments.requestId().isPresent()) {
-      // worker mode is not enabled
-      return null;
-    }
-    if (!BootClassPathCachingFileManager.areArgumentsValid(arguments)) {
-      // arguments not valid
-      return null;
-    }
-
-    BootClassPathCachingFileManager.Key key = BootClassPathCachingFileManager.Key.create(arguments);
-    return bootFileManagers.computeIfAbsent(
-        key, x -> new BootClassPathCachingFileManager(new Context(), key));
-  }
-
-  /**
-   * When Bazel invokes JavaBuilder, it puts javac.jar on the bootstrap class path and
-   * JavaBuilder_deploy.jar on the user class path. We need Error Prone to be available on the
-   * annotation processor path, but we want to mask out any other classes to minimize class version
-   * skew.
+   * Ensure that classes that appear in the API between JavaBuilder and plugins are consistently
+   * loaded by the same classloader. 'Plugins' here means both annotation processors and Error Prone
+   * plugins. The annotation processor API is defined in the JDK and doesn't require any special
+   * handling, since the versions in the system classloader will always be loaded preferentially.
+   * For Error Prone plugins, we want to ensure that classes in the API are loaded from the same
+   * classloader as JavaBuilder, but that other classes referenced by plugins are loaded from the
+   * processor classpath to avoid plugins seeing stale versions of classes from the releases
+   * JavaBuilder jar.
    */
   @Trusted
   private static class ClassloaderMaskingFileManager extends JavacFileManager {
 
-    private final ImmutableSet<String> builtinProcessors;
-    /** the BootClassPathCachingFileManager instance used for BootClassPaths only. */
-    private final BootClassPathCachingFileManager bootFileManger;
-
-    public ClassloaderMaskingFileManager(
-        Context context,
-        ImmutableSet<String> builtinProcessors,
-        BootClassPathCachingFileManager bootFileManager) {
+    public ClassloaderMaskingFileManager(Context context) {
       super(context, true, UTF_8);
-      this.builtinProcessors = builtinProcessors;
-      this.bootFileManger = bootFileManager;
-    }
-
-    @Override
-    public Iterable<JavaFileObject> list(
-        Location location, String packageName, Set<Kind> kinds, boolean recurse)
-        throws IOException {
-      if (this.bootFileManger != null && location == StandardLocation.PLATFORM_CLASS_PATH) {
-        return this.bootFileManger.list(location, packageName, kinds, recurse);
-      }
-      return super.list(location, packageName, kinds, recurse);
     }
 
     @Override
     protected ClassLoader getClassLoader(URL[] urls) {
       return new URLClassLoader(
           urls,
-          new ClassLoader(getPlatformClassLoader()) {
+          new ClassLoader(ClassLoader.getPlatformClassLoader()) {
             @Override
             protected Class<?> findClass(String name) throws ClassNotFoundException {
               if (name.startsWith("com.google.errorprone.")
                   || name.startsWith("com.google.common.collect.")
                   || name.startsWith("com.google.common.base.")
-                  || name.startsWith("com.google.common.graph.")
-                  || name.startsWith("org.checkerframework.shaded.dataflow.")
+                  || name.startsWith("com.google.common.regex.")
                   || name.startsWith("org.checkerframework.errorprone.dataflow.")
-                  || name.startsWith("com.sun.source.")
-                  || name.startsWith("com.sun.tools.")
-                  || name.startsWith("com.google.devtools.build.buildjar.javac.statistics.")
-                  || name.startsWith("dagger.model.")
-                  // TODO(b/191812726): Include dagger.spi.model before releasing it to SPI users.
-                  || (name.startsWith("dagger.spi.") && !name.startsWith("dagger.spi.model."))
-                  || builtinProcessors.contains(name)) {
+                  || name.startsWith("com.google.devtools.build.buildjar.javac.statistics.")) {
                 return Class.forName(name);
               }
               throw new ClassNotFoundException(name);
             }
           });
-    }
-  }
-
-  public static ClassLoader getPlatformClassLoader() {
-    try {
-      // In JDK 9+, all platform classes are visible to the platform class loader:
-      // https://docs.oracle.com/javase/9/docs/api/java/lang/ClassLoader.html#getPlatformClassLoader--
-      return (ClassLoader) ClassLoader.class.getMethod("getPlatformClassLoader").invoke(null);
-    } catch (ReflectiveOperationException e) {
-      // In earlier releases, set 'null' as the parent to delegate to the boot class loader.
-      return null;
     }
   }
 

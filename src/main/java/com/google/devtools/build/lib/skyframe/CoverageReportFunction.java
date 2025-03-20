@@ -17,14 +17,14 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
+import com.google.devtools.build.lib.actions.ActionConflictException;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.Actions;
-import com.google.devtools.build.lib.actions.Actions.GeneratingActions;
-import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue.Precomputed;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import javax.annotation.Nullable;
 
 /**
  * A Skyframe function to calculate the coverage report Action and Artifacts.
@@ -40,6 +40,7 @@ public class CoverageReportFunction implements SkyFunction {
   }
 
   @Override
+  @Nullable
   public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
     Preconditions.checkState(
         CoverageReportValue.COVERAGE_REPORT_KEY.equals(skyKey),
@@ -52,22 +53,12 @@ public class CoverageReportFunction implements SkyFunction {
       return null;
     }
 
-    GeneratingActions generatingActions;
     try {
-      generatingActions =
-          Actions.assignOwnersAndFilterSharedActionsAndThrowActionConflict(
-              actionKeyContext,
-              actions,
-              CoverageReportValue.COVERAGE_REPORT_KEY,
-              /*outputFiles=*/ null);
-    } catch (ActionConflictException e) {
-      throw new IllegalStateException("Action conflicts not expected in coverage: " + skyKey, e);
+      Actions.assignOwnersAndThrowIfConflictToleratingSharedActions(
+          actionKeyContext, actions, CoverageReportValue.COVERAGE_REPORT_KEY);
+    } catch (ActionConflictException | Actions.ArtifactGeneratedByOtherRuleException e) {
+      throw new IllegalStateException("Issues not expected in coverage: " + skyKey, e);
     }
-    return new CoverageReportValue(generatingActions);
-  }
-
-  @Override
-  public String extractTag(SkyKey skyKey) {
-    return null;
+    return new CoverageReportValue(actions);
   }
 }

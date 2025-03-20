@@ -13,6 +13,8 @@
 # limitations under the License.
 """Helpers to create golden tests, to minimize code duplication."""
 
+load("@rules_java//java/common:java_info.bzl", "JavaInfo")
+
 def _compile_time_jars(ctx):
     jars = depset([], transitive = [dep[JavaInfo].transitive_compile_time_jars for dep in ctx.attr.deps])
     return [DefaultInfo(

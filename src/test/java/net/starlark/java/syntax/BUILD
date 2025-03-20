@@ -1,11 +1,10 @@
 load("@rules_java//java:defs.bzl", "java_test")
 
 package(
+    default_applicable_licenses = ["//:license"],
     default_testonly = 1,
     default_visibility = ["//src:__subpackages__"],
 )
-
-licenses(["notice"])
 
 filegroup(
     name = "srcs",

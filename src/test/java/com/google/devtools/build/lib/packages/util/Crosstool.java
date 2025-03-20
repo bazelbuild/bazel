@@ -22,11 +22,11 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.Pair;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -123,59 +123,76 @@ public final class Crosstool {
       private String targetLibc = "local";
       private String abiVersion = "local";
       private String abiLibcVersion = "local";
-      private ImmutableList<String> toolchainExecConstraints = ImmutableList.of();
-      private ImmutableList<String> toolchainTargetConstraints = ImmutableList.of();
+      private ImmutableList<String> toolchainExecConstraints =
+          ImmutableList.of(
+              TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:x86_64",
+              TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:linux");
+      private ImmutableList<String> toolchainTargetConstraints =
+          ImmutableList.of(
+              TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:x86_64",
+              TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:linux");
 
+      @CanIgnoreReturnValue
       public Builder withCpu(String cpu) {
         this.cpu = cpu;
         return this;
       }
 
+      @CanIgnoreReturnValue
       public Builder withCompiler(String compiler) {
         this.compiler = compiler;
         return this;
       }
 
+      @CanIgnoreReturnValue
       public Builder withToolchainIdentifier(String toolchainIdentifier) {
         this.toolchainIdentifier = toolchainIdentifier;
         return this;
       }
 
+      @CanIgnoreReturnValue
       public Builder withHostSystemName(String hostSystemName) {
         this.hostSystemName = hostSystemName;
         return this;
       }
 
+      @CanIgnoreReturnValue
       public Builder withTargetSystemName(String targetSystemName) {
         this.targetSystemName = targetSystemName;
         return this;
       }
 
+      @CanIgnoreReturnValue
       public Builder withTargetLibc(String targetLibc) {
         this.targetLibc = targetLibc;
         return this;
       }
 
+      @CanIgnoreReturnValue
       public Builder withAbiVersion(String abiVersion) {
         this.abiVersion = abiVersion;
         return this;
       }
 
+      @CanIgnoreReturnValue
       public Builder withAbiLibcVersion(String abiLibcVersion) {
         this.abiLibcVersion = abiLibcVersion;
         return this;
       }
 
+      @CanIgnoreReturnValue
       public Builder withFeatures(String... features) {
         this.features = ImmutableList.copyOf(features);
         return this;
       }
 
+      @CanIgnoreReturnValue
       public Builder withActionConfigs(String... actionConfigs) {
         this.actionConfigs = ImmutableList.copyOf(actionConfigs);
         return this;
       }
 
+      @CanIgnoreReturnValue
       public Builder withArtifactNamePatterns(ImmutableList<String>... artifactNamePatterns) {
         for (ImmutableList<String> pattern : artifactNamePatterns) {
           Preconditions.checkArgument(
@@ -187,36 +204,43 @@ public final class Crosstool {
         return this;
       }
 
+      @CanIgnoreReturnValue
       public Builder withToolPaths(Pair<String, String>... toolPaths) {
         this.toolPaths = ImmutableList.copyOf(toolPaths);
         return this;
       }
 
+      @CanIgnoreReturnValue
       public Builder withSysroot(String sysroot) {
         this.builtinSysroot = sysroot;
         return this;
       }
 
+      @CanIgnoreReturnValue
       public Builder withCcTargetOs(String ccTargetOs) {
         this.ccTargetOs = ccTargetOs;
         return this;
       }
 
+      @CanIgnoreReturnValue
       public Builder withCxxBuiltinIncludeDirectories(String... directories) {
         this.cxxBuiltinIncludeDirectories = ImmutableList.copyOf(directories);
         return this;
       }
 
+      @CanIgnoreReturnValue
       public Builder withMakeVariables(Pair<String, String>... makeVariables) {
         this.makeVariables = ImmutableList.copyOf(makeVariables);
         return this;
       }
 
+      @CanIgnoreReturnValue
       public Builder withToolchainExecConstraints(String... execConstraints) {
         this.toolchainExecConstraints = ImmutableList.copyOf(execConstraints);
         return this;
       }
 
+      @CanIgnoreReturnValue
       public Builder withToolchainTargetConstraints(String... targetConstraints) {
         this.toolchainTargetConstraints = ImmutableList.copyOf(targetConstraints);
         return this;
@@ -276,12 +300,24 @@ public final class Crosstool {
 
     public String getToolchainTargetConstraints() {
       ImmutableList<String> constraints = this.toolchainTargetConstraints;
-      if (constraints.isEmpty() && getTargetCpu().equals("k8")) {
-        // Use default constraints
-        constraints =
-            ImmutableList.of(
-                TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:x86_64",
-                TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:linux");
+      if (constraints.isEmpty()) {
+        if (getTargetCpu().equals("k8")) {
+          // Use default constraints
+          constraints =
+              ImmutableList.of(
+                  TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:x86_64",
+                  TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:linux");
+        } else if (getTargetCpu().equals("darwin_x86_64")) {
+          constraints =
+              ImmutableList.of(
+                  TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:x86_64",
+                  TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:macos");
+        } else if (getTargetCpu().equals("darwin_arm64")) {
+          constraints =
+              ImmutableList.of(
+                  TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:arm64",
+                  TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:macos");
+        }
       }
       return formatConstraints("target", constraints);
     }
@@ -390,22 +426,26 @@ public final class Crosstool {
     this.archs = new ArrayList<>();
   }
 
+  @CanIgnoreReturnValue
   public Crosstool setCcToolchainFile(String ccToolchainConfigFileContents) {
     this.ccToolchainConfigFileContents = ccToolchainConfigFileContents;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public Crosstool setSupportedArchs(ImmutableList<String> archs) {
     this.archs.clear();
     this.archs.addAll(archs);
     return this;
   }
 
+  @CanIgnoreReturnValue
   public Crosstool setSupportsHeaderParsing(boolean supportsHeaderParsing) {
     this.supportsHeaderParsing = supportsHeaderParsing;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public Crosstool setToolchainConfigs(ImmutableList<CcToolchainConfig> ccToolchainConfigs) {
     this.ccToolchainConfigList = ccToolchainConfigs;
     return this;
@@ -431,8 +471,6 @@ public final class Crosstool {
       }
     }
 
-    Set<String> seenCpus = new LinkedHashSet<>();
-    StringBuilder compilerMap = new StringBuilder();
     for (CcToolchainConfig toolchain : ccToolchainConfigList) {
       String staticRuntimeLabel =
           toolchain.hasStaticLinkCppRuntimesFeature()
@@ -463,21 +501,6 @@ public final class Crosstool {
                     ""));
       }
 
-      // Generate entry to cc_toolchain_suite.toolchains
-      if (seenCpus.add(toolchain.getTargetCpu())) {
-        compilerMap.append(
-            String.format(
-                "'%s': ':cc-compiler-%s-%s',\n",
-                toolchain.getTargetCpu(), toolchain.getTargetCpu(), toolchain.getCompiler()));
-      }
-      compilerMap.append(
-          String.format(
-              "'%s|%s': ':cc-compiler-%s-%s',\n",
-              toolchain.getTargetCpu(),
-              toolchain.getCompiler(),
-              toolchain.getTargetCpu(),
-              toolchain.getCompiler()));
-
       // Generate cc_toolchain target
       String suffix = toolchain.getTargetCpu() + "-" + toolchain.getCompiler();
       compilationTools.append(
@@ -502,6 +525,7 @@ public final class Crosstool {
                   "  ar_files = 'ar-" + toolchain.getTargetCpu() + "',",
                   "  as_files = 'as-" + toolchain.getTargetCpu() + "',",
                   "  compiler_files = 'compile-" + toolchain.getTargetCpu() + "',",
+                  "  coverage_files = 'coverage-file',",
                   "  dwp_files = 'dwp-" + toolchain.getTargetCpu() + "',",
                   "  linker_files = 'link-" + toolchain.getTargetCpu() + "',",
                   "  strip_files = ':every-file',",
@@ -528,18 +552,19 @@ public final class Crosstool {
                 "load(':cc_toolchain_config.bzl', 'cc_toolchain_config')",
                 "load('"
                     + TestConstants.TOOLS_REPOSITORY
-                    + "//third_party/cc_rules/macros:defs.bzl', 'cc_library', 'cc_toolchain',"
-                    + " 'cc_toolchain_suite')",
+                    + "//third_party/cc_rules/macros:defs.bzl', 'cc_library', 'cc_toolchain')",
                 "toolchain_type(name = 'toolchain_type')",
+                "toolchain_type(name = 'test_runner_toolchain_type')",
                 "cc_toolchain_alias(name = 'current_cc_toolchain')",
+                "cc_toolchain_alias(",
+                "    name = 'optional_current_cc_toolchain',",
+                "    mandatory = False,",
+                ")",
                 "alias(name = 'toolchain', actual = 'everything')",
                 "filegroup(name = 'everything-multilib',",
                 "          srcs = glob(['mock_version/**/*'],",
                 "              exclude_directories = 1),",
                 "          output_licenses = ['unencumbered'])",
-                "",
-                String.format(
-                    "cc_toolchain_suite(name = 'everything', toolchains = {%s})", compilerMap),
                 "",
                 String.format(
                     "filegroup(name = 'every-file', srcs = ['%s'])",
@@ -552,10 +577,22 @@ public final class Crosstool {
                 "    name = 'interface_library_builder',",
                 "    srcs = ['build_interface_so'],",
                 ")",
+                // We add a :link_extra_lib target in case we need it.
+                "cc_library(name = 'link_extra_lib', srcs = ['linkextra.cc'])",
                 // We add an empty :malloc target in case we need it.
                 "cc_library(name = 'malloc')",
                 // Fake targets to get us through loading/analysis.
-                "exports_files(['grep-includes', 'link_dynamic_library'])");
+                "exports_files(['grep-includes', 'link_dynamic_library'])",
+                "",
+                "filegroup(",
+                "    name = 'aggregate-ddi',",
+                "    srcs = ['aggregate-ddi.sh'],",
+                ")",
+                "",
+                "filegroup(",
+                "    name = 'generate-modmap',",
+                "    srcs = ['generate-modmap.sh'],",
+                ")");
 
     config.create(crosstoolTop + "/mock_version/x86/bin/gcc");
     config.create(crosstoolTop + "/mock_version/x86/bin/ld");
@@ -563,7 +600,7 @@ public final class Crosstool {
     config.overwrite(crosstoolTop + "/cc_toolchain_config.bzl", ccToolchainConfigFileContents);
     config.create(crosstoolTop + "/crosstool.cppmap", "module crosstool {}");
     config.append(
-        "WORKSPACE",
+        "MODULE.bazel",
         String.format(
             "register_toolchains('%s:all')",
             crosstoolTopLabel.getPackageIdentifier().getCanonicalForm()));
@@ -571,28 +608,13 @@ public final class Crosstool {
     config.create(crosstoolTop + "/grep-includes");
     config.create(crosstoolTop + "/build_interface_so");
     config.create(crosstoolTop + "/link_dynamic_library");
+    config.create(crosstoolTop + "/aggregate-ddi.sh");
+    config.create(crosstoolTop + "/generate-modmap.sh");
   }
 
   public void writeOSX() throws IOException {
     // Create special lines specifying the compiler map entry for
     // each toolchain.
-    StringBuilder compilerMap =
-        new StringBuilder()
-            .append("'k8': ':cc-compiler-darwin_x86_64',\n")
-            .append("'aarch64': ':cc-compiler-darwin_x86_64',\n")
-            .append("'darwin': ':cc-compiler-darwin_x86_64',\n");
-    Set<String> seenCpus = new LinkedHashSet<>();
-    for (CcToolchainConfig toolchain : ccToolchainConfigList) {
-      if (seenCpus.add(toolchain.getTargetCpu())) {
-        compilerMap.append(
-            String.format(
-                "'%s': ':cc-compiler-%s',\n", toolchain.getTargetCpu(), toolchain.getTargetCpu()));
-      }
-      compilerMap.append(
-          String.format(
-              "'%s|%s': ':cc-compiler-%s',\n",
-              toolchain.getTargetCpu(), toolchain.getCompiler(), toolchain.getTargetCpu()));
-    }
 
     // Create the test BUILD file.
     ImmutableList.Builder<String> crosstoolBuild =
@@ -602,13 +624,8 @@ public final class Crosstool {
                 "load(':cc_toolchain_config.bzl', 'cc_toolchain_config')",
                 "load('"
                     + TestConstants.TOOLS_REPOSITORY
-                    + "//third_party/cc_rules/macros:defs.bzl', 'cc_library',"
-                    + " 'cc_toolchain_suite')",
+                    + "//third_party/cc_rules/macros:defs.bzl', 'cc_library')",
                 "exports_files(glob(['**']))",
-                "cc_toolchain_suite(",
-                "    name = 'crosstool',",
-                "    toolchains = { " + compilerMap + " },",
-                ")",
                 "",
                 "cc_library(",
                 "    name = 'custom_malloc',",
@@ -628,8 +645,37 @@ public final class Crosstool {
                 "    ],",
                 ")");
     for (CcToolchainConfig toolchainConfig : ccToolchainConfigList) {
+      String staticRuntimeLabel =
+          toolchainConfig.hasStaticLinkCppRuntimesFeature()
+              ? "mock-static-runtimes-target-for-" + toolchainConfig.getToolchainIdentifier()
+              : null;
+      String dynamicRuntimeLabel =
+          toolchainConfig.hasStaticLinkCppRuntimesFeature()
+              ? "mock-dynamic-runtimes-target-for-" + toolchainConfig.getToolchainIdentifier()
+              : null;
+      if (staticRuntimeLabel != null) {
+        crosstoolBuild.add(
+            Joiner.on('\n')
+                .join(
+                    "filegroup(",
+                    "  name = '" + staticRuntimeLabel + "',",
+                    "  licenses = ['unencumbered'],",
+                    "  srcs = ['libstatic-runtime-lib-source.a'])",
+                    ""));
+      }
+      if (dynamicRuntimeLabel != null) {
+        crosstoolBuild.add(
+            Joiner.on('\n')
+                .join(
+                    "filegroup(",
+                    "  name = '" + dynamicRuntimeLabel + "',",
+                    "  licenses = ['unencumbered'],",
+                    "  srcs = ['libdynamic-runtime-lib-source.so'])",
+                    ""));
+      }
+
       crosstoolBuild.add(
-          "apple_cc_toolchain(",
+          "cc_toolchain(",
           "    name = 'cc-compiler-" + toolchainConfig.getTargetCpu() + "',",
           "    toolchain_identifier = '" + toolchainConfig.getTargetCpu() + "',",
           "    toolchain_config = ':"
@@ -641,29 +687,34 @@ public final class Crosstool {
           "    ar_files = ':link',",
           "    as_files = ':empty',",
           "    compiler_files = ':empty',",
+          "    coverage_files = 'coverage-file',",
           "    dwp_files = ':empty',",
           "    linker_files = ':link',",
           "    objcopy_files = ':empty',",
           "    strip_files = ':empty',",
-          "    supports_param_files = 0,",
           supportsHeaderParsing ? "    supports_header_parsing = 1," : "",
+          dynamicRuntimeLabel == null
+              ? ""
+              : "    dynamic_runtime_lib = '" + dynamicRuntimeLabel + "',",
+          staticRuntimeLabel == null
+              ? ""
+              : "    static_runtime_lib = '" + staticRuntimeLabel + "',",
           ")",
           "toolchain(name = 'cc-toolchain-" + toolchainConfig.getTargetCpu() + "',",
-          "    exec_compatible_with = [],",
-          "    target_compatible_with = [],",
+          toolchainConfig.getToolchainExecConstraints(),
+          toolchainConfig.getToolchainTargetConstraints(),
           "    toolchain = ':cc-compiler-" + toolchainConfig.getTargetCpu() + "',",
           "    toolchain_type = '" + TestConstants.TOOLS_REPOSITORY + "//tools/cpp:toolchain_type'",
           ")");
       crosstoolBuild.add(toolchainConfig.getCcToolchainConfigRule());
-      // Add the newly-created toolchain to the WORKSPACE.
-      config.append(
-          "WORKSPACE",
-          "register_toolchains('//" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL_DIR + ":all')");
     }
 
     config.overwrite(
         MockObjcSupport.DEFAULT_OSX_CROSSTOOL_DIR + "/BUILD",
         Joiner.on("\n").join(crosstoolBuild.build()));
+    config.append(
+        "MODULE.bazel",
+        "register_toolchains('//" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL_DIR + ":all')");
     config.overwrite(crosstoolTop + "/cc_toolchain_config.bzl", ccToolchainConfigFileContents);
   }
 }

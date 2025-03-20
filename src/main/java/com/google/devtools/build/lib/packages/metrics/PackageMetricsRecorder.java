@@ -13,6 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages.metrics;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
+import com.google.common.collect.ImmutableCollection;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.protobuf.Duration;
 import java.util.Collection;
@@ -28,7 +31,7 @@ public interface PackageMetricsRecorder {
   }
 
   /** Records the metrics for a given package. */
-  void recordMetrics(PackageIdentifier pkgId, PackageMetrics metrics);
+  void recordMetrics(PackageIdentifier pkgId, PackageLoadMetrics metrics);
 
   /**
    * Returns a {@code Map<PackageIdentifier, Duration>} of recorded load durations. This may contain
@@ -70,5 +73,22 @@ public interface PackageMetricsRecorder {
   Type getRecorderType();
 
   /** If Type is ALL returns metrics for all Packages loaded. */
-  Collection<PackageMetrics> getPackageMetrics();
+  Collection<PackageLoadMetrics> getPackageLoadMetrics();
+
+  /* TODO(twerth): Remove method after migration is complete. */
+  default ImmutableCollection<PackageMetrics> getPackageMetrics() {
+    Collection<PackageLoadMetrics> packageLoadMetrics = getPackageLoadMetrics();
+    return packageLoadMetrics.stream()
+        .map(
+            plm ->
+                PackageMetrics.newBuilder()
+                    .setName(plm.getName())
+                    .setPackageOverhead(plm.getPackageOverhead())
+                    .setComputationSteps(plm.getComputationSteps())
+                    .setLoadDuration(plm.getLoadDuration())
+                    .setNumTargets(plm.getNumTargets())
+                    .setNumTransitiveLoads(plm.getNumTransitiveLoads())
+                    .build())
+        .collect(toImmutableList());
+  }
 }

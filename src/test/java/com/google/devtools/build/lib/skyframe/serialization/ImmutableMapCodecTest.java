@@ -18,16 +18,14 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException.NoCodecException;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.RoundTripping;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester.VerificationFunction;
-import com.google.devtools.build.lib.skyframe.serialization.testutils.TestUtils;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
@@ -57,7 +55,7 @@ public class ImmutableMapCodecTest {
             ImmutableSortedMap.of(),
             ImmutableSortedMap.of("A", "//foo:A"),
             ImmutableSortedMap.of("B", "//foo:B"),
-            ImmutableSortedMap.reverseOrder().put("a", "b").put("c", "d").build())
+            ImmutableSortedMap.reverseOrder().put("a", "b").put("c", "d").buildOrThrow())
         // Check for order.
         .setVerificationFunction(
             (VerificationFunction<ImmutableMap<?, ?>>)
@@ -71,11 +69,11 @@ public class ImmutableMapCodecTest {
   @Test
   public void immutableSortedMapRoundTripsWithTheSameComparator() throws Exception {
     ImmutableSortedMap<?, ?> deserialized =
-        TestUtils.roundTrip(
+        RoundTripping.roundTrip(
             ImmutableSortedMap.orderedBy(HELLO_FIRST_COMPARATOR)
                 .put("a", "b")
                 .put("hello", "there")
-                .build());
+                .buildOrThrow());
 
     assertThat(deserialized).containsExactly("hello", "there", "a", "b");
     assertThat(deserialized.comparator()).isSameInstanceAs(HELLO_FIRST_COMPARATOR);
@@ -89,14 +87,14 @@ public class ImmutableMapCodecTest {
         assertThrows(
             NoCodecException.class,
             () ->
-                TestUtils.roundTrip(
+                RoundTripping.roundTrip(
                     ImmutableSortedMap.<String, String>orderedBy(comparator)
                         .put("a", "b")
                         .put("c", "d")
-                        .build()));
+                        .buildOrThrow()));
     assertThat(thrown)
         .hasMessageThat()
-        .startsWith("No default codec available for " + comparator.getClass().getCanonicalName());
+        .startsWith("No default codec available for " + comparator.getClass().getName());
   }
 
   @Test
@@ -105,11 +103,11 @@ public class ImmutableMapCodecTest {
         assertThrows(
             SerializationException.class,
             () ->
-                TestUtils.toBytesMemoized(
+                RoundTripping.toBytesMemoized(
                     ImmutableMap.of("a", new Dummy()),
                     AutoRegistry.get()
                         .getBuilder()
-                        .add(new DummyThrowingCodec(/*throwsOnSerialization=*/ true))
+                        .add(new DummyThrowingCodec(/* throwsOnSerialization= */ true))
                         .build()));
     assertThat(expected)
         .hasMessageThat()
@@ -123,16 +121,10 @@ public class ImmutableMapCodecTest {
             .getBuilder()
             .add(new DummyThrowingCodec(/*throwsOnSerialization=*/ false))
             .build();
-    ByteString data =
-        TestUtils.toBytes(
-            new SerializationContext(registry, ImmutableClassToInstanceMap.of()),
-            ImmutableMap.of("a", new Dummy()));
+    ObjectCodecs codecs = new ObjectCodecs(registry);
+    ByteString data = codecs.serialize(ImmutableMap.of("a", new Dummy()));
     SerializationException expected =
-        assertThrows(
-            SerializationException.class,
-            () ->
-                TestUtils.fromBytes(
-                    new DeserializationContext(registry, ImmutableClassToInstanceMap.of()), data));
+        assertThrows(SerializationException.class, () -> codecs.deserialize(data));
     assertThat(expected)
         .hasMessageThat()
         .contains("Exception while deserializing value for key 'a'");

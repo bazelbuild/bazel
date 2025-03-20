@@ -25,6 +25,7 @@ SRCS_QUERY="$(mktemp)"
 # a local_repository located in third_party.
 cat "${TEST_SRCDIR}/io_bazel/src/test/shell/bazel/srcs_list" \
   | sed -e 's|@bazel_tools//||' \
+  | sed -e 's|@io_bazel//||' \
   | sed -e 's|@\([^/]*\)//|third_party/\1|' \
   | sed -e 's|^//||' | sed -e 's|^:||' | sed -e 's|:|/|' \
   | sort -u >"${SRCS_QUERY}"

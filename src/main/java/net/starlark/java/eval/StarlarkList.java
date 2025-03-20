@@ -14,12 +14,18 @@
 
 package net.starlark.java.eval;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import java.util.AbstractList;
+import java.io.Serializable;
+import java.util.AbstractCollection;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Iterator;
+import java.util.List;
+import java.util.ListIterator;
+import java.util.NoSuchElementException;
+import java.util.function.Supplier;
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
@@ -71,33 +77,17 @@ import net.starlark.java.annot.StarlarkMethod;
             + "['a', 'b', 'c', 'd'][::2]  # ['a', 'c']\n"
             + "['a', 'b', 'c', 'd'][3:0:-1]  # ['d', 'c', 'b']</pre>"
             + "Lists are mutable, as in Python.")
-public final class StarlarkList<E> extends AbstractList<E>
+public abstract class StarlarkList<E> extends AbstractCollection<E>
     implements Sequence<E>, StarlarkValue, Mutability.Freezable, Comparable<StarlarkList<?>> {
 
   // It's always possible to overeat in small bites but we'll
   // try to stop someone swallowing the world in one gulp.
   static final int MAX_ALLOC = 1 << 30;
 
-  // The implementation strategy is similar to ArrayList,
-  // but without the extra indirection of using ArrayList.
+  static final Object[] EMPTY_ARRAY = {};
 
-  // elems[0:size] holds the logical elements, and elems[size:] are not used.
-  // elems.getClass() == Object[].class. This is necessary to avoid ArrayStoreException.
-  private int size;
-  private int iteratorCount; // number of active iterators (unused once frozen)
-  private Object[] elems = EMPTY_ARRAY; // elems[i] == null  iff  i >= size
-
-  /** Final except for {@link #unsafeShallowFreeze}; must not be modified any other way. */
-  private Mutability mutability;
-
-  private static final Object[] EMPTY_ARRAY = {};
-
-  private StarlarkList(@Nullable Mutability mutability, Object[] elems, int size) {
-    Preconditions.checkArgument(elems.getClass() == Object[].class);
-    this.elems = elems;
-    this.size = size;
-    this.mutability = mutability == null ? Mutability.IMMUTABLE : mutability;
-  }
+  // Prohibit instantiation outside of package.
+  StarlarkList() {}
 
   /**
    * Takes ownership of the supplied array of class Object[].class, and returns a new StarlarkList
@@ -105,12 +95,17 @@ public final class StarlarkList<E> extends AbstractList<E>
    * the StarlarkList instance may do so.
    */
   static <T> StarlarkList<T> wrap(@Nullable Mutability mutability, Object[] elems) {
-    return new StarlarkList<>(mutability, elems, elems.length);
-  }
-
-  @Override
-  public boolean isImmutable() {
-    return mutability().isFrozen();
+    if (mutability == null || mutability.isFrozen()) {
+      switch (elems.length) {
+        case 0:
+          return empty();
+        case 1:
+          return new ImmutableSingletonStarlarkList<>(elems[0]);
+        default:
+          return new RegularImmutableStarlarkList<>(elems);
+      }
+    }
+    return new MutableStarlarkList<>(mutability, elems, elems.length);
   }
 
   @Override
@@ -119,32 +114,10 @@ public final class StarlarkList<E> extends AbstractList<E>
     throw Starlark.errorf("unhashable type: 'list'");
   }
 
-  @Override
-  public boolean updateIteratorCount(int delta) {
-    if (mutability().isFrozen()) {
-      return false;
-    }
-    if (delta > 0) {
-      iteratorCount++;
-    } else if (delta < 0) {
-      iteratorCount--;
-    }
-    return iteratorCount > 0;
-  }
-
-  /**
-   * A shared instance for the empty list with immutable mutability.
-   *
-   * <p>Other immutable empty list objects can exist, e.g. lists that were once mutable but whose
-   * environments were then frozen. This instance is for empty lists that were always frozen from
-   * the beginning.
-   */
-  private static final StarlarkList<?> EMPTY = wrap(Mutability.IMMUTABLE, EMPTY_ARRAY);
-
   /** Returns an empty frozen list of the desired type. */
   @SuppressWarnings("unchecked")
   public static <T> StarlarkList<T> empty() {
-    return (StarlarkList<T>) EMPTY;
+    return (StarlarkList<T>) RegularImmutableStarlarkList.EMPTY;
   }
 
   /** Returns a new, empty list with the specified Mutability. */
@@ -185,6 +158,20 @@ public final class StarlarkList<E> extends AbstractList<E>
   }
 
   /**
+   * Creates an immutable {@link StarlarkList} with lazily supplied elements.
+   *
+   * <p>The given supplier is not invoked until the list is accessed and is invoked at most once.
+   * This can be used to create a {@link StarlarkList} while deferring an expensive computation
+   * until the list is actually accessed.
+   */
+  public static <T> StarlarkList<T> lazyImmutable(SerializableListSupplier<T> supplier) {
+    return new LazyImmutableStarlarkList<>(supplier);
+  }
+
+  /** An associated convenience type for LazyImmutableStarlarkLists */
+  public interface SerializableListSupplier<T> extends Supplier<ImmutableList<T>>, Serializable {}
+
+  /**
    * Returns a {@code StarlarkList} with the given items and the {@link Mutability}. If {@code
    * mutability} is null, the list is immutable.
    */
@@ -203,38 +190,37 @@ public final class StarlarkList<E> extends AbstractList<E>
     return wrap(null, Arrays.copyOf(elems, elems.length, Object[].class));
   }
 
-  @Override
-  public Mutability mutability() {
-    return mutability;
-  }
-
-  @Override
-  public void unsafeShallowFreeze() {
-    Mutability.Freezable.checkUnsafeShallowFreezePrecondition(this);
-    this.mutability = Mutability.IMMUTABLE;
-  }
-
-  @Override
-  public ImmutableList<E> getImmutableList() {
-    // Optimization: a frozen array needn't be copied.
-    // If the entire array is full, we can wrap it directly.
-    if (elems.length == size && mutability().isFrozen()) {
-      return Tuple.wrapImmutable(elems);
-    }
-
-    return ImmutableList.copyOf(this);
-  }
+  abstract Object[] elems();
 
   /**
    * Returns a new {@code StarlarkList} that is the concatenation of two {@code StarlarkList}s. The
    * new list will have the given {@link Mutability}.
+   *
+   * @throws EvalException if the resulting list would be too large
    */
   public static <T> StarlarkList<T> concat(
-      StarlarkList<? extends T> x, StarlarkList<? extends T> y, Mutability mutability) {
-    Object[] res = new Object[x.size + y.size];
-    System.arraycopy(x.elems, 0, res, 0, x.size);
-    System.arraycopy(y.elems, 0, res, x.size, y.size);
+      StarlarkList<? extends T> x, StarlarkList<? extends T> y, Mutability mutability)
+      throws EvalException {
+    int xsize = x.size();
+    int ysize = y.size();
+    Object[] res = new Object[addSizesAndFailIfExcessive(xsize, ysize)];
+    System.arraycopy(x.elems(), 0, res, 0, xsize);
+    System.arraycopy(y.elems(), 0, res, xsize, ysize);
     return wrap(mutability, res);
+  }
+
+  protected static int addSizesAndFailIfExcessive(int xsize, int ysize) throws EvalException {
+    int sum = xsize + ysize;
+    if (sum < 0 || sum > MAX_ALLOC) {
+      throw Starlark.errorf("excessive capacity requested (%d + %d elements)", xsize, ysize);
+    }
+    return sum;
+  }
+
+  @Nonnull
+  @Override
+  public Iterator<E> iterator() {
+    return new Itr();
   }
 
   @Override
@@ -246,25 +232,18 @@ public final class StarlarkList<E> extends AbstractList<E>
   public boolean equals(Object that) {
     // This slightly violates the java.util.List equivalence contract
     // because it considers the class, not just the elements.
-    return this == that || (that instanceof StarlarkList && sameElems(this, ((StarlarkList) that)));
-  }
-
-  private static boolean sameElems(StarlarkList<?> x, StarlarkList<?> y) {
-    if (x.size != y.size) {
-      return false;
-    }
-    for (int i = 0; i < x.size; i++) {
-      if (!x.elems[i].equals(y.elems[i])) {
-        return false;
-      }
-    }
-    return true;
+    // This is needed because in Starlark lists are never equal to tuples, however in Java they both
+    // implement List interface.
+    return this == that
+        || (that instanceof StarlarkList && Sequence.sameElems(this, ((StarlarkList) that)));
   }
 
   @Override
   public int hashCode() {
     // Hash the elements elems[0:size].
     int result = 1;
+    int size = size();
+    Object[] elems = elems();
     for (int i = 0; i < size; i++) {
       result = 31 * result + elems[i].hashCode();
     }
@@ -289,39 +268,28 @@ public final class StarlarkList<E> extends AbstractList<E>
     }
 
     int ni = n.toInt("repeat");
+    int size = size();
     long sz = (long) ni * size;
     if (sz > MAX_ALLOC) {
       throw Starlark.errorf("excessive repeat (%d * %d elements)", size, ni);
     }
     Object[] res = new Object[(int) sz];
     for (int i = 0; i < ni; i++) {
-      System.arraycopy(elems, 0, res, i * size, size);
+      System.arraycopy(elems(), 0, res, i * size, size);
     }
     return wrap(mutability, res);
   }
 
   @Override
-  @SuppressWarnings("unchecked")
-  public E get(int i) {
-    if (i >= size) {
-      throw new IndexOutOfBoundsException();
-    }
-    return (E) elems[i]; // unchecked
-  }
-
-  @Override
-  public int size() {
-    return size;
-  }
-
-  @Override
-  public StarlarkList<E> getSlice(Mutability mu, int start, int stop, int step) {
+  public StarlarkList<E> getSlice(Mutability mu, int start, int stop, int step)
+      throws EvalException {
     RangeList indices = new RangeList(start, stop, step);
     int n = indices.size();
     Object[] res = new Object[n];
     if (step == 1) { // common case
-      System.arraycopy(elems, indices.at(0), res, 0, n);
+      System.arraycopy(elems(), indices.at(0), res, 0, n);
     } else {
+      Object[] elems = elems();
       for (int i = 0; i < n; ++i) {
         res[i] = elems[indices.at(i)];
       }
@@ -329,37 +297,12 @@ public final class StarlarkList<E> extends AbstractList<E>
     return wrap(mu, res);
   }
 
-  // Postcondition: elems.length >= mincap.
-  private void grow(int mincap) {
-    int oldcap = elems.length;
-    if (oldcap < mincap) {
-      int newcap = oldcap + (oldcap >> 1); // grow by at least 50%
-      if (newcap < mincap) {
-        newcap = mincap;
-      }
-      elems = Arrays.copyOf(elems, newcap);
-    }
-  }
-
-  // Grow capacity enough to insert given number of elements
-  private void growAdditional(int additional) throws EvalException {
-    int mincap = size + additional;
-    if (mincap < 0 || mincap > MAX_ALLOC) {
-      throw Starlark.errorf("excessive capacity requested (%d + %d elements)", size, additional);
-    }
-    grow(mincap);
-  }
-
   /**
    * Appends an element to the end of the list, after validating that mutation is allowed.
    *
    * @param element the element to add
    */
-  public void addElement(E element) throws EvalException {
-    Starlark.checkMutable(this);
-    growAdditional(1);
-    elems[size++] = element;
-  }
+  public abstract void addElement(E element) throws EvalException;
 
   /**
    * Inserts an element at a given position to the list.
@@ -367,42 +310,14 @@ public final class StarlarkList<E> extends AbstractList<E>
    * @param index the new element's index
    * @param element the element to add
    */
-  public void addElementAt(int index, E element) throws EvalException {
-    Starlark.checkMutable(this);
-    growAdditional(1);
-    System.arraycopy(elems, index, elems, index + 1, size - index);
-    elems[index] = element;
-    size++;
-  }
+  public abstract void addElementAt(int index, E element) throws EvalException;
 
   /**
    * Appends all the elements to the end of the list.
    *
    * @param elements the elements to add
    */
-  public void addElements(Iterable<? extends E> elements) throws EvalException {
-    Starlark.checkMutable(this);
-    if (elements instanceof StarlarkList) {
-      StarlarkList<?> that = (StarlarkList) elements;
-      // (safe even if this == that)
-      growAdditional(that.size);
-      System.arraycopy(that.elems, 0, this.elems, this.size, that.size);
-      this.size += that.size;
-    } else if (elements instanceof Collection) {
-      // collection of known size
-      Collection<?> that = (Collection) elements;
-      growAdditional(that.size());
-      for (Object x : that) {
-        elems[size++] = x;
-      }
-    } else {
-      // iterable
-      for (Object x : elements) {
-        growAdditional(1);
-        elems[size++] = x;
-      }
-    }
-  }
+  public abstract void addElements(Iterable<? extends E> elements) throws EvalException;
 
   /**
    * Removes the element at a given index. The index must already have been validated to be in
@@ -410,14 +325,13 @@ public final class StarlarkList<E> extends AbstractList<E>
    *
    * @param index the index of the element to remove
    */
-  public void removeElementAt(int index) throws EvalException {
-    Starlark.checkMutable(this);
-    int n = size - index - 1;
-    if (n > 0) {
-      System.arraycopy(elems, index + 1, elems, index, n);
-    }
-    elems[--size] = null; // aid GC
-  }
+  public abstract void removeElementAt(int index) throws EvalException;
+
+  /**
+   * Sets the position at the given index to contain the given value. Precondition: {@code 0 <=
+   * index < size()}.
+   */
+  public abstract void setElementAt(int index, E value) throws EvalException;
 
   @StarlarkMethod(
       name = "remove",
@@ -426,6 +340,8 @@ public final class StarlarkList<E> extends AbstractList<E>
               + "It is an error if there is no such item.",
       parameters = {@Param(name = "x", doc = "The object to remove.")})
   public void removeElement(Object x) throws EvalException {
+    int size = size();
+    Object[] elems = elems();
     for (int i = 0; i < size; i++) {
       if (elems[i].equals(x)) {
         removeElementAt(i);
@@ -433,16 +349,6 @@ public final class StarlarkList<E> extends AbstractList<E>
       }
     }
     throw Starlark.errorf("item %s not found in list", Starlark.repr(x));
-  }
-
-  /**
-   * Sets the position at the given index to contain the given value. Precondition: {@code 0 <=
-   * index < size()}.
-   */
-  public void setElementAt(int index, E value) throws EvalException {
-    Starlark.checkMutable(this);
-    Preconditions.checkArgument(index < size);
-    elems[index] = value;
   }
 
   @StarlarkMethod(
@@ -455,13 +361,7 @@ public final class StarlarkList<E> extends AbstractList<E>
   }
 
   @StarlarkMethod(name = "clear", doc = "Removes all the elements of the list.")
-  public void clearElements() throws EvalException {
-    Starlark.checkMutable(this);
-    for (int i = 0; i < size; i++) {
-      elems[i] = null; // aid GC
-    }
-    size = 0;
-  }
+  public abstract void clearElements() throws EvalException;
 
   @StarlarkMethod(
       name = "insert",
@@ -472,7 +372,7 @@ public final class StarlarkList<E> extends AbstractList<E>
       })
   @SuppressWarnings("unchecked")
   public void insert(StarlarkInt index, Object item) throws EvalException {
-    addElementAt(EvalUtils.toIndex(index.toInt("index"), size), (E) item); // unchecked
+    addElementAt(EvalUtils.toIndex(index.toInt("index"), size()), (E) item); // unchecked
   }
 
   @StarlarkMethod(
@@ -512,6 +412,8 @@ public final class StarlarkList<E> extends AbstractList<E>
             doc = "The end index of the list portion to inspect.")
       })
   public int index(Object x, Object start, Object end) throws EvalException {
+    int size = size();
+    Object[] elems = elems();
     int i = start == Starlark.NONE ? 0 : EvalUtils.toIndex(Starlark.toInt(start, "start"), size);
     int j = end == Starlark.NONE ? size : EvalUtils.toIndex(Starlark.toInt(end, "end"), size);
     for (; i < j; i++) {
@@ -539,6 +441,8 @@ public final class StarlarkList<E> extends AbstractList<E>
             doc = "The index of the item.")
       })
   public Object pop(Object i) throws EvalException {
+    int size = size();
+    Object[] elems = elems();
     int arg = i == Starlark.NONE ? -1 : Starlark.toInt(i, "i");
     int index = EvalUtils.getSequenceIndex(arg, size);
     Object result = elems[index];
@@ -546,21 +450,90 @@ public final class StarlarkList<E> extends AbstractList<E>
     return result;
   }
 
-  /** Returns a new array of class Object[] containing the list elements. */
-  @Override
-  public Object[] toArray() {
-    return size != 0 ? Arrays.copyOf(elems, size, Object[].class) : EMPTY_ARRAY;
+  /**
+   * Mutates this list in-place to reduce memory usage, and returns an optimized list (which might
+   * be the same as this instance).
+   *
+   * <p>This operation is not protected by the mutability mechanism. It is the caller's
+   * responsibility to ensure this list is not concurrently accessed during this method's execution.
+   *
+   * <p>The mutated list and the returned list are both equivalent to the original list.
+   *
+   * <p>The mutability must be frozen prior to calling this method.
+   */
+  public StarlarkList<E> unsafeOptimizeMemoryLayout() {
+    return this;
   }
 
-  @SuppressWarnings("unchecked")
-  @Override
-  public <T> T[] toArray(T[] a) {
-    if (a.length < size) {
-      return (T[]) Arrays.copyOf(elems, size, a.getClass());
-    } else {
-      System.arraycopy(elems, 0, a, 0, size);
-      Arrays.fill(a, size, a.length, null);
-      return a;
+  private class Itr implements Iterator<E> {
+    private int cursor = 0;
+
+    @Override
+    public boolean hasNext() {
+      return cursor != size();
     }
+
+    @Override
+    public E next() {
+      try {
+        int i = cursor;
+        E next = get(i);
+        cursor = i + 1;
+        return next;
+      } catch (IndexOutOfBoundsException e) {
+        throw new NoSuchElementException(e.getMessage());
+      }
+    }
+  }
+
+  // the following List methods are deliberately left unsupported for now, but could be implemented
+  // if the need ever arises
+
+  @Override
+  @Nonnull
+  public List<E> subList(int fromIndex, int toIndex) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  @Nonnull
+  public ListIterator<E> listIterator() {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  @Nonnull
+  public ListIterator<E> listIterator(int index) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public int lastIndexOf(Object o) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public int indexOf(Object o) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public E set(int index, E element) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public void add(int index, E element) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public E remove(int index) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public boolean addAll(int index, @Nonnull Collection<? extends E> c) {
+    throw new UnsupportedOperationException();
   }
 }

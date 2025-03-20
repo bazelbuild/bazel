@@ -14,40 +14,27 @@
 
 package com.google.devtools.build.lib.testutil;
 
+import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
+import com.google.devtools.build.lib.vfs.Dirent;
+import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.JavaIoFileSystem;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Symlinks;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import java.io.File;
 import java.io.IOException;
+import java.time.Duration;
+import java.util.Collection;
 import java.util.UUID;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ThreadPoolExecutor;
+import javax.annotation.Nullable;
 
-/**
- * Some static utility functions for testing.
- */
-public class TestUtils {
-  public static final ThreadPoolExecutor POOL =
-    (ThreadPoolExecutor) Executors.newFixedThreadPool(10);
+/** Some static utility functions for testing. */
+public final class TestUtils {
 
   public static final UUID ZERO_UUID = UUID.fromString("00000000-0000-0000-0000-000000000000");
-
-  /**
-   * Wait until the {@link System#currentTimeMillis} / 1000 advances.
-   *
-   * This method takes 0-1000ms to run, 500ms on average.
-   */
-  public static void advanceCurrentTimeSeconds() throws InterruptedException {
-    long currentTimeSeconds = System.currentTimeMillis() / 1000;
-    do {
-      Thread.sleep(50);
-    } while (currentTimeSeconds == System.currentTimeMillis() / 1000);
-  }
-
-  public static ThreadPoolExecutor getPool() {
-    return POOL;
-  }
 
   /**
    * Returns the path to a fixed temporary directory, with back-slashes turned into slashes. The
@@ -94,17 +81,12 @@ public class TestUtils {
       fileSystem = new JavaIoFileSystem(DigestHashFunction.SHA256);
     }
     File tmpDirRoot = tmpDirRoot();
-    Path path = fileSystem.getPath(tmpDirRoot.getPath()).getRelative(UUID.randomUUID().toString());
+    Path path =
+        fileSystem
+            .getPath(StringEncoding.platformToInternal(tmpDirRoot.getPath()))
+            .getRelative(UUID.randomUUID().toString());
     path.createDirectoryAndParents();
     return path;
-  }
-
-  /**
-   * Creates a unique and empty temporary directory and returns the path, with backslashes turned
-   * into slashes.
-   */
-  public static String createUniqueTmpDirString() throws IOException {
-    return createUniqueTmpDir(null).getPathString().replace('\\', '/');
   }
 
   private static File tmpDirRoot() {
@@ -129,17 +111,6 @@ public class TestUtils {
     return tmpDir;
   }
 
-  public static File makeTmpDir() throws IOException {
-    File dir = File.createTempFile(TestUtils.class.getName(), ".temp", tmpDirFile());
-    if (!dir.delete()) {
-      throw new IOException("Cannot remove a temporary file " + dir);
-    }
-    if (!dir.mkdir()) {
-      throw new IOException("Cannot create a temporary directory " + dir);
-    }
-    return dir;
-  }
-
   public static int getRandomSeed() {
     // Default value if not running under framework
     int randomSeed = 301;
@@ -150,7 +121,6 @@ public class TestUtils {
       try {
         randomSeed = Integer.parseInt(value);
       } catch (NumberFormatException e) {
-        // throw new AssertionError("TEST_RANDOM_SEED must be an integer");
         throw new RuntimeException("TEST_RANDOM_SEED must be an integer", e);
       }
     }
@@ -158,20 +128,73 @@ public class TestUtils {
     return randomSeed;
   }
 
+  public static SyscallCache makeDisappearingFileCache(String path) {
+    PathFragment badPath = PathFragment.create(path);
+    return new SyscallCache() {
+      @Override
+      public Collection<Dirent> readdir(Path path) throws IOException {
+        return SyscallCache.NO_CACHE.readdir(path);
+      }
+
+      @Nullable
+      @Override
+      public FileStatus statIfFound(Path path, Symlinks symlinks) throws IOException {
+        return path.asFragment().endsWith(badPath)
+            ? null
+            : SyscallCache.NO_CACHE.statIfFound(path, symlinks);
+      }
+
+      @Override
+      public DirentTypeWithSkip getType(Path path, Symlinks symlinks) {
+        return path.asFragment().endsWith(badPath)
+            ? DirentTypeWithSkip.FILE
+            : DirentTypeWithSkip.FILESYSTEM_OP_SKIPPED;
+      }
+
+      @Override
+      public void clear() {}
+    };
+  }
+
+  /** Creates the assertion String to match against when a target isn't found. */
+  public static String createMissingTargetAssertionString(
+      String target, String packageStr, String workspaceRoot, String expectedTargets) {
+    if (workspaceRoot == null) {
+      workspaceRoot = "";
+    }
+
+    String buildFilePath = workspaceRoot + "/" + packageStr + "/BUILD";
+
+    String fullTarget = "//" + packageStr + ":" + target;
+
+    final String suggestedTargetsBaseString =
+        "no such target '%s': target '%s' not declared in package '%s' "
+            + "defined by %s"
+            + expectedTargets;
+
+    return String.format(
+        suggestedTargetsBaseString, fullTarget, target, packageStr, buildFilePath, expectedTargets);
+  }
+
   /**
    * Timeouts for asserting that an arbitrary event occurs eventually.
    *
    * <p>In general, it's not appropriate to use a small constant timeout for an arbitrary
    * computation since there is no guarantee that a snippet of code will execute within a given
-   * amount of time - you are at the mercy of the jvm, your machine, and your OS. In theory we
-   * could try to take all of these factors into account but instead we took the simpler and
-   * obviously correct approach of not having timeouts.
+   * amount of time - you are at the mercy of the jvm, your machine, and your OS. In theory we could
+   * try to take all of these factors into account but instead we took the simpler and obviously
+   * correct approach of not having timeouts.
    *
-   * <p>If a test that uses these timeout values is failing due to a "timeout" at the
-   * 'blaze test' level, it could be because of a legitimate deadlock that would have been caught
-   * if the timeout values below were small. So you can rule out such a deadlock by changing these
-   * values to small numbers (also note that the --test_timeout blaze flag may be useful).
+   * <p>If a test that uses these timeout values is failing due to a "timeout" at the 'blaze test'
+   * level, it could be because of a legitimate deadlock that would have been caught if the timeout
+   * values below were small. So you can rule out such a deadlock by changing these values to small
+   * numbers (also note that the --test_timeout blaze flag may be useful).
    */
   public static final long WAIT_TIMEOUT_MILLISECONDS = Long.MAX_VALUE;
+
   public static final long WAIT_TIMEOUT_SECONDS = WAIT_TIMEOUT_MILLISECONDS / 1000;
+
+  public static final Duration WAIT_TIMEOUT_DURATION = Duration.ofMillis(WAIT_TIMEOUT_MILLISECONDS);
+
+  private TestUtils() {}
 }

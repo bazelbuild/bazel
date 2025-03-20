@@ -13,23 +13,31 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
-import com.google.auto.value.AutoValue;
-import com.google.devtools.build.lib.events.ExtendedEventHandler.ProgressLike;
+import static java.util.Objects.requireNonNull;
 
-/** The event that is fired when the file being uploaded by the action is finished. */
-@AutoValue
-public abstract class ActionUploadFinishedEvent implements ProgressLike {
+import build.bazel.remote.execution.v2.Digest;
+import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
+import com.google.devtools.build.lib.remote.Store;
 
-  public static ActionUploadFinishedEvent create(
-      ActionExecutionMetadata action, String resourceId) {
-    return new AutoValue_ActionUploadFinishedEvent(action, resourceId);
+/**
+ * The event fired when a resource is done uploading to a remote or disk cache upon completion of a
+ * local action.
+ *
+ * @param action Returns the associated action.
+ * @param store Returns the {@link Store} that the resource belongs to.
+ * @param digest Returns the {@link Digest} that uniquely identifies the resource.
+ */
+public record ActionUploadFinishedEvent(ActionExecutionMetadata action, Store store, Digest digest)
+    implements Postable {
+  public ActionUploadFinishedEvent {
+    requireNonNull(action, "action");
+    requireNonNull(store, "store");
+    requireNonNull(digest, "digest");
   }
 
-  /** Returns the associated action. */
-  public abstract ActionExecutionMetadata action();
+  public static ActionUploadFinishedEvent create(
+      ActionExecutionMetadata action, Store store, Digest digest) {
+    return new ActionUploadFinishedEvent(action, store, digest);
+  }
 
-  /**
-   * Returns the id that uniquely determines the resource being uploaded among all upload events.
-   */
-  public abstract String resourceId();
 }

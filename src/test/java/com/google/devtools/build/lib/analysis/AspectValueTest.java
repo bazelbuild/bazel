@@ -13,8 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis;
 
+import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.skyframe.serialization.testutils.RoundTripping.roundTripMemoized;
+
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
@@ -28,6 +30,7 @@ import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
+import com.google.devtools.build.lib.skyframe.serialization.AutoRegistry;
 import com.google.devtools.build.skyframe.SkyKey;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -41,10 +44,10 @@ public final class AspectValueTest extends AnalysisTestCase {
   public void keyEquality() throws Exception {
     update();
     BuildConfigurationValue c1 = getTargetConfiguration();
-    BuildConfigurationValue c2 = getHostConfiguration();
-    Label l1 = Label.parseAbsolute("//a:l1", ImmutableMap.of());
-    Label l1b = Label.parseAbsolute("//a:l1", ImmutableMap.of());
-    Label l2 = Label.parseAbsolute("//a:l2", ImmutableMap.of());
+    BuildConfigurationValue c2 = getExecConfiguration();
+    Label l1 = Label.parseCanonical("//a:l1");
+    Label l1b = Label.parseCanonical("//a:l1");
+    Label l2 = Label.parseCanonical("//a:l2");
     AspectParameters i1 = new AspectParameters.Builder()
         .addAttribute("foo", "bar")
         .build();
@@ -59,7 +62,7 @@ public final class AspectValueTest extends AnalysisTestCase {
     ExtraAttributeAspect a2 = TestAspects.EXTRA_ATTRIBUTE_ASPECT;
 
     // label: //a:l1 or //a:l2
-    // baseConfiguration: target or host
+    // baseConfiguration: target or exec
     // aspect: Attribute or ExtraAttribute
     // parameters: bar or baz
 
@@ -127,13 +130,37 @@ public final class AspectValueTest extends AnalysisTestCase {
         .testEquals();
   }
 
+  @Test
+  public void roundTrippingEmptyAspectParameters_outputsSingleInstance() throws Exception {
+    var subject =
+        ImmutableList.of(
+            new AspectParameters.Builder().build(), new AspectParameters.Builder().build());
+    // Empty parameters has its own singleton serialization constant.
+    assertThat(subject.get(0)).isSameInstanceAs(subject.get(1));
+    var deserialized = roundTripMemoized(subject, AutoRegistry.get());
+    // It's preserved by round tripping.
+    assertThat(deserialized.get(0)).isSameInstanceAs(subject.get(0));
+    assertThat(deserialized.get(1)).isSameInstanceAs(subject.get(0));
+  }
+
+  @Test
+  public void roundTripping_mergesEquivalentAspectParameters() throws Exception {
+    var subject =
+        ImmutableList.of(
+            new AspectParameters.Builder().addAttribute("abc", "def").build(),
+            new AspectParameters.Builder().addAttribute("abc", "def").build());
+    assertThat(subject.get(0)).isNotSameInstanceAs(subject.get(1));
+    var deserialized = roundTripMemoized(subject, AutoRegistry.get());
+    assertThat(deserialized.get(0)).isSameInstanceAs(deserialized.get(1));
+  }
+
   private static AspectKey createKey(
       Label label,
       BuildConfigurationValue baseConfiguration,
       NativeAspectClass aspectClass,
       AspectParameters parameters) {
     return AspectKeyCreator.createAspectKey(
-        new AspectDescriptor(aspectClass, parameters),
+        AspectDescriptor.of(aspectClass, parameters),
         ConfiguredTargetKey.builder().setLabel(label).setConfiguration(baseConfiguration).build());
   }
 
@@ -146,7 +173,7 @@ public final class AspectValueTest extends AnalysisTestCase {
       AspectParameters parameters2) {
     AspectKey baseKey = createKey(label, baseConfiguration, aspectClass1, parameters1);
     return AspectKeyCreator.createAspectKey(
-        new AspectDescriptor(aspectClass2, parameters2),
+        AspectDescriptor.of(aspectClass2, parameters2),
         ImmutableList.of(baseKey),
         ConfiguredTargetKey.builder().setLabel(label).setConfiguration(baseConfiguration).build());
   }

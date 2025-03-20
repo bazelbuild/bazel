@@ -1,5 +1,12 @@
 # The spelling checker used by the Starlark interpreter.
 
+load("@rules_java//java:defs.bzl", "java_library")
+
+package(
+    default_applicable_licenses = ["//:license"],
+    default_visibility = ["//src:__subpackages__"],
+)
+
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
@@ -14,5 +21,7 @@ java_library(
         "//src/main/java/net/starlark/java:bazel",
         "//src/main/java/net/starlark/java:starlark",
     ],
-    deps = ["//third_party:jsr305"],
+    deps = [
+        "//third_party:jsr305",
+    ],
 )

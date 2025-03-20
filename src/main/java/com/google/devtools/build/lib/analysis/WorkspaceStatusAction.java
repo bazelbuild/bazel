@@ -17,17 +17,21 @@ package com.google.devtools.build.lib.analysis;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
+import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.WorkspaceStatus;
 import com.google.devtools.build.lib.server.FailureDetails.WorkspaceStatus.Code;
 import com.google.devtools.build.lib.skyframe.WorkspaceInfoFromDiff;
 import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.OptionsUtils;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -38,7 +42,6 @@ import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingException;
-import com.google.devtools.common.options.OptionsProvider;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
@@ -59,8 +62,7 @@ import javax.annotation.Nullable;
  * rebuilds if no other file is changed. This is useful for frequently-changing information that
  * does not significantly affect the build, e.g. the current time.
  *
- * <p>For more information, see {@link
- * com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory}.
+ * <p>For more information, see {@link Factory}.
  */
 public abstract class WorkspaceStatusAction extends AbstractAction {
 
@@ -90,20 +92,11 @@ public abstract class WorkspaceStatusAction extends AbstractAction {
     public PathFragment workspaceStatusCommand;
   }
 
-  /** The type of a workspace status action key. */
-  public enum KeyType {
-    INTEGER,
-    STRING,
-  }
-
   /**
    * Action context required by the workspace status action as well as language-specific actions
    * that write workspace status artifacts.
    */
   public interface Context extends ActionContext {
-    ImmutableMap<String, Key> getStableKeys();
-
-    ImmutableMap<String, Key> getVolatileKeys();
 
     // TODO(ulfjack): Maybe move these to a separate ActionContext interface?
     WorkspaceStatusAction.Options getOptions();
@@ -111,36 +104,6 @@ public abstract class WorkspaceStatusAction extends AbstractAction {
     ImmutableMap<String, String> getClientEnv();
 
     com.google.devtools.build.lib.shell.Command getCommand();
-  }
-
-  /** A key in the workspace status info file. */
-  public static class Key {
-    private final KeyType type;
-
-    private final String defaultValue;
-    private final String redactedValue;
-
-    private Key(KeyType type, String defaultValue, String redactedValue) {
-      this.type = type;
-      this.defaultValue = defaultValue;
-      this.redactedValue = redactedValue;
-    }
-
-    public KeyType getType() {
-      return type;
-    }
-
-    public String getDefaultValue() {
-      return defaultValue;
-    }
-
-    public String getRedactedValue() {
-      return redactedValue;
-    }
-
-    public static Key of(KeyType type, String defaultValue, String redactedValue) {
-      return new Key(type, defaultValue, redactedValue);
-    }
   }
 
   /**
@@ -173,23 +136,6 @@ public abstract class WorkspaceStatusAction extends AbstractAction {
     Artifact createVolatileArtifact(String name);
   }
 
-  /**
-   * Environment for the {@link Factory} to create the dummy workspace status information. This is a
-   * subset of the information provided by CommandEnvironment. However, we cannot reference the
-   * CommandEnvironment from here due to layering.
-   */
-  public interface DummyEnvironment {
-    Path getWorkspace();
-
-    /** Returns optional precomputed workspace info to include in the build info event. */
-    @Nullable
-    WorkspaceInfoFromDiff getWorkspaceInfoFromDiff();
-
-    String getBuildRequestId();
-
-    OptionsProvider getOptions();
-  }
-
   /** Factory for {@link WorkspaceStatusAction}. */
   public interface Factory {
     /**
@@ -201,10 +147,13 @@ public abstract class WorkspaceStatusAction extends AbstractAction {
     WorkspaceStatusAction createWorkspaceStatusAction(Environment env);
 
     /**
-     * Creates a dummy workspace status map. Used in cases where the build failed, so that part of
-     * the workspace status is nevertheless available.
+     * Returns a map containing any available workspace status information.
+     *
+     * <p>Used to construct a {@link BuildInfoEvent} at the end of builds in which no such event was
+     * posted.
      */
-    Map<String, String> createDummyWorkspaceStatus(DummyEnvironment env);
+    ImmutableSortedMap<String, String> createDummyWorkspaceStatus(
+        @Nullable WorkspaceInfoFromDiff workspaceInfoFromDiff);
   }
 
   private final String workspaceStatusDescription;
@@ -230,6 +179,25 @@ public abstract class WorkspaceStatusAction extends AbstractAction {
    */
   public abstract Artifact getStableStatus();
 
+  @Override
+  public boolean executeUnconditionally() {
+    return true;
+  }
+
+  @Override
+  public boolean isVolatile() {
+    return true;
+  }
+
+  @Override
+  protected final void computeKey(
+      ActionKeyContext actionKeyContext,
+      @Nullable InputMetadataProvider inputMetadataProvider,
+      Fingerprint fp) {
+    // Since executeUnconditionally() is true (and this action is special-cased anyway), there is no
+    // point in calculating a fingerprint.
+  }
+
   protected ActionExecutionException createExecutionException(Exception e, Code detailedCode) {
     String message = "Failed to determine " + workspaceStatusDescription + ": " + e.getMessage();
     DetailedExitCode code = createDetailedExitCode(message, detailedCode);
@@ -245,7 +213,7 @@ public abstract class WorkspaceStatusAction extends AbstractAction {
   }
 
   /** Converter for {@code --embed_label} which rejects strings that span multiple lines. */
-  public static final class OneLineStringConverter implements Converter<String> {
+  public static final class OneLineStringConverter extends Converter.Contextless<String> {
 
     @Override
     public String convert(String input) throws OptionsParsingException {

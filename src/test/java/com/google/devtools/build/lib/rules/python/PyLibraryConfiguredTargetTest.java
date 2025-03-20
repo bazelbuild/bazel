@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.python;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.rules.python.PythonTestUtils.assumesDefaultIsPY2;
+import static com.google.devtools.build.lib.rules.python.PythonTestUtils.getPyLoad;
 
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -38,25 +39,12 @@ public class PyLibraryConfiguredTargetTest extends PyBaseConfiguredTargetTestBas
     useConfiguration("--incompatible_use_python_toolchains=true");
     scratch.file(
         "pkg/BUILD", //
+        getPyLoad("py_library"),
         "py_library(",
         "    name = 'foo',",
         "    srcs = [':foo.py'],",
         ")");
-    assertThat(getConfiguredTarget("//pkg:foo").get(PyRuntimeInfo.PROVIDER)).isNull();
-  }
-
-  @Test
-  public void canBuildWithIncompatibleSrcsVersion() throws Exception {
-    useConfiguration("--python_version=PY3");
-    scratch.file(
-        "pkg/BUILD",
-        "py_library(",
-        "    name = 'foo',",
-        "    srcs = [':foo.py'],",
-        "    srcs_version = 'PY2ONLY')");
-    // Errors are only reported at the binary target, not the library, and even then they'd be
-    // deferred to execution time, so there should be nothing wrong here.
-    assertThat(view.hasErrors(getConfiguredTarget("//pkg:foo"))).isFalse();
+    assertThat(PyRuntimeInfo.fromTargetNullable(getConfiguredTarget("//pkg:foo"))).isNull();
   }
 
   @Test
@@ -65,6 +53,7 @@ public class PyLibraryConfiguredTargetTest extends PyBaseConfiguredTargetTestBas
     useConfiguration("--python_version=PY3");
     scratch.file(
         "pkg/BUILD", //
+        getPyLoad("py_library"),
         "py_library(",
         "    name = 'foo',",
         "    srcs = ['foo.py'],",
@@ -76,6 +65,7 @@ public class PyLibraryConfiguredTargetTest extends PyBaseConfiguredTargetTestBas
   public void filesToBuild() throws Exception {
     scratch.file(
         "pkg/BUILD", //
+        getPyLoad("py_library"),
         "py_library(",
         "    name = 'foo',",
         "    srcs = ['foo.py'])");
@@ -90,6 +80,7 @@ public class PyLibraryConfiguredTargetTest extends PyBaseConfiguredTargetTestBas
         "pkg",
         "foo",
         // build file:
+        getPyLoad("py_binary"),
         "py_binary(",
         "    name = 'foo',",
         "    srcs = ['foo.py', ':bar'])",
@@ -104,6 +95,7 @@ public class PyLibraryConfiguredTargetTest extends PyBaseConfiguredTargetTestBas
   public void whatIfSrcsContainsRuleGeneratingNoPyFiles() throws Exception {
     // In Bazel it's an error, in Blaze it's a warning.
     String[] lines = {
+      getPyLoad("py_binary"),
       "py_binary(",
       "    name = 'foo',",
       "    srcs = ['foo.py', ':bar'])",
@@ -120,14 +112,6 @@ public class PyLibraryConfiguredTargetTest extends PyBaseConfiguredTargetTestBas
           "'//pkg:bar' does not produce any py_binary srcs files",
           // build file:
           lines);
-    } else {
-      checkWarning(
-          "pkg",
-          "foo",
-          // warning:
-          "rule '//pkg:bar' does not produce any Python source files",
-          // build file:
-          lines);
     }
   }
 
@@ -138,6 +122,7 @@ public class PyLibraryConfiguredTargetTest extends PyBaseConfiguredTargetTestBas
             "pkg",
             "lib",
             // build file:
+            getPyLoad("py_library"),
             "py_library(name = 'lib', srcs = ['lib.py'], deps = [':bar'])",
             "py_library(name = 'bar', srcs = ['bar.py'], deps = [':baz'])",
             "py_library(name = 'baz', srcs = ['baz.py'])");
@@ -160,6 +145,7 @@ public class PyLibraryConfiguredTargetTest extends PyBaseConfiguredTargetTestBas
     scratchConfiguredTarget(
         "pkg-with-hyphens", //
         "foo",
+        getPyLoad("py_library"),
         "py_library(",
         "    name = 'foo',",
         "    srcs = ['//pkg:foo.py'])");

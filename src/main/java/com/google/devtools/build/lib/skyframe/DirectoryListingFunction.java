@@ -28,6 +28,7 @@ import javax.annotation.Nullable;
 public final class DirectoryListingFunction implements SkyFunction {
 
   @Override
+  @Nullable
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws DirectoryListingFunctionException, InterruptedException {
     RootedPath dirRootedPath = (RootedPath) skyKey.argument();
@@ -37,7 +38,7 @@ public final class DirectoryListingFunction implements SkyFunction {
       return null;
     }
 
-    RootedPath realDirRootedPath = dirFileValue.realRootedPath();
+    RootedPath realDirRootedPath = dirFileValue.realRootedPath(dirRootedPath);
     if (!dirFileValue.isDirectory()) {
       // Recall that the directory is assumed to exist (see DirectoryListingValue#key).
       throw new DirectoryListingFunctionException(new InconsistentFilesystemException(
@@ -53,12 +54,6 @@ public final class DirectoryListingFunction implements SkyFunction {
     }
 
     return DirectoryListingValue.value(dirRootedPath, dirFileValue, directoryListingStateValue);
-  }
-
-  @Nullable
-  @Override
-  public String extractTag(SkyKey skyKey) {
-    return null;
   }
 
   /**

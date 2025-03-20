@@ -15,33 +15,64 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
-import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
+import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.bazel.bzlmod.IndexRegistry.KnownFileHashesMode;
+import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
+import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
+import com.google.devtools.build.lib.vfs.Path;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.Supplier;
 
 /** Prod implementation of {@link RegistryFactory}. */
 public class RegistryFactoryImpl implements RegistryFactory {
-  private final HttpDownloader httpDownloader;
   private final Supplier<Map<String, String>> clientEnvironmentSupplier;
 
-  public RegistryFactoryImpl(
-      HttpDownloader httpDownloader, Supplier<Map<String, String>> clientEnvironmentSupplier) {
-    this.httpDownloader = httpDownloader;
+  public RegistryFactoryImpl(Supplier<Map<String, String>> clientEnvironmentSupplier) {
     this.clientEnvironmentSupplier = clientEnvironmentSupplier;
   }
 
   @Override
-  public Registry getRegistryWithUrl(String url) throws URISyntaxException {
+  public Registry createRegistry(
+      String url,
+      LockfileMode lockfileMode,
+      ImmutableMap<String, Optional<Checksum>> knownFileHashes,
+      ImmutableMap<ModuleKey, String> previouslySelectedYankedVersions,
+      Optional<Path> vendorDir)
+      throws URISyntaxException {
     URI uri = new URI(url);
-    switch (uri.getScheme()) {
-      case "http":
-      case "https":
-      case "file":
-        return new IndexRegistry(uri, httpDownloader, clientEnvironmentSupplier.get());
-      default:
-        throw new URISyntaxException(uri.toString(), "Unrecognized registry URL protocol");
+    if (uri.getScheme() == null) {
+      throw new URISyntaxException(
+          uri.toString(),
+          "Registry URL has no scheme -- supported schemes are: "
+              + "http://, https:// and file://");
     }
+    if (uri.getPath() == null) {
+      throw new URISyntaxException(
+          uri.toString(),
+          "Registry URL path is not valid -- did you mean to use file:///foo/bar "
+              + "or file:///c:/foo/bar for Windows?");
+    }
+    var knownFileHashesMode =
+        switch (uri.getScheme()) {
+          case "http", "https" ->
+              switch (lockfileMode) {
+                case ERROR -> KnownFileHashesMode.ENFORCE;
+                case REFRESH -> KnownFileHashesMode.USE_IMMUTABLE_AND_UPDATE;
+                case OFF, UPDATE -> KnownFileHashesMode.USE_AND_UPDATE;
+              };
+          case "file" -> KnownFileHashesMode.IGNORE;
+          default ->
+              throw new URISyntaxException(uri.toString(), "Unrecognized registry URL protocol");
+        };
+    return new IndexRegistry(
+        uri,
+        clientEnvironmentSupplier.get(),
+        knownFileHashes,
+        knownFileHashesMode,
+        previouslySelectedYankedVersions,
+        vendorDir);
   }
 }

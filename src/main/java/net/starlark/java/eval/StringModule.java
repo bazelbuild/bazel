@@ -29,7 +29,7 @@ import net.starlark.java.annot.StarlarkMethod;
 /**
  * Starlark String module.
  *
- * <p>This module has special treatment in Starlark, as its methods represent methods represent for
+ * <p>This module has special treatment in Starlark, as its methods represent methods present for
  * any 'string' objects in the language.
  *
  * <p>Methods of this class annotated with {@link StarlarkMethod} must have a positional-only
@@ -48,14 +48,14 @@ import net.starlark.java.annot.StarlarkMethod;
             + "# Strings support slicing (negative index starts from the end):\n"
             + "x = \"hello\"[2:4]  # \"ll\"\n"
             + "y = \"hello\"[1:-1]  # \"ell\"\n"
-            + "z = \"hello\"[:4]  # \"hell\""
+            + "z = \"hello\"[:4]  # \"hell\"\n"
             + "# Slice steps can be used, too:\n"
             + "s = \"hello\"[::2] # \"hlo\"\n"
             + "t = \"hello\"[3:0:-1] # \"lle\"\n</pre>"
             + "Strings are not directly iterable, use the <code>.elems()</code> "
             + "method to iterate over their characters. Examples:<br>"
             + "<pre class=\"language-python\">\"bc\" in \"abcd\"   # evaluates to True\n"
-            + "x = [s for s.elems() in \"abc\"]  # x == [\"a\", \"b\", \"c\"]</pre>\n"
+            + "x = [c for c in \"abc\".elems()]  # x == [\"a\", \"b\", \"c\"]</pre>\n"
             + "Implicit concatenation of strings is not allowed; use the <code>+</code> "
             + "operator instead. Comparison operators perform a lexicographical comparison; "
             + "use <code>==</code> to test for equality.")
@@ -66,7 +66,7 @@ final class StringModule implements StarlarkValue {
   private StringModule() {}
 
   // Returns s[start:stop:step], as if by Sequence.getSlice.
-  static String slice(String s, int start, int stop, int step) {
+  static String slice(String s, int start, int stop, int step) throws EvalException {
     RangeList indices = new RangeList(start, stop, step);
     int n = indices.size();
     if (n == 0) {
@@ -144,14 +144,16 @@ final class StringModule implements StarlarkValue {
               + "joined by this string as a separator. Example:<br>"
               + "<pre class=\"language-python\">\"|\".join([\"a\", \"b\", \"c\"]) == \"a|b|c\""
               + "</pre>",
-      parameters = {@Param(name = "self"), @Param(name = "elements", doc = "The objects to join.")})
-  public String join(String self, Object elements) throws EvalException {
+      parameters = {@Param(name = "self"), @Param(name = "elements", doc = "The objects to join.")},
+      useStarlarkThread = true)
+  public String join(String self, Object elements, StarlarkThread thread) throws EvalException {
     Iterable<?> items = Starlark.toIterable(elements);
     int i = 0;
     for (Object item : items) {
       if (!(item instanceof String)) {
         throw Starlark.errorf(
-            "expected string for sequence element %d, got '%s'", i, Starlark.type(item));
+            "expected string for sequence element %d, got '%s' of type %s",
+            i, Starlark.str(item, thread.getSemantics()), Starlark.type(item));
       }
       i++;
     }
@@ -182,12 +184,26 @@ final class StringModule implements StarlarkValue {
    * <p>Note that this differs from Python 2.7, which uses ctype.h#isspace(), and from
    * java.lang.Character#isWhitespace(), which does not recognize U+00A0.
    */
-  private static final String LATIN1_WHITESPACE =
-      ("\u0009" + "\n" + "\u000B" + "\u000C" + "\r" + "\u001C" + "\u001D" + "\u001E" + "\u001F"
-          + "\u0020" + "\u0085" + "\u00A0");
+  // TODO(https://github.com/bazelbuild/starlark/issues/112): use the Unicode definition of
+  // whitespace, matching Python 3.
+  private static final CharMatcher LATIN1_WHITESPACE =
+      CharMatcher.anyOf(
+          Joiner.on("") // to prevent autoformatter from concatenating the strings
+              .join(
+                  "\u0009", "\n", "\u000B", "\u000C", "\r", "\u001C", "\u001D", "\u001E", "\u001F",
+                  " ", "\u0085", "\u00A0"));
 
-  private static String stringLStrip(String self, String chars) {
-    CharMatcher matcher = CharMatcher.anyOf(chars);
+  // This is used instead of LATIN1_WHITESPACE when strings are represented as raw UTF-8 byte
+  // arrays. In that case, we should not strip any bytes that are not ASCII whitespace, but part of
+  // a multibyte UTF-8 character.
+  private static final CharMatcher ASCII_WHITESPACE =
+      CharMatcher.anyOf(
+          Joiner.on("") // to prevent autoformatter from concatenating the strings
+              .join(
+                  "\u0009", "\n", "\u000B", "\u000C", "\r", "\u001C", "\u001D", "\u001E", "\u001F",
+                  " "));
+
+  private static String stringLStrip(String self, CharMatcher matcher) {
     for (int i = 0; i < self.length(); i++) {
       if (!matcher.matches(self.charAt(i))) {
         return self.substring(i);
@@ -196,8 +212,7 @@ final class StringModule implements StarlarkValue {
     return ""; // All characters were stripped.
   }
 
-  private static String stringRStrip(String self, String chars) {
-    CharMatcher matcher = CharMatcher.anyOf(chars);
+  private static String stringRStrip(String self, CharMatcher matcher) {
     for (int i = self.length() - 1; i >= 0; i--) {
       if (!matcher.matches(self.charAt(i))) {
         return self.substring(0, i + 1);
@@ -206,8 +221,8 @@ final class StringModule implements StarlarkValue {
     return ""; // All characters were stripped.
   }
 
-  private static String stringStrip(String self, String chars) {
-    return stringLStrip(stringRStrip(self, chars), chars);
+  private static String stringStrip(String self, CharMatcher matcher) {
+    return stringLStrip(stringRStrip(self, matcher), matcher);
   }
 
   @StarlarkMethod(
@@ -229,10 +244,15 @@ final class StringModule implements StarlarkValue {
             },
             doc = "The characters to remove, or all whitespace if None.",
             defaultValue = "None")
-      })
-  public String lstrip(String self, Object charsOrNone) {
-    String chars = charsOrNone != Starlark.NONE ? (String) charsOrNone : LATIN1_WHITESPACE;
-    return stringLStrip(self, chars);
+      },
+      useStarlarkThread = true)
+  public String lstrip(String self, Object charsOrNone, StarlarkThread starlarkThread) {
+    return lstripSemantics(self, charsOrNone, starlarkThread.getSemantics());
+  }
+
+  public String lstripSemantics(
+      String self, Object charsOrNone, StarlarkSemantics starlarkSemantics) {
+    return stringLStrip(self, matcher(charsOrNone, starlarkSemantics));
   }
 
   @StarlarkMethod(
@@ -254,10 +274,15 @@ final class StringModule implements StarlarkValue {
             },
             doc = "The characters to remove, or all whitespace if None.",
             defaultValue = "None")
-      })
-  public String rstrip(String self, Object charsOrNone) {
-    String chars = charsOrNone != Starlark.NONE ? (String) charsOrNone : LATIN1_WHITESPACE;
-    return stringRStrip(self, chars);
+      },
+      useStarlarkThread = true)
+  public String rstrip(String self, Object charsOrNone, StarlarkThread starlarkThread) {
+    return rstripSemantics(self, charsOrNone, starlarkThread.getSemantics());
+  }
+
+  public String rstripSemantics(
+      String self, Object charsOrNone, StarlarkSemantics starlarkSemantics) {
+    return stringRStrip(self, matcher(charsOrNone, starlarkSemantics));
   }
 
   @StarlarkMethod(
@@ -280,10 +305,26 @@ final class StringModule implements StarlarkValue {
             },
             doc = "The characters to remove, or all whitespace if None.",
             defaultValue = "None")
-      })
-  public String strip(String self, Object charsOrNone) {
-    String chars = charsOrNone != Starlark.NONE ? (String) charsOrNone : LATIN1_WHITESPACE;
-    return stringStrip(self, chars);
+      },
+      useStarlarkThread = true)
+  public String strip(String self, Object charsOrNone, StarlarkThread starlarkThread) {
+    return stripSemantics(self, charsOrNone, starlarkThread.getSemantics());
+  }
+
+  public String stripSemantics(
+      String self, Object charsOrNone, StarlarkSemantics starlarkSemantics) {
+    return stringStrip(self, matcher(charsOrNone, starlarkSemantics));
+  }
+
+  private static CharMatcher matcher(Object charsOrNone, StarlarkSemantics starlarkSemantics) {
+    return charsOrNone != Starlark.NONE
+        // When using the latin-1 hack, each utf-8 code unit is stored as a distinct string element.
+        // To avoid matching an element that doesn't correspond to a whole code point, we exclude
+        // anything that's not in the ASCII range.
+        ? CharMatcher.anyOf((String) charsOrNone)
+        : (starlarkSemantics.getBool(StarlarkSemantics.INTERNAL_BAZEL_ONLY_UTF_8_BYTE_STRINGS)
+            ? ASCII_WHITESPACE
+            : LATIN1_WHITESPACE);
   }
 
   @StarlarkMethod(
@@ -291,7 +332,7 @@ final class StringModule implements StarlarkValue {
       doc =
           "Returns a copy of the string in which the occurrences "
               + "of <code>old</code> have been replaced with <code>new</code>, optionally "
-              + "restricting the number of replacements to <code>maxsplit</code>.",
+              + "restricting the number of replacements to <code>count</code>.",
       parameters = {
         @Param(name = "self", doc = "This string."),
         @Param(name = "old", doc = "The string to be replaced."),
@@ -524,14 +565,17 @@ final class StringModule implements StarlarkValue {
   private static int stringFind(boolean forward, String self, String sub, Object start, Object end)
       throws EvalException {
     long indices = substringIndices(self, start, end);
-    // Unfortunately Java forces us to allocate here, even though
-    // String has a private indexOf method that accepts indices.
-    // Fortunately the common case is self[0:n].
-    String substr = self.substring(lo(indices), hi(indices));
-    int subpos = forward ? substr.indexOf(sub) : substr.lastIndexOf(sub);
+    int startpos = lo(indices);
+    int endpos = hi(indices);
+    if (forward) {
+      return self.indexOf(sub, startpos, endpos);
+    }
+    // String#lastIndexOf can't be used to implement rfind() because it only
+    // confines the start position of the substring, not the entire substring.
+    int subpos = self.substring(startpos, endpos).lastIndexOf(sub);
     return subpos < 0
         ? subpos //
-        : subpos + lo(indices);
+        : subpos + startpos;
   }
 
   private static final Pattern SPLIT_LINES_PATTERN =
@@ -948,16 +992,15 @@ final class StringModule implements StarlarkValue {
   @StarlarkMethod(
       name = "format",
       doc =
-          "Perform string interpolation. Format strings contain replacement fields "
-              + "surrounded by curly braces <code>{}</code>. Anything that is not contained "
-              + "in braces is considered literal text, which is copied unchanged to the output."
-              + "If you need to include a brace character in the literal text, it can be "
-              + "escaped by doubling: <code>{{</code> and <code>}}</code>"
-              + "A replacement field can be either a name, a number, or empty. Values are "
-              + "converted to strings using the <a href=\"globals.html#str\">str</a> function."
-              + "<pre class=\"language-python\">"
-              + "# Access in order:\n"
-              + "\"{} < {}\".format(4, 5) == \"4 < 5\"\n"
+          "Perform string interpolation. Format strings contain replacement fields surrounded by"
+              + " curly braces <code>&#123;&#125;</code>. Anything that is not contained in braces"
+              + " is considered literal text, which is copied unchanged to the output.If you need"
+              + " to include a brace character in the literal text, it can be escaped by doubling:"
+              + " <code>&#123;&#123;</code> and <code>&#125;&#125;</code>A replacement field can be"
+              + " either a name, a number, or empty. Values are converted to strings using the <a"
+              + " href=\"../globals/all.html#str\">str</a> function.<pre"
+              + " class=\"language-python\"># Access in order:\n"
+              + "\"&#123;&#125; < &#123;&#125;\".format(4, 5) == \"4 < 5\"\n"
               + "# Access by position:\n"
               + "\"{1}, {0}\".format(2, 1) == \"1, 2\"\n"
               + "# Access by name:\n"
@@ -967,9 +1010,11 @@ final class StringModule implements StarlarkValue {
       },
       extraPositionals = @Param(name = "args", defaultValue = "()", doc = "List of arguments."),
       extraKeywords =
-          @Param(name = "kwargs", defaultValue = "{}", doc = "Dictionary of arguments."))
-  public String format(String self, Tuple args, Dict<String, Object> kwargs) throws EvalException {
-    return new FormatParser().format(self, args, kwargs);
+          @Param(name = "kwargs", defaultValue = "{}", doc = "Dictionary of arguments."),
+      useStarlarkThread = true)
+  public String format(String self, Tuple args, Dict<String, Object> kwargs, StarlarkThread thread)
+      throws EvalException {
+    return new FormatParser().format(self, args, kwargs, thread.getSemantics());
   }
 
   @StarlarkMethod(
@@ -1021,5 +1066,37 @@ final class StringModule implements StarlarkValue {
   // Computes str.substring(start, end).startsWith(prefix) without allocation.
   private static boolean substringStartsWith(String str, int start, int end, String prefix) {
     return start + prefix.length() <= end && str.startsWith(prefix, start);
+  }
+
+  @StarlarkMethod(
+      name = "removeprefix",
+      doc =
+          "If the string starts with <code>prefix</code>, returns a new string with the prefix "
+              + "removed. Otherwise, returns the string.",
+      parameters = {
+        @Param(name = "self", doc = "This string."),
+        @Param(name = "prefix", doc = "The prefix to remove if present."),
+      })
+  public String removePrefix(String self, String prefix) {
+    if (self.startsWith(prefix)) {
+      return self.substring(prefix.length());
+    }
+    return self;
+  }
+
+  @StarlarkMethod(
+      name = "removesuffix",
+      doc =
+          "If the string ends with <code>suffix</code>, returns a new string with the suffix "
+              + "removed. Otherwise, returns the string.",
+      parameters = {
+        @Param(name = "self", doc = "This string."),
+        @Param(name = "suffix", doc = "The suffix to remove if present."),
+      })
+  public String removeSuffix(String self, String suffix) {
+    if (self.endsWith(suffix)) {
+      return self.substring(0, self.length() - suffix.length());
+    }
+    return self;
   }
 }

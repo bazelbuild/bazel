@@ -121,6 +121,22 @@ public abstract class InMemoryContentInfo implements FileStatus, InodeOrErrno {
   }
 
   @Override
+  public final int getPermissions() {
+    int permissions = 0;
+    // Emulate the default umask of 022.
+    if (isReadable) {
+      permissions |= 0444;
+    }
+    if (isWritable) {
+      permissions |= 0200;
+    }
+    if (isExecutable) {
+      permissions |= 0111;
+    }
+    return permissions;
+  }
+
+  @Override
   public final InMemoryContentInfo inode() {
     return this;
   }

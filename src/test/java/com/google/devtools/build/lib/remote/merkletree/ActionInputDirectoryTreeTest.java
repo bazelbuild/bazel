@@ -15,14 +15,16 @@ package com.google.devtools.build.lib.remote.merkletree;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.StaticInputMetadataProvider;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.remote.merkletree.DirectoryTree.FileNode;
-import com.google.devtools.build.lib.remote.util.StaticMetadataProvider;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -50,7 +52,13 @@ public class ActionInputDirectoryTreeTest extends DirectoryTreeTest {
     }
 
     return DirectoryTreeBuilder.fromActionInputs(
-        inputFiles, new StaticMetadataProvider(metadata), execRoot, digestUtil);
+        inputFiles,
+        ImmutableSet.of(),
+        new StaticInputMetadataProvider(metadata),
+        execRoot,
+        ArtifactPathResolver.forExecRoot(execRoot),
+        /* spawnScrubber= */ null,
+        digestUtil);
   }
 
   @Test
@@ -63,16 +71,22 @@ public class ActionInputDirectoryTreeTest extends DirectoryTreeTest {
 
     DirectoryTree tree =
         DirectoryTreeBuilder.fromActionInputs(
-            sortedInputs, new StaticMetadataProvider(metadata), execRoot, digestUtil);
+            sortedInputs,
+            ImmutableSet.of(),
+            new StaticInputMetadataProvider(metadata),
+            execRoot,
+            ArtifactPathResolver.forExecRoot(execRoot),
+            /* spawnScrubber= */ null,
+            digestUtil);
     assertLexicographicalOrder(tree);
 
     assertThat(directoriesAtDepth(0, tree)).containsExactly("srcs");
     assertThat(directoriesAtDepth(1, tree)).isEmpty();
 
     FileNode expectedFooNode =
-        FileNode.createExecutable("foo.cc", foo.getPath(), digestUtil.computeAsUtf8("foo"));
+        FileNode.create("foo.cc", foo.getPath(), digestUtil.computeAsUtf8("foo"));
     FileNode expectedBarNode =
-        FileNode.createExecutable("bar.cc", bar.getBytes(), digestUtil.computeAsUtf8("bar"));
+        FileNode.create("bar.cc", bar, digestUtil.computeAsUtf8("bar"), false);
     assertThat(fileNodesAtDepth(tree, 0)).isEmpty();
     assertThat(fileNodesAtDepth(tree, 1)).containsExactly(expectedFooNode, expectedBarNode);
   }
@@ -108,7 +122,13 @@ public class ActionInputDirectoryTreeTest extends DirectoryTreeTest {
 
     DirectoryTree tree =
         DirectoryTreeBuilder.fromActionInputs(
-            sortedInputs, new StaticMetadataProvider(metadata), execRoot, digestUtil);
+            sortedInputs,
+            ImmutableSet.of(),
+            new StaticInputMetadataProvider(metadata),
+            execRoot,
+            ArtifactPathResolver.forExecRoot(execRoot),
+            /* spawnScrubber= */ null,
+            digestUtil);
     assertLexicographicalOrder(tree);
 
     assertThat(directoriesAtDepth(0, tree)).containsExactly("srcs");
@@ -117,17 +137,60 @@ public class ActionInputDirectoryTreeTest extends DirectoryTreeTest {
     assertThat(directoriesAtDepth(3, tree)).isEmpty();
 
     FileNode expectedFooNode =
-        FileNode.createExecutable("foo.cc", foo.getPath(), digestUtil.computeAsUtf8("foo"));
+        FileNode.create("foo.cc", foo.getPath(), digestUtil.computeAsUtf8("foo"));
     FileNode expectedBarNode =
-        FileNode.createExecutable(
+        FileNode.create(
             "bar.cc", execRoot.getRelative(bar.getExecPath()), digestUtil.computeAsUtf8("bar"));
     FileNode expectedBuzzNode =
-        FileNode.createExecutable(
+        FileNode.create(
             "buzz.cc", execRoot.getRelative(buzz.getExecPath()), digestUtil.computeAsUtf8("buzz"));
     assertThat(fileNodesAtDepth(tree, 0)).isEmpty();
     assertThat(fileNodesAtDepth(tree, 1)).containsExactly(expectedFooNode);
     assertThat(fileNodesAtDepth(tree, 2)).containsExactly(expectedBarNode);
     assertThat(fileNodesAtDepth(tree, 3)).containsExactly(expectedBuzzNode);
+  }
+
+  @Test
+  public void filesShouldBeDeduplicated() throws Exception {
+    // Test that a file specified as part of a directory and as an individual file is not counted
+    // twice.
+
+    SortedMap<PathFragment, ActionInput> sortedInputs = new TreeMap<>();
+    Map<ActionInput, FileArtifactValue> metadata = new HashMap<>();
+
+    Path dirPath = execRoot.getRelative("srcs");
+    dirPath.createDirectoryAndParents();
+    Artifact dir = ActionsTestUtil.createArtifact(artifactRoot, dirPath);
+    sortedInputs.put(dirPath.relativeTo(execRoot), dir);
+    metadata.put(dir, FileArtifactValue.createForTesting(dirPath));
+
+    Path fooPath = dirPath.getRelative("foo.cc");
+    FileSystemUtils.writeContentAsLatin1(fooPath, "foo");
+    ActionInput foo = ActionInputHelper.fromPath(fooPath.relativeTo(execRoot));
+    sortedInputs.put(fooPath.relativeTo(execRoot), foo);
+    metadata.put(foo, FileArtifactValue.createForTesting(fooPath));
+
+    DirectoryTree tree =
+        DirectoryTreeBuilder.fromActionInputs(
+            sortedInputs,
+            ImmutableSet.of(),
+            new StaticInputMetadataProvider(metadata),
+            execRoot,
+            ArtifactPathResolver.forExecRoot(execRoot),
+            /* spawnScrubber= */ null,
+            digestUtil);
+    assertLexicographicalOrder(tree);
+
+    assertThat(directoriesAtDepth(0, tree)).containsExactly("srcs");
+    assertThat(directoriesAtDepth(1, tree)).isEmpty();
+
+    FileNode expectedFooNode =
+        FileNode.create(
+            "foo.cc", execRoot.getRelative(foo.getExecPath()), digestUtil.computeAsUtf8("foo"));
+    assertThat(fileNodesAtDepth(tree, 0)).isEmpty();
+    assertThat(fileNodesAtDepth(tree, 1)).containsExactly(expectedFooNode);
+
+    assertThat(tree.numFiles()).isEqualTo(1);
   }
 
   private static VirtualActionInput addVirtualFile(

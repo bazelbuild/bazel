@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.TestsForTargetPatternValue.TestsForTargetPatternKey;
@@ -31,8 +30,7 @@ public final class TestSuiteExpansionKeyCodecTest {
     new SerializationTester(
             new TestsForTargetPatternKey(
                 ImmutableSortedSet.of(
-                    Label.parseAbsolute("//foo/bar:baz", ImmutableMap.of()),
-                    Label.parseAbsolute("//a/b:c", ImmutableMap.of()))),
+                    Label.parseCanonical("//foo/bar:baz"), Label.parseCanonical("//a/b:c"))),
             new TestsForTargetPatternKey(ImmutableSortedSet.<Label>of()))
         .runTests();
   }

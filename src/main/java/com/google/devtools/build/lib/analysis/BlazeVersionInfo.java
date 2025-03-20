@@ -20,6 +20,7 @@ import com.google.common.flogger.GoogleLogger;
 import java.util.Date;
 import java.util.Map;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 
 /**
  * Determines the version information of the current process.
@@ -33,6 +34,11 @@ public class BlazeVersionInfo {
   public static final String BUILD_LABEL = "Build label";
   /** Key for the release timestamp is seconds. */
   public static final String BUILD_TIMESTAMP = "Build timestamp as int";
+
+  // If the current version is a development version, this environment variable can be used to
+  // override the version string (e.g. to deal with version-based feature detection during a
+  // bisect).
+  public static final String BAZEL_DEV_VERSION_OVERRIDE_ENV_VAR = "BAZEL_DEV_VERSION_OVERRIDE";
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
@@ -87,9 +93,10 @@ public class BlazeVersionInfo {
   }
 
   /**
-   * Returns the summary which gets displayed in the 'version' command.
-   * The summary is a list of formatted key / value pairs.
+   * Returns the summary which gets displayed in the 'version' command. The summary is a list of
+   * formatted key / value pairs.
    */
+  @Nullable
   public String getSummary() {
     if (buildData.isEmpty()) {
       return null;
@@ -124,7 +131,14 @@ public class BlazeVersionInfo {
    */
   public String getVersion() {
     String buildLabel = buildData.get(BUILD_LABEL);
-    return buildLabel != null ? buildLabel : "";
+    if (buildLabel != null) {
+      return buildLabel;
+    }
+    String override = System.getenv(BAZEL_DEV_VERSION_OVERRIDE_ENV_VAR);
+    if (override != null) {
+      return override;
+    }
+    return "";
   }
 
   /**

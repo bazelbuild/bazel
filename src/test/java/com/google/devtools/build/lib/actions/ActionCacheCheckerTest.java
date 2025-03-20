@@ -18,36 +18,34 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.NULL_ARTIFACT_OWNER;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.createArtifact;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.createTreeArtifactWithGeneratingAction;
+import static com.google.devtools.build.lib.vfs.FileSystemUtils.readContent;
 import static com.google.devtools.build.lib.vfs.FileSystemUtils.writeIsoLatin1;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionCacheChecker.Token;
 import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
-import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
-import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
 import com.google.devtools.build.lib.actions.cache.ActionCache;
 import com.google.devtools.build.lib.actions.cache.ActionCache.Entry.SerializableTreeArtifactValue;
 import com.google.devtools.build.lib.actions.cache.CompactPersistentActionCache;
-import com.google.devtools.build.lib.actions.cache.MetadataHandler;
+import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics;
 import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics.MissDetail;
 import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics.MissReason;
-import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil.FakeArtifactResolverBase;
-import com.google.devtools.build.lib.actions.util.ActionsTestUtil.FakeMetadataHandlerBase;
+import com.google.devtools.build.lib.actions.util.ActionsTestUtil.FakeInputMetadataHandlerBase;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil.MissDetailsBuilder;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil.NullAction;
 import com.google.devtools.build.lib.clock.Clock;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.testutil.ManualClock;
@@ -57,12 +55,15 @@ import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
+import com.google.devtools.build.lib.vfs.OutputPermissions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
 import java.io.PrintStream;
+import java.time.Instant;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.HashMap;
@@ -70,32 +71,37 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Predicate;
 import javax.annotation.Nullable;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
-@RunWith(JUnit4.class)
+@RunWith(TestParameterInjector.class)
 public class ActionCacheCheckerTest {
+  private static final OutputChecker CHECK_TTL =
+      (file, metadata) -> metadata.isAlive(Instant.now());
+
   private CorruptibleActionCache cache;
   private ActionCacheChecker cacheChecker;
   private Set<Path> filesToDelete;
   private DigestHashFunction digestHashFunction;
   private FileSystem fileSystem;
+  private Path execRoot;
   private ArtifactRoot artifactRoot;
 
   @Before
   public void setupCache() throws Exception {
     Scratch scratch = new Scratch();
     Clock clock = new ManualClock();
+    Path cacheRoot = scratch.resolve("/cache/test.dat");
 
-    cache = new CorruptibleActionCache(scratch.resolve("/cache/test.dat"), clock);
+    execRoot = scratch.resolve("/output");
+    cache = new CorruptibleActionCache(cacheRoot, clock);
     cacheChecker = createActionCacheChecker(/*storeOutputMetadata=*/ false);
     digestHashFunction = DigestHashFunction.SHA256;
     fileSystem = new InMemoryFileSystem(digestHashFunction);
-    Path execRoot = fileSystem.getPath("/output");
     artifactRoot = ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "bin");
   }
 
@@ -137,8 +143,13 @@ public class ActionCacheCheckerTest {
     runAction(action, new HashMap<>());
   }
 
-  private void runAction(Action action, MetadataHandler metadataHandler) throws Exception {
-    runAction(action, new HashMap<>(), ImmutableMap.of(), metadataHandler);
+  private void runAction(
+      Action action,
+      InputMetadataProvider inputMetadataProvider,
+      OutputMetadataStore outputMetadataStore)
+      throws Exception {
+    runAction(
+        action, new HashMap<>(), ImmutableMap.of(), inputMetadataProvider, outputMetadataStore);
   }
 
   /**
@@ -151,48 +162,86 @@ public class ActionCacheCheckerTest {
 
   private void runAction(Action action, Map<String, String> clientEnv, Map<String, String> platform)
       throws Exception {
-    runAction(action, clientEnv, platform, new FakeMetadataHandler());
+    FakeInputMetadataHandler metadataHandler = new FakeInputMetadataHandler();
+    runAction(action, clientEnv, platform, metadataHandler, metadataHandler);
   }
 
   private void runAction(
       Action action,
       Map<String, String> clientEnv,
       Map<String, String> platform,
-      MetadataHandler metadataHandler)
+      InputMetadataProvider inputMetadataProvider,
+      OutputMetadataStore outputMetadataStore)
       throws Exception {
-    for (Artifact artifact : action.getOutputs()) {
-      Path path = artifact.getPath();
+    runAction(
+        action,
+        clientEnv,
+        platform,
+        inputMetadataProvider,
+        outputMetadataStore,
+        OutputChecker.TRUST_ALL);
+  }
 
-      // Record all action outputs as files to be deleted across tests to prevent cross-test
-      // pollution.  We need to do this on a path basis because we don't know upfront which file
-      // system they live in so we cannot just recreate the file system.  (E.g. all NullActions
-      // share an in-memory file system to hold dummy outputs.)
-      filesToDelete.add(path);
-
-      Path parent = path.getParentDirectory();
-      if (parent != null) {
-        parent.createDirectoryAndParents();
-      }
-    }
-
+  private void runAction(
+      Action action,
+      Map<String, String> clientEnv,
+      Map<String, String> platform,
+      InputMetadataProvider inputMetadataProvider,
+      OutputMetadataStore outputMetadataStore,
+      OutputChecker outputChecker)
+      throws Exception {
     Token token =
         cacheChecker.getTokenIfNeedToExecute(
             action,
-            /*resolvedCacheArtifacts=*/ null,
+            /* resolvedCacheArtifacts= */ null,
             clientEnv,
-            /*handler=*/ null,
-            metadataHandler,
-            /*artifactExpander=*/ null,
+            OutputPermissions.READONLY,
+            /* handler= */ null,
+            inputMetadataProvider,
+            outputMetadataStore,
             platform,
-            /*isRemoteCacheEnabled=*/ true);
+            outputChecker);
+    runAction(action, clientEnv, platform, inputMetadataProvider, outputMetadataStore, token);
+  }
+
+  private void runAction(
+      Action action,
+      Map<String, String> clientEnv,
+      Map<String, String> platform,
+      InputMetadataProvider inputMetadataProvider,
+      OutputMetadataStore outputMetadataStore,
+      @Nullable Token token)
+      throws Exception {
     if (token != null) {
+      for (Artifact artifact : action.getOutputs()) {
+        Path path = artifact.getPath();
+
+        // Record all action outputs as files to be deleted across tests to prevent cross-test
+        // pollution.  We need to do this on a path basis because we don't know upfront which file
+        // system they live in so we cannot just recreate the file system.  (E.g. all NullActions
+        // share an in-memory file system to hold dummy outputs.)
+        filesToDelete.add(path);
+
+        Path parent = path.getParentDirectory();
+        if (parent != null) {
+          parent.createDirectoryAndParents();
+        }
+      }
+
       // Real action execution would happen here.
       ActionExecutionContext context = mock(ActionExecutionContext.class);
-      when(context.getMetadataHandler()).thenReturn(metadataHandler);
+      when(context.getOutputMetadataStore()).thenReturn(outputMetadataStore);
       action.execute(context);
 
       cacheChecker.updateActionCache(
-          action, token, metadataHandler, /*artifactExpander=*/ null, clientEnv, platform);
+          action,
+          token,
+          inputMetadataProvider,
+          outputMetadataStore,
+          /* artifactExpander= */ null,
+          clientEnv,
+          OutputPermissions.READONLY,
+          platform);
     }
   }
 
@@ -257,7 +306,7 @@ public class ActionCacheCheckerTest {
           @Override
           protected void computeKey(
               ActionKeyContext actionKeyContext,
-              @Nullable ArtifactExpander artifactExpander,
+              @Nullable InputMetadataProvider inputMetadataProvider,
               Fingerprint fp) {
             fp.addString("key1");
           }
@@ -268,7 +317,7 @@ public class ActionCacheCheckerTest {
           @Override
           protected void computeKey(
               ActionKeyContext actionKeyContext,
-              @Nullable ArtifactExpander artifactExpander,
+              @Nullable InputMetadataProvider inputMetadataProvider,
               Fingerprint fp) {
             fp.addString("key2");
           }
@@ -342,9 +391,10 @@ public class ActionCacheCheckerTest {
   @Test
   public void testDifferentFiles() throws Exception {
     Action action = new WriteEmptyOutputAction();
-    runAction(action);  // Not cached.
+    runAction(action); // Not cached.
+    assertThat(readContent(action.getPrimaryOutput().getPath(), UTF_8)).isEmpty();
     writeContentAsLatin1(action.getPrimaryOutput().getPath(), "modified");
-    runAction(action);  // Cache miss because output files were modified.
+    runAction(action); // Cache miss because output files were modified.
 
     assertStatistics(
         0,
@@ -379,49 +429,6 @@ public class ActionCacheCheckerTest {
   }
 
   @Test
-  public void testMiddleman_notCached() throws Exception {
-    doTestNotCached(new NullMiddlemanAction(), MissReason.DIFFERENT_DEPS);
-  }
-
-  @Test
-  public void testMiddleman_cached() throws Exception {
-    doTestCached(new NullMiddlemanAction(), MissReason.DIFFERENT_DEPS);
-  }
-
-  @Test
-  public void testMiddleman_corruptedCacheEntry() throws Exception {
-    doTestCorruptedCacheEntry(new NullMiddlemanAction());
-  }
-
-  @Test
-  public void testMiddleman_differentFiles() throws Exception {
-    Action action =
-        new NullMiddlemanAction() {
-          @Override
-          public synchronized NestedSet<Artifact> getInputs() {
-            FileSystem fileSystem = getPrimaryOutput().getPath().getFileSystem();
-            Path path = fileSystem.getPath("/input");
-            ArtifactRoot root = ArtifactRoot.asSourceRoot(Root.fromPath(fileSystem.getPath("/")));
-            return NestedSetBuilder.create(
-                Order.STABLE_ORDER, ActionsTestUtil.createArtifact(root, path));
-          }
-        };
-    runAction(action);  // Not cached so recorded as different deps.
-    writeContentAsLatin1(action.getPrimaryInput().getPath(), "modified");
-    runAction(action);  // Cache miss because input files were modified.
-    writeContentAsLatin1(action.getPrimaryOutput().getPath(), "modified");
-    runAction(action);  // Outputs are not considered for middleman actions, so this is a cache hit.
-    runAction(action);  // Outputs are not considered for middleman actions, so this is a cache hit.
-
-    assertStatistics(
-        2,
-        new MissDetailsBuilder()
-            .set(MissReason.DIFFERENT_DEPS, 1)
-            .set(MissReason.DIFFERENT_FILES, 1)
-            .build());
-  }
-
-  @Test
   public void testDeletedConstantMetadataOutputCausesReexecution() throws Exception {
     SpecialArtifact output =
         SpecialArtifact.create(
@@ -433,28 +440,54 @@ public class ActionCacheCheckerTest {
     Action action = new WriteEmptyOutputAction(output);
     runAction(action);
     output.getPath().delete();
+    FakeInputMetadataHandler fakeMetadataHandler = new FakeInputMetadataHandler();
     assertThat(
             cacheChecker.getTokenIfNeedToExecute(
                 action,
-                /*resolvedCacheArtifacts=*/ null,
-                /*clientEnv=*/ ImmutableMap.of(),
-                /*handler=*/ null,
-                new FakeMetadataHandler(),
-                /*artifactExpander=*/ null,
-                /*remoteDefaultPlatformProperties=*/ ImmutableMap.of(),
-                /*isRemoteCacheEnabled=*/ true))
+                /* resolvedCacheArtifacts= */ null,
+                /* clientEnv= */ ImmutableMap.of(),
+                OutputPermissions.READONLY,
+                /* handler= */ null,
+                fakeMetadataHandler,
+                fakeMetadataHandler,
+                /* remoteDefaultPlatformProperties= */ ImmutableMap.of(),
+                OutputChecker.TRUST_ALL))
         .isNotNull();
   }
 
-  private RemoteFileArtifactValue createRemoteFileMetadata(String content) {
+  private FileArtifactValue createRemoteMetadata(String content) {
+    return createRemoteMetadata(content, /* resolvedPath= */ null);
+  }
+
+  private FileArtifactValue createRemoteMetadata(
+      String content, @Nullable PathFragment resolvedPath) {
     byte[] bytes = content.getBytes(UTF_8);
-    return new RemoteFileArtifactValue(digest(bytes), bytes.length, 1, "action-id");
+    FileArtifactValue metadata =
+        FileArtifactValue.createForRemoteFileWithMaterializationData(
+            digest(bytes), bytes.length, 1, /* expirationTime= */ null);
+    if (resolvedPath != null) {
+      metadata = FileArtifactValue.createFromExistingWithResolvedPath(metadata, resolvedPath);
+    }
+    return metadata;
+  }
+
+  private FileArtifactValue createRemoteMetadata(
+      String content, @Nullable Instant expirationTime, @Nullable PathFragment resolvedPath) {
+    byte[] bytes = content.getBytes(UTF_8);
+    FileArtifactValue metadata =
+        FileArtifactValue.createForRemoteFileWithMaterializationData(
+            digest(bytes), bytes.length, 1, expirationTime);
+    if (resolvedPath != null) {
+      metadata = FileArtifactValue.createFromExistingWithResolvedPath(metadata, resolvedPath);
+    }
+    return metadata;
   }
 
   private static TreeArtifactValue createTreeMetadata(
       SpecialArtifact parent,
       ImmutableMap<String, ? extends FileArtifactValue> children,
-      Optional<FileArtifactValue> archivedArtifactValue) {
+      Optional<FileArtifactValue> archivedArtifactValue,
+      Optional<PathFragment> resolvedPath) {
     TreeArtifactValue.Builder builder = TreeArtifactValue.newBuilder(parent);
     for (Map.Entry<String, ? extends FileArtifactValue> entry : children.entrySet()) {
       builder.putChild(
@@ -466,6 +499,7 @@ public class ActionCacheCheckerTest {
           builder.setArchivedRepresentation(
               TreeArtifactValue.ArchivedRepresentation.create(artifact, metadata));
         });
+    resolvedPath.ifPresent(builder::setResolvedPath);
     return builder.build();
   }
 
@@ -474,7 +508,7 @@ public class ActionCacheCheckerTest {
     cacheChecker = createActionCacheChecker(/*storeOutputMetadata=*/ true);
     Artifact output = createArtifact(artifactRoot, "bin/dummy");
     String content = "content";
-    Action action = new InjectOutputFileMetadataAction(output, createRemoteFileMetadata(content));
+    Action action = new InjectOutputFileMetadataAction(output, createRemoteMetadata(content));
 
     // Not cached.
     runAction(action);
@@ -482,7 +516,7 @@ public class ActionCacheCheckerTest {
     assertThat(output.getPath().exists()).isFalse();
     ActionCache.Entry entry = cache.get(output.getExecPathString());
     assertThat(entry).isNotNull();
-    assertThat(entry.getOutputFile(output)).isEqualTo(createRemoteFileMetadata(content));
+    assertThat(entry.getOutputFile(output)).isEqualTo(createRemoteMetadata(content));
     assertStatistics(0, new MissDetailsBuilder().set(MissReason.NOT_CACHED, 1).build());
   }
 
@@ -511,8 +545,8 @@ public class ActionCacheCheckerTest {
           @Override
           public ActionResult execute(ActionExecutionContext actionExecutionContext) {
             actionExecutionContext
-                .getMetadataHandler()
-                .injectFile(output, createRemoteFileMetadata(""));
+                .getOutputMetadataStore()
+                .injectFile(output, createRemoteMetadata(""));
             return super.execute(actionExecutionContext);
           }
         };
@@ -523,7 +557,7 @@ public class ActionCacheCheckerTest {
     assertThat(output.getPath().exists()).isTrue();
     ActionCache.Entry entry = cache.get(output.getExecPathString());
     assertThat(entry).isNotNull();
-    assertThat(entry.getOutputFile(output)).isEqualTo(createRemoteFileMetadata(""));
+    assertThat(entry.getOutputFile(output)).isEqualTo(createRemoteMetadata(""));
     assertStatistics(0, new MissDetailsBuilder().set(MissReason.NOT_CACHED, 1).build());
   }
 
@@ -531,7 +565,7 @@ public class ActionCacheCheckerTest {
   public void saveOutputMetadata_notSavedIfDisabled() throws Exception {
     Artifact output = createArtifact(artifactRoot, "bin/dummy");
     String content = "content";
-    Action action = new InjectOutputFileMetadataAction(output, createRemoteFileMetadata(content));
+    Action action = new InjectOutputFileMetadataAction(output, createRemoteMetadata(content));
 
     runAction(action);
 
@@ -547,49 +581,54 @@ public class ActionCacheCheckerTest {
     cacheChecker = createActionCacheChecker(/*storeOutputMetadata=*/ true);
     Artifact output = createArtifact(artifactRoot, "bin/dummy");
     String content = "content";
-    Action action = new InjectOutputFileMetadataAction(output, createRemoteFileMetadata(content));
-    MetadataHandler metadataHandler = new FakeMetadataHandler();
+    Action action = new InjectOutputFileMetadataAction(output, createRemoteMetadata(content));
+    FakeInputMetadataHandler metadataHandler = new FakeInputMetadataHandler();
 
     runAction(action);
     Token token =
         cacheChecker.getTokenIfNeedToExecute(
             action,
-            /*resolvedCacheArtifacts=*/ null,
-            /*clientEnv=*/ ImmutableMap.of(),
-            /*handler=*/ null,
+            /* resolvedCacheArtifacts= */ null,
+            /* clientEnv= */ ImmutableMap.of(),
+            OutputPermissions.READONLY,
+            /* handler= */ null,
             metadataHandler,
-            /*artifactExpander=*/ null,
-            /*remoteDefaultPlatformProperties=*/ ImmutableMap.of(),
-            /*isRemoteCacheEnabled=*/ true);
+            metadataHandler,
+            /* remoteDefaultPlatformProperties= */ ImmutableMap.of(),
+            OutputChecker.TRUST_ALL);
 
     assertThat(output.getPath().exists()).isFalse();
     assertThat(token).isNull();
     ActionCache.Entry entry = cache.get(output.getExecPathString());
     assertThat(entry).isNotNull();
-    assertThat(entry.getOutputFile(output)).isEqualTo(createRemoteFileMetadata(content));
-    assertThat(metadataHandler.getMetadata(output)).isEqualTo(createRemoteFileMetadata(content));
+    assertThat(entry.getOutputFile(output)).isEqualTo(createRemoteMetadata(content));
+    assertThat(metadataHandler.getOutputMetadata(output)).isEqualTo(createRemoteMetadata(content));
   }
 
   @Test
-  public void saveOutputMetadata_remoteOutputUnavailable_remoteFileMetadataNotLoaded()
-      throws Exception {
-    cacheChecker = createActionCacheChecker(/*storeOutputMetadata=*/ true);
+  public void saveOutputMetadata_remoteFileExpired_remoteFileMetadataNotLoaded() throws Exception {
+    cacheChecker = createActionCacheChecker(/* storeOutputMetadata= */ true);
     Artifact output = createArtifact(artifactRoot, "bin/dummy");
     String content = "content";
-    Action action = new InjectOutputFileMetadataAction(output, createRemoteFileMetadata(content));
-    MetadataHandler metadataHandler = new FakeMetadataHandler();
+    Action action =
+        new InjectOutputFileMetadataAction(
+            output,
+            createRemoteMetadata(
+                content, /* expirationTime= */ Instant.ofEpochMilli(1), /* resolvedPath= */ null));
+    FakeInputMetadataHandler metadataHandler = new FakeInputMetadataHandler();
 
     runAction(action);
     Token token =
         cacheChecker.getTokenIfNeedToExecute(
             action,
-            /*resolvedCacheArtifacts=*/ null,
-            /*clientEnv=*/ ImmutableMap.of(),
-            /*handler=*/ null,
+            /* resolvedCacheArtifacts= */ null,
+            /* clientEnv= */ ImmutableMap.of(),
+            OutputPermissions.READONLY,
+            /* handler= */ null,
             metadataHandler,
-            /*artifactExpander=*/ null,
-            /*remoteDefaultPlatformProperties=*/ ImmutableMap.of(),
-            /*isRemoteCacheEnabled=*/ false);
+            metadataHandler,
+            /* remoteDefaultPlatformProperties= */ ImmutableMap.of(),
+            CHECK_TTL);
 
     assertThat(output.getPath().exists()).isFalse();
     assertThat(token).isNotNull();
@@ -598,11 +637,43 @@ public class ActionCacheCheckerTest {
   }
 
   @Test
-  public void saveOutputMetadata_localMetadataIsSameAsRemoteMetadata_cached() throws Exception {
+  public void saveOutputMetadata_storeOutputMetadataDisabled_remoteFileMetadataNotLoaded()
+      throws Exception {
+    cacheChecker = createActionCacheChecker(/* storeOutputMetadata= */ false);
+    Artifact output = createArtifact(artifactRoot, "bin/dummy");
+    String content = "content";
+    Action action = new InjectOutputFileMetadataAction(output, createRemoteMetadata(content));
+    FakeInputMetadataHandler metadataHandler = new FakeInputMetadataHandler();
+
+    runAction(action);
+    Token token =
+        cacheChecker.getTokenIfNeedToExecute(
+            action,
+            /* resolvedCacheArtifacts= */ null,
+            /* clientEnv= */ ImmutableMap.of(),
+            OutputPermissions.READONLY,
+            /* handler= */ null,
+            metadataHandler,
+            metadataHandler,
+            /* remoteDefaultPlatformProperties= */ ImmutableMap.of(),
+            /* outputChecker= */ null);
+
+    assertThat(output.getPath().exists()).isFalse();
+    assertThat(token).isNotNull();
+    ActionCache.Entry entry = cache.get(output.getExecPathString());
+    assertThat(entry).isNull();
+  }
+
+  @Test
+  public void saveOutputMetadata_localMetadataIsSameAsRemoteMetadata_cached(
+      @TestParameter boolean hasResolvedPath) throws Exception {
     cacheChecker = createActionCacheChecker(/*storeOutputMetadata=*/ true);
     Artifact output = createArtifact(artifactRoot, "bin/dummy");
     String content = "content";
-    Action action = new InjectOutputFileMetadataAction(output, createRemoteFileMetadata(content));
+    PathFragment resolvedPath =
+        hasResolvedPath ? execRoot.getRelative("some/path").asFragment() : null;
+    Action action =
+        new InjectOutputFileMetadataAction(output, createRemoteMetadata(content, resolvedPath));
     runAction(action);
     assertStatistics(0, new MissDetailsBuilder().set(MissReason.NOT_CACHED, 1).build());
 
@@ -613,7 +684,7 @@ public class ActionCacheCheckerTest {
     assertStatistics(1, new MissDetailsBuilder().set(MissReason.NOT_CACHED, 1).build());
     ActionCache.Entry entry = cache.get(output.getExecPathString());
     assertThat(entry).isNotNull();
-    assertThat(entry.getOutputFile(output)).isEqualTo(createRemoteFileMetadata(content));
+    assertThat(entry.getOutputFile(output)).isEqualTo(createRemoteMetadata(content, resolvedPath));
   }
 
   @Test
@@ -625,13 +696,37 @@ public class ActionCacheCheckerTest {
     String content2 = "content2";
     Action action =
         new InjectOutputFileMetadataAction(
-            output, createRemoteFileMetadata(content1), createRemoteFileMetadata(content2));
+            output, createRemoteMetadata(content1), createRemoteMetadata(content2));
     runAction(action);
     assertStatistics(0, new MissDetailsBuilder().set(MissReason.NOT_CACHED, 1).build());
 
     writeContentAsLatin1(output.getPath(), content2);
+
+    // Assert that if local file exists, shouldTrustArtifact is not called for the remote
+    // metadata.
+    FakeInputMetadataHandler metadataHandler = new FakeInputMetadataHandler();
+    var outputChecker = mock(OutputChecker.class);
+    var token =
+        cacheChecker.getTokenIfNeedToExecute(
+            action,
+            /* resolvedCacheArtifacts= */ null,
+            /* clientEnv= */ ImmutableMap.of(),
+            OutputPermissions.READONLY,
+            /* handler= */ null,
+            metadataHandler,
+            metadataHandler,
+            /* remoteDefaultPlatformProperties= */ ImmutableMap.of(),
+            outputChecker);
+    verify(outputChecker)
+        .shouldTrustMetadata(argThat(arg -> arg.getExecPathString().endsWith("bin/dummy")), any());
     // Not cached since local file changed
-    runAction(action);
+    runAction(
+        action,
+        /* clientEnv= */ ImmutableMap.of(),
+        /* platform= */ ImmutableMap.of(),
+        metadataHandler,
+        metadataHandler,
+        token);
 
     assertStatistics(
         0,
@@ -641,7 +736,71 @@ public class ActionCacheCheckerTest {
             .build());
     ActionCache.Entry entry = cache.get(output.getExecPathString());
     assertThat(entry).isNotNull();
-    assertThat(entry.getOutputFile(output)).isEqualTo(createRemoteFileMetadata(content2));
+    assertThat(entry.getOutputFile(output)).isEqualTo(createRemoteMetadata(content2));
+  }
+
+  @Test
+  public void saveOutputMetadata_trustedRemoteMetadataFromOutputStore_cached() throws Exception {
+    cacheChecker = createActionCacheChecker(/* storeOutputMetadata= */ true);
+    Artifact output = createArtifact(artifactRoot, "bin/dummy");
+    String content = "content";
+    FileArtifactValue metadata = createRemoteMetadata(content);
+    Action action = new InjectOutputFileMetadataAction(output, metadata, metadata);
+    runAction(action);
+    assertStatistics(0, new MissDetailsBuilder().set(MissReason.NOT_CACHED, 1).build());
+
+    FakeInputMetadataHandler fakeOutputMetadataStore = new FakeInputMetadataHandler();
+    fakeOutputMetadataStore.injectFile(output, metadata);
+
+    runAction(
+        action,
+        ImmutableMap.of(),
+        ImmutableMap.of(),
+        new FakeInputMetadataHandler(),
+        fakeOutputMetadataStore);
+
+    assertStatistics(1, new MissDetailsBuilder().set(MissReason.NOT_CACHED, 1).build());
+
+    ActionCache.Entry entry = cache.get(output.getExecPathString());
+    assertThat(entry).isNotNull();
+    assertThat(entry.getOutputFile(output)).isEqualTo(metadata);
+  }
+
+  @Test
+  public void saveOutputMetadata_untrustedRemoteMetadataFromOutputStore_notCached()
+      throws Exception {
+    cacheChecker = createActionCacheChecker(/* storeOutputMetadata= */ true);
+    Artifact output = createArtifact(artifactRoot, "bin/dummy");
+    String content = "content";
+    FileArtifactValue metadata = createRemoteMetadata(content);
+    Action action = new InjectOutputFileMetadataAction(output, metadata, metadata);
+    runAction(action);
+    assertStatistics(0, new MissDetailsBuilder().set(MissReason.NOT_CACHED, 1).build());
+
+    FakeInputMetadataHandler fakeOutputMetadataStore = new FakeInputMetadataHandler();
+    fakeOutputMetadataStore.injectFile(output, metadata);
+
+    OutputChecker outputChecker = mock(OutputChecker.class);
+    when(outputChecker.shouldTrustMetadata(any(), any())).thenReturn(false);
+
+    runAction(
+        action,
+        ImmutableMap.of(),
+        ImmutableMap.of(),
+        new FakeInputMetadataHandler(),
+        fakeOutputMetadataStore,
+        outputChecker);
+
+    assertStatistics(
+        0,
+        new MissDetailsBuilder()
+            .set(MissReason.NOT_CACHED, 1)
+            .set(MissReason.DIFFERENT_FILES, 1)
+            .build());
+
+    ActionCache.Entry entry = cache.get(output.getExecPathString());
+    assertThat(entry).isNotNull();
+    assertThat(entry.getOutputFile(output)).isEqualTo(metadata);
   }
 
   @Test
@@ -649,13 +808,18 @@ public class ActionCacheCheckerTest {
     cacheChecker = createActionCacheChecker(/*storeOutputMetadata=*/ true);
     SpecialArtifact output =
         createTreeArtifactWithGeneratingAction(artifactRoot, PathFragment.create("bin/dummy"));
-    ImmutableMap<String, RemoteFileArtifactValue> children =
+    ImmutableMap<String, FileArtifactValue> children =
         ImmutableMap.of(
-            "file1", createRemoteFileMetadata("content1"),
-            "file2", createRemoteFileMetadata("content2"));
+            "file1", createRemoteMetadata("content1"),
+            "file2", createRemoteMetadata("content2"));
     Action action =
         new InjectOutputTreeMetadataAction(
-            output, createTreeMetadata(output, children, Optional.empty()));
+            output,
+            createTreeMetadata(
+                output,
+                children,
+                /* archivedArtifactValue= */ Optional.empty(),
+                /* resolvedPath= */ Optional.empty()));
 
     runAction(action);
 
@@ -663,7 +827,11 @@ public class ActionCacheCheckerTest {
     ActionCache.Entry entry = cache.get(output.getExecPathString());
     assertThat(entry).isNotNull();
     assertThat(entry.getOutputTree(output))
-        .isEqualTo(SerializableTreeArtifactValue.create(children, Optional.empty()));
+        .isEqualTo(
+            SerializableTreeArtifactValue.create(
+                children,
+                /* archivedFileValue= */ Optional.empty(),
+                /* resolvedPath= */ Optional.empty()));
     assertStatistics(0, new MissDetailsBuilder().set(MissReason.NOT_CACHED, 1).build());
   }
 
@@ -676,7 +844,10 @@ public class ActionCacheCheckerTest {
         new InjectOutputTreeMetadataAction(
             output,
             createTreeMetadata(
-                output, ImmutableMap.of(), Optional.of(createRemoteFileMetadata("content"))));
+                output,
+                ImmutableMap.of(),
+                Optional.of(createRemoteMetadata("content")),
+                /* resolvedPath= */ Optional.empty()));
 
     runAction(action);
 
@@ -686,7 +857,37 @@ public class ActionCacheCheckerTest {
     assertThat(entry.getOutputTree(output))
         .isEqualTo(
             SerializableTreeArtifactValue.create(
-                ImmutableMap.of(), Optional.of(createRemoteFileMetadata("content"))));
+                ImmutableMap.of(),
+                Optional.of(createRemoteMetadata("content")),
+                /* resolvedPath= */ Optional.empty()));
+    assertStatistics(0, new MissDetailsBuilder().set(MissReason.NOT_CACHED, 1).build());
+  }
+
+  @Test
+  public void saveOutputMetadata_treeMetadata_resolvedPathSaved() throws Exception {
+    cacheChecker = createActionCacheChecker(/*storeOutputMetadata=*/ true);
+    SpecialArtifact output =
+        createTreeArtifactWithGeneratingAction(artifactRoot, PathFragment.create("bin/dummy"));
+    Action action =
+        new InjectOutputTreeMetadataAction(
+            output,
+            createTreeMetadata(
+                output,
+                ImmutableMap.of(),
+                /* archivedArtifactValue= */ Optional.empty(),
+                Optional.of(execRoot.getRelative("some/path").asFragment())));
+
+    runAction(action);
+
+    assertThat(output.getPath().exists()).isFalse();
+    ActionCache.Entry entry = cache.get(output.getExecPathString());
+    assertThat(entry).isNotNull();
+    assertThat(entry.getOutputTree(output))
+        .isEqualTo(
+            SerializableTreeArtifactValue.create(
+                ImmutableMap.of(),
+                /* archivedFileValue= */ Optional.empty(),
+                Optional.of(execRoot.getRelative("some/path").asFragment())));
     assertStatistics(0, new MissDetailsBuilder().set(MissReason.NOT_CACHED, 1).build());
   }
 
@@ -697,20 +898,26 @@ public class ActionCacheCheckerTest {
         createTreeArtifactWithGeneratingAction(artifactRoot, PathFragment.create("bin/dummy"));
     Action action =
         new InjectOutputTreeMetadataAction(
-            output, createTreeMetadata(output, ImmutableMap.of(), Optional.empty()));
-    MetadataHandler metadataHandler = new FakeMetadataHandler();
+            output,
+            createTreeMetadata(
+                output,
+                ImmutableMap.of(),
+                /* archivedArtifactValue= */ Optional.empty(),
+                /* resolvedPath= */ Optional.empty()));
+    FakeInputMetadataHandler metadataHandler = new FakeInputMetadataHandler();
 
     runAction(action);
     Token token =
         cacheChecker.getTokenIfNeedToExecute(
             action,
-            /*resolvedCacheArtifacts=*/ null,
-            /*clientEnv=*/ ImmutableMap.of(),
-            /*handler=*/ null,
+            /* resolvedCacheArtifacts= */ null,
+            /* clientEnv= */ ImmutableMap.of(),
+            OutputPermissions.READONLY,
+            /* handler= */ null,
             metadataHandler,
-            /*artifactExpander=*/ null,
-            /*remoteDefaultPlatformProperties=*/ ImmutableMap.of(),
-            /*isRemoteCacheEnabled=*/ true);
+            metadataHandler,
+            /* remoteDefaultPlatformProperties= */ ImmutableMap.of(),
+            OutputChecker.TRUST_ALL);
 
     assertThat(token).isNull();
     assertThat(output.getPath().exists()).isFalse();
@@ -728,12 +935,17 @@ public class ActionCacheCheckerTest {
     writeIsoLatin1(fileSystem.getPath("/file2"), "");
     ImmutableMap<String, FileArtifactValue> children =
         ImmutableMap.of(
-            "file1", createRemoteFileMetadata("content1"),
+            "file1", createRemoteMetadata("content1"),
             "file2", FileArtifactValue.createForTesting(fileSystem.getPath("/file2")));
     fileSystem.getPath("/file2").delete();
     Action action =
         new InjectOutputTreeMetadataAction(
-            output, createTreeMetadata(output, children, Optional.empty()));
+            output,
+            createTreeMetadata(
+                output,
+                children,
+                /* archivedArtifactValue= */ Optional.empty(),
+                /* resolvedPath= */ Optional.empty()));
 
     runAction(action);
 
@@ -743,7 +955,9 @@ public class ActionCacheCheckerTest {
     assertThat(entry.getOutputTree(output))
         .isEqualTo(
             SerializableTreeArtifactValue.create(
-                ImmutableMap.of("file1", createRemoteFileMetadata("content1")), Optional.empty()));
+                ImmutableMap.of("file1", createRemoteMetadata("content1")),
+                /* archivedFileValue= */ Optional.empty(),
+                /* resolvedPath= */ Optional.empty()));
     assertStatistics(0, new MissDetailsBuilder().set(MissReason.NOT_CACHED, 1).build());
   }
 
@@ -759,7 +973,8 @@ public class ActionCacheCheckerTest {
             createTreeMetadata(
                 output,
                 ImmutableMap.of(),
-                Optional.of(FileArtifactValue.createForTesting(fileSystem.getPath("/archive")))));
+                Optional.of(FileArtifactValue.createForTesting(fileSystem.getPath("/archive"))),
+                /* resolvedPath= */ Optional.empty()));
     fileSystem.getPath("/archive").delete();
 
     runAction(action);
@@ -778,26 +993,37 @@ public class ActionCacheCheckerTest {
         createTreeArtifactWithGeneratingAction(artifactRoot, PathFragment.create("bin/dummy"));
     ImmutableMap<String, FileArtifactValue> children =
         ImmutableMap.of(
-            "file1", createRemoteFileMetadata("content1"),
-            "file2", createRemoteFileMetadata("content2"));
+            "file1", createRemoteMetadata("content1"),
+            "file2", createRemoteMetadata("content2"));
     Action action =
         new InjectOutputTreeMetadataAction(
-            output, createTreeMetadata(output, children, Optional.empty()));
-    MetadataHandler metadataHandler = new FakeMetadataHandler();
+            output,
+            createTreeMetadata(
+                output,
+                children,
+                /* archivedArtifactValue= */ Optional.empty(),
+                /* resolvedPath= */ Optional.empty()));
+    FakeInputMetadataHandler metadataHandler = new FakeInputMetadataHandler();
 
     runAction(action);
     Token token =
         cacheChecker.getTokenIfNeedToExecute(
             action,
-            /*resolvedCacheArtifacts=*/ null,
-            /*clientEnv=*/ ImmutableMap.of(),
-            /*handler=*/ null,
+            /* resolvedCacheArtifacts= */ null,
+            /* clientEnv= */ ImmutableMap.of(),
+            OutputPermissions.READONLY,
+            /* handler= */ null,
             metadataHandler,
-            /*artifactExpander=*/ null,
-            /*remoteDefaultPlatformProperties=*/ ImmutableMap.of(),
-            /*isRemoteCacheEnabled=*/ true);
+            metadataHandler,
+            /* remoteDefaultPlatformProperties= */ ImmutableMap.of(),
+            OutputChecker.TRUST_ALL);
 
-    TreeArtifactValue expectedMetadata = createTreeMetadata(output, children, Optional.empty());
+    TreeArtifactValue expectedMetadata =
+        createTreeMetadata(
+            output,
+            children,
+            /* archivedArtifactValue= */ Optional.empty(),
+            /* resolvedPath= */ Optional.empty());
     assertThat(token).isNull();
     assertThat(output.getPath().exists()).isFalse();
     ActionCache.Entry entry = cache.get(output.getExecPathString());
@@ -814,23 +1040,54 @@ public class ActionCacheCheckerTest {
         createTreeArtifactWithGeneratingAction(artifactRoot, PathFragment.create("bin/dummy"));
     ImmutableMap<String, FileArtifactValue> children1 =
         ImmutableMap.of(
-            "file1", createRemoteFileMetadata("content1"),
-            "file2", createRemoteFileMetadata("content2"));
+            "file1", createRemoteMetadata("content1"),
+            "file2", createRemoteMetadata("content2"));
     ImmutableMap<String, FileArtifactValue> children2 =
         ImmutableMap.of(
-            "file1", createRemoteFileMetadata("content1"),
-            "file2", createRemoteFileMetadata("modified_remote"));
+            "file1", createRemoteMetadata("content1"),
+            "file2", createRemoteMetadata("modified_remote"));
     Action action =
         new InjectOutputTreeMetadataAction(
             output,
-            createTreeMetadata(output, children1, Optional.empty()),
-            createTreeMetadata(output, children2, Optional.empty()));
-    MetadataHandler metadataHandler = new FakeMetadataHandler();
+            createTreeMetadata(
+                output,
+                children1,
+                /* archivedArtifactValue= */ Optional.empty(),
+                /* resolvedPath= */ Optional.empty()),
+            createTreeMetadata(
+                output,
+                children2,
+                /* archivedArtifactValue= */ Optional.empty(),
+                /* resolvedPath= */ Optional.empty()));
+    FakeInputMetadataHandler metadataHandler = new FakeInputMetadataHandler();
 
     runAction(action);
     writeIsoLatin1(output.getPath().getRelative("file2"), "modified_local");
+    var outputChecker = mock(OutputChecker.class);
+    when(outputChecker.shouldTrustMetadata(any(), any())).thenReturn(true);
+    var token =
+        cacheChecker.getTokenIfNeedToExecute(
+            action,
+            /* resolvedCacheArtifacts= */ null,
+            /* clientEnv= */ ImmutableMap.of(),
+            OutputPermissions.READONLY,
+            /* handler= */ null,
+            metadataHandler,
+            metadataHandler,
+            /* remoteDefaultPlatformProperties= */ ImmutableMap.of(),
+            outputChecker);
+    verify(outputChecker)
+        .shouldTrustMetadata(argThat(arg -> arg.getExecPathString().endsWith("file1")), any());
+    verify(outputChecker)
+        .shouldTrustMetadata(argThat(arg -> arg.getExecPathString().endsWith("file2")), any());
     // Not cached since local file changed
-    runAction(action, metadataHandler);
+    runAction(
+        action,
+        /* clientEnv= */ ImmutableMap.of(),
+        /* platform= */ ImmutableMap.of(),
+        metadataHandler,
+        metadataHandler,
+        token);
 
     assertStatistics(
         0,
@@ -843,9 +1100,10 @@ public class ActionCacheCheckerTest {
         createTreeMetadata(
             output,
             ImmutableMap.of(
-                "file1", createRemoteFileMetadata("content1"),
-                "file2", createRemoteFileMetadata("modified_remote")),
-            Optional.empty());
+                "file1", createRemoteMetadata("content1"),
+                "file2", createRemoteMetadata("modified_remote")),
+            /* archivedArtifactValue= */ Optional.empty(),
+            /* resolvedPath= */ Optional.empty());
     ActionCache.Entry entry = cache.get(output.getExecPathString());
     assertThat(entry).isNotNull();
     assertThat(entry.getOutputTree(output))
@@ -862,15 +1120,41 @@ public class ActionCacheCheckerTest {
         new InjectOutputTreeMetadataAction(
             output,
             createTreeMetadata(
-                output, ImmutableMap.of(), Optional.of(createRemoteFileMetadata("content"))),
+                output,
+                ImmutableMap.of(),
+                Optional.of(createRemoteMetadata("content")),
+                /* resolvedPath= */ Optional.empty()),
             createTreeMetadata(
-                output, ImmutableMap.of(), Optional.of(createRemoteFileMetadata("modified"))));
-    MetadataHandler metadataHandler = new FakeMetadataHandler();
+                output,
+                ImmutableMap.of(),
+                Optional.of(createRemoteMetadata("modified")),
+                /* resolvedPath= */ Optional.empty()));
+    FakeInputMetadataHandler metadataHandler = new FakeInputMetadataHandler();
 
     runAction(action);
     writeIsoLatin1(ArchivedTreeArtifact.createForTree(output).getPath(), "modified");
+    var outputChecker = mock(OutputChecker.class);
+    when(outputChecker.shouldTrustMetadata(any(), any())).thenReturn(true);
+    var token =
+        cacheChecker.getTokenIfNeedToExecute(
+            action,
+            /* resolvedCacheArtifacts= */ null,
+            /* clientEnv= */ ImmutableMap.of(),
+            OutputPermissions.READONLY,
+            /* handler= */ null,
+            metadataHandler,
+            metadataHandler,
+            /* remoteDefaultPlatformProperties= */ ImmutableMap.of(),
+            outputChecker);
+    when(outputChecker.shouldTrustMetadata(any(), any())).thenReturn(true);
     // Not cached since local file changed
-    runAction(action, metadataHandler);
+    runAction(
+        action,
+        /* clientEnv= */ ImmutableMap.of(),
+        /* platform= */ ImmutableMap.of(),
+        metadataHandler,
+        metadataHandler,
+        token);
 
     assertStatistics(
         0,
@@ -881,12 +1165,100 @@ public class ActionCacheCheckerTest {
     assertThat(output.getPath().exists()).isFalse();
     TreeArtifactValue expectedMetadata =
         createTreeMetadata(
-            output, ImmutableMap.of(), Optional.of(createRemoteFileMetadata("modified")));
+            output,
+            ImmutableMap.of(),
+            Optional.of(createRemoteMetadata("modified")),
+            /* resolvedPath= */ Optional.empty());
     ActionCache.Entry entry = cache.get(output.getExecPathString());
     assertThat(entry).isNotNull();
     assertThat(entry.getOutputTree(output))
         .isEqualTo(SerializableTreeArtifactValue.createSerializable(expectedMetadata).get());
     assertThat(metadataHandler.getTreeArtifactValue(output)).isEqualTo(expectedMetadata);
+  }
+
+  @Test
+  public void saveOutputMetadata_treeFileExpired_treeMetadataNotLoaded() throws Exception {
+    cacheChecker = createActionCacheChecker(/* storeOutputMetadata= */ true);
+    SpecialArtifact output =
+        createTreeArtifactWithGeneratingAction(artifactRoot, PathFragment.create("bin/dummy"));
+    ImmutableMap<String, FileArtifactValue> children =
+        ImmutableMap.of(
+            "file1", createRemoteMetadata("content1"),
+            "file2",
+                createRemoteMetadata(
+                    "content2",
+                    /* expirationTime= */ Instant.ofEpochMilli(1),
+                    /* resolvedPath= */ null));
+    Action action =
+        new InjectOutputTreeMetadataAction(
+            output,
+            createTreeMetadata(
+                output,
+                children,
+                /* archivedArtifactValue= */ Optional.empty(),
+                /* resolvedPath= */ Optional.empty()));
+    FakeInputMetadataHandler metadataHandler = new FakeInputMetadataHandler();
+
+    runAction(action);
+    Token token =
+        cacheChecker.getTokenIfNeedToExecute(
+            action,
+            /* resolvedCacheArtifacts= */ null,
+            /* clientEnv= */ ImmutableMap.of(),
+            OutputPermissions.READONLY,
+            /* handler= */ null,
+            metadataHandler,
+            metadataHandler,
+            /* remoteDefaultPlatformProperties= */ ImmutableMap.of(),
+            CHECK_TTL);
+
+    assertThat(output.getPath().exists()).isFalse();
+    assertThat(token).isNotNull();
+    ActionCache.Entry entry = cache.get(output.getExecPathString());
+    assertThat(entry).isNull();
+  }
+
+  @Test
+  public void saveOutputMetadata_archivedRepresentationExpired_treeMetadataNotLoaded()
+      throws Exception {
+    cacheChecker = createActionCacheChecker(/* storeOutputMetadata= */ true);
+    SpecialArtifact output =
+        createTreeArtifactWithGeneratingAction(artifactRoot, PathFragment.create("bin/dummy"));
+    ImmutableMap<String, FileArtifactValue> children =
+        ImmutableMap.of(
+            "file1", createRemoteMetadata("content1"),
+            "file2", createRemoteMetadata("content2"));
+    Action action =
+        new InjectOutputTreeMetadataAction(
+            output,
+            createTreeMetadata(
+                output,
+                children,
+                /* archivedArtifactValue= */ Optional.of(
+                    createRemoteMetadata(
+                        "archived",
+                        /* expirationTime= */ Instant.ofEpochMilli(1),
+                        /* resolvedPath= */ null)),
+                /* resolvedPath= */ Optional.empty()));
+    FakeInputMetadataHandler metadataHandler = new FakeInputMetadataHandler();
+
+    runAction(action);
+    Token token =
+        cacheChecker.getTokenIfNeedToExecute(
+            action,
+            /* resolvedCacheArtifacts= */ null,
+            /* clientEnv= */ ImmutableMap.of(),
+            OutputPermissions.READONLY,
+            /* handler= */ null,
+            metadataHandler,
+            metadataHandler,
+            /* remoteDefaultPlatformProperties= */ ImmutableMap.of(),
+            CHECK_TTL);
+
+    assertThat(output.getPath().exists()).isFalse();
+    assertThat(token).isNotNull();
+    ActionCache.Entry entry = cache.get(output.getExecPathString());
+    assertThat(entry).isNull();
   }
 
   private static void writeContentAsLatin1(Path path, String content) throws IOException {
@@ -902,14 +1274,16 @@ public class ActionCacheCheckerTest {
     cacheChecker = createActionCacheChecker(/*storeOutputMetadata=*/ true);
     SpecialArtifact output =
         createTreeArtifactWithGeneratingAction(artifactRoot, PathFragment.create("bin/dummy"));
-    ImmutableMap<String, RemoteFileArtifactValue> children =
+    ImmutableMap<String, FileArtifactValue> children =
         ImmutableMap.of(
-            "file1", createRemoteFileMetadata("content1"),
-            "file2", createRemoteFileMetadata("content2"));
+            "file1", createRemoteMetadata("content1"),
+            "file2", createRemoteMetadata("content2"));
     Action action =
         new InjectOutputTreeMetadataAction(
-            output, createTreeMetadata(output, children, Optional.empty()));
-    MetadataHandler metadataHandler = new FakeMetadataHandler();
+            output,
+            createTreeMetadata(
+                output, children, /* archivedArtifactValue= */ Optional.empty(), Optional.empty()));
+    FakeInputMetadataHandler metadataHandler = new FakeInputMetadataHandler();
 
     runAction(action);
     writeContentAsLatin1(output.getPath().getRelative("file1"), "content1");
@@ -917,13 +1291,14 @@ public class ActionCacheCheckerTest {
     Token token =
         cacheChecker.getTokenIfNeedToExecute(
             action,
-            /*resolvedCacheArtifacts=*/ null,
-            /*clientEnv=*/ ImmutableMap.of(),
-            /*handler=*/ null,
+            /* resolvedCacheArtifacts= */ null,
+            /* clientEnv= */ ImmutableMap.of(),
+            OutputPermissions.READONLY,
+            /* handler= */ null,
             metadataHandler,
-            /*artifactExpander=*/ null,
-            /*remoteDefaultPlatformProperties=*/ ImmutableMap.of(),
-            /*isRemoteCacheEnabled=*/ true);
+            metadataHandler,
+            /* remoteDefaultPlatformProperties= */ ImmutableMap.of(),
+            OutputChecker.TRUST_ALL);
 
     assertThat(token).isNull();
     assertStatistics(1, new MissDetailsBuilder().set(MissReason.NOT_CACHED, 1).build());
@@ -931,7 +1306,10 @@ public class ActionCacheCheckerTest {
     ActionCache.Entry entry = cache.get(output.getExecPathString());
     assertThat(entry).isNotNull();
     assertThat(entry.getOutputTree(output))
-        .isEqualTo(SerializableTreeArtifactValue.create(children, Optional.empty()));
+        .isEqualTo(
+            SerializableTreeArtifactValue.create(
+                children, /* archivedFileValue= */ Optional.empty(), Optional.empty()));
+
     assertThat(metadataHandler.getTreeArtifactValue(output))
         .isEqualTo(
             createTreeMetadata(
@@ -940,8 +1318,9 @@ public class ActionCacheCheckerTest {
                     "file1",
                     FileArtifactValue.createForTesting(output.getPath().getRelative("file1")),
                     "file2",
-                    createRemoteFileMetadata("content2")),
-                Optional.empty()));
+                    createRemoteMetadata("content2")),
+                /* archivedArtifactValue= */ Optional.empty(),
+                /* resolvedPath= */ Optional.empty()));
   }
 
   @Test
@@ -954,25 +1333,129 @@ public class ActionCacheCheckerTest {
         new InjectOutputTreeMetadataAction(
             output,
             createTreeMetadata(
-                output, ImmutableMap.of(), Optional.of(createRemoteFileMetadata("content"))));
-    MetadataHandler metadataHandler = new FakeMetadataHandler();
+                output,
+                ImmutableMap.of(),
+                Optional.of(createRemoteMetadata("content")),
+                /* resolvedPath= */ Optional.empty()));
+    FakeInputMetadataHandler metadataHandler = new FakeInputMetadataHandler();
 
     runAction(action);
     writeContentAsLatin1(ArchivedTreeArtifact.createForTree(output).getPath(), "content");
     // Cache hit
-    runAction(action, metadataHandler);
+    runAction(action, metadataHandler, metadataHandler);
 
     assertStatistics(1, new MissDetailsBuilder().set(MissReason.NOT_CACHED, 1).build());
     assertThat(output.getPath().exists()).isFalse();
-    TreeArtifactValue expectedMetadata =
-        createTreeMetadata(
-            output, ImmutableMap.of(), Optional.of(createRemoteFileMetadata("content")));
     ActionCache.Entry entry = cache.get(output.getExecPathString());
     assertThat(entry).isNotNull();
     assertThat(entry.getOutputTree(output))
-        .isEqualTo(SerializableTreeArtifactValue.createSerializable(expectedMetadata).get());
-    assertThat(metadataHandler.getTreeArtifactValue(output)).isEqualTo(expectedMetadata);
+        .isEqualTo(
+            SerializableTreeArtifactValue.create(
+                ImmutableMap.of(),
+                /* archivedFileValue= */ Optional.of(createRemoteMetadata("content")),
+                /* resolvedPath= */ Optional.empty()));
+    assertThat(metadataHandler.getTreeArtifactValue(output))
+        .isEqualTo(
+            createTreeMetadata(
+                output,
+                ImmutableMap.of(),
+                Optional.of(
+                    FileArtifactValue.createForTesting(ArchivedTreeArtifact.createForTree(output))),
+                /* resolvedPath= */ Optional.empty()));
   }
+
+  @Test
+  public void saveOutputMetadata_trustedRemoteTreeMetadataFromOutputStore_cached()
+      throws Exception {
+    cacheChecker = createActionCacheChecker(/* storeOutputMetadata= */ true);
+    SpecialArtifact tree =
+        createTreeArtifactWithGeneratingAction(artifactRoot, PathFragment.create("bin/dummy"));
+    ImmutableMap<String, FileArtifactValue> children =
+        ImmutableMap.of("file", createRemoteMetadata("content"));
+    TreeArtifactValue treeMetadata =
+        createTreeMetadata(
+            tree,
+            children,
+            /* archivedArtifactValue= */ Optional.empty(),
+            /* resolvedPath= */ Optional.empty());
+    Action action = new InjectOutputTreeMetadataAction(tree, treeMetadata, treeMetadata);
+    runAction(action);
+    assertStatistics(0, new MissDetailsBuilder().set(MissReason.NOT_CACHED, 1).build());
+
+    FakeInputMetadataHandler fakeOutputMetadataStore = new FakeInputMetadataHandler();
+    fakeOutputMetadataStore.injectTree(tree, treeMetadata);
+
+    runAction(
+        action,
+        ImmutableMap.of(),
+        ImmutableMap.of(),
+        new FakeInputMetadataHandler(),
+        fakeOutputMetadataStore);
+
+    assertStatistics(1, new MissDetailsBuilder().set(MissReason.NOT_CACHED, 1).build());
+
+    ActionCache.Entry entry = cache.get(tree.getExecPathString());
+    assertThat(entry).isNotNull();
+    assertThat(entry.getOutputTree(tree))
+        .isEqualTo(
+            SerializableTreeArtifactValue.create(
+                children,
+                /* archivedFileValue= */ Optional.empty(),
+                /* resolvedPath= */ Optional.empty()));
+  }
+
+  @Test
+  public void saveOutputMetadata_untrustedRemoteTreeMetadataFromOutputStore_notCached()
+      throws Exception {
+    cacheChecker = createActionCacheChecker(/* storeOutputMetadata= */ true);
+    SpecialArtifact tree =
+        createTreeArtifactWithGeneratingAction(artifactRoot, PathFragment.create("bin/dummy"));
+    ImmutableMap<String, FileArtifactValue> children =
+        ImmutableMap.of("file", createRemoteMetadata("content"));
+    TreeArtifactValue treeMetadata =
+        createTreeMetadata(
+            tree,
+            children,
+            /* archivedArtifactValue= */ Optional.empty(),
+            /* resolvedPath= */ Optional.empty());
+    Action action = new InjectOutputTreeMetadataAction(tree, treeMetadata, treeMetadata);
+    runAction(action);
+    assertStatistics(0, new MissDetailsBuilder().set(MissReason.NOT_CACHED, 1).build());
+
+    FakeInputMetadataHandler fakeOutputMetadataStore = new FakeInputMetadataHandler();
+    fakeOutputMetadataStore.injectTree(tree, treeMetadata);
+
+    OutputChecker outputChecker = mock(OutputChecker.class);
+    when(outputChecker.shouldTrustMetadata(any(), any())).thenReturn(false);
+
+    runAction(
+        action,
+        ImmutableMap.of(),
+        ImmutableMap.of(),
+        new FakeInputMetadataHandler(),
+        fakeOutputMetadataStore,
+        outputChecker);
+
+    assertStatistics(
+        0,
+        new MissDetailsBuilder()
+            .set(MissReason.NOT_CACHED, 1)
+            .set(MissReason.DIFFERENT_FILES, 1)
+            .build());
+
+    ActionCache.Entry entry = cache.get(tree.getExecPathString());
+    assertThat(entry).isNotNull();
+    assertThat(entry.getOutputTree(tree))
+        .isEqualTo(
+            SerializableTreeArtifactValue.create(
+                children,
+                /* archivedFileValue= */ Optional.empty(),
+                /* resolvedPath= */ Optional.empty()));
+  }
+
+  // TODO(tjgq): Add tests for cached tree artifacts with a materialization path. They should take
+  // into account every combination of entirely/partially remote metadata and symlink present/not
+  // present in the filesystem.
 
   /** An {@link ActionCache} that allows injecting corruption for testing. */
   private static final class CorruptibleActionCache implements ActionCache {
@@ -1004,6 +1487,11 @@ public class ActionCacheCheckerTest {
     }
 
     @Override
+    public void removeIf(Predicate<Entry> predicate) {
+      delegate.removeIf(predicate);
+    }
+
+    @Override
     public long save() throws IOException {
       return delegate.save();
     }
@@ -1016,6 +1504,11 @@ public class ActionCacheCheckerTest {
     @Override
     public void dump(PrintStream out) {
       delegate.dump(out);
+    }
+
+    @Override
+    public int size() {
+      return delegate.size();
     }
 
     @Override
@@ -1039,16 +1532,8 @@ public class ActionCacheCheckerTest {
     }
   }
 
-  /** A null middleman action. */
-  private static class NullMiddlemanAction extends NullAction {
-    @Override
-    public MiddlemanType getActionType() {
-      return MiddlemanType.RUNFILES_MIDDLEMAN;
-    }
-  }
-
   /** A fake metadata handler that is able to obtain metadata from the file system. */
-  private static final class FakeMetadataHandler extends FakeMetadataHandlerBase {
+  private static final class FakeInputMetadataHandler extends FakeInputMetadataHandlerBase {
     private final Map<Artifact, FileArtifactValue> fileMetadata = new HashMap<>();
     private final Map<SpecialArtifact, TreeArtifactValue> treeMetadata = new HashMap<>();
 
@@ -1063,11 +1548,20 @@ public class ActionCacheCheckerTest {
     }
 
     @Override
-    public FileArtifactValue getMetadata(ActionInput input) throws IOException {
+    public FileArtifactValue getInputMetadata(ActionInput input) throws IOException {
       if (!(input instanceof Artifact)) {
         return null;
       }
-      Artifact output = (Artifact) input;
+
+      return FileArtifactValue.createForTesting((Artifact) input);
+    }
+
+    @Override
+    public FileArtifactValue getOutputMetadata(ActionInput input)
+        throws IOException, InterruptedException {
+      if (!(input instanceof Artifact output)) {
+        return null;
+      }
 
       if (output.isTreeArtifact()) {
         TreeArtifactValue treeArtifactValue = getTreeArtifactValue((SpecialArtifact) output);
@@ -1085,7 +1579,8 @@ public class ActionCacheCheckerTest {
     }
 
     @Override
-    public TreeArtifactValue getTreeArtifactValue(SpecialArtifact output) throws IOException {
+    public TreeArtifactValue getTreeArtifactValue(SpecialArtifact output)
+        throws IOException, InterruptedException {
       if (treeMetadata.containsKey(output)) {
         return treeMetadata.get(output);
       }
@@ -1096,7 +1591,7 @@ public class ActionCacheCheckerTest {
       if (treeDir.exists()) {
         TreeArtifactValue.visitTree(
             treeDir,
-            (parentRelativePath, type) -> {
+            (parentRelativePath, type, traversedSymlink) -> {
               if (type == Dirent.Type.DIRECTORY) {
                 return;
               }
@@ -1104,7 +1599,9 @@ public class ActionCacheCheckerTest {
                   Artifact.TreeFileArtifact.createTreeOutput(output, parentRelativePath);
               FileArtifactValue metadata =
                   FileArtifactValue.createForTesting(treeDir.getRelative(parentRelativePath));
-              tree.putChild(child, metadata);
+              synchronized (tree) {
+                tree.putChild(child, metadata);
+              }
             });
       }
 
@@ -1117,9 +1614,6 @@ public class ActionCacheCheckerTest {
 
       return tree.build();
     }
-
-    @Override
-    public void setDigestForVirtualArtifact(Artifact artifact, byte[] digest) {}
   }
 
   private static class WriteEmptyOutputAction extends NullAction {
@@ -1135,7 +1629,7 @@ public class ActionCacheCheckerTest {
         Path path = output.getPath();
         if (!path.exists()) {
           try {
-            FileSystemUtils.writeContentAsLatin1(path, "");
+            writeContentAsLatin1(path, "");
           } catch (IOException e) {
             throw new IllegalStateException("Failed to create output", e);
           }
@@ -1159,7 +1653,7 @@ public class ActionCacheCheckerTest {
 
     @Override
     public ActionResult execute(ActionExecutionContext actionExecutionContext) {
-      actionExecutionContext.getMetadataHandler().injectFile(output, metadataDeque.pop());
+      actionExecutionContext.getOutputMetadataStore().injectFile(output, metadataDeque.pop());
       return super.execute(actionExecutionContext);
     }
   }
@@ -1177,7 +1671,7 @@ public class ActionCacheCheckerTest {
 
     @Override
     public ActionResult execute(ActionExecutionContext actionExecutionContext) {
-      actionExecutionContext.getMetadataHandler().injectTree(output, metadataDeque.pop());
+      actionExecutionContext.getOutputMetadataStore().injectTree(output, metadataDeque.pop());
       return super.execute(actionExecutionContext);
     }
   }

@@ -25,6 +25,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import com.google.devtools.build.lib.buildeventservice.BuildEventServiceOptions.BesUploadMode;
 import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile;
@@ -107,7 +108,8 @@ public class BinaryFormatFileTransportTest {
             outputStream,
             defaultOpts,
             new LocalFilesArtifactUploader(),
-            artifactGroupNamer);
+            artifactGroupNamer,
+            BesUploadMode.WAIT_FOR_UPLOAD_COMPLETE);
     transport.sendBuildEvent(buildEvent);
 
     BuildEventStreamProtos.BuildEvent progress =
@@ -157,7 +159,12 @@ public class BinaryFormatFileTransportTest {
     BufferedOutputStream outputStream =
         new BufferedOutputStream(Files.newOutputStream(Paths.get(output.getAbsolutePath())));
     BinaryFormatFileTransport transport =
-        new BinaryFormatFileTransport(outputStream, defaultOpts, uploader, artifactGroupNamer);
+        new BinaryFormatFileTransport(
+            outputStream,
+            defaultOpts,
+            uploader,
+            artifactGroupNamer,
+            BesUploadMode.WAIT_FOR_UPLOAD_COMPLETE);
     transport.sendBuildEvent(event1);
 
     ExecutionException expected =
@@ -189,7 +196,8 @@ public class BinaryFormatFileTransportTest {
             outputStream,
             defaultOpts,
             new LocalFilesArtifactUploader(),
-            artifactGroupNamer);
+            artifactGroupNamer,
+            BesUploadMode.WAIT_FOR_UPLOAD_COMPLETE);
 
     transport.close().get();
 
@@ -220,7 +228,8 @@ public class BinaryFormatFileTransportTest {
             outputStream,
             defaultOpts,
             new LocalFilesArtifactUploader(),
-            artifactGroupNamer);
+            artifactGroupNamer,
+            BesUploadMode.WAIT_FOR_UPLOAD_COMPLETE);
 
     transport.sendBuildEvent(buildEvent);
     Future<Void> closeFuture = transport.close();
@@ -267,7 +276,12 @@ public class BinaryFormatFileTransportTest {
     BufferedOutputStream outputStream =
         new BufferedOutputStream(Files.newOutputStream(Paths.get(output.getAbsolutePath())));
     BinaryFormatFileTransport transport =
-        new BinaryFormatFileTransport(outputStream, defaultOpts, uploader, artifactGroupNamer);
+        new BinaryFormatFileTransport(
+            outputStream,
+            defaultOpts,
+            uploader,
+            artifactGroupNamer,
+            BesUploadMode.WAIT_FOR_UPLOAD_COMPLETE);
     transport.sendBuildEvent(event1);
     transport.sendBuildEvent(event2);
     transport.close().get();
@@ -307,7 +321,12 @@ public class BinaryFormatFileTransportTest {
     BufferedOutputStream outputStream =
         new BufferedOutputStream(Files.newOutputStream(Paths.get(output.getAbsolutePath())));
     BinaryFormatFileTransport transport =
-        new BinaryFormatFileTransport(outputStream, defaultOpts, uploader, artifactGroupNamer);
+        new BinaryFormatFileTransport(
+            outputStream,
+            defaultOpts,
+            uploader,
+            artifactGroupNamer,
+            BesUploadMode.WAIT_FOR_UPLOAD_COMPLETE);
     transport.sendBuildEvent(event1);
     transport.close().get();
 
@@ -345,7 +364,12 @@ public class BinaryFormatFileTransportTest {
     BufferedOutputStream outputStream =
         new BufferedOutputStream(Files.newOutputStream(Paths.get(output.getAbsolutePath())));
     BinaryFormatFileTransport transport =
-        new BinaryFormatFileTransport(outputStream, defaultOpts, uploader, artifactGroupNamer);
+        new BinaryFormatFileTransport(
+            outputStream,
+            defaultOpts,
+            uploader,
+            artifactGroupNamer,
+            BesUploadMode.WAIT_FOR_UPLOAD_COMPLETE);
     transport.sendBuildEvent(event);
     ListenableFuture<Void> closeFuture = transport.close();
 
@@ -373,9 +397,8 @@ public class BinaryFormatFileTransportTest {
 
     @Override
     public Collection<LocalFile> referencedLocalFiles() {
-      return files
-          .stream()
-          .map(f -> new LocalFile(f, LocalFileType.OUTPUT))
+      return files.stream()
+          .map(f -> new LocalFile(f, LocalFileType.OUTPUT, /* artifactMetadata= */ null))
           .collect(toImmutableList());
     }
 

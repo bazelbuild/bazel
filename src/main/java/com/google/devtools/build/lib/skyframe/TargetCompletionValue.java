@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.devtools.build.skyframe.StallableSkykey;
 import java.util.Collection;
 import java.util.Set;
 
@@ -44,18 +45,13 @@ public class TargetCompletionValue implements SkyValue {
         targets,
         ct ->
             TargetCompletionKey.create(
-                ConfiguredTargetKey.builder()
-                    .setConfiguredTarget(ct)
-                    .setConfigurationKey(ct.getConfigurationKey())
-                    .build(),
-                ctx,
-                targetsToTest.contains(ct)));
+                ConfiguredTargetKey.fromConfiguredTarget(ct), ctx, targetsToTest.contains(ct)));
   }
 
   /** {@link com.google.devtools.build.skyframe.SkyKey} for {@link TargetCompletionValue}. */
   @AutoValue
   public abstract static class TargetCompletionKey
-      implements CompletionFunction.TopLevelActionLookupKey {
+      implements TopLevelActionLookupKeyWrapper, StallableSkykey {
     static TargetCompletionKey create(
         ConfiguredTargetKey actionLookupKey,
         TopLevelArtifactContext topLevelArtifactContext,
@@ -68,8 +64,13 @@ public class TargetCompletionValue implements SkyValue {
     public abstract ConfiguredTargetKey actionLookupKey();
 
     @Override
-    public SkyFunctionName functionName() {
+    public final SkyFunctionName functionName() {
       return SkyFunctions.TARGET_COMPLETION;
+    }
+
+    @Override
+    public final boolean valueIsShareable() {
+      return false;
     }
 
     abstract boolean willTest();

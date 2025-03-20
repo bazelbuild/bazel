@@ -31,27 +31,57 @@ public final class ParsedOptionDescription {
   @Nullable private final String commandLineForm;
   @Nullable private final String unconvertedValue;
   private final OptionInstanceOrigin origin;
+  @Nullable private final Object conversionContext;
+  private final boolean oldNameUsed;
 
   private ParsedOptionDescription(
       OptionDefinition optionDefinition,
       @Nullable String commandLineForm,
       @Nullable String unconvertedValue,
-      OptionInstanceOrigin origin) {
+      OptionInstanceOrigin origin,
+      @Nullable Object conversionContext,
+      boolean oldNameUsed) {
     this.optionDefinition = Preconditions.checkNotNull(optionDefinition);
     this.commandLineForm = commandLineForm;
     this.unconvertedValue = unconvertedValue;
     this.origin = Preconditions.checkNotNull(origin);
+    this.conversionContext = conversionContext;
+    this.oldNameUsed = oldNameUsed;
   }
 
   static ParsedOptionDescription newParsedOptionDescription(
       OptionDefinition optionDefinition,
       String commandLineForm,
       @Nullable String unconvertedValue,
-      OptionInstanceOrigin origin) {
+      OptionInstanceOrigin origin,
+      @Nullable Object conversionContext) {
     // An actual ParsedOptionDescription should always have a form in which it was parsed, but some
     // options, such as expansion options, legitimately have no value.
     return new ParsedOptionDescription(
-        optionDefinition, Preconditions.checkNotNull(commandLineForm), unconvertedValue, origin);
+        optionDefinition,
+        Preconditions.checkNotNull(commandLineForm),
+        unconvertedValue,
+        origin,
+        conversionContext,
+        false);
+  }
+
+  static ParsedOptionDescription newParsedOptionDescription(
+      OptionDefinition optionDefinition,
+      String commandLineForm,
+      @Nullable String unconvertedValue,
+      OptionInstanceOrigin origin,
+      @Nullable Object conversionContext,
+      boolean oldNameUsed) {
+    // An actual ParsedOptionDescription should always have a form in which it was parsed, but some
+    // options, such as expansion options, legitimately have no value.
+    return new ParsedOptionDescription(
+        optionDefinition,
+        Preconditions.checkNotNull(commandLineForm),
+        unconvertedValue,
+        origin,
+        conversionContext,
+        oldNameUsed);
   }
 
   /**
@@ -59,8 +89,11 @@ public final class ParsedOptionDescription {
    * not have an original value or form that the option took.
    */
   static ParsedOptionDescription newDummyInstance(
-      OptionDefinition optionDefinition, OptionInstanceOrigin origin) {
-    return new ParsedOptionDescription(optionDefinition, null, null, origin);
+      OptionDefinition optionDefinition,
+      OptionInstanceOrigin origin,
+      @Nullable Object conversionContext) {
+    return new ParsedOptionDescription(
+        optionDefinition, null, null, origin, conversionContext, false);
   }
 
   public OptionDefinition getOptionDefinition() {
@@ -112,10 +145,6 @@ public final class ParsedOptionDescription {
     return String.format("--%s=%s", optionDefinition.getOptionName(), value);
   }
 
-  public boolean isBooleanOption() {
-    return optionDefinition.getType().equals(boolean.class);
-  }
-
   private OptionDocumentationCategory documentationCategory() {
     return optionDefinition.getDocumentationCategory();
   }
@@ -146,6 +175,10 @@ public final class ParsedOptionDescription {
     return origin.getPriority();
   }
 
+  public boolean isOldNameUsed() {
+    return oldNameUsed;
+  }
+
   @Nullable
   public String getSource() {
     return origin.getSource();
@@ -162,13 +195,16 @@ public final class ParsedOptionDescription {
   }
 
   public boolean isExplicit() {
-    return origin.getExpandedFrom() == null && origin.getImplicitDependent() == null;
+    return origin.getExpandedFrom() == null
+        && origin.getImplicitDependent() == null
+        // Exclude options from PROJECT.scl files, which are not considered explicit.
+        && !(origin.getSource() != null && origin.getSource().endsWith("PROJECT.scl"));
   }
 
   public Object getConvertedValue() throws OptionsParsingException {
     Converter<?> converter = optionDefinition.getConverter();
     try {
-      return converter.convert(unconvertedValue);
+      return converter.convert(unconvertedValue, conversionContext);
     } catch (OptionsParsingException e) {
       // The converter doesn't know the option name, so we supply it here by re-throwing:
       throw new OptionsParsingException(

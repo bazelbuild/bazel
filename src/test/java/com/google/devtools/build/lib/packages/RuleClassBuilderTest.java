@@ -14,19 +14,21 @@
 package com.google.devtools.build.lib.packages;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.analysis.testing.ExecGroupSubject.assertThat;
+import static com.google.devtools.build.lib.analysis.testing.DeclaredExecGroupSubject.assertThat;
+import static com.google.devtools.build.lib.analysis.testing.RuleClassSubject.assertThat;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 import static com.google.devtools.build.lib.packages.Type.INTEGER;
 import static com.google.devtools.build.lib.packages.Type.STRING;
-import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
+import static com.google.devtools.build.lib.packages.Types.STRING_LIST;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
+import com.google.devtools.build.lib.actions.ActionConflictException;
+import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassNamePredicate;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
@@ -180,27 +182,35 @@ public class RuleClassBuilderTest extends PackageLoadingTestCase {
 
   @Test
   public void testRequiredToolchainsAreInherited() throws Exception {
-    Label mockToolchainType = Label.parseAbsoluteUnchecked("//mock_toolchain_type");
+    Label mockToolchainType = Label.parseCanonicalUnchecked("//mock_toolchain_type");
     RuleClass parent =
         new RuleClass.Builder("$parent", RuleClassType.ABSTRACT, false)
             .add(attr("tags", STRING_LIST))
-            .addRequiredToolchains(ImmutableList.of(mockToolchainType))
+            .addToolchainTypes(ToolchainTypeRequirement.create(mockToolchainType))
             .build();
     RuleClass child =
         new RuleClass.Builder("child", RuleClassType.NORMAL, false, parent)
             .factory(DUMMY_CONFIGURED_TARGET_FACTORY)
             .add(attr("attr", STRING))
             .build();
-    assertThat(child.getRequiredToolchains()).contains(mockToolchainType);
+
+    assertThat(child).hasToolchainType(mockToolchainType);
   }
 
   @Test
   public void testExecGroupsAreInherited() throws Exception {
-    Label mockToolchainType = Label.parseAbsoluteUnchecked("//mock_toolchain_type");
-    Label mockConstraint = Label.parseAbsoluteUnchecked("//mock_constraint");
-    ExecGroup parentGroup =
-        ExecGroup.create(ImmutableSet.of(mockToolchainType), ImmutableSet.of(mockConstraint));
-    ExecGroup childGroup = ExecGroup.create(ImmutableSet.of(), ImmutableSet.of());
+    Label mockToolchainType = Label.parseCanonicalUnchecked("//mock_toolchain_type");
+    Label mockConstraint = Label.parseCanonicalUnchecked("//mock_constraint");
+    DeclaredExecGroup parentGroup =
+        DeclaredExecGroup.builder()
+            .addToolchainType(ToolchainTypeRequirement.create(mockToolchainType))
+            .execCompatibleWith(ImmutableSet.of(mockConstraint))
+            .build();
+    DeclaredExecGroup childGroup =
+        DeclaredExecGroup.builder()
+            .toolchainTypes(ImmutableSet.of())
+            .execCompatibleWith(ImmutableSet.of())
+            .build();
     RuleClass parent =
         new RuleClass.Builder("$parent", RuleClassType.ABSTRACT, false)
             .add(attr("tags", STRING_LIST))
@@ -212,8 +222,8 @@ public class RuleClassBuilderTest extends PackageLoadingTestCase {
             .add(attr("attr", STRING))
             .addExecGroups(ImmutableMap.of("child-group", childGroup))
             .build();
-    assertThat(child.getExecGroups().get("group")).isEqualTo(parentGroup);
-    assertThat(child.getExecGroups().get("child-group")).isEqualTo(childGroup);
+    assertThat(child.getDeclaredExecGroups().get("group")).isEqualTo(parentGroup);
+    assertThat(child.getDeclaredExecGroups().get("child-group")).isEqualTo(childGroup);
   }
 
   @Test
@@ -221,23 +231,28 @@ public class RuleClassBuilderTest extends PackageLoadingTestCase {
     RuleClass a =
         new RuleClass.Builder("ruleA", RuleClassType.NORMAL, false)
             .factory(DUMMY_CONFIGURED_TARGET_FACTORY)
-            .addExecGroups(ImmutableMap.of("blueberry", ExecGroup.copyFromDefault()))
+            .addExecGroups(ImmutableMap.of("blueberry", DeclaredExecGroup.COPY_FROM_DEFAULT))
             .add(attr("tags", STRING_LIST))
-            .addRequiredToolchains(Label.parseAbsoluteUnchecked("//some/toolchain"))
+            .addToolchainTypes(
+                ToolchainTypeRequirement.create(Label.parseCanonicalUnchecked("//some/toolchain")))
             .build();
     RuleClass b =
         new RuleClass.Builder("ruleB", RuleClassType.NORMAL, false)
             .factory(DUMMY_CONFIGURED_TARGET_FACTORY)
-            .addExecGroups(ImmutableMap.of("blueberry", ExecGroup.copyFromDefault()))
+            .addExecGroups(ImmutableMap.of("blueberry", DeclaredExecGroup.COPY_FROM_DEFAULT))
             .add(attr("tags", STRING_LIST))
-            .addRequiredToolchains(Label.parseAbsoluteUnchecked("//some/other/toolchain"))
+            .addToolchainTypes(
+                ToolchainTypeRequirement.create(
+                    Label.parseCanonicalUnchecked("//some/other/toolchain")))
             .build();
     RuleClass c =
         new RuleClass.Builder("$ruleC", RuleClassType.ABSTRACT, false, a, b)
-            .addRequiredToolchains(Label.parseAbsoluteUnchecked("//actual/toolchain/we/care/about"))
+            .addToolchainTypes(
+                ToolchainTypeRequirement.create(
+                    Label.parseCanonicalUnchecked("//actual/toolchain/we/care/about")))
             .build();
-    assertThat(c.getExecGroups()).containsKey("blueberry");
-    ExecGroup blueberry = c.getExecGroups().get("blueberry");
+    assertThat(c.getDeclaredExecGroups()).containsKey("blueberry");
+    DeclaredExecGroup blueberry = c.getDeclaredExecGroups().get("blueberry");
     assertThat(blueberry).copiesFromDefault();
   }
 
@@ -249,9 +264,12 @@ public class RuleClassBuilderTest extends PackageLoadingTestCase {
             .addExecGroups(
                 ImmutableMap.of(
                     "blueberry",
-                    ExecGroup.create(
-                        ImmutableSet.of(Label.parseAbsoluteUnchecked("//some/toolchain")),
-                        ImmutableSet.of())))
+                    DeclaredExecGroup.builder()
+                        .addToolchainType(
+                            ToolchainTypeRequirement.create(
+                                Label.parseCanonicalUnchecked("//some/toolchain")))
+                        .execCompatibleWith(ImmutableSet.of())
+                        .build()))
             .add(attr("tags", STRING_LIST))
             .build();
     RuleClass b =
@@ -259,7 +277,11 @@ public class RuleClassBuilderTest extends PackageLoadingTestCase {
             .factory(DUMMY_CONFIGURED_TARGET_FACTORY)
             .addExecGroups(
                 ImmutableMap.of(
-                    "blueberry", ExecGroup.create(ImmutableSet.of(), ImmutableSet.of())))
+                    "blueberry",
+                    DeclaredExecGroup.builder()
+                        .toolchainTypes(ImmutableSet.of())
+                        .execCompatibleWith(ImmutableSet.of())
+                        .build()))
             .add(attr("tags", STRING_LIST))
             .build();
     IllegalArgumentException e =
@@ -275,7 +297,7 @@ public class RuleClassBuilderTest extends PackageLoadingTestCase {
 
   @Test
   public void testBasicRuleNamePredicates() throws Exception {
-    Predicate<String> abcdef = nothingBut("abc", "def").asPredicateOfRuleClassName();
+    Predicate<String> abcdef = nothingBut("abc", "def").asPredicateOfRuleClass();
     assertThat(abcdef.test("abc")).isTrue();
     assertThat(abcdef.test("def")).isTrue();
     assertThat(abcdef.test("ghi")).isFalse();
@@ -285,13 +307,13 @@ public class RuleClassBuilderTest extends PackageLoadingTestCase {
   public void testTwoRuleNamePredicateFactoriesEquivalent() throws Exception {
     RuleClassNamePredicate a = nothingBut("abc", "def");
     RuleClassNamePredicate b = RuleClassNamePredicate.only(ImmutableList.of("abc", "def"));
-    assertThat(a.asPredicateOfRuleClassName()).isEqualTo(b.asPredicateOfRuleClassName());
     assertThat(a.asPredicateOfRuleClass()).isEqualTo(b.asPredicateOfRuleClass());
+    assertThat(a.asPredicateOfRuleClassObject()).isEqualTo(b.asPredicateOfRuleClassObject());
   }
 
   @Test
   public void testEverythingButRuleNamePredicates() throws Exception {
-    Predicate<String> abcdef = allBut("abc", "def").asPredicateOfRuleClassName();
+    Predicate<String> abcdef = allBut("abc", "def").asPredicateOfRuleClass();
     assertThat(abcdef.test("abc")).isFalse();
     assertThat(abcdef.test("def")).isFalse();
     assertThat(abcdef.test("ghi")).isTrue();

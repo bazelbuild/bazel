@@ -32,7 +32,7 @@ java_binary(
     name = "ball-pit",
     srcs = ["BallPit.java"],
     main_class = "BallPit",
-    deps = ["//external:mongoose"],
+    deps = ["@endangered//jar"],
 )
 EOF
 
@@ -49,21 +49,24 @@ EOF
 
 tear_down() {
   shutdown_server
+  if [ -d "${TEST_TMPDIR}/server_dir" ]; then
+    rm -fr "${TEST_TMPDIR}/server_dir"
+  fi
 }
 
 function zip_up() {
   repo2_zip=$TEST_TMPDIR/fox.zip
-  zip -0 -ry $repo2_zip WORKSPACE fox
+  zip -0 -ry $repo2_zip MODULE.bazel fox
 }
 
 function tar_gz_up() {
   repo2_zip=$TEST_TMPDIR/fox.tar.gz
-  tar czf $repo2_zip WORKSPACE fox
+  tar czf $repo2_zip MODULE.bazel fox
 }
 
 function tar_xz_up() {
   repo2_zip=$TEST_TMPDIR/fox.tar.xz
-  tar cJf $repo2_zip WORKSPACE fox
+  tar cJf $repo2_zip MODULE.bazel fox
 }
 
 # Test downloading a file from a repository.
@@ -94,7 +97,7 @@ function http_archive_helper() {
     rm -rf $repo2
     mkdir -p $repo2/fox
     cd $repo2
-    create_workspace_with_default_repos WORKSPACE
+    setup_module_dot_bazel
     cat > fox/BUILD <<EOF
 filegroup(
     name = "fox",
@@ -122,7 +125,8 @@ EOF
 
   cd ${WORKSPACE_DIR}
   if [[ $write_workspace = 0 ]]; then
-    cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
+    cat > $(setup_module_dot_bazel) <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
     name = 'endangered',
     url = 'http://127.0.0.1:$nc_port/$repo2_name',
@@ -140,7 +144,7 @@ EOF
 
     cat > zoo/female.sh <<EOF
 #!/bin/sh
-../endangered/fox/male
+../+http_archive+endangered/fox/male
 EOF
     chmod +x zoo/female.sh
 fi
@@ -150,7 +154,7 @@ fi
   kill_nc
   expect_log $what_does_the_fox_say
 
-  base_external_path=bazel-out/../external/endangered/fox
+  base_external_path=bazel-out/../external/+http_archive+endangered/fox
   assert_files_same ${base_external_path}/male ${base_external_path}/male_relative
   assert_files_same ${base_external_path}/male ${base_external_path}/male_absolute
   case "${PLATFORM}" in
@@ -180,8 +184,8 @@ function test_http_archive_zip() {
 
   # Test with the extension
   serve_file $repo2_zip
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+  cat > $(setup_module_dot_bazel) <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
     name = 'endangered',
     url = 'http://127.0.0.1:$nc_port/bleh',
@@ -205,9 +209,41 @@ function test_http_archive_tar_xz() {
   http_archive_helper tar_xz_up
 }
 
+function test_http_archive_tar_zstd() {
+  cat > $(setup_module_dot_bazel) <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+    name = 'test_zstd_repo',
+    url = 'file://$(rlocation io_bazel/src/test/shell/bazel/testdata/zstd_test_archive.tar.zst)',
+    sha256 = '12b0116f2a3c804859438e102a8a1d5f494c108d1b026da9f6ca55fb5107c7e9',
+    build_file_content = 'filegroup(name="x", srcs=glob(["*"]))',
+)
+EOF
+  bazel build @test_zstd_repo//...
+
+  base_external_path=bazel-out/../external/+http_archive+test_zstd_repo
+  assert_contains "test content" "${base_external_path}/test_dir/test_file"
+}
+
+function test_http_archive_upper_case_sha() {
+  cat > $(setup_module_dot_bazel) <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+    name = 'test_zstd_repo',
+    url = 'file://$(rlocation io_bazel/src/test/shell/bazel/testdata/zstd_test_archive.tar.zst)',
+    sha256 = '12B0116F2A3C804859438E102A8A1D5F494C108D1B026DA9F6CA55FB5107C7E9',
+    build_file_content = 'filegroup(name="x", srcs=glob(["*"]))',
+)
+EOF
+  bazel build @test_zstd_repo//...
+
+  base_external_path=bazel-out/../external/+http_archive+test_zstd_repo
+  assert_contains "test content" "${base_external_path}/test_dir/test_file"
+}
+
 function test_http_archive_no_server() {
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+  cat > $(setup_module_dot_bazel) <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(name = 'endangered', url = 'http://bad.example/repo.zip',
     sha256 = '2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9826')
 EOF
@@ -236,15 +272,15 @@ function test_http_archive_mismatched_sha256() {
   rm -rf $repo2
   mkdir -p $repo2
   cd $repo2
-  create_workspace_with_default_repos WORKSPACE
+  setup_module_dot_bazel
   repo2_zip=$TEST_TMPDIR/fox.zip
-  zip -r $repo2_zip WORKSPACE
+  zip -r $repo2_zip MODULE.bazel
   serve_file $repo2_zip
   wrong_sha256=0000000000000000000000000000000000000000
 
   cd ${WORKSPACE_DIR}
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+  cat > $(setup_module_dot_bazel) <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
     name = 'endangered',
     url = 'http://127.0.0.1:$nc_port/repo.zip',
@@ -290,7 +326,7 @@ function test_sha256_caching() {
 
 function test_cached_across_server_restart() {
   http_archive_helper zip_up
-  local marker_file=$(bazel info output_base)/external/\@endangered.marker
+  local marker_file=$(bazel info output_base)/external/\@+http_archive+endangered.marker
   echo "<MARKER>"
   cat "${marker_file}"
   echo "</MARKER>"
@@ -308,8 +344,8 @@ function test_cached_across_server_restart() {
 function test_jar_download() {
   serve_jar
 
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_jar")
+  cat > $(setup_module_dot_bazel) <<EOF
+http_jar = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_jar")
 http_jar(name = 'endangered', url = 'http://127.0.0.1:$nc_port/lib.jar',
          sha256='$sha256', downloaded_file_name="foo.jar")
 EOF
@@ -338,7 +374,7 @@ EOF
   kill_nc
   expect_log "Tra-la!"
   output_base=$(bazel info output_base)
-  jar_dir=$output_base/external/endangered/jar
+  jar_dir=$output_base/external/+http_jar+endangered/jar
   [[ -f ${jar_dir}/foo.jar ]] || fail "${jar_dir}/foo.jar not found"
 }
 
@@ -346,8 +382,8 @@ function test_http_to_https_redirect() {
   serve_redirect https://127.0.0.1:123456789/bad-port-shouldnt-work
 
   cd ${WORKSPACE_DIR}
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
+  cat > $(setup_module_dot_bazel) <<EOF
+http_file = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
 http_file(
     name = 'toto',
     urls = ['http://127.0.0.1:$redirect_port/toto'],
@@ -365,8 +401,8 @@ function test_http_404() {
   serve_not_found "Help, I'm lost!"
 
   cd ${WORKSPACE_DIR}
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
+  cat > $(setup_module_dot_bazel) <<EOF
+http_file = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
 http_file(
     name = 'toto',
     urls = ['http://127.0.0.1:$nc_port/toto'],
@@ -376,6 +412,184 @@ EOF
   bazel build @toto//file &> $TEST_log && fail "Expected run to fail"
   kill_nc
   expect_log "404 Not Found"
+}
+
+function test_deferred_download_unwaited() {
+  cat >> $(setup_module_dot_bazel) <<'EOF'
+hang = use_repo_rule("//:hang.bzl", "hang")
+
+hang(name="hang")
+EOF
+
+  cat > hang.bzl <<'EOF'
+def _hang_impl(rctx):
+  hangs = rctx.download(
+    # This URL will definitely not work, but that's OK -- we don't need a
+    # successful request for this test
+    url = "https://127.0.0.1:0/does_not_exist",
+    output = "does_not_exist",
+    block = False)
+
+hang = repository_rule(implementation = _hang_impl)
+EOF
+
+  touch BUILD
+  bazel query @hang//:all >& $TEST_log && fail "Bazel unexpectedly succeeded"
+  expect_log "Pending asynchronous work"
+}
+
+function test_deferred_download_two_parallel_downloads() {
+  local server_dir="${TEST_TMPDIR}/server_dir"
+  local gate_socket="${server_dir}/gate_socket"
+  local served_apple="APPLE"
+  local served_banana="BANANA"
+  local apple_sha256=$(echo "${served_apple}" | sha256sum | cut -f1 -d' ')
+  local banana_sha256=$(echo "${served_banana}" | sha256sum | cut -f1 -d' ')
+
+  mkdir -p "${server_dir}"
+
+  mkfifo "${server_dir}/apple" || fail "cannot mkfifo"
+  mkfifo "${server_dir}/banana" || fail "cannot mkfifo"
+  mkfifo $gate_socket || fail "cannot mkfifo"
+
+  startup_server "${server_dir}"
+
+  cat > $(setup_module_dot_bazel) <<'EOF'
+defer = use_repo_rule("//:defer.bzl", "defer")
+defer(name="defer")
+EOF
+
+  cat > defer.bzl <<EOF
+def _defer_impl(rctx):
+  requests = [
+    ["apple", "${apple_sha256}"],
+    ["banana", "${banana_sha256}"]
+  ]
+  pending = [
+    rctx.download(
+        url = "http://127.0.0.1:${fileserver_port}/" + name,
+        sha256 = sha256,
+        output = name,
+        block = False)
+    for name, sha256 in requests]
+
+  # Tell the rest of the test to unblock the HTTP server
+  rctx.execute(["/bin/sh", "-c", "echo ok > ${server_dir}/gate_socket"])
+
+  # Wait until the requess are done
+  [p.wait() for p in pending]
+
+  rctx.file("WORKSPACE", "")
+  rctx.file("BUILD", "filegroup(name='f', srcs=glob(['**']))")
+
+defer = repository_rule(implementation = _defer_impl)
+EOF
+
+  touch BUILD
+
+  # Start Bazel
+  bazel query @defer//:all >& $TEST_log &
+  local bazel_pid=$!
+
+  # Wait until the .download() calls return
+  cat "${server_dir}/gate_socket"
+
+  # Tell the test server the strings it should serve. In parallel because the
+  # test server apparently cannot serve two HTTP requests in parallel, so if we
+  # wait for request A to be completely served while unblocking request B, it is
+  # possible that the test server wants to serve request B first, which is a
+  # deadlock.
+  echo "${served_apple}" > "${server_dir}/apple" &
+  local apple_pid=$!
+  echo "${served_banana}" > "${server_dir}/banana" &
+  local banana_pid=$!
+  wait $apple_pid
+  wait $banana_pid
+
+  # Wait until Bazel returns
+  wait "${bazel_pid}" || fail "Bazel failed"
+  expect_log "@defer//:f"
+}
+
+function test_deferred_download_error() {
+  cat > $(setup_module_dot_bazel) <<'EOF'
+defer = use_repo_rule("//:defer.bzl", "defer")
+defer(name="defer")
+EOF
+
+  cat > defer.bzl <<EOF
+def _defer_impl(rctx):
+  deferred = rctx.download(
+    url = "https://127.0.0.1:0/doesnotexist",
+    output = "deferred",
+    block = False)
+
+  deferred.wait()
+  print("survived wait")
+  rctx.file("BUILD", "filegroup(name='f', srcs=glob(['**']))")
+
+defer = repository_rule(implementation = _defer_impl)
+EOF
+
+  touch BUILD
+
+  # Start Bazel
+  bazel query @defer//:all >& $TEST_log && fail "Bazel unexpectedly succeeded"
+  expect_log "Error downloading.*doesnotexist"
+  expect_not_log "survived wait"
+}
+
+function test_deferred_download_smoke() {
+  local server_dir="${TEST_TMPDIR}/server_dir"
+  local served_socket="${server_dir}/served_socket"
+  local gate_socket="${server_dir}/gate_socket"
+  local served_string="DEFERRED"
+  local served_sha256=$(echo "${served_string}" | sha256sum | cut -f1 -d' ')
+
+  mkdir -p "${server_dir}"
+
+  mkfifo $served_socket || fail "cannot mkfifo"
+  mkfifo $gate_socket || fail "cannot mkfifo"
+
+  startup_server "${server_dir}"
+
+  cat > $(setup_module_dot_bazel) <<'EOF'
+defer = use_repo_rule("//:defer.bzl", "defer")
+defer(name="defer")
+EOF
+
+  cat > defer.bzl <<EOF
+def _defer_impl(rctx):
+  deferred = rctx.download(
+    url = "http://127.0.0.1:${fileserver_port}/served_socket",
+    sha256 = "${served_sha256}",
+    output = "deferred",
+    block = False)
+
+  # Tell the rest of the test to unblock the HTTP server
+  rctx.execute(["/bin/sh", "-c", "echo ok > ${server_dir}/gate_socket"])
+  deferred.wait()
+  rctx.file("WORKSPACE", "")
+  rctx.file("BUILD", "filegroup(name='f', srcs=glob(['**']))")
+
+defer = repository_rule(implementation = _defer_impl)
+EOF
+
+  touch BUILD
+
+  # Start Bazel
+  bazel query @defer//:all-targets >& $TEST_log &
+  local bazel_pid=$!
+
+  # Wait until the .download() call returns
+  cat "${server_dir}/gate_socket"
+
+  # Tell the test server the string it should serve
+  echo "${served_string}" > "${server_dir}/served_socket"
+
+  # Wait until Bazel returns
+  wait "${bazel_pid}" || fail "Bazel failed"
+  expect_log "@defer//:deferred"
 }
 
 # Tests downloading a file and using it as a dependency.
@@ -389,8 +603,8 @@ EOF
   serve_file $test_file
   cd ${WORKSPACE_DIR}
 
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
+  cat > $(setup_module_dot_bazel) <<EOF
+http_file = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
 http_file(name = 'toto', urls = ['http://127.0.0.1:$nc_port/toto'],
     sha256 = '$sha256', executable = True)
 EOF
@@ -407,7 +621,7 @@ genrule(
   name = "test_sh",
   outs = ["test.sh"],
   srcs = ["@toto//file"],
-  cmd = "echo '#!/bin/sh' > $@ && echo $(location @toto//file) >> $@",
+  cmd = "echo '#!/bin/sh' > $@ && echo $(rootpath @toto//file) >> $@",
 )
 EOF
 
@@ -420,8 +634,8 @@ function test_http_timeout() {
   serve_timeout
 
   cd ${WORKSPACE_DIR}
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
+  cat > $(setup_module_dot_bazel) <<EOF
+http_file = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
 http_file(
     name = 'toto',
     urls = ['http://127.0.0.1:$nc_port/toto'],
@@ -447,8 +661,8 @@ function test_http_redirect() {
   cd ${WORKSPACE_DIR}
   serve_redirect "http://127.0.0.1:$nc_port/toto"
 
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
+  cat > $(setup_module_dot_bazel) <<EOF
+http_file = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
 http_file(name = 'toto', urls = ['http://127.0.0.1:$redirect_port/toto'],
     sha256 = '$sha256')
 EOF
@@ -465,7 +679,7 @@ genrule(
   name = "test_sh",
   outs = ["test.sh"],
   srcs = ["@toto//file"],
-  cmd = "echo '#!/bin/sh' > $@ && echo cat $(location @toto//file) >> $@",
+  cmd = "echo '#!/bin/sh' > $@ && echo cat $(rootpath @toto//file) >> $@",
 )
 EOF
 
@@ -481,8 +695,8 @@ function test_empty_file() {
   local sha256=$(sha256sum x.tar.gz | cut -f 1 -d ' ')
   serve_file x.tar.gz
 
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+  cat > $(setup_module_dot_bazel) <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
     name = "x",
     url = "http://127.0.0.1:$nc_port/x.tar.gz",
@@ -572,8 +786,8 @@ EOF
     workspace_file_attr="workspace_file_content = 'workspace(name=\"endangered-fox\")'"
   fi
 
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+  cat > $(setup_module_dot_bazel) <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
     name = 'endangered',
     url = 'http://127.0.0.1:$nc_port/repo.zip',
@@ -594,7 +808,7 @@ EOF
 
   cat > zoo/female.sh <<EOF
 #!/bin/sh
-cat ../endangered/fox/male
+cat ../+http_archive+endangered/fox/male
 EOF
   chmod +x zoo/female.sh
 
@@ -607,15 +821,24 @@ EOF
 function test_fetch() {
   serve_jar
 
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
+  cat > $(setup_module_dot_bazel) <<EOF
+ext = use_extension("//:ext.bzl", "ext")
+use_repo(ext, "endangered")
+EOF
+
+  touch BUILD
+  cat > ext.bzl <<EOF
 load("@bazel_tools//tools/build_defs/repo:jvm.bzl", "jvm_maven_import_external")
-jvm_maven_import_external(
-    name = 'endangered',
-    artifact = "com.example.carnivore:carnivore:1.23",
-    server_urls = ['http://127.0.0.1:$nc_port/'],
-    artifact_sha256 = '$sha256',
-)
-bind(name = 'mongoose', actual = '@endangered//jar')
+
+def repo():
+  jvm_maven_import_external(
+      name = 'endangered',
+      artifact = "com.example.carnivore:carnivore:1.23",
+      server_urls = ['http://127.0.0.1:$nc_port/'],
+      artifact_sha256 = '$sha256',
+  )
+
+ext = module_extension(implementation = lambda ctx: repo())
 EOF
 
   output_base=$(bazel info output_base)
@@ -641,7 +864,7 @@ EOF
   # But it is required after a clean.
   bazel clean --expunge || fail "Clean failed"
   bazel build --fetch=false //zoo:ball-pit >& $TEST_log && fail "Expected build to fail"
-  expect_log "bazel fetch //..."
+  expect_log "fetching repositories is disabled"
 }
 
 function test_prefix_stripping_tar_gz() {
@@ -651,8 +874,8 @@ function test_prefix_stripping_tar_gz() {
   local sha256=$(sha256sum x.tar.gz | cut -f 1 -d ' ')
   serve_file x.tar.gz
 
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+  cat > $(setup_module_dot_bazel) <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
     name = "x",
     url = "http://127.0.0.1:$nc_port/x.tar.gz",
@@ -672,7 +895,7 @@ EOF
   touch BUILD
 
   bazel build @x//:catter &> $TEST_log || fail "Build failed"
-  assert_contains "abc" bazel-genfiles/external/x/catter.out
+  assert_contains "abc" bazel-genfiles/external/+http_archive+x/catter.out
 }
 
 function test_prefix_stripping_zip() {
@@ -682,8 +905,8 @@ function test_prefix_stripping_zip() {
   local sha256=$(sha256sum x.zip | cut -f 1 -d ' ')
   serve_file x.zip
 
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+  cat > $(setup_module_dot_bazel) <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
     name = "x",
     url = "http://127.0.0.1:$nc_port/x.zip",
@@ -703,7 +926,7 @@ EOF
   touch BUILD
 
   bazel build @x//:catter &> $TEST_log || fail "Build failed"
-  assert_contains "abc" bazel-genfiles/external/x/catter.out
+  assert_contains "abc" bazel-genfiles/external/+http_archive+x/catter.out
 }
 
 function test_prefix_stripping_existing_repo() {
@@ -722,8 +945,8 @@ EOF
   local sha256=$(sha256sum x.zip | cut -f 1 -d ' ')
   serve_file x.zip
 
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+  cat > $(setup_module_dot_bazel) <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
     name = "x",
     url = "http://127.0.0.1:$nc_port/x.zip",
@@ -733,7 +956,70 @@ http_archive(
 EOF
 
   bazel build @x//:catter &> $TEST_log || fail "Build failed"
-  assert_contains "abc" bazel-genfiles/external/x/catter.out
+  assert_contains "abc" bazel-genfiles/external/+http_archive+x/catter.out
+}
+
+function test_adding_prefix_zip() {
+  mkdir -p z
+  echo "abc" > z/w
+  zip -r z z
+  local sha256=$(sha256sum z.zip | cut -f 1 -d ' ')
+  serve_file z.zip
+
+  cat > $(setup_module_dot_bazel) <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+    name = "ws",
+    url = "http://127.0.0.1:$nc_port/z.zip",
+    sha256 = "$sha256",
+    add_prefix = "x/y",
+    build_file = "@//:ws.BUILD",
+)
+EOF
+  cat > ws.BUILD <<EOF
+genrule(
+    name = "catter",
+    cmd = "cat \$< > \$@",
+    outs = ["catter.out"],
+    srcs = ["x/y/z/w"],
+)
+EOF
+  touch BUILD
+
+  bazel build @ws//:catter &> $TEST_log || fail "Build failed"
+  assert_contains "abc" bazel-genfiles/external/+http_archive+ws/catter.out
+}
+
+function test_adding_and_stripping_prefix_zip() {
+  mkdir -p z
+  echo "abc" > z/w
+  zip -r z z
+  local sha256=$(sha256sum z.zip | cut -f 1 -d ' ')
+  serve_file z.zip
+
+  cat > $(setup_module_dot_bazel) <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+    name = "ws",
+    url = "http://127.0.0.1:$nc_port/z.zip",
+    sha256 = "$sha256",
+    strip_prefix = "z",
+    add_prefix = "x",
+    build_file = "@//:ws.BUILD",
+)
+EOF
+  cat > ws.BUILD <<EOF
+genrule(
+    name = "catter",
+    cmd = "cat \$< > \$@",
+    outs = ["catter.out"],
+    srcs = ["x/w"],
+)
+EOF
+  touch BUILD
+
+  bazel build @ws//:catter &> $TEST_log || fail "Build failed"
+  assert_contains "abc" bazel-genfiles/external/+http_archive+ws/catter.out
 }
 
 function test_moving_build_file() {
@@ -742,8 +1028,8 @@ function test_moving_build_file() {
   local sha256=$(sha256sum x.tar.gz | cut -f 1 -d ' ')
   serve_file x.tar.gz
 
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+  cat > $(setup_module_dot_bazel) <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
     name = "x",
     url = "http://127.0.0.1:$nc_port/x.tar.gz",
@@ -762,13 +1048,13 @@ genrule(
 EOF
 
   bazel build @x//:catter &> $TEST_log || fail "Build 1 failed"
-  assert_contains "abc" bazel-genfiles/external/x/catter.out
+  assert_contains "abc" bazel-genfiles/external/+http_archive+x/catter.out
   mv x.BUILD x.BUILD.new || fail "Moving x.BUILD failed"
-  sed 's/x.BUILD/x.BUILD.new/g' WORKSPACE > WORKSPACE.tmp || \
-    fail "Editing WORKSPACE failed"
-  mv WORKSPACE.tmp WORKSPACE
+  sed 's/x.BUILD/x.BUILD.new/g' MODULE.bazel > MODULE.bazel.tmp || \
+    fail "Editing MODULE.bazel failed"
+  mv MODULE.bazel.tmp MODULE.bazel
   bazel build @x//:catter &> $TEST_log || fail "Build 2 failed"
-  assert_contains "abc" bazel-genfiles/external/x/catter.out
+  assert_contains "abc" bazel-genfiles/external/+http_archive+x/catter.out
 }
 
 function test_changing_build_file() {
@@ -779,8 +1065,8 @@ function test_changing_build_file() {
   local sha256=$(sha256sum x.tar.gz | cut -f 1 -d ' ')
   serve_file x.tar.gz
 
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+  cat > $(setup_module_dot_bazel) <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
     name = "x",
     url = "http://127.0.0.1:$nc_port/x.tar.gz",
@@ -807,56 +1093,19 @@ genrule(
 EOF
 
   bazel build @x//:catter || fail "Build 1 failed"
-  assert_contains "abc" bazel-genfiles/external/x/catter.out
-  sed 's/x.BUILD/x.BUILD.new/g' WORKSPACE > WORKSPACE.tmp || \
-    fail "Editing WORKSPACE failed"
-  mv WORKSPACE.tmp WORKSPACE
+  assert_contains "abc" bazel-genfiles/external/+http_archive+x/catter.out
+  sed 's/x.BUILD/x.BUILD.new/g' MODULE.bazel > MODULE.bazel.tmp || \
+    fail "Editing MODULE.bazel failed"
+  mv MODULE.bazel.tmp MODULE.bazel
   bazel build @x//:catter &> $TEST_log || fail "Build 2 failed"
-  assert_contains "def" bazel-genfiles/external/x/catter.out
-}
-
-function test_android_sdk_basic_load() {
-  cat >> WORKSPACE <<'EOF' || fail "Couldn't cat"
-android_sdk_repository(
-    name = "androidsdk",
-    path = "/fake/path",
-    api_level = 23,
-    build_tools_version="23.0.0"
-)
-EOF
-
-  bazel query "//external:androidsdk" 2> "$TEST_log" > "$TEST_TMPDIR/queryout" \
-      || fail "Expected success"
-  cat "$TEST_TMPDIR/queryout" > "$TEST_log"
-  expect_log "//external:androidsdk"
-}
-
-function test_use_bind_as_repository() {
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<'EOF'
-local_repository(name = 'foobar', path = 'foo')
-bind(name = 'foo', actual = '@foobar//:test')
-EOF
-  mkdir foo
-  touch foo/WORKSPACE
-  touch foo/test
-  echo 'exports_files(["test"])' > foo/BUILD
-  cat > BUILD <<'EOF'
-genrule(
-    name = "foo",
-    srcs = ["@foo//:test"],
-    cmd = "echo $< | tee $@",
-    outs = ["foo.txt"],
-)
-EOF
-  bazel build :foo &> "$TEST_log" && fail "Expected failure" || true
-  expect_log "no such package '@foo//'"
+  assert_contains "def" bazel-genfiles/external/+http_archive+x/catter.out
 }
 
 function test_flip_flopping() {
   REPO_PATH=$TEST_TMPDIR/repo
   mkdir -p "$REPO_PATH"
   cd "$REPO_PATH"
-  create_workspace_with_default_repos WORKSPACE
+  setup_module_dot_bazel
   touch BUILD foo
   zip -r repo.zip *
   sha256=$(sha256sum repo.zip | head -c 64)
@@ -867,13 +1116,14 @@ function test_flip_flopping() {
   cd -
 
   cat > local_ws <<EOF
+local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(
     name = "repo",
     path = "$REPO_PATH",
 )
 EOF
   cat > remote_ws <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
     name = "repo",
     url = "http://127.0.0.1:$fileserver_port/repo.zip",
@@ -882,14 +1132,14 @@ http_archive(
 EOF
   external_dir=$(bazel info output_base)/external
   for i in $(seq 1 3); do
-    cp local_ws WORKSPACE
+    cp local_ws MODULE.bazel
     bazel build @repo//:all &> $TEST_log || fail "Build failed"
-    test -L "$external_dir/repo" || fail "creating local symlink failed"
-    test -a "$external_dir/repo/bar" || fail "bar not found"
-    cp remote_ws WORKSPACE
+    test -L "$external_dir/+local_repository+repo" || fail "creating local symlink failed"
+    test -a "$external_dir/+local_repository+repo/bar" || fail "bar not found"
+    cp remote_ws MODULE.bazel
     bazel build @repo//:all &> $TEST_log || fail "Build failed"
-    test -d "$external_dir//repo" || fail "creating remote repo failed"
-    test -a "$external_dir/repo/foo" || fail "foo not found"
+    test -d "$external_dir/+http_archive+repo" || fail "creating remote repo failed"
+    test -a "$external_dir/+http_archive+repo/foo" || fail "foo not found"
   done
 
   shutdown_server
@@ -899,13 +1149,13 @@ function test_sha256_weird() {
   REPO_PATH=$TEST_TMPDIR/repo
   mkdir -p "$REPO_PATH"
   cd "$REPO_PATH"
-  create_workspace_with_default_repos WORKSPACE
+  setup_module_dot_bazel
   zip -r repo.zip *
   startup_server $PWD
   cd -
 
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+  cat > $(setup_module_dot_bazel) <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
     name = "repo",
     sha256 = "a random string",
@@ -921,13 +1171,13 @@ function test_sha256_incorrect() {
   REPO_PATH=$TEST_TMPDIR/repo
   mkdir -p "$REPO_PATH"
   cd "$REPO_PATH"
-  create_workspace_with_default_repos WORKSPACE
+  setup_module_dot_bazel
   zip -r repo.zip *
   startup_server $PWD
   cd -
 
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+  cat > $(setup_module_dot_bazel) <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
     name = "repo",
     sha256 = "61a6f762aaf60652cbf332879b8dcc2cfd81be2129a061da957d039eae77f0b0",
@@ -944,15 +1194,15 @@ function test_integrity_correct() {
   REPO_PATH=$TEST_TMPDIR/repo
   mkdir -p "$REPO_PATH"
   cd "$REPO_PATH"
-  create_workspace_with_default_repos WORKSPACE
+  setup_module_dot_bazel
   touch BUILD
   zip -r repo.zip *
   integrity="sha256-$(cat repo.zip | openssl dgst -sha256 -binary | openssl base64 -A)"
   startup_server $PWD
   cd -
 
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+  cat > $(setup_module_dot_bazel) <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
     name = "repo",
     integrity = "$integrity",
@@ -967,14 +1217,14 @@ function test_integrity_weird() {
   REPO_PATH=$TEST_TMPDIR/repo
   mkdir -p "$REPO_PATH"
   cd "$REPO_PATH"
-  create_workspace_with_default_repos WORKSPACE
+  setup_module_dot_bazel
   touch BUILD
   zip -r repo.zip *
   startup_server $PWD
   cd -
 
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+  cat > $(setup_module_dot_bazel) <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
     name = "repo",
     integrity = "a random string",
@@ -990,14 +1240,15 @@ function test_integrity_incorrect() {
   REPO_PATH=$TEST_TMPDIR/repo
   mkdir -p "$REPO_PATH"
   cd "$REPO_PATH"
-  create_workspace_with_default_repos WORKSPACE
+  setup_module_dot_bazel
   touch BUILD
   zip -r repo.zip *
+  integrity="sha256-$(cat repo.zip | openssl dgst -sha256 -binary | openssl base64 -A)"
   startup_server $PWD
   cd -
 
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+  cat > $(setup_module_dot_bazel) <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
     name = "repo",
     integrity = "sha256-Yab3Yqr2BlLL8zKHm43MLP2BviEpoGHalX0Dnq538LA=",
@@ -1007,7 +1258,21 @@ EOF
   bazel build @repo//... &> $TEST_log 2>&1 && fail "Expected to fail"
   expect_log "Error downloading \\[http://127.0.0.1:$fileserver_port/repo.zip\\] to"
   # Bazel translates the integrity value back to the sha256 checksum.
-  expect_log "but wanted 61a6f762aaf60652cbf332879b8dcc2cfd81be2129a061da957d039eae77f0b0"
+  expect_log "Checksum was $integrity but wanted sha256-Yab3Yqr2BlLL8zKHm43MLP2BviEpoGHalX0Dnq538LA="
+  shutdown_server
+}
+
+function test_integrity_ill_formed_base64() {
+  cat > $(setup_module_dot_bazel) <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+    name = "repo",
+    integrity = "sha256-Yab3Yqr2BlLL8zKHm43MLP2BviEpoGHalX0Dnq538L=",
+    url = "file:///dev/null",
+)
+EOF
+  bazel build @repo//... &> $TEST_log 2>&1 && fail "Expected to fail"
+  expect_log "Invalid base64 'Yab3Yqr2BlLL8zKHm43MLP2BviEpoGHalX0Dnq538L='"
   shutdown_server
 }
 
@@ -1021,8 +1286,8 @@ function test_same_name() {
   rm -rf main
   mkdir main
   cd main
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+  cat > $(setup_module_dot_bazel) <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="ext",
   strip_prefix="ext",
@@ -1054,8 +1319,8 @@ function test_missing_build() {
   rm -rf main
   mkdir main
   cd main
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+  cat > $(setup_module_dot_bazel) <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="ext",
   strip_prefix="ext",
@@ -1113,8 +1378,8 @@ EOF
   rm -rf main
   mkdir main
   cd main
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+  cat > $(setup_module_dot_bazel) <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="ext",
   strip_prefix="ext",
@@ -1126,7 +1391,7 @@ EOF
 }
 
 function test_failing_fetch_with_keep_going() {
-  create_workspace_with_default_repos WORKSPACE
+  setup_module_dot_bazel
   cat > BUILD <<'EOF'
 package(default_visibility = ["//visibility:public"])
 
@@ -1168,8 +1433,8 @@ EOF
   rm -rf main
   mkdir main
   cd main
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+  cat > $(setup_module_dot_bazel) <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="ext",
   strip_prefix="ext",
@@ -1193,6 +1458,9 @@ function test_repository_cache_relative_path() {
   # Verify that --repository_cache works for query and caches soly
   # based on the predicted hash, for a repository-cache location given as path
   # relative to the WORKSPACE
+
+  add_to_bazelrc "common --repo_env=BAZEL_HTTP_RULES_URLS_AS_DEFAULT_CANONICAL_ID=0"
+
   WRKDIR=$(mktemp -d "${TEST_TMPDIR}/testXXXXXX")
   cd "${WRKDIR}"
   mkdir ext
@@ -1219,8 +1487,8 @@ EOF
   rm -rf main
   mkdir main
   cd main
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+  cat > $(setup_module_dot_bazel) <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="ext",
   strip_prefix="ext",
@@ -1247,8 +1515,8 @@ EOF
   bazel clean --expunge
   # Even with a different source URL, the cache should be consulted.
 
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+  cat > $(setup_module_dot_bazel) <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="ext",
   strip_prefix="ext",
@@ -1267,6 +1535,9 @@ test_default_cache()
   # Verify that the default cache works for query and caches soly
   # based on the predicted hash, for a repository-cache location given as path
   # relative to the WORKSPACE
+
+  add_to_bazelrc "common --repo_env=BAZEL_HTTP_RULES_URLS_AS_DEFAULT_CANONICAL_ID=0"
+
   WRKDIR=$(mktemp -d "${TEST_TMPDIR}/testXXXXXX")
   cd "${WRKDIR}"
   mkdir ext
@@ -1290,8 +1561,8 @@ EOF
   rm -rf main
   mkdir main
   cd main
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+  cat > $(setup_module_dot_bazel) <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="ext",
   strip_prefix="ext",
@@ -1314,8 +1585,8 @@ EOF
   bazel clean --expunge
   # Even with a different source URL, the cache should be consulted.
 
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+  cat > $(setup_module_dot_bazel) <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="ext",
   strip_prefix="ext",
@@ -1348,8 +1619,8 @@ EOF
   rm -rf main
   mkdir main
   cd main
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+  cat > $(setup_module_dot_bazel) <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="ext",
   strip_prefix="ext",
@@ -1370,6 +1641,9 @@ EOF
 
 function test_cache_split() {
   # Verify that the canonical_id is honored to logically split the cache
+
+  add_to_bazelrc "common --repo_env=BAZEL_HTTP_RULES_URLS_AS_DEFAULT_CANONICAL_ID=0"
+
   WRKDIR=$(mktemp -d "${TEST_TMPDIR}/testXXXXXX")
   cd "${WRKDIR}"
   mkdir ext
@@ -1387,8 +1661,8 @@ EOF
 
   mkdir main
   cd main
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+  cat > $(setup_module_dot_bazel) <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="ext",
   strip_prefix="ext",
@@ -1408,7 +1682,7 @@ EOF
   bazel build '@ext//:foo' || fail "expected success"
 
   # Now, change the canonical_id
-  ed WORKSPACE <<'EOF'
+  ed MODULE.bazel <<'EOF'
 /canonical_id
 s|"|"modified_
 w
@@ -1418,7 +1692,7 @@ EOF
   bazel build '@ext//:foo' && fail "should not have a cache hit now" || :
 
   # However, removing the canonical_id, we should get a cache hit again
-  ed WORKSPACE <<'EOF'
+  ed MODULE.bazel <<'EOF'
 /canonical_id
 d
 w
@@ -1448,8 +1722,8 @@ EOF
   rm -rf main
   mkdir main
   cd main
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+  cat > $(setup_module_dot_bazel) <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="ext",
   strip_prefix="ext",
@@ -1488,6 +1762,9 @@ EOF
 function test_repository_cache() {
   # Verify that --repository_cache works for query and caches soly
   # based on the predicted hash.
+
+  add_to_bazelrc "common --repo_env=BAZEL_HTTP_RULES_URLS_AS_DEFAULT_CANONICAL_ID=0"
+
   WRKDIR=$(mktemp -d "${TEST_TMPDIR}/testXXXXXX")
   cd "${WRKDIR}"
   mkdir ext
@@ -1515,8 +1792,8 @@ EOF
   rm -rf main
   mkdir main
   cd main
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+  cat > $(setup_module_dot_bazel) <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="ext",
   strip_prefix="ext",
@@ -1543,8 +1820,8 @@ EOF
   bazel clean --expunge
   # Even with a different source URL, the cache should be consulted.
 
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+  cat > $(setup_module_dot_bazel) <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="ext",
   strip_prefix="ext",
@@ -1578,9 +1855,9 @@ EOF
 
   mkdir main
   cd main
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
-load("//:rule.bzl", "probe")
+  cat > $(setup_module_dot_bazel) <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+probe = use_repo_rule("//:rule.bzl", "probe")
 
 http_archive(
   name = "ext",
@@ -1606,7 +1883,7 @@ def _rule_impl(ctx):
   result = ctx.download_and_extract(
     url = [],
     type = "zip",
-    stripPrefix="ext",
+    strip_prefix="ext",
     sha256 = ctx.attr.sha256,
     allow_fail = True,
   )
@@ -1645,10 +1922,13 @@ EOF
 }
 
 function test_cache_hit_reported() {
-  # Verify that information about a chache hit is reported
-  # if an error happend in that repository. This information
+  # Verify that information about a cache hit is reported
+  # if an error happened in that repository. This information
   # is useful as users sometimes change the URL but do not
   # update the hash.
+
+  add_to_bazelrc "common --repo_env=BAZEL_HTTP_RULES_URLS_AS_DEFAULT_CANONICAL_ID=0"
+
   WRKDIR=$(mktemp -d "${TEST_TMPDIR}/testXXXXXX")
   cd "${WRKDIR}"
   mkdir ext-1.1
@@ -1667,8 +1947,8 @@ EOF
   rm -rf main
   mkdir main
   cd main
-  cat > WORKSPACE <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+  cat > $(setup_module_dot_bazel) <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="ext",
   strip_prefix="ext-1.1",
@@ -1705,7 +1985,7 @@ EOF
   expect_not_log 'file:.*/ext-1.1.zip'
 
   # Now update ext-1.1 to ext-1.2, while forgetting to update the checksum
-  ed WORKSPACE <<EOI
+  ed MODULE.bazel <<EOI
 %s/ext-1\.1/ext-1\.2/g
 w
 q
@@ -1728,7 +2008,7 @@ EOI
   # an assumption on a wrong path. As the fetching of the external
   # repository will fail, we still expect being hinted at the
   # cache hit.
-  ed WORKSPACE <<'EOI'
+  ed MODULE.bazel <<'EOI'
 /strip_prefix
 d
 a
@@ -1769,8 +2049,8 @@ EOF
 
   mkdir main
   cd main
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+  cat > $(setup_module_dot_bazel) <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="ext",
   strip_prefix="ext",
@@ -1823,8 +2103,8 @@ ext_file = repository_rule(
   attrs = { "urls" : attr.string_list(), "sha256" : attr.string() },
 )
 EOF
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
-load("//:ext_file.bzl", "ext_file")
+  cat > $(setup_module_dot_bazel) <<EOF
+ext_file = use_repo_rule("//:ext_file.bzl", "ext_file")
 ext_file(
   name="ext",
   urls=["http://doesnotexist.example.com/outdatedpath/actual_file_name.txt"],
@@ -1866,8 +2146,8 @@ EOF
 
   mkdir main
   cd main
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+  cat > $(setup_module_dot_bazel) <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="ext",
   strip_prefix="ext",
@@ -1910,8 +2190,8 @@ EOF
 
   mkdir main
   cd main
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+  cat > $(setup_module_dot_bazel) <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="ext",
   strip_prefix="ext",
@@ -1947,8 +2227,8 @@ function test_good_symlinks() {
 
   mkdir main
   cd main
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+  cat > $(setup_module_dot_bazel) <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="ext",
   strip_prefix="ext",
@@ -1992,8 +2272,8 @@ EOF
 
   mkdir main
   cd main
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+  cat > $(setup_module_dot_bazel) <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="ext",
   strip_prefix="ext",
@@ -2036,8 +2316,8 @@ function test_bad_symlinks() {
 
   mkdir main
   cd main
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+  cat > $(setup_module_dot_bazel) <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="ext",
   strip_prefix="ext",
@@ -2081,8 +2361,8 @@ with_progress = repository_rule(
 )
 EOF
 
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<'EOF'
-load("//:rule.bzl", "with_progress")
+  cat >> $(setup_module_dot_bazel) <<'EOF'
+with_progress = use_repo_rule("//:rule.bzl", "with_progress")
 with_progress(name="foo")
 EOF
   cat > BUILD <<'EOF'
@@ -2094,7 +2374,7 @@ genrule(
 )
 EOF
   bazel build --curses=yes //:local > "${TEST_log}" 2>&1 \
-      || fail "exepected succes"
+      || fail "expected success"
   expect_log "foo.*First action"
   expect_log "foo.*Second action"
 }
@@ -2109,8 +2389,8 @@ function test_progress_reporting() {
 
   mkdir main
   cd main
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+  cat > $(setup_module_dot_bazel) <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name = "ext",
   urls = ["file://${WRKDIR}/ext.tar"],
@@ -2128,7 +2408,7 @@ EOF
 
   bazel build //:it > "${TEST_log}" 2>&1 && fail "Expected failure" || :
 
-  expect_log '@ext.*badargument'
+  expect_log '@@+http_archive+ext.*badargument'
 }
 
 function test_prefix_suggestions() {
@@ -2145,8 +2425,8 @@ function test_prefix_suggestions() {
 
   mkdir main
   cd main
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+  cat > $(setup_module_dot_bazel) <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="ext",
   strip_prefix="ext-1.0",
@@ -2178,8 +2458,8 @@ function test_suggest_nostripprefix() {
 
   mkdir main
   cd main
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+  cat > $(setup_module_dot_bazel) <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="ext",
   strip_prefix="ext-1.0",
@@ -2200,26 +2480,6 @@ EOF
   expect_log 'no need for `strip_prefix`'
 }
 
-function test_loaded_file_reported() {
-  # Verify that upon a load in the WORKSPACE file with
-  # the repository not (yet) defined, the name of the
-  # file is reported in the error message.
-  WRKDIR=$(mktemp -d "${TEST_TMPDIR}/testXXXXXX")
-  cd "${WRKDIR}"
-
-  mkdir main
-  cd main
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<'EOF'
-load("@nonexistent//path/to/package:file/to/import.bzl", "foo")
-foo()
-EOF
-  touch BUILD
-  bazel build //... > "${TEST_log}" 2>&1 && fail "Expected failure"
-
-  expect_log '@nonexistent//path/to/package:file/to/import.bzl'
-  expect_log 'nonexistent.*repository.*WORKSPACE'
-}
-
 function test_report_files_searched() {
   # Verify that upon  a missing package, the places where a BUILD file was
   # searched for are reported.
@@ -2233,8 +2493,8 @@ function test_report_files_searched() {
 
   mkdir -p path/to/workspace
   cd path/to/workspace
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+  cat > $(setup_module_dot_bazel) <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="ext",
   urls=["file://${WRKDIR}/ext.tar"],
@@ -2248,7 +2508,7 @@ EOF
       && fail "Expected failure" || :
 
   expect_log 'BUILD file not found'
-  expect_log 'path/to/workspace/path/to'
+  expect_log '- path/to'
 }
 
 function test_report_package_external() {
@@ -2265,8 +2525,8 @@ function test_report_package_external() {
 
   mkdir -p path/to/workspace
   cd path/to/workspace
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+  cat > $(setup_module_dot_bazel) <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="ext",
   urls=["file://${WRKDIR}/ext.tar"],
@@ -2285,180 +2545,6 @@ EOF
       && fail "Expected failure" || :
 
   expect_log 'BUILD file not found.*path/too/deep'
-}
-
-function test_location_reported() {
-  # Verify that some useful information is provided about where
-  # a failing repository definition occurred.
-  WRKDIR=$(mktemp -d "${TEST_TMPDIR}/testXXXXXX")
-  cd "${WRKDIR}"
-  mkdir empty
-  tar cvf x.tar empty
-  rm -rf empty
-
-  mkdir -p path/to/main
-  cd path/to/main
-  touch BUILD
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<'EOF'
-load("//:repos.bzl", "repos")
-repos()
-EOF
-  cat > repos.bzl <<"EOF"
-load("//:foo.bzl", "foo_repos")
-
-def repos():
-  # ..forgot to add the repository bar
-  foo_repos()
-EOF
-  cat > foo.bzl <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
-
-def foo_repos():
-    http_archive(
-        name = "foo",
-        url = "file://${WRKDIR}/x.tar",
-        build_file = "@bar//:foo.build",
-    )
-EOF
-
-  bazel build @foo//... > "${TEST_log}" 2>&1 && fail "expected failure"
-  inplace-sed -e "s?$WRKDIR/?WRKDIR/?g" -e "s?$TEST_TMPDIR/?TEST_TMPDIR/?g" "${TEST_log}"
-
-  expect_log 'error.*repository.*foo'
-  expect_log '@bar//:foo.build'
-  expect_log "Repository foo instantiated at:"
-  expect_log "  WRKDIR/path/to/main/WORKSPACE:"
-  expect_log "  WRKDIR/path/to/main/repos.bzl:5"
-  expect_log "  WRKDIR/path/to/main/foo.bzl:4"
-  expect_log "Repository rule http_archive defined at:"
-  expect_log "  TEST_TMPDIR/.*/external/bazel_tools/tools/build_defs/repo/http.bzl:"
-}
-
-function test_circular_definition_reported() {
-  # Verify that bazel reports a useful error message upon
-  # detecting a circular definition of a repository.
-  # Also verify that the call stack of the definition is shown.
-
-  WRKDIR=$(mktemp -d "${TEST_TMPDIR}/testXXXXXX")
-  cd "${WRKDIR}"
-
-  mkdir ext
-  touch ext/BUILD
-  cat > ext/a.BUILD <<'EOF'
-genrule(
-  name = "a",
-  outs = ["a.txt"],
-  cmd = "echo Hello World > $@",
-)
-EOF
-  cat > ext/b.BUILD <<'EOF'
-genrule(
-  name = "b",
-  outs = ["b.txt"],
-  cmd = "echo Hello World > $@",
-)
-EOF
-  cat > ext/notabuildfile.bzl <<'EOF'
-x = 42
-EOF
-  tar cvf ext.tar ext
-  rm -rf ext
-
-  mkdir main
-  cd main
-  cat > foo.bzl <<'EOF'
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
-
-def foo():
-  http_archive(
-    name = "a",
-    url = "file://${WRKDIR}/ext.tar",
-    build_file = "@b//:a.BUILD",
-  )
-EOF
-  cat > bar.bzl <<'EOF'
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
-
-def bar():
-  http_archive(
-    name = "b",
-    url = "file://${WRKDIR}/ext.tar",
-    build_file = "@a//:b.BUILD",
-  )
-EOF
-  cat > WORKSPACE <<EOF
-load("//:foo.bzl", "foo")
-load("//:bar.bzl", "bar")
-
-foo()
-bar()
-
-load("@a//:notabuildfile.bzl", "x")
-EOF
-  touch BUILD
-
-  bazel build //... > "${TEST_log}" 2>&1 && fail "expected failure" || :
-  inplace-sed -e 's?$(pwd)/?PWD/?g' "${TEST_log}"
-
-  expect_not_log '[iI]nternal [eE]rror'
-  expect_not_log 'IllegalStateException'
-  expect_log '[Cc]ircular definition.*repositor'
-  expect_log '@a'
-  expect_log '@b'
-
-  # We expect to find the call stack for the definition of the repositories
-  # a and b
-  expect_log "WORKSPACE:4:4"
-  expect_log "foo.bzl:4:15"
-
-  expect_log "WORKSPACE:5:4"
-  expect_log "bar.bzl:4:15"
-}
-
-function test_missing_repo_reported() {
-  # Verify that, if a WORKSPACE cycle is reported due to
-  # a missing repository definition, the name of the actually
-  # missing repository is reported.
-  WRKDIR=$(mktemp -d "${TEST_TMPDIR}/testXXXXXX")
-  cd "${WRKDIR}"
-
-  mkdir main
-  cd main
-
-  cat > withimplicit.bzl <<'EOF'
-def _impl(ctx):
-  ctx.file("data.txt", ctx.attr.value)
-  ctx.file("data.bzl", "value = %s" % (ctx.attr.value,))
-  ctx.symlink(ctx.attr._generic_build_file, "BUILD")
-
-data_repo = repository_rule(
-  implementation = _impl,
-  attrs = { "value" : attr.string(),
-            "_generic_build_file" : attr.label(
-                default = Label("@this_repo_is_missing//:generic.BUILD")) },
-)
-EOF
-  touch BUILD
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<'EOF'
-load("//:withimplicit.bzl", "data_repo")
-
-data_repo(
-  name = "data",
-  value = "42")
-
-load("@data//:value.bzl", "value")
-EOF
-
-  bazel build //... > "${TEST_log}" 2>&1 && fail "expected failure" || :
-  inplace-sed -e 's?$(pwd)/?PWD/?g' "${TEST_log}"
-
-  expect_log "you have to add.*this_repo_is_missing.*WORKSPACE"
-  # Also verify that the repository class and its definition is reported, to
-  # help finding out where the implict dependency comes from.
-  expect_log "Repository data instantiated at:"
-  expect_log ".../WORKSPACE:[0-9]*"
-  expect_log "Repository rule data_repo defined at:"
-  expect_log ".../withimplicit.bzl:6"
 }
 
 function test_overwrite_existing_workspace_build() {
@@ -2488,8 +2574,8 @@ function test_overwrite_existing_workspace_build() {
       mkdir main
       cd main
 
-      cat > WORKSPACE <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+      cat > $(setup_module_dot_bazel) <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
    name = "ext",
    strip_prefix = "ext",
@@ -2500,7 +2586,7 @@ EOF
       echo
       ls -al ${WRKDIR}/ext
       echo
-      cat WORKSPACE
+      cat MODULE.bazel
       echo
 
       cat > external_build_file <<'EOF'
@@ -2542,7 +2628,8 @@ function test_external_java_target_depends_on_external_resources() {
   mkdir -p $test_repo1/a
   mkdir -p $test_repo2
 
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
+  cat > $(setup_module_dot_bazel) <<EOF
+local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(name = 'repo1', path='$test_repo1')
 local_repository(name = 'repo2', path='$test_repo2')
 EOF
@@ -2554,7 +2641,7 @@ java_binary(
 )
 EOF
 
-  touch $test_repo1/WORKSPACE
+  touch $test_repo1/REPO.bazel
   cat > $test_repo1/a/BUILD <<'EOF'
 package(default_visibility = ["//visibility:public"])
 
@@ -2573,7 +2660,7 @@ public class A {
 }
 EOF
 
-  touch $test_repo2/WORKSPACE
+  touch $test_repo2/REPO.bazel
   cat > $test_repo2/BUILD <<'EOF'
 package(default_visibility = ["//visibility:public"])
 
@@ -2591,8 +2678,6 @@ EOF
 }
 
 function test_query_external_packages() {
-  setup_skylib_support
-
   mkdir -p external/nested
   mkdir -p not-external
 
@@ -2616,6 +2701,9 @@ filegroup(
 )
 EOF
 
+  # Remove tools directory set up by copy_tools_directory in testenv.sh
+  rm -rf tools/
+
   bazel query //... >& $TEST_log || fail "Expected build/run to succeed"
   expect_log "//not-external:b"
   expect_not_log "//external:a1"
@@ -2629,9 +2717,53 @@ EOF
   expect_log "//external/nested:a2"
 }
 
-function test_query_external_all_targets() {
-  setup_skylib_support
+function test_query_external_packages_in_other_repo() {
+  cat > $(setup_module_dot_bazel) <<EOF
+local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
+local_repository(
+  name="other_repo",
+  path="other_repo",
+)
+EOF
 
+  mkdir -p other_repo/external/nested
+  mkdir -p other_repo/not-external
+
+  touch other_repo/REPO.bazel
+
+  cat > other_repo/external/BUILD <<EOF
+filegroup(
+    name = "a1",
+    srcs = [],
+)
+EOF
+  cat > other_repo/external/nested/BUILD <<EOF
+filegroup(
+    name = "a2",
+    srcs = [],
+)
+EOF
+
+  cat > other_repo/not-external/BUILD <<EOF
+filegroup(
+    name = "b",
+    srcs = [],
+)
+EOF
+
+  bazel query @other_repo//... >& $TEST_log || fail "Expected build/run to succeed"
+  expect_log "@other_repo//not-external:b"
+  expect_log "@other_repo//external:a1"
+  expect_log "@other_repo//external/nested:a2"
+
+  bazel query --experimental_sibling_repository_layout @other_repo//... >& $TEST_log \ ||
+    fail "Expected build/run to succeed"
+  expect_log "@other_repo//not-external:b"
+  expect_log "@other_repo//external:a1"
+  expect_log "@other_repo//external/nested:a2"
+}
+
+function test_query_external_all_targets() {
   mkdir -p external/nested
   mkdir -p not-external
 
@@ -2651,6 +2783,9 @@ filegroup(
 EOF
   touch not-external/B
 
+  # Remove tools directory set up by copy_tools_directory in testenv.sh
+  rm -rf tools/
+
   bazel query //...:all-targets >& $TEST_log \
     || fail "Expected build/run to succeed"
   expect_log "//not-external:b"
@@ -2664,6 +2799,210 @@ EOF
   expect_log "//not-external:B"
   expect_log "//external/nested:a"
   expect_log "//external/nested:A"
+}
+
+function test_external_deps_skymeld() {
+  # A minimal build to make sure bazel in Skymeld mode can build with external
+  # dependencies.
+  mkdir ext
+  echo content > ext/ext
+  EXTREPODIR=`pwd`
+  zip ext.zip ext/*
+  rm -rf ext
+
+  rm -rf main
+  mkdir main
+  cd main
+  cat > $(setup_module_dot_bazel) <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+  name="ext",
+  strip_prefix="ext",
+  url="file://${EXTREPODIR}/ext.zip",
+  build_file_content="exports_files([\"ext\"])",
+)
+EOF
+  cat > BUILD <<'EOF'
+genrule(
+  name = "foo",
+  srcs = ["@ext//:ext"],
+  outs = ["foo"],
+  cmd = "cp $< $@",
+)
+EOF
+  execroot="$(bazel info execution_root)"
+
+  bazel build --experimental_merged_skyframe_analysis_execution //:foo \
+    || fail 'Expected build to succeed with Skymeld'
+
+  test -h "$execroot/external/+http_archive+ext" || fail "Expected symlink to external repo."
+}
+
+function test_default_canonical_id_enabled() {
+    cat > repo.bzl <<EOF
+load("@bazel_tools//tools/build_defs/repo:cache.bzl", "get_default_canonical_id")
+
+def _impl(rctx):
+  print("canonical_id", repr(get_default_canonical_id(rctx, ["url-1", "url-2"])))
+  rctx.file("BUILD", "")
+
+dummy_repository = repository_rule(_impl)
+EOF
+  touch BUILD
+  cat > MODULE.bazel <<EOF
+dummy_repository = use_repo_rule('//:repo.bzl', 'dummy_repository')
+dummy_repository(name = 'foo')
+EOF
+
+  # NOTE: Test environment modifies defaults, so --repo_env must be explicitly set
+  bazel query @foo//:all --repo_env=BAZEL_HTTP_RULES_URLS_AS_DEFAULT_CANONICAL_ID=1 \
+    2>$TEST_log || fail 'Expected fetch to succeed'
+  expect_log "canonical_id \"url-1 url-2\""
+}
+
+function test_default_canonical_id_disabled() {
+    cat > repo.bzl <<EOF
+load("@bazel_tools//tools/build_defs/repo:cache.bzl", "get_default_canonical_id")
+
+def _impl(rctx):
+  print("canonical_id", repr(get_default_canonical_id(rctx, ["url-1", "url-2"])))
+  rctx.file("BUILD", "")
+
+dummy_repository = repository_rule(_impl)
+EOF
+  touch BUILD
+  cat > MODULE.bazel <<EOF
+dummy_repository = use_repo_rule('//:repo.bzl', 'dummy_repository')
+dummy_repository(name = 'foo')
+EOF
+
+  # NOTE: Test environment modifies defaults, so --repo_env must be explicitly set
+  bazel query @foo//:all --repo_env=BAZEL_HTTP_RULES_URLS_AS_DEFAULT_CANONICAL_ID=0 \
+    2>$TEST_log || fail 'Expected fetch to succeed'
+  expect_log "canonical_id \"\""
+}
+
+function test_environ_incrementally() {
+  # Set up workspace with a repository rule to examine env vars.  Assert that undeclared
+  # env vars don't trigger reevaluations.
+  cat > repo.bzl <<EOF
+def _impl(rctx):
+  rctx.symlink(rctx.attr.build_file, 'BUILD')
+  print('UNDECLARED_KEY=%s' % rctx.os.environ.get('UNDECLARED_KEY'))
+  print('PREDECLARED_KEY=%s' % rctx.os.environ.get('PREDECLARED_KEY'))
+  print('LAZYEVAL_KEY=%s' % rctx.getenv('LAZYEVAL_KEY'))
+
+dummy_repository = repository_rule(
+  implementation = _impl,
+  attrs = {'build_file': attr.label()},
+  environ = ['PREDECLARED_KEY'],  # sic
+)
+EOF
+  cat > BUILD.dummy <<EOF
+filegroup(name='dummy', srcs=['BUILD'])
+EOF
+  touch BUILD
+  cat > $(setup_module_dot_bazel) <<EOF
+dummy_repository = use_repo_rule('//:repo.bzl', 'dummy_repository')
+dummy_repository(name = 'foo', build_file = '@@//:BUILD.dummy')
+EOF
+
+  # Baseline: DEBUG: UNDECLARED_KEY is logged to stderr.
+  UNDECLARED_KEY=val1 bazel query @foo//:BUILD 2>$TEST_log || fail 'Expected no-op build to succeed'
+  expect_log "UNDECLARED_KEY=val1"
+
+  # UNDECLARED_KEY is, well, undeclared.  This will be a no-op.
+  UNDECLARED_KEY=val2 bazel query @foo//:BUILD 2>$TEST_log || fail 'Expected no-op build to succeed'
+  expect_not_log "UNDECLARED_KEY"
+
+  #---
+
+  # Predeclared key.
+  PREDECLARED_KEY=wal1 bazel query @foo//:BUILD 2>$TEST_log || fail 'Expected no-op build to succeed'
+  expect_log "PREDECLARED_KEY=wal1"
+
+  # Predeclared key, no-op build.
+  PREDECLARED_KEY=wal1 bazel query @foo//:BUILD 2>$TEST_log || fail 'Expected no-op build to succeed'
+  expect_not_log "PREDECLARED_KEY"
+
+  # Predeclared key, new value -> refetch.
+  PREDECLARED_KEY=wal2 bazel query @foo//:BUILD 2>$TEST_log || fail 'Expected no-op build to succeed'
+  expect_log "PREDECLARED_KEY=wal2"
+
+  #---
+
+  # Side-effect key.
+  LAZYEVAL_KEY=xal1 bazel query @foo//:BUILD 2>$TEST_log || fail 'Expected no-op build to succeed'
+  expect_log "PREDECLARED_KEY=None"
+  expect_log "LAZYEVAL_KEY=xal1"
+
+  # Side-effect key, no-op build.
+  LAZYEVAL_KEY=xal1 bazel query @foo//:BUILD 2>$TEST_log || fail 'Expected no-op build to succeed'
+  expect_not_log "LAZYEVAL_KEY"
+
+  # Side-effect key, new value -> refetch.
+  LAZYEVAL_KEY=xal2 bazel query @foo//:BUILD 2>$TEST_log || fail 'Expected no-op build to succeed'
+  expect_log "LAZYEVAL_KEY=xal2"
+
+  # Ditto, but with --repo_env overriding environment.
+  LAZYEVAL_KEY=xal2 bazel query --repo_env=LAZYEVAL_KEY=xal3 @foo//:BUILD 2>$TEST_log || fail 'Expected no-op build to succeed'
+  expect_log "LAZYEVAL_KEY=xal3"
+}
+
+function test_external_package_in_other_repo() {
+  cat > $(setup_module_dot_bazel) <<EOF
+local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
+local_repository(
+  name="other_repo",
+  path="other_repo",
+)
+EOF
+
+  mkdir -p other_repo/external/java/a
+  touch other_repo/REPO.bazel
+
+  cat > other_repo/external/java/a/BUILD <<EOF
+java_library(name='a', srcs=['A.java'])
+EOF
+
+  cat > other_repo/external/java/a/A.java << EOF
+package a;
+public class A {
+  public static void main(String[] args) {
+    System.out.println("hello world");
+  }
+}
+EOF
+
+  bazel build @other_repo//external/java/a:a || fail "build failed"
+}
+
+function test_external_dir_in_other_repo() {
+  cat > $(setup_module_dot_bazel) <<EOF
+local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
+local_repository(
+  name="other_repo",
+  path="other_repo",
+)
+EOF
+
+  mkdir -p other_repo/external/java/a
+  touch other_repo/REPO.bazel
+
+  cat > other_repo/BUILD <<EOF
+java_library(name='a', srcs=['external/java/a/A.java'])
+EOF
+
+  cat > other_repo/external/java/a/A.java << EOF
+package a;
+public class A {
+  public static void main(String[] args) {
+    System.out.println("hello world");
+  }
+}
+EOF
+
+  bazel build @other_repo//:a || fail "build failed"
 }
 
 run_suite "external tests"

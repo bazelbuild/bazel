@@ -14,12 +14,15 @@
 
 package com.google.devtools.build.lib.analysis.config;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.common.options.Option;
-import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsBase;
+import java.util.AbstractMap;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
 
@@ -45,15 +48,6 @@ public abstract class FragmentOptions extends OptionsBase implements Cloneable {
   }
 
   /**
-   * Creates a new instance of this {@code FragmentOptions} with all flags adjusted as needed to
-   * represent the host platform.
-   */
-  @SuppressWarnings("unused")
-  public FragmentOptions getHost() {
-    return getDefault();
-  }
-
-  /**
    * Returns an instance of {@code FragmentOptions} with all flags adjusted to be suitable for
    * forming configurations.
    *
@@ -75,6 +69,46 @@ public abstract class FragmentOptions extends OptionsBase implements Cloneable {
    */
   public FragmentOptions getNormalized() {
     return this;
+  }
+
+  /**
+   * Helper method for subclasses to normalize set valued options. In addition to removing
+   * duplicates, it picks a deterministic ordering. The fact that the deterministic ordering is
+   * based on sorting is an accident and should NOT be relied upon.
+   */
+  protected static ImmutableList<String> dedupAndSort(@Nullable List<String> values) {
+    if (values == null || values.isEmpty()) {
+      return ImmutableList.of();
+    }
+
+    ImmutableList<String> result =
+        values.stream()
+            // Use the natural String ordering.
+            .sorted()
+            .distinct()
+            .collect(toImmutableList());
+
+    // If the value is already deduped and sorted return the exact same instance we got.
+    return result.equals(values) ? ImmutableList.copyOf(values) : result;
+  }
+
+  /**
+   * Helper method for subclasses to normalize list of map entries by keeping only the last entry
+   * for each key. The order of the entries is preserved.
+   */
+  protected static List<Map.Entry<String, String>> normalizeEntries(
+      List<Map.Entry<String, String>> entries) {
+    LinkedHashMap<String, String> normalizedEntries = new LinkedHashMap<>();
+    for (Map.Entry<String, String> entry : entries) {
+      normalizedEntries.put(entry.getKey(), entry.getValue());
+    }
+    // If we made no changes, return the same instance we got to reduce churn.
+    if (normalizedEntries.size() == entries.size()) {
+      return entries;
+    }
+    return normalizedEntries.entrySet().stream()
+        .map(AbstractMap.SimpleEntry::new)
+        .collect(toImmutableList());
   }
 
   /** Tracks limitations on referring to an option in a {@code config_setting}. */
@@ -110,29 +144,5 @@ public abstract class FragmentOptions extends OptionsBase implements Cloneable {
     public String getErrorMessage() {
       return errorMessage;
     }
-  }
-
-  /**
-   * Returns a map from options defined by this fragment to restrictions on whether the option may
-   * appear in a {@code config_setting}. If an option defined by this fragment is not a key of this
-   * map, then it has no restriction.
-   *
-   * <p>In addition to making options unconditionally non-selectable, this can also be used to gate
-   * selectability based on the value of other flags in the same fragment -- for instance,
-   * experimental or incompatible change flags.
-   *
-   * <p>The intended usage pattern is to define, for each flag {@code foo} to have a restriction, a
-   * field
-   *
-   * <pre>{@code
-   * private static final OptionDefinition FOO_DEFINITION =
-   *     OptionsParser.getOptionDefinitionByName(ThisClass.class, "foo");
-   * }</pre>
-   *
-   * This way, if the option is ever renamed (especially common for an experimental flag), if the
-   * definition is not updated at the same time it will fail-fast during static initialization.
-   */
-  public Map<OptionDefinition, SelectRestriction> getSelectRestrictions() {
-    return ImmutableMap.of();
   }
 }

@@ -36,28 +36,28 @@ public class ProxyHelperTest {
   public void testCreateIfNeededHttpLowerCase() throws Exception {
     ProxyHelper helper = new ProxyHelper(ImmutableMap.of("http_proxy", "http://my.example.com"));
     Proxy proxy = helper.createProxyIfNeeded(new URL("http://www.something.com"));
-    assertThat(proxy.toString()).endsWith("my.example.com:80");
+    assertThat(proxy.toString()).containsMatch("my\\.example\\.com(/<unresolved>)?:80$");
   }
 
   @Test
   public void testCreateIfNeededHttpUpperCase() throws Exception {
     ProxyHelper helper = new ProxyHelper(ImmutableMap.of("HTTP_PROXY", "http://my.example.com"));
     Proxy proxy = helper.createProxyIfNeeded(new URL("http://www.something.com"));
-    assertThat(proxy.toString()).endsWith("my.example.com:80");
+    assertThat(proxy.toString()).containsMatch("my\\.example\\.com(/<unresolved>)?:80$");
   }
 
   @Test
   public void testCreateIfNeededHttpsLowerCase() throws Exception {
     ProxyHelper helper = new ProxyHelper(ImmutableMap.of("https_proxy", "https://my.example.com"));
     Proxy proxy = helper.createProxyIfNeeded(new URL("https://www.something.com"));
-    assertThat(proxy.toString()).endsWith("my.example.com:443");
+    assertThat(proxy.toString()).containsMatch("my\\.example\\.com(/<unresolved>)?:443$");
   }
 
   @Test
   public void testCreateIfNeededHttpsUpperCase() throws Exception {
     ProxyHelper helper = new ProxyHelper(ImmutableMap.of("HTTPS_PROXY", "https://my.example.com"));
     Proxy proxy = helper.createProxyIfNeeded(new URL("https://www.something.com"));
-    assertThat(proxy.toString()).endsWith("my.example.com:443");
+    assertThat(proxy.toString()).containsMatch("my\\.example\\.com(/<unresolved>)?:443$");
   }
 
   @Test
@@ -141,7 +141,7 @@ public class ProxyHelperTest {
                 "HTTPS_PROXY",
                 "https://my.example.com"));
     Proxy proxy = helper.createProxyIfNeeded(new URL("https://www.not-example.com"));
-    assertThat(proxy.toString()).endsWith("my.example.com:443");
+    assertThat(proxy.toString()).containsMatch("my\\.example\\.com(/<unresolved>)?:443$");
   }
 
   @Test
@@ -204,18 +204,14 @@ public class ProxyHelperTest {
 
   @Test
   public void testProxyNoProtocol() throws Exception {
-    IOException e =
-        assertThrows(IOException.class, () -> ProxyHelper.createProxy("my.example.com"));
-    assertThat(e).hasMessageThat().contains("Proxy address my.example.com is not a valid URL");
+    Proxy proxy = ProxyHelper.createProxy("my.example.com");
+    assertThat(proxy.toString()).endsWith(":80");
   }
 
   @Test
   public void testProxyNoProtocolWithPort() throws Exception {
-    IOException e =
-        assertThrows(IOException.class, () -> ProxyHelper.createProxy("my.example.com:12345"));
-    assertThat(e)
-        .hasMessageThat()
-        .contains("Proxy address my.example.com:12345 is not a valid URL");
+    Proxy proxy = ProxyHelper.createProxy("my.example.com:12345");
+    assertThat(proxy.toString()).endsWith(":12345");
   }
 
   @Test

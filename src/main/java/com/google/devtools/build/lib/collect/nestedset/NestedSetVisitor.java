@@ -14,9 +14,7 @@
 package com.google.devtools.build.lib.collect.nestedset;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.Sets;
 import java.util.Collection;
-import java.util.Set;
 
 /**
  * NestedSetVisitor facilitates a transitive visitation over a NestedSet. The callback may be called
@@ -39,9 +37,9 @@ public final class NestedSetVisitor<E> {
 
   private final Receiver<E> callback;
 
-  private final AbstractVisitedState visited;
+  private final VisitedState visited;
 
-  public NestedSetVisitor(Receiver<E> callback, AbstractVisitedState visited) {
+  public NestedSetVisitor(Receiver<E> callback, VisitedState visited) {
     this.callback = Preconditions.checkNotNull(callback);
     this.visited = Preconditions.checkNotNull(visited);
   }
@@ -62,7 +60,7 @@ public final class NestedSetVisitor<E> {
   /** Visit every entry in a collection. */
   public void visit(Collection<E> collection) {
     for (E e : collection) {
-      if (visited.add(e)) {
+      if (visited.needToVisit(e)) {
         callback.accept(e);
       }
     }
@@ -70,7 +68,7 @@ public final class NestedSetVisitor<E> {
 
   @SuppressWarnings("unchecked")
   private void visitRaw(Object node) {
-    if (visited.add(node)) {
+    if (visited.needToVisit(node)) {
       if (node instanceof Object[]) {
         for (Object child : (Object[]) node) {
           visitRaw(child);
@@ -81,33 +79,21 @@ public final class NestedSetVisitor<E> {
     }
   }
 
-  /** A class that allows us to keep track of the seen nodes and transitive sets. */
-  public interface AbstractVisitedState {
-    /** Removes all visited nodes from the VisitedState. */
-    void clear();
+  /** Allows {@link NestedSetVisitor} to keep track of the seen nodes and transitive sets. */
+  public interface VisitedState {
 
     /**
-     * Adds a node to the visited state, returning true if the node was not yet in the visited state
-     * and false if the node was already in the visited state.
+     * Determines whether the given node needs to be visited, recording the visitation attempt if
+     * this {@link VisitedState} deduplicates visitations.
+     *
+     * <p>A return of {@code true} means that:
+     *
+     * <ul>
+     *   <li>If {@code node} is a leaf element: {@link Receiver#accept} will be invoked with {@code
+     *       node}.
+     *   <li>If {@code node} is a non-leaf: visitation will traverse its children.
+     * </ul>
      */
-    boolean add(Object node);
-  }
-
-  /** A class that allows us to keep track of the seen nodes and transitive sets. */
-  public static class VisitedState<E> implements AbstractVisitedState {
-    private final Set<Object> seenNodes = Sets.newConcurrentHashSet();
-
-    @Override
-    public void clear() {
-      seenNodes.clear();
-    }
-
-    @Override
-    public boolean add(Object node) {
-      // Though it may look redundant, the contains call is much cheaper than the add and can
-      // greatly improve the performance and reduce the contention associated with checking
-      // seenNodes.
-      return !seenNodes.contains(node) && seenNodes.add(node);
-    }
+    boolean needToVisit(Object node);
   }
 }

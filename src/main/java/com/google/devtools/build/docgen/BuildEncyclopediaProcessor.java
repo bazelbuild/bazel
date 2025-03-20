@@ -45,8 +45,11 @@ public abstract class BuildEncyclopediaProcessor {
     }
   };
 
-  /** Name of the product to insert into the documentation. */
-  protected final String productName;
+  /** Class that expand links to the BE. */
+  protected final RuleLinkExpander linkExpander;
+
+  /** Mapper from source files/labels to source code repository URLs. */
+  SourceUrlMapper urlMapper;
 
   /** Rule class provider from which to extract the rule class hierarchy and attributes. */
   protected final ConfiguredRuleClassProvider ruleClassProvider;
@@ -56,21 +59,30 @@ public abstract class BuildEncyclopediaProcessor {
    * rule class hierarchy and attribute checking.
    */
   public BuildEncyclopediaProcessor(
-      String productName, ConfiguredRuleClassProvider ruleClassProvider) {
-    this.productName = productName;
+      RuleLinkExpander linkExpander,
+      SourceUrlMapper urlMapper,
+      ConfiguredRuleClassProvider ruleClassProvider) {
+    this.linkExpander = linkExpander;
+    this.urlMapper = Preconditions.checkNotNull(urlMapper);
     this.ruleClassProvider = Preconditions.checkNotNull(ruleClassProvider);
   }
 
   /**
-   * Collects and processes all the rule and attribute documentation in inputDirs and generates the
-   * Build Encyclopedia into the outputDir.
+   * Collects and processes all the rule and attribute documentation in inputJavaDirs and generates
+   * the Build Encyclopedia into outputDir.
    *
-   * @param inputDirs list of directory to scan for document in the source code
+   * @param inputJavaDirs list of directories to scan for documentation in Java source code
+   * @param inputStardocProtos list of file paths of stardoc_output.ModuleInfo binary proto files
+   *     generated from Build Encyclopedia entry point .bzl files; documentation from these protos
+   *     takes precedence over documentation from {@code inputJavaDirs}
    * @param outputRootDir output directory where to write the build encyclopedia
    * @param denyList optional path to a file listing rules to not document
    */
   public abstract void generateDocumentation(
-      List<String> inputDirs, String outputDir, String denyList)
+      List<String> inputJavaDirs,
+      List<String> inputStardocProtos,
+      String outputDir,
+      String denyList)
       throws BuildEncyclopediaDocException, IOException;
 
   /**
@@ -125,7 +137,9 @@ public abstract class BuildEncyclopediaProcessor {
     List<RuleFamily> ruleFamilies = new ArrayList<>(ruleFamilyNames.size());
     for (String name : ruleFamilyNames) {
       ListMultimap<RuleType, RuleDocumentation> ruleTypeMap = ruleMapping.get(name);
-      ruleFamilies.add(new RuleFamily(ruleTypeMap, name, familySummary.get(name).toString()));
+      ruleFamilies.add(
+          new RuleFamily(
+              ruleTypeMap, name, familySummary.getOrDefault(name, new StringBuilder()).toString()));
     }
     return ruleFamilies;
   }
@@ -147,7 +161,9 @@ public abstract class BuildEncyclopediaProcessor {
           ruleMapping.get(ruleFamily).put(ruleDoc.getRuleType(), ruleDoc);
         }
       } else {
-        throw ruleDoc.createException("Can't find RuleClass for " + ruleDoc.getRuleName());
+        String ruleFamily = ruleDoc.getRuleFamily();
+        ruleMapping.putIfAbsent(ruleFamily, LinkedListMultimap.create());
+        ruleMapping.get(ruleFamily).put(ruleDoc.getRuleType(), ruleDoc);
       }
     }
   }
@@ -211,13 +227,12 @@ public abstract class BuildEncyclopediaProcessor {
    * attributes can be expanded.
    *
    * @param attributes The map containing the RuleDocumentationAttributes, keyed by attribute name.
-   * @param expander The RuleLinkExpander to set in each of the RuleDocumentationAttributes.
    * @return The provided map of attributes.
    */
-  protected static Map<String, RuleDocumentationAttribute> expandCommonAttributes(
-      Map<String, RuleDocumentationAttribute> attributes, RuleLinkExpander expander) {
+  protected Map<String, RuleDocumentationAttribute> expandCommonAttributes(
+      Map<String, RuleDocumentationAttribute> attributes) {
     for (RuleDocumentationAttribute attribute : attributes.values()) {
-      attribute.setRuleLinkExpander(expander);
+      attribute.setRuleLinkExpander(linkExpander);
     }
     return attributes;
   }

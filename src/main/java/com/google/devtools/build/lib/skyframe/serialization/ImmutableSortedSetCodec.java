@@ -11,8 +11,10 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 package com.google.devtools.build.lib.skyframe.serialization;
+
+import static com.google.devtools.build.lib.skyframe.serialization.ArrayProcessor.deserializeObjectArray;
+import static com.google.devtools.build.lib.unsafe.UnsafeProvider.getFieldOffset;
 
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.protobuf.CodedInputStream;
@@ -27,7 +29,7 @@ import java.util.SortedSet;
  * {@link ObjectCodec} for {@link ImmutableSortedSet}. Comparator must be serializable, ideally a
  * registered constant.
  */
-class ImmutableSortedSetCodec<E> implements ObjectCodec<ImmutableSortedSet<E>> {
+class ImmutableSortedSetCodec<E> extends DeferredObjectCodec<ImmutableSortedSet<E>> {
   @SuppressWarnings("unchecked")
   @Override
   public Class<ImmutableSortedSet<E>> getEncodedClass() {
@@ -38,40 +40,53 @@ class ImmutableSortedSetCodec<E> implements ObjectCodec<ImmutableSortedSet<E>> {
   public void serialize(
       SerializationContext context, ImmutableSortedSet<E> object, CodedOutputStream codedOut)
       throws SerializationException, IOException {
-    context.serialize(object.comparator(), codedOut);
     codedOut.writeInt32NoTag(object.size());
+    context.serialize(object.comparator(), codedOut);
     for (Object obj : object) {
       context.serialize(obj, codedOut);
     }
   }
 
   @Override
-  public ImmutableSortedSet<E> deserialize(DeserializationContext context, CodedInputStream codedIn)
+  public DeferredValue<ImmutableSortedSet<E>> deserializeDeferred(
+      AsyncDeserializationContext context, CodedInputStream codedIn)
       throws SerializationException, IOException {
-    Comparator<E> comparator = context.deserialize(codedIn);
     int size = codedIn.readInt32();
-    @SuppressWarnings("unchecked")
-    E[] sortedElementsArray = (E[]) new Object[size];
-    for (int i = 0; i < size; i++) {
-      sortedElementsArray[i] = context.<E>deserialize(codedIn);
+    SortedSetShimForEfficientDeserialization<E> sortedSetShim =
+        new SortedSetShimForEfficientDeserialization<>(size);
+    context.deserialize(codedIn, sortedSetShim, COMPARATOR_OFFSET);
+    deserializeObjectArray(context, codedIn, sortedSetShim.sortedElementsArray, size);
+    return sortedSetShim;
+  }
+
+  private static final long COMPARATOR_OFFSET;
+
+  static {
+    try {
+      COMPARATOR_OFFSET =
+          getFieldOffset(SortedSetShimForEfficientDeserialization.class, "comparator");
+    } catch (NoSuchFieldException e) {
+      throw new ExceptionInInitializerError(e);
     }
-    SortedSetShimForEfficientDeserialization<E> sortedSetShimForEfficientDeserialization =
-        new SortedSetShimForEfficientDeserialization<>(comparator, sortedElementsArray);
-    return ImmutableSortedSet.copyOfSorted(sortedSetShimForEfficientDeserialization);
   }
 
   /**
    * Implementation of parts of the {@link SortedSet} interface minimally needed for efficient
    * {@link ImmutableSortedSet} construction that avoids re-sorting the list of elements.
    */
-  private static class SortedSetShimForEfficientDeserialization<E> implements SortedSet<E> {
-    private final Comparator<E> comparator;
+  @SuppressWarnings("JdkObsolete") // SortedSet required for ImmutableSortedSet.copyOfSorted
+  private static class SortedSetShimForEfficientDeserialization<E>
+      implements SortedSet<E>, DeferredValue<ImmutableSortedSet<E>> {
+    private Comparator<E> comparator;
     private final Object[] sortedElementsArray;
 
-    private SortedSetShimForEfficientDeserialization(
-        Comparator<E> comparator, Object[] sortedElementsArray) {
-      this.comparator = comparator;
-      this.sortedElementsArray = sortedElementsArray;
+    private SortedSetShimForEfficientDeserialization(int size) {
+      this.sortedElementsArray = new Object[size];
+    }
+
+    @Override
+    public ImmutableSortedSet<E> call() {
+      return ImmutableSortedSet.copyOfSorted(this);
     }
 
     @Override

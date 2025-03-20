@@ -47,6 +47,10 @@ public class XmlWriter {
     this(new OutputStreamWriter(outputStream, UTF_8));
   }
 
+  private XmlWriter(Writer writer) {
+    this.writer = writer;
+  }
+
   /**
    * Creates an XML writer for testing purposes. Note that if you decide to
    * serialize the {@code StringWriter} (to disk or network) encode it in {@code
@@ -58,10 +62,6 @@ public class XmlWriter {
    */
   public static XmlWriter createForTesting(StringWriter writer) {
     return new XmlWriter(writer);
-  }
-
-  private XmlWriter(Writer writer) {
-    this.writer = writer;
   }
 
   /**

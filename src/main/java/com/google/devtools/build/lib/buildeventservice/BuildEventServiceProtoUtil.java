@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.buildeventservice;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.devtools.build.v1.BuildEvent.BuildComponentStreamFinished.FinishType.FINISHED;
 
@@ -33,6 +34,7 @@ import com.google.devtools.build.v1.PublishBuildToolEventStreamRequest;
 import com.google.devtools.build.v1.PublishLifecycleEventRequest;
 import com.google.devtools.build.v1.StreamId;
 import com.google.devtools.build.v1.StreamId.BuildComponent;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.Any;
 import com.google.protobuf.Timestamp;
 import java.util.Set;
@@ -46,18 +48,26 @@ public final class BuildEventServiceProtoUtil {
   private final String projectId;
   private final String commandName;
   private final Set<String> additionalKeywords;
+  private final boolean checkPrecedingLifecycleEvents;
+  private final int attemptNumber;
 
   private BuildEventServiceProtoUtil(
       String buildRequestId,
       String buildInvocationId,
       @Nullable String projectId,
       String commandName,
-      Set<String> additionalKeywords) {
+      Set<String> additionalKeywords,
+      boolean checkPrecedingLifecycleEvents,
+      int attemptNumber) {
+    checkArgument(attemptNumber >= 1);
+
     this.buildRequestId = buildRequestId;
     this.buildInvocationId = buildInvocationId;
     this.projectId = projectId;
     this.commandName = commandName;
     this.additionalKeywords = ImmutableSet.copyOf(additionalKeywords);
+    this.checkPrecedingLifecycleEvents = checkPrecedingLifecycleEvents;
+    this.attemptNumber = attemptNumber;
   }
 
   public PublishLifecycleEventRequest buildEnqueued(Timestamp timestamp) {
@@ -89,7 +99,7 @@ public final class BuildEventServiceProtoUtil {
             com.google.devtools.build.v1.BuildEvent.newBuilder()
                 .setEventTime(timestamp)
                 .setInvocationAttemptStarted(
-                    InvocationAttemptStarted.newBuilder().setAttemptNumber(1)))
+                    InvocationAttemptStarted.newBuilder().setAttemptNumber(attemptNumber)))
         .build();
   }
 
@@ -141,6 +151,7 @@ public final class BuildEventServiceProtoUtil {
                     .setStreamId(streamId(besEvent.getEventCase())));
     if (sequenceNumber == 1) {
       builder.addAllNotificationKeywords(getKeywords());
+      builder.setCheckPrecedingLifecycleEventsPresent(checkPrecedingLifecycleEvents);
     }
     if (projectId != null) {
       builder.setProjectId(projectId);
@@ -161,6 +172,11 @@ public final class BuildEventServiceProtoUtil {
     if (projectId != null) {
       builder.setProjectId(projectId);
     }
+    switch (lifecycleEvent.getEventCase()) {
+      case BUILD_ENQUEUED, INVOCATION_ATTEMPT_STARTED, BUILD_FINISHED ->
+          builder.addAllNotificationKeywords(getKeywords());
+      default -> {}
+    }
     return builder;
   }
 
@@ -168,22 +184,16 @@ public final class BuildEventServiceProtoUtil {
   public StreamId streamId(EventCase eventCase) {
     StreamId.Builder streamId = StreamId.newBuilder().setBuildId(buildRequestId);
     switch (eventCase) {
-      case BUILD_ENQUEUED:
-      case BUILD_FINISHED:
-        streamId.setComponent(BuildComponent.CONTROLLER);
-        break;
-      case INVOCATION_ATTEMPT_STARTED:
-      case INVOCATION_ATTEMPT_FINISHED:
+      case BUILD_ENQUEUED, BUILD_FINISHED -> streamId.setComponent(BuildComponent.CONTROLLER);
+      case INVOCATION_ATTEMPT_STARTED, INVOCATION_ATTEMPT_FINISHED -> {
         streamId.setInvocationId(buildInvocationId);
         streamId.setComponent(BuildComponent.CONTROLLER);
-        break;
-      case BAZEL_EVENT:
-      case COMPONENT_STREAM_FINISHED:
+      }
+      case BAZEL_EVENT, COMPONENT_STREAM_FINISHED -> {
         streamId.setInvocationId(buildInvocationId);
         streamId.setComponent(BuildComponent.TOOL);
-        break;
-      default:
-        throw new IllegalArgumentException("Illegal EventCase " + eventCase);
+      }
+      default -> throw new IllegalArgumentException("Illegal EventCase " + eventCase);
     }
     return streamId.build();
   }
@@ -204,29 +214,48 @@ public final class BuildEventServiceProtoUtil {
     private String commandName;
     private Set<String> keywords;
     @Nullable private String projectId;
+    private boolean checkPrecedingLifecycleEvents;
+    private int attemptNumber;
 
+    @CanIgnoreReturnValue
     public Builder buildRequestId(String value) {
       this.buildRequestId = value;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder invocationId(String value) {
       this.invocationId = value;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder projectId(String value) {
       this.projectId = value;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder commandName(String value) {
       this.commandName = value;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder keywords(Set<String> value) {
       this.keywords = value;
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder checkPrecedingLifecycleEvents(boolean value) {
+      this.checkPrecedingLifecycleEvents = value;
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder attemptNumber(int attemptNumber) {
+      this.attemptNumber = attemptNumber;
       return this;
     }
 
@@ -236,7 +265,9 @@ public final class BuildEventServiceProtoUtil {
           checkNotNull(invocationId),
           projectId,
           checkNotNull(commandName),
-          checkNotNull(keywords));
+          checkNotNull(keywords),
+          checkPrecedingLifecycleEvents,
+          attemptNumber);
     }
   }
 }

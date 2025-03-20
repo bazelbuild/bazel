@@ -42,7 +42,7 @@ fi
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-# `uname` returns the current platform, e.g "MSYS_NT-10.0" or "Linux".
+# `uname` returns the current platform, e.g. "MSYS_NT-10.0" or "Linux".
 # `tr` converts all upper case letters to lower case.
 # `case` matches the result if the `uname | tr` expression to string prefixes
 # that use the same wildcards as names do in Bash, i.e. "msys*" matches strings
@@ -57,16 +57,9 @@ msys*)
   ;;
 esac
 
-if "$is_windows"; then
-  # Disable MSYS path conversion that converts path-looking command arguments to
-  # Windows paths (even if they arguments are not in fact paths).
-  export MSYS_NO_PATHCONV=1
-  export MSYS2_ARG_CONV_EXCL="*"
-fi
-
 function set_up() {
   add_to_bazelrc "build --package_path=%workspace%"
-  setup_skylib_support
+  add_bazel_skylib "MODULE.bazel"
 }
 
 function tear_down() {
@@ -87,6 +80,22 @@ EOF
 
   expect_log "//peach:brighton"
   expect_log "//peach:harken"
+}
+
+function test_output_to_file() {
+  rm -rf peach
+  mkdir -p peach
+  cat > peach/BUILD <<EOF
+sh_library(name='brighton', deps=[':harken'])
+sh_library(name='harken')
+EOF
+
+  bazel query 'deps(//peach:brighton)' --output_file=$TEST_log > $TEST_TMPDIR/query_stdout
+
+  expect_log "//peach:brighton"
+  expect_log "//peach:harken"
+
+  assert_equals "" "$(<$TEST_TMPDIR/query_stdout)"
 }
 
 function test_invalid_query_fails_parsing() {
@@ -291,7 +300,7 @@ function test_starlark_regular_file_not_included_in_rbuildfiles() {
   mkdir -p foo || fail "Couldn't make directories"
   echo "baz" > "foo/baz.bzl" || fail "Couldn't create baz.bzl"
   echo 'sh_library(name = "foo", srcs = ["baz.bzl"])' > foo/BUILD
-  bazel query --universe_scope=//...:* --order_output=no \
+  bazel query --universe_scope=//foo/...:* --order_output=no \
     'rbuildfiles(foo/baz.bzl)' >& $TEST_log || fail "Expected success"
   expect_not_log "//foo:BUILD"
   # TODO(bazel-team): Remove this once test clean-up is automated.
@@ -305,7 +314,7 @@ function test_starlark_symlink_source_not_included_in_rbuildfiles() {
   echo "moo" > "foo/moo" || fail "Couldn't create moo"
   ln -s "$PWD/foo/moo" "foo/baz.bzl" && [[ -f foo/baz.bzl ]] || fail "Couldn't create baz.bzl symlink"
   echo 'sh_library(name = "foo", srcs = ["baz.bzl"])' > foo/BUILD
-  bazel query --universe_scope=//...:* --order_output=no \
+  bazel query --universe_scope=//foo/...:* --order_output=no \
     'rbuildfiles(foo/baz.bzl)' >& $TEST_log || fail "Expected success"
   expect_not_log "//foo:BUILD"
   # TODO(bazel-team): Remove this once test clean-up is automated.
@@ -319,7 +328,7 @@ function test_starlark_symlink_target_not_included_in_rbuildfiles() {
   echo "baz" > "foo/baz.bzl" || fail "Couldn't create baz.bzl"
   ln -s "$PWD/foo/baz.bzl" "foo/Moo.java" && [[ -f foo/Moo.java ]] || fail "Couldn't create Moo.java symlink"
   echo 'sh_library(name = "foo", srcs = ["Moo.java"])' > foo/BUILD
-  bazel query --universe_scope=//...:* --order_output=no \
+  bazel query --universe_scope=//foo/...:* --order_output=no \
     'rbuildfiles(foo/baz.bzl)' >& $TEST_log || fail "Expected success"
   expect_not_log "//foo:BUILD"
   # TODO(bazel-team): Remove this once test clean-up is automated.
@@ -332,7 +341,7 @@ function test_starlark_glob_regular_file_not_included_in_rbuildfiles() {
   mkdir -p foo || fail "Couldn't make directories"
   echo "baz" > "foo/baz.bzl" || fail "Couldn't create baz.bzl"
   echo 'sh_library(name = "foo", srcs = glob(["*.bzl"]))' > foo/BUILD
-  bazel query --universe_scope=//...:* --order_output=no \
+  bazel query --universe_scope=//foo/...:* --order_output=no \
     'rbuildfiles(foo/baz.bzl)' >& $TEST_log || fail "Expected success"
   expect_not_log "//foo:BUILD"
   # TODO(bazel-team): Remove this once test clean-up is automated.
@@ -346,7 +355,7 @@ function test_starlark_glob_symlink_source_not_included_in_rbuildfiles() {
   echo "moo" > "foo/moo" || fail "Couldn't create moo"
   ln -s "$PWD/foo/moo" "foo/baz.bzl" && [[ -f foo/baz.bzl ]] || fail "Couldn't create baz.bzl symlink"
   echo 'sh_library(name = "foo", srcs = glob(["*.bzl"]))' > foo/BUILD
-  bazel query --universe_scope=//...:* --order_output=no \
+  bazel query --universe_scope=//foo/...:* --order_output=no \
     'rbuildfiles(foo/baz.bzl)' >& $TEST_log || fail "Expected success"
   expect_not_log "//foo:BUILD"
   # TODO(bazel-team): Remove this once test clean-up is automated.
@@ -360,7 +369,7 @@ function test_starlark_glob_symlink_target_not_included_in_rbuildfiles() {
   echo "baz" > "foo/baz.bzl" || fail "Couldn't create baz.bzl"
   ln -s "$PWD/foo/baz.bzl" "foo/Moo.java" && [[ -f foo/Moo.java ]] || fail "Couldn't create Moo.java symlink"
   echo 'sh_library(name = "foo", srcs = glob(["*.java"]))' > foo/BUILD
-  bazel query --universe_scope=//...:* --order_output=no \
+  bazel query --universe_scope=//foo/...:* --order_output=no \
     'rbuildfiles(foo/baz.bzl)' >& $TEST_log || fail "Expected success"
   expect_not_log "//foo:BUILD"
   # TODO(bazel-team): Remove this once test clean-up is automated.
@@ -373,7 +382,7 @@ function test_starlark_recursive_glob_regular_file_not_included_in_rbuildfiles()
   mkdir -p foo/bar || fail "Couldn't make directories"
   echo "baz" > "foo/bar/baz.bzl" || fail "Couldn't create baz.bzl"
   echo 'sh_library(name = "foo", srcs = glob(["**/*.bzl"]))' > foo/BUILD
-  bazel query --universe_scope=//...:* --order_output=no \
+  bazel query --universe_scope=//foo/...:* --order_output=no \
     'rbuildfiles(foo/bar/baz.bzl)' >& $TEST_log || fail "Expected success"
   expect_not_log "//foo:BUILD"
   # TODO(bazel-team): Remove this once test clean-up is automated.
@@ -387,7 +396,7 @@ function test_starlark_recursive_glob_symlink_source_not_included_in_rbuildfiles
   echo "moo" > "foo/moo" || fail "Couldn't create moo"
   ln -s "$PWD/foo/moo" "foo/bar/baz.bzl" && [[ -f foo/bar/baz.bzl ]] || fail "Couldn't create baz.bzl symlink"
   echo 'sh_library(name = "foo", srcs = glob(["**/*.bzl"]))' > foo/BUILD
-  bazel query --universe_scope=//...:* --order_output=no \
+  bazel query --universe_scope=//foo/...:* --order_output=no \
     'rbuildfiles(foo/bar/baz.bzl)' >& $TEST_log || fail "Expected success"
   expect_not_log "//foo:BUILD"
   # TODO(bazel-team): Remove this once test clean-up is automated.
@@ -401,7 +410,7 @@ function test_starlark_recursive_glob_symlink_target_not_included_in_rbuildfiles
   echo "baz" > "foo/bar/baz.bzl" || fail "Couldn't create baz.bzl"
   ln -s "$PWD/foo/bar/baz.bzl" "foo/Moo.java" && [[ -f foo/Moo.java ]] || fail "Couldn't create Moo.java symlink"
   echo 'sh_library(name = "foo", srcs = glob(["**/*.java"]))' > foo/BUILD
-  bazel query --universe_scope=//...:* --order_output=no \
+  bazel query --universe_scope=//foo/...:* --order_output=no \
     'rbuildfiles(foo/bar/baz.bzl)' >& $TEST_log || fail "Expected success"
   expect_not_log "//foo:BUILD"
   # TODO(bazel-team): Remove this once test clean-up is automated.
@@ -498,9 +507,12 @@ EOF
 }
 
 function test_location_output_source_files() {
+  add_rules_python "MODULE.bazel"
   rm -rf foo
   mkdir -p foo
   cat > foo/BUILD <<EOF
+load('@rules_python//python:py_binary.bzl', 'py_binary')
+
 py_binary(
   name = "main",
   srcs = ["main.py"],
@@ -508,53 +520,32 @@ py_binary(
 EOF
   touch foo/main.py || fail "Could not touch foo/main.py"
 
-  # The incompatible_display_source_file_location flag displays the location of
-  # line 1 of the actual source file
+  # Check that Bazel displays the location of line 1 of the actual source file
   bazel query \
     --output=location \
-    --incompatible_display_source_file_location \
     '//foo:main.py' >& $TEST_log || fail "Expected success"
   expect_log "source file //foo:main.py"
   expect_log "^${TEST_TMPDIR}/.*/foo/main.py:1:1"
   expect_not_log "^${TEST_TMPDIR}/.*/foo/BUILD:[0-9]*:[0-9]*"
 
-  # The noincompatible_display_source_file_location flag displays its location
-  # in the BUILD file
-  bazel query \
-    --output=location \
-    --noincompatible_display_source_file_location \
-    '//foo:main.py' >& $TEST_log || fail "Expected success"
-  expect_log "source file //foo:main.py"
-  expect_log "^${TEST_TMPDIR}/.*/foo/BUILD:[0-9]*:[0-9]*"
-  expect_not_log "^${TEST_TMPDIR}/.*/foo/main.py:1:1"
-
-  # The incompatible_display_source_file_location should still be affected by
-  # relative_locations flag to display the relative location of the source file
+  # Location should still be affected by relative_locations flag to display the
+  # relative location of the source file
   bazel query \
     --output=location \
     --relative_locations \
-    --incompatible_display_source_file_location \
     '//foo:main.py' >& $TEST_log || fail "Expected success"
   expect_log "source file //foo:main.py"
   expect_log "^foo/main.py:1:1"
   expect_not_log "^${TEST_TMPDIR}/.*/foo/main.py:1:1"
-
-  # The noincompatible_display_source_file_location flag should still be
-  # affected by relative_locations flag to display the relative location of
-  # the BUILD file.
-  bazel query --output=location \
-    --relative_locations \
-    --noincompatible_display_source_file_location \
-    '//foo:main.py' >& $TEST_log || fail "Expected success"
-  expect_log "source file //foo:main.py"
-  expect_log "^foo/BUILD:[0-9]*:[0-9]*"
-  expect_not_log "^${TEST_TMPDIR}/.*/foo/BUILD:[0-9]*:[0-9]*"
 }
 
 function test_proto_output_source_files() {
+  add_rules_python "MODULE.bazel"
   rm -rf foo
   mkdir -p foo
   cat > foo/BUILD <<EOF
+load('@rules_python//python:py_binary.bzl', 'py_binary')
+
 py_binary(
   name = "main",
   srcs = ["main.py"],
@@ -563,23 +554,19 @@ EOF
   touch foo/main.py || fail "Could not touch foo/main.py"
 
   bazel query --output=proto \
-    --incompatible_display_source_file_location \
     '//foo:main.py' >& $TEST_log || fail "Expected success"
 
   expect_log "${TEST_TMPDIR}/.*/foo/main.py:1:1" $TEST_log
   expect_not_log "${TEST_TMPDIR}/.*/foo/BUILD:[0-9]*:[0-9]*" $TEST_log
-
-  bazel query --output=proto \
-    --noincompatible_display_source_file_location \
-    '//foo:main.py' >& $TEST_log || fail "Expected success"
-  expect_log "${TEST_TMPDIR}/.*/foo/BUILD:[0-9]*:[0-9]*" $TEST_log
-  expect_not_log "${TEST_TMPDIR}/.*/foo/main.py:1:1" $TEST_log
 }
 
 function test_xml_output_source_files() {
+  add_rules_python "MODULE.bazel"
   rm -rf foo
   mkdir -p foo
   cat > foo/BUILD <<EOF
+load('@rules_python//python:py_binary.bzl', 'py_binary')
+
 py_binary(
   name = "main",
   srcs = ["main.py"],
@@ -588,16 +575,9 @@ EOF
   touch foo/main.py || fail "Could not touch foo/main.py"
 
   bazel query --output=xml \
-    --incompatible_display_source_file_location \
     '//foo:main.py' >& $TEST_log || fail "Expected success"
   expect_log "location=\"${TEST_TMPDIR}/.*/foo/main.py:1:1"
   expect_not_log "location=\"${TEST_TMPDIR}/.*/foo/BUILD:[0-9]*:[0-9]*"
-
-  bazel query --output=xml \
-    --noincompatible_display_source_file_location \
-    '//foo:main.py' >& $TEST_log || fail "Expected success"
-  expect_log "location=\"${TEST_TMPDIR}/.*/foo/BUILD:[0-9]*:[0-9]*"
-  expect_not_log "location=\"${TEST_TMPDIR}/.*/foo/main.py:1:1"
 }
 
 function test_subdirectory_named_external() {
@@ -668,7 +648,7 @@ genquery(name='q',
          opts = ["--output=blargh"],)
 EOF
 
-  local expected_error_msg="in genquery rule //starfruit:q: Invalid output format 'blargh'. Valid values are: label, label_kind, build, minrank, maxrank, package, location, graph, xml, proto"
+  local expected_error_msg="in genquery rule //starfruit:q: Invalid output format 'blargh'. Valid values are: label, label_kind, build, minrank, maxrank, package, location, graph, xml, proto, streamed_jsonproto, "
   bazel build //starfruit:q >& $TEST_log && fail "Expected failure"
   expect_log "$expected_error_msg"
 }
@@ -713,9 +693,9 @@ function test_graphless_query_matches_graphless_genquery_output() {
   rm -rf foo
   mkdir -p foo
   cat > foo/BUILD <<EOF
-sh_library(name = "b", deps = [":c"])
-sh_library(name = "c", deps = [":a"])
-sh_library(name = "a")
+filegroup(name = "b", srcs = [":c"])
+filegroup(name = "c", srcs = [":a"])
+filegroup(name = "a")
 genquery(
     name = "q",
     expression = "deps(//foo:b)",
@@ -730,8 +710,7 @@ EOF
 EOF
 
   # Genquery uses a graphless blaze environment by default.
-  bazel build --experimental_genquery_use_graphless_query \
-      //foo:q || fail "Expected success"
+  bazel build //foo:q || fail "Expected success"
 
   # The --incompatible_lexicographical_output flag is used to
   # switch order_output=auto to use graphless query and output in
@@ -745,6 +724,30 @@ EOF
       "$(cat foo/expected_lexicographical_result)" "$(cat foo/query_output)"
   assert_equals \
       "$(cat foo/expected_lexicographical_result)" "$(cat bazel-bin/foo/q)"
+}
+
+function test_graphless_query_resilient_to_cycles() {
+  rm -rf foo
+  mkdir -p foo
+  cat > foo/BUILD <<EOF
+sh_library(name = "a", deps = [":b"])
+sh_library(name = "b", deps = [":c"])
+sh_library(name = "c", deps = [":a"])
+sh_library(name = "d")
+EOF
+
+  for command in \
+      "somepath(//foo:a, //foo:c)" \
+      "somepath(//foo:a, //foo:d)" \
+      "somepath(//foo:c, //foo:d)" \
+      "allpaths(//foo:a, //foo:d)" \
+      "deps(//foo:a)" \
+      "rdeps(//foo:a, //foo:d)" \
+      "same_pkg_direct_rdeps(//foo:b)"
+  do
+    bazel query --experimental_graphless_query=true \
+        "$command" || fail "Expected success"
+  done
 }
 
 function test_lexicographical_output_does_not_affect_order_output_no() {
@@ -987,7 +990,8 @@ EOF
 }
 
 function test_unnecessary_external_workspaces_not_loaded() {
-  cat > WORKSPACE <<'EOF'
+  cat > MODULE.bazel <<'EOF'
+local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(
     name = "notthere",
     path = "/nope",
@@ -1038,6 +1042,296 @@ EOF
     || fail "Expected success"
 
   expect_log "//${package}:hint"
+}
+
+function test_same_pkg_direct_rdeps_loads_only_inputs_packages() {
+  mkdir -p "pkg1"
+  mkdir -p "pkg2"
+  mkdir -p "pkg3"
+
+  cat > "pkg1/BUILD" <<EOF
+sh_library(name = "t1", deps = [":t2", "//pkg2:t3"])
+sh_library(name = "t2")
+EOF
+
+  cat > "pkg2/BUILD" <<EOF
+sh_library(name = "t3")
+EOF
+
+  cat > "pkg3/BUILD" <<EOF
+sh_library(name = "t4", deps = [":t5"])
+sh_library(name = "t5")
+EOF
+
+  bazel query --experimental_ui_debug_all_events \
+     "same_pkg_direct_rdeps(//pkg1:t2+//pkg3:t5)"  >& $TEST_log \
+    || fail "Expected success"
+
+  expect_log "Loading package: pkg1"
+  expect_log "Loading package: pkg3"
+  # For graphless query mode, pkg2 should not be loaded because
+  # same_pkg_direct_rdeps only cares about the targets in the same package
+  # as its inputs.
+  expect_not_log "Loading package: pkg2"
+  # the result of "same_pkg_direct_rdeps(//pkg1:t2+//pkg3:t5)"
+  expect_log "//pkg1:t1"
+  expect_log "//pkg3:t4"
+}
+
+function test_basic_query_streamed_jsonproto() {
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg" || fail "mkdir -p $pkg"
+  cat > "$pkg/BUILD" <<'EOF'
+genrule(
+    name = "bar",
+    srcs = ["dummy.txt"],
+    outs = ["bar_out.txt"],
+    cmd = "echo unused > $(OUTS)",
+)
+genrule(
+    name = "foo",
+    srcs = ["dummy.txt"],
+    outs = ["foo_out.txt"],
+    cmd = "echo unused > $(OUTS)",
+)
+EOF
+  bazel query --output=streamed_jsonproto --noimplicit_deps "//$pkg/..." > output 2> "$TEST_log" \
+    || fail "Expected success"
+  cat output >> "$TEST_log"
+
+  # Verify that the appropriate attributes were included.
+
+  foo_line_number=$(grep -n "foo" output | cut -d':' -f1)
+  bar_line_number=$(grep -n "bar" output | cut -d':' -f1)
+
+  foo_ndjson_line=$(sed -n "${foo_line_number}p" output)
+  bar_ndjson_line=$(sed -n "${bar_line_number}p" output)
+
+  echo "$foo_ndjson_line" > foo_ndjson_file
+  echo "$bar_ndjson_line" > bar_ndjson_file
+
+  assert_contains "\"ruleClass\":\"genrule\"" foo_ndjson_file
+  assert_contains "\"name\":\"//$pkg:foo\"" foo_ndjson_file
+  assert_contains "\"ruleInput\":\[\"//$pkg:dummy.txt\"\]" foo_ndjson_file
+  assert_contains "\"ruleOutput\":\[\"//$pkg:foo_out.txt\"\]" foo_ndjson_file
+  assert_contains "echo unused" foo_ndjson_file
+
+  assert_contains "\"ruleClass\":\"genrule\"" bar_ndjson_file
+  assert_contains "\"name\":\"//$pkg:bar\"" bar_ndjson_file
+  assert_contains "\"ruleInput\":\[\"//$pkg:dummy.txt\"\]" bar_ndjson_file
+  assert_contains "\"ruleOutput\":\[\"//$pkg:bar_out.txt\"\]" bar_ndjson_file
+  assert_contains "echo unused" bar_ndjson_file
+}
+
+function test_query_factored_graph_output() {
+  mkdir -p foo
+  cat > foo/BUILD <<'EOF'
+sh_binary(
+    name = "a1",
+    srcs = [
+        "a.sh",
+    ],
+    deps = [
+        ":b",
+        ":c1",
+        ":c2",
+    ],
+)
+
+sh_binary(
+    name = "a2",
+    srcs = [
+        "a.sh",
+    ],
+    deps = [
+        ":b",
+        ":c1",
+        ":c2",
+    ],
+)
+
+sh_binary(
+    name = "b",
+    srcs = ["b.sh"],
+)
+
+sh_binary(
+    name = "c1",
+    srcs = ["c.sh"],
+)
+
+sh_binary(
+    name = "c2",
+    srcs = ["c.sh"],
+)
+EOF
+  bazel query --output=graph \
+      --graph:factored \
+      --notool_deps \
+      "deps(//foo:a1 + //foo:a2)" > "$TEST_log" \
+      || fail "Expected success"
+  # Expected factored graph.
+  #      (a1,a2)
+  #     /   \   \
+  #   a.sh   b   (c1,c2)
+  #         /     \
+  #       b.sh    c.sh
+  expect_log "\"//foo:a[12]\\\\n//foo:a[12]\"$"
+  expect_log "\"//foo:a[12]\\\\n//foo:a[12]\" -> \"//foo:a.sh\"$"
+  expect_log "\"//foo:a[12]\\\\n//foo:a[12]\" -> \"//foo:b\"$"
+  expect_log "\"//foo:a[12]\\\\n//foo:a[12]\" -> \"//foo:c[12]\\\n//foo:c[12]\"$"
+  expect_log "\"//foo:a.sh\"$"
+  expect_log "\"//foo:b\"$"
+  expect_log "\"//foo:b\" -> \"//foo:b.sh\"$"
+  expect_log "\"//foo:b.sh\"$"
+  expect_log "\"//foo:c[12]\\\\n//foo:c[12]\" -> \"//foo:c.sh\"$"
+  expect_log "\"//foo:c.sh\"$"
+}
+
+function test_query_non_factored_graph_output() {
+  mkdir -p foo
+  cat > foo/BUILD <<'EOF'
+sh_binary(
+    name = "a1",
+    srcs = [
+        "a.sh",
+    ],
+    deps = [
+        ":b",
+        ":c1",
+        ":c2",
+    ],
+)
+
+sh_binary(
+    name = "a2",
+    srcs = [
+        "a.sh",
+    ],
+    deps = [
+        ":b",
+        ":c1",
+        ":c2",
+    ],
+)
+
+sh_binary(
+    name = "b",
+    srcs = ["b.sh"],
+)
+
+sh_binary(
+    name = "c1",
+    srcs = ["c.sh"],
+)
+
+sh_binary(
+    name = "c2",
+    srcs = ["c.sh"],
+)
+EOF
+  bazel query --output=graph \
+      --nograph:factored \
+      --notool_deps \
+      "deps(//foo:a1 + //foo:a2)" >& "$TEST_log" \
+      || fail "Expected success"
+
+
+  # Expected non-factored graph (combination of all the edges below):
+  #   a1   a2    a1   a2
+  #    \  /        \  /
+  #    a.sh          b
+  #                 /
+  #     a1         b.sh
+  #   / a2 \
+  #  / /  \ \
+  #  c1    c2
+  #   \    /
+  #    c.sh
+  expect_log "\"//foo:a1\"$"
+  expect_log "\"//foo:a2\"$"
+  expect_log "\"//foo:a1\" -> \"//foo:a.sh\"$"
+  expect_log "\"//foo:a2\" -> \"//foo:a.sh\"$"
+  expect_log "\"//foo:a.sh\"$"
+  expect_log "\"//foo:a1\" -> \"//foo:b\"$"
+  expect_log "\"//foo:a2\" -> \"//foo:b\"$"
+  expect_log "\"//foo:b\"$"
+  expect_log "\"//foo:b\" -> \"//foo:b.sh\"$"
+
+  expect_log "\"//foo:a1\" -> \"//foo:c1\"$"
+  expect_log "\"//foo:a1\" -> \"//foo:c2\"$"
+  expect_log "\"//foo:a2\" -> \"//foo:c1\"$"
+  expect_log "\"//foo:a2\" -> \"//foo:c2\"$"
+  expect_log "\"//foo:c1\"$"
+  expect_log "\"//foo:c2\"$"
+  expect_log "\"//foo:c1\" -> \"//foo:c.sh\"$"
+  expect_log "\"//foo:c2\" -> \"//foo:c.sh\"$"
+  expect_log "\"//foo:c.sh\"$"
+}
+
+function test_proto_non_ascii_attributes() {
+  rm -rf foo
+  mkdir -p foo
+  cat > foo/defs.bzl <<'EOF'
+def _impl(ctx): pass
+r = rule(
+  implementation = _impl,
+  attrs = {
+    "label": attr.label(),
+    "label_keyed_string_dict": attr.label_keyed_string_dict(),
+    "label_list": attr.label_list(),
+    "output": attr.output(),
+    "output_list": attr.output_list(),
+    "string": attr.string(),
+    "string_dict": attr.string_dict(),
+    "string_keyed_label_dict": attr.string_keyed_label_dict(),
+    "string_list": attr.string_list(),
+    "string_list_dict": attr.string_list_dict(),
+  },
+)
+
+def test_case(name, with_select):
+  def maybe_select(x):
+    if with_select:
+      return select({"//conditions:default": x})
+    return x
+
+  r(
+    name = name,
+    label = maybe_select("leaf🌱"),
+    label_keyed_string_dict = maybe_select({"fire🔥": "ice❄️"}),
+    label_list = maybe_select(["star⭐"]),
+    output = name + "flower🌸",
+    output_list = [name + "party🎉"],
+    string = maybe_select("ball⚽"),
+    string_dict = maybe_select({"sun☀️": "moon🌙"}),
+    string_keyed_label_dict = maybe_select({"heart❤️": "skull💀"}),
+    string_list = maybe_select(["rocket🚀"]),
+    string_list_dict = maybe_select({"dog🐶": ["cat🐱"]}),
+  )
+EOF
+  cat > foo/BUILD <<'EOF'
+load(":defs.bzl", "test_case")
+test_case(name = "without_select", with_select = False)
+test_case(name = "with_select", with_select = True)
+EOF
+
+  declare -a items=("leaf🌱" "fire🔥" "ice❄️" "star⭐" "flower🌸" "party🎉"
+    "ball⚽" "sun☀️" "moon🌙" "heart❤️" "skull💀" "rocket🚀" "dog🐶" "cat🐱")
+
+  bazel query --output=proto //foo:without_select >& $TEST_log \
+      || fail "Expected success"
+
+  for x in "${items[@]}"; do
+    grep -q "$x" $TEST_log || fail "Expected $x in query output for //foo:without_select"
+  done
+
+  bazel query --output=proto //foo:with_select >& $TEST_log \
+      || fail "Expected success"
+
+  for x in "${items[@]}"; do
+    grep -q "$x" $TEST_log || fail "Expected $x in query output for //foo:with_select"
+  done
 }
 
 run_suite "${PRODUCT_NAME} query tests"

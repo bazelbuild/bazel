@@ -51,11 +51,6 @@ msys*|mingw*|cygwin*)
   ;;
 esac
 
-if "$is_windows"; then
-  export MSYS_NO_PATHCONV=1
-  export MSYS2_ARG_CONV_EXCL="*"
-fi
-
 add_to_bazelrc "build --package_path=%workspace%"
 
 function test_directory_args_inspection() {
@@ -110,11 +105,11 @@ def _actions_test_impl(target, ctx):
 tree_art_rule = rule(implementation = _tree_art_impl,
     attrs = {
         "_makes_tree" : attr.label(allow_single_file = True,
-            cfg = "host",
+            cfg = "exec",
             executable = True,
             default = "//package:makes_tree_artifacts.sh"),
         "_write" : attr.label(allow_single_file = True,
-            cfg = "host",
+            cfg = "exec",
             executable = True,
             default = "//package:write.sh")})
 
@@ -200,11 +195,11 @@ def _actions_test_impl(target, ctx):
 tree_art_rule = rule(implementation = _tree_art_impl,
     attrs = {
         "_makes_tree" : attr.label(allow_single_file = True,
-            cfg = "host",
+            cfg = "exec",
             executable = True,
             default = "//package:makes_tree_artifacts.sh"),
         "_write" : attr.label(allow_single_file = True,
-            cfg = "host",
+            cfg = "exec",
             executable = True,
             default = "//package:write.sh")})
 
@@ -307,7 +302,7 @@ def _actions_test_impl(target, ctx):
         compile_action = action
 
     if not compile_action:
-      fail("Couln't find compile action")
+      fail("Couldn't find compile action")
 
     aspect_out = ctx.actions.declare_file("run_timestamp")
     ctx.actions.run_shell(
@@ -382,7 +377,7 @@ aspect_b = aspect(
   attrs = {
     "_write": attr.label(
                 allow_single_file = True,
-                cfg = "host",
+                cfg = "exec",
                 executable = True,
                 default = "//${package}:write.sh")
   }

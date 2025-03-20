@@ -176,7 +176,9 @@ public class VanillaJavaBuilder implements Closeable {
                 new PrintWriter(output, true),
                 fileManager,
                 diagnosticCollector,
-                JavacOptions.removeBazelSpecificFlags(optionsParser.getJavacOpts()),
+                JavacOptions.removeBazelSpecificFlags(
+                    JavacOptions.normalizeOptionsWithNormalizers(
+                        optionsParser.getJavacOpts(), new JavacOptions.ReleaseOptionNormalizer())),
                 ImmutableList.<String>of() /*classes*/,
                 sources);
         setProcessors(optionsParser, fileManager, task);
@@ -370,7 +372,7 @@ public class VanillaJavaBuilder implements Closeable {
 
     @Override
     public CharSequence getCharContent(boolean ignoreEncodingErrors) throws IOException {
-      return new String(Files.readAllBytes(path), UTF_8);
+      return Files.readString(path);
     }
   }
 

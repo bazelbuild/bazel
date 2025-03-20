@@ -17,6 +17,7 @@ import com.google.devtools.build.lib.analysis.InconsistentAspectOrderException;
 import com.google.devtools.build.lib.skyframe.ConfiguredValueCreationException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
 import net.starlark.java.syntax.Location;
 
 /**
@@ -37,13 +38,13 @@ import net.starlark.java.syntax.Location;
 public class DependencyEvaluationException extends Exception {
   /* Null denotes whatever default exit code callers choose. */
   @Nullable private final DetailedExitCode detailedExitCode;
-  private final Location location;
+  @Nullable private final Location location;
   private final boolean depReportedOwnError;
 
   private DependencyEvaluationException(
       Exception cause,
       @Nullable DetailedExitCode detailedExitCode,
-      Location location,
+      @Nullable Location location,
       boolean depReportedOwnError) {
     super(cause.getMessage(), cause);
     this.detailedExitCode = detailedExitCode;
@@ -62,12 +63,19 @@ public class DependencyEvaluationException extends Exception {
     this(cause, /*detailedExitCode=*/ null, cause.getLocation(), /*depReportedOwnError=*/ false);
   }
 
+  public DependencyEvaluationException(EvalException cause, Location location) {
+    // Calling logic doesn't provide an opportunity for this dependency to report its own error.
+    // TODO(bazel-team): clean up the calling logic to eliminate this distinction.
+    this(cause, /* detailedExitCode= */ null, location, /* depReportedOwnError= */ false);
+  }
+
   /** Returns the cause's {@link DetailedExitCode}. If null, the caller should choose a default. */
   @Nullable
   public DetailedExitCode getDetailedExitCode() {
     return detailedExitCode;
   }
 
+  @Nullable
   public Location getLocation() {
     return location;
   }

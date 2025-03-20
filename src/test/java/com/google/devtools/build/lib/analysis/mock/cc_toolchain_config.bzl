@@ -14,6 +14,7 @@
 
 """ A rule that mocks cc_toolchain configuration."""
 
+load("@bazel_tools//tools/build_defs/cc:action_names.bzl", "ACTION_NAMES")
 load(
     "@bazel_tools//tools/cpp:cc_toolchain_config_lib.bzl",
     "action_config",
@@ -29,9 +30,10 @@ load(
     "tool_path",
     "with_feature_set",
 )
-load("@bazel_tools//tools/build_defs/cc:action_names.bzl", "ACTION_NAMES")
 
 _FEATURE_NAMES = struct(
+    cpp_modules = "cpp_modules",
+    generate_pdb_file = "generate_pdb_file",
     no_legacy_features = "no_legacy_features",
     do_not_split_linking_cmdline = "do_not_split_linking_cmdline",
     supports_dynamic_linker = "supports_dynamic_linker",
@@ -53,6 +55,7 @@ _FEATURE_NAMES = struct(
     user_compile_flags = "user_compile_flags",
     thin_lto = "thin_lto",
     no_use_lto_indexing_bitcode_file = "no_use_lto_indexing_bitcode_file",
+    use_lto_native_object_directory = "use_lto_native_object_directory",
     thin_lto_linkstatic_tests_use_shared_nonlto_backends = "thin_lto_linkstatic_tests_use_shared_nonlto_backends",
     thin_lto_all_linkstatic_use_shared_nonlto_backends = "thin_lto_all_linkstatic_use_shared_nonlto_backends",
     enable_afdo_thinlto = "enable_afdo_thinlto",
@@ -71,8 +74,15 @@ _FEATURE_NAMES = struct(
     split_functions = "split_functions",
     enable_fdo_split_functions = "enable_fdo_split_functions",
     fdo_split_functions = "fdo_split_functions",
+    memprof_optimize = "memprof_optimize",
+    enable_autofdo_memprof_optimize = "enable_autofdo_memprof_optimize",
+    autofdo_implicit_memprof_optimize = "autofdo_implicit_memprof_optimize",
     fdo_instrument = "fdo_instrument",
+    fsafdo = "fsafdo",
+    implicit_fsafdo = "implicit_fsafdo",
+    enable_fsafdo = "enable_fsafdo",
     supports_pic = "supports_pic",
+    prefer_pic_for_opt_binaries = "prefer_pic_for_opt_binaries",
     copy_dynamic_libraries_to_binary = "copy_dynamic_libraries_to_binary",
     per_object_debug_info = "per_object_debug_info",
     supports_start_end_lib = "supports_start_end_lib",
@@ -83,7 +93,9 @@ _FEATURE_NAMES = struct(
     link_env = "link_env",
     dynamic_linking_mode = "dynamic_linking_mode",
     static_linking_mode = "static_linking_mode",
+    archive_param_file = "archive_param_file",
     compiler_param_file = "compiler_param_file",
+    gcc_quoting_for_param_files = "gcc_quoting_for_param_files",
     objcopy_embed_flags = "objcopy_embed_flags",
     ld_embed_flags = "ld_embed_flags",
     opt = "opt",
@@ -108,7 +120,16 @@ _FEATURE_NAMES = struct(
     disable_pbh = "disable_pbh",
     optional_cc_flags_feature = "optional_cc_flags_feature",
     cpp_compile_with_requirements = "cpp_compile_with_requirements",
+    no_copts_tokenization = "no_copts_tokenization",
+    generate_linkmap = "generate_linkmap",
 )
+
+_cpp_modules_feature = feature(
+    name = _FEATURE_NAMES.cpp_modules,
+    enabled = False,
+)
+
+_no_copts_tokenization_feature = feature(name = _FEATURE_NAMES.no_copts_tokenization)
 
 _disable_pbh_feature = feature(name = _FEATURE_NAMES.disable_pbh)
 
@@ -348,6 +369,7 @@ _static_env_feature = feature(
                 ACTION_NAMES.cpp_compile,
                 ACTION_NAMES.cpp_header_parsing,
                 ACTION_NAMES.cpp_module_compile,
+                ACTION_NAMES.lto_backend,
             ],
             env_entries = [
                 env_entry(
@@ -465,6 +487,9 @@ _no_use_lto_indexing_bitcode_file_feature = feature(
     name = _FEATURE_NAMES.no_use_lto_indexing_bitcode_file,
 )
 
+_use_lto_native_object_directory_feature = feature(
+    name = _FEATURE_NAMES.use_lto_native_object_directory,
+)
 _thin_lto_feature = feature(
     name = _FEATURE_NAMES.thin_lto,
     flag_sets = [
@@ -586,6 +611,38 @@ _enable_xbinaryfdo_thinlto_feature = feature(
 
 _xbinaryfdo_implicit_thinlto_feature = feature(name = _FEATURE_NAMES.xbinaryfdo_implicit_thinlto)
 
+# Use a minimal feature so that we can check the right flags are expanded.
+_memprof_optimize_feature = feature(
+    name = _FEATURE_NAMES.memprof_optimize,
+    flag_sets = [
+        flag_set(
+            actions = [
+                ACTION_NAMES.c_compile,
+                ACTION_NAMES.cpp_compile,
+                ACTION_NAMES.cpp_module_codegen,
+            ],
+            flag_groups = [
+                flag_group(
+                    expand_if_available = "memprof_profile_path",
+                    flags = [
+                        "-memory-profile-file=%{memprof_profile_path}",
+                    ],
+                ),
+            ],
+        ),
+    ],
+)
+
+_enable_autofdo_memprof_optimize_feature = feature(
+    name = _FEATURE_NAMES.enable_autofdo_memprof_optimize,
+    requires = [feature_set(features = ["autofdo_implicit_memprof_optimize"])],
+    implies = ["memprof_optimize"],
+)
+
+_autofdo_implicit_memprof_optimize_feature = feature(
+    name = _FEATURE_NAMES.autofdo_implicit_memprof_optimize,
+)
+
 _split_functions_feature = feature(
     name = _FEATURE_NAMES.split_functions,
     flag_sets = [
@@ -600,7 +657,9 @@ _split_functions_feature = feature(
                 flag_group(
                     flags = [
                         "-fsplit-machine-functions",
+                        # TODO(b/403335308): Remove this in favor of the one below.
                         "-DBUILD_PROPELLER_TYPE=\"split\"",
+                        "-DBUILD_MFS_ENABLED=1",
                     ],
                 ),
             ],
@@ -615,6 +674,36 @@ _enable_fdo_split_functions_feature = feature(
 )
 
 _fdo_split_functions_feature = feature(name = _FEATURE_NAMES.fdo_split_functions)
+
+_enable_fsafdo_feature = feature(
+    name = _FEATURE_NAMES.enable_fsafdo,
+    requires = [feature_set(features = ["implicit_fsafdo"])],
+    implies = ["fsafdo"],
+)
+
+_implicit_fsafdo_feature = feature(name = _FEATURE_NAMES.implicit_fsafdo)
+
+_fsafdo_feature = feature(
+    name = _FEATURE_NAMES.fsafdo,
+    requires = [feature_set(features = ["autofdo"])],
+    flag_sets = [
+        flag_set(
+            actions = [
+                ACTION_NAMES.c_compile,
+                ACTION_NAMES.cpp_compile,
+                ACTION_NAMES.cpp_module_codegen,
+                ACTION_NAMES.lto_backend,
+            ],
+            flag_groups = [
+                flag_group(
+                    flags = [
+                        "-fsafdo",
+                    ],
+                ),
+            ],
+        ),
+    ],
+)
 
 _native_deps_link_feature = feature(
     name = _FEATURE_NAMES.native_deps_link,
@@ -766,6 +855,10 @@ _copy_dynamic_libraries_to_binary_feature = feature(
     name = _FEATURE_NAMES.copy_dynamic_libraries_to_binary,
 )
 
+_generate_pdb_file_feature = feature(
+    name = _FEATURE_NAMES.generate_pdb_file,
+)
+
 _supports_start_end_lib_feature = feature(
     name = _FEATURE_NAMES.supports_start_end_lib,
     enabled = True,
@@ -773,14 +866,28 @@ _supports_start_end_lib_feature = feature(
 
 _supports_pic_feature = feature(name = _FEATURE_NAMES.supports_pic, enabled = True)
 
+_prefer_pic_for_opt_binaries_feature = feature(
+    name = _FEATURE_NAMES.prefer_pic_for_opt_binaries,
+    enabled = True,
+)
+
 _targets_windows_feature = feature(
     name = _FEATURE_NAMES.targets_windows,
     enabled = True,
     implies = ["copy_dynamic_libraries_to_binary"],
 )
 
+_archive_param_file_feature = feature(
+    name = _FEATURE_NAMES.archive_param_file,
+)
+
 _compiler_param_file_feature = feature(
     name = _FEATURE_NAMES.compiler_param_file,
+    enabled = True,
+)
+
+_gcc_quoting_for_param_files_feature = feature(
+    name = _FEATURE_NAMES.gcc_quoting_for_param_files,
     enabled = True,
 )
 
@@ -1251,7 +1358,23 @@ _layering_check_module_maps_header_modules_simple_features = [
     ),
 ]
 
+_generate_linkmap_feature = feature(
+    name = _FEATURE_NAMES.generate_linkmap,
+    flag_sets = [
+        flag_set(
+            actions = [ACTION_NAMES.cpp_link_executable],
+            flag_groups = [
+                flag_group(
+                    flags = ["-linkmap=%{output_execpath}.map"],
+                    expand_if_available = "output_execpath",
+                ),
+            ],
+        ),
+    ],
+)
+
 _feature_name_to_feature = {
+    _FEATURE_NAMES.cpp_modules: _cpp_modules_feature,
     _FEATURE_NAMES.no_legacy_features: _no_legacy_features_feature,
     _FEATURE_NAMES.do_not_split_linking_cmdline: _do_not_split_linking_cmdline_feature,
     _FEATURE_NAMES.supports_dynamic_linker: _supports_dynamic_linker_feature,
@@ -1264,6 +1387,7 @@ _feature_name_to_feature = {
     _FEATURE_NAMES.user_compile_flags: _user_compile_flags_feature,
     _FEATURE_NAMES.thin_lto: _thin_lto_feature,
     _FEATURE_NAMES.no_use_lto_indexing_bitcode_file: _no_use_lto_indexing_bitcode_file_feature,
+    _FEATURE_NAMES.use_lto_native_object_directory: _use_lto_native_object_directory_feature,
     _FEATURE_NAMES.thin_lto_linkstatic_tests_use_shared_nonlto_backends: _thin_lto_linkstatic_tests_use_shared_nonlto_backends_feature,
     _FEATURE_NAMES.thin_lto_all_linkstatic_use_shared_nonlto_backends: _thin_lto_all_linkstatic_use_shared_nonlto_backends_feature,
     _FEATURE_NAMES.enable_afdo_thinlto: _enable_afdo_thinlto_feature,
@@ -1275,6 +1399,12 @@ _feature_name_to_feature = {
     _FEATURE_NAMES.fdo_split_functions: _fdo_split_functions_feature,
     _FEATURE_NAMES.enable_xbinaryfdo_thinlto: _enable_xbinaryfdo_thinlto_feature,
     _FEATURE_NAMES.xbinaryfdo_implicit_thinlto: _xbinaryfdo_implicit_thinlto_feature,
+    _FEATURE_NAMES.memprof_optimize: _memprof_optimize_feature,
+    _FEATURE_NAMES.enable_autofdo_memprof_optimize: _enable_autofdo_memprof_optimize_feature,
+    _FEATURE_NAMES.autofdo_implicit_memprof_optimize: _autofdo_implicit_memprof_optimize_feature,
+    _FEATURE_NAMES.fsafdo: _fsafdo_feature,
+    _FEATURE_NAMES.implicit_fsafdo: _implicit_fsafdo_feature,
+    _FEATURE_NAMES.enable_fsafdo: _enable_fsafdo_feature,
     _FEATURE_NAMES.native_deps_link: _native_deps_link_feature,
     _FEATURE_NAMES.java_launcher_link: _java_launcher_link_feature,
     _FEATURE_NAMES.py_launcher_link: _py_launcher_link_feature,
@@ -1287,8 +1417,11 @@ _feature_name_to_feature = {
     _FEATURE_NAMES.copy_dynamic_libraries_to_binary: _copy_dynamic_libraries_to_binary_feature,
     _FEATURE_NAMES.supports_start_end_lib: _supports_start_end_lib_feature,
     _FEATURE_NAMES.supports_pic: _supports_pic_feature,
+    _FEATURE_NAMES.prefer_pic_for_opt_binaries: _prefer_pic_for_opt_binaries_feature,
     _FEATURE_NAMES.targets_windows: _targets_windows_feature,
+    _FEATURE_NAMES.archive_param_file: _archive_param_file_feature,
     _FEATURE_NAMES.compiler_param_file: _compiler_param_file_feature,
+    _FEATURE_NAMES.gcc_quoting_for_param_files: _gcc_quoting_for_param_files_feature,
     _FEATURE_NAMES.module_maps: _module_maps_feature,
     _FEATURE_NAMES.static_link_cpp_runtimes: _static_link_cpp_runtimes_feature,
     _FEATURE_NAMES.simple_compile_feature: _simple_compile_feature,
@@ -1315,8 +1448,11 @@ _feature_name_to_feature = {
     _FEATURE_NAMES.def_feature: _def_feature,
     _FEATURE_NAMES.strip_debug_symbols: _strip_debug_symbols_feature,
     _FEATURE_NAMES.disable_pbh: _disable_pbh_feature,
+    _FEATURE_NAMES.no_copts_tokenization: _no_copts_tokenization_feature,
     _FEATURE_NAMES.optional_cc_flags_feature: _optional_cc_flags_feature,
     _FEATURE_NAMES.cpp_compile_with_requirements: _cpp_compile_with_requirements,
+    _FEATURE_NAMES.generate_pdb_file: _generate_pdb_file_feature,
+    _FEATURE_NAMES.generate_linkmap: _generate_linkmap_feature,
     "header_modules_feature_configuration": _header_modules_feature_configuration,
     "env_var_feature_configuration": _env_var_feature_configuration,
     "host_and_nonhost_configuration": _host_and_nonhost_configuration,
@@ -1491,10 +1627,6 @@ def _impl(ctx):
     if ctx.attr.tool_paths == {}:
         tool_paths = [
             tool_path(name = "ar", path = "/usr/bin/mock-ar"),
-            tool_path(
-                name = "compat-ld",
-                path = "/usr/bin/mock-compat-ld",
-            ),
             tool_path(name = "cpp", path = "/usr/bin/mock-cpp"),
             tool_path(name = "dwp", path = "/usr/bin/mock-dwp"),
             tool_path(name = "gcc", path = "/usr/bin/mock-gcc"),

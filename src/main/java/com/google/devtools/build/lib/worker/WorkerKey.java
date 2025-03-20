@@ -27,18 +27,21 @@ import java.util.SortedMap;
 
 /**
  * Data container that uniquely identifies a kind of worker process and is used as the key for the
- * {@link WorkerPool}.
+ * {@link WorkerPoolImpl}.
  *
  * <p>We expect a small number of WorkerKeys per mnemonic. Unbounded creation of WorkerKeys will
  * break various things as well as render the workers less useful.
  */
-final class WorkerKey {
+public final class WorkerKey {
   /** Build options. */
   private final ImmutableList<String> args;
+
   /** Environment variables. */
   private final ImmutableMap<String, String> env;
+
   /** Execution root of Bazel process. */
   private final Path execRoot;
+
   /** Mnemonic of the worker. */
   private final String mnemonic;
 
@@ -48,74 +51,80 @@ final class WorkerKey {
    * methods.
    */
   private final HashCode workerFilesCombinedHash;
-  /** Worker files with the corresponding hash code. */
-  private final SortedMap<PathFragment, HashCode> workerFilesWithHashes;
+
+  /** Worker files with the corresponding digest. */
+  private final SortedMap<PathFragment, byte[]> workerFilesWithDigests;
+
   /** If true, the workers run inside a sandbox. */
   private final boolean sandboxed;
+
+  /** If true, the sandbox contents are tracked in memory to speed up cleanup. */
+  private final boolean useInMemoryTracking;
+
   /** A WorkerProxy will be instantiated if true, instantiate a regular Worker if false. */
   private final boolean multiplex;
+
   /** If true, the workers for this key are able to cancel work requests. */
   private final boolean cancellable;
+
   /**
    * Cached value for the hash of this key, because the value is expensive to calculate
    * (ImmutableMap and ImmutableList do not cache their hashcodes.
    */
   private final int hash;
+
   /** The format of the worker protocol sent to and read from the worker. */
   private final WorkerProtocolFormat protocolFormat;
 
-  WorkerKey(
+  public WorkerKey(
       ImmutableList<String> args,
       ImmutableMap<String, String> env,
       Path execRoot,
       String mnemonic,
       HashCode workerFilesCombinedHash,
-      SortedMap<PathFragment, HashCode> workerFilesWithHashes,
+      SortedMap<PathFragment, byte[]> workerFilesWithDigests,
       boolean sandboxed,
+      boolean useInMemoryTracking,
       boolean multiplex,
       boolean cancellable,
       WorkerProtocolFormat protocolFormat) {
     this.args = Preconditions.checkNotNull(args);
     this.env = Preconditions.checkNotNull(env);
-    this.execRoot = Preconditions.checkNotNull(execRoot);
+    this.execRoot = Preconditions.checkNotNull(execRoot.devirtualize());
     this.mnemonic = Preconditions.checkNotNull(mnemonic);
     this.workerFilesCombinedHash = Preconditions.checkNotNull(workerFilesCombinedHash);
-    this.workerFilesWithHashes = Preconditions.checkNotNull(workerFilesWithHashes);
+    this.workerFilesWithDigests = Preconditions.checkNotNull(workerFilesWithDigests);
     this.sandboxed = sandboxed;
+    this.useInMemoryTracking = useInMemoryTracking;
     this.multiplex = multiplex;
     this.cancellable = cancellable;
     this.protocolFormat = protocolFormat;
     hash = calculateHashCode();
   }
 
-  /** Getter function for variable args. */
+
   public ImmutableList<String> getArgs() {
     return args;
   }
 
-  /** Getter function for variable env. */
   public ImmutableMap<String, String> getEnv() {
     return env;
   }
 
-  /** Getter function for variable execRoot. */
   public Path getExecRoot() {
     return execRoot;
   }
 
-  /** Getter function for variable mnemonic. */
   public String getMnemonic() {
     return mnemonic;
   }
 
-  /** Getter function for variable workerFilesCombinedHash. */
   public HashCode getWorkerFilesCombinedHash() {
     return workerFilesCombinedHash;
   }
 
-  /** Getter function for variable workerFilesWithHashes. */
-  public SortedMap<PathFragment, HashCode> getWorkerFilesWithHashes() {
-    return workerFilesWithHashes;
+  public SortedMap<PathFragment, byte[]> getWorkerFilesWithDigests() {
+    return workerFilesWithDigests;
   }
 
   /** Returns true if workers are sandboxed. */
@@ -123,12 +132,12 @@ final class WorkerKey {
     return sandboxed;
   }
 
-  public boolean isMultiplex() {
-    return multiplex;
+  public boolean useInMemoryTracking() {
+    return useInMemoryTracking;
   }
 
-  public boolean isCancellable() {
-    return cancellable;
+  public boolean isMultiplex() {
+    return multiplex;
   }
 
   /** Returns the format of the worker protocol. */
@@ -168,13 +177,16 @@ final class WorkerKey {
     if (!args.equals(workerKey.args)) {
       return false;
     }
-    if (!multiplex == workerKey.multiplex) {
+    if (multiplex != workerKey.multiplex) {
       return false;
     }
-    if (!cancellable == workerKey.cancellable) {
+    if (cancellable != workerKey.cancellable) {
       return false;
     }
-    if (!sandboxed == workerKey.sandboxed) {
+    if (sandboxed != workerKey.sandboxed) {
+      return false;
+    }
+    if (useInMemoryTracking != workerKey.useInMemoryTracking) {
       return false;
     }
     if (!env.equals(workerKey.env)) {
@@ -187,7 +199,6 @@ final class WorkerKey {
       return false;
     }
     return mnemonic.equals(workerKey.mnemonic);
-
   }
 
   /** Since all fields involved in the {@code hashCode} are final, we cache the result. */
@@ -207,6 +218,7 @@ final class WorkerKey {
         multiplex,
         cancellable,
         sandboxed,
+        useInMemoryTracking,
         protocolFormat.toString());
   }
 
@@ -220,8 +232,10 @@ final class WorkerKey {
         /* prettyPrintArgs= */ false,
         args,
         env,
+        /* environmentVariablesToClear= */ null,
         execRoot.getPathString(),
-        /* configurationChecksum=*/ null,
-        /* executionPlatform= */ null);
+        /* configurationChecksum= */ null,
+        /* executionPlatformLabel= */ null,
+        /* spawnRunner= */ getWorkerTypeName());
   }
 }

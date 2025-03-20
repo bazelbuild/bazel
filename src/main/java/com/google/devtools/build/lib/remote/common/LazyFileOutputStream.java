@@ -14,13 +14,14 @@
 package com.google.devtools.build.lib.remote.common;
 
 import com.google.devtools.build.lib.vfs.Path;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 
 /**
- * Creates an {@link OutputStream} that isn't actually opened until the first data is written. This
- * is useful to only have as many open file descriptors as necessary at a time to avoid running into
- * system limits.
+ * Creates an {@link OutputStream} backed by a file that isn't actually opened until the first data
+ * is written. This is useful to only have as many open file descriptors as necessary at a time to
+ * avoid running into system limits.
  */
 public class LazyFileOutputStream extends OutputStream {
 
@@ -57,8 +58,20 @@ public class LazyFileOutputStream extends OutputStream {
 
   @Override
   public void close() throws IOException {
+    if (out != null) {
+      out.close();
+    }
+  }
+
+  /**
+   * If the output stream is a {@link FileOutputStream}, call {@link FileDescriptor#sync} on it.
+   * Otherwise, do nothing.
+   */
+  public void syncIfPossible() throws IOException {
     ensureOpen();
-    out.close();
+    if (out instanceof FileOutputStream fileOutputStream) {
+      fileOutputStream.getFD().sync();
+    }
   }
 
   private void ensureOpen() throws IOException {

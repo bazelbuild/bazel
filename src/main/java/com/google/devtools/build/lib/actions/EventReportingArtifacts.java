@@ -15,13 +15,14 @@
 package com.google.devtools.build.lib.actions;
 
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
+import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions.OutputGroupFileModes;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import java.util.Collection;
 
 /** Interface for {@link BuildEvent}s reporting artifacts as named sets */
 public interface EventReportingArtifacts extends BuildEvent {
 
-  /** Pair of artifacts and a @{link CompletionContext}. */
+  /** Pair of artifacts and a {@link CompletionContext}. */
   class ReportedArtifacts {
     public final Collection<NestedSet<Artifact>> artifacts;
     public final CompletionContext completionContext;
@@ -34,5 +35,5 @@ public interface EventReportingArtifacts extends BuildEvent {
   }
 
   /** The sets of artifacts this build event assumes already known in the build event stream. */
-  ReportedArtifacts reportedArtifacts();
+  ReportedArtifacts reportedArtifacts(OutputGroupFileModes outputGroupFileModes);
 }

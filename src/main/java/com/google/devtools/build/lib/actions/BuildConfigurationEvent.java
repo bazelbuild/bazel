@@ -19,7 +19,6 @@ import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.util.Collection;
 import java.util.Objects;
 
@@ -27,8 +26,7 @@ import java.util.Objects;
  * Encapsulation of {@link BuildEvent} info associated with a {@link
  * com.google.devtools.build.lib.analysis.config.BuildConfigurationValue}.
  */
-@AutoCodec
-public class BuildConfigurationEvent implements BuildEvent {
+public final class BuildConfigurationEvent implements BuildEvent {
 
   private final BuildEventId eventId;
   private final BuildEventStreamProtos.BuildEvent eventProto;
@@ -56,10 +54,9 @@ public class BuildConfigurationEvent implements BuildEvent {
 
   @Override
   public boolean equals(Object other) {
-    if (!(other instanceof BuildConfigurationEvent)) {
+    if (!(other instanceof BuildConfigurationEvent that)) {
       return false;
     }
-    BuildConfigurationEvent that = (BuildConfigurationEvent) other;
     return Objects.equals(eventId, that.eventId) && Objects.equals(eventProto, that.eventProto);
   }
 

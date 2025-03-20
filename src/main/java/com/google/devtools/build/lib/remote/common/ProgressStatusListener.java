@@ -13,13 +13,14 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote.common;
 
+import com.google.devtools.build.lib.exec.SpawnProgressEvent;
 import com.google.devtools.build.lib.exec.SpawnRunner.ProgressStatus;
 
 /** An interface that is used to receive {@link ProgressStatus} updates during spawn execution. */
 @FunctionalInterface
 public interface ProgressStatusListener {
 
-  void onProgressStatus(ProgressStatus progress);
+  void onProgressStatus(SpawnProgressEvent progress);
 
   /** A {@link ProgressStatusListener} that does nothing. */
   ProgressStatusListener NO_ACTION =

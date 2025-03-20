@@ -45,7 +45,7 @@ public class BlazeServerStartupOptions extends OptionsBase {
    * "option_name1:source1:option_name2:source2:.." and converts it into an option name to source
    * map.
    */
-  public static class OptionSourcesConverter implements Converter<Map<String, String>> {
+  public static class OptionSourcesConverter extends Converter.Contextless<Map<String, String>> {
     private String unescape(String input) {
       return input.replace("_C", ":").replace("_U", "_");
     }
@@ -54,7 +54,7 @@ public class BlazeServerStartupOptions extends OptionsBase {
     public Map<String, String> convert(String input) {
       ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
       if (input.isEmpty()) {
-        return builder.build();
+        return builder.buildOrThrow();
       }
 
       String[] elements = input.split(":");
@@ -66,7 +66,7 @@ public class BlazeServerStartupOptions extends OptionsBase {
         }
         builder.put(unescape(name), unescape(value));
       }
-      return builder.build();
+      return builder.buildOrThrow();
     }
 
     @Override
@@ -104,6 +104,17 @@ public class BlazeServerStartupOptions extends OptionsBase {
       metadataTags = {OptionMetadataTag.HIDDEN},
       help = "This launcher option is intended for use only by tests.")
   public String installMD5;
+
+  @Option(
+      name = "lock_install_base",
+      defaultValue = "false", // NOTE: only for documentation, value is always passed by the client.
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      metadataTags = {OptionMetadataTag.HIDDEN},
+      help =
+          "Whether the server should hold a lock on the install base while running, to prevent"
+              + " another server from attempting to garbage collect it.")
+  public boolean lockInstallBase;
 
   /* Note: The help string in this option applies to the client code; not
    * the server code. The server code will only accept a non-empty path; it's
@@ -220,7 +231,7 @@ public class BlazeServerStartupOptions extends OptionsBase {
       effectTags = {OptionEffectTag.EAGERNESS_TO_EXIT, OptionEffectTag.LOSES_INCREMENTAL_STATE},
       help =
           "If max_idle_secs is set and the build server has been idle for a while, shut down the "
-              + "server when the system is low on free RAM. Linux only.")
+              + "server when the system is low on free RAM. Linux and MacOS only.")
   public boolean shutdownOnLowSysMem;
 
   @Option(
@@ -290,7 +301,10 @@ public class BlazeServerStartupOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.EAGERNESS_TO_EXIT, OptionEffectTag.LOSES_INCREMENTAL_STATE},
       deprecationWarning = "Will be enabled by default and removed soon",
-      help = "No-op: please use --fatal_event_bus_exceptions_exclusions instead")
+      help =
+          "Whether or not to exit if an exception is thrown by an internal EventBus handler. No-op"
+              + " if --fatal_async_exceptions_exclusions is available; that flag's behavior is"
+              + " preferentially used.")
   public boolean fatalEventBusExceptions;
 
   @Option(
@@ -302,19 +316,6 @@ public class BlazeServerStartupOptions extends OptionsBase {
       metadataTags = {OptionMetadataTag.HIDDEN},
       help = "")
   public Map<String, String> optionSources;
-
-  // TODO(bazel-team): In order to make it easier to have local watchers in open source Bazel,
-  // turn this into a non-startup option.
-  @Option(
-      name = "watchfs",
-      defaultValue = "false", // NOTE: only for documentation, value is always passed by the client.
-      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      metadataTags = OptionMetadataTag.DEPRECATED,
-      help =
-          "If true, %{product} tries to use the operating system's file watch service for local "
-              + "changes instead of scanning every file for a change.")
-  public boolean watchFS;
 
   // This option is only passed in --batch mode. The value is otherwise passed as part of the
   // server request.
@@ -356,7 +357,8 @@ public class BlazeServerStartupOptions extends OptionsBase {
               + "messages and logging")
   public String productName;
 
-  // TODO(ulfjack): Make this a command option.
+  // TODO: b/231429363 - Make this startup option default off before safely removing all its
+  // references from the depot in six months.
   @Option(
       name = "write_command_log",
       defaultValue = "true", // NOTE: only for documentation, value is always passed by the client.
@@ -374,6 +376,16 @@ public class BlazeServerStartupOptions extends OptionsBase {
           "If true, log debug information from the client to stderr. Changing this option will not "
               + "cause the server to restart.")
   public boolean clientDebug;
+
+  @Option(
+      name = "quiet",
+      defaultValue = "false", // NOTE: only for documentation, actual flag is in UiOptions
+      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
+      help =
+          "If true, no informational messages are emitted on the console, only errors. Changing "
+              + "this option will not cause the server to restart.")
+  public boolean quiet;
 
   @Option(
       name = "preemptible",
@@ -399,33 +411,17 @@ public class BlazeServerStartupOptions extends OptionsBase {
       help = "The maximum amount of time the client waits to connect to the server")
   public int localStartupTimeoutSecs;
 
-  // TODO(b/109764197): Add OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS & remove the
-  // experimental tag once this has been tested and is ready for use.
   @Option(
       name = "digest_function",
       defaultValue = "null",
       converter = DigestHashFunction.DigestFunctionConverter.class,
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
       effectTags = {
         OptionEffectTag.LOSES_INCREMENTAL_STATE,
         OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION
       },
-      metadataTags = OptionMetadataTag.EXPERIMENTAL,
       help = "The hash function to use when computing file digests.")
   public DigestHashFunction digestHashFunction;
-
-  @Deprecated
-  @Option(
-      name = "expand_configs_in_place",
-      defaultValue = "true", // NOTE: only for documentation, value is always passed by the client.
-      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
-      effectTags = {OptionEffectTag.NO_OP},
-      metadataTags = {OptionMetadataTag.DEPRECATED},
-      deprecationWarning = "This option is now a no-op and will soon be deleted.",
-      help =
-          "Changed the expansion of --config flags to be done in-place, as opposed to in a fixed "
-              + "point expansion between normal rc options and command-line specified options.")
-  public boolean expandConfigsInPlace;
 
   @Option(
       name = "idle_server_tasks",
@@ -499,4 +495,48 @@ public class BlazeServerStartupOptions extends OptionsBase {
           "When --noautodetect_server_javabase is passed, Bazel does not fall back to the local "
               + "JDK for running the bazel server and instead exits.")
   public boolean autodetectServerJavabase;
+
+  /**
+   * Note: This option is only used by the C++ client, never by the Java server. It is included here
+   * to make sure that the option is documented in the help output, which is auto-generated by Java
+   * code. This also helps ensure that the server is killed if the value of this option changes.
+   */
+  @Option(
+      name = "experimental_cgroup_parent",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      effectTags = {
+        OptionEffectTag.BAZEL_MONITORING,
+        OptionEffectTag.EXECUTION,
+      },
+      valueHelp = "<path>",
+      help =
+          "The cgroup where to start the bazel server as an absolute path. The server "
+              + "process will be started in the specified cgroup for each supported controller. "
+              + "For example, if the value of this flag is /build/bazel and the cpu and memory "
+              + "controllers are mounted respectively on /sys/fs/cgroup/cpu and "
+              + "/sys/fs/cgroup/memory, the server will be started in the cgroups "
+              + "/sys/fs/cgroup/cpu/build/bazel and /sys/fs/cgroup/memory/build/bazel."
+              + "It is not an error if the specified cgroup is not writable for one or more "
+              + "of the controllers. This options does not have any effect on "
+              + "platforms that do not support cgroups.")
+  public String cgroupParent;
+
+  /**
+   * Note: This option is only used by the C++ client, never by the Java server. It is included here
+   * to make sure that the option is documented in the help output, which is auto-generated by Java
+   * code. This also helps ensure that the server is killed if the value of this option changes.
+   */
+  @Option(
+      name = "experimental_run_in_user_cgroup",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      effectTags = {
+        OptionEffectTag.BAZEL_MONITORING,
+        OptionEffectTag.EXECUTION,
+      },
+      help =
+          "If true, the Bazel server will be run with systemd-run, and the user will own the"
+              + " cgroup. This flag only takes effect on Linux.")
+  public boolean runInUserCgroup;
 }

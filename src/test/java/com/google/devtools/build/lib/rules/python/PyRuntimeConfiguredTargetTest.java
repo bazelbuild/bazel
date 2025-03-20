@@ -15,9 +15,8 @@
 package com.google.devtools.build.lib.rules.python;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.rules.python.PythonTestUtils.assumesDefaultIsPY2;
+import static com.google.devtools.build.lib.rules.python.PythonTestUtils.getPyLoad;
 
-import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import org.junit.Before;
 import org.junit.Test;
@@ -34,64 +33,45 @@ public class PyRuntimeConfiguredTargetTest extends BuildViewTestCase {
   }
 
   @Test
-  public void hermeticRuntime() throws Exception {
-    scratch.file(
-        "pkg/BUILD",
-        "py_runtime(",
-        "    name = 'myruntime',",
-        "    files = [':myfile'],",
-        "    interpreter = ':myinterpreter',",
-        "    python_version = 'PY2',",
-        ")");
-    PyRuntimeInfo info = getConfiguredTarget("//pkg:myruntime").get(PyRuntimeInfo.PROVIDER);
-
-    assertThat(info.isInBuild()).isTrue();
-    assertThat(info.getInterpreterPath()).isNull();
-    assertThat(info.getInterpreter().getExecPathString()).isEqualTo("pkg/myinterpreter");
-    assertThat(ActionsTestUtil.baseArtifactNames(info.getFiles())).containsExactly("myfile");
-    assertThat(info.getPythonVersion()).isEqualTo(PythonVersion.PY2);
-  }
-
-  @Test
   public void nonhermeticRuntime() throws Exception {
     scratch.file(
         "pkg/BUILD",
+        getPyLoad("py_runtime"),
         "py_runtime(",
         "    name = 'myruntime',",
         "    interpreter_path = '/system/interpreter',",
-        "    python_version = 'PY2',",
+        "    python_version = 'PY3',",
         ")");
-    PyRuntimeInfo info = getConfiguredTarget("//pkg:myruntime").get(PyRuntimeInfo.PROVIDER);
+    PyRuntimeInfo info = PyRuntimeInfo.fromTarget(getConfiguredTarget("//pkg:myruntime"));
 
-    assertThat(info.isInBuild()).isFalse();
-    assertThat(info.getInterpreterPath().getPathString()).isEqualTo("/system/interpreter");
+    assertThat(info.getInterpreterPathString()).isEqualTo("/system/interpreter");
     assertThat(info.getInterpreter()).isNull();
     assertThat(info.getFiles()).isNull();
-    assertThat(info.getPythonVersion()).isEqualTo(PythonVersion.PY2);
+    assertThat(info.getPythonVersion()).isEqualTo(PythonVersion.PY3);
   }
 
   @Test
   public void pythonVersionDefault() throws Exception {
-    assumesDefaultIsPY2();
     // When using toolchains, the python_version attribute is mandatory.
     useConfiguration("--incompatible_use_python_toolchains=false");
     scratch.file(
         "pkg/BUILD",
+        getPyLoad("py_runtime"),
         "py_runtime(",
         "    name = 'myruntime_default',",
-        "    interpreter_path = '/system/interpreter',",
+        "    interpreter_path = '/default/interpreter',",
         ")",
         "py_runtime(",
         "    name = 'myruntime_explicit',",
-        "    interpreter_path = '/system/interpreter',",
+        "    interpreter_path = '/explicit/interpreter',",
         "    python_version = 'PY3',",
         ")");
     PyRuntimeInfo infoDefault =
-        getConfiguredTarget("//pkg:myruntime_default").get(PyRuntimeInfo.PROVIDER);
+        PyRuntimeInfo.fromTarget(getConfiguredTarget("//pkg:myruntime_default"));
     PyRuntimeInfo infoExplicit =
-        getConfiguredTarget("//pkg:myruntime_explicit").get(PyRuntimeInfo.PROVIDER);
+        PyRuntimeInfo.fromTarget(getConfiguredTarget("//pkg:myruntime_explicit"));
 
-    assertThat(infoDefault.getPythonVersion()).isEqualTo(PythonVersion.PY2);
+    assertThat(infoDefault.getPythonVersion()).isEqualTo(PythonVersion.PY3);
     assertThat(infoExplicit.getPythonVersion()).isEqualTo(PythonVersion.PY3);
   }
 
@@ -100,11 +80,12 @@ public class PyRuntimeConfiguredTargetTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     scratch.file(
         "pkg/BUILD",
+        getPyLoad("py_runtime"),
         "py_runtime(",
         "    name = 'myruntime',",
         "    interpreter = ':myinterpreter',",
         "    interpreter_path = '/system/interpreter',",
-        "    python_version = 'PY2',",
+        "    python_version = 'PY3',",
         ")");
     getConfiguredTarget("//pkg:myruntime");
 
@@ -117,9 +98,10 @@ public class PyRuntimeConfiguredTargetTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     scratch.file(
         "pkg/BUILD", //
+        getPyLoad("py_runtime"),
         "py_runtime(",
         "    name = 'myruntime',",
-        "    python_version = 'PY2',",
+        "    python_version = 'PY3',",
         ")");
     getConfiguredTarget("//pkg:myruntime");
 
@@ -132,10 +114,11 @@ public class PyRuntimeConfiguredTargetTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     scratch.file(
         "pkg/BUILD",
+        getPyLoad("py_runtime"),
         "py_runtime(",
         "    name = 'myruntime',",
         "    interpreter_path = 'some/relative/path',",
-        "    python_version = 'PY2',",
+        "    python_version = 'PY3',",
         ")");
     getConfiguredTarget("//pkg:myruntime");
 
@@ -147,11 +130,12 @@ public class PyRuntimeConfiguredTargetTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     scratch.file(
         "pkg/BUILD",
+        getPyLoad("py_runtime"),
         "py_runtime(",
         "    name = 'myruntime',",
         "    files = [':myfile'],",
         "    interpreter_path = '/system/interpreter',",
-        "    python_version = 'PY2',",
+        "    python_version = 'PY3',",
         ")");
     getConfiguredTarget("//pkg:myruntime");
 
@@ -163,6 +147,7 @@ public class PyRuntimeConfiguredTargetTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     scratch.file(
         "pkg/BUILD",
+        getPyLoad("py_runtime"),
         "py_runtime(",
         "    name = 'myruntime',",
         "    interpreter_path = '/system/interpreter',",
@@ -171,20 +156,5 @@ public class PyRuntimeConfiguredTargetTest extends BuildViewTestCase {
     getConfiguredTarget("//pkg:myruntime");
 
     assertContainsEvent("invalid value in 'python_version' attribute");
-  }
-
-  @Test
-  public void versionAttributeMandatoryWhenUsingToolchains() throws Exception {
-    reporter.removeHandler(failFastHandler);
-    useConfiguration("--incompatible_use_python_toolchains=true");
-    scratch.file(
-        "pkg/BUILD",
-        "py_runtime(",
-        "    name = 'myruntime',",
-        "    interpreter_path = '/system/interpreter',",
-        ")");
-    getConfiguredTarget("//pkg:myruntime");
-
-    assertContainsEvent("must be set explicitly to either 'PY2' or 'PY3'");
   }
 }

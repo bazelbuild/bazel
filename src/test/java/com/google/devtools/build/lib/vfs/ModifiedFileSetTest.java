@@ -13,18 +13,15 @@
 // limitations under the License.
 package com.google.devtools.build.lib.vfs;
 
-import static com.google.common.truth.Truth.assertThat;
-
 import com.google.common.collect.ImmutableList;
 import com.google.common.testing.EqualsTester;
-import com.google.testing.junit.testparameterinjector.TestParameterInjector;
-import com.google.testing.junit.testparameterinjector.TestParameters;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 /** Tests for {@link ModifiedFileSet}. */
-@RunWith(TestParameterInjector.class)
-public class ModifiedFileSetTest {
+@RunWith(JUnit4.class)
+public final class ModifiedFileSetTest {
 
   @Test
   public void testHashCodeAndEqualsContract() throws Exception {
@@ -43,39 +40,11 @@ public class ModifiedFileSetTest {
     ModifiedFileSet nonEmpty3 = ModifiedFileSet.builder().modify(fragA).modify(fragB).build();
     ModifiedFileSet nonEmpty4 = ModifiedFileSet.builder().modify(fragB).modify(fragA).build();
 
-    ModifiedFileSet everythingModified = ModifiedFileSet.EVERYTHING_MODIFIED;
-
     new EqualsTester()
         .addEqualityGroup(empty1, empty2, empty3)
         .addEqualityGroup(nonEmpty1, nonEmpty2, nonEmpty3, nonEmpty4)
-        .addEqualityGroup(everythingModified)
+        .addEqualityGroup(ModifiedFileSet.EVERYTHING_MODIFIED)
+        .addEqualityGroup(ModifiedFileSet.EVERYTHING_DELETED)
         .testEquals();
-  }
-
-  @TestParameters({
-    "{set1: false, set2: false, union: false}",
-    "{set1: true,  set2: false, union: false}",
-    "{set1: false, set2: true,  union: false}",
-    "{set1: true,  set2: true,  union: true}"
-  })
-  @Test
-  public void union_returnsConjunctionOfIncludesAncestorDirectories(
-      boolean set1, boolean set2, boolean union) {
-    ModifiedFileSet fileSet1 =
-        ModifiedFileSet.builder()
-            .modify(PathFragment.create("a"))
-            .setIncludesAncestorDirectories(set1)
-            .build();
-    ModifiedFileSet fileSet2 =
-        ModifiedFileSet.builder()
-            .modify(PathFragment.create("b"))
-            .setIncludesAncestorDirectories(set2)
-            .build();
-
-    ModifiedFileSet unionSet = ModifiedFileSet.union(fileSet1, fileSet2);
-
-    assertThat(unionSet.modifiedSourceFiles())
-        .containsExactly(PathFragment.create("a"), PathFragment.create("b"));
-    assertThat(unionSet.includesAncestorDirectories()).isEqualTo(union);
   }
 }

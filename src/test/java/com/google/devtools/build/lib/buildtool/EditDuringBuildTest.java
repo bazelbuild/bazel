@@ -17,7 +17,6 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
-import com.google.devtools.build.lib.packages.util.MockGenruleSupport;
 import com.google.devtools.build.lib.vfs.Path;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -42,7 +41,12 @@ public class EditDuringBuildTest extends BuildIntegrationTestCase {
 
   @Test
   public void testEditDuringBuild() throws Exception {
-    MockGenruleSupport.setup(mockToolsConfig);
+    Path in = write("edit/in", "line1");
+    in.setLastModifiedTime(123456789);
+
+    // Modify the actual source file, not a sandboxed copy.
+    addOptions("--spawn_strategy=local");
+
     // The "echo" effects editing of the source file during the build:
     write("edit/BUILD",
           "genrule(name = 'edit',",
@@ -50,9 +54,6 @@ public class EditDuringBuildTest extends BuildIntegrationTestCase {
           "        outs = ['out'],",
           "        cmd = '/bin/cp $(location in) $(location out) && "
                        + "echo line2 >>$(location in)')");
-
-    Path in = write("edit/in", "line1");
-    in.setLastModifiedTime(123456789);
 
     // Edit during build => undefined result (in fact, "line1")
     String out = buildAndReadOutputFile();

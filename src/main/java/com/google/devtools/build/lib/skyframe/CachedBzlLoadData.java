@@ -24,6 +24,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 
 /**
  * A saved {@link BzlLoadFunction} computation, used when inlining that Skyfunction.
@@ -56,7 +57,8 @@ class CachedBzlLoadData {
    * nodes already contained in {@code visitedDeps}.
    */
   void traverse(
-      DepGroupConsumer depGroupConsumer, Map<BzlLoadValue.Key, CachedBzlLoadData> visitedDeps)
+      Consumer<Iterable<SkyKey>> depGroupConsumer,
+      Map<BzlLoadValue.Key, CachedBzlLoadData> visitedDeps)
       throws InterruptedException {
     if (visitedDeps.putIfAbsent(key, this) != null) {
       return;
@@ -87,11 +89,6 @@ class CachedBzlLoadData {
   @Override
   public int hashCode() {
     return key.hashCode();
-  }
-
-  /** A consumer of dependency groups that can be interrupted. */
-  interface DepGroupConsumer {
-    void accept(Iterable<SkyKey> keys) throws InterruptedException;
   }
 
   static class Builder {

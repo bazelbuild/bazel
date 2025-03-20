@@ -42,21 +42,21 @@ import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
-import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
 import com.google.devtools.build.lib.packages.PackageFactory;
+import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.packages.util.MockToolsConfig;
-import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
+import com.google.devtools.build.lib.runtime.QuiescingExecutorsImpl;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.PatternExpandingError;
-import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.SkyframeExecutorTestHelper;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
@@ -67,16 +67,18 @@ import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.UUID;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -84,10 +86,9 @@ import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 /** Tests for {@link SkyframeExecutor#loadTargetPatternsWithFilters}. */
-@RunWith(JUnit4.class)
+@RunWith(TestParameterInjector.class)
 public final class LoadingPhaseRunnerTest {
 
   private LoadingPhaseTester tester;
@@ -105,7 +106,7 @@ public final class LoadingPhaseRunnerTest {
   private static List<Label> getLabels(String... labels) {
     List<Label> result = new ArrayList<>();
     for (String label : labels) {
-      result.add(Label.parseAbsoluteUnchecked(label));
+      result.add(Label.parseCanonicalUnchecked(label));
     }
     return result;
   }
@@ -246,8 +247,7 @@ public final class LoadingPhaseRunnerTest {
     assertThat(e)
         .hasMessageThat()
         .contains(
-            "invalid target format 'foo//bar:missing': invalid package name 'foo//bar': package"
-                + " names may not contain '//' path separators");
+            "invalid package name 'foo//bar': package names may not contain '//' path separators");
     ParsingFailedEvent err = tester.findPostOnce(ParsingFailedEvent.class);
     assertThat(err.getPattern()).isEqualTo("foo//bar:missing");
   }
@@ -255,7 +255,7 @@ public final class LoadingPhaseRunnerTest {
   @Test
   public void testEmptyTarget() {
     TargetParsingException e = assertThrows(TargetParsingException.class, () -> tester.load(""));
-    assertThat(e).hasMessageThat().contains("the empty string is not a valid target");
+    assertThat(e).hasMessageThat().contains("invalid target name '': empty target name");
   }
 
   @Test
@@ -263,8 +263,7 @@ public final class LoadingPhaseRunnerTest {
     TargetPatternPhaseValue result = tester.loadKeepGoing("foo//bar:missing");
     assertThat(result.hasError()).isTrue();
     tester.assertContainsError(
-        "invalid target format 'foo//bar:missing': invalid package name 'foo//bar': package names"
-            + " may not contain '//' path separators");
+        "invalid package name 'foo//bar': package names may not contain '//' path separators");
     ParsingFailedEvent err = tester.findPostOnce(ParsingFailedEvent.class);
     assertThat(err.getPattern()).isEqualTo("foo//bar:missing");
   }
@@ -298,9 +297,23 @@ public final class LoadingPhaseRunnerTest {
     AnalysisMock.get().ccSupport().setup(tester.mockToolsConfig);
     tester.addFile(
         "config/BUILD",
-        "cc_library(name = 'somelib', srcs = [ 'somelib.cc' ], hdrs = [ 'somelib.h' ])",
-        "config_setting(name = 'configa', values = { 'define': 'foo=a' })",
-        "config_setting(name = 'configb', values = { 'define': 'foo=b' })");
+        """
+        cc_library(
+            name = "somelib",
+            srcs = ["somelib.cc"],
+            hdrs = ["somelib.h"],
+        )
+
+        config_setting(
+            name = "configa",
+            values = {"define": "foo=a"},
+        )
+
+        config_setting(
+            name = "configb",
+            values = {"define": "foo=b"},
+        )
+        """);
     TargetPatternPhaseValue result = assertNoErrors(tester.load("//config:all"));
     assertThat(result.getTargetLabels()).containsExactlyElementsIn(getLabels("//config:somelib"));
 
@@ -311,7 +324,10 @@ public final class LoadingPhaseRunnerTest {
 
   @Test
   public void testNegativeTestDoesNotShowUpAtAll() throws Exception {
-    tester.addFile("my_test/BUILD", "sh_test(name = 'my_test', srcs = ['test.cc'])");
+    tester.addFile(
+        "my_test/BUILD",
+        "load('//test_defs:foo_test.bzl', 'foo_test')",
+        "foo_test(name = 'my_test', srcs = ['test.cc'])");
     assertNoErrors(tester.loadTests("-//my_test"));
     assertThat(tester.getFilteredTargets()).isEmpty();
     assertThat(tester.getTestFilteredTargets()).isEmpty();
@@ -329,8 +345,15 @@ public final class LoadingPhaseRunnerTest {
   public void testTestMinusAllTests() throws Exception {
     tester.addFile(
         "test/BUILD",
-        "cc_library(name = 'bar1')",
-        "cc_test(name = 'test', deps = [':bar1'], tags = ['manual'])");
+        """
+        cc_library(name = "bar1")
+
+        cc_test(
+            name = "test",
+            tags = ["manual"],
+            deps = [":bar1"],
+        )
+        """);
     TargetPatternPhaseValue result = tester.loadTests("//test:test", "-//test:all");
     assertThat(result.hasError()).isFalse();
     assertThat(result.hasPostExpansionError()).isFalse();
@@ -378,9 +401,30 @@ public final class LoadingPhaseRunnerTest {
   private void writeBuildFilesForTestFiltering() throws Exception {
     tester.addFile(
         "tests/BUILD",
-        "sh_test(name = 't1', srcs = ['pass.sh'], size= 'small', local=1)",
-        "sh_test(name = 't2', srcs = ['pass.sh'], size = 'medium')",
-        "sh_test(name = 't3', srcs = ['pass.sh'], tags = ['manual', 'local'])");
+        """
+        load("//test_defs:foo_test.bzl", "foo_test")
+        foo_test(
+            name = "t1",
+            size = "small",
+            srcs = ["pass.sh"],
+            local = 1,
+        )
+
+        foo_test(
+            name = "t2",
+            size = "medium",
+            srcs = ["pass.sh"],
+        )
+
+        foo_test(
+            name = "t3",
+            srcs = ["pass.sh"],
+            tags = [
+                "local",
+                "manual",
+            ],
+        )
+        """);
   }
 
   @Test
@@ -462,8 +506,17 @@ public final class LoadingPhaseRunnerTest {
     AnalysisMock.get().ccSupport().setup(tester.mockToolsConfig);
     tester.addFile(
         "cc/BUILD",
-        "cc_test(name = 'my_test', srcs = ['test.cc'])",
-        "test_suite(name = 'tests', tests = [':my_test'])");
+        """
+        cc_test(
+            name = "my_test",
+            srcs = ["test.cc"],
+        )
+
+        test_suite(
+            name = "tests",
+            tests = [":my_test"],
+        )
+        """);
     TargetPatternPhaseValue loadingResult = assertNoErrors(tester.loadTests("//cc:tests"));
     assertThat(loadingResult.getTargetLabels())
         .containsExactlyElementsIn(getLabels("//cc:my_test"));
@@ -472,7 +525,7 @@ public final class LoadingPhaseRunnerTest {
     assertThat(tester.getOriginalTargets())
         .containsExactlyElementsIn(getLabels("//cc:tests", "//cc:my_test"));
     assertThat(tester.getTestSuiteTargets())
-        .containsExactly(Label.parseAbsoluteUnchecked("//cc:tests"));
+        .containsExactly(Label.parseCanonicalUnchecked("//cc:tests"));
   }
 
   @Test
@@ -498,7 +551,13 @@ public final class LoadingPhaseRunnerTest {
   @Test
   public void failureWhileLoadingTestsForTestSuiteKeepGoing() throws Exception {
     tester.addFile("ts/BUILD", "test_suite(name = 'tests', tests = ['//pkg:tests'])");
-    tester.addFile("pkg/BUILD", "test_suite(name = 'tests')", "test_suite()");
+    tester.addFile(
+        "pkg/BUILD",
+        """
+        test_suite(name = "tests")
+
+        test_suite()
+        """);
     TargetPatternPhaseValue loadingResult = tester.loadKeepGoing("//ts:tests");
     assertThat(loadingResult.hasError()).isFalse();
     assertThat(loadingResult.hasPostExpansionError()).isTrue();
@@ -508,7 +567,13 @@ public final class LoadingPhaseRunnerTest {
   @Test
   public void failureWhileLoadingTestsForTestSuiteNoKeepGoing() throws Exception {
     tester.addFile("ts/BUILD", "test_suite(name = 'tests', tests = ['//pkg:tests'])");
-    tester.addFile("pkg/BUILD", "test_suite(name = 'tests')", "test_suite()");
+    tester.addFile(
+        "pkg/BUILD",
+        """
+        test_suite(name = "tests")
+
+        test_suite()
+        """);
     TargetParsingException e =
         assertThrows(TargetParsingException.class, () -> tester.load("//ts:tests"));
     assertThat(e)
@@ -532,8 +597,17 @@ public final class LoadingPhaseRunnerTest {
     tester.addFile("other/BUILD", "");
     tester.addFile(
         "ts/BUILD",
-        "test_suite(name = 'a', tests = ['//other:no_such_test'])",
-        "test_suite(name = 'b', tests = [])");
+        """
+        test_suite(
+            name = "a",
+            tests = ["//other:no_such_test"],
+        )
+
+        test_suite(
+            name = "b",
+            tests = [],
+        )
+        """);
     TargetPatternPhaseValue result = tester.loadTestsKeepGoing("//ts:all");
     assertThat(result.hasError()).isTrue();
     assertThat(result.hasPostExpansionError()).isTrue();
@@ -544,10 +618,33 @@ public final class LoadingPhaseRunnerTest {
   public void testTestSuiteOverridesManualWithBuildTestsOnly() throws Exception {
     tester.addFile(
         "foo/BUILD",
-        "sh_test(name = 'foo', srcs = ['foo.sh'], tags = ['manual'])",
-        "sh_test(name = 'bar', srcs = ['bar.sh'], tags = ['manual'])",
-        "sh_test(name = 'baz', srcs = ['baz.sh'])",
-        "test_suite(name = 'foo_suite', tests = [':foo', ':baz'])");
+        """
+        load("//test_defs:foo_test.bzl", "foo_test")
+        foo_test(
+            name = "foo",
+            srcs = ["foo.sh"],
+            tags = ["manual"],
+        )
+
+        foo_test(
+            name = "bar",
+            srcs = ["bar.sh"],
+            tags = ["manual"],
+        )
+
+        foo_test(
+            name = "baz",
+            srcs = ["baz.sh"],
+        )
+
+        test_suite(
+            name = "foo_suite",
+            tests = [
+                ":baz",
+                ":foo",
+            ],
+        )
+        """);
     tester.useLoadingOptions("--build_tests_only");
     TargetPatternPhaseValue result = assertNoErrors(tester.loadTests("//foo:all"));
     assertThat(result.getTargetLabels())
@@ -565,9 +662,25 @@ public final class LoadingPhaseRunnerTest {
     AnalysisMock.get().ccSupport().setup(tester.mockToolsConfig);
     tester.addFile(
         "cc/BUILD",
-        "cc_test(name = 'my_test', srcs = ['test.cc'])",
-        "cc_test(name = 'my_other_test', srcs = ['other_test.cc'])",
-        "test_suite(name = 'tests', tests = [':my_test', ':my_other_test'])");
+        """
+        cc_test(
+            name = "my_test",
+            srcs = ["test.cc"],
+        )
+
+        cc_test(
+            name = "my_other_test",
+            srcs = ["other_test.cc"],
+        )
+
+        test_suite(
+            name = "tests",
+            tests = [
+                ":my_other_test",
+                ":my_test",
+            ],
+        )
+        """);
     TargetPatternPhaseValue result =
         assertNoErrors(tester.loadTests("//cc:tests", "-//cc:my_test"));
     assertThat(result.getTargetLabels())
@@ -582,10 +695,27 @@ public final class LoadingPhaseRunnerTest {
     AnalysisMock.get().ccSupport().setup(tester.mockToolsConfig);
     tester.addFile(
         "cc/BUILD",
-        "cc_test(name = 'my_test', srcs = ['test.cc'])",
-        "cc_test(name = 'my_other_test', srcs = ['other_test.cc'])",
-        "test_suite(name = 'tests', tests = [':my_test'])",
-        "test_suite(name = 'all_tests', tests = ['my_other_test'])");
+        """
+        cc_test(
+            name = "my_test",
+            srcs = ["test.cc"],
+        )
+
+        cc_test(
+            name = "my_other_test",
+            srcs = ["other_test.cc"],
+        )
+
+        test_suite(
+            name = "tests",
+            tests = [":my_test"],
+        )
+
+        test_suite(
+            name = "all_tests",
+            tests = ["my_other_test"],
+        )
+        """);
     TargetPatternPhaseValue result =
         assertNoErrors(tester.loadTests("//cc:all_tests", "-//cc:tests"));
     assertThat(result.getTargetLabels()).containsExactlyElementsIn(getLabels("//cc:my_other_test"));
@@ -600,9 +730,22 @@ public final class LoadingPhaseRunnerTest {
     AnalysisMock.get().ccSupport().setup(tester.mockToolsConfig);
     tester.addFile(
         "cc/BUILD",
-        "cc_test(name = 'my_test', srcs = ['test.cc'])",
-        "cc_test(name = 'my_other_test', srcs = ['other_test.cc'])",
-        "test_suite(name = 'tests', tests = [':my_test'])");
+        """
+        cc_test(
+            name = "my_test",
+            srcs = ["test.cc"],
+        )
+
+        cc_test(
+            name = "my_other_test",
+            srcs = ["other_test.cc"],
+        )
+
+        test_suite(
+            name = "tests",
+            tests = [":my_test"],
+        )
+        """);
     TargetPatternPhaseValue result = assertNoErrors(tester.loadTests("//cc:all", "-//cc:tests"));
     assertThat(result.getTargetLabels())
         .containsExactlyElementsIn(getLabels("//cc:my_test", "//cc:my_other_test"));
@@ -625,12 +768,44 @@ public final class LoadingPhaseRunnerTest {
     AnalysisMock.get().ccSupport().setup(tester.mockToolsConfig);
     tester.addFile(
         "cc/BUILD",
-        "cc_test(name = 'test1', srcs = ['test.cc'])",
-        "cc_test(name = 'test2', srcs = ['test.cc'])",
-        "test_suite(name = 'empty', tags = ['impossible'], tests = [])",
-        "test_suite(name = 'suite1', tests = ['empty', 'test1'])",
-        "test_suite(name = 'suite2', tests = ['test2'])",
-        "test_suite(name = 'all_tests', tests = ['suite1', 'suite2'])");
+        """
+        cc_test(
+            name = "test1",
+            srcs = ["test.cc"],
+        )
+
+        cc_test(
+            name = "test2",
+            srcs = ["test.cc"],
+        )
+
+        test_suite(
+            name = "empty",
+            tags = ["impossible"],
+            tests = [],
+        )
+
+        test_suite(
+            name = "suite1",
+            tests = [
+                "empty",
+                "test1",
+            ],
+        )
+
+        test_suite(
+            name = "suite2",
+            tests = ["test2"],
+        )
+
+        test_suite(
+            name = "all_tests",
+            tests = [
+                "suite1",
+                "suite2",
+            ],
+        )
+        """);
     TargetPatternPhaseValue result = assertNoErrors(tester.loadTests("//cc:all_tests"));
     assertThat(result.getTargetLabels())
         .containsExactlyElementsIn(getLabels("//cc:test1", "//cc:test2"));
@@ -641,8 +816,18 @@ public final class LoadingPhaseRunnerTest {
     AnalysisMock.get().ccSupport().setup(tester.mockToolsConfig);
     tester.addFile(
         "cc/BUILD",
-        "cc_test(name = 'my_test', srcs = ['test.cc'])",
-        "cc_test(name = 'my_other_test', srcs = ['other_test.cc'], tags = ['manual'])");
+        """
+        cc_test(
+            name = "my_test",
+            srcs = ["test.cc"],
+        )
+
+        cc_test(
+            name = "my_other_test",
+            srcs = ["other_test.cc"],
+            tags = ["manual"],
+        )
+        """);
     TargetPatternPhaseValue result = assertNoErrors(tester.loadTests("//cc:all"));
     assertThat(result.getTargetLabels()).containsExactlyElementsIn(getLabels("//cc:my_test"));
     assertThat(result.getTestsToRunLabels()).containsExactlyElementsIn(getLabels("//cc:my_test"));
@@ -652,9 +837,25 @@ public final class LoadingPhaseRunnerTest {
   public void testBuildFilterDoesNotApplyToTests() throws Exception {
     tester.addFile(
         "foo/BUILD",
-        "sh_test(name = 'foo', srcs = ['foo.sh'])",
-        "sh_library(name = 'lib', srcs = ['lib.sh'])",
-        "sh_library(name = 'nofoo', srcs = ['nofoo.sh'], tags = ['nofoo'])");
+        """
+        load('//test_defs:foo_library.bzl', 'foo_library')
+        load('//test_defs:foo_test.bzl', 'foo_test')
+        foo_test(
+            name = "foo",
+            srcs = ["foo.sh"],
+        )
+
+        foo_library(
+            name = "lib",
+            srcs = ["lib.sh"],
+        )
+
+        foo_library(
+            name = "nofoo",
+            srcs = ["nofoo.sh"],
+            tags = ["nofoo"],
+        )
+        """);
     tester.useLoadingOptions("--build_tag_filters=nofoo");
     TargetPatternPhaseValue result = assertNoErrors(tester.loadTests("//foo:all"));
     assertThat(result.getTargetLabels())
@@ -670,8 +871,17 @@ public final class LoadingPhaseRunnerTest {
     AnalysisMock.get().ccSupport().setup(tester.mockToolsConfig);
     tester.addFile(
         "cc/BUILD",
-        "cc_test(name = 'my_test', srcs = ['test.cc'])",
-        "test_suite(name = 'tests', tests = [':my_test'])");
+        """
+        cc_test(
+            name = "my_test",
+            srcs = ["test.cc"],
+        )
+
+        test_suite(
+            name = "tests",
+            tests = [":my_test"],
+        )
+        """);
     TargetPatternPhaseValue result = tester.loadTests("//cc:tests", "-//cc:my_test");
     tester.assertContainsWarning("All specified test targets were excluded by filters");
     assertThat(result.getTestsToRunLabels()).containsExactlyElementsIn(getLabels());
@@ -763,16 +973,40 @@ public final class LoadingPhaseRunnerTest {
   public void testSuiteInSuite() throws Exception {
     tester.addFile(
         "suite/BUILD",
-        "test_suite(name = 'a', tests = [':b'])",
-        "test_suite(name = 'b', tests = [':c'])",
-        "sh_test(name = 'c', srcs = ['test.cc'])");
+        """
+        load("//test_defs:foo_test.bzl", "foo_test")
+        test_suite(
+            name = "a",
+            tests = [":b"],
+        )
+
+        test_suite(
+            name = "b",
+            tests = [":c"],
+        )
+
+        foo_test(
+            name = "c",
+            srcs = ["test.cc"],
+        )
+        """);
     TargetPatternPhaseValue result = assertNoErrors(tester.load("//suite:a"));
     assertThat(result.getTargetLabels()).containsExactlyElementsIn(getLabels("//suite:c"));
   }
 
   @Test
   public void testTopLevelTargetErrorsPrintedExactlyOnce_noKeepGoing() throws Exception {
-    tester.addFile("bad/BUILD", "sh_binary(name = 'bad', srcs = ['bad.sh'])", "fail('some error')");
+    tester.addFile(
+        "bad/BUILD",
+        """
+        load('//test_defs:foo_library.bzl', 'foo_library')
+        foo_library(
+            name = "bad",
+            srcs = ["bad.sh"],
+        )
+
+        fail("some error")
+        """);
     assertThrows(TargetParsingException.class, () -> tester.load("//bad"));
     tester.assertContainsEventWithFrequency("some error", 1);
     PatternExpandingError err = tester.findPostOnce(PatternExpandingError.class);
@@ -781,7 +1015,17 @@ public final class LoadingPhaseRunnerTest {
 
   @Test
   public void testTopLevelTargetErrorsPrintedExactlyOnce_keepGoing() throws Exception {
-    tester.addFile("bad/BUILD", "sh_binary(name = 'bad', srcs = ['bad.sh'])", "fail('some error')");
+    tester.addFile(
+        "bad/BUILD",
+        """
+        load('//test_defs:foo_library.bzl', 'foo_library')
+        foo_library(
+            name = "bad",
+            srcs = ["bad.sh"],
+        )
+
+        fail("some error")
+        """);
     TargetPatternPhaseValue result = tester.loadKeepGoing("//bad");
     assertThat(result.hasError()).isTrue();
     tester.assertContainsEventWithFrequency("some error", 1);
@@ -872,10 +1116,10 @@ public final class LoadingPhaseRunnerTest {
 
     assertThat(tester.getOriginalPatternsToLabels())
         .containsExactly(
-            "test/a:all", Label.parseAbsoluteUnchecked("//test/a:a_lib"),
-            "test/b:all", Label.parseAbsoluteUnchecked("//test/b:b_lib"),
-            "test/...", Label.parseAbsoluteUnchecked("//test/a:a_lib"),
-            "test/...", Label.parseAbsoluteUnchecked("//test/b:b_lib"));
+            "test/a:all", Label.parseCanonicalUnchecked("//test/a:a_lib"),
+            "test/b:all", Label.parseCanonicalUnchecked("//test/b:b_lib"),
+            "test/...", Label.parseCanonicalUnchecked("//test/a:a_lib"),
+            "test/...", Label.parseCanonicalUnchecked("//test/b:b_lib"));
   }
 
   @Test
@@ -904,7 +1148,19 @@ public final class LoadingPhaseRunnerTest {
   @Test
   public void testSuiteExpansions_emptyIfNoTestSuitesRequested() throws Exception {
     tester.addFile(
-        "foo/BUILD", "test_suite(name = 's', tests = ['a'])", "sh_test(name = 't', srcs = [])");
+        "foo/BUILD",
+        """
+        load("//test_defs:foo_test.bzl", "foo_test")
+        test_suite(
+            name = "s",
+            tests = ["a"],
+        )
+
+        foo_test(
+            name = "t",
+            srcs = [],
+        )
+        """);
 
     tester.load("//foo:t");
 
@@ -925,9 +1181,26 @@ public final class LoadingPhaseRunnerTest {
   public void testSuiteExpansions_singleTestSuite() throws Exception {
     tester.addFile(
         "foo/BUILD",
-        "test_suite(name = 's', tests = ['t1', 't2'])",
-        "sh_test(name = 't1', srcs = [])",
-        "sh_test(name = 't2', srcs = [])");
+        """
+        load("//test_defs:foo_test.bzl", "foo_test")
+        test_suite(
+            name = "s",
+            tests = [
+                "t1",
+                "t2",
+            ],
+        )
+
+        foo_test(
+            name = "t1",
+            srcs = [],
+        )
+
+        foo_test(
+            name = "t2",
+            srcs = [],
+        )
+        """);
 
     tester.load("//foo:s");
 
@@ -945,11 +1218,36 @@ public final class LoadingPhaseRunnerTest {
   public void testSuiteExpansions_multipleTestSuites() throws Exception {
     tester.addFile(
         "foo/BUILD",
-        "test_suite(name = 's1', tests = ['t1', 't2'])",
-        "test_suite(name = 's2', tests = ['t3'])",
-        "sh_test(name = 't1', srcs = [])",
-        "sh_test(name = 't2', srcs = [])",
-        "sh_test(name = 't3', srcs = [])");
+        """
+        load("//test_defs:foo_test.bzl", "foo_test")
+        test_suite(
+            name = "s1",
+            tests = [
+                "t1",
+                "t2",
+            ],
+        )
+
+        test_suite(
+            name = "s2",
+            tests = ["t3"],
+        )
+
+        foo_test(
+            name = "t1",
+            srcs = [],
+        )
+
+        foo_test(
+            name = "t2",
+            srcs = [],
+        )
+
+        foo_test(
+            name = "t3",
+            srcs = [],
+        )
+        """);
 
     tester.load("//foo:s1", "//foo:s2");
 
@@ -971,11 +1269,39 @@ public final class LoadingPhaseRunnerTest {
   public void testSuiteExpansions_overlappingTestSuites() throws Exception {
     tester.addFile(
         "foo/BUILD",
-        "test_suite(name = 's1', tests = ['t1', 't2'])",
-        "test_suite(name = 's2', tests = ['t2', 't3'])",
-        "sh_test(name = 't1', srcs = [])",
-        "sh_test(name = 't2', srcs = [])",
-        "sh_test(name = 't3', srcs = [])");
+        """
+        load("//test_defs:foo_test.bzl", "foo_test")
+        test_suite(
+            name = "s1",
+            tests = [
+                "t1",
+                "t2",
+            ],
+        )
+
+        test_suite(
+            name = "s2",
+            tests = [
+                "t2",
+                "t3",
+            ],
+        )
+
+        foo_test(
+            name = "t1",
+            srcs = [],
+        )
+
+        foo_test(
+            name = "t2",
+            srcs = [],
+        )
+
+        foo_test(
+            name = "t3",
+            srcs = [],
+        )
+        """);
 
     tester.load("//foo:s1", "//foo:s2");
 
@@ -998,11 +1324,39 @@ public final class LoadingPhaseRunnerTest {
   public void testSuiteExpansions_nestedTestSuite() throws Exception {
     tester.addFile(
         "foo/BUILD",
-        "test_suite(name = 's1', tests = ['t1', 's2'])",
-        "test_suite(name = 's2', tests = ['t2', 't3'])",
-        "sh_test(name = 't1', srcs = [])",
-        "sh_test(name = 't2', srcs = [])",
-        "sh_test(name = 't3', srcs = [])");
+        """
+        load("//test_defs:foo_test.bzl", "foo_test")
+        test_suite(
+            name = "s1",
+            tests = [
+                "s2",
+                "t1",
+            ],
+        )
+
+        test_suite(
+            name = "s2",
+            tests = [
+                "t2",
+                "t3",
+            ],
+        )
+
+        foo_test(
+            name = "t1",
+            srcs = [],
+        )
+
+        foo_test(
+            name = "t2",
+            srcs = [],
+        )
+
+        foo_test(
+            name = "t3",
+            srcs = [],
+        )
+        """);
 
     tester.load("//foo:s1");
 
@@ -1020,7 +1374,19 @@ public final class LoadingPhaseRunnerTest {
   @Test
   public void testSuiteExpansions_includesTestMatchingNegativePattern() throws Exception {
     tester.addFile(
-        "foo/BUILD", "test_suite(name = 's', tests = ['t'])", "sh_test(name = 't', srcs = [])");
+        "foo/BUILD",
+        """
+        load("//test_defs:foo_test.bzl", "foo_test")
+        test_suite(
+            name = "s",
+            tests = ["t"],
+        )
+
+        foo_test(
+            name = "t",
+            srcs = [],
+        )
+        """);
 
     tester.load("//foo:s", "-//foo:t");
 
@@ -1036,9 +1402,23 @@ public final class LoadingPhaseRunnerTest {
   public void testSuiteExpansions_presentWhenSuiteMatchesWildcard() throws Exception {
     tester.addFile(
         "foo/BUILD",
-        "test_suite(name = 's', tests = ['t1'])",
-        "sh_test(name = 't1', srcs = [])",
-        "sh_test(name = 't2', srcs = [])");
+        """
+        load("//test_defs:foo_test.bzl", "foo_test")
+        test_suite(
+            name = "s",
+            tests = ["t1"],
+        )
+
+        foo_test(
+            name = "t1",
+            srcs = [],
+        )
+
+        foo_test(
+            name = "t2",
+            srcs = [],
+        )
+        """);
 
     tester.load("//foo:all");
 
@@ -1054,9 +1434,23 @@ public final class LoadingPhaseRunnerTest {
   public void testSuiteExpansions_excludesSuiteMatchingNegativePatten() throws Exception {
     tester.addFile(
         "foo/BUILD",
-        "test_suite(name = 's', tests = ['t1'])",
-        "sh_test(name = 't1', srcs = [])",
-        "sh_test(name = 't2', srcs = [])");
+        """
+        load("//test_defs:foo_test.bzl", "foo_test")
+        test_suite(
+            name = "s",
+            tests = ["t1"],
+        )
+
+        foo_test(
+            name = "t1",
+            srcs = [],
+        )
+
+        foo_test(
+            name = "t2",
+            srcs = [],
+        )
+        """);
 
     tester.load("//foo:all", "-//foo:s");
 
@@ -1065,7 +1459,10 @@ public final class LoadingPhaseRunnerTest {
 
   @Test
   public void testWildcard() throws Exception {
-    tester.addFile("foo/lib/BUILD", "sh_library(name = 'lib2', srcs = ['foo.cc'])");
+    tester.addFile(
+        "foo/lib/BUILD",
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
+        "foo_library(name = 'lib2', srcs = ['foo.cc'])");
     TargetPatternPhaseValue value = assertNoErrors(tester.load("//foo/lib:all-targets"));
     assertThat(value.getTargetLabels())
         .containsExactlyElementsIn(
@@ -1081,10 +1478,15 @@ public final class LoadingPhaseRunnerTest {
   public void testWildcardConflict() throws Exception {
     tester.addFile(
         "foo/lib/BUILD",
-        "cc_library(name = 'lib1')",
-        "cc_library(name = 'lib2')",
-        "cc_library(name = 'all-targets')",
-        "cc_library(name = 'all')");
+        """
+        cc_library(name = "lib1")
+
+        cc_library(name = "lib2")
+
+        cc_library(name = "all-targets")
+
+        cc_library(name = "all")
+        """);
 
     assertWildcardConflict("//foo/lib:all", ":all");
     assertWildcardConflict("//foo/lib:all-targets", ":all-targets");
@@ -1140,8 +1542,7 @@ public final class LoadingPhaseRunnerTest {
   public void testPatternWithSingleSlashIsError() {
     expectError(
         "/single/slash",
-        "not a valid absolute pattern (absolute target patterns must start with exactly "
-            + "two slashes): '/single/slash'");
+        "invalid target name '/single/slash': target names may not start with '/'");
   }
 
   @Test
@@ -1149,28 +1550,26 @@ public final class LoadingPhaseRunnerTest {
     tester.setRelativeWorkingDirectory("base");
     expectError(
         "/single/slash",
-        "not a valid absolute pattern (absolute target patterns must start with exactly "
-            + "two slashes): '/single/slash'");
+        "invalid target name '/single/slash': target names may not start with '/'");
   }
 
   @Test
   public void testPatternWithTripleSlashIsError() {
     expectError(
         "///triple/slash",
-        "not a valid absolute pattern (absolute target patterns must start with exactly "
-            + "two slashes): '///triple/slash'");
+        "invalid package name '/triple/slash': package names may not start with '/'");
   }
 
   @Test
   public void testPatternEndingWithSingleSlashIsError() {
-    expectError("foo/", "The package part of 'foo/' should not end in a slash");
+    expectError("foo/", "invalid target name 'foo/': target names may not end with '/'");
   }
 
   @Test
   public void testPatternStartingWithDotDotSlash() {
     expectError(
         "../foo",
-        "Bad target pattern '../foo': package name component contains only '.' characters");
+        "invalid target name '../foo': target names may not contain up-level references '..'");
   }
 
   private void runTestPackageLoadingError(boolean keepGoing, String... patterns) throws Exception {
@@ -1220,20 +1619,29 @@ public final class LoadingPhaseRunnerTest {
 
   @Test
   public void testPackageLoadingError_keepGoing_someGoodTargetsBeneathDirectory() throws Exception {
-    tester.addFile("good/BUILD", "sh_library(name = 't')\n");
-    runTestPackageLoadingError(/*keepGoing=*/ true, "//...");
+    tester.addFile(
+        "good/BUILD",
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
+        "foo_library(name = 't')\n");
+    runTestPackageLoadingError(/* keepGoing= */ true, "//...");
   }
 
   @Test
   public void testPackageLoadingError_noKeepGoing_someGoodTargetsBeneathDirectory()
       throws Exception {
-    tester.addFile("good/BUILD", "sh_library(name = 't')\n");
-    runTestPackageLoadingError(/*keepGoing=*/ false, "//...");
+    tester.addFile(
+        "good/BUILD",
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
+        "foo_library(name = 't')\n");
+    runTestPackageLoadingError(/* keepGoing= */ false, "//...");
   }
 
   private void runTestPackageFileInconsistencyError(boolean keepGoing, String... patterns)
       throws Exception {
-    tester.addFile("bad/BUILD", "sh_library(name = 't')\n");
+    tester.addFile(
+        "bad/BUILD",
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
+        "foo_library(name = 't')\n");
     IOException ioExn = new IOException("nope");
     tester.throwExceptionOnGetInputStream(tester.getWorkspace().getRelative("bad/BUILD"), ioExn);
     if (keepGoing) {
@@ -1284,28 +1692,37 @@ public final class LoadingPhaseRunnerTest {
   @Test
   public void testPackageFileInconsistencyError_keepGoing_someGoodTargetsBeneathDirectory()
       throws Exception {
-    tester.addFile("good/BUILD", "sh_library(name = 't')\n");
+    tester.addFile(
+        "good/BUILD",
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
+        "foo_library(name = 't')\n");
     runTestPackageFileInconsistencyError(true, "//...");
   }
 
   @Test
   public void testPackageFileInconsistencyError_noKeepGoing_someGoodTargetsBeneathDirectory()
       throws Exception {
-    tester.addFile("good/BUILD", "sh_library(name = 't')\n");
+    tester.addFile(
+        "good/BUILD",
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
+        "foo_library(name = 't')\n");
     runTestPackageFileInconsistencyError(false, "//...");
   }
 
-  private void runTestExtensionLoadingError(boolean keepGoing, String... patterns)
+  @Test
+  public void extensionLoadingError(
+      @TestParameter boolean keepGoing,
+      @TestParameter({"//bad:BUILD", "//bad:all", "//bad/...", "//..."}) String pattern)
       throws Exception {
     tester.addFile("bad/f1.bzl", "nope");
     tester.addFile("bad/BUILD", "load(\":f1.bzl\", \"not_a_symbol\")");
     if (keepGoing) {
-      TargetPatternPhaseValue value = tester.loadKeepGoing(patterns);
+      TargetPatternPhaseValue value = tester.loadKeepGoing(pattern);
       assertThat(value.hasError()).isTrue();
       tester.assertContainsWarning("Target pattern parsing failed");
     } else {
       TargetParsingException exn =
-          assertThrows(TargetParsingException.class, () -> tester.load(patterns));
+          assertThrows(TargetParsingException.class, () -> tester.load(pattern));
       assertThat(exn).hasCauseThat().isInstanceOf(BuildFileContainsErrorsException.class);
       assertThat(exn)
           .hasCauseThat()
@@ -1317,50 +1734,6 @@ public final class LoadingPhaseRunnerTest {
           .isEqualTo(PackageLoading.Code.IMPORT_STARLARK_FILE_ERROR);
     }
     tester.assertContainsError("/workspace/bad/f1.bzl:1:1: name 'nope' is not defined");
-  }
-
-  @Test
-  public void testExtensionLoadingError_keepGoing_explicitTarget() throws Exception {
-    runTestExtensionLoadingError(/*keepGoing=*/ true, "//bad:BUILD");
-  }
-
-  @Test
-  public void testExtensionLoadingError_noKeepGoing_explicitTarget() throws Exception {
-    runTestExtensionLoadingError(/*keepGoing=*/ false, "//bad:BUILD");
-  }
-
-  @Test
-  public void testExtensionLoadingError_keepGoing_targetsInPackage() throws Exception {
-    runTestExtensionLoadingError(/*keepGoing=*/ true, "//bad:all");
-  }
-
-  @Test
-  public void testExtensionLoadingError_noKeepGoing_targetsInPackage() throws Exception {
-    runTestExtensionLoadingError(/*keepGoing=*/ false, "//bad:all");
-  }
-
-  @Test
-  public void testExtensionLoadingError_keepGoing_targetsBeneathDirectory() throws Exception {
-    runTestExtensionLoadingError(/*keepGoing=*/ true, "//bad/...");
-  }
-
-  @Test
-  public void testExtensionLoadingError_noKeepGoing_targetsBeneathDirectory() throws Exception {
-    runTestExtensionLoadingError(/*keepGoing=*/ false, "//bad/...");
-  }
-
-  @Test
-  public void testExtensionLoadingError_keepGoing_someGoodTargetsBeneathDirectory()
-      throws Exception {
-    tester.addFile("good/BUILD", "sh_library(name = 't')\n");
-    runTestExtensionLoadingError(/*keepGoing=*/ true, "//...");
-  }
-
-  @Test
-  public void testExtensionLoadingError_noKeepGoing_someGoodTargetsBeneathDirectory()
-      throws Exception {
-    tester.addFile("good/BUILD", "sh_library(name = 't')\n");
-    runTestExtensionLoadingError(/*keepGoing=*/ false, "//...");
   }
 
   private static final class LoadingPhaseTester {
@@ -1381,11 +1754,11 @@ public final class LoadingPhaseRunnerTest {
 
     private final MockToolsConfig mockToolsConfig;
 
-    LoadingPhaseTester() throws IOException {
+    LoadingPhaseTester() throws IOException, OptionsParsingException {
       this.workspace = fs.getPath("/workspace");
       workspace.createDirectory();
       mockToolsConfig = new MockToolsConfig(workspace);
-      AnalysisMock analysisMock = AnalysisMock.get();
+      AnalysisMock analysisMock = AnalysisMock.getAnalysisMockWithoutBuiltinModules();
       analysisMock.setupMockClient(mockToolsConfig);
       BlazeDirectories directories =
           new BlazeDirectories(
@@ -1408,6 +1781,7 @@ public final class LoadingPhaseRunnerTest {
               .setDirectories(directories)
               .setActionKeyContext(new ActionKeyContext())
               .setExtraSkyFunctions(analysisMock.getSkyFunctions(directories))
+              .setSyscallCache(SyscallCache.NO_CACHE)
               .build();
       SkyframeExecutorTestHelper.process(skyframeExecutor);
       PathPackageLocator pkgLocator =
@@ -1419,23 +1793,28 @@ public final class LoadingPhaseRunnerTest {
               workspace,
               BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY);
       PackageOptions packageOptions = Options.getDefaults(PackageOptions.class);
-      packageOptions.defaultVisibility = ConstantRuleVisibility.PRIVATE;
+      packageOptions.defaultVisibility = RuleVisibility.PRIVATE;
       packageOptions.showLoadingProgress = true;
       packageOptions.globbingThreads = 7;
-      skyframeExecutor.injectExtraPrecomputedValues(
-          ImmutableList.of(
-              PrecomputedValue.injected(
-                  RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE, Optional.empty()),
-              PrecomputedValue.injected(RepositoryDelegatorFunction.ENABLE_BZLMOD, false)));
+      skyframeExecutor.injectExtraPrecomputedValues(analysisMock.getPrecomputedValues());
       skyframeExecutor.preparePackageLoading(
           pkgLocator,
           packageOptions,
-          Options.getDefaults(BuildLanguageOptions.class),
+          defaultBuildLanguageOptions(),
           UUID.randomUUID(),
           ImmutableMap.of(),
+          QuiescingExecutorsImpl.forTesting(),
           new TimestampGranularityMonitor(clock));
       skyframeExecutor.setActionEnv(ImmutableMap.of());
       this.options = Options.getDefaults(LoadingOptions.class);
+    }
+
+    private static BuildLanguageOptions defaultBuildLanguageOptions()
+        throws OptionsParsingException {
+      OptionsParser parser =
+          OptionsParser.builder().optionsClasses(BuildLanguageOptions.class).build();
+      parser.parse(TestConstants.PRODUCT_SPECIFIC_BUILD_LANG_OPTIONS);
+      return parser.getOptions(BuildLanguageOptions.class);
     }
 
     void useLoadingOptions(String... options) throws OptionsParsingException {
@@ -1531,7 +1910,7 @@ public final class LoadingPhaseRunnerTest {
     public Target getTarget(String targetName) throws Exception {
       StoredEventHandler eventHandler = new StoredEventHandler();
       Target target =
-          getPkgManager().getTarget(eventHandler, Label.parseAbsoluteUnchecked(targetName));
+          getPkgManager().getTarget(eventHandler, Label.parseCanonicalUnchecked(targetName));
       assertThat(eventHandler.hasErrors()).isFalse();
       return target;
     }

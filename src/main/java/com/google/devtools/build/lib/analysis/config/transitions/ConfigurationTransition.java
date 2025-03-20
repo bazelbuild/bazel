@@ -80,17 +80,11 @@ public interface ConfigurationTransition {
    * with a limited access constructor, keeping it as an interface supports defining transitions
    * with lambdas.
    *
-   * <p>If you're considering adding a new override, contact bazel-dev@googlegroups.com to discuss.
+   * <p>If you're considering adding a new override, contact bazel-discuss@googlegroups.com to
+   * discuss.
    */
   @SuppressWarnings("unused")
   String reasonForOverride();
-
-  /**
-   * Does this transition switch to a "host" configuration?
-   */
-  default boolean isHostTransition() {
-    return false;
-  }
 
   default String getName() {
     return this.getClass().getSimpleName();

@@ -50,6 +50,8 @@ final class Lexer {
 
   private final List<SyntaxError> errors;
 
+  private final FileOptions options;
+
   // Input buffer and position
   private final char[] buffer;
   private int pos;
@@ -87,15 +89,16 @@ final class Lexer {
           .put('^', TokenKind.CARET_EQUALS)
           .put('&', TokenKind.AMPERSAND_EQUALS)
           .put('|', TokenKind.PIPE_EQUALS)
-          .build();
+          .buildOrThrow();
 
   // Constructs a lexer which tokenizes the parser input.
   // Errors are appended to errors.
-  Lexer(ParserInput input, List<SyntaxError> errors) {
+  Lexer(ParserInput input, List<SyntaxError> errors, FileOptions options) {
     this.locs = FileLocations.create(input.getContent(), input.getFile());
     this.buffer = input.getContent();
     this.pos = 0;
     this.errors = errors;
+    this.options = options;
     this.checkIndentation = true;
     this.dents = 0;
 
@@ -304,6 +307,15 @@ final class Lexer {
             case '\n':
               // ignore end of line character
               break;
+            case 'a':
+              literal.append('\u0007');
+              break;
+            case 'b':
+              literal.append('\b');
+              break;
+            case 'f':
+              literal.append('\f');
+              break;
             case 'n':
               literal.append('\n');
               break;
@@ -312,6 +324,9 @@ final class Lexer {
               break;
             case 't':
               literal.append('\t');
+              break;
+            case 'v':
+              literal.append('\u000b');
               break;
             case '\\':
               literal.append('\\');
@@ -348,17 +363,15 @@ final class Lexer {
                 }
                 if (octal > 0xff) {
                   error("octal escape sequence out of range (maximum is \\377)", pos - 1);
+                } else if (options.stringLiteralsAreAsciiOnly() && octal >= 0x80) {
+                  error("octal escape sequence denotes non-ASCII character", pos - 1);
                 }
                 literal.append((char) (octal & 0xff));
                 break;
               }
-            case 'a':
-            case 'b':
-            case 'f':
             case 'N':
             case 'u':
             case 'U':
-            case 'v':
             default:
               // unknown char escape => "\literal"
               error("invalid escape sequence: \\" + c + ". Use '\\\\' to insert '\\'.", pos - 1);
@@ -381,6 +394,9 @@ final class Lexer {
           break;
         default:
           literal.append(c);
+          if (options.stringLiteralsAreAsciiOnly() && c >= 0x80) {
+            error("string literal contains non-ASCII character", pos - 1);
+          }
           break;
       }
     }
@@ -442,6 +458,15 @@ final class Lexer {
             // close-quote, all done.
             setToken(TokenKind.STRING, literalStartPos, pos);
             setValue(bufferSlice(contentStartPos, pos - 1));
+            // If we're requiring ASCII-only, do another scan for validation.
+            if (options.stringLiteralsAreAsciiOnly()) {
+              for (int i = contentStartPos; i < pos - 1; i++) {
+                if (buffer[i] >= 0x80) {
+                  // Can report multiple errors per string literal.
+                  error("string literal contains non-ASCII character", i);
+                }
+              }
+            }
             return;
           }
           break;
@@ -668,7 +693,12 @@ final class Lexer {
           setToken(TokenKind.PLUS, pos - 1, pos);
           break;
         case '-':
-          setToken(TokenKind.MINUS, pos - 1, pos);
+          if (peek(0) == '>') {
+            setToken(TokenKind.RARROW, pos - 1, pos + 1);
+            pos += 1;
+          } else {
+            setToken(TokenKind.MINUS, pos - 1, pos);
+          }
           break;
         case '|':
           setToken(TokenKind.PIPE, pos - 1, pos);

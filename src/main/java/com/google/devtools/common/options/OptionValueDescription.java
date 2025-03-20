@@ -37,9 +37,12 @@ import javax.annotation.Nullable;
 public abstract class OptionValueDescription {
 
   protected final OptionDefinition optionDefinition;
+  @Nullable protected final Object conversionContext;
 
-  public OptionValueDescription(OptionDefinition optionDefinition) {
+  public OptionValueDescription(
+      OptionDefinition optionDefinition, @Nullable Object conversionContext) {
     this.optionDefinition = optionDefinition;
+    this.conversionContext = conversionContext;
   }
 
   public OptionDefinition getOptionDefinition() {
@@ -48,6 +51,8 @@ public abstract class OptionValueDescription {
 
   /** Returns the current or final value of this option. */
   public abstract Object getValue();
+
+  public abstract boolean containsErrors();
 
   /** Returns the source(s) of this option, if there were multiple, duplicates are removed. */
   public abstract String getSourceString();
@@ -94,15 +99,15 @@ public abstract class OptionValueDescription {
    * OptionProcessor at compile time.
    */
   public static OptionValueDescription createOptionValueDescription(
-      OptionDefinition option, OptionsData optionsData) {
+      OptionDefinition option, OptionsData optionsData, @Nullable Object conversionContext) {
     if (option.isExpansionOption()) {
-      return new ExpansionOptionValueDescription(option, optionsData);
+      return new ExpansionOptionValueDescription(option, optionsData, conversionContext);
     } else if (option.allowsMultiple()) {
-      return new RepeatableOptionValueDescription(option);
+      return new RepeatableOptionValueDescription(option, conversionContext);
     } else if (option.hasImplicitRequirements()) {
-      return new OptionWithImplicitRequirementsValueDescription(option);
+      return new OptionWithImplicitRequirementsValueDescription(option, conversionContext);
     } else {
-      return new SingleOptionValueDescription(option);
+      return new SingleOptionValueDescription(option, conversionContext);
     }
   }
 
@@ -110,19 +115,26 @@ public abstract class OptionValueDescription {
    * For options that have not been set, this will return a correct OptionValueDescription for the
    * default value.
    */
-  public static OptionValueDescription getDefaultOptionValue(OptionDefinition option) {
-    return new DefaultOptionValueDescription(option);
+  public static OptionValueDescription getDefaultOptionValue(
+      OptionDefinition option, @Nullable Object conversionContext) {
+    return new DefaultOptionValueDescription(option, conversionContext);
   }
 
   private static class DefaultOptionValueDescription extends OptionValueDescription {
 
-    private DefaultOptionValueDescription(OptionDefinition optionDefinition) {
-      super(optionDefinition);
+    private DefaultOptionValueDescription(
+        OptionDefinition optionDefinition, @Nullable Object conversionContext) {
+      super(optionDefinition, conversionContext);
     }
 
     @Override
     public Object getValue() {
-      return optionDefinition.getDefaultValue();
+      return optionDefinition.getDefaultValue(conversionContext);
+    }
+
+    @Override
+    public boolean containsErrors() {
+      return false;
     }
 
     @Override
@@ -150,9 +162,11 @@ public abstract class OptionValueDescription {
   private static class SingleOptionValueDescription extends OptionValueDescription {
     private ParsedOptionDescription effectiveOptionInstance;
     private Object effectiveValue;
+    private boolean containsErrors;
 
-    private SingleOptionValueDescription(OptionDefinition optionDefinition) {
-      super(optionDefinition);
+    private SingleOptionValueDescription(
+        OptionDefinition optionDefinition, @Nullable Object conversionContext) {
+      super(optionDefinition, conversionContext);
       if (optionDefinition.allowsMultiple()) {
         throw new ConstructionException("Can't have a single value for an allowMultiple option.");
       }
@@ -161,6 +175,7 @@ public abstract class OptionValueDescription {
       }
       effectiveOptionInstance = null;
       effectiveValue = null;
+      containsErrors = false;
     }
 
     @Override
@@ -169,18 +184,34 @@ public abstract class OptionValueDescription {
     }
 
     @Override
+    public boolean containsErrors() {
+      return containsErrors;
+    }
+
+    @Override
     public String getSourceString() {
       return effectiveOptionInstance.getSource();
     }
 
+    private Object convertValue(ParsedOptionDescription parsedOption)
+        throws OptionsParsingException {
+      try {
+        return parsedOption.getConvertedValue();
+      } catch (OptionsParsingException e) {
+        containsErrors = true;
+        throw e;
+      }
+    }
+
     // Warnings should not end with a '.' because the internal reporter adds one automatically.
+    @Nullable
     @Override
     ExpansionBundle addOptionInstance(ParsedOptionDescription parsedOption, Set<String> warnings)
         throws OptionsParsingException {
       // This might be the first value, in that case, just store it!
       if (effectiveOptionInstance == null) {
         effectiveOptionInstance = parsedOption;
-        effectiveValue = effectiveOptionInstance.getConvertedValue();
+        effectiveValue = convertValue(parsedOption);
         return null;
       }
 
@@ -195,7 +226,7 @@ public abstract class OptionValueDescription {
         ParsedOptionDescription optionThatExpandedToEffectiveValue =
             effectiveOptionInstance.getExpandedFrom();
 
-        Object newValue = parsedOption.getConvertedValue();
+        Object newValue = convertValue(parsedOption);
         // Output warnings if there is conflicting options set different values in a way that might
         // not have been obvious to the user, such as through expansions and implicit requirements.
         if (effectiveValue != null && !effectiveValue.equals(newValue)) {
@@ -236,10 +267,16 @@ public abstract class OptionValueDescription {
                     expandedFrom,
                     effectiveOptionInstance.getCommandLineForm(),
                     parsedOption.getCommandLineForm()));
-          } else if ((optionThatExpandedToEffectiveValue != null) && (expandedFrom != null)) {
+          } else if ((optionThatExpandedToEffectiveValue != null)
+              && (expandedFrom != null)
+              && !(samePriorityCategory
+                  && parsedOption
+                      .getPriority()
+                      .getPriorityCategory()
+                      .equals(PriorityCategory.RC_FILE))) {
             warnings.add(
                 String.format(
-                    "%s was expanded to from both %s and %s",
+                    "%s was expanded from both %s and %s",
                     optionDefinition, optionThatExpandedToEffectiveValue, expandedFrom));
           }
         }
@@ -264,17 +301,20 @@ public abstract class OptionValueDescription {
 
   /** The form of a value for an option that accumulates multiple values on the command line. */
   private static class RepeatableOptionValueDescription extends OptionValueDescription {
-    ListMultimap<OptionPriority, ParsedOptionDescription> parsedOptions;
-    ListMultimap<OptionPriority, Object> optionValues;
+    private final ListMultimap<OptionPriority, ParsedOptionDescription> parsedOptions;
+    private final ListMultimap<OptionPriority, Object> optionValues;
+    private boolean containsErrors;
 
-    private RepeatableOptionValueDescription(OptionDefinition optionDefinition) {
-      super(optionDefinition);
+    private RepeatableOptionValueDescription(
+        OptionDefinition optionDefinition, @Nullable Object conversionContext) {
+      super(optionDefinition, conversionContext);
       if (!optionDefinition.allowsMultiple()) {
         throw new ConstructionException(
             "Can't have a repeated value for a non-allowMultiple option.");
       }
       parsedOptions = ArrayListMultimap.create();
       optionValues = ArrayListMultimap.create();
+      containsErrors = false;
     }
 
     @Override
@@ -300,11 +340,25 @@ public abstract class OptionValueDescription {
     }
 
     @Override
+    public boolean containsErrors() {
+      return containsErrors;
+    }
+
+    @Nullable
+    @Override
     ExpansionBundle addOptionInstance(ParsedOptionDescription parsedOption, Set<String> warnings)
         throws OptionsParsingException {
       // For repeatable options, we allow flags that take both single values and multiple values,
       // potentially collapsing them down.
-      Object convertedValue = parsedOption.getConvertedValue();
+      Object convertedValue;
+
+      try {
+        convertedValue = parsedOption.getConvertedValue();
+      } catch (OptionsParsingException e) {
+        containsErrors = true;
+        throw e;
+      }
+
       OptionPriority priority = parsedOption.getPriority();
       parsedOptions.put(priority, parsedOption);
       if (convertedValue instanceof List<?>) {
@@ -336,8 +390,10 @@ public abstract class OptionValueDescription {
     private final List<String> expansion;
 
     private ExpansionOptionValueDescription(
-        OptionDefinition optionDefinition, OptionsData optionsData) {
-      super(optionDefinition);
+        OptionDefinition optionDefinition,
+        OptionsData optionsData,
+        @Nullable Object conversionContext) {
+      super(optionDefinition, conversionContext);
       this.expansion = optionsData.getEvaluatedExpansion(optionDefinition);
       if (!optionDefinition.isExpansionOption()) {
         throw new ConstructionException(
@@ -348,6 +404,11 @@ public abstract class OptionValueDescription {
     @Override
     public Object getValue() {
       return null;
+    }
+
+    @Override
+    public boolean containsErrors() {
+      return false;
     }
 
     @Override
@@ -386,8 +447,9 @@ public abstract class OptionValueDescription {
   private static class OptionWithImplicitRequirementsValueDescription
       extends SingleOptionValueDescription {
 
-    private OptionWithImplicitRequirementsValueDescription(OptionDefinition optionDefinition) {
-      super(optionDefinition);
+    private OptionWithImplicitRequirementsValueDescription(
+        OptionDefinition optionDefinition, @Nullable Object conversionContext) {
+      super(optionDefinition, conversionContext);
       if (!optionDefinition.hasImplicitRequirements()) {
         throw new ConstructionException(
             "Options without implicit requirements can't be tracked using "
@@ -404,7 +466,9 @@ public abstract class OptionValueDescription {
       ExpansionBundle superExpansion = super.addOptionInstance(parsedOption, warnings);
       Preconditions.checkArgument(
           superExpansion == null, "SingleOptionValueDescription should not expand to anything.");
-      if (parsedOption.getConvertedValue().equals(optionDefinition.getDefaultValue())) {
+      if (parsedOption
+          .getConvertedValue()
+          .equals(optionDefinition.getDefaultValue(conversionContext))) {
         warnings.add(
             String.format(
                 "%s sets %s to its default value. Since this option has implicit requirements that "
@@ -427,5 +491,3 @@ public abstract class OptionValueDescription {
     }
   }
 }
-
-

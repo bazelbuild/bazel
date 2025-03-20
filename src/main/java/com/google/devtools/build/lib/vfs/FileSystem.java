@@ -15,6 +15,7 @@
 
 package com.google.devtools.build.lib.vfs;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.base.Preconditions;
@@ -22,21 +23,27 @@ import com.google.common.collect.Lists;
 import com.google.common.io.ByteSource;
 import com.google.common.io.CharStreams;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
-import java.nio.channels.ReadableByteChannel;
 import java.nio.channels.SeekableByteChannel;
 import java.nio.file.FileAlreadyExistsException;
+import java.security.SecureRandom;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
+import javax.annotation.Nullable;
 
 /** This interface models a file system. */
 @ThreadSafe
 public abstract class FileSystem {
+
+  // The maximum number of symbolic links that may be traversed by resolveSymbolicLinks() while
+  // canonicalizing a path before it gives up and throws a FileSymlinkLoopException.
+  public static final int MAX_SYMLINKS = 32;
 
   private final DigestHashFunction digestFunction;
 
@@ -48,10 +55,8 @@ public abstract class FileSystem {
     return digestFunction;
   }
 
-  /**
-   * An exception thrown when attempting to resolve an ordinary file as a symlink.
-   */
-  protected static final class NotASymlinkException extends IOException {
+  /** An exception thrown when attempting to resolve an ordinary file as a symlink. */
+  public static final class NotASymlinkException extends IOException {
     public NotASymlinkException(PathFragment path) {
       super(path.getPathString() + " is not a symlink");
     }
@@ -128,7 +133,7 @@ public abstract class FileSystem {
    * this method returns {@code false}. The implementation can try to emulate these calls at its own
    * discretion.
    */
-  protected abstract boolean supportsHardLinksNatively(PathFragment path);
+  public abstract boolean supportsHardLinksNatively(PathFragment path);
 
   /***
    * Returns true if file path is case-sensitive on this file system. Default is true.
@@ -185,7 +190,19 @@ public abstract class FileSystem {
    * <p>This method is not atomic -- concurrent modifications for the same path will result in
    * undefined behavior.
    */
-  protected abstract boolean createWritableDirectory(PathFragment path) throws IOException;
+  protected boolean createWritableDirectory(PathFragment path) throws IOException {
+    FileStatus stat = statNullable(path, /* followSymlinks= */ false);
+    if (stat == null) {
+      return createDirectory(path);
+    }
+
+    if (!stat.isDirectory()) {
+      throw new IOException(path + " (Not a directory)");
+    }
+
+    chmod(path, 0777);
+    return false;
+  }
 
   /**
    * Creates all directories up to the path. See {@link Path#createDirectoryAndParents} for
@@ -319,6 +336,7 @@ public abstract class FileSystem {
    * filesystem doesn't support them. This digest should be suitable for detecting changes to the
    * file.
    */
+  @Nullable
   protected byte[] getFastDigest(PathFragment path) throws IOException {
     return null;
   }
@@ -341,15 +359,9 @@ public abstract class FileSystem {
   }
 
   /**
-   * Returns true if "path" denotes an existing symbolic link. See {@link Path#isSymbolicLink} for
-   * specification.
-   */
-  protected abstract boolean isSymbolicLink(PathFragment path);
-
-  /**
    * Appends a single regular path segment 'child' to 'dir', recursively resolving symbolic links in
    * 'child'. 'dir' must be canonical. 'maxLinks' is the maximum number of symbolic links that may
-   * be traversed before it gives up (the Linux kernel uses 32).
+   * be traversed before it gives up.
    *
    * <p>(This method does not need to be synchronized; but the result may be stale in the case of
    * concurrent modification.)
@@ -400,6 +412,7 @@ public abstract class FileSystem {
    *     symlink
    * @throws IOException if the file did not exist, or a parent directory could not be searched
    */
+  @Nullable
   protected PathFragment resolveOneLink(PathFragment path) throws IOException {
     try {
       return readSymbolicLink(path);
@@ -420,91 +433,24 @@ public abstract class FileSystem {
   }
 
   /**
-   * Returns the canonical path for the given path. See {@link Path#resolveSymbolicLinks} for
-   * specification.
+   * Returns the canonical path for the given path, which must be absolute. See {@link
+   * Path#resolveSymbolicLinks} for specification.
    */
   protected Path resolveSymbolicLinks(PathFragment path) throws IOException {
+    checkArgument(path.isAbsolute());
     PathFragment parentNode = path.getParentDirectory();
     return parentNode == null
         ? getPath(path) // (root)
         : getPath(
-            appendSegment(resolveSymbolicLinks(parentNode).asFragment(), path.getBaseName(), 32));
+            appendSegment(
+                resolveSymbolicLinks(parentNode).asFragment(), path.getBaseName(), MAX_SYMLINKS));
   }
 
-  /**
-   * Returns the status of a file. See {@link Path#stat(Symlinks)} for specification.
-   *
-   * <p>The default implementation of this method is a "lazy" one, based on other accessor methods
-   * such as {@link #isFile}, etc. Subclasses may provide more efficient specializations. However,
-   * we still try to follow Unix-like semantics of failing fast in case of non-existent files (or in
-   * case of permission issues).
-   */
-  protected FileStatus stat(PathFragment path, boolean followSymlinks) throws IOException {
-    FileStatus status = new FileStatus() {
-      volatile Boolean isFile;
-      volatile Boolean isDirectory;
-      volatile Boolean isSymbolicLink;
-      volatile Boolean isSpecial;
-      volatile long size = -1;
-      volatile long mtime = -1;
-
-      @Override
-      public boolean isFile() {
-        if (isFile == null) { isFile = FileSystem.this.isFile(path, followSymlinks); }
-        return isFile;
-      }
-
-      @Override
-      public boolean isDirectory() {
-        if (isDirectory == null) {
-          isDirectory = FileSystem.this.isDirectory(path, followSymlinks);
-        }
-        return isDirectory;
-      }
-
-      @Override
-      public boolean isSymbolicLink() {
-        if (isSymbolicLink == null)  { isSymbolicLink = FileSystem.this.isSymbolicLink(path); }
-        return isSymbolicLink;
-      }
-
-      @Override
-      public boolean isSpecialFile() {
-        if (isSpecial == null)  { isSpecial = FileSystem.this.isSpecialFile(path, followSymlinks); }
-        return isSpecial;
-      }
-
-      @Override
-      public long getSize() throws IOException {
-        if (size == -1) { size = getFileSize(path, followSymlinks); }
-        return size;
-      }
-
-      @Override
-      public long getLastModifiedTime() throws IOException {
-        if (mtime == -1) { mtime = FileSystem.this.getLastModifiedTime(path, followSymlinks); }
-        return mtime;
-      }
-
-      @Override
-      public long getLastChangeTime() {
-        throw new UnsupportedOperationException();
-      }
-
-      @Override
-      public long getNodeId() {
-        throw new UnsupportedOperationException();
-      }
-    };
-
-    // Fail fast in case if some operations will actually fail, since stat() call sometimes used
-    // to verify file existence as well. We will use getLastModifiedTime() method for that purpose.
-    status.getLastModifiedTime();
-
-    return status;
-  }
+  /** Returns the status of a file. See {@link Path#stat(Symlinks)} for specification. */
+  protected abstract FileStatus stat(PathFragment path, boolean followSymlinks) throws IOException;
 
   /** Like stat(), but returns null on failures instead of throwing. */
+  @Nullable
   protected FileStatus statNullable(PathFragment path, boolean followSymlinks) {
     try {
       return stat(path, followSymlinks);
@@ -519,6 +465,7 @@ public abstract class FileSystem {
    * implementation does <i>not</i> successfully catch {@code ENOTDIR} exceptions. If the
    * instantiated filesystem can catch such errors, it should override this method to do so.
    */
+  @Nullable
   protected FileStatus statIfFound(PathFragment path, boolean followSymlinks) throws IOException {
     try {
       return stat(path, followSymlinks);
@@ -528,22 +475,40 @@ public abstract class FileSystem {
   }
 
   /**
-   * Returns true iff {@code path} denotes an existing directory. See {@link
-   * Path#isDirectory(Symlinks)} for specification.
-   */
-  protected abstract boolean isDirectory(PathFragment path, boolean followSymlinks);
-
-  /**
    * Returns true iff {@code path} denotes an existing regular or special file. See {@link
    * Path#isFile(Symlinks)} for specification.
    */
-  protected abstract boolean isFile(PathFragment path, boolean followSymlinks);
+  protected boolean isFile(PathFragment path, boolean followSymlinks) {
+    FileStatus stat = statNullable(path, followSymlinks);
+    return stat != null && stat.isFile();
+  }
 
   /**
-   * Returns true iff {@code path} denotes a special file. See {@link Path#isSpecialFile(Symlinks)}
-   * for specification.
+   * Returns true iff {@code path} denotes an existing special file. See {@link
+   * Path#isSpecialFile(Symlinks)} for specification.
    */
-  protected abstract boolean isSpecialFile(PathFragment path, boolean followSymlinks);
+  protected boolean isSpecialFile(PathFragment path, boolean followSymlinks) {
+    FileStatus stat = statNullable(path, followSymlinks);
+    return stat != null && stat.isSpecialFile();
+  }
+
+  /**
+   * Returns true iff {@code path} denotes an existing symbolic link. See {@link
+   * Path#isSymbolicLink()} for specification.
+   */
+  protected boolean isSymbolicLink(PathFragment path) {
+    FileStatus stat = statNullable(path, false);
+    return stat != null && stat.isSymbolicLink();
+  }
+
+  /**
+   * Returns true iff {@code path} denotes an existing directory. See {@link
+   * Path#isDirectory(Symlinks)} for specification.
+   */
+  protected boolean isDirectory(PathFragment path, boolean followSymlinks) {
+    FileStatus stat = statNullable(path, followSymlinks);
+    return stat != null && stat.isDirectory();
+  }
 
   /**
    * Creates a symbolic link. See {@link Path#createSymbolicLink(Path)} for specification.
@@ -590,13 +555,13 @@ public abstract class FileSystem {
 
   /**
    * Returns a collection containing the names of all entities within the directory denoted by the
-   * {@code path}.
+   * {@code path}. Symlinks are followed when resolving the directory whose entries are to be read.
    *
    * @throws IOException if there was an error reading the directory entries
    */
   protected abstract Collection<String> getDirectoryEntries(PathFragment path) throws IOException;
 
-  protected static Dirent.Type direntFromStat(FileStatus stat) {
+  protected static Dirent.Type direntFromStat(@Nullable FileStatus stat) {
     if (stat == null) {
       return Dirent.Type.UNKNOWN;
     } else if (stat.isSpecialFile()) {
@@ -707,25 +672,15 @@ public abstract class FileSystem {
   /**
    * Creates an InputStream accessing the file denoted by the path.
    *
+   * @throws FileNotFoundException if the file does not exist
    * @throws IOException if there was an error opening the file for reading
    */
   protected abstract InputStream getInputStream(PathFragment path) throws IOException;
 
   /**
-   * Creates a ReadableFileChannel accessing the file denoted by the path.
-   *
-   * @throws IOException if there was an error opening the file for reading
-   */
-  protected ReadableByteChannel createReadableByteChannel(PathFragment path) throws IOException {
-    throw new UnsupportedOperationException();
-  }
-
-  /**
    * Returns a {@link SeekableByteChannel} for writing to a file at provided path.
    *
    * <p>Truncates the target file, therefore it cannot be used to read already existing files.
-   * Please use {@link #createReadableByteChannel} to get a {@linkplain ReadableByteChannel channel}
-   * for reads instead.
    */
   protected abstract SeekableByteChannel createReadWriteByteChannel(PathFragment path)
       throws IOException;
@@ -736,7 +691,7 @@ public abstract class FileSystem {
    * @throws IOException if there was an error opening the file for writing
    */
   protected final OutputStream getOutputStream(PathFragment path) throws IOException {
-    return getOutputStream(path, false);
+    return getOutputStream(path, /* append= */ false);
   }
 
   /**
@@ -745,8 +700,10 @@ public abstract class FileSystem {
    * @param append whether to open the output stream in append mode
    * @throws IOException if there was an error opening the file for writing
    */
-  protected abstract OutputStream getOutputStream(PathFragment path, boolean append)
-      throws IOException;
+  protected final OutputStream getOutputStream(PathFragment path, boolean append)
+      throws IOException {
+    return getOutputStream(path, append, /* internal= */ false);
+  }
 
   /**
    * Creates an OutputStream accessing the file denoted by path.
@@ -761,6 +718,8 @@ public abstract class FileSystem {
   /**
    * Renames the file denoted by "sourceNode" to the location "targetNode". See {@link
    * Path#renameTo} for specification.
+   *
+   * <p>Implementations must be atomic.
    */
   public abstract void renameTo(PathFragment sourcePath, PathFragment targetPath)
       throws IOException;
@@ -809,4 +768,46 @@ public abstract class FileSystem {
    */
   protected void prefetchPackageAsync(PathFragment path, int maxDirs) {}
 
+  /**
+   * Returns a {@link File} object for the given path. This method is only supported by file system
+   * implementations that are backed by the local file system.
+   */
+  protected File getIoFile(PathFragment path) {
+    throw new UnsupportedOperationException(
+        "getIoFile() not supported for " + getClass().getName());
+  }
+  
+  /**
+   * Returns a {@link java.nio.file.Path} object for the given path. This method is only supported
+   * by file system implementations that are backed by the local file system.
+   */
+  protected java.nio.file.Path getNioPath(PathFragment path) {
+    throw new UnsupportedOperationException(
+        "getNioPath() not supported for " + getClass().getName());
+  }
+
+  /**
+   * Returns the path of a new temporary directory with the given prefix created under the given
+   * parent path, but <b>not</b> necessarily with secure permissions.
+   */
+  protected PathFragment createTempDirectory(PathFragment parent, String prefix)
+      throws IOException {
+    SecureRandom rand = new SecureRandom();
+    while (true) {
+      PathFragment candidate = parent.getRelative(prefix + Long.toUnsignedString(rand.nextLong()));
+      if (createDirectory(candidate)) {
+        chmod(candidate, 0700);
+        return candidate;
+      }
+    }
+  }
+
+  /**
+   * Represents a devirtualizer that undoes the virtualization of {@link Path}s established by
+   * {@link
+   * com.google.devtools.build.lib.runtime.BlazeModule.ModuleFileSystem#createWithVirtualization}.
+   */
+  public interface PathDevirtualizer {
+    Path devirtualizePath(Path original);
+  }
 }

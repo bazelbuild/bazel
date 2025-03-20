@@ -16,15 +16,13 @@ package com.google.devtools.build.lib.rules.cpp;
 import com.google.common.base.Optional;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CppModuleMapApi;
+import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.StarlarkThread;
 
 /** Structure for C++ module maps. Stores the name of the module and a .cppmap artifact. */
 @Immutable
-@AutoCodec
 public final class CppModuleMap implements CppModuleMapApi<Artifact> {
   public static final String SEPARATE_MODULE_SUFFIX = ".sep";
 
@@ -41,9 +39,7 @@ public final class CppModuleMap implements CppModuleMapApi<Artifact> {
     this(artifact, Optional.fromNullable(umbrellaHeader), name);
   }
 
-  @AutoCodec.Instantiator
-  @VisibleForSerialization
-  CppModuleMap(Artifact artifact, Optional<Artifact> umbrellaHeader, String name) {
+  private CppModuleMap(Artifact artifact, Optional<Artifact> umbrellaHeader, String name) {
     this.artifact = artifact;
     this.umbrellaHeader = umbrellaHeader;
     this.name = name;
@@ -74,6 +70,7 @@ public final class CppModuleMap implements CppModuleMapApi<Artifact> {
   }
 
   @Override
+  @Nullable
   public Artifact getUmbrellaHeaderForStarlark(StarlarkThread thread) throws EvalException {
     CcModule.checkPrivateStarlarkificationAllowlist(thread);
     if (umbrellaHeader.isPresent()) {
@@ -96,8 +93,7 @@ public final class CppModuleMap implements CppModuleMapApi<Artifact> {
     if (this == other) {
       return true;
     }
-    if (other instanceof CppModuleMap) {
-      CppModuleMap that = (CppModuleMap) other;
+    if (other instanceof CppModuleMap that) {
       return artifact.equals(that.artifact)
           && umbrellaHeader.equals(that.umbrellaHeader)
           && name.equals(that.name);
@@ -108,15 +104,5 @@ public final class CppModuleMap implements CppModuleMapApi<Artifact> {
   @Override
   public String toString() {
     return name + "@" + artifact;
-  }
-
-  /**
-   * Specifies whether to generate an umbrella header.
-   */
-  public enum UmbrellaHeaderStrategy {
-    /** Generate an umbrella header. */
-    GENERATE,
-    /** Do not generate an umbrella header. */
-    DO_NOT_GENERATE
   }
 }

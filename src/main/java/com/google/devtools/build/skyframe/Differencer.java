@@ -14,9 +14,9 @@
 package com.google.devtools.build.skyframe;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
-import com.google.auto.value.AutoValue;
-import com.google.common.collect.Maps;
+import com.google.devtools.build.skyframe.Differencer.DiffWithDelta.Delta;
 import java.util.Collection;
 import java.util.Map;
 import javax.annotation.Nullable;
@@ -40,39 +40,45 @@ public interface Differencer {
     Collection<SkyKey> changedKeysWithoutNewValues();
 
     /**
-     * Returns the value keys whose values have changed, along with their new values.
+     * Returns the value keys whose values have changed, along with their new values wrapped in a
+     * {@link Delta}.
      *
-     * <p> The values in here cannot have any dependencies. This is required in order to prevent
+     * <p>The values in here cannot have any dependencies. This is required in order to prevent
      * conflation of injected values and derived values.
      */
-    Map<SkyKey, SkyValue> changedKeysWithNewValues();
+    Map<SkyKey, Delta> changedKeysWithNewValues();
   }
 
   /** A {@link Diff} that also potentially contains the new and old values for each changed key. */
   interface DiffWithDelta extends Diff {
-    /** Returns the value keys whose values have changed, along with their old and new values. */
-    Map<SkyKey, Delta> changedKeysWithNewAndOldValues();
-
-    /** Represents the delta between two values of the same key. */
-    @AutoValue
-    abstract class Delta {
-      /** Returns the old value, if any. */
-      @Nullable
-      public abstract SkyValue oldValue();
-
-      /** Returns the new value. */
-      public abstract SkyValue newValue();
-
-      public static Delta create(SkyValue newValue) {
-        return create(/*oldValue=*/ null, newValue);
+    /**
+     * Represents the delta between two values of the same key.
+     *
+     * @param oldValue Returns the old value, if any.
+     * @param newValue Returns the new value.
+     * @param newMaxTransitiveSourceVersion Returns the max transitive source version of the new
+     *     value.
+     */
+    public record Delta(
+        @Nullable SkyValue oldValue,
+        SkyValue newValue,
+        @Nullable Version newMaxTransitiveSourceVersion) {
+      public Delta {
+        requireNonNull(newValue, "newValue");
       }
 
-      public static Delta create(SkyValue oldValue, SkyValue newValue) {
-        return new AutoValue_Differencer_DiffWithDelta_Delta(oldValue, checkNotNull(newValue));
+      public static Delta justNew(SkyValue newValue) {
+        return changed(/* oldValue= */ null, newValue, /* newMaxTransitiveSourceVersion= */ null);
       }
 
-      public static Map<SkyKey, SkyValue> newValues(Map<SkyKey, Delta> delta) {
-        return Maps.transformValues(delta, Delta::newValue);
+      public static Delta justNew(
+          SkyValue newValue, @Nullable Version newMaxTransitiveSourceVersion) {
+        return changed(/* oldValue= */ null, newValue, newMaxTransitiveSourceVersion);
+      }
+
+      public static Delta changed(
+          SkyValue oldValue, SkyValue newValue, @Nullable Version newMaxTransitiveSourceVersion) {
+        return new Delta(oldValue, checkNotNull(newValue), newMaxTransitiveSourceVersion);
       }
     }
   }

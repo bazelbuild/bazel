@@ -19,7 +19,7 @@
 #include <cinttypes>  // For size_t on Windows
 
 // GCC-specific features
-#if (defined(COMPILER_GCC3) || defined(__APPLE__)) && !defined(SWIG)
+#if defined(__GNUC__) && !defined(SWIG)
 
 //
 // Tell the compiler to do printf format string checking if the
@@ -140,7 +140,9 @@ char (&ArraySizeHelper(const T (&array)[N]))[N];
 // wherever else it appears. Find some way to not have to declare a pid_t here,
 // either by making PID handling platform-independent or some other idea; remove
 // the following typedef afterwards.
+#ifndef __MINGW32__
 typedef int pid_t;
+#endif  // __MINGW32__
 #endif  // _WIN32
 
 #endif  // BAZEL_SRC_MAIN_CPP_UTIL_PORT_H_

@@ -17,8 +17,13 @@ import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 
 /** Versioning scheme based on integers. */
-final class IntVersion implements Version {
+public final class IntVersion implements Version {
+
   private static final Interner<IntVersion> interner = BlazeInterners.newWeakInterner();
+
+  public static IntVersion of(long val) {
+    return interner.intern(new IntVersion(val));
+  }
 
   private final long val;
 
@@ -26,16 +31,13 @@ final class IntVersion implements Version {
     this.val = val;
   }
 
-  long getVal() {
+  /** Returns the integer value as a long. */
+  public long getVal() {
     return val;
   }
 
-  IntVersion next() {
+  public IntVersion next() {
     return of(val + 1);
-  }
-
-  static IntVersion of(long val) {
-    return interner.intern(new IntVersion(val));
   }
 
   @Override
@@ -48,16 +50,18 @@ final class IntVersion implements Version {
 
   @Override
   public int hashCode() {
-    return Long.valueOf(val).hashCode();
+    return Long.hashCode(val);
   }
 
   @Override
   public boolean equals(Object obj) {
-    if (obj instanceof IntVersion) {
-      IntVersion other = (IntVersion) obj;
-      return other.val == val;
+    if (this == obj) {
+      return true;
     }
-    return false;
+    if (!(obj instanceof IntVersion other)) {
+      return false;
+    }
+    return other.val == val;
   }
 
   @Override

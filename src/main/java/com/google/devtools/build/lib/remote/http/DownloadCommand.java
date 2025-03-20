@@ -25,12 +25,18 @@ final class DownloadCommand {
   private final boolean casDownload;
   private final Digest digest;
   private final OutputStream out;
+  private final long offset;
 
-  DownloadCommand(URI uri, boolean casDownload, Digest digest, OutputStream out) {
+  DownloadCommand(URI uri, boolean casDownload, Digest digest, OutputStream out, long offset) {
     this.uri = Preconditions.checkNotNull(uri);
     this.casDownload = casDownload;
     this.digest = Preconditions.checkNotNull(digest);
     this.out = Preconditions.checkNotNull(out);
+    this.offset = offset;
+  }
+
+  DownloadCommand(URI uri, boolean casDownload, Digest digest, OutputStream out) {
+    this(uri, casDownload, digest, out, 0);
   }
 
   public URI uri() {
@@ -47,5 +53,9 @@ final class DownloadCommand {
 
   public OutputStream out() {
     return out;
+  }
+
+  public long offset() {
+    return offset;
   }
 }

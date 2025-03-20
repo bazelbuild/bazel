@@ -14,7 +14,8 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi.config;
 
-import com.google.devtools.build.docgen.annot.DocumentMethods;
+import com.google.devtools.build.docgen.annot.GlobalMethods;
+import com.google.devtools.build.docgen.annot.GlobalMethods.Environment;
 import com.google.devtools.build.docgen.annot.StarlarkConstructor;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
@@ -26,15 +27,13 @@ import net.starlark.java.eval.StarlarkCallable;
 import net.starlark.java.eval.StarlarkThread;
 
 /** A collection of top-level Starlark functions pertaining to configuration. */
-@DocumentMethods
+@GlobalMethods(environment = Environment.BZL)
 public interface ConfigGlobalLibraryApi {
   @StarlarkMethod(
       name = "transition",
       doc =
           "A transition that reads a set of input build settings and writes a set of output build "
-              + "settings."
-              + "<p>Example:</p>"
-              + "<p><pre class=\"language-python\">\n"
+              + "settings.<p>Example:</p><p><pre class=\"language-python\">\n"
               + "def _transition_impl(settings, attr):\n"
               + "    # This transition just reads the current CPU value as a demonstration.\n"
               + "    # A real transition could incorporate this into its followup logic.\n"
@@ -45,10 +44,8 @@ public interface ConfigGlobalLibraryApi {
               + "    implementation = _transition_impl,\n"
               + "    inputs = [\"//command_line_option:cpu\"],\n"
               + "    outputs = [\"//command_line_option:compilation_mode\"],\n"
-              + ")"
-              + "</pre></p>"
-              + "<p>For more details see <a href=\"../config.html#user-defined-transitions\">"
-              + "here</a>.</p>",
+              + ")</pre></p><p>For more details see <a"
+              + " href=\"https://bazel.build/rules/config#user-defined-transitions\">here</a>.</p>",
       parameters = {
         @Param(
             name = "implementation",
@@ -104,16 +101,16 @@ public interface ConfigGlobalLibraryApi {
   @StarlarkMethod(
       name = "analysis_test_transition",
       doc =
-          "<p> Creates a configuration transition to be applied on "
-              + "an analysis-test rule's dependencies. This transition may only be applied "
-              + "on attributes of rules with <code>analysis_test = True</code>. Such rules are "
-              + "restricted in capabilities (for example, the size of their dependency tree is "
-              + "limited), so transitions created using this function are limited in potential "
-              + "scope as compared to transitions created using "
-              + "<a href=\"transition.html\">transition</a>. "
-              + "<p>This function is primarily designed to facilitate the "
-              + "<a href=\"../testing.html\">Analysis Test Framework</a> core library. See its "
-              + "documentation (or its implementation) for best practices.",
+          "<p> Creates a configuration transition to be applied on an analysis-test rule's"
+              + " dependencies. This transition may only be applied on attributes of rules with"
+              + " <code>analysis_test = True</code>. Such rules are restricted in capabilities (for"
+              + " example, the size of their dependency tree is limited), so transitions created"
+              + " using this function are limited in potential scope as compared to transitions"
+              + " created using <a"
+              + " href=\"../builtins/transition.html\"><code>transition()</code></a>. <p>This"
+              + " function is primarily designed to facilitate the <a"
+              + " href=\"https://bazel.build/rules/testing\">Analysis Test Framework</a> core"
+              + " library. See its documentation (or its implementation) for best practices.",
       parameters = {
         @Param(
             name = "settings",
@@ -129,6 +126,34 @@ public interface ConfigGlobalLibraryApi {
       useStarlarkThread = true)
   ConfigurationTransitionApi analysisTestTransition(
       Dict<?, ?> changedSettings, // <String, String> expected
+      StarlarkThread thread)
+      throws EvalException;
+
+  @StarlarkMethod(
+      name = "exec_transition",
+      doc =
+          "A specialized version of <a"
+              + " href=\"../builtins/transition.html\"><code>transition()</code></a> used to define"
+              + " the exec transition. See its documentation (or its implementation) for best"
+              + " practices. Only usable from the Bazel builtins.",
+      parameters = {
+        @Param(name = "implementation", positional = false, named = true),
+        @Param(
+            name = "inputs",
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
+            positional = false,
+            named = true),
+        @Param(
+            name = "outputs",
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
+            positional = false,
+            named = true),
+      },
+      useStarlarkThread = true)
+  ConfigurationTransitionApi execTransition(
+      StarlarkCallable implementation,
+      Sequence<?> inputs, // <String> expected
+      Sequence<?> outputs, // <String> expected
       StarlarkThread thread)
       throws EvalException;
 }

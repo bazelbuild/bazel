@@ -13,65 +13,61 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
+import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
-import java.util.Collection;
 import java.util.List;
 
 /** A rule visibility that allows visibility to a list of package groups. */
-@Immutable
-public class PackageGroupsRuleVisibility implements RuleVisibility {
-  private final List<Label> packageGroups;
-  private final PackageGroupContents directPackages;
-  private final List<Label> declaredLabels;
+@AutoValue
+public abstract class PackageGroupsRuleVisibility extends RuleVisibility {
+  public abstract ImmutableList<Label> getPackageGroups();
 
-  private PackageGroupsRuleVisibility(Label ruleLabel, List<Label> labels) {
-    declaredLabels = ImmutableList.copyOf(labels);
+  public abstract PackageGroupContents getDirectPackages();
+
+  @Override
+  public abstract ImmutableList<Label> getDeclaredLabels();
+
+  /**
+   * Creates a {@link PackageGroupsRuleVisibility} from a non-empty list of labels, which must have
+   * been previously validated and simplified by {@link RuleVisibility#validateAndSimplify}, and
+   * which must not be ["//visibility:public"] or ["//visibility:private"].
+   *
+   * <p>To parse a public or private visibility, use {@link RuleVisibility#parseIfConstant}.
+   */
+  static PackageGroupsRuleVisibility create(List<Label> labels) {
     ImmutableList.Builder<PackageSpecification> directPackageBuilder = ImmutableList.builder();
     ImmutableList.Builder<Label> packageGroupBuilder = ImmutableList.builder();
 
+    checkArgument(!labels.isEmpty(), "labels must not be empty");
     for (Label label : labels) {
-      Label resolved = ruleLabel.resolveRepositoryRelative(label);
-      PackageSpecification specification = PackageSpecification.fromLabel(resolved);
+      PackageSpecification specification = PackageSpecification.fromLabel(label);
       if (specification != null) {
         directPackageBuilder.add(specification);
       } else {
-        packageGroupBuilder.add(resolved);
+        checkArgument(
+            !label.equals(RuleVisibility.PUBLIC_LABEL)
+                && !label.equals(RuleVisibility.PRIVATE_LABEL),
+            "labels list %s must %s",
+            labels,
+            labels.size() == 1
+                ? "not equal [\"//visibility:public\"] or [\"//visibility:private\"]"
+                : "be validated and simplified");
+        packageGroupBuilder.add(label);
       }
     }
 
-    packageGroups = packageGroupBuilder.build();
-    directPackages = PackageGroupContents.create(directPackageBuilder.build());
-  }
-
-  public Collection<Label> getPackageGroups() {
-    return packageGroups;
-  }
-
-  public PackageGroupContents getDirectPackages() {
-    return directPackages;
+    return new AutoValue_PackageGroupsRuleVisibility(
+        packageGroupBuilder.build(),
+        PackageGroupContents.create(directPackageBuilder.build()),
+        ImmutableList.copyOf(labels));
   }
 
   @Override
-  public List<Label> getDependencyLabels() {
-    return packageGroups;
-  }
-
-  @Override
-  public List<Label> getDeclaredLabels() {
-    return declaredLabels;
-  }
-
-  /**
-   * Tries to parse a list of labels into a {@link PackageGroupsRuleVisibility}.
-   *
-   * @param labels the list of labels to parse
-   * @return The resulting visibility object. A list of labels can always be
-   * parsed into a PackageGroupsRuleVisibility.
-   */
-  public static PackageGroupsRuleVisibility tryParse(Label ruleLabel, List<Label> labels) {
-    return new PackageGroupsRuleVisibility(ruleLabel, labels);
+  public final ImmutableList<Label> getDependencyLabels() {
+    return getPackageGroups();
   }
 }

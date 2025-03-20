@@ -12,18 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "src/main/cpp/util/path_platform.h"
+#include <limits.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
 
-#include <limits.h>  // PATH_MAX
+#include <vector>
 
-#include <stdlib.h>  // getenv
-#include <string.h>  // strncmp
-#include <unistd.h>  // access, open, close, fsync
-#include "src/main/cpp/util/errors.h"
 #include "src/main/cpp/util/exit_code.h"
 #include "src/main/cpp/util/file_platform.h"
 #include "src/main/cpp/util/logging.h"
 #include "src/main/cpp/util/path.h"
+#include "src/main/cpp/util/path_platform.h"
 
 namespace blaze_util {
 
@@ -31,7 +31,7 @@ std::string ConvertPath(const std::string &path) { return path; }
 
 std::string PathAsJvmFlag(const std::string &path) { return path; }
 
-bool CompareAbsolutePaths(const std::string &a, const std::string &b) {
+bool ArePathsEquivalent(const blaze_util::Path &a, const blaze_util::Path &b) {
   return a == b;
 }
 
@@ -159,6 +159,8 @@ Path Path::GetRelative(const std::string &r) const {
 }
 
 Path Path::Canonicalize() const { return Path(MakeCanonical(path_.c_str())); }
+
+std::string Path::GetBaseName() const { return SplitPath(path_).second; }
 
 Path Path::GetParent() const { return Path(SplitPath(path_).first); }
 

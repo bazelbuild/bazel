@@ -15,13 +15,14 @@
 package com.google.devtools.build.lib.bazel.repository;
 
 import static com.google.common.truth.Truth.assertThat;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
-import com.google.common.base.Optional;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import java.util.Optional;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -33,31 +34,32 @@ import org.junit.runners.JUnit4;
 public class StripPrefixedPathTest {
   @Test
   public void testStrip() {
-    StripPrefixedPath result = StripPrefixedPath.maybeDeprefix("foo/bar", Optional.of("foo"));
+    StripPrefixedPath result =
+        StripPrefixedPath.maybeDeprefix("foo/bar".getBytes(UTF_8), Optional.of("foo"));
     assertThat(PathFragment.create("bar")).isEqualTo(result.getPathFragment());
     assertThat(result.foundPrefix()).isTrue();
     assertThat(result.skip()).isFalse();
 
-    result = StripPrefixedPath.maybeDeprefix("foo", Optional.of("foo"));
+    result = StripPrefixedPath.maybeDeprefix("foo".getBytes(UTF_8), Optional.of("foo"));
     assertThat(result.skip()).isTrue();
 
-    result = StripPrefixedPath.maybeDeprefix("bar/baz", Optional.of("foo"));
+    result = StripPrefixedPath.maybeDeprefix("bar/baz".getBytes(UTF_8), Optional.of("foo"));
     assertThat(result.foundPrefix()).isFalse();
 
-    result = StripPrefixedPath.maybeDeprefix("foof/bar", Optional.of("foo"));
+    result = StripPrefixedPath.maybeDeprefix("foof/bar".getBytes(UTF_8), Optional.of("foo"));
     assertThat(result.foundPrefix()).isFalse();
   }
 
   @Test
   public void testAbsolute() {
-    StripPrefixedPath result = StripPrefixedPath.maybeDeprefix(
-        "/foo/bar", Optional.<String>absent());
+    StripPrefixedPath result =
+        StripPrefixedPath.maybeDeprefix("/foo/bar".getBytes(UTF_8), Optional.empty());
     assertThat(result.getPathFragment()).isEqualTo(PathFragment.create("foo/bar"));
 
-    result = StripPrefixedPath.maybeDeprefix("///foo/bar/baz", Optional.<String>absent());
+    result = StripPrefixedPath.maybeDeprefix("///foo/bar/baz".getBytes(UTF_8), Optional.empty());
     assertThat(result.getPathFragment()).isEqualTo(PathFragment.create("foo/bar/baz"));
 
-    result = StripPrefixedPath.maybeDeprefix("/foo/bar/baz", Optional.of("/foo"));
+    result = StripPrefixedPath.maybeDeprefix("/foo/bar/baz".getBytes(UTF_8), Optional.of("/foo"));
     assertThat(result.getPathFragment()).isEqualTo(PathFragment.create("bar/baz"));
   }
 
@@ -66,21 +68,21 @@ public class StripPrefixedPathTest {
     if (OS.getCurrent() != OS.WINDOWS) {
       return;
     }
-    StripPrefixedPath result = StripPrefixedPath.maybeDeprefix(
-        "c:/foo/bar", Optional.<String>absent());
+    StripPrefixedPath result =
+        StripPrefixedPath.maybeDeprefix("c:/foo/bar".getBytes(UTF_8), Optional.empty());
     assertThat(result.getPathFragment()).isEqualTo(PathFragment.create("foo/bar"));
   }
 
   @Test
   public void testNormalize() {
-    StripPrefixedPath result = StripPrefixedPath.maybeDeprefix(
-        "../bar", Optional.<String>absent());
+    StripPrefixedPath result =
+        StripPrefixedPath.maybeDeprefix("../bar".getBytes(UTF_8), Optional.empty());
     assertThat(result.getPathFragment()).isEqualTo(PathFragment.create("../bar"));
 
-    result = StripPrefixedPath.maybeDeprefix("foo/../baz", Optional.<String>absent());
+    result = StripPrefixedPath.maybeDeprefix("foo/../baz".getBytes(UTF_8), Optional.empty());
     assertThat(result.getPathFragment()).isEqualTo(PathFragment.create("baz"));
 
-    result = StripPrefixedPath.maybeDeprefix("foo/../baz", Optional.of("foo"));
+    result = StripPrefixedPath.maybeDeprefix("foo/../baz".getBytes(UTF_8), Optional.of("foo"));
     assertThat(result.getPathFragment()).isEqualTo(PathFragment.create("baz"));
   }
 
@@ -91,23 +93,23 @@ public class StripPrefixedPathTest {
 
     PathFragment relativeNoPrefix =
         StripPrefixedPath.maybeDeprefixSymlink(
-            PathFragment.create("a/b"), Optional.absent(), fileSystem.getPath("/usr"));
+            "a/b".getBytes(UTF_8), Optional.empty(), fileSystem.getPath("/usr"));
     // there is no attempt to get absolute path for the relative symlinks target path
     assertThat(relativeNoPrefix).isEqualTo(PathFragment.create("a/b"));
 
     PathFragment absoluteNoPrefix =
         StripPrefixedPath.maybeDeprefixSymlink(
-            PathFragment.create("/a/b"), Optional.absent(), fileSystem.getPath("/usr"));
+            "/a/b".getBytes(UTF_8), Optional.empty(), fileSystem.getPath("/usr"));
     assertThat(absoluteNoPrefix).isEqualTo(PathFragment.create("/usr/a/b"));
 
     PathFragment absolutePrefix =
         StripPrefixedPath.maybeDeprefixSymlink(
-            PathFragment.create("/root/a/b"), Optional.of("root"), fileSystem.getPath("/usr"));
+            "/root/a/b".getBytes(UTF_8), Optional.of("root"), fileSystem.getPath("/usr"));
     assertThat(absolutePrefix).isEqualTo(PathFragment.create("/usr/a/b"));
 
     PathFragment relativePrefix =
         StripPrefixedPath.maybeDeprefixSymlink(
-            PathFragment.create("root/a/b"), Optional.of("root"), fileSystem.getPath("/usr"));
+            "root/a/b".getBytes(UTF_8), Optional.of("root"), fileSystem.getPath("/usr"));
     // there is no attempt to get absolute path for the relative symlinks target path
     assertThat(relativePrefix).isEqualTo(PathFragment.create("a/b"));
   }

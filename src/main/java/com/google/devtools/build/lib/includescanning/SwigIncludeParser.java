@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.includescanning;
 
 import com.google.common.base.CharMatcher;
 import com.google.devtools.build.lib.includescanning.IncludeParser.Inclusion.Kind;
+import javax.annotation.Nullable;
 
 /** Parses swig files and extracts their includes (%include / %extern / %import). */
 class SwigIncludeParser extends IncludeParser {
@@ -72,6 +73,7 @@ class SwigIncludeParser extends IncludeParser {
   }
 
   @Override
+  @Nullable
   protected Inclusion createOtherInclusion(String inclusionContent) {
     if (inclusionContent.startsWith("/")) {
       return null; // Ignore absolute path names.

@@ -15,24 +15,26 @@
 
 package com.google.devtools.build.lib.analysis.actions;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.unsafe.StringUnsafe;
+import com.google.devtools.build.lib.util.DeterministicWriter;
 import com.google.devtools.build.lib.util.Fingerprint;
-import java.io.IOException;
-import java.io.OutputStream;
 import javax.annotation.Nullable;
 
 /**
- * Lazily writes the exec path of the given files separated by newline into a specified output file.
+ * Lazily writes the path of the given files separated by newline into a specified output file.
+ *
+ * <p>By default the exec path is written but this behaviour can be customized by providing an
+ * alternative converter function.
  */
 public final class LazyWritePathsFileAction extends AbstractFileWriteAction {
   private static final String GUID = "6be94d90-96f3-4bec-8104-1fb08abc2546";
@@ -47,40 +49,24 @@ public final class LazyWritePathsFileAction extends AbstractFileWriteAction {
       NestedSet<Artifact> files,
       ImmutableSet<Artifact> filesToIgnore,
       boolean includeDerivedArtifacts) {
-    // TODO(ulfjack): It's a bad idea to have these two constructors do slightly different things.
-    super(owner, files, output, false);
+    // We don't need to pass the given files as explicit inputs to this action; we don't care about
+    // them, we only need their names, which we already know.
+    super(owner, NestedSetBuilder.emptySet(Order.STABLE_ORDER), output);
     this.files = files;
-    this.includeDerivedArtifacts = includeDerivedArtifacts;
-    this.filesToIgnore = filesToIgnore;
-  }
-
-  public LazyWritePathsFileAction(
-      ActionOwner owner,
-      Artifact output,
-      ImmutableSet<Artifact> files,
-      ImmutableSet<Artifact> filesToIgnore,
-      boolean includeDerivedArtifacts) {
-    super(owner, NestedSetBuilder.emptySet(Order.STABLE_ORDER), output, false);
-    this.files = NestedSetBuilder.<Artifact>stableOrder().addAll(files).build();
     this.includeDerivedArtifacts = includeDerivedArtifacts;
     this.filesToIgnore = filesToIgnore;
   }
 
   @Override
   public DeterministicWriter newDeterministicWriter(ActionExecutionContext ctx) {
-    return new DeterministicWriter() {
-      @Override
-      public void writeOutputFile(OutputStream out) throws IOException {
-        out.write(getContents().toString().getBytes(UTF_8));
-      }
-    };
+    return out -> out.write(StringUnsafe.getInternalStringBytes(getContents()));
   }
 
   /** Computes the Action key for this action by computing the fingerprint for the file contents. */
   @Override
   protected void computeKey(
       ActionKeyContext actionKeyContext,
-      @Nullable ArtifactExpander artifactExpander,
+      @Nullable InputMetadataProvider inputMetadataProvider,
       Fingerprint fp) {
     fp.addString(GUID);
     fp.addBoolean(includeDerivedArtifacts);
@@ -94,10 +80,14 @@ public final class LazyWritePathsFileAction extends AbstractFileWriteAction {
         continue;
       }
       if (file.isSourceArtifact() || includeDerivedArtifacts) {
-        stringBuilder.append(file.getRootRelativePathString());
+        stringBuilder.append(file.getExecPathString());
         stringBuilder.append("\n");
       }
     }
     return stringBuilder.toString();
+  }
+
+  public NestedSet<Artifact> getFiles() {
+    return files;
   }
 }

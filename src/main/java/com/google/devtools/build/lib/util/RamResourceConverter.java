@@ -14,24 +14,23 @@
 package com.google.devtools.build.lib.util;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.actions.LocalHostCapacity;
 
 /**
- * Converter for --local_cpu_resources, which takes an integer greater than or equal to 1, or
+ * Converter for --local_cpu_resources, which takes an integer greater than or equal to 0, or
  * "HOST_RAM", optionally followed by [-|*]<float>.
  */
-public final class RamResourceConverter extends ResourceConverter {
+public final class RamResourceConverter extends ResourceConverter.IntegerConverter {
   public RamResourceConverter() {
     super(
-        ImmutableMap.of(
-            "HOST_RAM",
-            () -> (int) Math.ceil(LocalHostCapacity.getLocalHostCapacity().getMemoryMb())),
-        1,
-        Integer.MAX_VALUE);
+        /* keywords= */ ImmutableMap.of(HOST_RAM_KEYWORD, HOST_RAM_SUPPLIER),
+        /* minValue= */ 0,
+        /* maxValue= */ Integer.MAX_VALUE);
   }
 
   @Override
   public String getTypeDescription() {
-    return "an integer, or \"HOST_RAM\", optionally followed by [-|*]<float>.";
+    return String.format(
+        "an integer number of MBs, or \"%s\", optionally followed by [-|*]<float>.",
+        HOST_RAM_KEYWORD);
   }
 }

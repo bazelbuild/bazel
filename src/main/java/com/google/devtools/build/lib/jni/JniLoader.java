@@ -25,16 +25,17 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import javax.annotation.Nullable;
 
 /** Generic code to interact with the platform-specific JNI code bundle. */
 public final class JniLoader {
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
-  private static final boolean JNI_AVAILABLE;
+  @Nullable private static final Throwable JNI_LOAD_ERROR;
 
   static {
-    boolean jniAvailable;
+    Throwable jniLoadError;
     try {
       switch (OS.getCurrent()) {
         case LINUX:
@@ -59,21 +60,18 @@ public final class JniLoader {
             try {
               loadLibrary("main/native/windows/windows_jni.dll");
             } catch (IOException e2) {
-              logger.atWarning().withCause(e2).log("Failed to load JNI library from resource");
-              throw e;
+              e2.addSuppressed(e);
+              throw e2;
             }
           }
           break;
-
-        default:
-          throw new AssertionError("switch statement out of sync with OS values");
       }
-      jniAvailable = true;
+      jniLoadError = null;
     } catch (IOException | UnsatisfiedLinkError e) {
       logger.atWarning().withCause(e).log("Failed to load JNI library");
-      jniAvailable = false;
+      jniLoadError = e;
     }
-    JNI_AVAILABLE = jniAvailable;
+    JNI_LOAD_ERROR = jniLoadError;
   }
 
   /**
@@ -126,27 +124,55 @@ public final class JniLoader {
         }
       } catch (IOException e2) {
         // Nothing else we can do. Rely on "delete on exit" to try clean things up later on.
+        if (dir != null) {
+          dir.toFile().deleteOnExit();
+        }
+        if (tempFile != null) {
+          tempFile.toFile().deleteOnExit();
+        }
       }
       throw e;
     }
   }
 
-  protected JniLoader() {}
+  private JniLoader() {}
 
   /**
    * Triggers the load of the JNI bundle in a platform-independent basis.
    *
    * <p>This does <b>not</b> fail if the JNI bundle cannot be loaded because there are scenarios in
-   * which we want to run Bazel without JNI (e.g. during bootstrapping). We rely on the fact that
-   * any calls to native code will fail anyway and with a more descriptive error message if we
-   * failed to load the JNI bundle.
+   * which we want to run Bazel without JNI (e.g. during bootstrapping) or are able to fall back to
+   * an alternative implementation (e.g. in some filesystem implementations).
    *
-   * <p>Callers can check if the JNI bundle load succeeded by calling {@link #isJniAvailable()}.
+   * <p>Callers can check if the JNI bundle was successfully loaded via {@link #isJniAvailable()}
+   * and obtain the load error via {@link #getJniLoadError()}.
    */
   public static void loadJni() {}
 
-  /** Checks whether the JNI bundle was successfully loaded or not. */
+  /** Returns whether the JNI bundle was successfully loaded. */
   public static boolean isJniAvailable() {
-    return JNI_AVAILABLE;
+    return JNI_LOAD_ERROR == null;
+  }
+
+  /** Returns the exception thrown while loading the JNI bundle, if it failed. */
+  @Nullable
+  public static Throwable getJniLoadError() {
+    return JNI_LOAD_ERROR;
+  }
+
+  /**
+   * Forcibly link a native method to eagerly trigger an {@link UnsatisfiedLinkError} in case of
+   * issues with the JNI library.
+   */
+  public static void forceLinking() throws UnsatisfiedLinkError {
+    if (isJniAvailable()) {
+      ForceLinkingHelper.link();
+    }
+  }
+
+  private static final class ForceLinkingHelper {
+    private static native void link();
+
+    private ForceLinkingHelper() {}
   }
 }

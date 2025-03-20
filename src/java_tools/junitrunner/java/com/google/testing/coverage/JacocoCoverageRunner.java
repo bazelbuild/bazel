@@ -20,6 +20,7 @@ import static java.nio.file.StandardOpenOption.APPEND;
 import static java.nio.file.StandardOpenOption.CREATE;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.collect.ImmutableSet;
@@ -38,7 +39,6 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.net.URL;
 import java.net.URLClassLoader;
-import java.net.URLDecoder;
 import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.HashMap;
@@ -360,15 +360,33 @@ public class JacocoCoverageRunner {
     return convertedMetadataFiles.build();
   }
 
-  private static URL[] getUrls(ClassLoader classLoader, boolean wasWrappedJar) {
+  private static URL[] getUrls(ClassLoader classLoader, boolean jarIsWrapped, String wrappedJar) {
+    // jarIsWrapped is a legacy parameter; it should be removed once we are sure Bazel will no
+    // longer set JACOCO_IS_JAR_WRAPPED in java_stub_template
     URL[] urls = getClassLoaderUrls(classLoader);
+    if (urls == null || urls.length == 0) {
+      return urls;
+    }
     // If the classpath was too long then a temporary top-level jar is created containing nothing
-    // but a manifest with
-    // the original classpath. Those are the URLs we are looking for.
-    if (wasWrappedJar && urls != null && urls.length == 1) {
+    // but a manifest with the original classpath. Those are the URLs we are looking for.
+    URL classPathUrl = null;
+    if (!Strings.isNullOrEmpty(wrappedJar)) {
+      for (URL url : urls) {
+        if (url.getPath().endsWith(wrappedJar)) {
+          classPathUrl = url;
+        }
+      }
+      if (classPathUrl == null) {
+        System.err.println("Classpath JAR " + wrappedJar + " not provided");
+        return null;
+      }
+    } else if (jarIsWrapped && urls.length == 1) {
+      classPathUrl = urls[0];
+    }
+    if (classPathUrl != null) {
       try {
         String jarClassPath =
-            new JarInputStream(urls[0].openStream())
+            new JarInputStream(classPathUrl.openStream())
                 .getManifest()
                 .getMainAttributes()
                 .getValue("Class-Path");
@@ -398,8 +416,17 @@ public class JacocoCoverageRunner {
         field.setAccessible(true);
         Unsafe unsafe = (Unsafe) field.get(null);
 
-        // jdk.internal.loader.ClassLoaders.AppClassLoader.ucp
-        Field ucpField = classLoader.getClass().getDeclaredField("ucp");
+        Field ucpField;
+        try {
+          // Java 9-15:
+          // jdk.internal.loader.ClassLoaders.AppClassLoader.ucp
+          ucpField = classLoader.getClass().getDeclaredField("ucp");
+        } catch (NoSuchFieldException e) {
+          // Java 16+:
+          // jdk.internal.loader.BuiltinClassLoader.ucp
+          // https://github.com/openjdk/jdk/commit/03a4df0acd103702e52dcd01c3f03fda4d7b04f5#diff-32cc12c0e3172fe5f2da1f65a75fa1cb920c39040d06323c83ad2c4d84e095aaL147
+          ucpField = classLoader.getClass().getSuperclass().getDeclaredField("ucp");
+        }
         long ucpFieldOffset = unsafe.objectFieldOffset(ucpField);
         Object ucpObject = unsafe.getObject(classLoader, ucpFieldOffset);
 
@@ -419,6 +446,7 @@ public class JacocoCoverageRunner {
   public static void main(String[] args) throws Exception {
     String metadataFile = System.getenv("JACOCO_METADATA_JAR");
     String jarWrappedValue = System.getenv("JACOCO_IS_JAR_WRAPPED");
+    String wrappedJarValue = System.getenv("CLASSPATH_JAR");
     boolean wasWrappedJar = jarWrappedValue != null ? !jarWrappedValue.equals("0") : false;
 
     File[] metadataFiles = null;
@@ -426,11 +454,11 @@ public class JacocoCoverageRunner {
     final HashMap<String, byte[]> uninstrumentedClasses = new HashMap<>();
     ImmutableSet.Builder<String> pathsForCoverageBuilder = new ImmutableSet.Builder<>();
     ClassLoader classLoader = ClassLoader.getSystemClassLoader();
-    URL[] urls = getUrls(classLoader, wasWrappedJar);
+    URL[] urls = getUrls(classLoader, wasWrappedJar, wrappedJarValue);
     if (urls != null) {
       metadataFiles = new File[urls.length];
       for (int i = 0; i < urls.length; i++) {
-        String file = URLDecoder.decode(urls[i].getFile(), "UTF-8");
+        String file = urls[i].toURI().getPath();
         metadataFiles[i] = new File(file);
         // Special case for when there is only one deploy jar on the classpath.
         if (file.endsWith("_deploy.jar")) {

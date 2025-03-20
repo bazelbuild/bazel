@@ -20,11 +20,10 @@
 #include "googletest/include/gtest/gtest.h"
 
 TEST(OptionsTest, Flags1) {
-  const char *args[] = {"--exclude_build_data",
-                        "--compression",
-                        "--normalize",
-                        "--no_duplicates",
-                        "--output", "output_jar"};
+  const char *args[] = {
+      "--exclude_build_data", "--compression",     "--normalize",
+      "--no_duplicates",      "--output",          "output_jar",
+      "--hermetic_java_home", "hermetic_java_home"};
   Options options;
   options.ParseCommandLine(arraysize(args), args);
 
@@ -36,7 +35,9 @@ TEST(OptionsTest, Flags1) {
   EXPECT_FALSE(options.verbose);
   EXPECT_FALSE(options.warn_duplicate_resources);
   EXPECT_FALSE(options.check_desugar_deps);
+  EXPECT_FALSE(options.multi_release);
   EXPECT_EQ("output_jar", options.output_jar);
+  EXPECT_EQ("hermetic_java_home", options.hermetic_java_home);
 }
 
 TEST(OptionsTest, Flags2) {
@@ -44,7 +45,9 @@ TEST(OptionsTest, Flags2) {
                         "--verbose",
                         "--warn_duplicate_resources",
                         "--check_desugar_deps",
-                        "--output", "output_jar"};
+                        "--output",
+                        "output_jar",
+                        "--multi_release"};
   Options options;
   options.ParseCommandLine(arraysize(args), args);
 
@@ -56,6 +59,8 @@ TEST(OptionsTest, Flags2) {
   ASSERT_TRUE(options.verbose);
   ASSERT_TRUE(options.warn_duplicate_resources);
   ASSERT_TRUE(options.check_desugar_deps);
+  ASSERT_TRUE(options.multi_release);
+  EXPECT_EQ("", options.hermetic_java_home);
 }
 
 TEST(OptionsTest, SingleOptargs) {
@@ -66,7 +71,8 @@ TEST(OptionsTest, SingleOptargs) {
                         "--extra_build_info", "extra_build_line1",
                         "--build_info_file", "build_file2",
                         "--extra_build_info", "extra_build_line2",
-                        "--cds_archive", "classes.jsa"};
+                        "--cds_archive", "classes.jsa",
+                        "--jdk_lib_modules", "modules"};
   Options options;
   options.ParseCommandLine(arraysize(args), args);
 
@@ -80,16 +86,35 @@ TEST(OptionsTest, SingleOptargs) {
   EXPECT_EQ("extra_build_line1", options.build_info_lines[0]);
   EXPECT_EQ("extra_build_line2", options.build_info_lines[1]);
   EXPECT_EQ("classes.jsa", options.cds_archive);
+  EXPECT_EQ("modules", options.jdk_lib_modules);
 }
 
 TEST(OptionsTest, MultiOptargs) {
-    const char *args[] = {"--output", "output_file",
-                        "--sources", "jar1", "jar2",
-                        "--resources", "res1", "res2",
-                        "--classpath_resources", "cpres1", "cpres2",
-                        "--sources", "jar3",
-                        "--include_prefixes", "prefix1", "prefix2",
-                        "--nocompress_suffixes", ".png", ".so"};
+  const char *args[] = {"--output",
+                        "output_file",
+                        "--sources",
+                        "jar1",
+                        "jar2",
+                        "--resources",
+                        "res1",
+                        "res2",
+                        "--classpath_resources",
+                        "cpres1",
+                        "cpres2",
+                        "--sources",
+                        "jar3",
+                        "--include_prefixes",
+                        "prefix1",
+                        "prefix2",
+                        "--nocompress_suffixes",
+                        ".png",
+                        ".so",
+                        "--add_exports",
+                        "export1",
+                        "export2",
+                        "--add_opens",
+                        "open1",
+                        "open2"};
   Options options;
   options.ParseCommandLine(arraysize(args), args);
 
@@ -109,6 +134,12 @@ TEST(OptionsTest, MultiOptargs) {
   EXPECT_EQ(2UL, options.nocompress_suffixes.size());
   EXPECT_EQ(".png", options.nocompress_suffixes[0]);
   EXPECT_EQ(".so", options.nocompress_suffixes[1]);
+  EXPECT_EQ(2UL, options.add_exports.size());
+  EXPECT_EQ("export1", options.add_exports[0]);
+  EXPECT_EQ("export2", options.add_exports[1]);
+  EXPECT_EQ(2UL, options.add_opens.size());
+  EXPECT_EQ("open1", options.add_opens[0]);
+  EXPECT_EQ("open2", options.add_opens[1]);
 }
 
 TEST(OptionsTest, EmptyMultiOptargs) {
@@ -126,4 +157,19 @@ TEST(OptionsTest, EmptyMultiOptargs) {
   EXPECT_EQ(0UL, options.resources.size());
   EXPECT_EQ(0UL, options.classpath_resources.size());
   EXPECT_EQ(1UL, options.include_prefixes.size());
+}
+
+TEST(OptionTest, CustomCreatedBy) {
+  const char *args[] = {"--output", "output_file", "--output_jar_creator",
+                        "CustomCreatedBy 123.456"};
+  Options options;
+  options.ParseCommandLine(arraysize(args), args);
+  EXPECT_EQ("CustomCreatedBy 123.456", options.output_jar_creator);
+}
+
+TEST(OptionTest, DefaultCreatedBy) {
+  const char *args[] = {"--output", "output_file"};
+  Options options;
+  options.ParseCommandLine(arraysize(args), args);
+  EXPECT_EQ("singlejar", options.output_jar_creator);
 }

@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.Factory;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import javax.annotation.Nullable;
@@ -36,8 +37,8 @@ public final class SequencedSkyframeExecutorFactory implements SkyframeExecutorF
       Factory workspaceStatusActionFactory,
       Iterable<? extends DiffAwareness.Factory> diffAwarenessFactories,
       ImmutableMap<SkyFunctionName, SkyFunction> extraSkyFunctions,
-      Iterable<SkyValueDirtinessChecker> customDirtinessCheckers,
-      @Nullable ManagedDirectoriesKnowledge managedDirectoriesKnowledge,
+      SyscallCache syscallCache,
+      @Nullable SkyframeExecutorRepositoryHelpersHolder repositoryHelpersHolder,
       SkyframeExecutor.SkyKeyStateReceiver skyKeyStateReceiver,
       BugReporter bugReporter) {
     return BazelSkyframeExecutorConstants.newBazelSkyframeExecutorBuilder()
@@ -48,8 +49,8 @@ public final class SequencedSkyframeExecutorFactory implements SkyframeExecutorF
         .setWorkspaceStatusActionFactory(workspaceStatusActionFactory)
         .setDiffAwarenessFactories(diffAwarenessFactories)
         .setExtraSkyFunctions(extraSkyFunctions)
-        .setCustomDirtinessCheckers(customDirtinessCheckers)
-        .setManagedDirectoriesKnowledge(managedDirectoriesKnowledge)
+        .setSyscallCache(syscallCache)
+        .setRepositoryHelpersHolder(repositoryHelpersHolder)
         .setSkyKeyStateReceiver(skyKeyStateReceiver)
         .setBugReporter(bugReporter)
         .build();

@@ -31,6 +31,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import net.starlark.java.eval.Debug;
+import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.HasBinary;
 import net.starlark.java.eval.Module;
@@ -40,6 +41,7 @@ import net.starlark.java.eval.StarlarkCallable;
 import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.eval.Tuple;
 import net.starlark.java.syntax.FileOptions;
 import net.starlark.java.syntax.ParserInput;
 import net.starlark.java.syntax.SyntaxError;
@@ -65,8 +67,8 @@ public final class AllocationTrackerTest {
   private class SamplerValue implements HasBinary {
     @Override
     public Object binaryOp(TokenKind op, Object that, boolean thisLeft) throws EvalException {
-      if (op == TokenKind.PLUS && thisLeft && that instanceof StarlarkInt) {
-        int size = ((StarlarkInt) that).toIntUnchecked(); // test values are small
+      if (op == TokenKind.PLUS && thisLeft && that instanceof StarlarkInt starlarkInt) {
+        int size = starlarkInt.toIntUnchecked(); // test values are small
         Object obj = new Object();
         live.add(obj); // ensure that obj outlives the test assertions
         tracker.sampleAllocation(1, "", obj, size);
@@ -199,7 +201,7 @@ public final class AllocationTrackerTest {
                 "sample", new SamplerValue(),
                 "myrule", new MyRuleFunction()));
     try (Mutability mu = Mutability.create("test")) {
-      StarlarkThread thread = new StarlarkThread(mu, StarlarkSemantics.DEFAULT);
+      StarlarkThread thread = StarlarkThread.createTransient(mu, StarlarkSemantics.DEFAULT);
       Starlark.execFile(input, FileOptions.DEFAULT, module, thread);
     }
   }
@@ -207,7 +209,7 @@ public final class AllocationTrackerTest {
   // A fake Bazel rule. The allocation tracker reports retained memory broken down by rule class.
   private class MyRuleFunction implements RuleFunction, StarlarkCallable {
     @Override
-    public Object fastcall(StarlarkThread thread, Object[] parameters, Object[] named) {
+    public Object call(StarlarkThread thread, Tuple args, Dict<String, Object> kwargs) {
       Object obj = new Object();
       live.add(obj); // ensure that obj outlives the test assertions
       tracker.sampleAllocation(1, "", obj, 128);

@@ -14,8 +14,10 @@
 
 package com.google.devtools.build.lib.query2.query;
 
+import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static com.google.common.base.Throwables.throwIfUnchecked;
+
 import com.google.common.base.Preconditions;
-import com.google.common.base.Throwables;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multimap;
@@ -31,12 +33,14 @@ import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.TargetProvider;
+import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.OptionalInt;
 import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.CompletionException;
@@ -73,11 +77,10 @@ final class PathLabelVisitor {
       if (visitor.hasVisited(t)) {
         ArrayDeque<Target> result = new ArrayDeque<>();
         Target at = t;
-        // TODO(ulfjack): This can result in an infinite loop if there's a dependency cycle.
         while (true) {
           result.addFirst(at);
           List<Target> pred = visitor.getParents(at);
-          if (pred == null) {
+          if (pred == null || pred.isEmpty()) {
             break;
           }
           at = pred.get(0);
@@ -117,6 +120,7 @@ final class PathLabelVisitor {
       ExtendedEventHandler eventHandler, Iterable<Target> from) throws InterruptedException {
     Visitor visitor = new Visitor(eventHandler, VisitorMode.SAME_PKG_DIRECT_RDEPS);
     for (Target t : from) {
+      // TODO(https://github.com/bazelbuild/bazel/issues/23852): support lazy macro expansion
       visitor.visitTargets(t.getPackage().getTargets().values());
     }
     Set<Target> result = new HashSet<>();
@@ -133,7 +137,7 @@ final class PathLabelVisitor {
       ExtendedEventHandler eventHandler,
       Iterable<Target> from,
       Iterable<Target> universe,
-      int depth)
+      OptionalInt depth)
       throws InterruptedException {
     Visitor visitor = new Visitor(eventHandler, VisitorMode.ALLPATHS);
     visitor.visitTargets(universe);
@@ -149,10 +153,8 @@ final class PathLabelVisitor {
     Set<Target> next = new HashSet<>();
     // In round i, we add all targets at depth i to result, so we need depth + 1 rounds. Note that
     // depth can be Integer.MAX_VALUE, so do not use "< depth + 1" here..
-    for (int i = 0; i <= depth; i++) {
-      if (at.isEmpty()) {
-        break;
-      }
+    int i = 0;
+    while (QueryEnvironment.shouldVisit(depth, i++) && !at.isEmpty()) {
       for (Target t : at) {
         if (result.add(t)) {
           List<Target> pred = visitor.getParents(t);
@@ -238,6 +240,12 @@ final class PathLabelVisitor {
 
     private void enqueue(Target from, Attribute attribute, Label label)
         throws InterruptedException, NoSuchThingException {
+      if (mode == VisitorMode.SAME_PKG_DIRECT_RDEPS) {
+        // Only track same-package dependencies to avoid loading unneeded packages.
+        if (!label.getPackageIdentifier().equals(from.getLabel().getPackageIdentifier())) {
+          return;
+        }
+      }
       Target target = targetProvider.getTarget(eventHandler, label);
       enqueue(from, attribute, target);
     }
@@ -250,10 +258,10 @@ final class PathLabelVisitor {
         throws InterruptedException, NoSuchThingException {
       if (from != null) {
         switch (mode) {
-          case DEPS:
+          case DEPS -> {
             // Don't update parentMap; only use visited.
-            break;
-          case SAME_PKG_DIRECT_RDEPS:
+          }
+          case SAME_PKG_DIRECT_RDEPS -> {
             // Only track same-package dependencies.
             if (target
                 .getLabel()
@@ -267,18 +275,22 @@ final class PathLabelVisitor {
             // We only need to perform a single level of visitation. We have a non-null 'from'
             // target, and we're now at 'target' target, so we have one level, and can return here.
             return;
-          case ALLPATHS:
+          }
+          case ALLPATHS -> {
             if (!parentMap.containsKey(target)) {
               parentMap.put(target, new ArrayList<>());
             }
             parentMap.get(target).add(from);
-            break;
-          case SOMEPATH:
-            parentMap.putIfAbsent(target, ImmutableList.of(from));
-            break;
+          }
+          case SOMEPATH -> parentMap.putIfAbsent(target, ImmutableList.of(from));
         }
 
         visitAspectsIfRequired(from, attribute, target);
+      } else if (mode == VisitorMode.SOMEPATH) {
+        // Here we make sure that if this is a top-level visitation node (where 'from' is null),
+        // a parent edge cannot be made for this node. This prevents parent-edge cycles from being
+        // formed and hence infinite loops impossible when traversing parent-edges.
+        parentMap.putIfAbsent(target, ImmutableList.of());
       }
 
       if (visited.add(target)) {
@@ -301,8 +313,9 @@ final class PathLabelVisitor {
               }
             });
       } catch (CompletionException e) {
-        Throwables.propagateIfPossible(
-            e.getCause(), InterruptedException.class, NoSuchThingException.class);
+        throwIfInstanceOf(e.getCause(), InterruptedException.class);
+        throwIfInstanceOf(e.getCause(), NoSuchThingException.class);
+        throwIfUnchecked(e.getCause());
         throw e;
       }
     }
@@ -315,16 +328,14 @@ final class PathLabelVisitor {
       // of *different* attributes. These visitations get culled later, but we still have to pay the
       // overhead for all that.
 
-      if (!(from instanceof Rule) || !(to instanceof Rule)) {
+      if (!(from instanceof Rule fromRule) || !(to instanceof Rule toRule)) {
         return;
       }
-      Rule fromRule = (Rule) from;
-      Rule toRule = (Rule) to;
       for (Aspect aspect : attribute.getAspects(fromRule)) {
         if (AspectDefinition.satisfies(
             aspect, toRule.getRuleClassObject().getAdvertisedProviders())) {
           Multimap<Attribute, Label> allLabels = HashMultimap.create();
-          AspectDefinition.addAllAttributesOfAspect(fromRule, allLabels, aspect, edgeFilter);
+          AspectDefinition.addAllAttributesOfAspect(allLabels, aspect, edgeFilter);
           for (Map.Entry<Attribute, Label> e : allLabels.entries()) {
             enqueue(from, e.getKey(), e.getValue());
           }

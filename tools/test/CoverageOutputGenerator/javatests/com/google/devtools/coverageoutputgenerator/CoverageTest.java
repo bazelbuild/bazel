@@ -21,6 +21,7 @@ import static com.google.devtools.coverageoutputgenerator.LcovMergerTestUtils.cr
 import static com.google.devtools.coverageoutputgenerator.LcovMergerTestUtils.createLinesExecution2;
 import static com.google.devtools.coverageoutputgenerator.LcovMergerTestUtils.createSourceFile1;
 import static com.google.devtools.coverageoutputgenerator.LcovMergerTestUtils.createSourceFile2;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -158,14 +159,18 @@ public class CoverageTest {
     assertThat(filteredSources).containsExactly(validSource1, validSource2);
   }
 
-  @Test(expected = IllegalArgumentException.class)
+  @Test
   public void testFilterSourcesNullCoverage() {
-    Coverage.filterOutMatchingSources(null, ImmutableList.of());
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> Coverage.filterOutMatchingSources(null, ImmutableList.of()));
   }
 
-  @Test(expected = IllegalArgumentException.class)
+  @Test
   public void testFilterSourcesNullRegex() {
-    Coverage.filterOutMatchingSources(new Coverage(), null);
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> Coverage.filterOutMatchingSources(new Coverage(), null));
   }
 
   private List<String> getSourceFileNames(
@@ -195,14 +200,16 @@ public class CoverageTest {
         .containsExactly("source/common/protobuf/utility.cc", "source/common/grpc/common.cc");
   }
 
-  @Test(expected = IllegalArgumentException.class)
+  @Test
   public void testGetOnlyTheseSourcesNullCoverage() {
-    Coverage.getOnlyTheseSources(null, new HashSet<>());
+    assertThrows(
+        IllegalArgumentException.class, () -> Coverage.getOnlyTheseSources(null, new HashSet<>()));
   }
 
-  @Test(expected = IllegalArgumentException.class)
+  @Test
   public void testGetOnlyTheseSourcesNullSources() {
-    Coverage.getOnlyTheseSources(new Coverage(), null);
+    assertThrows(
+        IllegalArgumentException.class, () -> Coverage.getOnlyTheseSources(new Coverage(), null));
   }
 
   @Test

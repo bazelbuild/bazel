@@ -9,3 +9,9 @@
 ./lombok/javac/java6/CommentCollectingScannerFactory.class
 ./lombok/javac/java7/CommentCollectingParser.class
 ./lombok/javac/java7/CommentCollectingScanner.class
+./org/apache/commons/compress/harmony/pack200/Pack200Adapter.class
+./org/apache/commons/compress/java/util/jar/Pack200.class
+./org/apache/commons/compress/java/util/jar/Pack200$Packer.class
+./org/apache/commons/compress/java/util/jar/Pack200$Unpacker.class
+./org/apache/commons/lang3/concurrent/AbstractCircuitBreaker.class
+./org/apache/commons/lang3/concurrent/EventCountCircuitBreaker.class

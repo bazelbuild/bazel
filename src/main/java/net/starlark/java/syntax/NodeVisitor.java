@@ -23,25 +23,6 @@ public class NodeVisitor {
     node.accept(this);
   }
 
-  // methods dealing with sequences of nodes
-  public void visitAll(List<? extends Node> nodes) {
-    for (Node node : nodes) {
-      visit(node);
-    }
-  }
-
-  /**
-   * Visit a sequence ("block") of statements (e.g. an if branch, for block, function block etc.)
-   *
-   * This method allows subclasses to handle statement blocks more easily, like doing an action
-   * after every statement in a block without having to override visit(...) for all statements.
-   *
-   * @param statements list of statements in the block
-   */
-  public void visitBlock(List<Statement> statements) {
-    visitAll(statements);
-  }
-
   // node-specific visit methods
 
   // All four subclasses of Argument are handled together.
@@ -196,5 +177,24 @@ public class NodeVisitor {
     if (node.getElseCase() != null) {
       visit(node.getElseCase());
     }
+  }
+
+  // methods dealing with sequences of nodes
+  public void visitAll(List<? extends Node> nodes) {
+    for (Node node : nodes) {
+      visit(node);
+    }
+  }
+
+  /**
+   * Visit a sequence ("block") of statements (e.g. an if branch, for block, function block etc.)
+   *
+   * This method allows subclasses to handle statement blocks more easily, like doing an action
+   * after every statement in a block without having to override visit(...) for all statements.
+   *
+   * @param statements list of statements in the block
+   */
+  public void visitBlock(List<Statement> statements) {
+    visitAll(statements);
   }
 }

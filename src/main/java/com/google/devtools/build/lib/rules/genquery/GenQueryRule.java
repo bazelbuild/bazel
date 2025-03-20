@@ -15,10 +15,10 @@
 package com.google.devtools.build.lib.rules.genquery;
 
 import static com.google.devtools.build.lib.packages.Attribute.attr;
-import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
+import static com.google.devtools.build.lib.packages.BuildType.GENQUERY_SCOPE_TYPE_LIST;
 import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 import static com.google.devtools.build.lib.packages.Type.STRING;
-import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
+import static com.google.devtools.build.lib.packages.Types.STRING_LIST;
 
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
@@ -26,9 +26,7 @@ import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.packages.RuleClass;
 
-/**
- * Rule definition for genquery the rule.
- */
+/** Rule definition for genquery the rule. */
 public final class GenQueryRule implements RuleDefinition {
 
   /** Adds {@link GenQueryRule} and its dependencies to the provided builder. */
@@ -45,7 +43,7 @@ public final class GenQueryRule implements RuleDefinition {
         The scope of the query. The query is not allowed to touch targets outside the transitive
         closure of these targets.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(attr("scope", LABEL_LIST).mandatory().legacyAllowAnyFileType())
+        .add(attr("scope", GENQUERY_SCOPE_TYPE_LIST).mandatory().legacyAllowAnyFileType())
         /* <!-- #BLAZE_RULE(genquery).ATTRIBUTE(strict) -->
         If true, targets whose queries escape the transitive closure of their scopes will fail to
         build. If false, Bazel will print a warning and skip whatever query path led it outside of
@@ -67,6 +65,15 @@ public final class GenQueryRule implements RuleDefinition {
         will have their default values just like on the command line of <code>bazel query</code>.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("opts", STRING_LIST))
+        /* <!-- #BLAZE_RULE(genquery).ATTRIBUTE(compressed_output) -->
+        If <code>True</code>, query output is written in GZIP file format. This setting can be used
+        to avoid spikes in Bazel's memory use when the query output is expected to be large. Bazel
+        already internally compresses query outputs greater than 2<sup>20</sup> bytes regardless of
+        the value of this setting, so setting this to <code>True</code> may not reduce retained
+        heap. However, it allows Bazel to skip <em>decompression</em> when writing the output file,
+        which can be memory-intensive.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(attr("compressed_output", BOOLEAN).value(false))
         .build();
   }
 
@@ -84,7 +91,7 @@ public final class GenQueryRule implements RuleDefinition {
 
   <p>
   <code>genquery()</code> runs a query specified in the
-    <a href="../query.html">Blaze query language</a> and dumps the result
+    <a href="${link query}">Bazel query language</a> and dumps the result
     into a file.
   </p>
   <p>
@@ -107,8 +114,9 @@ public final class GenQueryRule implements RuleDefinition {
     is not allowed).
   </p>
   <p>
-    The genquery's output is ordered using <code>--order_output=full</code> in
-    order to enforce deterministic output.
+    The genquery's output is ordered lexicographically in order to enforce deterministic output,
+    with the exception of <code>--output=graph|minrank|maxrank</code> or when <code>somepath</code>
+    is used as the top-level function.
   <p>
     The name of the output file is the name of the rule.
   </p>

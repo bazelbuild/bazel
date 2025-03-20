@@ -1,0 +1,22 @@
+name: Mirror request
+description: Request to add new archives to mirror.bazel.build
+labels: ["mirror request", "type: process", "P2", "team-OSS"]
+assignees:
+  - sgowroji
+  - iancha1992
+  - satyanandak
+title: "[Mirror] "
+body:
+  - type: markdown
+    attributes:
+      value: >
+        **Attention:** if the archive you're trying to mirror is from GitHub,
+        please use URLs in the form of `https://github.com/$USER/$REPO/releases/download/...` if available.
+        If you are the project maintainer, you should create and upload such an release archive.
+        GitHub doesn't guarantee a stable checksum of source archives in the form of `https://github.com/<org>/<repo>/archive/...`, which are generated on demand.
+        Check [GitHub Archive Checksum Outage](https://blog.bazel.build/2023/02/15/github-archive-checksum.html) for more details.
+  - type: textarea
+    id: urls
+    attributes:
+      label: >
+        Please list the URLs of the archives you'd like to mirror:

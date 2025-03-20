@@ -22,5 +22,5 @@ import net.starlark.java.eval.StarlarkValue;
 @StarlarkBuiltin(
     name = "ExtraLinkTimeLibrary",
     documented = false,
-    category = DocCategory.TOP_LEVEL_TYPE)
+    category = DocCategory.TOP_LEVEL_MODULE)
 public interface ExtraLinkTimeLibraryApi extends StarlarkValue {}

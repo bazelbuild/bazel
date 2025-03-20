@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Strings.isNullOrEmpty;
 
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 
@@ -32,16 +33,24 @@ public class ViewCreationFailedException extends Exception {
   }
 
   public ViewCreationFailedException(String message, FailureDetail failureDetail, Throwable cause) {
-    super(message + ": " + cause.getMessage(), cause);
+    super(combineMessages(message, cause), cause);
     this.failureDetail = checkNotNull(failureDetail);
   }
 
   public ViewCreationFailedException(FailureDetail failureDetail, Throwable cause) {
-    super(cause);
+    super(cause.getMessage(), cause);
     this.failureDetail = checkNotNull(failureDetail);
   }
 
   public FailureDetail getFailureDetail() {
     return failureDetail;
+  }
+
+  private static String combineMessages(String message, Throwable cause) {
+    if (isNullOrEmpty(cause.getMessage())) {
+      return message;
+    } else {
+      return message + ": " + cause.getMessage();
+    }
   }
 }

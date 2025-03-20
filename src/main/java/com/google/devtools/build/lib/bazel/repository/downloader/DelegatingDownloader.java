@@ -14,14 +14,14 @@
 
 package com.google.devtools.build.lib.bazel.repository.downloader;
 
-import com.google.common.base.Optional;
+import com.google.auth.Credentials;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
-import java.net.URI;
 import java.net.URL;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import javax.annotation.Nullable;
 
 /**
@@ -47,19 +47,30 @@ public class DelegatingDownloader implements Downloader {
   @Override
   public void download(
       List<URL> urls,
-      Map<URI, Map<String, String>> authHeaders,
+      Map<String, List<String>> headers,
+      Credentials credentials,
       Optional<Checksum> checksum,
       String canonicalId,
       Path destination,
       ExtendedEventHandler eventHandler,
       Map<String, String> clientEnv,
-      Optional<String> type)
+      Optional<String> type,
+      String context)
       throws IOException, InterruptedException {
     Downloader downloader = defaultDelegate;
     if (delegate != null) {
       downloader = delegate;
     }
     downloader.download(
-        urls, authHeaders, checksum, canonicalId, destination, eventHandler, clientEnv, type);
+        urls,
+        headers,
+        credentials,
+        checksum,
+        canonicalId,
+        destination,
+        eventHandler,
+        clientEnv,
+        type,
+        context);
   }
 }

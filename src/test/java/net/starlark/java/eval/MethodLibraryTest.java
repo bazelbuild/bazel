@@ -22,7 +22,9 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import java.util.List;
+import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkMethod;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -260,6 +262,22 @@ public final class MethodLibraryTest {
             "str(dir({}))",
             "[\"clear\", \"get\", \"items\", \"keys\","
                 + " \"pop\", \"popitem\", \"setdefault\", \"update\", \"values\"]");
+  }
+
+  @Test
+  public void testAbs() throws Exception {
+    ev.new Scenario()
+        // int
+        .testEval("abs(4)", "4")
+        .testEval("abs(-2)", "2")
+        .testEval("abs(0)", "0")
+        // float
+        .testEval("abs(-2.3)", "2.3")
+        .testEval("abs(5.2)", "5.2")
+        .testEval("abs(0.0)", "0.0")
+        // big int
+        .testEval("abs(-12345678901234567890)", "12345678901234567890")
+        .testEval("abs(12345678901234567890)", "12345678901234567890");
   }
 
   @Test
@@ -662,6 +680,7 @@ public final class MethodLibraryTest {
         .testExpression("type('a')", "string")
         .testExpression("type([1, 2])", "list")
         .testExpression("type((1, 2))", "tuple")
+        .testExpression("type((1,))", "tuple")
         .testExpression("type(True)", "bool")
         .testExpression("type(None)", "NoneType")
         .testExpression("type(f)", "function")
@@ -736,6 +755,7 @@ public final class MethodLibraryTest {
         .testIfErrorContains("abc", "fail('abc')")
         .testIfErrorContains("18", "fail(18)")
         .testIfErrorContains("1 2 3", "fail(1, 2, 3)")
+        .testIfErrorContains("1, 2, 3", "fail(1, 2, 3, sep=', ')")
         .testIfErrorContains("attribute foo: 1 2 3", "fail(1, 2, 3, attr='foo')") // deprecated
         .testIfErrorContains("0 1 2 3", "fail(1, 2, 3, msg=0)"); // deprecated
   }
@@ -755,10 +775,33 @@ public final class MethodLibraryTest {
             "','.join(elements=['foo', 'bar'])");
   }
 
+  @StarlarkBuiltin(name = "named_only", doc = "")
+  static final class NamedOnly implements StarlarkValue {
+    @StarlarkMethod(
+        name = "foo",
+        documented = false,
+        parameters = {
+          @Param(name = "a"),
+          @Param(name = "b", named = true, defaultValue = "None", positional = false),
+        })
+    public Object foo(Object a, Object b) {
+      return a;
+    }
+  }
+
+  @Test
+  public void testNamedOnlyArgument() throws Exception {
+    ev.new Scenario()
+        .update("named_only", new NamedOnly())
+        .testIfErrorContains(
+            "foo() accepts no more than 1 positional argument but got 2",
+            "named_only.foo([1, 2, 3], int)");
+  }
+
   @Test
   public void testStringJoinRequiresStrings() throws Exception {
     ev.new Scenario()
         .testIfErrorContains(
-            "expected string for sequence element 1, got 'int'", "', '.join(['foo', 2])");
+            "expected string for sequence element 1, got '2' of type int", "', '.join(['foo', 2])");
   }
 }

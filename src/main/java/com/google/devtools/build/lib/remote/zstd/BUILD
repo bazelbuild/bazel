@@ -1,10 +1,9 @@
 load("@rules_java//java:defs.bzl", "java_library")
 
 package(
+    default_applicable_licenses = ["//:license"],
     default_visibility = ["//src:__subpackages__"],
 )
-
-licenses(["notice"])
 
 filegroup(
     name = "srcs",
@@ -16,9 +15,8 @@ java_library(
     name = "zstd",
     srcs = glob(["*.java"]),
     deps = [
-        "//third_party:apache_commons_compress",
         "//third_party:guava",
-        "//third_party/protobuf:protobuf_java",
+        "@com_google_protobuf//:protobuf_java",
         "@zstd-jni",
     ],
 )

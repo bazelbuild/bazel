@@ -1,4 +1,3 @@
-# Lint as: python2, python3
 # Copyright 2020 The Bazel Authors. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -35,17 +34,12 @@ bazel run //tools/aquery_differ:aquery_differ -- \
 --attrs=inputs
 """
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
 import difflib
 import os
 import sys
 
-# Do not edit this line. Copybara replaces it with PY2 migration helper.
 from absl import app
 from absl import flags
-from six.moves import map
 from google.protobuf import text_format
 from src.main.protobuf import analysis_v2_pb2
 from tools.aquery_differ.resolvers.dep_set_resolver import DepSetResolver
@@ -157,14 +151,14 @@ def _map_output_files_to_input_artifacts(action_graph_container,
 
   output_files_to_input_artifacts = {}
   for i, action in enumerate(actions):
-    input_artifacts = []
+    input_artifacts = set()
 
     for dep_set_id in action.input_dep_set_ids:
-      input_artifacts.extend(
+      input_artifacts.update(
           dep_set_resolver.resolve(id_to_dep_set[dep_set_id]))
 
-    output_files_to_input_artifacts[action_index_to_output_files[i]] = list(
-        sorted(input_artifacts))
+    output_files_to_input_artifacts[action_index_to_output_files[i]] = sorted(
+        list(input_artifacts))
 
   return output_files_to_input_artifacts
 

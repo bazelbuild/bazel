@@ -27,27 +27,6 @@ import javax.inject.Singleton;
 public final class JUnit4InstanceModules {
 
   /**
-   * A stateful dagger module that holds the supplied test suite class.
-   */
-  public static final class SuiteClass {
-    private final Class<?> suiteClass;
-
-    public SuiteClass(Class<?> suiteClass) {
-      this.suiteClass = suiteClass;
-    }
-
-    @TopLevelSuite
-    Class<?> topLevelSuite() {
-      return suiteClass;
-    }
-
-    @TopLevelSuite
-    static String topLevelSuiteName(@TopLevelSuite Class<?> suite) {
-      return suite.getCanonicalName();
-    }
-  }
-
-  /**
    * A module which supplies a JUnit4Config object, which can be overridden at test-time.
    */
   public static final class Config {
@@ -66,13 +45,6 @@ public final class JUnit4InstanceModules {
       return JUnit4Options.parse(System.getenv(), args);
     }
 
-    @Singleton
-    static JUnit4Config config(JUnit4Options options) {
-      return new JUnit4Config(
-          options.getTestRunnerFailFast(),
-          options.getTestIncludeFilter(),
-          options.getTestExcludeFilter());
-    }
   }
 
   private JUnit4InstanceModules() {}

@@ -217,9 +217,9 @@ public class Main {
   private static List<File> getGcovInfoFiles(List<File> filesInCoverageDir) {
     List<File> gcovFiles = getFilesWithExtension(filesInCoverageDir, GCOV_EXTENSION);
     if (gcovFiles.isEmpty()) {
-      logger.log(Level.INFO, "No gcov info file found.");
+      logger.log(Level.FINE, "No gcov info file found.");
     } else {
-      logger.log(Level.INFO, "Found " + gcovFiles.size() + " gcov info files.");
+      logger.log(Level.FINE, "Found " + gcovFiles.size() + " gcov info files.");
     }
     return gcovFiles;
   }
@@ -227,9 +227,9 @@ public class Main {
   private static List<File> getGcovJsonInfoFiles(List<File> filesInCoverageDir) {
     List<File> gcovJsonFiles = getFilesWithExtension(filesInCoverageDir, GCOV_JSON_EXTENSION);
     if (gcovJsonFiles.isEmpty()) {
-      logger.log(Level.INFO, "No gcov json file found.");
+      logger.log(Level.FINE, "No gcov json file found.");
     } else {
-      logger.log(Level.INFO, "Found " + gcovJsonFiles.size() + " gcov json files.");
+      logger.log(Level.FINE, "Found " + gcovJsonFiles.size() + " gcov json files.");
     }
     return gcovJsonFiles;
   }
@@ -241,7 +241,7 @@ public class Main {
   private static File getProfdataFileOrNull(List<File> files) {
     List<File> profdataFiles = getFilesWithExtension(files, PROFDATA_EXTENSION);
     if (profdataFiles.isEmpty()) {
-      logger.log(Level.INFO, "No .profdata file found.");
+      logger.log(Level.FINE, "No .profdata file found.");
       return null;
     }
     if (profdataFiles.size() > 1) {
@@ -252,7 +252,7 @@ public class Main {
               + " .profadata files were found instead.");
       return null;
     }
-    logger.log(Level.INFO, "Found one .profdata file.");
+    logger.log(Level.FINE, "Found one .profdata file.");
     return profdataFiles.get(0);
   }
 
@@ -264,9 +264,9 @@ public class Main {
       lcovTracefiles = getFilesWithExtension(filesInCoverageDir, TRACEFILE_EXTENSION);
     }
     if (lcovTracefiles.isEmpty()) {
-      logger.log(Level.INFO, "No lcov file found.");
+      logger.log(Level.FINE, "No lcov file found.");
     } else {
-      logger.log(Level.INFO, "Found " + lcovTracefiles.size() + " tracefiles.");
+      logger.log(Level.FINE, "Found " + lcovTracefiles.size() + " tracefiles.");
     }
     return lcovTracefiles;
   }
@@ -294,7 +294,7 @@ public class Main {
     } catch (IOException e) {
       logger.log(Level.SEVERE, "Error reading file " + file + ": " + e.getMessage());
     }
-    return mapBuilder.build();
+    return mapBuilder.buildOrThrow();
   }
 
   static Coverage parseFiles(List<File> files, Parser parser, int parallelism)
@@ -310,7 +310,7 @@ public class Main {
     Coverage coverage = new Coverage();
     for (File file : files) {
       try {
-        logger.log(Level.INFO, "Parsing file " + file);
+        logger.log(Level.FINE, "Parsing file " + file);
         List<SourceFileCoverage> sourceFilesCoverage = parser.parse(new FileInputStream(file));
         for (SourceFileCoverage sourceFileCoverage : sourceFilesCoverage) {
           coverage.add(sourceFileCoverage);
@@ -375,10 +375,7 @@ public class Main {
       InputStreamReader inputStreamReader = new InputStreamReader(inputStream, UTF_8);
       BufferedReader reader = new BufferedReader(inputStreamReader);
       for (String tracefile = reader.readLine(); tracefile != null; tracefile = reader.readLine()) {
-        // TODO(elenairina): baseline coverage contains some file names that need to be modified
-        if (!tracefile.endsWith("baseline_coverage.dat")) {
-          datFiles.add(new File(tracefile));
-        }
+        datFiles.add(new File(tracefile));
       }
 
     } catch (IOException e) {

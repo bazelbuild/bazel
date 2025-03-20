@@ -16,24 +16,23 @@ package com.google.devtools.build.lib.buildtool;
 import com.github.benmanes.caffeine.cache.CaffeineSpec;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.flogger.GoogleLogger;
-import com.google.devtools.build.lib.actions.LocalHostCapacity;
 import com.google.devtools.build.lib.util.OptionsUtils;
 import com.google.devtools.build.lib.util.ResourceConverter;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.BoolOrEnumConverter;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Converters.CaffeineSpecConverter;
+import com.google.devtools.common.options.Converters.PercentageConverter;
 import com.google.devtools.common.options.Converters.RangeConverter;
 import com.google.devtools.common.options.Option;
-import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
-import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.RegexPatternOption;
 import java.util.List;
+import java.util.Map;
 import javax.annotation.Nullable;
 
 /**
@@ -43,8 +42,6 @@ import javax.annotation.Nullable;
  * difference between these two sets of options.
  */
 public class BuildRequestOptions extends OptionsBase {
-  public static final OptionDefinition EXPERIMENTAL_MULTI_CPU =
-      OptionsParser.getOptionDefinitionByName(BuildRequestOptions.class, "experimental_multi_cpu");
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
   private static final int JOBS_TOO_HIGH_WARNING = 2500;
   @VisibleForTesting public static final int MAX_JOBS = 5000;
@@ -70,14 +67,43 @@ public class BuildRequestOptions extends OptionsBase {
   public int jobs;
 
   @Option(
+      name = "experimental_use_semaphore_for_jobs",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS, OptionEffectTag.EXECUTION},
+      help = "If set to true, additionally use semaphore to limit number of concurrent jobs.")
+  public boolean useSemaphoreForJobs;
+
+  @Option(
+      name = "experimental_async_execution",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      metadataTags = OptionMetadataTag.INCOMPATIBLE_CHANGE,
+      effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS, OptionEffectTag.EXECUTION},
+      help =
+          "If set to true, Bazel is allowed to run action in a virtual thread. The number of"
+              + " actions in flight is still capped with --jobs.")
+  public boolean useAsyncExecution;
+
+  @Option(
+      name = "experimental_async_execution_max_concurrent_actions",
+      defaultValue = "5000",
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS, OptionEffectTag.EXECUTION},
+      help = "The number of maximum concurrent actions to run with async execution")
+  public int asyncExecutionMaxConcurrentActions;
+
+  @Option(
       name = "progress_report_interval",
       defaultValue = "0",
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       converter = ProgressReportIntervalConverter.class,
       help =
-          "The number of seconds to wait between two reports on still running jobs. The "
-              + "default value 0 means to use the default 10:30:60 incremental algorithm.")
+          "The number of seconds to wait between reports on still running jobs. The "
+              + "default value 0 means the first report will be printed after 10 "
+              + "seconds, then 30 seconds and after that progress is reported once every minute. "
+              + "When --curses is enabled, progress is reported every second.")
   public int progressReportInterval;
 
   @Option(
@@ -107,7 +133,9 @@ public class BuildRequestOptions extends OptionsBase {
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-      help = "Only shows warnings for rules with a name matching the provided regular expression.")
+      help =
+          "Only shows warnings and action outputs for rules with a name matching the provided "
+              + "regular expression.")
   @Nullable
   public RegexPatternOption outputFilter;
 
@@ -153,19 +181,14 @@ public class BuildRequestOptions extends OptionsBase {
   public List<String> outputGroups;
 
   @Option(
-      name = "experimental_run_validations",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
-      effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.AFFECTS_OUTPUTS},
-      help = "Use --run_validations instead.")
-  public boolean experimentalRunValidationActions;
-
-  @Option(
       name = "run_validations",
+      oldName = "experimental_run_validations",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
       effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.AFFECTS_OUTPUTS},
-      help = "Whether to run validation actions as part of the build.")
+      help =
+          "Whether to run validation actions as part of the build. See"
+              + " https://bazel.build/extending/rules#validation_actions")
   public boolean runValidationActions;
 
   @Option(
@@ -182,35 +205,28 @@ public class BuildRequestOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help =
-          "Show the results of the build.  For each target, state whether or not it was brought "
-              + "up-to-date, and if so, a list of output files that were built.  The printed files "
-              + "are convenient strings for copy+pasting to the shell, to execute them.\n"
-              + "This option requires an integer argument, which is the threshold number of "
-              + "targets above which result information is not printed. Thus zero causes "
-              + "suppression of the message and MAX_INT causes printing of the result to occur "
-              + "always.  The default is one.")
+          "Show the results of the build.  For each target, state whether or not it was brought"
+              + " up-to-date, and if so, a list of output files that were built.  The printed files"
+              + " are convenient strings for copy+pasting to the shell, to execute them.\n"
+              + "This option requires an integer argument, which is the threshold number of targets"
+              + " above which result information is not printed. Thus zero causes suppression of"
+              + " the message and MAX_INT causes printing of the result to occur always. The"
+              + " default is one.\n"
+              + "If nothing was built for a target its results may be omitted to keep the output"
+              + " under the threshold.")
   public int maxResultTargets;
 
   @Option(
-      name = "experimental_show_artifacts",
-      defaultValue = "false",
+      name = "hide_aspect_results",
+      converter = Converters.CommaSeparatedOptionListConverter.class,
+      defaultValue = "",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
       help =
-          "Output a list of all top level artifacts produced by this build."
-              + "Use output format suitable for tool consumption. "
-              + "This flag is temporary and intended to facilitate Android Studio integration. "
-              + "This output format will likely change in the future or disappear completely.")
-  public boolean showArtifacts;
-
-  @Option(
-      name = "announce",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.LOGGING,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-      help = "Deprecated. No-op.",
-      deprecationWarning = "This option is now deprecated and is a no-op")
-  public boolean announce;
+          "Comma-separated list of aspect names to not display in results (see --show_result). "
+              + "Useful for keeping aspects added by wrappers which are typically not interesting "
+              + "to end users out of console output.")
+  public List<String> hideAspectResults;
 
   @Option(
       name = "symlink_prefix",
@@ -238,7 +254,7 @@ public class BuildRequestOptions extends OptionsBase {
               + "  normal (default): Each kind of convenience symlink will be created or deleted, "
               + "as determined by the build.\n"
               + "  clean: All symlinks will be unconditionally deleted.\n"
-              + "  ignore: Symlinks will be left alone.\n"
+              + "  ignore: Symlinks will not be created or cleaned up.\n"
               + "  log_only: Generate log messages as if 'normal' were passed, but don't actually "
               + "perform any filesystem operations (useful for tools).\n"
               + "Note that only symlinks whose names are generated by the current value of "
@@ -249,7 +265,7 @@ public class BuildRequestOptions extends OptionsBase {
 
   @Option(
       name = "experimental_convenience_symlinks_bep_event",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help =
@@ -259,19 +275,6 @@ public class BuildRequestOptions extends OptionsBase {
               + "listing all of the convenience symlinks created in your workspace. If false, then "
               + "the convenienceSymlinksIdentified entry in the BuildEventProtocol will be empty.")
   public boolean experimentalConvenienceSymlinksBepEvent;
-
-  @Option(
-      name = "experimental_multi_cpu",
-      converter = Converters.CommaSeparatedOptionListConverter.class,
-      allowMultiple = true,
-      defaultValue = "null",
-      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      help =
-          "This flag allows specifying multiple target CPUs. If this is specified, "
-              + "the --cpu option is ignored.")
-  public List<String> multiCpus;
 
   @Option(
       name = "output_tree_tracking",
@@ -306,81 +309,38 @@ public class BuildRequestOptions extends OptionsBase {
       allowMultiple = true,
       help =
           "Comma-separated list of aspects to be applied to top-level targets. In the list, if"
-              + " aspect <code>some_aspect</code> specifies required aspect providers via"
-              + " <code>required_aspect_providers</code>, <code>some_aspect</code> will run after"
+              + " aspect some_aspect specifies required aspect providers via"
+              + " required_aspect_providers, some_aspect will run after"
               + " every aspect that was mentioned before it in the aspects list whose advertised"
-              + " providers satisfy <code>some_aspect</code> required aspect providers. Moreover,"
-              + " <code>some_aspect</code> will run after all its required aspects specified by"
-              + " <code>requires</code> attribute."
-              + " <code>some_aspect</code> will then have access to the values of those aspects'"
+              + " providers satisfy some_aspect required aspect providers. Moreover,"
+              + " some_aspect will run after all its required aspects specified by"
+              + " requires attribute."
+              + " some_aspect will then have access to the values of those aspects'"
               + " providers."
               + " <bzl-file-label>%<aspect_name>, for example '//tools:my_def.bzl%my_aspect', where"
               + " 'my_aspect' is a top-level value from a file tools/my_def.bzl")
   public List<String> aspects;
+
+  @Option(
+      name = "aspects_parameters",
+      converter = Converters.AssignmentConverter.class,
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.GENERIC_INPUTS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      allowMultiple = true,
+      help =
+          "Specifies the values of the command-line aspects parameters. Each parameter value is"
+              + " specified via <param_name>=<param_value>, for example 'my_param=my_val' where"
+              + " 'my_param' is a parameter of some aspect in --aspects list or required by an"
+              + " aspect in the list. This option can be used multiple times. However, it is not"
+              + " allowed to assign values to the same parameter more than once.")
+  public List<Map.Entry<String, String>> aspectsParameters;
 
   public BuildRequestOptions() throws OptionsParsingException {}
 
   public String getSymlinkPrefix(String productName) {
     return symlinkPrefix == null ? productName + "-" : symlinkPrefix;
   }
-
-  // Transitional flag for safely rolling out new convenience symlink behavior.
-  // To be made a no-op and deleted once new symlink behavior is battle-tested.
-  @Option(
-      name = "use_top_level_targets_for_symlinks",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-      help =
-          "If enabled, the symlinks are based on the configurations of the top-level targets "
-              + " rather than the top-level target configuration. If this would be ambiguous, "
-              + " the symlinks will be deleted to avoid confusion.")
-  public boolean useTopLevelTargetsForSymlinks;
-
-  /**
-   * Returns whether to use the output directories used by the top-level targets for convenience
-   * symlinks.
-   *
-   * <p>If true, then symlinks use the actual output directories of the top-level targets. The
-   * symlinks will be created iff all top-level targets share the same output directory. Otherwise,
-   * any stale symlinks from previous invocations will be deleted to avoid ambiguity.
-   *
-   * <p>If false, then symlinks use the output directory implied by command-line flags, regardless
-   * of whether top-level targets have transitions which change them (or even have any output
-   * directories at all, as in the case of a build with no targets or one which only builds source
-   * files).
-   */
-  public boolean useTopLevelTargetsForSymlinks() {
-    return useTopLevelTargetsForSymlinks;
-  }
-
-  @Option(
-      name = "experimental_create_py_symlinks",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-      help =
-          "If enabled, two convenience symlinks, `py2` and `py3`, will be created (with the"
-              + " appropriate prefix). These point to the output directories for the Python 2 and"
-              + " Python 3 configurations, respectively. This can be used to access outputs in the"
-              + " bin directory of a specific Python version. For instance, if --symlink_prefix is"
-              + " `foo-`, the path `foo-py2/bin` behaves like `foo-bin` except that it is"
-              + " guaranteed to contain artifacts built in the Python 2 configuration. IMPORTANT:"
-              + " This flag is not planned to be enabled by default, and should not be relied on.")
-  public boolean experimentalCreatePySymlinks;
-
-  @Option(
-      name = "print_workspace_in_output_paths_if_needed",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
-      help =
-          "If enabled, when the current working directory is deeper than the workspace (for"
-              + " example, when running from <workspace>/foo instead of <workspace>), printed"
-              + " output paths include the absolute path to the workspace (for example,"
-              + " <workspace>/<symlink_prefix>-bin/foo/binary instead of "
-              + "<symlink_prefix>-bin/foo/binary).")
-  public boolean printWorkspaceInOutputPathsIfNeeded;
 
   @Option(
       name = "use_action_cache",
@@ -394,38 +354,12 @@ public class BuildRequestOptions extends OptionsBase {
   public boolean useActionCache;
 
   @Option(
-      name = "experimental_action_cache_store_output_metadata",
+      name = "rewind_lost_inputs",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {
-        OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION,
-        OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS
-      },
-      help = "Whether to store output metadata in the action cache")
-  public boolean actionCacheStoreOutputMetadata;
-
-  @Option(
-      name = "discard_actions_after_execution",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      metadataTags = OptionMetadataTag.INCOMPATIBLE_CHANGE,
-      effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE},
-      help = "This option is deprecated and has no effect.")
-  public boolean discardActionsAfterExecution;
-
-  @Option(
-      name = "experimental_async_execution",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      metadataTags = OptionMetadataTag.INCOMPATIBLE_CHANGE,
-      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
-      help =
-          "If set to true, Bazel is allowed to run aynchronously, i.e., without reserving a local "
-              + "thread. This only has an effect if the action implementation and the lower-level "
-              + "strategy support it. This setting effectively circumvents the implicit limit of "
-              + "number of concurrently running actions otherwise imposed by the --jobs flag. Use "
-              + "with caution.")
-  public boolean useAsyncExecution;
+      effectTags = {OptionEffectTag.EXECUTION},
+      help = "Whether to use action rewinding to recover from lost inputs.")
+  public boolean rewindLostInputs;
 
   @Option(
       name = "incompatible_skip_genfiles_symlink",
@@ -439,24 +373,6 @@ public class BuildRequestOptions extends OptionsBase {
   public boolean incompatibleSkipGenfilesSymlink;
 
   @Option(
-      name = "experimental_use_fork_join_pool",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      metadataTags = OptionMetadataTag.EXPERIMENTAL,
-      effectTags = {OptionEffectTag.EXECUTION},
-      help = "If this flag is set, use a fork join pool in the abstract queue visitor.")
-  public boolean useForkJoinPool;
-
-  @Option(
-      name = "experimental_replay_action_out_err",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      metadataTags = OptionMetadataTag.EXPERIMENTAL,
-      effectTags = {OptionEffectTag.EXECUTION},
-      help = "If this flag is set, replay action out/err on incremental builds.")
-  public boolean replayActionOutErr;
-
-  @Option(
       name = "target_pattern_file",
       defaultValue = "",
       documentationCategory = OptionDocumentationCategory.GENERIC_INPUTS,
@@ -466,23 +382,39 @@ public class BuildRequestOptions extends OptionsBase {
               + "line. It is an error to specify a file here as well as command-line patterns.")
   public String targetPatternFile;
 
+  /**
+   * Do not use directly. Instead use {@link
+   * com.google.devtools.build.lib.runtime.CommandEnvironment#withMergedAnalysisAndExecutionSourceOfTruth()}.
+   */
   @Option(
       name = "experimental_merged_skyframe_analysis_execution",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       metadataTags = OptionMetadataTag.EXPERIMENTAL,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.EXECUTION},
       help = "If this flag is set, the analysis and execution phases of Skyframe are merged.")
-  public boolean mergedSkyframeAnalysisExecution;
+  public boolean mergedSkyframeAnalysisExecutionDoNotUseDirectly;
+
+  @Option(
+      name = "experimental_skymeld_analysis_overlap_percentage",
+      defaultValue = "100",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      metadataTags = OptionMetadataTag.EXPERIMENTAL,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.EXECUTION},
+      converter = PercentageConverter.class,
+      help =
+          "The value represents the % of the analysis phase which will be overlapped with the"
+              + " execution phase. A value of x means Skyframe will queue up execution tasks and"
+              + " wait until there's x% of the top level target left to be analyzed before allowing"
+              + " them to launch. When the value is 0%, we'd wait for all analysis to finish before"
+              + " executing (no overlap). When it's 100%, the phases are free to overlap as much as"
+              + " they can.")
+  public int skymeldAnalysisOverlapPercentage;
 
   /** Converter for filesystem value checker threads. */
-  public static class ThreadConverter extends ResourceConverter {
+  public static class ThreadConverter extends ResourceConverter.IntegerConverter {
     public ThreadConverter() {
-      super(
-          /* autoSupplier= */ () ->
-              (int) Math.ceil(LocalHostCapacity.getLocalHostCapacity().getCpuUsage()),
-          /* minValue= */ 1,
-          /* maxValue= */ Integer.MAX_VALUE);
+      super(/* auto= */ HOST_CPUS_SUPPLIER, /* minValue= */ 1, /* maxValue= */ Integer.MAX_VALUE);
     }
   }
 
@@ -497,14 +429,56 @@ public class BuildRequestOptions extends OptionsBase {
   public int fsvcThreads;
 
   @Option(
+      name = "experimental_skyframe_memory_dump",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      help =
+          "Dump the memory use of individual nodes in the Skyframe graph after the build. This"
+              + " option takes a number of flags separated by commas: 'json' (no-op, that's the"
+              + " only format), 'notransient' (don't traverse transient fields), 'noconfig' (ignore"
+              + " objects related to configurations), 'noprecomputed' (ignore precomputed values)"
+              + " and 'noworkspacestatus' (ignore objects related to the workspace status"
+              + " machinery)")
+  public String skyframeMemoryDump;
+
+  @Option(
+      name = "enforce_project_configs",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.AFFECTS_OUTPUTS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      // TODO: b/341931019 - link to user documentation when available.
+      help =
+          "If true, interactive builds may only pass the --scl_config build flag; they may not use"
+              + " any other build flags. --scl_config must be set to an officially suported project"
+              + " configuration. Supported configurations are defined in the target's PROJECT.scl,"
+              + " which can be found by walking up the target's packagge path. See b/324126745.")
+  public boolean enforceProjectConfigs;
+
+  @Option(
+      name = "experimental_skyframe_error_handling_refactor",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      metadataTags = OptionMetadataTag.EXPERIMENTAL,
+      effectTags = {OptionEffectTag.NO_OP},
+      help =
+          "Used solely for the safe rollout of simplifying Skyframe error handling. This will be"
+              + "removed once the rollout is complete (expected timeframe: 1 release)")
+  public boolean skyframeErrorHandlingRefactor;
+
+  @Option(
       name = "experimental_aquery_dump_after_build_format",
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help =
-          "Writes the state of Skyframe (which includes previous invocations on this blaze"
-              + " instance as well) to stdout after a build, in the same format as aquery's."
-              + " Possible formats: proto|textproto|jsonproto.")
+          "Writes the state of Skyframe (which includes previous invocations on this blaze instance"
+              + " as well) after a build. Output is streamed remotely unless local output is"
+              + " requested with --experimental_aquery_dump_after_build_output_file.  Does not"
+              + " honor aquery flags for --include_*, but uses the same defaults, except for"
+              + " --include_commandline=false. Possible output formats:"
+              + " proto|streamed_proto|textproto|jsonproto. Using this will disable Skymeld.")
   @Nullable
   public String aqueryDumpAfterBuildFormat;
 
@@ -514,10 +488,15 @@ public class BuildRequestOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       converter = OptionsUtils.PathFragmentConverter.class,
+      // NOTE: This produces a very very large amount of data on large builds,
+      // very useful for debugging, but may not be used regularly. When removing
+      // unused flags based on usage this may not be a good candidate for
+      // removal.
       help =
           "Specify the output file for the aquery dump after a build. Use in conjunction with"
               + " --experimental_aquery_dump_after_build_format. The path provided is relative to"
-              + " Bazel's output base, unless it's an absolute path.")
+              + " Bazel's output base, unless it's an absolute path. Using this will disable"
+              + " Skymeld.")
   @Nullable
   public PathFragment aqueryDumpAfterBuildOutputFile;
 
@@ -525,27 +504,24 @@ public class BuildRequestOptions extends OptionsBase {
    * Converter for jobs: Takes keyword ({@value #FLAG_SYNTAX}). Values must be between 1 and
    * MAX_JOBS.
    */
-  public static class JobsConverter extends ResourceConverter {
+  public static class JobsConverter extends ResourceConverter.IntegerConverter {
     public JobsConverter() {
-      super(
-          () -> (int) Math.ceil(LocalHostCapacity.getLocalHostCapacity().getCpuUsage()),
-          1,
-          MAX_JOBS);
+      super(/* auto= */ HOST_CPUS_SUPPLIER, /* minValue= */ 1, /* maxValue= */ MAX_JOBS);
     }
 
     @Override
-    public int checkAndLimit(int value) throws OptionsParsingException {
-      if (value < minValue) {
+    public Integer checkAndLimit(Integer value) throws OptionsParsingException {
+      if (value.doubleValue() < minValue) {
         throw new OptionsParsingException(
             String.format("Value '(%d)' must be at least %d.", value, minValue));
       }
-      if (value > maxValue) {
+      if (value.doubleValue() > maxValue) {
         logger.atWarning().log(
             "Flag remoteWorker \"jobs\" ('%d') was set too high. "
                 + "This is a result of passing large values to --local_resources or --jobs. "
                 + "Using '%d' jobs",
             value, maxValue);
-        value = maxValue;
+        return maxValue;
       }
       return value;
     }

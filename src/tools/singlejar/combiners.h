@@ -145,6 +145,12 @@ class ManifestCombiner : public Combiner {
   }
   ~ManifestCombiner() override;
 
+  void EnableMultiRelease();
+
+  void AddExports(const std::vector<std::string> &add_exports);
+
+  void AddOpens(const std::vector<std::string> &add_opens);
+
   void AppendLine(const std::string &line);
 
   bool Merge(const CDH *cdh, const LH *lh) override;
@@ -154,9 +160,16 @@ class ManifestCombiner : public Combiner {
   const std::string filename() const { return filename_; }
 
  private:
+  bool HandleModuleFlags(std::vector<std::string> &output, const char *key,
+                         size_t key_length, std::string line);
+
+  void OutputModuleFlags(std::vector<std::string> &flags, const char *key);
+
   std::unique_ptr<Concatenator> concatenator_;
   const std::string filename_;
   bool multi_release_;
+  std::vector<std::string> add_opens_;
+  std::vector<std::string> add_exports_;
   std::unique_ptr<Inflater> inflater_;
 };
 

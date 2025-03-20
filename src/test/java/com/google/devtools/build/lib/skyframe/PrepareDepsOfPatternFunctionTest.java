@@ -18,13 +18,12 @@ import static com.google.devtools.build.skyframe.WalkableGraphUtils.exists;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.skyframe.PrepareDepsOfPatternValue.PrepareDepsOfPatternSkyKeysAndExceptions;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -40,12 +39,12 @@ public final class PrepareDepsOfPatternFunctionTest extends BuildViewTestCase {
 
   private static PrepareDepsOfPatternSkyKeysAndExceptions createPrepDepsKeysMaybe(
       ImmutableList<String> patterns) {
-    return PrepareDepsOfPatternValue.keys(patterns, PathFragment.EMPTY_FRAGMENT);
+    return PrepareDepsOfPatternValue.keys(patterns, TargetPattern.defaultParser());
   }
 
   private static SkyKey createPrepDepsKey(String pattern) {
     PrepareDepsOfPatternSkyKeysAndExceptions keysAndExceptions =
-        PrepareDepsOfPatternValue.keys(ImmutableList.of(pattern), PathFragment.EMPTY_FRAGMENT);
+        PrepareDepsOfPatternValue.keys(ImmutableList.of(pattern), TargetPattern.defaultParser());
     assertThat(keysAndExceptions.getExceptions()).isEmpty();
     return Iterables.getOnlyElement(keysAndExceptions.getValues()).getSkyKey();
   }
@@ -55,11 +54,11 @@ public final class PrepareDepsOfPatternFunctionTest extends BuildViewTestCase {
     EvaluationContext evaluationContext =
         EvaluationContext.newBuilder()
             .setKeepGoing(false)
-            .setNumThreads(SequencedSkyframeExecutor.DEFAULT_THREAD_COUNT)
+            .setParallelism(SequencedSkyframeExecutor.DEFAULT_THREAD_COUNT)
             .setEventHandler(reporter)
             .build();
     EvaluationResult<PrepareDepsOfPatternValue> evaluationResult =
-        skyframeExecutor.getDriver().evaluate(ImmutableList.of(key), evaluationContext);
+        skyframeExecutor.getEvaluator().evaluate(ImmutableList.of(key), evaluationContext);
     Preconditions.checkState(!evaluationResult.hasError());
     return evaluationResult;
   }
@@ -77,7 +76,7 @@ public final class PrepareDepsOfPatternFunctionTest extends BuildViewTestCase {
     // Then it returns a wrapped TargetParsingException.
     assertThat(keysAndExceptionsResult.getValues()).isEmpty();
     assertThat(
-        Iterables.getOnlyElement(keysAndExceptionsResult.getExceptions()).getOriginalPattern())
+            Iterables.getOnlyElement(keysAndExceptionsResult.getExceptions()).getOriginalPattern())
         .isEqualTo(unparsablePattern);
   }
 
@@ -99,40 +98,38 @@ public final class PrepareDepsOfPatternFunctionTest extends BuildViewTestCase {
 
     // When PrepareDepsOfPatternFunction is evaluated for the provided pattern,
     SkyKey key = createPrepDepsKey(pattern);
-    EvaluationResult<PrepareDepsOfPatternValue> evaluationResult =
-        getEvaluationResult(key);
+    EvaluationResult<PrepareDepsOfPatternValue> evaluationResult = getEvaluationResult(key);
     WalkableGraph graph = Preconditions.checkNotNull(evaluationResult.getWalkableGraph());
 
     // Then the result is not null,
     Preconditions.checkNotNull(evaluationResult.get(key));
 
     // And the TransitiveTraversalValue for "a:a" is evaluated,
-    SkyKey aaKey = TransitiveTraversalValue.key(Label.parseAbsolute("@//a:a", ImmutableMap.of()));
+    SkyKey aaKey = TransitiveTraversalValue.key(Label.parseCanonical("@//a:a"));
     assertThat(exists(aaKey, graph)).isTrue();
 
     // And that TransitiveTraversalValue depends on "b:b.txt".
     Iterable<SkyKey> depsOfAa =
         Iterables.getOnlyElement(graph.getDirectDeps(ImmutableList.of(aaKey)).values());
-    SkyKey bTxtKey =
-        TransitiveTraversalValue.key(Label.parseAbsolute("@//b:b.txt", ImmutableMap.of()));
+    SkyKey bTxtKey = TransitiveTraversalValue.key(Label.parseCanonical("@//b:b.txt"));
     assertThat(depsOfAa).contains(bTxtKey);
 
     // And the TransitiveTraversalValue for "b:b.txt" is evaluated.
     assertThat(exists(bTxtKey, graph)).isTrue();
 
     // And the TransitiveTraversalValue for "c:c" is NOT evaluated.
-    SkyKey ccKey = TransitiveTraversalValue.key(Label.parseAbsolute("@//c:c", ImmutableMap.of()));
+    SkyKey ccKey = TransitiveTraversalValue.key(Label.parseCanonical("@//c:c"));
     assertThat(exists(ccKey, graph)).isFalse();
 
     // And the TransitiveTraversalValue for "a/d:d" is or is not evaluated depending on the provided
     // expectation.
-    SkyKey adKey = TransitiveTraversalValue.key(Label.parseAbsolute("@//a/d:d", ImmutableMap.of()));
+    SkyKey adKey = TransitiveTraversalValue.key(Label.parseCanonical("@//a/d:d"));
     assertThat(exists(adKey, graph)).isEqualTo(adExists);
   }
 
   /**
-   * Creates a package "a" with a genrule "a" that depends on a target "b.txt" in a created
-   * package "b", and a package "c" with a genrule "c", and a package "a/d" with a genrule "d".
+   * Creates a package "a" with a genrule "a" that depends on a target "b.txt" in a created package
+   * "b", and a package "c" with a genrule "c", and a package "a/d" with a genrule "d".
    */
   private void createPackages() throws IOException {
     scratch.file("a/BUILD", "genrule(name='a', cmd='', srcs=['//b:b.txt'], outs=['a.out'])");

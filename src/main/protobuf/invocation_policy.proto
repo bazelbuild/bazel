@@ -13,7 +13,10 @@
 // limitations under the License.
 
 syntax = "proto2";
+
 package blaze.invocation_policy;
+
+import "src/main/protobuf/strategy_policy.proto";
 
 // option java_api_version = 2;
 option java_package = "com.google.devtools.build.lib.runtime.proto";
@@ -26,6 +29,8 @@ message InvocationPolicy {
   // requirements, only the final policy on a specific flag will be enforced
   // onto the user's command line.
   repeated FlagPolicy flag_policies = 1;
+
+  optional blaze.strategy_policy.StrategyPolicy strategy_policy = 2;
 }
 
 // A policy for controlling the value of a flag.
@@ -61,7 +66,7 @@ message FlagPolicy {
 
 message SetValue {
   // Use this value for the specified flag, overriding any default or user-set
-  // value (unless append is set to true for repeatable flags).
+  // value (unless behavior = APPEND for repeatable flags).
   //
   // This field is repeated for repeatable flags. It is an error to set
   // multiple values for a flag that is not actually a repeatable flag.
@@ -69,7 +74,7 @@ message SetValue {
   //
   // If the flag allows multiple values, all of its values are replaced with the
   // value or values from the policy (i.e., no diffing or merging is performed),
-  // unless the append field (see below) is set to true.
+  // unless behavior = APPEND (see below).
   //
   // Note that some flags are tricky. For example, some flags look like boolean
   // flags, but are actually Void expansion flags that expand into other flags.
@@ -121,9 +126,6 @@ message SetValue {
 
   // Defines how invocation policy should interact with user settings for the
   // same flag.
-  // For the time being, it coexists with overridable and append with duplicate
-  // semantics.Please fill both of the values as we migrate to use behavior
-  // only.
   optional Behavior behavior = 4;
 }
 

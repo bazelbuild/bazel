@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.shell;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.time.Duration;
 import java.util.Optional;
 
@@ -242,8 +243,8 @@ public final class TerminationStatus {
 
   @Override
   public boolean equals(Object other) {
-    return other instanceof TerminationStatus
-        && ((TerminationStatus) other).waitResult == this.waitResult;
+    return other instanceof TerminationStatus terminationStatus
+        && terminationStatus.waitResult == this.waitResult;
   }
 
   /** Returns a new {@link TerminationStatus.Builder}. */
@@ -265,50 +266,37 @@ public final class TerminationStatus {
     private Optional<Duration> systemExecutionTime = Optional.empty();
 
     /** Sets the value returned by {@link java.lang.Process#waitFor}. */
+    @CanIgnoreReturnValue
     public Builder setWaitResponse(int waitResponse) {
       this.waitResponse = waitResponse;
       return this;
     }
 
     /** Sets whether the action timed out or not. */
+    @CanIgnoreReturnValue
     public Builder setTimedOut(boolean timedOut) {
       this.timedOut = timedOut;
       return this;
     }
 
     /** Sets the wall execution time. */
+    @CanIgnoreReturnValue
     public Builder setWallExecutionTime(Duration wallExecutionTime) {
       this.wallExecutionTime = Optional.of(wallExecutionTime);
       return this;
     }
 
-    /** Sets or clears the wall execution time. */
-    public Builder setWallExecutionTime(Optional<Duration> wallExecutionTime) {
-      this.wallExecutionTime = wallExecutionTime;
-      return this;
-    }
-
     /** Sets the user execution time. */
+    @CanIgnoreReturnValue
     public Builder setUserExecutionTime(Duration userExecutionTime) {
       this.userExecutionTime = Optional.of(userExecutionTime);
       return this;
     }
 
-    /** Sets or clears the user execution time. */
-    public Builder setUserExecutionTime(Optional<Duration> userExecutionTime) {
-      this.userExecutionTime = userExecutionTime;
-      return this;
-    }
-
     /** Sets the system execution time. */
+    @CanIgnoreReturnValue
     public Builder setSystemExecutionTime(Duration systemExecutionTime) {
       this.systemExecutionTime = Optional.of(systemExecutionTime);
-      return this;
-    }
-
-    /** Sets or clears the system execution time. */
-    public Builder setSystemExecutionTime(Optional<Duration> systemExecutionTime) {
-      this.systemExecutionTime = systemExecutionTime;
       return this;
     }
 

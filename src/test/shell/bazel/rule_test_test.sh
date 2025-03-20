@@ -42,13 +42,7 @@ fi
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-function set_up() {
-  export MSYS_NO_PATHCONV=1
-  export MSYS2_ARG_CONV_EXCL="*"
-}
-
 function test_local_rule_test_in_root() {
-  create_new_workspace
   cat > BUILD <<EOF
 genrule(
     name = "turtle",
@@ -75,7 +69,6 @@ EOF
 }
 
 function test_local_rule_test_in_subpackage() {
-  create_new_workspace
   mkdir p
   cat > p/BUILD <<EOF
 genrule(
@@ -103,15 +96,13 @@ EOF
 }
 
 function test_repository_rule_test_in_root() {
-  create_new_workspace
   mkdir -p r
 
-  cat >> WORKSPACE <<EOF
+  cat >> MODULE.bazel <<EOF
+local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(name = "r", path = "r")
 EOF
-  cat > r/WORKSPACE <<EOF
-workspace(name = "r")
-EOF
+  touch r/REPO.bazel
   cat > r/BUILD <<EOF
 genrule(
     name = "turtle",
@@ -139,15 +130,13 @@ EOF
 }
 
 function test_repository_rule_test_in_subpackage() {
-  create_new_workspace
   mkdir -p r
 
-  cat >> WORKSPACE <<EOF
+  cat >> MODULE.bazel <<EOF
+local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(name = "r", path = "r")
 EOF
-  cat > r/WORKSPACE <<EOF
-workspace(name = "r")
-EOF
+  touch r/REPO.bazel
   mkdir r/p
   cat > r/p/BUILD <<EOF
 genrule(
@@ -183,7 +172,6 @@ EOF
 # * test-only attributes are applied only to the sh_rule,
 # * the build rule has its own visibility
 function test_kwargs_with_macro_rules() {
-  create_new_workspace
   cat > BUILD <<'EOF'
 load("@bazel_tools//tools/build_rules:test_rules.bzl", "rule_test")
 

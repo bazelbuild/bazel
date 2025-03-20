@@ -28,18 +28,17 @@ import org.junit.runners.JUnit4;
 public class MultiResourceConverterTest {
 
   public MultiResourceConverter multiResourceConverter;
-  public ResourceConverter resourceConverter;
+  public ResourceConverter<?> resourceConverter;
 
   @Before
   public void setUp() {
     multiResourceConverter = new MultiResourceConverter();
-    resourceConverter = new ResourceConverter(() -> null);
+    resourceConverter = new ResourceConverter.IntegerConverter(() -> null, 1, Integer.MAX_VALUE);
   }
 
   @Test
   public void convert_mnemonicEqualsAuto_returnsDefault() throws OptionsParsingException {
-    assertThat(multiResourceConverter.convert("someMnemonic=auto").getValue())
-        .isEqualTo(MultiResourceConverter.DEFAULT_VALUE);
+    assertThat(multiResourceConverter.convert("someMnemonic=auto").getValue()).isNull();
   }
 
   @Test
@@ -51,8 +50,7 @@ public class MultiResourceConverterTest {
 
   @Test
   public void convert_auto_returnsDefault() throws OptionsParsingException {
-    assertThat(multiResourceConverter.convert("auto").getValue())
-        .isEqualTo(MultiResourceConverter.DEFAULT_VALUE);
+    assertThat(multiResourceConverter.convert("auto").getValue()).isNull();
   }
 
   @Test
@@ -70,6 +68,6 @@ public class MultiResourceConverterTest {
 
   @Test
   public void convert_auto_setsEmptyStringAKADefaultAsKey() throws Exception {
-    assertThat(multiResourceConverter.convert("auto").getKey()).isEmpty();
+    assertThat(multiResourceConverter.convert("auto").getKey()).isNull();
   }
 }

@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.actions;
 
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.util.OS;
 
 /** Common interface for ResourceSet and builder. */
 @FunctionalInterface
@@ -24,5 +24,5 @@ public interface ResourceSetOrBuilder {
    * will flatten NestedSet. This action could create a lot of garbagge, so use it as close as
    * possible to the execution phase,
    */
-  public ResourceSet buildResourceSet(NestedSet<Artifact> inputs);
+  public ResourceSet buildResourceSet(OS os, int inputsSize) throws ExecException;
 }

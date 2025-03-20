@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import javax.annotation.Nullable;
 
 /** Utility methods for use by Java-related parts of the build system. */
 public final class JavaUtil {
@@ -133,6 +134,7 @@ public final class JavaUtil {
    * <p>TODO(bazel-team): (2011) We need to have a more robust way to determine the Java root of a
    * relative path rather than simply trying to find the "java" or "javatests" or "src" directory.
    */
+  @Nullable
   public static String getJavaFullClassname(PathFragment path) {
     PathFragment javaPath = getJavaPath(path);
     if (javaPath != null) {
@@ -151,6 +153,7 @@ public final class JavaUtil {
    * <p>TODO(bazel-team): (2011) We need to have a more robust way to determine the Java root of a
    * relative path rather than simply trying to find the "java" or "javatests" directory.
    */
+  @Nullable
   public static PathFragment getJavaPath(PathFragment path) {
     int index = javaSegmentIndex(path);
     if (index >= 0) {
@@ -170,6 +173,7 @@ public final class JavaUtil {
    * <p>TODO(bazel-team): (2011) We need to have a more robust way to determine the Java root of a
    * relative path rather than simply trying to find the "java" or "javatests" directory.
    */
+  @Nullable
   public static PathFragment getJavaRoot(PathFragment path) {
     int index = javaSegmentIndex(path);
     if (index >= 0) {

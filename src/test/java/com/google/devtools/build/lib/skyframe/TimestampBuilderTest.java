@@ -110,7 +110,7 @@ public class TimestampBuilderTest extends TimestampBuilderTestCase {
   @Test
   public void testUnneededInputs() throws Exception {
     Artifact hello = createSourceArtifact("hello");
-    FileSystemUtils.createDirectoryAndParents(hello.getPath().getParentDirectory());
+    hello.getPath().getParentDirectory().createDirectoryAndParents();
     FileSystemUtils.writeContentAsLatin1(hello.getPath(), "content1");
     Artifact optional = createSourceArtifact("hello.optional");
     Artifact goodbye = createDerivedArtifact("goodbye");
@@ -320,7 +320,7 @@ public class TimestampBuilderTest extends TimestampBuilderTestCase {
         new Artifact.SourceArtifact(
             ArtifactRoot.asSourceRoot(Root.fromPath(fileSystem.getPath("/src"))),
             PathFragment.create("in/in"),
-            () -> Label.parseAbsoluteUnchecked("//in:in"));
+            () -> Label.parseCanonicalUnchecked("//in:in"));
     Artifact out = createDerivedArtifact("out");
 
     registerAction(new TestAction(TestAction.NO_EFFECT, asNestedSet(in), ImmutableSet.of(out)));

@@ -28,6 +28,6 @@ import net.starlark.java.eval.StarlarkValue;
             + " function, and depends on the current build configuration. For example, a"
             + " LateBoundDefault might represent the Label of the java toolchain in the current"
             + " build configuration. <p>See <a"
-            + " href=\"globals.html#configuration_field\">configuration_field</a> for example"
-            + " usage.")
+            + " href=\"../globals/bzl.html#configuration_field\">configuration_field</a> for"
+            + " example usage.")
 public interface LateBoundDefaultApi extends StarlarkValue {}

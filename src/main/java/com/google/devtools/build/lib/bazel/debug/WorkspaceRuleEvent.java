@@ -17,17 +17,18 @@ import com.google.devtools.build.lib.bazel.debug.proto.WorkspaceLogProtos;
 import com.google.devtools.build.lib.bazel.debug.proto.WorkspaceLogProtos.ExtractEvent;
 import com.google.devtools.build.lib.bazel.debug.proto.WorkspaceLogProtos.FileEvent;
 import com.google.devtools.build.lib.bazel.debug.proto.WorkspaceLogProtos.OsEvent;
+import com.google.devtools.build.lib.bazel.debug.proto.WorkspaceLogProtos.RenameEvent;
 import com.google.devtools.build.lib.bazel.debug.proto.WorkspaceLogProtos.SymlinkEvent;
 import com.google.devtools.build.lib.bazel.debug.proto.WorkspaceLogProtos.TemplateEvent;
 import com.google.devtools.build.lib.bazel.debug.proto.WorkspaceLogProtos.WhichEvent;
-import com.google.devtools.build.lib.events.ExtendedEventHandler.ProgressLike;
+import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import java.net.URL;
 import java.util.List;
 import java.util.Map;
 import net.starlark.java.syntax.Location;
 
 /** An event to record events happening during workspace rule resolution */
-public final class WorkspaceRuleEvent implements ProgressLike {
+public final class WorkspaceRuleEvent implements Postable {
   WorkspaceLogProtos.WorkspaceEvent event;
 
   public WorkspaceLogProtos.WorkspaceEvent getLogEvent() {
@@ -46,7 +47,7 @@ public final class WorkspaceRuleEvent implements ProgressLike {
       Map<String, String> customEnvironment,
       String outputDirectory,
       boolean quiet,
-      String ruleLabel,
+      String context,
       Location location) {
 
     WorkspaceLogProtos.ExecuteEvent.Builder e =
@@ -71,8 +72,8 @@ public final class WorkspaceRuleEvent implements ProgressLike {
     if (location != null) {
       result = result.setLocation(location.toString());
     }
-    if (ruleLabel != null) {
-      result = result.setRule(ruleLabel);
+    if (context != null) {
+      result = result.setContext(context);
     }
     return new WorkspaceRuleEvent(result.build());
   }
@@ -84,7 +85,7 @@ public final class WorkspaceRuleEvent implements ProgressLike {
       String sha256,
       String integrity,
       Boolean executable,
-      String ruleLabel,
+      String context,
       Location location) {
     WorkspaceLogProtos.DownloadEvent.Builder e =
         WorkspaceLogProtos.DownloadEvent.newBuilder()
@@ -102,20 +103,26 @@ public final class WorkspaceRuleEvent implements ProgressLike {
     if (location != null) {
       result = result.setLocation(location.toString());
     }
-    if (ruleLabel != null) {
-      result = result.setRule(ruleLabel);
+    if (context != null) {
+      result = result.setContext(context);
     }
     return new WorkspaceRuleEvent(result.build());
   }
 
   /** Creates a new WorkspaceRuleEvent for an extract event. */
   public static WorkspaceRuleEvent newExtractEvent(
-      String archive, String output, String stripPrefix, String ruleLabel, Location location) {
+      String archive,
+      String output,
+      String stripPrefix,
+      Map<String, String> renameFiles,
+      String context,
+      Location location) {
     ExtractEvent e =
         WorkspaceLogProtos.ExtractEvent.newBuilder()
             .setArchive(archive)
             .setOutput(output)
             .setStripPrefix(stripPrefix)
+            .putAllRenameFiles(renameFiles)
             .build();
 
     WorkspaceLogProtos.WorkspaceEvent.Builder result =
@@ -124,8 +131,8 @@ public final class WorkspaceRuleEvent implements ProgressLike {
     if (location != null) {
       result = result.setLocation(location.toString());
     }
-    if (ruleLabel != null) {
-      result = result.setRule(ruleLabel);
+    if (context != null) {
+      result = result.setContext(context);
     }
     return new WorkspaceRuleEvent(result.build());
   }
@@ -138,7 +145,8 @@ public final class WorkspaceRuleEvent implements ProgressLike {
       String integrity,
       String type,
       String stripPrefix,
-      String ruleLabel,
+      Map<String, String> renameFiles,
+      String context,
       Location location) {
     WorkspaceLogProtos.DownloadAndExtractEvent.Builder e =
         WorkspaceLogProtos.DownloadAndExtractEvent.newBuilder()
@@ -146,7 +154,8 @@ public final class WorkspaceRuleEvent implements ProgressLike {
             .setSha256(sha256)
             .setIntegrity(integrity)
             .setType(type)
-            .setStripPrefix(stripPrefix);
+            .setStripPrefix(stripPrefix)
+            .putAllRenameFiles(renameFiles);
     for (URL u : urls) {
       e.addUrl(u.toString());
     }
@@ -157,15 +166,15 @@ public final class WorkspaceRuleEvent implements ProgressLike {
     if (location != null) {
       result = result.setLocation(location.toString());
     }
-    if (ruleLabel != null) {
-      result = result.setRule(ruleLabel);
+    if (context != null) {
+      result = result.setContext(context);
     }
     return new WorkspaceRuleEvent(result.build());
   }
 
   /** Creates a new WorkspaceRuleEvent for a file event. */
   public static WorkspaceRuleEvent newFileEvent(
-      String path, String content, boolean executable, String ruleLabel, Location location) {
+      String path, String content, boolean executable, String context, Location location) {
     FileEvent e =
         WorkspaceLogProtos.FileEvent.newBuilder()
             .setPath(path)
@@ -179,14 +188,14 @@ public final class WorkspaceRuleEvent implements ProgressLike {
     if (location != null) {
       result = result.setLocation(location.toString());
     }
-    if (ruleLabel != null) {
-      result = result.setRule(ruleLabel);
+    if (context != null) {
+      result = result.setContext(context);
     }
     return new WorkspaceRuleEvent(result.build());
   }
 
   /** Creates a new WorkspaceRuleEvent for a file read event. */
-  public static WorkspaceRuleEvent newReadEvent(String path, String ruleLabel, Location location) {
+  public static WorkspaceRuleEvent newReadEvent(String path, String context, Location location) {
     WorkspaceLogProtos.ReadEvent e =
         WorkspaceLogProtos.ReadEvent.newBuilder().setPath(path).build();
 
@@ -196,15 +205,14 @@ public final class WorkspaceRuleEvent implements ProgressLike {
     if (location != null) {
       result = result.setLocation(location.toString());
     }
-    if (ruleLabel != null) {
-      result = result.setRule(ruleLabel);
+    if (context != null) {
+      result = result.setContext(context);
     }
     return new WorkspaceRuleEvent(result.build());
   }
 
   /** Creates a new WorkspaceRuleEvent for a file read event. */
-  public static WorkspaceRuleEvent newDeleteEvent(
-      String path, String ruleLabel, Location location) {
+  public static WorkspaceRuleEvent newDeleteEvent(String path, String context, Location location) {
     WorkspaceLogProtos.DeleteEvent e =
         WorkspaceLogProtos.DeleteEvent.newBuilder().setPath(path).build();
 
@@ -214,15 +222,15 @@ public final class WorkspaceRuleEvent implements ProgressLike {
     if (location != null) {
       result = result.setLocation(location.toString());
     }
-    if (ruleLabel != null) {
-      result = result.setRule(ruleLabel);
+    if (context != null) {
+      result = result.setContext(context);
     }
     return new WorkspaceRuleEvent(result.build());
   }
 
   /** Creates a new WorkspaceRuleEvent for a patch event. */
   public static WorkspaceRuleEvent newPatchEvent(
-      String patchFile, int strip, String ruleLabel, Location location) {
+      String patchFile, int strip, String context, Location location) {
     WorkspaceLogProtos.PatchEvent e =
         WorkspaceLogProtos.PatchEvent.newBuilder().setPatchFile(patchFile).setStrip(strip).build();
 
@@ -232,14 +240,14 @@ public final class WorkspaceRuleEvent implements ProgressLike {
     if (location != null) {
       result = result.setLocation(location.toString());
     }
-    if (ruleLabel != null) {
-      result = result.setRule(ruleLabel);
+    if (context != null) {
+      result = result.setContext(context);
     }
     return new WorkspaceRuleEvent(result.build());
   }
 
   /** Creates a new WorkspaceRuleEvent for an os event. */
-  public static WorkspaceRuleEvent newOsEvent(String ruleLabel, Location location) {
+  public static WorkspaceRuleEvent newOsEvent(String context, Location location) {
     OsEvent e = WorkspaceLogProtos.OsEvent.getDefaultInstance();
 
     WorkspaceLogProtos.WorkspaceEvent.Builder result =
@@ -248,15 +256,32 @@ public final class WorkspaceRuleEvent implements ProgressLike {
     if (location != null) {
       result = result.setLocation(location.toString());
     }
-    if (ruleLabel != null) {
-      result = result.setRule(ruleLabel);
+    if (context != null) {
+      result = result.setContext(context);
+    }
+    return new WorkspaceRuleEvent(result.build());
+  }
+
+  /** Creates a new WorkspaceRuleEvent for a rename event. */
+  public static WorkspaceRuleEvent newRenameEvent(
+      String src, String dst, String context, Location location) {
+    RenameEvent e = WorkspaceLogProtos.RenameEvent.newBuilder().setSrc(src).setDst(dst).build();
+
+    WorkspaceLogProtos.WorkspaceEvent.Builder result =
+        WorkspaceLogProtos.WorkspaceEvent.newBuilder();
+    result = result.setRenameEvent(e);
+    if (location != null) {
+      result = result.setLocation(location.toString());
+    }
+    if (context != null) {
+      result = result.setContext(context);
     }
     return new WorkspaceRuleEvent(result.build());
   }
 
   /** Creates a new WorkspaceRuleEvent for a symlink event. */
   public static WorkspaceRuleEvent newSymlinkEvent(
-      String from, String to, String ruleLabel, Location location) {
+      String from, String to, String context, Location location) {
     SymlinkEvent e =
         WorkspaceLogProtos.SymlinkEvent.newBuilder().setTarget(from).setPath(to).build();
 
@@ -266,8 +291,8 @@ public final class WorkspaceRuleEvent implements ProgressLike {
     if (location != null) {
       result = result.setLocation(location.toString());
     }
-    if (ruleLabel != null) {
-      result = result.setRule(ruleLabel);
+    if (context != null) {
+      result = result.setContext(context);
     }
     return new WorkspaceRuleEvent(result.build());
   }
@@ -278,7 +303,7 @@ public final class WorkspaceRuleEvent implements ProgressLike {
       String template,
       Map<String, String> substitutions,
       boolean executable,
-      String ruleLabel,
+      String context,
       Location location) {
     TemplateEvent e =
         WorkspaceLogProtos.TemplateEvent.newBuilder()
@@ -294,15 +319,15 @@ public final class WorkspaceRuleEvent implements ProgressLike {
     if (location != null) {
       result = result.setLocation(location.toString());
     }
-    if (ruleLabel != null) {
-      result = result.setRule(ruleLabel);
+    if (context != null) {
+      result = result.setContext(context);
     }
     return new WorkspaceRuleEvent(result.build());
   }
 
   /** Creates a new WorkspaceRuleEvent for a which event. */
   public static WorkspaceRuleEvent newWhichEvent(
-      String program, String ruleLabel, Location location) {
+      String program, String context, Location location) {
     WhichEvent e = WorkspaceLogProtos.WhichEvent.newBuilder().setProgram(program).build();
 
     WorkspaceLogProtos.WorkspaceEvent.Builder result =
@@ -311,13 +336,13 @@ public final class WorkspaceRuleEvent implements ProgressLike {
     if (location != null) {
       result = result.setLocation(location.toString());
     }
-    if (ruleLabel != null) {
-      result = result.setRule(ruleLabel);
+    if (context != null) {
+      result = result.setContext(context);
     }
     return new WorkspaceRuleEvent(result.build());
   }
 
-  /*
+  /**
    * @return a message to log for this event
    */
   public String logMessage() {

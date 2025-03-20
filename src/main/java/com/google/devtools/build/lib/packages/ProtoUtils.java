@@ -15,10 +15,15 @@
 package com.google.devtools.build.lib.packages;
 
 import static com.google.devtools.build.lib.packages.BuildType.DISTRIBUTIONS;
+import static com.google.devtools.build.lib.packages.BuildType.DORMANT_LABEL;
+import static com.google.devtools.build.lib.packages.BuildType.DORMANT_LABEL_LIST;
+import static com.google.devtools.build.lib.packages.BuildType.GENQUERY_SCOPE_TYPE;
+import static com.google.devtools.build.lib.packages.BuildType.GENQUERY_SCOPE_TYPE_LIST;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_DICT_UNARY;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_KEYED_STRING_DICT;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
+import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST_DICT;
 import static com.google.devtools.build.lib.packages.BuildType.LICENSE;
 import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL_LIST;
@@ -27,11 +32,12 @@ import static com.google.devtools.build.lib.packages.BuildType.OUTPUT_LIST;
 import static com.google.devtools.build.lib.packages.BuildType.TRISTATE;
 import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 import static com.google.devtools.build.lib.packages.Type.INTEGER;
-import static com.google.devtools.build.lib.packages.Type.INTEGER_LIST;
 import static com.google.devtools.build.lib.packages.Type.STRING;
-import static com.google.devtools.build.lib.packages.Type.STRING_DICT;
-import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
-import static com.google.devtools.build.lib.packages.Type.STRING_LIST_DICT;
+import static com.google.devtools.build.lib.packages.Type.STRING_NO_INTERN;
+import static com.google.devtools.build.lib.packages.Types.INTEGER_LIST;
+import static com.google.devtools.build.lib.packages.Types.STRING_DICT;
+import static com.google.devtools.build.lib.packages.Types.STRING_LIST;
+import static com.google.devtools.build.lib.packages.Types.STRING_LIST_DICT;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
@@ -49,8 +55,13 @@ public class ProtoUtils {
           // this way for the sake of backward compatibility.
           .put(NODEP_LABEL, Discriminator.STRING)
           .put(LABEL_LIST, Discriminator.LABEL_LIST)
+          .put(GENQUERY_SCOPE_TYPE, Discriminator.LABEL)
+          .put(GENQUERY_SCOPE_TYPE_LIST, Discriminator.LABEL_LIST)
           .put(NODEP_LABEL_LIST, Discriminator.STRING_LIST)
+          .put(DORMANT_LABEL, Discriminator.LABEL_LIST)
+          .put(DORMANT_LABEL_LIST, Discriminator.STRING_LIST)
           .put(STRING, Discriminator.STRING)
+          .put(STRING_NO_INTERN, Discriminator.STRING)
           .put(STRING_LIST, Discriminator.STRING_LIST)
           .put(OUTPUT, Discriminator.OUTPUT)
           .put(OUTPUT_LIST, Discriminator.OUTPUT_LIST)
@@ -58,6 +69,7 @@ public class ProtoUtils {
           .put(STRING_DICT, Discriminator.STRING_DICT)
           .put(LABEL_DICT_UNARY, Discriminator.LABEL_DICT_UNARY)
           .put(STRING_LIST_DICT, Discriminator.STRING_LIST_DICT)
+          .put(LABEL_LIST_DICT, Discriminator.LABEL_LIST_DICT)
           .put(BOOLEAN, Discriminator.BOOLEAN)
           .put(TRISTATE, Discriminator.TRISTATE)
           .put(INTEGER_LIST, Discriminator.INTEGER_LIST)

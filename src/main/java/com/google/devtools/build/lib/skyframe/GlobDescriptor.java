@@ -14,12 +14,11 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.packages.Globber;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.util.StringCanonicalizer;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -36,7 +35,7 @@ import com.google.devtools.build.skyframe.SkyKey;
 @ThreadSafe
 public final class GlobDescriptor implements SkyKey {
 
-  private static final Interner<GlobDescriptor> interner = BlazeInterners.newWeakInterner();
+  private static final SkyKeyInterner<GlobDescriptor> interner = SkyKey.newInterner();
 
   /**
    * Returns interned instance based on the parameters.
@@ -46,44 +45,48 @@ public final class GlobDescriptor implements SkyKey {
    * @param subdir the subdirectory being looked at (must exist and must be a directory. It's
    *     assumed that there are no other packages between {@code packageName} and {@code subdir}.
    * @param pattern a valid glob pattern
-   * @param excludeDirs true if directories should be excluded from results
+   * @param globberOperation type of Globber operation being tracked.
    */
-  @AutoCodec.Instantiator
   public static GlobDescriptor create(
       PackageIdentifier packageId,
       Root packageRoot,
       PathFragment subdir,
       String pattern,
-      boolean excludeDirs) {
+      Globber.Operation globberOperation) {
     return interner.intern(
-        new GlobDescriptor(packageId, packageRoot, subdir, pattern, excludeDirs));
+        new GlobDescriptor(packageId, packageRoot, subdir, pattern, globberOperation));
+  }
 
+  @VisibleForSerialization
+  @AutoCodec.Interner
+  static GlobDescriptor intern(GlobDescriptor globDescriptor) {
+    return interner.intern(globDescriptor);
   }
 
   private final PackageIdentifier packageId;
   private final Root packageRoot;
   private final PathFragment subdir;
   private final String pattern;
-  private final boolean excludeDirs;
+  private final Globber.Operation globberOperation;
 
   private GlobDescriptor(
       PackageIdentifier packageId,
       Root packageRoot,
       PathFragment subdir,
       String pattern,
-      boolean excludeDirs) {
+      Globber.Operation globberOperation) {
     this.packageId = Preconditions.checkNotNull(packageId);
     this.packageRoot = Preconditions.checkNotNull(packageRoot);
     this.subdir = Preconditions.checkNotNull(subdir);
-    this.pattern = Preconditions.checkNotNull(StringCanonicalizer.intern(pattern));
-    this.excludeDirs = excludeDirs;
+    this.pattern = Preconditions.checkNotNull(pattern.intern());
+    this.globberOperation = globberOperation;
   }
 
   @Override
   public String toString() {
     return String.format(
-        "<GlobDescriptor packageName=%s packageRoot=%s subdir=%s pattern=%s excludeDirs=%s>",
-        packageId, packageRoot, subdir, pattern, excludeDirs);
+        "<GlobDescriptor packageName=%s packageRoot=%s subdir=%s pattern=%s globberOperation=%s>",
+        packageId, packageRoot, subdir, pattern, globberOperation.name());
   }
 
   /**
@@ -117,11 +120,9 @@ public final class GlobDescriptor implements SkyKey {
     return pattern;
   }
 
-  /**
-   * Returns true if directories should be excluded from results.
-   */
-  public boolean excludeDirs() {
-    return excludeDirs;
+  /** Returns the type of Globber operation that produced the results. */
+  public Globber.Operation globberOperation() {
+    return globberOperation;
   }
 
   @Override
@@ -129,13 +130,14 @@ public final class GlobDescriptor implements SkyKey {
     if (this == obj) {
       return true;
     }
-    if (!(obj instanceof GlobDescriptor)) {
+    if (!(obj instanceof GlobDescriptor other)) {
       return false;
     }
-    GlobDescriptor other = (GlobDescriptor) obj;
-    return packageId.equals(other.packageId) && packageRoot.equals(other.packageRoot)
-        && subdir.equals(other.subdir) && pattern.equals(other.pattern)
-        && excludeDirs == other.excludeDirs;
+    return packageId.equals(other.packageId)
+        && packageRoot.equals(other.packageRoot)
+        && subdir.equals(other.subdir)
+        && pattern.equals(other.pattern)
+        && globberOperation == other.globberOperation;
   }
 
   @Override
@@ -143,7 +145,7 @@ public final class GlobDescriptor implements SkyKey {
     // Generated instead of Objects.hashCode to avoid intermediate array required for latter.
     final int prime = 31;
     int result = 1;
-    result = prime * result + (excludeDirs ? 1231 : 1237);
+    result = prime * result + globberOperation.hashCode();
     result = prime * result + packageId.hashCode();
     result = prime * result + packageRoot.hashCode();
     result = prime * result + pattern.hashCode();
@@ -154,5 +156,10 @@ public final class GlobDescriptor implements SkyKey {
   @Override
   public SkyFunctionName functionName() {
     return SkyFunctions.GLOB;
+  }
+
+  @Override
+  public SkyKeyInterner<GlobDescriptor> getSkyKeyInterner() {
+    return interner;
   }
 }

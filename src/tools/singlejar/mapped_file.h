@@ -15,6 +15,7 @@
 #ifndef BAZEL_SRC_TOOLS_SINGLEJAR_MAPPED_FILE_H_
 #define BAZEL_SRC_TOOLS_SINGLEJAR_MAPPED_FILE_H_ 1
 
+#include <cstddef>
 #include <string>
 
 #include "src/tools/singlejar/port.h"
@@ -35,6 +36,12 @@ class MappedFile {
   ~MappedFile() { Close(); }
 
   bool Open(const std::string &path);
+
+  bool MapExisting(unsigned char *mapped_start, unsigned char *mapped_end) {
+    mapped_start_ = mapped_start;
+    mapped_end_ = mapped_end;
+    return true;
+  }
 
   void Close();
 
@@ -60,9 +67,10 @@ class MappedFile {
 #endif
 
   size_t size() const { return mapped_end_ - mapped_start_; }
-  bool is_open() const;
 
  private:
+  bool is_open() const;
+
   unsigned char *mapped_start_;
   unsigned char *mapped_end_;
 #ifdef _WIN32

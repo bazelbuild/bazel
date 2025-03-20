@@ -23,14 +23,67 @@ import java.util.Objects;
  * Wraps an {@link ActionLookupKey}. The evaluation of this SkyKey is the entry point of analyzing
  * the {@link ActionLookupKey} and executing the associated actions.
  */
-public class BuildDriverKey implements SkyKey {
+public final class BuildDriverKey implements SkyKey {
   private final ActionLookupKey actionLookupKey;
   private final TopLevelArtifactContext topLevelArtifactContext;
+  private final boolean explicitlyRequested;
+  private final boolean skipIncompatibleExplicitTargets;
+  private final boolean isTopLevelAspectDriver;
 
-  public BuildDriverKey(
-      ActionLookupKey actionLookupKey, TopLevelArtifactContext topLevelArtifactContext) {
+  private final boolean extraActionTopLevelOnly;
+
+  // This key is created anew each build, so it's fine to carry this information here.
+  private final boolean keepGoing;
+
+  private BuildDriverKey(
+      ActionLookupKey actionLookupKey,
+      TopLevelArtifactContext topLevelArtifactContext,
+      boolean explicitlyRequested,
+      boolean skipIncompatibleExplicitTargets,
+      boolean extraActionTopLevelOnly,
+      boolean keepGoing,
+      boolean isTopLevelAspectDriver) {
     this.actionLookupKey = actionLookupKey;
     this.topLevelArtifactContext = topLevelArtifactContext;
+    this.explicitlyRequested = explicitlyRequested;
+    this.skipIncompatibleExplicitTargets = skipIncompatibleExplicitTargets;
+    this.isTopLevelAspectDriver = isTopLevelAspectDriver;
+    this.extraActionTopLevelOnly = extraActionTopLevelOnly;
+    this.keepGoing = keepGoing;
+  }
+
+  public static BuildDriverKey ofTopLevelAspect(
+      ActionLookupKey actionLookupKey,
+      TopLevelArtifactContext topLevelArtifactContext,
+      boolean explicitlyRequested,
+      boolean skipIncompatibleExplicitTargets,
+      boolean extraActionTopLevelOnly,
+      boolean keepGoing) {
+    return new BuildDriverKey(
+        actionLookupKey,
+        topLevelArtifactContext,
+        explicitlyRequested,
+        skipIncompatibleExplicitTargets,
+        extraActionTopLevelOnly,
+        keepGoing,
+        /* isTopLevelAspectDriver= */ true);
+  }
+
+  public static BuildDriverKey ofConfiguredTarget(
+      ActionLookupKey actionLookupKey,
+      TopLevelArtifactContext topLevelArtifactContext,
+      boolean explicitlyRequested,
+      boolean skipIncompatibleExplicitTargets,
+      boolean extraActionTopLevelOnly,
+      boolean keepGoing) {
+    return new BuildDriverKey(
+        actionLookupKey,
+        topLevelArtifactContext,
+        explicitlyRequested,
+        skipIncompatibleExplicitTargets,
+        extraActionTopLevelOnly,
+        keepGoing,
+        /* isTopLevelAspectDriver= */ false);
   }
 
   public TopLevelArtifactContext getTopLevelArtifactContext() {
@@ -41,6 +94,26 @@ public class BuildDriverKey implements SkyKey {
     return actionLookupKey;
   }
 
+  public boolean isExplicitlyRequested() {
+    return explicitlyRequested;
+  }
+
+  public boolean shouldSkipIncompatibleExplicitTargets() {
+    return skipIncompatibleExplicitTargets;
+  }
+
+  public boolean isTopLevelAspectDriver() {
+    return isTopLevelAspectDriver;
+  }
+
+  public boolean isExtraActionTopLevelOnly() {
+    return extraActionTopLevelOnly;
+  }
+
+  public boolean keepGoing() {
+    return keepGoing;
+  }
+
   @Override
   public SkyFunctionName functionName() {
     return SkyFunctions.BUILD_DRIVER;
@@ -48,16 +121,46 @@ public class BuildDriverKey implements SkyKey {
 
   @Override
   public boolean equals(Object other) {
-    if (other instanceof BuildDriverKey) {
-      BuildDriverKey otherBuildDriverKey = (BuildDriverKey) other;
+    if (other instanceof BuildDriverKey otherBuildDriverKey) {
       return actionLookupKey.equals(otherBuildDriverKey.actionLookupKey)
-          && topLevelArtifactContext.equals(otherBuildDriverKey.topLevelArtifactContext);
+          && topLevelArtifactContext.equals(otherBuildDriverKey.topLevelArtifactContext)
+          && explicitlyRequested == otherBuildDriverKey.explicitlyRequested;
     }
     return false;
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(actionLookupKey, topLevelArtifactContext);
+    return Objects.hash(actionLookupKey, topLevelArtifactContext, explicitlyRequested);
+  }
+
+  @Override
+  public String toString() {
+    return String.format("BuildDriverKey of ActionLookupKey: %s", actionLookupKey);
+  }
+
+  @Override
+  public boolean valueIsShareable() {
+    // BuildDriverValue is just a wrapper value that signals that the building of a top level target
+    // was concluded. It's meant to be created anew each build, since BuildDriverFunction must be
+    // run every build.
+    return false;
+  }
+
+  enum TestType {
+    NOT_TEST("not-test"),
+    PARALLEL("parallel"),
+    EXCLUSIVE("exclusive"),
+    EXCLUSIVE_IF_LOCAL("exclusive-if-local");
+
+    private final String msg;
+
+    TestType(String msg) {
+      this.msg = msg;
+    }
+
+    public String getMsg() {
+      return msg;
+    }
   }
 }

@@ -14,19 +14,22 @@
 
 package com.google.devtools.build.lib.starlark.util;
 
+import static com.google.common.truth.Truth.assertThat;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
-import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.LoadingOptions;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
+import com.google.devtools.build.lib.runtime.BlazeOptionHandler;
 import com.google.devtools.build.lib.runtime.ClientOptions;
 import com.google.devtools.build.lib.runtime.CommonCommandOptions;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.runtime.StarlarkOptionsParser;
 import com.google.devtools.build.lib.runtime.UiOptions;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.common.options.OptionPriority.PriorityCategory;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingResult;
@@ -37,7 +40,7 @@ import org.junit.Before;
 /** Helper base class for testing the use of Starlark-style flags. */
 public class StarlarkOptionsTestCase extends BuildViewTestCase {
 
-  private static final List<Class<? extends OptionsBase>> requiredOptionsClasses =
+  private static final ImmutableList<Class<? extends OptionsBase>> REQUIRED_OPTIONS_CLASSES =
       ImmutableList.of(
           PackageOptions.class,
           BuildLanguageOptions.class,
@@ -46,6 +49,8 @@ public class StarlarkOptionsTestCase extends BuildViewTestCase {
           ClientOptions.class,
           UiOptions.class,
           CommonCommandOptions.class);
+
+  protected OptionsParser optionsParser;
   private StarlarkOptionsParser starlarkOptionsParser;
 
   @Before
@@ -54,18 +59,47 @@ public class StarlarkOptionsTestCase extends BuildViewTestCase {
         OptionsParser.builder()
             .optionsClasses(
                 Iterables.concat(
-                    requiredOptionsClasses,
+                    REQUIRED_OPTIONS_CLASSES,
                     ruleClassProvider.getFragmentRegistry().getOptionsClasses()))
+            .skipStarlarkOptionPrefixes()
             .build();
     starlarkOptionsParser =
-        StarlarkOptionsParser.newStarlarkOptionsParserForTesting(
-            skyframeExecutor, reporter, PathFragment.EMPTY_FRAGMENT, optionsParser);
+        StarlarkOptionsParser.builder()
+            .buildSettingLoader(
+                new BlazeOptionHandler.SkyframeExecutorTargetLoader(
+                    skyframeExecutor, PathFragment.EMPTY_FRAGMENT, reporter))
+            .nativeOptionsParser(optionsParser)
+            .build();
   }
 
   protected OptionsParsingResult parseStarlarkOptions(String options) throws Exception {
-    starlarkOptionsParser.setResidueForTesting(Arrays.asList(options.split(" ")));
-    starlarkOptionsParser.parse(new StoredEventHandler());
-    return starlarkOptionsParser.getNativeOptionsParserFortesting();
+    return parseStarlarkOptions(options, /* onlyStarlarkParser= */ false);
+  }
+
+  protected OptionsParsingResult parseStarlarkOptions(String options, boolean onlyStarlarkParser)
+      throws Exception {
+    List<String> asList = Arrays.asList(options.split(" "));
+    if (!onlyStarlarkParser) {
+      optionsParser.parse(asList);
+    }
+    assertThat(starlarkOptionsParser.parseGivenArgs(asList)).isTrue();
+    return optionsParser;
+  }
+
+  protected OptionsParsingResult parseStarlarkOptions(
+      String commandLineOptions, String bazelrcOptions) throws Exception {
+    List<String> commandLineOptionsList = Arrays.asList(commandLineOptions.split(" "));
+    List<String> bazelrcOptionsList = Arrays.asList(bazelrcOptions.split(" "));
+    optionsParser.parse(PriorityCategory.COMMAND_LINE, /* source= */ null, commandLineOptionsList);
+    optionsParser.parse(PriorityCategory.RC_FILE, "fake.bazelrc", bazelrcOptionsList);
+    assertThat(
+            starlarkOptionsParser.parseGivenArgs(
+                ImmutableList.<String>builder()
+                    .addAll(commandLineOptionsList)
+                    .addAll(bazelrcOptionsList)
+                    .build()))
+        .isTrue();
+    return optionsParser;
   }
 
   private void writeBuildSetting(String type, String defaultValue, boolean isFlag)

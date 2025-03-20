@@ -25,16 +25,17 @@ import build.bazel.remote.execution.v2.Platform;
 import build.bazel.remote.execution.v2.RequestMetadata;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.analysis.platform.PlatformUtils;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
+import com.google.devtools.build.lib.remote.CombinedCache.CachedActionResult;
 import com.google.devtools.build.lib.remote.common.OperationObserver;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
-import com.google.devtools.build.lib.remote.common.RemoteCacheClient.CachedActionResult;
 import com.google.devtools.build.lib.remote.common.RemoteExecutionClient;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
@@ -86,14 +87,20 @@ public class RemoteRepositoryRemoteExecutor implements RepositoryRemoteExecutor 
       if (!result.getStdoutRaw().isEmpty()) {
         stdout = result.getStdoutRaw().toByteArray();
       } else if (result.hasStdoutDigest()) {
-        stdout = Utils.getFromFuture(remoteCache.downloadBlob(context, result.getStdoutDigest()));
+        stdout =
+            Utils.getFromFuture(
+                remoteCache.downloadBlob(
+                    context, "<stdout>", /* execPath= */ null, result.getStdoutDigest()));
       }
 
       byte[] stderr = new byte[0];
       if (!result.getStderrRaw().isEmpty()) {
         stderr = result.getStderrRaw().toByteArray();
       } else if (result.hasStderrDigest()) {
-        stderr = Utils.getFromFuture(remoteCache.downloadBlob(context, result.getStderrDigest()));
+        stderr =
+            Utils.getFromFuture(
+                remoteCache.downloadBlob(
+                    context, "<stderr>", /* execPath= */ null, result.getStderrDigest()));
       }
 
       return new ExecutionResult(result.getExitCode(), stdout, stderr);
@@ -138,14 +145,18 @@ public class RemoteRepositoryRemoteExecutor implements RepositoryRemoteExecutor 
             platform,
             timeout,
             acceptCached,
-            /*salt=*/ null);
+            /* salt= */ null);
     Digest actionDigest = digestUtil.compute(action);
     ActionKey actionKey = new ActionKey(actionDigest);
     CachedActionResult cachedActionResult;
     try (SilentCloseable c =
         Profiler.instance().profile(ProfilerTask.REMOTE_CACHE_CHECK, "check cache hit")) {
       cachedActionResult =
-          remoteCache.downloadActionResult(context, actionKey, /* inlineOutErr= */ true);
+          remoteCache.downloadActionResult(
+              context,
+              actionKey,
+              /* inlineOutErr= */ true,
+              /* inlineOutputFiles= */ ImmutableSet.of());
     }
     ActionResult actionResult = null;
     if (cachedActionResult != null) {
@@ -158,7 +169,12 @@ public class RemoteRepositoryRemoteExecutor implements RepositoryRemoteExecutor 
         additionalInputs.put(actionDigest, action);
         additionalInputs.put(commandHash, command);
 
-        remoteCache.ensureInputsPresent(context, merkleTree, additionalInputs, /*force=*/ true);
+        remoteCache.ensureInputsPresent(
+            context,
+            merkleTree,
+            additionalInputs,
+            /* force= */ true,
+            /* remotePathResolver= */ null);
       }
 
       try (SilentCloseable c =
@@ -167,6 +183,7 @@ public class RemoteRepositoryRemoteExecutor implements RepositoryRemoteExecutor 
             ExecuteRequest.newBuilder()
                 .setActionDigest(actionDigest)
                 .setInstanceName(remoteInstanceName)
+                .setDigestFunction(digestUtil.getDigestFunction())
                 .setSkipCacheLookup(!acceptCached)
                 .build();
 

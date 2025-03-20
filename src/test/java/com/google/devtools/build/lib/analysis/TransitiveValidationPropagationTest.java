@@ -19,8 +19,8 @@ import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static org.junit.Assert.assertThrows;
 
+import com.google.devtools.build.lib.actions.ActionConflictException;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil.NullAction;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import java.util.List;
+import javax.annotation.Nullable;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -57,6 +58,7 @@ public final class TransitiveValidationPropagationTest extends BuildViewTestCase
     }
 
     @Override
+    @Nullable
     public ConfiguredTarget create(RuleContext ruleContext)
         throws InterruptedException, RuleErrorException, ActionConflictException {
       Artifact valid = ruleContext.createOutputArtifact();
@@ -117,12 +119,32 @@ public final class TransitiveValidationPropagationTest extends BuildViewTestCase
   public void testValidationOutputPropagation() throws Exception {
     scratch.file(
         "valid/BUILD",
-        "validation_rule(name = 'foo')",
-        "validation_rule(name = 'bar', deps = [':foo'])",
-        "validation_rule(name = 'baz')",
-        "validation_rule(name = 'top', deps = ['bar', 'baz'])",
-        "transitive_validation_rule(name = 'top_transitive', deps = ['bar', 'baz'])",
-        "");
+        """
+        validation_rule(name = "foo")
+
+        validation_rule(
+            name = "bar",
+            deps = [":foo"],
+        )
+
+        validation_rule(name = "baz")
+
+        validation_rule(
+            name = "top",
+            deps = [
+                "bar",
+                "baz",
+            ],
+        )
+
+        transitive_validation_rule(
+            name = "top_transitive",
+            deps = [
+                "bar",
+                "baz",
+            ],
+        )
+        """);
 
     List<String> topValid =
         prettyArtifactNames(
@@ -140,17 +162,26 @@ public final class TransitiveValidationPropagationTest extends BuildViewTestCase
   @Test
   public void testTransitiveValidationOutputGroupNotAllowedForStarlarkRules() throws Exception {
     scratch.file(
-        "test/foo_rule.bzl",
-        "def _impl(ctx):",
-        "  return [OutputGroupInfo(_validation_transitive = depset())]",
-        "foo_rule = rule(implementation = _impl)");
-    scratch.file("test/BUILD", "load('//test:foo_rule.bzl', 'foo_rule')", "foo_rule(name='foo')");
+        "foobar/foo_rule.bzl",
+        """
+        def _impl(ctx):
+            return [OutputGroupInfo(_validation_transitive = depset())]
+
+        foo_rule = rule(implementation = _impl)
+        """);
+    scratch.file(
+        "foobar/BUILD",
+        """
+        load("//foobar:foo_rule.bzl", "foo_rule")
+
+        foo_rule(name = "foo")
+        """);
 
     AssertionError expected =
-        assertThrows(AssertionError.class, () -> getConfiguredTarget("//test:foo"));
+        assertThrows(AssertionError.class, () -> getConfiguredTarget("//foobar:foo"));
 
     assertThat(expected)
         .hasMessageThat()
-        .contains("//test:foo_rule.bzl cannot access the _transitive_validation private API");
+        .contains("//foobar:foo_rule.bzl cannot access the _transitive_validation private API");
   }
 }

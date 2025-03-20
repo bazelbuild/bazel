@@ -26,7 +26,7 @@ import java.util.Collection;
  * that use a cached copy of the resource to download. In way, these events allow keeping track of
  * the access of external resources.
  */
-public final class FetchEvent implements BuildEvent, ExtendedEventHandler.ProgressLike {
+public final class FetchEvent implements BuildEvent, ExtendedEventHandler.Postable {
   private final String url;
   private final boolean success;
 

@@ -15,6 +15,7 @@
 package net.starlark.java.eval;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
@@ -32,7 +33,9 @@ final class ParamDescriptor {
   @Nullable private final Object defaultValue;
   private final boolean named;
   private final boolean positional;
-  private final List<Class<?>> allowedClasses; // non-empty
+  // Null means any class is allowed.
+  // Should be not empty otherwise.
+  @Nullable private final List<Class<?>> allowedClasses;
   // The semantics flag responsible for disabling this parameter, or null if enabled.
   // It is an error for Starlark code to supply a value to a disabled parameter.
   @Nullable private final String disabledByFlag;
@@ -50,7 +53,11 @@ final class ParamDescriptor {
     this.defaultValue = defaultExpr.isEmpty() ? null : evalDefault(name, defaultExpr);
     this.named = named;
     this.positional = positional;
-    this.allowedClasses = allowedClasses;
+    if (allowedClasses.contains(Object.class)) {
+      this.allowedClasses = null;
+    } else {
+      this.allowedClasses = allowedClasses;
+    }
     this.disabledByFlag = disabledByFlag;
   }
 
@@ -104,16 +111,25 @@ final class ParamDescriptor {
     // "a"
     // "a or b"
     // "a, b, or c"
+    if (allowedClasses == null) {
+      return Starlark.classType(Object.class);
+    }
     StringBuilder buf = new StringBuilder();
-    for (int i = 0, n = allowedClasses.size(); i < n; i++) {
+    // TODO(b/200065655#comment3): Remove when we have an official way for package defaults.
+    ImmutableList<Class<?>> allowedClassesFiltered =
+        allowedClasses.stream()
+            .filter(x -> !Starlark.classType(x).equals("NativeComputedDefault"))
+            .collect(ImmutableList.toImmutableList());
+    for (int i = 0, n = allowedClassesFiltered.size(); i < n; i++) {
       if (i > 0) {
         buf.append(n == 2 ? " or " : i < n - 1 ? ", " : ", or ");
       }
-      buf.append(Starlark.classType(allowedClasses.get(i)));
+      buf.append(Starlark.classType(allowedClassesFiltered.get(i)));
     }
     return buf.toString();
   }
 
+  @Nullable
   List<Class<?>> getAllowedClasses() {
     return allowedClasses;
   }
@@ -189,7 +205,9 @@ final class ParamDescriptor {
     Module module = Module.create();
     try (Mutability mu = Mutability.create("Builtin param default init")) {
       // Note that this Starlark thread ignores command line flags.
-      StarlarkThread thread = new StarlarkThread(mu, StarlarkSemantics.DEFAULT);
+      // TODO: b/326588519 - The known default parameters are all simple values. If that changes, a
+      // non-transient symbol generator would be needed here.
+      StarlarkThread thread = StarlarkThread.createTransient(mu, StarlarkSemantics.DEFAULT);
 
       // Disable polling of the java.lang.Thread.interrupt flag during
       // Starlark evaluation. Assuming the expression does not call a

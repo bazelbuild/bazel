@@ -110,8 +110,12 @@ public class AbstractCommandTest {
   @Command(name = "a", options = {FooOptions.class}, shortDescription = "", help = "")
   private static class CommandA extends ConcreteCommand {}
 
-  @Command(name = "b", options = {BarOptions.class}, inherits = {CommandA.class},
-           shortDescription = "", help = "")
+  @Command(
+      name = "b",
+      options = {BarOptions.class},
+      inheritsOptionsFrom = {CommandA.class},
+      shortDescription = "",
+      help = "")
   private static class CommandB extends ConcreteCommand {}
 
   @Test

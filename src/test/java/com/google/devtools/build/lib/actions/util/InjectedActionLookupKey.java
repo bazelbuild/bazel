@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.actions.util;
 
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.skyframe.BuildConfigurationKey;
+import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import javax.annotation.Nullable;
 
@@ -39,10 +39,10 @@ public final class InjectedActionLookupKey implements ActionLookupKey {
     return INJECTED_ACTION_LOOKUP;
   }
 
-  @Nullable
   @Override
   public Label getLabel() {
-    return null;
+    // Makes actions shareable.
+    return Label.parseCanonicalUnchecked("//foo:" + name);
   }
 
   @Nullable
@@ -58,8 +58,8 @@ public final class InjectedActionLookupKey implements ActionLookupKey {
 
   @Override
   public boolean equals(Object obj) {
-    return obj instanceof InjectedActionLookupKey
-        && ((InjectedActionLookupKey) obj).name.equals(name);
+    return obj instanceof InjectedActionLookupKey injectedActionLookupKey
+        && injectedActionLookupKey.name.equals(name);
   }
 
   @Override

@@ -15,7 +15,7 @@ package com.google.devtools.build.lib.collect.nestedset;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import java.util.HashMap;
 
@@ -50,7 +50,7 @@ import java.util.HashMap;
  * <p>The left-to-right pre-order-like ordering is implemented by running a right-to-left postorder
  * traversal and then reversing the result.
  *
- * <p>The reason naive left-to left-to-right preordering is not used here is that it does not handle
+ * <p>The reason naive left-to-right preordering is not used here is that it does not handle
  * diamond-like structures properly. For example, take the following structure (nesting downwards):
  *
  * <pre>
@@ -112,34 +112,36 @@ public enum Order {
 
   private final String starlarkName;
   private final NestedSet<?> emptySet;
+  private final Depset emptyDepset;
 
-  private Order(String starlarkName) {
+  Order(String starlarkName) {
     this.starlarkName = starlarkName;
     this.emptySet = new NestedSet<>(this);
+    this.emptyDepset = new Depset(null, this.emptySet);
   }
 
-  @SerializationConstant @AutoCodec.VisibleForSerialization
+  @SerializationConstant @VisibleForSerialization
   static final Order STABLE_ORDER_CONSTANT = STABLE_ORDER;
 
-  @SerializationConstant @AutoCodec.VisibleForSerialization
+  @SerializationConstant @VisibleForSerialization
   static final Order COMPILE_ORDER_CONSTANT = COMPILE_ORDER;
 
-  @SerializationConstant @AutoCodec.VisibleForSerialization
+  @SerializationConstant @VisibleForSerialization
   static final Order LINK_ORDER_CONSTANT = LINK_ORDER;
 
-  @SerializationConstant @AutoCodec.VisibleForSerialization
+  @SerializationConstant @VisibleForSerialization
   static final Order NAIVE_LINK_ORDER_CONSTANT = NAIVE_LINK_ORDER;
 
-  @SerializationConstant @AutoCodec.VisibleForSerialization
+  @SerializationConstant @VisibleForSerialization
   static final NestedSet<?> EMPTY_STABLE = STABLE_ORDER.emptySet();
 
-  @SerializationConstant @AutoCodec.VisibleForSerialization
+  @SerializationConstant @VisibleForSerialization
   static final NestedSet<?> EMPTY_COMPILE = COMPILE_ORDER.emptySet();
 
-  @SerializationConstant @AutoCodec.VisibleForSerialization
+  @SerializationConstant @VisibleForSerialization
   static final NestedSet<?> EMPTY_LINK = LINK_ORDER.emptySet();
 
-  @SerializationConstant @AutoCodec.VisibleForSerialization
+  @SerializationConstant @VisibleForSerialization
   static final NestedSet<?> EMPTY_NAIVE_LINK = NAIVE_LINK_ORDER.emptySet();
 
   /**
@@ -148,6 +150,11 @@ public enum Order {
   @SuppressWarnings("unchecked")  // Nested sets are immutable, so a downcast is fine.
   <E> NestedSet<E> emptySet() {
     return (NestedSet<E>) emptySet;
+  }
+
+  /** Returns an empty depset of the given ordering. */
+  Depset emptyDepset() {
+    return emptyDepset;
   }
 
   public String getStarlarkName() {

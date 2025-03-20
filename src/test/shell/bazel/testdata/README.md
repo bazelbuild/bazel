@@ -5,8 +5,7 @@ Test Data for Bazel Integration Tests
 ------------------------
 
 The following archives contain test Git repositories used by
-`git_repository_test.sh` to test the `git_repository` and `new_git_repository`
-workspace rules:
+`git_repository_test.sh` to test the `git_repository` workspace rule:
 
 * outer-planets-repo.tar.gz
 * pluto-repo.tar.gz

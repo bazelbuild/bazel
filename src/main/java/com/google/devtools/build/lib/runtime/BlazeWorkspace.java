@@ -17,6 +17,7 @@ import static com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils.pro
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Range;
 import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.SubscriberExceptionHandler;
@@ -26,19 +27,29 @@ import com.google.devtools.build.lib.actions.cache.CompactPersistentActionCache;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
+import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.BinTools;
+import com.google.devtools.build.lib.pkgcache.PackageOptions;
+import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.memory.AllocationTracker;
+import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
+import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecRegistry;
+import com.google.devtools.build.lib.util.io.CommandExtensionReporter;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.protobuf.Any;
 import java.io.IOException;
 import java.util.List;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /**
@@ -50,7 +61,7 @@ import javax.annotation.Nullable;
  * BlazeWorkspace, but the introduction of this class is a step towards allowing 1:N relationships.
  */
 public final class BlazeWorkspace {
-  public static final String DO_NOT_BUILD_FILE_NAME = "DO_NOT_BUILD_HERE";
+  static final String DO_NOT_BUILD_FILE_NAME = "DO_NOT_BUILD_HERE";
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
@@ -62,6 +73,15 @@ public final class BlazeWorkspace {
 
   private final BlazeDirectories directories;
   private final SkyframeExecutor skyframeExecutor;
+  private final SyscallCache syscallCache;
+  private final QuiescingExecutorsImpl quiescingExecutors;
+  @Nullable private final Supplier<ObjectCodecRegistry> analysisCodecRegistrySupplier;
+
+  /**
+   * Null only during tests; should be created by a BlazeModule#workspaceInit hook for regular
+   * operations.
+   */
+  @Nullable private final FingerprintValueService.Factory fingerprintValueServiceFactory;
 
   /**
    * Loaded lazily on the first build command that enables the action cache. Cleared on a build
@@ -73,6 +93,8 @@ public final class BlazeWorkspace {
   @Nullable private Range<Long> lastExecutionRange = null;
 
   private final String outputBaseFilesystemTypeName;
+  private final boolean allowExternalRepositories;
+  @Nullable private final PathPackageLocator virtualPackageLocator;
 
   public BlazeWorkspace(
       BlazeRuntime runtime,
@@ -81,7 +103,11 @@ public final class BlazeWorkspace {
       SubscriberExceptionHandler eventBusExceptionHandler,
       WorkspaceStatusAction.Factory workspaceStatusActionFactory,
       BinTools binTools,
-      @Nullable AllocationTracker allocationTracker) {
+      @Nullable AllocationTracker allocationTracker,
+      SyscallCache syscallCache,
+      Supplier<ObjectCodecRegistry> analysisCodecRegistrySupplier,
+      @Nullable FingerprintValueService.Factory fingerprintValueServiceFactory,
+      boolean allowExternalRepositories) {
     this.runtime = runtime;
     this.eventBusExceptionHandler = Preconditions.checkNotNull(eventBusExceptionHandler);
     this.workspaceStatusActionFactory = workspaceStatusActionFactory;
@@ -90,6 +116,12 @@ public final class BlazeWorkspace {
 
     this.directories = directories;
     this.skyframeExecutor = skyframeExecutor;
+    this.syscallCache = syscallCache;
+    this.quiescingExecutors = QuiescingExecutorsImpl.createDefault();
+    this.allowExternalRepositories = allowExternalRepositories;
+    this.virtualPackageLocator = createPackageLocatorIfVirtual(directories, skyframeExecutor);
+    this.analysisCodecRegistrySupplier = analysisCodecRegistrySupplier;
+    this.fingerprintValueServiceFactory = fingerprintValueServiceFactory;
 
     if (directories.inWorkspace()) {
       writeOutputBaseReadmeFile();
@@ -144,9 +176,9 @@ public final class BlazeWorkspace {
   }
 
   /**
-   * Returns the cached value of
-   * {@code getOutputBase().getFilesystem().getFileSystemType(getOutputBase())}, which is assumed
-   * to be constant for a fixed workspace for the life of the Blaze server.
+   * Returns the cached value of {@code
+   * getOutputBase().getFilesystem().getFileSystemType(getOutputBase())}, which is assumed to be
+   * constant for a fixed workspace for the life of the Blaze server.
    */
   public String getOutputBaseFilesystemTypeName() {
     return outputBaseFilesystemTypeName;
@@ -194,11 +226,17 @@ public final class BlazeWorkspace {
   public CommandEnvironment initCommand(
       Command command,
       OptionsParsingResult options,
+      InvocationPolicy invocationPolicy,
       List<String> warnings,
       long waitTimeInMs,
       long commandStartTime,
       List<Any> commandExtensions,
-      Consumer<String> shutdownReasonConsumer) {
+      Consumer<String> shutdownReasonConsumer,
+      CommandExtensionReporter commandExtensionReporter,
+      int attemptNumber,
+      @Nullable String buildRequestIdOverride,
+      ConfigFlagDefinitions configFlagDefinitions) {
+    quiescingExecutors.resetParameters(options);
     CommandEnvironment env =
         new CommandEnvironment(
             runtime,
@@ -207,11 +245,19 @@ public final class BlazeWorkspace {
             Thread.currentThread(),
             command,
             options,
+            invocationPolicy,
+            getOrCreatePackageLocatorForCommand(options),
+            syscallCache,
+            quiescingExecutors,
             warnings,
             waitTimeInMs,
             commandStartTime,
             commandExtensions,
-            shutdownReasonConsumer);
+            shutdownReasonConsumer,
+            commandExtensionReporter,
+            attemptNumber,
+            buildRequestIdOverride,
+            configFlagDefinitions);
     skyframeExecutor.setClientEnv(env.getClientEnv());
     BuildRequestOptions buildRequestOptions = options.getOptions(BuildRequestOptions.class);
     if (buildRequestOptions != null && !buildRequestOptions.useActionCache) {
@@ -244,6 +290,12 @@ public final class BlazeWorkspace {
     getCacheDirectory().deleteTree();
   }
 
+  /** Returns the reference to the action cache instance, without attempting to reload it. */
+  @Nullable
+  public ActionCache getInUseActionCacheWithoutFurtherLoading() {
+    return actionCache;
+  }
+
   /**
    * Returns reference to the lazily instantiated persistent action cache instance. Note, that
    * method may recreate instance between different build requests, so return value should not be
@@ -256,6 +308,12 @@ public final class BlazeWorkspace {
             CompactPersistentActionCache.create(getCacheDirectory(), runtime.getClock(), reporter);
       }
     }
+    return actionCache;
+  }
+
+  /** Returns reference to the lazily instantiated persistent action cache instance */
+  @Nullable
+  public ActionCache getPersistentActionCache() {
     return actionCache;
   }
 
@@ -310,5 +368,52 @@ public final class BlazeWorkspace {
   public AllocationTracker getAllocationTracker() {
     return allocationTracker;
   }
-}
 
+  public boolean doesAllowExternalRepositories() {
+    return allowExternalRepositories;
+  }
+
+  @Nullable
+  public Supplier<ObjectCodecRegistry> getAnalysisObjectCodecRegistrySupplier() {
+    return analysisCodecRegistrySupplier;
+  }
+
+  public FingerprintValueService.Factory getFingerprintValueServiceFactory() {
+    if (fingerprintValueServiceFactory == null) {
+      return (unused) -> FingerprintValueService.createForTesting();
+    }
+    return fingerprintValueServiceFactory;
+  }
+
+  @Nullable
+  private static PathPackageLocator createPackageLocatorIfVirtual(
+      BlazeDirectories directories, SkyframeExecutor skyframeExecutor) {
+    Root virtualSourceRoot = directories.getVirtualSourceRoot();
+    if (virtualSourceRoot == null) {
+      return null;
+    }
+    return PathPackageLocator.createWithoutExistenceCheck(
+        /* outputBase= */ null,
+        ImmutableList.of(virtualSourceRoot),
+        skyframeExecutor.getBuildFilesByPriority());
+  }
+
+  @Nullable
+  private PathPackageLocator getOrCreatePackageLocatorForCommand(OptionsParsingResult options) {
+    var packageOptions = options.getOptions(PackageOptions.class);
+    Path workspace = directories.getWorkspace();
+    if (packageOptions == null || workspace == null) {
+      return null;
+    }
+    if (virtualPackageLocator != null) {
+      return virtualPackageLocator;
+    }
+    return PathPackageLocator.create(
+        directories.getOutputBase(),
+        packageOptions.packagePath,
+        NullEventHandler.INSTANCE,
+        workspace.asFragment(),
+        workspace,
+        skyframeExecutor.getBuildFilesByPriority());
+  }
+}

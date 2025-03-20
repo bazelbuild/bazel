@@ -1,6 +1,7 @@
 load("@rules_java//java:defs.bzl", "java_library")
 
 package(
+    default_applicable_licenses = ["//:license"],
     default_visibility = ["//src:__subpackages__"],
 )
 
@@ -37,8 +38,11 @@ java_library(
     deps = [
         ":buildeventservice-options",
         "//src/main/java/com/google/devtools/build/lib:runtime",
+        "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
         "//src/main/java/com/google/devtools/build/lib/analysis:test/test_configuration",
         "//src/main/java/com/google/devtools/build/lib/authandtls",
+        "//src/main/java/com/google/devtools/build/lib/authandtls/credentialhelper",
+        "//src/main/java/com/google/devtools/build/lib/authandtls/credentialhelper:credential_module",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/buildeventservice/client",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream",
@@ -55,17 +59,18 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
         "//src/main/java/com/google/devtools/build/lib/util:exit_code",
         "//src/main/java/com/google/devtools/build/lib/util/io:out-err",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:failure_details_java_proto",
+        "//src/main/protobuf:spawn_java_proto",
+        "//third_party:auth",
         "//third_party:auto_value",
         "//third_party:flogger",
         "//third_party:guava",
         "//third_party:jsr305",
-        "//third_party/grpc:grpc-jar",
-        "//third_party/protobuf:protobuf_java",
-        "//third_party/protobuf:protobuf_java_util",
-        "@googleapis//:google_devtools_build_v1_build_events_java_proto",
-        "@googleapis//:google_devtools_build_v1_build_status_java_proto",
-        "@googleapis//:google_devtools_build_v1_publish_build_event_java_proto",
+        "//third_party/grpc-java:grpc-jar",
+        "@com_google_protobuf//:protobuf_java",
+        "@com_google_protobuf//:protobuf_java_util",
+        "@googleapis//google/devtools/build/v1:build_java_proto",
     ],
 )

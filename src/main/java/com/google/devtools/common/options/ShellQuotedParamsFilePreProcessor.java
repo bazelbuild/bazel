@@ -23,6 +23,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import javax.annotation.Nullable;
 
 /**
  * A {@link ParamsFilePreProcessor} that processes a parameter file using the {@code
@@ -81,6 +82,7 @@ public class ShellQuotedParamsFilePreProcessor extends ParamsFilePreProcessor {
       reader.close();
     }
 
+    @Nullable
     public String readArg() throws IOException {
       if (!hasNext()) {
         return null;

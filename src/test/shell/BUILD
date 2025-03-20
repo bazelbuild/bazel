@@ -1,5 +1,4 @@
-load("//:distdir_deps.bzl", "gen_workspace_stanza")
-load("//tools/python:private/defs.bzl", "py_test")
+load("@rules_python//python:defs.bzl", "py_test")
 
 package(default_visibility = ["//visibility:private"])
 
@@ -11,6 +10,7 @@ exports_files([
     "sandboxing_test_utils.sh",
     "unittest.bash",
     "shell_utils.sh",
+    "testenv.sh",
 ])
 
 filegroup(
@@ -22,25 +22,17 @@ filegroup(
     visibility = ["//src:__pkg__"],
 )
 
-gen_workspace_stanza(
-    name = "testenv_sh",
-    out = "testenv.sh",
-    repos = [
-        "rules_cc",
-        "rules_java",
-        "rules_proto",
-    ],
-    template = "testenv.sh.tmpl",
-    visibility = ["//visibility:public"],
-)
-
 sh_library(
     name = "bashunit",
     srcs = [
         "unittest.bash",
         "unittest_utils.sh",
     ],
-    data = [":testenv.sh"],
+    data = [
+        ":testenv.sh",
+        "//src/test/tools/bzlmod:MODULE.bazel.lock",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
     visibility = ["//visibility:public"],
 )
 

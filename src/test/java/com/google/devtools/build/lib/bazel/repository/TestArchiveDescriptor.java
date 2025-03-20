@@ -80,7 +80,7 @@ public class TestArchiveDescriptor {
     Path workingDir = testFS.getPath(new File(TestUtils.tmpDir()).getCanonicalPath());
     Path outDir = workingDir.getRelative(outDirName);
 
-    return DecompressorDescriptor.builder().setRepositoryPath(outDir).setArchivePath(tarballPath);
+    return DecompressorDescriptor.builder().setDestinationPath(outDir).setArchivePath(tarballPath);
   }
 
   /** Validate the content of the output directory */

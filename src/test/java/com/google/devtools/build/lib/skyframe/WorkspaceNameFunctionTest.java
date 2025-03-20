@@ -17,10 +17,8 @@ import static com.google.devtools.build.skyframe.EvaluationResultSubjectFactory.
 
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
-import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.lib.util.AbruptExitException;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -47,34 +45,11 @@ public class WorkspaceNameFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testNormal() throws Exception {
+  public void bzlmod() throws Exception {
     scratch.overwriteFile("WORKSPACE", "workspace(name = 'good')");
     assertThatEvaluationResult(eval())
         .hasEntryThat(key)
-        .isEqualTo(WorkspaceNameValue.withName("good"));
-  }
-
-  @Test
-  public void testErrorInExternalPkg() throws Exception {
-    reporter.removeHandler(failFastHandler);
-    scratch.overwriteFile("WORKSPACE", "bad");
-    assertThatEvaluationResult(eval())
-        .hasErrorEntryForKeyThat(key)
-        .hasExceptionThat()
-        .isInstanceOf(NoSuchPackageException.class);
-    assertContainsEvent("name 'bad' is not defined");
-  }
-
-  @Test
-  public void testTransitiveSkyframeError() throws Exception {
-    reporter.removeHandler(failFastHandler);
-    scratch.deleteFile("WORKSPACE");
-    FileSystemUtils.ensureSymbolicLink(scratch.resolve("WORKSPACE"), "WORKSPACE");
-    assertThatEvaluationResult(eval())
-        .hasErrorEntryForKeyThat(key)
-        .hasExceptionThat()
-        .isInstanceOf(NoSuchPackageException.class);
-    assertContainsEvent("circular symlinks detected");
+        .isEqualTo(WorkspaceNameValue.withName(ruleClassProvider.getRunfilesPrefix()));
   }
 
   @Test

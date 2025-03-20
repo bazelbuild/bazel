@@ -47,30 +47,6 @@ public abstract class QueryVisibility<T> {
   };
 
   /**
-   * Empty visibility.
-   *
-   * <p>This is useful as a sentinel to indicate that a package specification could be parsed into
-   * a {@link QueryVisibility}. Same-package visibility is handled separately by
-   * {@link VisibleFunction}.
-   */
-  @SuppressWarnings("unchecked")  // Safe covariant cast.
-  public static <T> QueryVisibility<T> nothing() {
-    return (QueryVisibility<T>) (Object) NOTHING;
-  }
-
-  private static final QueryVisibility<?> NOTHING = new QueryVisibility<Object>() {
-    @Override
-    public boolean contains(Object target) {
-      return false;
-    }
-
-    @Override
-    public String toString() {
-      return "QueryVisibility(//visibility:private)";
-    }
-  };
-
-  /**
    * Same-package visibility.
    *
    * <p>Targets are always visible to other targets in the same package. Additionally, targets

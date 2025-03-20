@@ -66,11 +66,11 @@ public class PackageErrorMessageFunctionTest extends BuildViewTestCase {
     EvaluationContext evaluationContext =
         EvaluationContext.newBuilder()
             .setKeepGoing(keepGoing)
-            .setNumThreads(SequencedSkyframeExecutor.DEFAULT_THREAD_COUNT)
+            .setParallelism(SequencedSkyframeExecutor.DEFAULT_THREAD_COUNT)
             .setEventHandler(reporter)
             .build();
     EvaluationResult<SkyValue> result =
-        skyframeExecutor.getDriver().evaluate(ImmutableList.of(key), evaluationContext);
+        skyframeExecutor.getEvaluator().evaluate(ImmutableList.of(key), evaluationContext);
     assertThat(result.hasError()).isFalse();
     SkyValue value = result.get(key);
     assertThat(value).isInstanceOf(PackageErrorMessageValue.class);

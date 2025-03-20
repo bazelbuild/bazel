@@ -20,6 +20,8 @@ public class CppActionNames {
   public static final String CC_FLAGS_MAKE_VARIABLE = "cc-flags-make-variable";
   /** A string constant for the strip action name. */
   public static final String STRIP = "strip";
+  /** A string constant for the object copy action name. */
+  public static final String OBJ_COPY = "objcopy_embed_data";
   /** A string constant for the linkstamp-compile action. */
   public static final String LINKSTAMP_COMPILE = "linkstamp-compile";
   /** A string constant for the c compilation action. */
@@ -34,6 +36,15 @@ public class CppActionNames {
   public static final String OBJCPP_COMPILE = "objc++-compile";
   /** A string constant for the c++ header parsing. */
   public static final String CPP_HEADER_PARSING = "c++-header-parsing";
+
+  /** A string constant for the c++20 modules deps scanning */
+  public static final String CPP_MODULE_DEPS_SCANNING = "c++-module-deps-scanning";
+
+  /** A string constant for the c++20 module compile action. */
+  public static final String CPP20_MODULE_COMPILE = "c++20-module-compile";
+
+  public static final String CPP20_MODULE_CODEGEN = "c++20-module-codegen";
+
   /**
    * A string constant for the c++ module compilation action. Note: currently we don't support C
    * module compilation.
@@ -59,14 +70,10 @@ public class CppActionNames {
   public static final String CPP_LINK_DYNAMIC_LIBRARY = "c++-link-dynamic-library";
   /** Name of the action producing executable binary. */
   public static final String CPP_LINK_EXECUTABLE = "c++-link-executable";
-  /** Name of the objc action producing static library */
-  public static final String OBJC_ARCHIVE = "objc-archive";
   /** Name of the objc action producing dynamic library */
   public static final String OBJC_FULLY_LINK = "objc-fully-link";
   /** Name of the objc action producing objc executable binary */
   public static final String OBJC_EXECUTABLE = "objc-executable";
-  /** Name of the objc action producing objc++ executable binary */
-  public static final String OBJCPP_EXECUTABLE = "objc++-executable";
 
   public static final String LTO_INDEXING = "lto-indexing";
   /** Name of the action producing thinlto index for dynamic library. */

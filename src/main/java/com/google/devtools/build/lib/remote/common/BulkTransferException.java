@@ -13,7 +13,19 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote.common;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
+
+import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.remote.util.DigestUtil;
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Objects;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
  * Exception which represents a collection of IOExceptions for the purpose of distinguishing remote
@@ -22,7 +34,7 @@ import java.io.IOException;
  * with all constituent exceptions available for observation.
  */
 public class BulkTransferException extends IOException {
-  // true since no empty BulkTransferException is ever thrown
+  // No empty BulkTransferException is ever thrown.
   private boolean allCacheNotFoundException = true;
 
   public BulkTransferException() {}
@@ -32,31 +44,86 @@ public class BulkTransferException extends IOException {
   }
 
   /**
-   * Add an IOException to the suppressed list.
+   * Adds an IOException to the suppressed list.
+   *
+   * <p>If the IOException is already a BulkTransferException, the contained IOExceptions are added
+   * instead.
    *
    * <p>The Java standard addSuppressed is final and this method stands in its place to selectively
-   * filter and record whether all suppressed exceptions are CacheNotFoundExceptions
+   * filter and record whether all suppressed exceptions are CacheNotFoundExceptions.
    */
   public void add(IOException e) {
+    if (e instanceof BulkTransferException bulkTransferException) {
+      for (Throwable t : bulkTransferException.getSuppressed()) {
+        checkState(t instanceof IOException);
+        add(bulkTransferException);
+      }
+      return;
+    }
     allCacheNotFoundException &= e instanceof CacheNotFoundException;
     super.addSuppressed(e);
   }
 
-  public boolean onlyCausedByCacheNotFoundException() {
+  public boolean allCausedByCacheNotFoundException() {
     return allCacheNotFoundException;
   }
 
-  public static boolean isOnlyCausedByCacheNotFoundException(Exception e) {
-    return e instanceof BulkTransferException
-        && ((BulkTransferException) e).onlyCausedByCacheNotFoundException();
+  public static boolean allCausedByCacheNotFoundException(Throwable e) {
+    return e instanceof BulkTransferException bulkTransferException
+        && bulkTransferException.allCausedByCacheNotFoundException();
+  }
+
+  /**
+   * Returns a map whose keys are the textual representation of a digest, and whose values are the
+   * corresponding action inputs
+   *
+   * <p>Use {@code Function<String, ActionInput>} to avoid the heavy dependency on {@code
+   * InputMetadataProvider}, whose getInput method provides the argument to this method.
+   */
+  public ImmutableMap<String, ActionInput> getLostInputs(
+      Function<String, ActionInput> actionInputResolver) {
+    if (!allCausedByCacheNotFoundException(this)) {
+      return ImmutableMap.of();
+    }
+
+    ImmutableMap.Builder<String, ActionInput> lostInputs = ImmutableMap.builder();
+    for (var suppressed : getSuppressed()) {
+      CacheNotFoundException e = (CacheNotFoundException) suppressed;
+      var missingDigest = e.getMissingDigest();
+      var execPath = e.getExecPath();
+      checkNotNull(execPath, "exec path not known for action input with digest %s", missingDigest);
+      var actionInput = actionInputResolver.apply(execPath.getPathString());
+      checkNotNull(
+          actionInput, "ActionInput not found for filename %s in CacheNotFoundException", execPath);
+
+      lostInputs.put(DigestUtil.toString(missingDigest), actionInput);
+    }
+    return lostInputs.buildKeepingLast();
   }
 
   @Override
   public String getMessage() {
-    // If there is only one suppressed exception, displaying that in the message should be helpful.
-    if (super.getSuppressed().length == 1) {
-      return super.getSuppressed()[0].getMessage();
+    // Only report unique messages to avoid flooding the user, e.g. in case a remote cache server is
+    // unavailable
+    // and causing several identical messages. Also sort the messages, for more deterministic
+    // result. All of this allows
+    // more efficient event deduplication when reporting the returned aggregated message.
+    List<String> uniqueSortedMessages =
+        Arrays.stream(super.getSuppressed())
+            .map(Throwable::getMessage)
+            .filter(Objects::nonNull)
+            .sorted()
+            .distinct()
+            .collect(Collectors.toList());
+
+    switch (uniqueSortedMessages.size()) {
+      case 0:
+        return "Unknown error during bulk transfer";
+      case 1:
+        return uniqueSortedMessages.iterator().next();
+      default:
+        return "Multiple errors during bulk transfer:\n"
+            + Joiner.on('\n').join(uniqueSortedMessages);
     }
-    return String.format("%d errors during bulk transfer", super.getSuppressed().length);
   }
 }

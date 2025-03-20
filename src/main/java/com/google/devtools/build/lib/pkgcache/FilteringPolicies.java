@@ -13,7 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.pkgcache;
 
-import com.google.auto.value.AutoValue;
+import static java.util.Objects.requireNonNull;
+
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
@@ -107,12 +108,11 @@ public final class FilteringPolicies {
   }
 
   /** FilteringPolicy that only matches a specific rule name. */
-  @AutoValue
   @AutoCodec
-  abstract static class RuleTypeFilter implements FilteringPolicy {
-    abstract String ruleName();
-
-    abstract boolean keepExplicit();
+  record RuleTypeFilter(String ruleName, boolean keepExplicit) implements FilteringPolicy {
+    RuleTypeFilter {
+      requireNonNull(ruleName, "ruleName");
+    }
 
     @Override
     public boolean shouldRetain(Target target, boolean explicit) {
@@ -127,9 +127,8 @@ public final class FilteringPolicies {
       return false;
     }
 
-    @AutoCodec.Instantiator
-    static RuleTypeFilter create(String ruleName, boolean keepExplicit) {
-      return new AutoValue_FilteringPolicies_RuleTypeFilter(ruleName, keepExplicit);
+    private static RuleTypeFilter create(String ruleName, boolean keepExplicit) {
+      return new RuleTypeFilter(ruleName, keepExplicit);
     }
   }
 
@@ -164,10 +163,9 @@ public final class FilteringPolicies {
 
     @Override
     public boolean equals(Object obj) {
-      if (!(obj instanceof AndFilteringPolicy)) {
+      if (!(obj instanceof AndFilteringPolicy other)) {
         return false;
       }
-      AndFilteringPolicy other = (AndFilteringPolicy) obj;
       return other.firstPolicy.equals(firstPolicy) && other.secondPolicy.equals(secondPolicy);
     }
 

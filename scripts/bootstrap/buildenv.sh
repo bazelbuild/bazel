@@ -77,7 +77,7 @@ function fail() {
 DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 WORKSPACE_DIR="$(dirname "$(dirname "${DIR}")")"
 
-JAVA_VERSION=${JAVA_VERSION:-1.8}
+JAVA_VERSION=${JAVA_VERSION:-21}
 BAZELRC=${BAZELRC:-"/dev/null"}
 PLATFORM="$(uname -s | tr 'A-Z' 'a-z')"
 
@@ -90,12 +90,12 @@ linux)
 
 freebsd)
   # JAVA_HOME must point to a Java installation.
-  JAVA_HOME="${JAVA_HOME:-/usr/local/openjdk8}"
+  JAVA_HOME="${JAVA_HOME:-/usr/local/openjdk11}"
   ;;
 
 openbsd)
   # JAVA_HOME must point to a Java installation.
-  JAVA_HOME="${JAVA_HOME:-/usr/local/jdk-1.8.0}"
+  JAVA_HOME="${JAVA_HOME:-/usr/local/jdk-11}"
   ;;
 
 darwin)
@@ -192,7 +192,7 @@ function cleanup_phasefile() {
 
 atexit cleanup_phasefile
 
-# Excutes a command respecting the current verbosity settings.
+# Executes a command respecting the current verbosity settings.
 #
 # If VERBOSE is yes, the command itself and its output are printed.
 # If VERBOSE is no, the command's output is only displayed in case of failure.
@@ -265,9 +265,8 @@ function git_date() {
 # Get the latest release version and append the date of
 # the last commit if any.
 function get_last_version() {
-  if [ -f "CHANGELOG.md" ]; then
-    local version="$(fgrep -m 1 '## Release' CHANGELOG.md \
-                       | sed -E 's|.*Release (.*) \(.*\)|\1|')"
+  if [ -f "MODULE.bazel" ]; then
+    local version=$(grep "version =" MODULE.bazel | head -n 1 | sed 's/.*version = "\(.*\)".*/\1/' | cut -d '"' -f2)
   else
     local version=""
   fi
@@ -313,7 +312,7 @@ function get_java_version() {
 
 # Return the target that a bind point to, using Bazel query.
 function get_bind_target() {
-  $BAZEL --bazelrc=${BAZELRC} --nomaster_bazelrc ${BAZEL_DIR_STARTUP_OPTIONS} \
+  $BAZEL --bazelrc=${BAZELRC} ${BAZEL_DIR_STARTUP_OPTIONS} \
     query "deps($1, 1) - $1"
 }
 

@@ -28,6 +28,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 
 /** Utility class for Skyframe-based query implementations. */
 class SkyQueryUtils {
@@ -59,6 +60,7 @@ class SkyQueryUtils {
    *
    * <p>Implemented with a breadth-first search.
    */
+  @Nullable
   static <T, L> ImmutableList<T> getNodesOnPath(
       T from, T to, GetFwdDeps<T> getFwdDeps, Function<T, L> label) throws InterruptedException {
     // Tree of nodes visited so far.

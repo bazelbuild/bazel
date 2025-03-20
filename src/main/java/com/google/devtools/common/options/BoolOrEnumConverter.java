@@ -55,7 +55,7 @@ public abstract class BoolOrEnumConverter<T extends Enum<T>> extends EnumConvert
     } catch (OptionsParsingException eEnum) {
       try {
         BooleanConverter booleanConverter = new BooleanConverter();
-        boolean value = booleanConverter.convert(input);
+        boolean value = booleanConverter.convert(input, /*conversionContext=*/ null);
         return value ? trueValue : falseValue;
       } catch (OptionsParsingException eBoolean) {
         // TODO(b/111883901): Rethrowing the exception from the enum converter does not report the

@@ -3,9 +3,9 @@ You need to load the rules in your BUILD file for use, like:
 load("//third_party/grpc:build_defs.bzl", "java_grpc_library")
 """
 
+load("@com_google_protobuf//bazel/common:proto_info.bzl", "ProtoInfo")
 load("@rules_cc//cc:defs.bzl", "cc_library")
 load("@rules_java//java:defs.bzl", "java_library")
-load("@rules_proto//proto:defs.bzl", "ProtoInfo")
 
 def _path_ignoring_repository(f):
     if (len(f.owner.workspace_root) == 0):
@@ -41,6 +41,7 @@ def _gensource_impl(ctx):
         inputs = srcs + includes,
         tools = [ctx.executable._java_plugin, ctx.executable._protoc],
         outputs = [srcdotjar],
+        mnemonic = "JavaGrpcGenSource",
         use_default_shell_env = True,
     )
 
@@ -63,13 +64,13 @@ _java_grpc_gensource = rule(
         "_protoc": attr.label(
             default = Label("@com_google_protobuf//:protoc"),
             executable = True,
-            cfg = "host",
+            cfg = "exec",
             allow_single_file = True,
         ),
         "_java_plugin": attr.label(
-            default = Label("@io_bazel//third_party/grpc:grpc-java-plugin"),
+            default = Label("//third_party/grpc-java:grpc-java-plugin"),
             executable = True,
-            cfg = "host",
+            cfg = "exec",
         ),
     },
     outputs = {
@@ -111,10 +112,10 @@ def java_grpc_library(name, srcs, deps, enable_deprecated = None, visibility = N
         srcs = [gensource_name],
         visibility = visibility,
         deps = [
-            "@io_bazel//third_party:javax_annotations",
-            "@io_bazel//third_party:jsr305",
-            "@io_bazel//third_party/grpc:grpc-jar",
-            "@io_bazel//third_party:guava",
+            Label("//third_party:javax_annotations"),
+            Label("//third_party:jsr305"),
+            Label("//third_party/grpc-java:grpc-jar"),
+            Label("//third_party:guava"),
             "@com_google_protobuf//:protobuf_java",
         ] + deps,
         **kwargs

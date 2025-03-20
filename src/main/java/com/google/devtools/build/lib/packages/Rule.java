@@ -14,6 +14,14 @@
 
 package com.google.devtools.build.lib.packages;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkPositionIndex;
+import static com.google.common.base.Preconditions.checkState;
+import static com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper.attributeOrNull;
+import static com.google.devtools.build.lib.util.HashCodes.hashObjects;
+
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
@@ -21,9 +29,11 @@ import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Iterators;
 import com.google.common.collect.LinkedHashMultimap;
-import com.google.common.collect.Multimap;
 import com.google.common.collect.SetMultimap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -35,15 +45,22 @@ import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.StarlarkImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.License.DistributionType;
 import com.google.devtools.build.lib.packages.Package.ConfigSettingVisibilityPolicy;
+import com.google.devtools.build.lib.packages.RuleClass.ToolchainResolutionMode;
+import com.google.devtools.build.lib.server.FailureDetails.PackageLoading;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.BitSet;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.syntax.Location;
 
 /**
@@ -68,45 +85,84 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
   /** Label predicate that allows every label. */
   public static final Predicate<Label> ALL_LABELS = Predicates.alwaysTrue();
 
+  private static final String NAME = RuleClass.NAME_ATTRIBUTE.getName();
   private static final String GENERATOR_FUNCTION = "generator_function";
   private static final String GENERATOR_LOCATION = "generator_location";
+  private static final String GENERATOR_NAME = "generator_name";
 
+  private static final int ATTR_SIZE_THRESHOLD = 126;
+
+  private static final OutputFile[] NO_OUTPUTS = new OutputFile[0];
+
+  public static final String IS_EXECUTABLE_ATTRIBUTE_NAME = "$is_executable";
+
+  private final Packageoid pkg;
   private final Label label;
-
-  private final Package pkg;
-
   private final RuleClass ruleClass;
-
-  private AttributeContainer attributes;
-
-  private RuleVisibility visibility;
-
-  private boolean containsErrors;
-
   private final Location location;
-
-  private final CallStack callstack;
-
-  private final ImplicitOutputsFunction implicitOutputsFunction;
+  @Nullable private final CallStack.Node interiorCallStack;
 
   /**
-   * A compact representation of a multimap from "output keys" to output files.
+   * The length of this rule's generator name if it is a prefix of its name, otherwise zero.
    *
-   * <p>An output key is an identifier used to access the output in {@code ctx.outputs}, or the
-   * empty string in the case of an output that's not exposed there. For explicit outputs, the
-   * output key is the name of the attribute under which that output appears. For Starlark-defined
-   * implicit outputs, the output key is determined by the dict returned from the Starlark function.
-   * Native-defined implicit outputs are not named in this manner, and so are invisible to {@code
-   * ctx.outputs} and use the empty string key. (It'd be pathological for the empty string to be
-   * used as a key in the other two cases, but this class makes no attempt to prohibit that.)
+   * <p>The generator name of a rule is the {@code name} parameter passed to a macro that
+   * instantiates the rule. Most rules instantiated via macro follow this pattern:
    *
-   * <p>Rather than naively store an ImmutableListMultimap, we save space by compressing it as an
-   * ImmutableList, where each key is followed by all the values having that key. We distinguish
-   * keys (Strings) from values (OutputFiles) by the fact that they have different types. The
-   * accessor methods traverse the list and create a more user-friendly view.
+   * <pre>{@code
+   * def some_macro(name):
+   *   some_rule(name = name + '_some_suffix')
+   * }</pre>
    *
-   * <p>To distinguish implicit outputs from explicit outputs, we store all the implicit outputs in
-   * the list first, and record how many implicit output keys there are in a separate field.
+   * thus resulting in a generator name which is a prefix of the rule name. In such a case, we save
+   * memory by storing the length of the generator name instead of the string. Note that this saves
+   * memory from both the storage in {@link #attrValues} and the string itself (if it is not
+   * otherwise retained). This optimization works because this field does not push the shallow heap
+   * cost of {@link Rule} beyond an 8-byte threshold. If it did, this optimization would be a net
+   * loss.
+   */
+  private int generatorNamePrefixLength = 0;
+
+  /**
+   * Stores attribute values, taking on one of two shapes:
+   *
+   * <ol>
+   *   <li>While the rule is mutable, the array length is equal to the number of attributes. Each
+   *       array slot holds the attribute value for the corresponding index or null if not set.
+   *   <li>After {@link #freeze}, the array is compacted to store only necessary values. Nulls and
+   *       values that match {@link Attribute#getDefaultValue} are omitted to save space. Ordering
+   *       of attributes by their index is preserved.
+   * </ol>
+   */
+  private Object[] attrValues;
+
+  /**
+   * Holds bits of metadata about attributes, taking on one of three shapes:
+   *
+   * <ol>
+   *   <li>While the rule is mutable, contains one bit for each attribute indicating whether it was
+   *       explicitly set.
+   *   <li>After {@link #freeze} for rules with fewer than 126 attributes (extremely common case),
+   *       contains one byte dedicated to each value in the compact representation of {@link
+   *       #attrValues}, at corresponding array indices. The first bit indicates whether the
+   *       attribute was explicitly set. The remaining 7 bits represent the attribute's index (as
+   *       per {@link RuleClass#getAttributeIndex}). See {@link #freezeSmall}.
+   *   <li>After {@link #freeze} for rules with 126 or more attributes (rare case), contains the
+   *       full set of bytes from the mutable representation, followed by the index of each
+   *       attribute stored in the compact representation of {@link #attrValues}. Because attribute
+   *       indices may require a full byte, there is no room to pack the explicit bit as we do for
+   *       the small case. See {@link #freezeLarge}.
+   * </ol>
+   */
+  private byte[] attrBytes;
+
+  /**
+   * Output files generated by this rule.
+   *
+   * <p>To save memory, this field is either {@link #NO_OUTPUTS} for zero outputs, an {@link
+   * OutputFile} for a single output, or an {@code OutputFile[]} for multiple outputs.
+   *
+   * <p>In the case of multiple outputs, all implicit outputs come before any explicit outputs in
+   * the array.
    *
    * <p>The order of the implicit outputs is the same as returned by the implicit output function.
    * This allows a native rule implementation and native implicit outputs function to agree on the
@@ -114,59 +170,22 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
    * iteration order and the order of values in a list attribute; the latter is important so that
    * {@code ctx.outputs.some_list} has a well-defined order.
    */
-  // Both of these fields are initialized by populateOutputFiles().
-  private ImmutableList<Object> flattenedOutputFileMap;
-
-  private int numImplicitOutputKeys;
+  // Initialized by populateOutputFilesInternal().
+  private Object outputFiles;
 
   Rule(
-      Package pkg,
+      Packageoid pkg,
       Label label,
       RuleClass ruleClass,
       Location location,
-      CallStack callstack,
-      AttributeContainer attributeContainer) {
-    this(
-        pkg,
-        label,
-        ruleClass,
-        location,
-        callstack,
-        attributeContainer,
-        ruleClass.getDefaultImplicitOutputsFunction());
-  }
-
-  Rule(
-      Package pkg,
-      Label label,
-      RuleClass ruleClass,
-      Location location,
-      CallStack callstack,
-      AttributeContainer attributeContainer,
-      ImplicitOutputsFunction implicitOutputsFunction) {
-    this.pkg = Preconditions.checkNotNull(pkg);
-    this.label = label;
-    this.ruleClass = Preconditions.checkNotNull(ruleClass);
-    this.location = Preconditions.checkNotNull(location);
-    this.callstack = Preconditions.checkNotNull(callstack);
-    this.attributes = attributeContainer;
-    this.implicitOutputsFunction = implicitOutputsFunction;
-    this.containsErrors = false;
-  }
-
-  void setVisibility(RuleVisibility visibility) {
-    this.visibility = visibility;
-  }
-
-  void setAttributeValue(Attribute attribute, Object value, boolean explicit) {
-    Integer attrIndex = ruleClass.getAttributeIndex(attribute.getName());
-    Preconditions.checkArgument(
-        attrIndex != null, "attribute %s is not valid for this rule", attribute.getName());
-    attributes.setAttributeValue(attrIndex, value, explicit);
-  }
-
-  void setContainsErrors() {
-    this.containsErrors = true;
+      @Nullable CallStack.Node interiorCallStack) {
+    this.pkg = checkNotNull(pkg);
+    this.label = checkNotNull(label);
+    this.ruleClass = checkNotNull(ruleClass);
+    this.location = checkNotNull(location);
+    this.interiorCallStack = interiorCallStack;
+    this.attrValues = new Object[ruleClass.getAttributeCount()];
+    this.attrBytes = new byte[bitSetSize()];
   }
 
   @Override
@@ -175,13 +194,18 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
   }
 
   @Override
-  public String getName() {
-    return label.getName();
+  public Packageoid getPackageoid() {
+    return pkg;
   }
 
   @Override
-  public Package getPackage() {
-    return pkg;
+  public Package.Metadata getPackageMetadata() {
+    return pkg.getMetadata();
+  }
+
+  @Override
+  public Package.Declarations getPackageDeclarations() {
+    return pkg.getDeclarations();
   }
 
   public RuleClass getRuleClassObject() {
@@ -193,9 +217,8 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
     return ruleClass.getTargetKind();
   }
 
-  /**
-   * Returns the class of this rule. (e.g. "cc_library")
-   */
+  /** Returns the class of this rule. (e.g. "cc_library") */
+  @Override
   public String getRuleClass() {
     return ruleClass.getName();
   }
@@ -229,11 +252,16 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
   }
 
   /**
-   * Returns true iff there were errors while constructing this rule, such as
-   * attributes with missing values or values of the wrong type.
+   * Returns true if this rule is in error.
+   *
+   * <p>Examples of rule errors include attributes with missing values or values of the wrong type.
+   *
+   * <p>Any error in a package means that all rules in the package are considered to be in error
+   * (even if they were evaluated prior to the error). This policy is arguably stricter than need
+   * be, but stopping a build only for some errors but not others creates user confusion.
    */
   public boolean containsErrors() {
-    return containsErrors;
+    return pkg.containsErrors();
   }
 
   public boolean hasAspects() {
@@ -254,17 +282,15 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
    * Returns true if the given attribute is configurable.
    */
   public boolean isConfigurableAttribute(String attributeName) {
-    Attribute attribute = ruleClass.getAttributeByNameMaybe(attributeName);
     // TODO(murali): This method should be property of ruleclass not rule instance.
     // Further, this call to AbstractAttributeMapper.isConfigurable is delegated right back
     // to this instance!
-    return attribute != null
-        && AbstractAttributeMapper.isConfigurable(this, attributeName, attribute.getType());
+    return AbstractAttributeMapper.isConfigurable(this, attributeName);
   }
 
   /**
-   * Returns the attribute definition whose name is {@code attrName}, or null
-   * if not found.  (Use get[X]Attr for the actual value.)
+   * Returns the attribute definition whose name is {@code attrName}, or null if not found. (Use
+   * get[X]Attr for the actual value.)
    *
    * @deprecated use {@link AbstractAttributeMapper#getAttributeDefinition} instead
    */
@@ -286,31 +312,20 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
    * outputs will retain the relative order in which they were declared.
    */
   public ImmutableList<OutputFile> getOutputFiles() {
-    // Discard the String keys, taking only the OutputFile values.
-    ImmutableList.Builder<OutputFile> result = ImmutableList.builder();
-    for (Object o : flattenedOutputFileMap) {
-      if (o instanceof OutputFile) {
-        result.add((OutputFile) o);
-      }
-    }
-    return result.build();
+    return ImmutableList.copyOf(outputFilesArray());
   }
 
   /**
    * Constructs and returns an immutable list of all the implicit output files of this rule, in the
    * order they were declared.
    */
-  public ImmutableList<OutputFile> getImplicitOutputFiles() {
+  ImmutableList<OutputFile> getImplicitOutputFiles() {
     ImmutableList.Builder<OutputFile> result = ImmutableList.builder();
-    int seenKeys = 0;
-    for (Object o : flattenedOutputFileMap) {
-      if (o instanceof String) {
-        if (++seenKeys > numImplicitOutputKeys) {
-          break;
-        }
-      } else {
-        result.add((OutputFile) o);
+    for (OutputFile output : outputFilesArray()) {
+      if (!output.isImplicit()) {
+        break;
       }
+      result.add(output);
     }
     return result.build();
   }
@@ -327,14 +342,9 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
    */
   public ImmutableListMultimap<String, OutputFile> getExplicitOutputFileMap() {
     ImmutableListMultimap.Builder<String, OutputFile> result = ImmutableListMultimap.builder();
-    int seenKeys = 0;
-    String key = null;
-    for (Object o : flattenedOutputFileMap) {
-      if (o instanceof String) {
-        seenKeys++;
-        key = (String) o;
-      } else if (seenKeys > numImplicitOutputKeys) {
-        result.put(key, (OutputFile) o);
+    for (OutputFile output : outputFilesArray()) {
+      if (!output.isImplicit()) {
+        result.put(output.getOutputKey(), output);
       }
     }
     return result.build();
@@ -349,23 +359,24 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
    * output per key.
    */
   public ImmutableMap<String, OutputFile> getStarlarkImplicitOutputFileMap() {
-    if (!(implicitOutputsFunction instanceof StarlarkImplicitOutputsFunction)) {
+    if (!(ruleClass.getDefaultImplicitOutputsFunction()
+        instanceof StarlarkImplicitOutputsFunction)) {
       return ImmutableMap.of();
     }
     ImmutableMap.Builder<String, OutputFile> result = ImmutableMap.builder();
-    int seenKeys = 0;
-    String key = null;
-    for (Object o : flattenedOutputFileMap) {
-      if (o instanceof String) {
-        if (++seenKeys > numImplicitOutputKeys) {
-          break;
-        }
-        key = (String) o;
-      } else {
-        result.put(key, (OutputFile) o);
+    for (OutputFile output : outputFilesArray()) {
+      if (!output.isImplicit()) {
+        break;
       }
+      result.put(output.getOutputKey(), output);
     }
-    return result.build();
+    return result.buildOrThrow();
+  }
+
+  private OutputFile[] outputFilesArray() {
+    return outputFiles instanceof OutputFile
+        ? new OutputFile[] {(OutputFile) outputFiles}
+        : (OutputFile[]) outputFiles;
   }
 
   @Override
@@ -373,26 +384,29 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
     return location;
   }
 
-  /** Returns the stack of function calls active when this rule was instantiated. */
-  public CallStack getCallStack() {
-    return callstack;
+  /**
+   * Returns the stack of function calls active when this rule was instantiated.
+   *
+   * <p>Requires reconstructing the call stack from a compact representation, so should only be
+   * called when the full call stack is needed.
+   */
+  public ImmutableList<StarlarkThread.CallStackEntry> reconstructCallStack() {
+    ImmutableList.Builder<StarlarkThread.CallStackEntry> stack = ImmutableList.builder();
+    stack.add(StarlarkThread.callStackEntry(StarlarkThread.TOP_LEVEL, location));
+    for (CallStack.Node node = interiorCallStack; node != null; node = node.next()) {
+      stack.add(node.toCallStackEntry());
+    }
+    return stack.build();
   }
 
-  public ImplicitOutputsFunction getImplicitOutputsFunction() {
-    return implicitOutputsFunction;
+  @Nullable
+  CallStack.Node getInteriorCallStack() {
+    return interiorCallStack;
   }
 
   @Override
   public Rule getAssociatedRule() {
     return this;
-  }
-
-  /**
-   * Returns this rule's raw attribute info, suitable for being fed into an {@link AttributeMap} for
-   * user-level attribute access. Don't use this method for direct attribute access.
-   */
-  AttributeContainer getAttributeContainer() {
-    return attributes;
   }
 
   /*
@@ -410,17 +424,6 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
    */
 
   /**
-   * Returns the default value for the attribute {@code attrName}, which may be of any type, but
-   * must exist (an exception is thrown otherwise).
-   */
-  public Object getAttrDefaultValue(String attrName) {
-    Object defaultValue = ruleClass.getAttributeByName(attrName).getDefaultValue(this);
-    // Computed defaults not expected here.
-    Preconditions.checkState(!(defaultValue instanceof Attribute.ComputedDefault));
-    return defaultValue;
-  }
-
-  /**
    * Returns true iff the rule class has an attribute with the given name and type.
    *
    * <p>Note: RuleContext also has isAttrDefined(), which takes Aspects into account. Whenever
@@ -430,37 +433,8 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
     return ruleClass.hasAttr(attrName, type);
   }
 
-  /**
-   * Returns the value of the attribute with the given index. Returns null, if no such attribute
-   * exists OR no value was set.
-   */
   @Nullable
-  private Object getAttrWithIndex(int attrIndex) {
-    Object value = attributes.getAttributeValue(attrIndex);
-    if (value != null) {
-      return value;
-    }
-    Attribute attr = ruleClass.getAttribute(attrIndex);
-    if (attr.hasComputedDefault()) {
-      // Attributes with computed defaults are explicitly populated during rule creation.
-      // However, computing those defaults could trigger reads of other attributes
-      // which have not yet been populated. In such a case control comes here, and we return null.
-      // NOTE: In this situation returning null does not result in a correctness issue, since
-      // the value for the attribute is actually a function to compute the value.
-      return null;
-    }
-    switch (attr.getName()) {
-      case GENERATOR_FUNCTION:
-        return callstack.size() > 1 ? callstack.getFrame(1).name : "";
-      case GENERATOR_LOCATION:
-        return callstack.size() > 1 ? relativeLocation(callstack.getFrame(0).location) : "";
-      default:
-        return attr.getDefaultValue(null);
-    }
-  }
-
-  @Nullable
-  private String relativeLocation(Location location) {
+  private String getRelativeLocation() {
     // Determining the workspace root only works reliably if both location and label point to files
     // in the same package.
     // It would be preferable to construct the path from the label itself, but this doesn't work for
@@ -475,6 +449,42 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
     return (pos < 0) ? null : absolutePath.substring(pos);
   }
 
+  /** Copies attribute values from the given rule to this rule. */
+  void copyAttributesFrom(Rule rule) {
+    checkArgument(
+        ruleClass.equals(rule.ruleClass),
+        "Rule class mismatch: (this=%s, given=%s)",
+        ruleClass,
+        rule.ruleClass);
+    checkArgument(rule.isFrozen(), "Not frozen: %s", rule);
+    checkState(!isFrozen(), "Already frozen: %s", this);
+    this.attrValues = rule.attrValues;
+    this.attrBytes = rule.attrBytes;
+  }
+
+  void setAttributeValue(Attribute attribute, Object value, boolean explicit) {
+    checkState(!isFrozen(), "Already frozen: %s", this);
+    String attrName = attribute.getName();
+    if (attrName.equals(NAME)) {
+      // Avoid unnecessarily storing the name in attrValues - it's stored in the label.
+      return;
+    }
+    if (attrName.equals(GENERATOR_NAME)) {
+      String generatorName = (String) value;
+      if (getName().startsWith(generatorName)) {
+        generatorNamePrefixLength = generatorName.length();
+        return;
+      }
+    }
+    Integer attrIndex = ruleClass.getAttributeIndex(attrName);
+    checkArgument(attrIndex != null, "Attribute %s is not valid for this rule", attrName);
+    if (explicit) {
+      checkState(!getExplicitBit(attrIndex), "Attribute %s already explicitly set", attrName);
+      setExplicitBit(attrIndex);
+    }
+    attrValues[attrIndex] = value;
+  }
+
   /**
    * Returns the value of the given attribute for this rule. Returns null for invalid attributes and
    * default value if attribute was not set.
@@ -483,6 +493,9 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
    */
   @Nullable
   public Object getAttr(String attrName) {
+    if (attrName.equals(NAME)) {
+      return getName();
+    }
     Integer attrIndex = ruleClass.getAttributeIndex(attrName);
     return attrIndex == null ? null : getAttrWithIndex(attrIndex);
   }
@@ -494,26 +507,291 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
    */
   @Nullable
   public <T> Object getAttr(String attrName, Type<T> type) {
+    if (attrName.equals(NAME)) {
+      checkAttrType(attrName, type, RuleClass.NAME_ATTRIBUTE);
+      return getName();
+    }
+
     Integer index = ruleClass.getAttributeIndex(attrName);
     if (index == null) {
       throw new IllegalArgumentException(
           "No such attribute " + attrName + " in " + ruleClass + " rule " + label);
     }
-    Attribute attr = ruleClass.getAttribute(index);
-    if (attr.getType() != type) {
+    checkAttrType(attrName, type, ruleClass.getAttribute(index));
+    return getAttrWithIndex(index);
+  }
+
+  /**
+   * Returns the value of the attribute with the given index. Returns null, if no such attribute
+   * exists OR no value was set.
+   */
+  @Nullable
+  private Object getAttrWithIndex(int attrIndex) {
+    Object value = getAttrIfStored(attrIndex);
+    if (value != null) {
+      return value;
+    }
+    Attribute attr = ruleClass.getAttribute(attrIndex);
+    if (attr.hasComputedDefault()) {
+      // Frozen rules don't store computed defaults, so get it from the attribute. Mutable rules do
+      // store computed defaults if they've been populated. If no value is stored for a mutable
+      // rule, return null here since resolving the default could trigger reads of other attributes
+      // which have not yet been populated. Note that in this situation returning null does not
+      // result in a correctness issue, since the value for the attribute is actually a function to
+      // compute the value.
+      return isFrozen() ? attr.getDefaultValue(this) : null;
+    }
+    if (attr.isMaterializing()) {
+      checkState(isFrozen(), "Mutable rule missing LateBoundDefault");
+      return attr.getMaterializer();
+    }
+    if (attr.isLateBound()) {
+      // Frozen rules don't store late bound defaults.
+      checkState(isFrozen(), "Mutable rule missing LateBoundDefault");
+      return attr.getLateBoundDefault();
+    }
+    return switch (attr.getName()) {
+      case GENERATOR_FUNCTION -> interiorCallStack != null ? interiorCallStack.functionName() : "";
+      case GENERATOR_LOCATION -> interiorCallStack != null ? getRelativeLocation() : "";
+      case GENERATOR_NAME ->
+          generatorNamePrefixLength > 0 ? getName().substring(0, generatorNamePrefixLength) : "";
+      default -> attr.getDefaultValue(this);
+    };
+  }
+
+  /**
+   * Returns the attribute value at the specified index if stored in this rule, otherwise {@code
+   * null}.
+   *
+   * <p>Unlike {@link #getAttr}, does not fall back to the default value.
+   */
+  @Nullable
+  Object getAttrIfStored(int attrIndex) {
+    checkPositionIndex(attrIndex, attrCount() - 1);
+    return switch (getAttrState()) {
+      case MUTABLE -> attrValues[attrIndex];
+      case FROZEN_SMALL -> {
+        int index = binarySearchAttrBytes(0, attrIndex, 0x7f);
+        yield index < 0 ? null : attrValues[index];
+      }
+      case FROZEN_LARGE -> {
+        if (attrBytes.length == 0) {
+          yield null;
+        }
+        int bitSetSize = bitSetSize();
+        int index = binarySearchAttrBytes(bitSetSize, attrIndex, 0xff);
+        yield index < 0 ? null : attrValues[index - bitSetSize];
+      }
+    };
+  }
+
+  /**
+   * Returns raw attribute values stored by this rule.
+   *
+   * <p>The indices of attribute values in the returned list are not guaranteed to be consistent
+   * with the other methods of this class. If this is important, which is generally the case, avoid
+   * this method.
+   *
+   * <p>The returned iterable may contain null values. Its {@link Iterable#iterator} is
+   * unmodifiable.
+   */
+  Iterable<Object> getRawAttrValues() {
+    return () -> Iterators.forArray(attrValues);
+  }
+
+  /** See {@link #isAttributeValueExplicitlySpecified(String)} */
+  @Override
+  public boolean isAttributeValueExplicitlySpecified(Attribute attribute) {
+    return isAttributeValueExplicitlySpecified(attribute.getName());
+  }
+
+  /**
+   * Returns true iff the value of the specified attribute is explicitly set in the BUILD file. This
+   * returns true also if the value explicitly specified in the BUILD file is the same as the
+   * attribute's default value. In addition, this method return false if the rule has no attribute
+   * with the given name.
+   */
+  public boolean isAttributeValueExplicitlySpecified(String attrName) {
+    if (attrName.equals(NAME)) {
+      return true;
+    }
+    if (attrName.equals(GENERATOR_FUNCTION)
+        || attrName.equals(GENERATOR_LOCATION)
+        || attrName.equals(GENERATOR_NAME)) {
+      return wasCreatedByMacro();
+    }
+    Integer attrIndex = ruleClass.getAttributeIndex(attrName);
+    if (attrIndex == null) {
+      return false;
+    }
+    return switch (getAttrState()) {
+      case MUTABLE, FROZEN_LARGE -> getExplicitBit(attrIndex);
+      case FROZEN_SMALL -> {
+        int index = binarySearchAttrBytes(0, attrIndex, 0x7f);
+        yield index >= 0 && (attrBytes[index] & 0x80) != 0;
+      }
+    };
+  }
+
+  /** Returns index into {@link #attrBytes} for {@code attrIndex}, or -1 if not found */
+  private int binarySearchAttrBytes(int start, int attrIndex, int mask) {
+    // Binary search, treating values as unsigned bytes.
+    int lo = start;
+    int hi = attrBytes.length - 1;
+    while (hi >= lo) {
+      int mid = (lo + hi) / 2;
+      int midAttrIndex = attrBytes[mid] & mask;
+      if (midAttrIndex == attrIndex) {
+        return mid;
+      } else if (midAttrIndex < attrIndex) {
+        lo = mid + 1;
+      } else {
+        hi = mid - 1;
+      }
+    }
+    return -1;
+  }
+
+  private void checkAttrType(String attrName, Type<?> requestedType, Attribute attr) {
+    if (requestedType != attr.getType()) {
       throw new IllegalArgumentException(
           "Attribute "
               + attrName
               + " is of type "
               + attr.getType()
               + " and not of type "
-              + type
+              + requestedType
               + " in "
               + ruleClass
               + " rule "
               + label);
     }
-    return getAttrWithIndex(index);
+  }
+
+  /**
+   * Returns {@code true} if this rule's attributes are immutable.
+   *
+   * <p>Frozen rules optimize for space by omitting storage for non-explicit attribute values that
+   * match the {@link Attribute} default. If {@link #getAttrIfStored} returns {@code null}, the
+   * value should be taken from either {@link Attribute#getLateBoundDefault} for late-bound defaults
+   * or {@link Attribute#getDefaultValue} for all other attributes (including computed defaults).
+   *
+   * <p>Mutable rules have no such optimization. During rule creation, this allows for
+   * distinguishing whether a computed default (which may depend on other unset attributes) is
+   * available.
+   */
+  boolean isFrozen() {
+    return getAttrState() != AttrState.MUTABLE;
+  }
+
+  /** Makes this rule's attributes immutable and compacts their representation. */
+  void freeze() {
+    if (isFrozen()) {
+      return;
+    }
+
+    BitSet indicesToStore = new BitSet();
+    for (int i = 0; i < attrValues.length; i++) {
+      Object value = attrValues[i];
+      if (value == null) {
+        continue;
+      }
+      if (!getExplicitBit(i)) {
+        Attribute attr = ruleClass.getAttribute(i);
+        if (value.equals(attr.getDefaultValueUnchecked())) {
+          // Non-explicit value matches the attribute's default. Save space by omitting storage.
+          continue;
+        }
+      }
+      indicesToStore.set(i);
+    }
+
+    if (attrCount() < ATTR_SIZE_THRESHOLD) {
+      freezeSmall(indicesToStore);
+    } else {
+      freezeLarge(indicesToStore);
+    }
+    // Sanity check to ensure mutable vs frozen is distinguishable.
+    checkState(isFrozen(), "Freeze unsuccessful");
+  }
+
+  private void freezeSmall(BitSet indicesToStore) {
+    int numToStore = indicesToStore.cardinality();
+    Object[] compactValues = new Object[numToStore];
+    byte[] compactBytes = new byte[numToStore];
+
+    int attrIndex = 0;
+    for (int i = 0; i < numToStore; i++) {
+      attrIndex = indicesToStore.nextSetBit(attrIndex);
+      byte byteValue = (byte) (0x7f & attrIndex);
+      if (getExplicitBit(attrIndex)) {
+        byteValue = (byte) (byteValue | 0x80);
+      }
+      compactBytes[i] = byteValue;
+      compactValues[i] = attrValues[attrIndex];
+      attrIndex++;
+    }
+
+    this.attrValues = compactValues;
+    this.attrBytes = compactBytes;
+  }
+
+  private void freezeLarge(BitSet indicesToStore) {
+    int numToStore = indicesToStore.cardinality();
+    int bitSetSize = attrBytes.length;
+    Object[] compactValues = new Object[numToStore];
+    byte[] compactBytes = Arrays.copyOf(attrBytes, bitSetSize + numToStore);
+
+    int attrIndex = 0;
+    for (int i = 0; i < numToStore; i++) {
+      attrIndex = indicesToStore.nextSetBit(attrIndex);
+      compactBytes[i + bitSetSize] = (byte) attrIndex;
+      compactValues[i] = attrValues[attrIndex];
+      attrIndex++;
+    }
+
+    this.attrValues = compactValues;
+    this.attrBytes = compactBytes;
+  }
+
+  private int attrCount() {
+    return ruleClass.getAttributeCount();
+  }
+
+  private enum AttrState {
+    MUTABLE,
+    FROZEN_SMALL,
+    FROZEN_LARGE
+  }
+
+  private AttrState getAttrState() {
+    int attrCount = attrCount();
+    // This check works because the name attribute is never stored, so the compact representation
+    // of attrValues will always have length < attrCount.
+    if (attrValues.length == attrCount) {
+      return AttrState.MUTABLE;
+    }
+    return attrCount < ATTR_SIZE_THRESHOLD ? AttrState.FROZEN_SMALL : AttrState.FROZEN_LARGE;
+  }
+
+  /** Calculates the number of bytes necessary to have an explicit bit for each attribute. */
+  private int bitSetSize() {
+    // ceil(attrCount() / 8)
+    return (attrCount() + 7) / 8;
+  }
+
+  private boolean getExplicitBit(int attrIndex) {
+    int byteIndex = attrIndex / 8;
+    int bitIndex = attrIndex % 8;
+    byte byteValue = attrBytes[byteIndex];
+    return (byteValue & (1 << bitIndex)) != 0;
+  }
+
+  private void setExplicitBit(int attrIndex) {
+    int byteIndex = attrIndex / 8;
+    int bitIndex = attrIndex % 8;
+    byte byteValue = attrBytes[byteIndex];
+    attrBytes[byteIndex] = (byte) (byteValue | (1 << bitIndex));
   }
 
   /**
@@ -527,7 +805,7 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
     if (index == null) {
       return null;
     }
-    Object attrValue = attributes.getAttributeValue(index);
+    Object attrValue = getAttrIfStored(index);
     if (!(attrValue instanceof BuildType.SelectorList)) {
       return null;
     }
@@ -544,33 +822,12 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
     }
     return (BuildType.SelectorList<T>) attrValue;
   }
-  /**
-   * See {@link #isAttributeValueExplicitlySpecified(String)}
-   */
-  @Override
-  public boolean isAttributeValueExplicitlySpecified(Attribute attribute) {
-    return isAttributeValueExplicitlySpecified(attribute.getName());
-  }
-
-  /**
-   * Returns true iff the value of the specified attribute is explicitly set in the BUILD file. This
-   * returns true also if the value explicitly specified in the BUILD file is the same as the
-   * attribute's default value. In addition, this method return false if the rule has no attribute
-   * with the given name.
-   */
-  public boolean isAttributeValueExplicitlySpecified(String attrName) {
-    if (attrName.equals(GENERATOR_FUNCTION) || attrName.equals(GENERATOR_LOCATION)) {
-      return wasCreatedByMacro();
-    }
-    Integer attrIndex = ruleClass.getAttributeIndex(attrName);
-    return attrIndex != null && attributes.isAttributeValueExplicitlySpecified(attrIndex);
-  }
 
   /**
    * Returns whether this rule was created by a macro.
    */
   public boolean wasCreatedByMacro() {
-    return hasStringAttribute("generator_name") || hasStringAttribute(GENERATOR_FUNCTION);
+    return interiorCallStack != null || hasStringAttribute(GENERATOR_NAME);
   }
 
   /** Returns the macro that generated this rule, or an empty string. */
@@ -590,7 +847,9 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
     return false;
   }
 
-  /** Returns a new list containing all direct dependencies (all types). */
+  /**
+   * Returns a new list containing all direct dependencies (all types except outputs and nodeps).
+   */
   public List<Label> getLabels() {
     List<Label> labels = new ArrayList<>();
     AggregatingAttributeMapper.of(this).visitAllLabels((attribute, label) -> labels.add(label));
@@ -609,12 +868,12 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
   public ImmutableSortedSet<Label> getSortedLabels(DependencyFilter filter) {
     ImmutableSortedSet.Builder<Label> labels = ImmutableSortedSet.naturalOrder();
     AggregatingAttributeMapper.of(this)
-        .visitLabels(filter, (attribute, label) -> labels.add(label));
+        .visitLabels(filter, (Attribute attribute, Label label) -> labels.add(label));
     return labels.build();
   }
 
   /**
-   * Returns a {@link Multimap} containing all non-output labels matching a given {@link
+   * Returns a {@link SetMultimap} containing all non-output labels matching a given {@link
    * DependencyFilter}, keyed by the corresponding attribute.
    *
    * <p>Labels that appear in multiple attributes will be mapped from each of their corresponding
@@ -625,40 +884,34 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
    *     contains the label. The label will be contained in the result iff the predicate returns
    *     {@code true} <em>and</em> the label is not an output.
    */
-  public Multimap<Attribute, Label> getTransitions(DependencyFilter filter) {
-    Multimap<Attribute, Label> transitions = HashMultimap.create();
+  public SetMultimap<Attribute, Label> getTransitions(DependencyFilter filter) {
+    SetMultimap<Attribute, Label> transitions = HashMultimap.create();
     AggregatingAttributeMapper.of(this).visitLabels(filter, transitions::put);
     return transitions;
-  }
-
-  void freeze() {
-    attributes = attributes.freeze();
-  }
-
-  /**
-   * Check if this rule is valid according to the validityPredicate of its RuleClass.
-   */
-  void checkValidityPredicate(EventHandler eventHandler) {
-    PredicateWithMessage<Rule> predicate = ruleClass.getValidityPredicate();
-    if (!predicate.apply(this)) {
-      reportError(predicate.getErrorReason(this), eventHandler);
-    }
   }
 
   /**
    * Collects the output files (both implicit and explicit). Must be called before the output
    * accessors methods can be used, and must be called only once.
    */
-  void populateOutputFiles(EventHandler eventHandler, Package.Builder pkgBuilder)
+  void populateOutputFiles(EventHandler eventHandler, PackageIdentifier pkgId)
       throws LabelSyntaxException, InterruptedException {
     populateOutputFilesInternal(
-        eventHandler, pkgBuilder.getPackageIdentifier(), /*checkLabels=*/ true);
+        eventHandler,
+        pkgId,
+        ruleClass.getDefaultImplicitOutputsFunction(),
+        /* checkLabels= */ true);
   }
 
-  void populateOutputFilesUnchecked(Package.Builder pkgBuilder) throws InterruptedException {
+  void populateOutputFilesUnchecked(
+      Package.Builder pkgBuilder, ImplicitOutputsFunction implicitOutputsFunction)
+      throws InterruptedException {
     try {
       populateOutputFilesInternal(
-          NullEventHandler.INSTANCE, pkgBuilder.getPackageIdentifier(), /*checkLabels=*/ false);
+          NullEventHandler.INSTANCE,
+          pkgBuilder.getPackageIdentifier(),
+          implicitOutputsFunction,
+          /* checkLabels= */ false);
     } catch (LabelSyntaxException e) {
       throw new IllegalStateException(e);
     }
@@ -675,16 +928,14 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
   }
 
   private void populateOutputFilesInternal(
-      EventHandler eventHandler, PackageIdentifier pkgId, boolean checkLabels)
+      EventHandler eventHandler,
+      PackageIdentifier pkgId,
+      ImplicitOutputsFunction implicitOutputsFunction,
+      boolean checkLabels)
       throws LabelSyntaxException, InterruptedException {
-    Preconditions.checkState(flattenedOutputFileMap == null);
+    Preconditions.checkState(outputFiles == null);
 
-    // We associate each output with its String key (or empty string if there's no key) as we go,
-    // and compress it down to a flat list afterwards. We use ImmutableListMultimap because it's
-    // more efficient than LinkedListMultimap and provides ordering guarantees among keys (whereas
-    // ArrayListMultimap doesn't).
-    ImmutableListMultimap.Builder<String, OutputFile> outputFileMap =
-        ImmutableListMultimap.builder();
+    List<OutputFile> outputs = new ArrayList<>();
     // Detects collisions where the same output key is used for both an explicit and implicit entry.
     HashSet<String> implicitOutputKeys = new HashSet<>();
 
@@ -714,8 +965,7 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
           }
           validateOutputLabel(label, eventHandler);
 
-          OutputFile file = new OutputFile(label, this);
-          outputFileMap.put(outputKey, file);
+          outputs.add(OutputFile.createImplicit(label, this, outputKey));
           implicitOutputKeys.add(outputKey);
         };
 
@@ -758,7 +1008,7 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
                       "Label for attribute %s should refer to '%s' but instead refers to '%s'"
                           + " (label '%s')",
                       attribute,
-                      pkg.getName(),
+                      pkg.getMetadata().getName(),
                       outputLabel.getPackageFragment(),
                       outputLabel.getName()));
             }
@@ -768,8 +1018,7 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
           }
           validateOutputLabel(outputLabel, eventHandler);
 
-          OutputFile outputFile = new OutputFile(outputLabel, this);
-          outputFileMap.put(attrName, outputFile);
+          outputs.add(OutputFile.createExplicit(outputLabel, this, attrName));
         };
 
     // Populate the explicit outputs.
@@ -790,16 +1039,13 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
       }
     }
 
-    // Flatten the result into the final list.
-    ImmutableList.Builder<Object> builder = ImmutableList.builder();
-    for (Map.Entry<String, Collection<OutputFile>> e : outputFileMap.build().asMap().entrySet()) {
-      builder.add(e.getKey());
-      for (OutputFile out : e.getValue()) {
-        builder.add(out);
-      }
+    if (outputs.isEmpty()) {
+      outputFiles = NO_OUTPUTS;
+    } else if (outputs.size() == 1) {
+      outputFiles = outputs.get(0);
+    } else {
+      outputFiles = outputs.toArray(OutputFile[]::new);
     }
-    flattenedOutputFileMap = builder.build();
-    numImplicitOutputKeys = implicitOutputKeys.size();
   }
 
   private void validateOutputLabel(Label label, EventHandler eventHandler) {
@@ -811,9 +1057,17 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
     }
   }
 
+  /**
+   * Marks the rule's package or package piece as in error, and propagates the error message to the
+   * reporter.
+   *
+   * <p>This method may only be called while the rule's package or package piece is being
+   * constructed.
+   */
   void reportError(String message, EventHandler eventHandler) {
-    eventHandler.handle(Event.error(location, message));
-    this.containsErrors = true;
+    eventHandler.handle(Package.error(location, message, PackageLoading.Code.STARLARK_EVAL_ERROR));
+    // TODO(https://github.com/bazelbuild/bazel/issues/23852): support package pieces.
+    getPackage().setContainsErrors();
   }
 
   private void reportWarning(String message, EventHandler eventHandler) {
@@ -826,39 +1080,67 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
     return getRuleClass() + " rule " + label;
   }
 
- /**
-   * Returns the effective visibility of this Rule. Visibility is computed from
-   * these sources in this order of preference:
-   *   - 'visibility' attribute
-   *   - 'default_visibility;' attribute of package() declaration
-   *   - public.
+  /**
+   * Implementation of {@link #getRawVisibility} that avoids constructing a {@code RuleVisibility}.
+   */
+  @Nullable
+  @SuppressWarnings("unchecked")
+  private List<Label> getRawVisibilityLabels() {
+    Integer visibilityIndex = ruleClass.getAttributeIndex("visibility");
+    if (visibilityIndex == null) {
+      return null;
+    }
+    return (List<Label>) getAttrIfStored(visibilityIndex);
+  }
+
+  @Override
+  @Nullable
+  public RuleVisibility getRawVisibility() {
+    List<Label> rawLabels = getRawVisibilityLabels();
+    // The attribute value was already validated when it was set, so call the unchecked method.
+    return rawLabels != null ? RuleVisibility.parseUnchecked(rawLabels) : null;
+  }
+
+  /**
+   * Retrieves the package's default visibility, or for certain rule classes, injects a different
+   * default visibility.
    */
   @Override
-  public RuleVisibility getVisibility() {
+  public RuleVisibility getDefaultVisibility() {
+    if (ruleClass.getName().equals("bind")) {
+      return RuleVisibility.PUBLIC; // bind rules are always public.
+    }
     // Temporary logic to relax config_setting's visibility enforcement while depot migrations set
     // visibility settings properly (legacy code may have visibility settings that would break if
     // enforced). See https://github.com/bazelbuild/bazel/issues/12669. Ultimately this entire
     // conditional should be removed.
-    if (ruleClass.getName().equals("config_setting")) {
-      ConfigSettingVisibilityPolicy policy = pkg.getConfigSettingVisibilityPolicy();
-      if (visibility != null) {
-        return visibility; // Use explicitly set visibility
-      } else if (policy == ConfigSettingVisibilityPolicy.DEFAULT_PUBLIC) {
-        return ConstantRuleVisibility.PUBLIC; // Default: //visibility:public.
-      } else {
-        return pkg.getDefaultVisibility(); // Default: same as all other rules.
-      }
+    if (ruleClass.getName().equals("config_setting")
+        && pkg.getMetadata().configSettingVisibilityPolicy()
+            == ConfigSettingVisibilityPolicy.DEFAULT_PUBLIC) {
+      return RuleVisibility.PUBLIC; // Default: //visibility:public.
     }
 
-    // All other rules.
-    if (visibility != null) {
-      return visibility;
-    }
-    return pkg.getDefaultVisibility();
+    return Target.super.getDefaultVisibility();
   }
 
-  public boolean isVisibilitySpecified() {
-    return visibility != null;
+  @Override
+  public Iterable<Label> getVisibilityDependencyLabels() {
+    List<Label> rawLabels = getRawVisibilityLabels();
+    if (rawLabels == null) {
+      return getDefaultVisibility().getDependencyLabels();
+    }
+    RuleVisibility constantVisibility = RuleVisibility.parseIfConstant(rawLabels);
+    if (constantVisibility != null) {
+      return constantVisibility.getDependencyLabels();
+    }
+    // Filter out labels like :__pkg__ and :__subpackages__.
+    return Iterables.filter(rawLabels, label -> PackageSpecification.fromLabel(label) == null);
+  }
+
+  @Override
+  public List<Label> getVisibilityDeclaredLabels() {
+    List<Label> rawLabels = getRawVisibilityLabels();
+    return rawLabels != null ? rawLabels : getDefaultVisibility().getDeclaredLabels();
   }
 
   @Override
@@ -872,7 +1154,7 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
         && isAttributeValueExplicitlySpecified("distribs")) {
       return NonconfigurableAttributeMapper.of(this).get("distribs", BuildType.DISTRIBUTIONS);
     } else {
-      return pkg.getDefaultDistribs();
+      return License.DEFAULT_DISTRIB;
     }
   }
 
@@ -882,7 +1164,7 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
     // have old-style licenses. This is hardcoding the representation
     // of new-style rules, but it's in the old-style licensing code path
     // and will ultimately be removed.
-    if (ruleClass.isBazelLicense()) {
+    if (ruleClass.isPackageMetadataRule()) {
       return License.NO_LICENSE;
     } else if (isAttrDefined("licenses", BuildType.LICENSE)
         && isAttributeValueExplicitlySpecified("licenses")) {
@@ -890,14 +1172,15 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
     } else if (ruleClass.ignoreLicenses()) {
       return License.NO_LICENSE;
     } else {
-      return pkg.getDefaultLicense();
+      return getPackageDeclarations().getPackageArgs().license();
     }
   }
 
   /**
-   * Returns the license of the output of the binary created by this rule, or
-   * null if it is not specified.
+   * Returns the license of the output of the binary created by this rule, or null if it is not
+   * specified.
    */
+  @Nullable
   public License getToolOutputLicense(AttributeMap attributes) {
     if (isAttrDefined("output_licenses", BuildType.LICENSE)
         && attributes.isAttributeValueExplicitlySpecified("output_licenses")) {
@@ -907,9 +1190,8 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
     }
   }
 
-  /**
-   * Returns the Set of all tags exhibited by this target.  May be empty.
-   */
+  /** Returns the Set of all tags exhibited by this target. May be empty. */
+  @Override
   public Set<String> getRuleTags() {
     Set<String> ruleTags = new LinkedHashSet<>();
     for (Attribute attribute : ruleClass.getAttributes()) {
@@ -925,6 +1207,56 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
     return ruleTags;
   }
 
+  /** Returns only the `tags` attribute value. */
+  public ImmutableList<String> getOnlyTagsAttribute() {
+    Attribute tagsAttribute = ruleClass.getAttributeByName("tags");
+    Type<?> attrType = tagsAttribute.getType();
+    String name = tagsAttribute.getName();
+    // This enforces the expectation that taggable attributes are non-configurable.
+    Object value = NonconfigurableAttributeMapper.of(this).get(name, attrType);
+    return ImmutableList.copyOf(attrType.toTagSet(value, name));
+  }
+
+  @Override
+  public boolean isRule() {
+    return true;
+  }
+
+  @Override
+  @Nullable
+  public String getDeprecationWarning() {
+    return attributeOrNull(this, "deprecation", Type.STRING);
+  }
+
+  @Override
+  public boolean isTestOnly() {
+    Boolean value = attributeOrNull(this, "testonly", Type.BOOLEAN);
+    if (value == null) {
+      return false;
+    }
+    return value;
+  }
+
+  @Override
+  public boolean satisfies(RequiredProviders required) {
+    return required.isSatisfiedBy(getRuleClassObject().getAdvertisedProviders());
+  }
+
+  @Override
+  public TestTimeout getTestTimeout() {
+    return TestTimeout.getTestTimeout(this);
+  }
+
+  @Override
+  public boolean isForDependencyResolution() {
+    return getRuleClassObject().isDependencyResolutionRule();
+  }
+
+  @Override
+  public AdvertisedProviderSet getAdvertisedProviders() {
+    return getRuleClassObject().getAdvertisedProviders();
+  }
+
   /**
    * Computes labels of additional dependencies that can be provided by aspects that this rule can
    * require from its direct dependencies.
@@ -936,15 +1268,37 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
     SetMultimap<Attribute, Label> labels = LinkedHashMultimap.create();
     for (Attribute attribute : this.getAttributes()) {
       for (Aspect candidateClass : attribute.getAspects(this)) {
-        AspectDefinition.addAllAttributesOfAspect(Rule.this, labels, candidateClass, predicate);
+        AspectDefinition.addAllAttributesOfAspect(labels, candidateClass, predicate);
       }
     }
     return labels.values();
   }
 
   /**
-   * @return The repository name.
+   * Should this rule instance resolve toolchains?
+   *
+   * <p>This may happen for two reasons:
+   *
+   * <ol>
+   *   <li>The rule uses toolchains by definition ({@link
+   *       RuleClass.Builder#toolchainResolutionMode(ToolchainResolutionMode)}
+   *   <li>The rule instance has a select() or target_compatible_with attribute, which means it may
+   *       depend on target platform properties that are only provided when toolchain resolution is
+   *       enabled.
+   * </ol>
    */
+  public boolean useToolchainResolution() {
+    return ruleClass.useToolchainResolution(this);
+  }
+
+  public boolean isExecutable() {
+    if (getRuleClassObject().hasAttr(IS_EXECUTABLE_ATTRIBUTE_NAME, Type.BOOLEAN)) {
+      return NonconfigurableAttributeMapper.of(this)
+          .get(IS_EXECUTABLE_ATTRIBUTE_NAME, Type.BOOLEAN);
+    }
+    return false;
+  }
+
   public RepositoryName getRepository() {
     return label.getPackageIdentifier().getRepository();
   }
@@ -952,5 +1306,147 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
   /** Returns the suffix of target kind for all rules. */
   public static String targetKindSuffix() {
     return " rule";
+  }
+
+  @Override
+  public TargetData reduceForSerialization() {
+    return new RuleData(
+        ruleClass,
+        getLocation(),
+        ImmutableSet.copyOf(getRuleTags()),
+        getLabel(),
+        getDeprecationWarning(),
+        isTestOnly(),
+        getTestTimeout());
+  }
+
+  @VisibleForSerialization // (private) allows RuleDataCodec visibility
+  static class RuleData implements TargetData {
+    private final RuleClassData ruleClassData;
+    private final Location location;
+    // TODO(b/297857068): this is only used to report TargetCompletion, so it should never be
+    // read from a deserialized instance. Refine the ConfiguredTargetAndData API and delete this.
+    private final ImmutableSet<String> ruleTags;
+    private final Label label;
+    @Nullable private final String deprecationWarning;
+    private final boolean isTestOnly;
+    @Nullable private final TestTimeout testTimeout;
+
+    @VisibleForSerialization // (private) allows RuleDataCodec visibility
+    RuleData(
+        RuleClassData ruleClassData,
+        Location location,
+        ImmutableSet<String> ruleTags,
+        Label label,
+        @Nullable String deprecationWarning,
+        boolean isTestOnly,
+        @Nullable TestTimeout testTimeout) {
+      this.ruleClassData = ruleClassData;
+      this.location = location;
+      this.ruleTags = ruleTags;
+      this.label = label;
+      this.deprecationWarning = deprecationWarning;
+      this.isTestOnly = isTestOnly;
+      this.testTimeout = testTimeout;
+    }
+
+    RuleClassData getRuleClassData() {
+      return ruleClassData;
+    }
+
+    @Override
+    public String getTargetKind() {
+      return ruleClassData.getTargetKind();
+    }
+
+    @Override
+    public Location getLocation() {
+      return location;
+    }
+
+    @Override
+    public String getRuleClass() {
+      return ruleClassData.getName();
+    }
+
+    @Override
+    public ImmutableSet<String> getRuleTags() {
+      return ruleTags;
+    }
+
+    @Override
+    public Label getLabel() {
+      return label;
+    }
+
+    @Override
+    public boolean isRule() {
+      return true;
+    }
+
+    @Override
+    @Nullable
+    public String getDeprecationWarning() {
+      return deprecationWarning;
+    }
+
+    @Override
+    public boolean satisfies(RequiredProviders required) {
+      return required.isSatisfiedBy(ruleClassData.getAdvertisedProviders());
+    }
+
+    @Override
+    public boolean isTestOnly() {
+      return isTestOnly;
+    }
+
+    @Override
+    public boolean isForDependencyResolution() {
+      return ruleClassData.isDependencyResolutionRule();
+    }
+
+    @Override
+    public AdvertisedProviderSet getAdvertisedProviders() {
+      return ruleClassData.getAdvertisedProviders();
+    }
+
+    @Override
+    @Nullable
+    public TestTimeout getTestTimeout() {
+      return testTimeout;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      if (!(obj instanceof RuleData)) {
+        return false;
+      }
+      RuleData that = (RuleData) obj;
+      return ruleClassData.equals(that.ruleClassData)
+          && location.equals(that.location)
+          && label.equals(that.label)
+          && Objects.equals(deprecationWarning, that.deprecationWarning)
+          && isTestOnly == that.isTestOnly
+          && Objects.equals(testTimeout, that.testTimeout);
+    }
+
+    @Override
+    public int hashCode() {
+      // Extremely likely equal if this many fields match.
+      return hashObjects(ruleClassData, location, label);
+    }
+
+    @Override
+    public String toString() {
+      return toStringHelper(this)
+          .add("ruleClassData", ruleClassData)
+          .add("location", location)
+          .add("ruleTags", ruleTags)
+          .add("label", label)
+          .add("deprecationWarning", deprecationWarning)
+          .add("isTestOnly", isTestOnly)
+          .add("testTimeout", testTimeout)
+          .toString();
+    }
   }
 }

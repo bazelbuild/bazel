@@ -1,8 +1,7 @@
 load("@rules_java//java:defs.bzl", "java_library", "java_test")
 
-licenses(["notice"])
-
 package(
+    default_applicable_licenses = ["//:license"],
     default_testonly = 1,
     default_visibility = ["//src:__subpackages__"],
 )
@@ -12,16 +11,22 @@ filegroup(
     testonly = 0,
     srcs = glob(["**"]) + [
         "//src/test/java/com/google/devtools/build/lib/packages/util/mock:srcs",
+        "//src/test/java/com/google/devtools/build/lib/packages/util/real/linux:srcs",
     ],
     visibility = ["//src:__subpackages__"],
 )
 
 java_library(
     name = "PackageTestsUtil",
-    srcs = ["WorkspaceFactoryTestHelper.java"],
+    srcs = [
+        "BuildTypeTestHelper.java",
+        "WorkspaceFactoryTestHelper.java",
+    ],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/packages/semantics",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/net/starlark/java/eval",
         "//src/main/java/net/starlark/java/syntax",
@@ -39,10 +44,10 @@ java_test(
         include = ["*.java"],
         exclude = [
             "BazelDocumentationTest.java",
-            "ExternalPackageTest.java",
             "WorkspaceFactoryTestHelper.java",
         ],
     ),
+    shard_count = 20,
     test_class = "com.google.devtools.build.lib.AllTests",
     runtime_deps = [
         "//src/test/java/com/google/devtools/build/lib:test_runner",
@@ -55,25 +60,31 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:thread_state_receiver",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/build_options",
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/fragment",
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/host_transition",
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/transition_factories",
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/transitions/configuration_transition",
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/transitions/no_transition",
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/transitions/split_transition",
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/transitions/transition_factory",
         "//src/main/java/com/google/devtools/build/lib/analysis:transitive_info_provider",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:execution_transition_factory",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:feature_set",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:fragment",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:toolchain_type_requirement",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config/transitions:split_transition",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config/transitions:transition_factory",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/exec:test_policy",
         "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/java/com/google/devtools/build/lib/packages:exec_group",
+        "//src/main/java/com/google/devtools/build/lib/packages:configured_attribute_mapper",
+        "//src/main/java/com/google/devtools/build/lib/packages:declared_exec_group",
+        "//src/main/java/com/google/devtools/build/lib/packages:globber",
+        "//src/main/java/com/google/devtools/build/lib/packages:package_specification",
+        "//src/main/java/com/google/devtools/build/lib/packages/semantics",
         "//src/main/java/com/google/devtools/build/lib/pkgcache",
         "//src/main/java/com/google/devtools/build/lib/runtime/commands",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:bzl_load_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_and_data",
         "//src/main/java/com/google/devtools/build/lib/skyframe:tests_for_target_pattern_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils:round-tripping",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:filetype",
         "//src/main/java/com/google/devtools/build/lib/vfs",
@@ -98,7 +109,8 @@ java_test(
         "//third_party:junit4",
         "//third_party:mockito",
         "//third_party:truth",
-        "//third_party/protobuf:protobuf_java",
+        "@com_google_protobuf//:protobuf_java",
+        "@maven//:com_google_testparameterinjector_test_parameter_injector",
     ],
 )
 
@@ -106,9 +118,7 @@ java_test(
     name = "BazelDocumentationTests",
     size = "medium",
     srcs = ["BazelDocumentationTest.java"],
-    data = [
-        "//site:docs/user-manual.html",
-    ],
+    data = ["//site/en:docs/user-manual.md"],
     test_class = "com.google.devtools.build.lib.packages.BazelDocumentationTest",
     deps = [
         ":DocumentationTestUtil",
@@ -116,7 +126,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/bazel/rules",
         "//third_party:guava",
         "//third_party:junit4",
-        "@bazel_tools//tools/java/runfiles",
+        "@rules_java//java/runfiles",
     ],
 )
 
@@ -137,6 +147,9 @@ java_library(
 java_library(
     name = "testutil",
     srcs = glob(["util/*.java"]),
+    data = [
+        "//src/test/java/com/google/devtools/build/lib/packages/util/real/linux:srcs",
+    ],
     resources = [
         "//src/test/java/com/google/devtools/build/lib/packages/util/mock:android_cc_toolchain_config.bzl",
         "//src/test/java/com/google/devtools/build/lib/packages/util/mock:osx_cc_toolchain_config.bzl",
@@ -145,22 +158,26 @@ java_library(
         "@rules_cc//cc:srcs",
     ],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
         "//src/main/java/com/google/devtools/build/lib/analysis:server_directories",
+        "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:resolution_impl",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/python",
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/packages/semantics",
         "//src/main/java/com/google/devtools/build/lib/pkgcache",
         "//src/main/java/com/google/devtools/build/lib/rules:repository/repository_function",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
         "//src/main/java/com/google/devtools/build/lib/rules/proto",
-        "//src/main/java/com/google/devtools/build/lib/rules/python",
         "//src/main/java/com/google/devtools/build/lib/skyframe:precomputed_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:repository_mapping_function",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
         "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_cluster",
         "//src/main/java/com/google/devtools/build/lib/skyframe/packages:PackageFactoryBuilderWithSkyframeForTesting",
         "//src/main/java/com/google/devtools/build/lib/util",
@@ -170,13 +187,17 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/common/options",
+        "//src/test/java/com/google/devtools/build/lib/rules/python:PythonTestUtils",
         "//src/test/java/com/google/devtools/build/lib/testutil",
         "//src/test/java/com/google/devtools/build/lib/testutil:SkyframeExecutorTestHelper",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestPackageFactoryBuilderFactory",
         "//src/test/java/com/google/devtools/build/lib/vfs/util",
+        "//third_party:error_prone_annotations",
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party:junit4",
+        "//third_party:truth",
+        "@rules_java//java/runfiles",
     ],
 )

@@ -14,15 +14,18 @@
 
 package com.google.devtools.build.lib.rules.proto;
 
-import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.collect.nestedset.Depset;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
+import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.packages.BuiltinRestriction;
+import com.google.devtools.build.lib.packages.StarlarkProvider;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.proto.ProtoCommonApi;
-import com.google.devtools.build.lib.vfs.PathFragment;
-import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.syntax.Location;
 
 /** Protocol buffers support for Starlark. */
 public class BazelProtoCommon implements ProtoCommonApi {
@@ -31,66 +34,29 @@ public class BazelProtoCommon implements ProtoCommonApi {
   protected BazelProtoCommon() {}
 
   @StarlarkMethod(
-      name = "ProtoSource",
-      documented = false,
-      parameters = {
-        @Param(name = "source_file", doc = "The proto file."),
-        @Param(name = "original_source_file", doc = "Original proto file."),
-        @Param(name = "proto_path", doc = "Path to proto file."),
-      },
-      useStarlarkThread = true)
-  public ProtoSource protoSource(
-      Artifact sourceFile, Artifact originalSourceFile, String sourceRoot, StarlarkThread thread)
-      throws EvalException {
-    ProtoCommon.checkPrivateStarlarkificationAllowlist(thread);
-    return new ProtoSource(sourceFile, originalSourceFile, PathFragment.create(sourceRoot));
+      name = "incompatible_enable_proto_toolchain_resolution",
+      useStarlarkThread = true,
+      documented = false)
+  public boolean getDefineProtoToolchains(StarlarkThread thread) throws EvalException {
+    BuiltinRestriction.failIfCalledOutsideAllowlist(thread, ImmutableSet.of());
+    return thread
+        .getSemantics()
+        .getBool(BuildLanguageOptions.INCOMPATIBLE_ENABLE_PROTO_TOOLCHAIN_RESOLUTION);
   }
 
-  @StarlarkMethod(
-      name = "ProtoInfo",
-      documented = false,
-      parameters = {
-        @Param(name = "direct_sources", doc = "Direct sources."),
-        @Param(name = "proto_path", doc = "Proto path."),
-        @Param(name = "transitive_sources", doc = "Transitive sources."),
-        @Param(name = "transitive_proto_sources", doc = "Transitive proto sources."),
-        @Param(name = "transitive_proto_path", doc = "Transitive proto path."),
-        @Param(name = "check_deps_sources", doc = "Check deps sources."),
-        @Param(name = "direct_descriptor_set", doc = "Direct descriptor set."),
-        @Param(name = "transitive_descriptor_set", doc = "Transitive descriptor sets."),
-        @Param(name = "exported_sources", doc = "Exported sources"),
-        @Param(name = "strict_importable_sources", doc = "Strict importable sources."),
-        @Param(name = "public_import_protos", doc = "Public import protos."),
-      },
-      useStarlarkThread = true)
-  @SuppressWarnings("unchecked")
-  public ProtoInfo protoInfo(
-      StarlarkList<? extends ProtoSource> directSources,
-      String directProtoSourceRoot,
-      Depset transitiveProtoSources,
-      Depset transitiveSources,
-      Depset transitiveProtoSourceRoots,
-      Depset strictImportableProtoSourcesForDependents,
-      Artifact directDescriptorSet,
-      Depset transitiveDescriptorSets,
-      Depset exportedSources,
-      Depset strictImportableSources,
-      Depset publicImportSources,
-      StarlarkThread thread)
+  @StarlarkMethod(name = "external_proto_infos", useStarlarkThread = true, documented = false)
+  public StarlarkList<StarlarkProvider> getExternalProtoInfos(StarlarkThread thread)
       throws EvalException {
-    ProtoCommon.checkPrivateStarlarkificationAllowlist(thread);
-    return new ProtoInfo(
-        ((StarlarkList<ProtoSource>) directSources).getImmutableList(),
-        PathFragment.create(directProtoSourceRoot),
-        Depset.cast(transitiveSources, ProtoSource.class, "transitive_sources"),
-        Depset.cast(transitiveProtoSources, Artifact.class, "transitive_proto_sources"),
-        Depset.cast(transitiveProtoSourceRoots, String.class, "transitive_proto_path"),
-        Depset.cast(
-            strictImportableProtoSourcesForDependents, Artifact.class, "check_deps_sources"),
-        directDescriptorSet,
-        Depset.cast(transitiveDescriptorSets, Artifact.class, "transitive_descriptor_set"),
-        Depset.cast(exportedSources, ProtoSource.class, "exported_sources"),
-        Depset.cast(strictImportableSources, ProtoSource.class, "strict_importable_sources"),
-        Depset.cast(publicImportSources, ProtoSource.class, "public_import_protos"));
+    BuiltinRestriction.failIfCalledOutsideAllowlist(thread, ImmutableSet.of());
+    return externalProtoInfos;
   }
+
+  private static final StarlarkList<StarlarkProvider> externalProtoInfos =
+      StarlarkList.immutableCopyOf(
+          ProtoConstants.EXTERNAL_PROTO_INFO_KEYS.stream()
+              .map(
+                  key ->
+                      StarlarkProvider.builder(Location.BUILTIN)
+                          .buildExported(new StarlarkProvider.Key(key, "ProtoInfo")))
+              .collect(toImmutableList()));
 }

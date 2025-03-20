@@ -14,14 +14,17 @@
 
 package com.google.devtools.build.lib.runtime.commands;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.base.Preconditions;
+import com.google.common.base.Splitter;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.ProjectFileSupport;
+import com.google.devtools.build.lib.runtime.events.InputFileEvent;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.TargetPatterns;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -29,9 +32,12 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.io.IOException;
 import java.util.List;
+import java.util.function.Predicate;
 
 /** Provides support for reading target patterns from a file or the command-line. */
-final class TargetPatternsHelper {
+public final class TargetPatternsHelper {
+
+  private static final Splitter TARGET_PATTERN_SPLITTER = Splitter.on('#');
 
   private TargetPatternsHelper() {}
 
@@ -54,7 +60,16 @@ final class TargetPatternsHelper {
       Path residuePath =
           env.getWorkingDirectory().getRelative(buildRequestOptions.targetPatternFile);
       try {
-        targets = FileSystemUtils.readLines(residuePath, UTF_8);
+        env.getEventBus()
+            .post(
+                InputFileEvent.create(
+                    /* type= */ "target_pattern_file", residuePath.getFileSize()));
+        targets =
+            FileSystemUtils.readLines(residuePath, UTF_8).stream()
+                .map(s -> TARGET_PATTERN_SPLITTER.splitToList(s).get(0))
+                .map(String::trim)
+                .filter(Predicate.not(String::isEmpty))
+                .collect(toImmutableList());
       } catch (IOException e) {
         throw new TargetPatternsHelperException(
             "I/O error reading from " + residuePath.getPathString() + ": " + e.getMessage(),
@@ -70,7 +85,7 @@ final class TargetPatternsHelper {
   }
 
   /** Thrown when target patterns couldn't be read. */
-  static class TargetPatternsHelperException extends Exception {
+  public static class TargetPatternsHelperException extends Exception {
     private final TargetPatterns.Code detailedCode;
 
     private TargetPatternsHelperException(String message, TargetPatterns.Code detailedCode) {
@@ -78,7 +93,7 @@ final class TargetPatternsHelper {
       this.detailedCode = detailedCode;
     }
 
-    FailureDetail getFailureDetail() {
+    public FailureDetail getFailureDetail() {
       return FailureDetail.newBuilder()
           .setMessage(getMessage())
           .setTargetPatterns(TargetPatterns.newBuilder().setCode(detailedCode))

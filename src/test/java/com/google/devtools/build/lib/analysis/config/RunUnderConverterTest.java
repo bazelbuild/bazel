@@ -17,8 +17,10 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.analysis.config.RunUnder.CommandRunUnder;
+import com.google.devtools.build.lib.analysis.config.RunUnder.LabelRunUnder;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.common.options.OptionsParsingException;
-import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -41,18 +43,22 @@ public class RunUnderConverterTest {
     assertRunUnderFails("", "Empty command");
   }
 
-  private void assertEqualsRunUnder(String input, String label, String command,
-      List<String> options) throws Exception {
-    RunUnder runUnder = new RunUnderConverter().convert(input);
-    assertThat(runUnder.getLabel() == null ? null : runUnder.getLabel().toString())
-        .isEqualTo(label);
-    assertThat(runUnder.getCommand()).isEqualTo(command);
-    assertThat(runUnder.getOptions()).isEqualTo(options);
+  private void assertEqualsRunUnder(
+      String input, String label, String command, ImmutableList<String> options) throws Exception {
+    RunUnder runUnder = new RunUnderConverter().convert(input, /*conversionContext=*/ null);
+    if (label == null) {
+      assertThat(runUnder).isEqualTo(new CommandRunUnder(input, options, command));
+    } else {
+      assertThat(runUnder)
+          .isEqualTo(new LabelRunUnder(input, options, Label.parseCanonicalUnchecked(label)));
+    }
   }
 
   private void assertRunUnderFails(String input, String expectedError) {
     OptionsParsingException e =
-        assertThrows(OptionsParsingException.class, () -> new RunUnderConverter().convert(input));
+        assertThrows(
+            OptionsParsingException.class,
+            () -> new RunUnderConverter().convert(input, /*conversionContext=*/ null));
     assertThat(e).hasMessageThat().isEqualTo(expectedError);
   }
 }

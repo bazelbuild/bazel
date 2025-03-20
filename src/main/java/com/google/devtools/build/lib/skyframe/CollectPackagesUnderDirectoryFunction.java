@@ -14,10 +14,11 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.skyframe.ProcessPackageDirectory.ProcessPackageDirectorySkyFunctionException;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -41,7 +42,8 @@ public class CollectPackagesUnderDirectoryFunction implements SkyFunction {
   }
 
   @Override
-  public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
+  public SkyValue compute(SkyKey skyKey, Environment env)
+      throws InterruptedException, ProcessPackageDirectorySkyFunctionException {
     return new MyTraversalFunction(directories)
         .visitDirectory((RecursivePkgKey) skyKey.argument(), env);
   }
@@ -63,7 +65,7 @@ public class CollectPackagesUnderDirectoryFunction implements SkyFunction {
     protected SkyKey getSkyKeyForSubdirectory(
         RepositoryName repository,
         RootedPath subdirectory,
-        ImmutableSet<PathFragment> excludedSubdirectoriesBeneathSubdirectory) {
+        IgnoredSubdirectories excludedSubdirectoriesBeneathSubdirectory) {
       return CollectPackagesUnderDirectoryValue.key(
           repository, subdirectory, excludedSubdirectoriesBeneathSubdirectory);
     }
@@ -89,7 +91,7 @@ public class CollectPackagesUnderDirectoryFunction implements SkyFunction {
 
         builder.put(recursivePkgKey.getRootedPath(), packagesOrErrorsInSubdirectory);
       }
-      ImmutableMap<RootedPath, Boolean> subdirectories = builder.build();
+      ImmutableMap<RootedPath, Boolean> subdirectories = builder.buildOrThrow();
       String errorMessage = consumer.getErrorMessage();
       if (errorMessage != null) {
         return CollectPackagesUnderDirectoryValue.ofError(errorMessage, subdirectories);
@@ -125,11 +127,5 @@ public class CollectPackagesUnderDirectoryFunction implements SkyFunction {
     String getErrorMessage() {
       return errorMessage;
     }
-  }
-
-  @Nullable
-  @Override
-  public String extractTag(SkyKey skyKey) {
-    return null;
   }
 }

@@ -13,19 +13,33 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages;
 
-import com.google.auto.value.AutoValue;
+import static java.util.Objects.requireNonNull;
+
+import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
+import com.google.devtools.build.lib.cmdline.Label;
+import javax.annotation.Nullable;
 
 /**
  * Helper class which contains data used by a {@link TransitionFactory} to create a transition for
  * rules.
  */
-@AutoValue
-public abstract class RuleTransitionData implements TransitionFactory.Data {
-
-  public static RuleTransitionData create(Rule rule) {
-    return new AutoValue_RuleTransitionData(rule);
+public record RuleTransitionData(
+    Rule rule,
+    @Nullable ImmutableMap<Label, ConfigMatchingProvider> configConditions,
+    String configHash)
+    implements TransitionFactory.Data {
+  public RuleTransitionData {
+    requireNonNull(rule, "rule");
+    requireNonNull(configHash, "configHash");
   }
 
-  public abstract Rule rule();
+  public static RuleTransitionData create(
+      Rule rule,
+      @Nullable ImmutableMap<Label, ConfigMatchingProvider> configConditions,
+      String configHash) {
+    return new RuleTransitionData(rule, configConditions, configHash);
+  }
+
 }

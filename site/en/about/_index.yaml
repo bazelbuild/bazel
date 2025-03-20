@@ -1,0 +1,112 @@
+project_path: /_project.yaml
+book_path: /_book.yaml
+
+landing_page:
+  header:
+    hide_lower_section: true
+  custom_css_path: /bazel.css
+
+  rows:
+
+  # Hero Row
+  - options:
+    - description-50
+    - hero
+    - large-headings
+    - no-image-background
+    classname: bazel-hero bazel-hero-full-bleed-light
+    items:
+    - classname: bazel-hero
+      image_path: /images/about.svg
+      heading: >
+        About Bazel
+      description: >
+        &#123; Fast, Correct &#125; — Choose two
+
+  # CTO Pitch Row
+  # Add brag numbers here
+
+  # Why Bazel? Row
+  - options:
+    - no-image-background
+    - description-50
+    - large-headings
+    classname: bazel-body-light-cards
+    heading: Get to know Bazel
+    description: >
+      From startup to enterprise, choose the Bazel open source project to build and test your
+      multi-language, multi-platform projects of any size, quickly and reliably.
+    items_across: 4
+    items:
+    - heading: Overview
+      path: ''
+      image_path: /images/why_overview.svg
+      description: >
+        Learn what Bazel is, why it is a good choice for your project, and how you can get started
+        using it quickly.
+      buttons:
+      - label: Get started
+        path: /about/intro
+        classname: button bazel-button-dark
+    - heading: Why Bazel?
+      path: ''
+      image_path: /images/why_vision.svg
+      description: >
+        Understand why we made Bazel, who it works best for, and how it can make your builds better.
+      buttons:
+      - label: Why Bazel?
+        path: /about/why
+        classname: button bazel-button-dark
+    - heading: Roadmap
+      path: ''
+      image_path: /images/essential_start.svg
+      description: >
+        Read our new public roadmap to see what is coming down the pipeline.
+      buttons:
+      - label: See the roadmap
+        path: /about/roadmap
+        classname: button bazel-button-dark
+    - heading: FAQ
+      path: ''
+      image_path: /images/why_faq.svg
+      description: >
+        Get answers to common questions about Bazel, including how to learn more.
+      buttons:
+      - label: Read the FAQ
+        path: /about/faq
+        classname: button bazel-button-dark
+
+  # Build basics Row
+  - options:
+    - large-headings
+    - description-50
+    - no-image-background
+    classname: bazel-body-light-row
+    items:
+    - image_left: true
+      image_path: /images/basics.svg
+      heading: Build system basics<br><b>—</b>
+      path: ''
+      description: >
+        Curious about build systems like Bazel and whether they are right for your project? Read up
+        on the concepts and terminology of this technology to see how it can help you build and scale.
+      buttons:
+      - label: Build basics
+        path: /basics/
+        classname: button bazel-button-dark
+
+  - options:
+    - cta
+    classname: bazel-body-cta
+    items:
+    - heading: Let's get started
+      description: >
+        Ready to try Bazel out? Get started quickly with our installation guides and packages.
+      buttons:
+      - label: Install Bazel
+        path: /install/
+        classname: button bazel-button-light
+
+# Add a who's using row with industry icons? "Industry leaders like Google,
+# Stripe, and Dropbox trust Bazel to build heavy-duty, mission-critical infrastructure,
+# services, and applications."

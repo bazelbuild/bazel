@@ -18,10 +18,11 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 
 /**
- * Suppresses {@link #post} when the provided {@link ExtendedEventHandler.Postable} is a {@link
- * ProgressLike}, but otherwise delegates calls to its wrapped {@link ExtendedEventHandler}.
+ * Suppresses {@link #post} when the provided {@link Postable} represents a progress event (denoted
+ * by a return of {@code false} from {@link Postable#storeForReplay}), but otherwise delegates calls
+ * to its wrapped {@link ExtendedEventHandler}.
  */
-class ProgressSuppressingEventHandler implements ExtendedEventHandler {
+final class ProgressSuppressingEventHandler implements ExtendedEventHandler {
   private final ExtendedEventHandler delegate;
 
   ProgressSuppressingEventHandler(ExtendedEventHandler listener) {
@@ -30,10 +31,9 @@ class ProgressSuppressingEventHandler implements ExtendedEventHandler {
 
   @Override
   public void post(Postable obj) {
-    if (obj instanceof ProgressLike) {
-      return;
+    if (obj.storeForReplay()) {
+      delegate.post(obj);
     }
-    delegate.post(obj);
   }
 
   @Override

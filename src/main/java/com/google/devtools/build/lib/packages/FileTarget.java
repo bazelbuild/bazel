@@ -30,14 +30,10 @@ public abstract class FileTarget implements Target, FileType.HasFileType {
   final Label label;
 
   /** Constructs a file with the given label, which must be in the given package. */
-  FileTarget(Package pkg, Label label) {
-    Preconditions.checkArgument(label.getPackageFragment().equals(pkg.getNameFragment()));
+  FileTarget(Packageoid pkg, Label label) {
+    Preconditions.checkArgument(
+        label.getPackageFragment().equals(pkg.getPackageIdentifier().getPackageFragment()));
     this.label = label;
-  }
-
-  @Override
-  public boolean isImmutable() {
-    return true; // immutable and Starlark-hashable
   }
 
   public String getFilename() {
@@ -50,13 +46,13 @@ public abstract class FileTarget implements Target, FileType.HasFileType {
   }
 
   @Override
-  public String getName() {
-    return label.getName();
+  public String filePathForFileTypeMatcher() {
+    return getFilename();
   }
 
   @Override
-  public String filePathForFileTypeMatcher() {
-    return getFilename();
+  public boolean isFile() {
+    return true;
   }
 
   @Override
@@ -66,7 +62,7 @@ public abstract class FileTarget implements Target, FileType.HasFileType {
 
   @Override
   public Set<DistributionType> getDistributions() {
-    return getPackage().getDefaultDistribs();
+    return License.DEFAULT_DISTRIB;
   }
 
   /**
@@ -83,6 +79,6 @@ public abstract class FileTarget implements Target, FileType.HasFileType {
    */
   @Override
   public License getLicense() {
-    return getPackage().getDefaultLicense();
+    return getPackageDeclarations().getPackageArgs().license();
   }
 }

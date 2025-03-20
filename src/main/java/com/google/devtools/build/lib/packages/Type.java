@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.LoggingUtil;
-import com.google.devtools.build.lib.util.StringCanonicalizer;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -34,11 +33,12 @@ import java.util.RandomAccess;
 import java.util.Set;
 import java.util.logging.Level;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
-import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkInt;
+import net.starlark.java.eval.StarlarkList;
 
 /**
  * Root of Type symbol hierarchy for values in the build language.
@@ -94,52 +94,76 @@ public abstract class Type<T> {
    * <p>x must be directly convertible to this type. This therefore disqualifies "selector
    * expressions" of the form "{ config1: 'value1_of_orig_type', config2: 'value2_of_orig_type; }"
    * (which support configurable attributes). To handle those expressions, see {@link
-   * com.google.devtools.build.lib.packages.BuildType#selectableConvert}.
+   * com.google.devtools.build.lib.packages.BuildType#convertFromBuildLangType}.
    *
    * @param x The Starlark value to convert.
    * @param what An object whose toString method returns a description of the purpose of x.
-   *     Typically it is the name of a function parameter or struct field. The method is called only
-   *     in case of error.
-   * @param context the label of the current BUILD rule; must be non-null if resolution of
-   *     package-relative label strings is required
+   *     Typically, it is the name of a function parameter or struct field. The method is called
+   *     only in case of error.
+   * @param labelConverter the converter to use to convert label literals to Label objects; must be
+   *     non-null if parsing non-canonical label strings is required
    * @throws ConversionException if there was a problem performing the type conversion
    * @throws NullPointerException if x is null.
    */
-  public abstract T convert(Object x, Object what, @Nullable Object context)
+  public abstract T convert(Object x, Object what, @Nullable LabelConverter labelConverter)
       throws ConversionException;
+
+  /**
+   * Copies a Starlark value to an immutable ones and converts label strings to Label objects.
+   *
+   * <p>All Starlark values are also type checked.
+   *
+   * @param x The Starlark value to copy.
+   * @param what An object whose toString method returns a description of the purpose of x.
+   *     Typically, it is the name of a function parameter or struct field. The method is called
+   *     only in case of error.
+   * @param labelConverter the converter to use to convert label literals to Label objects; must be
+   *     non-null if parsing non-canonical label strings is required
+   * @throws ConversionException if the Starlark value doesn't match the type
+   */
+  public Object copyAndLiftStarlarkValue(
+      Object x, Object what, @Nullable LabelConverter labelConverter) throws ConversionException {
+    // Nones are valid as the Starlark representation of the internal null value (used for certain
+    // types' default values).
+    if (x == Starlark.NONE) {
+      return x;
+    }
+    return convert(x, what, labelConverter);
+  }
+
   // TODO(bazel-team): Check external calls (e.g. in PackageFactory), verify they always want
   // this over selectableConvert.
 
   /**
-   * Equivalent to {@link #convert(Object, Object, Object)} where the label is {@code null}. Useful
-   * for converting values to types that do not involve the type {@code LABEL} and hence do not
-   * require the label of the current package.
+   * Equivalent to {@link #convert(Object, Object, LabelConverter)} where the label is {@code null}.
+   * Useful for converting values to types that do not involve the type {@code LABEL}.
    */
   public final T convert(Object x, Object what) throws ConversionException {
     return convert(x, what, null);
   }
 
   /**
-   * Like {@link #convert(Object, Object, Object)}, but converts Starlark {@code None} to given
-   * {@code defaultValue}.
+   * Like {@link #convert(Object, Object, LabelConverter)}, but converts Starlark {@code None} to
+   * given {@code defaultValue}.
    */
   @Nullable
-  public final T convertOptional(Object x, String what, @Nullable Object context, T defaultValue)
+  public final T convertOptional(
+      Object x, String what, @Nullable LabelConverter labelConverter, T defaultValue)
       throws ConversionException {
     if (Starlark.isNullOrNone(x)) {
       return defaultValue;
     }
-    return convert(x, what, context);
+    return convert(x, what, labelConverter);
   }
 
   /**
-   * Like {@link #convert(Object, Object, Object)}, but converts Starlark {@code None} to java
-   * {@code null}.
+   * Like {@link #convert(Object, Object, LabelConverter)}, but converts Starlark {@code None} to
+   * java {@code null}.
    */
   @Nullable
-  public final T convertOptional(Object x, String what, @Nullable Object context)
+  public final T convertOptional(Object x, String what, @Nullable LabelConverter labelConverter)
       throws ConversionException {
-    return convertOptional(x, what, context, null);
+    return convertOptional(x, what, labelConverter, null);
   }
 
   /**
@@ -150,7 +174,8 @@ public abstract class Type<T> {
     return convertOptional(x, what, null);
   }
 
-  public abstract T cast(Object value);
+  @Nullable
+  public abstract T cast(@Nullable Object value);
 
   @Override
   public abstract String toString();
@@ -159,6 +184,7 @@ public abstract class Type<T> {
    * Returns the default value for this type; may return null iff no default is defined for this
    * type.
    */
+  @Nullable
   public abstract T getDefaultValue();
 
   /**
@@ -192,13 +218,13 @@ public abstract class Type<T> {
      * in cases where doing so would cause a dependency cycle.
      */
     NONDEP_REFERENCE,
+    /**
+     * Used for types which declare a dependency, but the dependency should not be configured. Used
+     * when the label is used only in the loading phase. e.g. genquery.scope
+     */
+    GENQUERY_SCOPE_REFERENCE,
     /** Used for types which use labels to declare an output path. */
     OUTPUT,
-    /**
-     * Used for types which contain Fileset entries, which contain labels but do not produce normal
-     * dependencies.
-     */
-    FILESET_ENTRY
   }
 
   /** Returns the class of labels contained by this type, if any. */
@@ -208,9 +234,11 @@ public abstract class Type<T> {
 
   /**
    * Implementation of concatenation for this type, as if by {@code elements[0] + ... +
-   * elements[n-1]}). Returns null to indicate concatenation isn't supported. This method exists to
-   * support deferred additions {@code select + T} for catenable types T such as string, int, and
-   * list.
+   * elements[n-1]}) for scalars or lists, or {@code elements[0] | ... | elements[n-1]} for dicts.
+   * Returns null to indicate concatenation isn't supported.
+   *
+   * <p>This method exists to support deferred additions {@code select + T} for catenable types T
+   * such as string, int, list, and deferred unions {@code select | T} for map types T.
    */
   public T concat(Iterable<T> elements) {
     return null;
@@ -232,30 +260,22 @@ public abstract class Type<T> {
   /** The type of a Starlark integer in the signed 32-bit range. */
   @SerializationConstant public static final Type<StarlarkInt> INTEGER = new IntegerType();
 
-  /** The type of a string. */
-  @SerializationConstant public static final Type<String> STRING = new StringType();
+  /** The type of a string which interns the instance with String#intern. */
+  @SerializationConstant
+  public static final Type<String> STRING = new StringType(/* internString= */ true);
+
+  /**
+   * The type of a string which does not intern the string instance.
+   *
+   * <p>When there is only one string instance created in blaze, interning it introduces memory
+   * overhead. So for attribute whose string value tends to not duplicate (for example rule name),
+   * it is preferable not to intern such string values.
+   */
+  @SerializationConstant
+  public static final Type<String> STRING_NO_INTERN = new StringType(/* internString= */ false);
 
   /** The type of a boolean. */
   @SerializationConstant public static final Type<Boolean> BOOLEAN = new BooleanType();
-
-  /** The type of a list of not-yet-typed objects. */
-  @SerializationConstant public static final ObjectListType OBJECT_LIST = new ObjectListType();
-
-  /** The type of a list of strings. */
-  @SerializationConstant public static final ListType<String> STRING_LIST = ListType.create(STRING);
-
-  /** The type of a list of signed 32-bit Starlark integer values. */
-  @SerializationConstant
-  public static final ListType<StarlarkInt> INTEGER_LIST = ListType.create(INTEGER);
-
-  /** The type of a dictionary of {@linkplain #STRING strings}. */
-  @SerializationConstant
-  public static final DictType<String, String> STRING_DICT = DictType.create(STRING, STRING);
-
-  /** The type of a dictionary of {@linkplain #STRING_LIST label lists}. */
-  @SerializationConstant
-  public static final DictType<String, List<String>> STRING_LIST_DICT =
-      DictType.create(STRING, STRING_LIST);
 
   /**
    * For ListType objects, returns the type of the elements of the list; for all other types,
@@ -272,9 +292,9 @@ public abstract class Type<T> {
    * message.
    */
   public static class ConversionException extends EvalException {
-    private static String message(Type<?> type, Object value, @Nullable Object what) {
+    private static String message(String expected, Object value, @Nullable Object what) {
       Printer printer = new Printer();
-      printer.append("expected value of type '").append(type.toString()).append("'");
+      printer.append("expected ").append(expected);
       if (what != null) {
         printer.append(" for ").append(what.toString());
       }
@@ -284,9 +304,18 @@ public abstract class Type<T> {
       return printer.toString();
     }
 
-    /** Contructs a conversion error. Throws NullPointerException if value is null. */
+    /** Constructs a conversion error. Throws NullPointerException if value is null. */
+    ConversionException(String expected, Object value, @Nullable Object what) {
+      super(message(expected, Preconditions.checkNotNull(value), what));
+    }
+
+    /** Constructs a conversion error. Throws NullPointerException if value is null. */
     ConversionException(Type<?> type, Object value, @Nullable Object what) {
-      super(message(type, Preconditions.checkNotNull(value), what));
+      super(
+          message(
+              String.format("value of type '%s'", type.toString()),
+              Preconditions.checkNotNull(value),
+              what));
     }
 
     public ConversionException(String message) {
@@ -299,31 +328,6 @@ public abstract class Type<T> {
    *                            Subclasses                            *
    *                                                                  *
    ********************************************************************/
-
-  private static final class ObjectType extends Type<Object> {
-    @Override
-    public Object cast(Object value) {
-      return value;
-    }
-
-    @Override
-    public String getDefaultValue() {
-      throw new UnsupportedOperationException("ObjectType has no default value");
-    }
-
-    @Override
-    public void visitLabels(LabelVisitor visitor, Object value, @Nullable Attribute context) {}
-
-    @Override
-    public String toString() {
-      return "object";
-    }
-
-    @Override
-    public Object convert(Object x, Object what, Object context) {
-      return Preconditions.checkNotNull(x);
-    }
-  }
 
   // A Starlark integer in the signed 32-bit range (like Java int).
   private static final class IntegerType extends Type<StarlarkInt> {
@@ -348,9 +352,9 @@ public abstract class Type<T> {
     }
 
     @Override
-    public StarlarkInt convert(Object x, Object what, Object context) throws ConversionException {
-      if (x instanceof StarlarkInt) {
-        StarlarkInt i = (StarlarkInt) x;
+    public StarlarkInt convert(Object x, Object what, LabelConverter labelConverter)
+        throws ConversionException {
+      if (x instanceof StarlarkInt i) {
         try {
           i.toIntUnchecked(); // assert signed 32-bit
         } catch (
@@ -402,17 +406,24 @@ public abstract class Type<T> {
 
     // Conversion to boolean must also tolerate integers of 0 and 1 only.
     @Override
-    public Boolean convert(Object x, Object what, Object context) throws ConversionException {
+    public Boolean convert(Object x, Object what, LabelConverter labelConverter)
+        throws ConversionException {
       if (x instanceof Boolean) {
         return (Boolean) x;
       }
-      int xAsInteger = INTEGER.convert(x, what, context).toIntUnchecked();
-      if (xAsInteger == 0) {
-        return false;
-      } else if (xAsInteger == 1) {
-        return true;
+      try {
+        int xAsInteger = INTEGER.convert(x, what, labelConverter).toIntUnchecked();
+        if (xAsInteger == 0) {
+          return false;
+        } else if (xAsInteger == 1) {
+          return true;
+        }
+      } catch (ConversionException unused) {
+        // Fall through to the `throw` below to display the correct type name.
+        // No need to keep the previous exception, the stack trace is less important than the actual
+        // error message showing allowed values for conversion.
       }
-      throw new ConversionException("boolean is not one of [0, 1]");
+      throw new ConversionException("one of [False, True, 0, 1]", x, what);
     }
 
     /** Booleans attributes are converted to tags based on their names. */
@@ -428,6 +439,12 @@ public abstract class Type<T> {
   }
 
   private static final class StringType extends Type<String> {
+    private final boolean internString;
+
+    public StringType(boolean internString) {
+      this.internString = internString;
+    }
+
     @Override
     public String cast(Object value) {
       return (String) value;
@@ -447,11 +464,12 @@ public abstract class Type<T> {
     }
 
     @Override
-    public String convert(Object x, Object what, Object context) throws ConversionException {
+    public String convert(Object x, Object what, LabelConverter labelConverter)
+        throws ConversionException {
       if (!(x instanceof String)) {
         throw new ConversionException(this, x, what);
       }
-      return StringCanonicalizer.intern((String) x);
+      return internString ? ((String) x).intern() : (String) x;
     }
 
     @Override
@@ -542,7 +560,7 @@ public abstract class Type<T> {
     }
 
     @Override
-    public Map<KeyT, ValueT> convert(Object x, Object what, Object context)
+    public Map<KeyT, ValueT> convert(Object x, Object what, LabelConverter labelConverter)
         throws ConversionException {
       if (!(x instanceof Map)) {
         throw new ConversionException(this, x, what);
@@ -553,10 +571,40 @@ public abstract class Type<T> {
       LinkedHashMap<KeyT, ValueT> result = new LinkedHashMap<>();
       for (Map.Entry<?, ?> elem : o.entrySet()) {
         result.put(
-            keyType.convert(elem.getKey(), "dict key element", context),
-            valueType.convert(elem.getValue(), "dict value element", context));
+            keyType.convert(elem.getKey(), "dict key element", labelConverter),
+            valueType.convert(elem.getValue(), "dict value element", labelConverter));
       }
       return ImmutableMap.copyOf(result);
+    }
+
+    @Override
+    public Object copyAndLiftStarlarkValue(
+        Object x, Object what, @Nullable LabelConverter labelConverter) throws ConversionException {
+      if (!(x instanceof Map)) {
+        throw new ConversionException(this, x, what);
+      }
+      Map<?, ?> o = (Map<?, ?>) x;
+      // It's possible that #convert() calls transform non-equal keys into equal ones so we can't
+      // just use ImmutableMap.Builder() here (that throws on collisions).
+      LinkedHashMap<Object, Object> result = new LinkedHashMap<>();
+      for (Map.Entry<?, ?> elem : o.entrySet()) {
+        result.put(
+            keyType.copyAndLiftStarlarkValue(elem.getKey(), "dict key element", labelConverter),
+            valueType.copyAndLiftStarlarkValue(
+                elem.getValue(), "dict value element", labelConverter));
+      }
+      return Dict.immutableCopyOf(result);
+    }
+
+
+
+    @Override
+    public Map<KeyT, ValueT> concat(Iterable<Map<KeyT, ValueT>> iterable) {
+      ImmutableMap.Builder<KeyT, ValueT> builder = ImmutableMap.builder();
+      for (Map<KeyT, ValueT> map : iterable) {
+        builder.putAll(map);
+      }
+      return builder.buildKeepingLast();
     }
 
     @Override
@@ -626,7 +674,8 @@ public abstract class Type<T> {
     }
 
     @Override
-    public List<ElemT> convert(Object x, Object what, Object context) throws ConversionException {
+    public List<ElemT> convert(Object x, Object what, LabelConverter labelConverter)
+        throws ConversionException {
       Iterable<?> iterable;
 
       if (x instanceof Iterable) {
@@ -642,19 +691,30 @@ public abstract class Type<T> {
       ListConversionContext conversionContext = new ListConversionContext(what);
       for (Object elem : iterable) {
         conversionContext.update(index);
-        ElemT converted = elemType.convert(elem, conversionContext, context);
+        ElemT converted = elemType.convert(elem, conversionContext, labelConverter);
         if (converted != null) {
           result.add(converted);
         } else {
           // shouldn't happen but it does, rarely
-          String message = "Converting a list with a null element: "
-              + "element " + index + " of " + what + " in " + context;
-          LoggingUtil.logToRemote(Level.WARNING, message,
-              new ConversionException(message));
+          String message =
+              "Converting a list with a null element: "
+                  + "element "
+                  + index
+                  + " of "
+                  + what
+                  + " in "
+                  + labelConverter;
+          LoggingUtil.logToRemote(Level.WARNING, message, new ConversionException(message));
         }
         ++index;
       }
       return result;
+    }
+
+    @Override
+    public Object copyAndLiftStarlarkValue(
+        Object x, Object what, @Nullable LabelConverter labelConverter) throws ConversionException {
+      return StarlarkList.immutableCopyOf(convert(x, what, labelConverter));
     }
 
     @Override
@@ -705,31 +765,6 @@ public abstract class Type<T> {
       @Override
       public String toString() {
         return "element " + index + " of " + what;
-      }
-    }
-  }
-
-  /** Type for lists of arbitrary objects */
-  public static class ObjectListType extends ListType<Object> {
-
-    private static final Type<Object> elemType = new ObjectType();
-
-    private ObjectListType() {
-      super(elemType);
-    }
-
-    @Override
-    @SuppressWarnings("unchecked")
-    public List<Object> convert(Object x, Object what, Object context) throws ConversionException {
-      // TODO(adonovan): converge on Starlark.toIterable.
-      if (x instanceof Sequence) {
-        return ((Sequence<Object>) x).getImmutableList();
-      } else if (x instanceof List) {
-        return (List<Object>) x;
-      } else if (x instanceof Iterable) {
-        return ImmutableList.copyOf((Iterable<?>) x);
-      } else {
-        throw new ConversionException(this, x, what);
       }
     }
   }

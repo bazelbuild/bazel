@@ -20,30 +20,36 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Assembles the single-page version of the Build Encyclopedia.
- */
+/** Assembles the single-page version of the Build Encyclopedia. */
 public class SinglePageBuildEncyclopediaProcessor extends BuildEncyclopediaProcessor {
   public SinglePageBuildEncyclopediaProcessor(
-      String productName, ConfiguredRuleClassProvider ruleClassProvider) {
-    super(productName, ruleClassProvider);
+      RuleLinkExpander linkExpander,
+      SourceUrlMapper urlMapper,
+      ConfiguredRuleClassProvider ruleClassProvider) {
+    super(linkExpander, urlMapper, ruleClassProvider);
   }
 
   /**
-   * Collects and processes all the rule and attribute documentation in inputDirs and generates the
-   * Build Encyclopedia into the outputDir.
+   * Collects and processes all the rule and attribute documentation in inputJavaDirs and generates
+   * the Build Encyclopedia into outputDir.
    *
-   * @param inputDirs list of directory to scan for document in the source code
+   * @param inputJavaDirs list of directories to scan for documentation in Java source code
+   * @param inputStardocProtos list of file paths of stardoc_output.ModuleInfo binary proto files
+   *     generated from Build Encyclopedia entry point .bzl files; documentation from these protos
+   *     takes precedence over documentation from {@code inputJavaDirs}
    * @param outputDir output directory where to write the build encyclopedia
    * @param denyList optional path to a file listing rules to not document
    */
   @Override
-  public void generateDocumentation(List<String> inputDirs, String outputDir, String denyList)
+  public void generateDocumentation(
+      List<String> inputJavaDirs,
+      List<String> inputStardocProtos,
+      String outputDir,
+      String denyList)
       throws BuildEncyclopediaDocException, IOException {
-    BuildDocCollector collector = new BuildDocCollector(productName, ruleClassProvider, false);
-    RuleLinkExpander expander = new RuleLinkExpander(productName, true);
+    BuildDocCollector collector = new BuildDocCollector(linkExpander, urlMapper, ruleClassProvider);
     Map<String, RuleDocumentation> ruleDocEntries =
-        collector.collect(inputDirs, denyList, expander);
+        collector.collect(inputJavaDirs, inputStardocProtos, denyList);
     warnAboutUndocumentedRules(
         Sets.difference(ruleClassProvider.getRuleClassMap().keySet(), ruleDocEntries.keySet()));
     RuleFamilies ruleFamilies = assembleRuleFamilies(ruleDocEntries.values());
@@ -51,18 +57,13 @@ public class SinglePageBuildEncyclopediaProcessor extends BuildEncyclopediaProce
     Page page = TemplateEngine.newPage(DocgenConsts.SINGLE_BE_TEMPLATE);
 
     // Add the rule link expander.
-    page.add("expander", expander);
+    page.add("expander", linkExpander);
 
     // Populate variables for Common Definitions section.
-    page.add(
-        "typicalAttributes",
-        expandCommonAttributes(PredefinedAttributes.TYPICAL_ATTRIBUTES, expander));
-    page.add("commonAttributes",
-        expandCommonAttributes(PredefinedAttributes.COMMON_ATTRIBUTES, expander));
-    page.add("testAttributes",
-        expandCommonAttributes(PredefinedAttributes.TEST_ATTRIBUTES, expander));
-    page.add("binaryAttributes",
-        expandCommonAttributes(PredefinedAttributes.BINARY_ATTRIBUTES, expander));
+    page.add("typicalAttributes", expandCommonAttributes(PredefinedAttributes.TYPICAL_ATTRIBUTES));
+    page.add("commonAttributes", expandCommonAttributes(PredefinedAttributes.COMMON_ATTRIBUTES));
+    page.add("testAttributes", expandCommonAttributes(PredefinedAttributes.TEST_ATTRIBUTES));
+    page.add("binaryAttributes", expandCommonAttributes(PredefinedAttributes.BINARY_ATTRIBUTES));
 
     // Popualte variables for Overview section.
     page.add("langSpecificRuleFamilies", ruleFamilies.langSpecific);

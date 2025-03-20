@@ -17,18 +17,22 @@ import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL;
 import static com.google.devtools.build.lib.packages.RuleClass.Builder.STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME;
+import static com.google.devtools.build.lib.packages.Type.STRING;
 
+import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.packages.Attribute.AllowedValueSet;
 import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
 import com.google.devtools.build.lib.packages.BuildSetting;
+import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.ToolchainResolutionMode;
-import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.rules.LateBoundAlias.AbstractAliasRule;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
+import net.starlark.java.eval.Starlark;
 
 /**
  * Native implementation of label setting and flags.
@@ -48,43 +52,50 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.
  * we'd have to be able to load and configure potentially arbitrary labels on the fly. This is not
  * possible today and could easily introduce large performance issues.
  */
-public class LabelBuildSettings {
-  @AutoCodec @VisibleForSerialization
+public final class LabelBuildSettings {
+  @SerializationConstant @VisibleForSerialization
+  static final String NONCONFIGURABLE_ATTRIBUTE_REASON =
+      "part of a rule class that *triggers* configurable behavior";
+
   // TODO(b/65746853): find a way to do this without passing the entire BuildConfigurationValue
   static final LabelLateBoundDefault<BuildConfigurationValue> ACTUAL =
-      LabelLateBoundDefault.fromTargetConfiguration(
+      LabelLateBoundDefault.fromTargetConfigurationWithRuleBasedDefault(
           BuildConfigurationValue.class,
-          null,
+          (rule) ->
+              // RawAttributeMapper means this attribute can't be select()able (which it isn't).
+              RawAttributeMapper.of(rule)
+                  .get(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME, NODEP_LABEL),
           (rule, attributes, configuration) -> {
             if (rule == null || configuration == null) {
               return attributes.get(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME, NODEP_LABEL);
             }
             Object commandLineValue =
                 configuration.getOptions().getStarlarkOptions().get(rule.getLabel());
-            Label asLabel;
-            try {
-              asLabel =
-                  commandLineValue == null
-                      ? attributes.get(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME, NODEP_LABEL)
-                      : LABEL.convert(commandLineValue, "label_flag value resolution");
-            } catch (ConversionException e) {
-              throw new IllegalStateException(
-                  "Getting here means we must have processed a transition via"
-                      + " StarlarkTransition.validate, which checks that LABEL.convert works"
-                      + " without error.",
-                  e);
+            if (commandLineValue == null) {
+              return attributes.get(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME, NODEP_LABEL);
             }
-            return asLabel;
+            Preconditions.checkState(
+                commandLineValue instanceof Label,
+                "the value of %s should have been converted to a label already, but its type is %s",
+                rule.getLabel(),
+                Starlark.type(commandLineValue));
+            return (Label) commandLineValue;
           });
 
   private static RuleClass buildRuleClass(RuleClass.Builder builder, boolean flag) {
     return builder
         .removeAttribute("licenses")
         .removeAttribute("distribs")
+        .removeAttribute(":action_listener")
         .add(attr(":alias", LABEL).value(ACTUAL))
+        .add(
+            attr("scope", STRING)
+                .value("universal")
+                .nonconfigurable(NONCONFIGURABLE_ATTRIBUTE_REASON)
+                .allowedValues(new AllowedValueSet("universal", "project")))
         .setBuildSetting(BuildSetting.create(flag, NODEP_LABEL))
         .canHaveAnyProvider()
-        .useToolchainResolution(ToolchainResolutionMode.DISABLED)
+        .toolchainResolutionMode(ToolchainResolutionMode.DISABLED)
         .build();
   }
 
@@ -97,7 +108,7 @@ public class LabelBuildSettings {
 
     @Override
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment environment) {
-      return buildRuleClass(builder, /*flag=*/ false);
+      return buildRuleClass(builder, /* flag= */ false);
     }
   }
 
@@ -110,7 +121,9 @@ public class LabelBuildSettings {
 
     @Override
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment environment) {
-      return buildRuleClass(builder, /*flag=*/ true);
+      return buildRuleClass(builder, /* flag= */ true);
     }
   }
+
+  private LabelBuildSettings() {}
 }

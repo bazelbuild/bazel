@@ -95,12 +95,34 @@ public interface Sequence<E>
   }
 
   /**
+   * Compares two sequences of value for equality. Sequences compare equal if they are the same size
+   * and corresponding elements compare equal.
+   */
+  static boolean sameElems(List<?> x, List<?> y) {
+    if (x == y) {
+      return true;
+    }
+    if (x.size() != y.size()) {
+      return false;
+    }
+    for (int i = 0; i < x.size(); i++) {
+      Object xelem = x.get(i);
+      Object yelem = y.get(i);
+
+      if (xelem != yelem && !xelem.equals(yelem)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  /**
    * Returns the slice of this sequence, {@code this[start:stop:step]}. <br>
    * For positive strides ({@code step > 0}), {@code 0 <= start <= stop <= size()}. <br>
    * For negative strides ({@code step < 0}), {@code -1 <= stop <= start < size()}. <br>
    * The caller must ensure that the start and stop indices are valid and that step is non-zero.
    */
-  Sequence<E> getSlice(Mutability mu, int start, int stop, int step);
+  Sequence<E> getSlice(Mutability mu, int start, int stop, int step) throws EvalException;
 
   /**
    * Casts a non-null Starlark value {@code x} to a {@code Sequence<T>}, after checking that each
@@ -120,6 +142,7 @@ public interface Sequence<E>
             "at index %d of %s, got element of type %s, want %s",
             i, what, Starlark.type(elem), Starlark.classType(elemType));
       }
+      i++;
     }
     @SuppressWarnings("unchecked") // safe
     Sequence<T> result = (Sequence) x;

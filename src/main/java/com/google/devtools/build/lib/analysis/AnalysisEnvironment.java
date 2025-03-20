@@ -23,12 +23,10 @@ import com.google.devtools.build.lib.actions.ActionRegistry;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
-import com.google.devtools.build.lib.actions.MiddlemanFactory;
-import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoKey;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.SkyFunction;
 import net.starlark.java.eval.StarlarkSemantics;
 
@@ -83,6 +81,9 @@ public interface AnalysisEnvironment extends ActionRegistry {
    */
   Artifact getConstantMetadataArtifact(PathFragment rootRelativePath, ArtifactRoot root);
 
+  /** Returns and artifact that represents a runfiles tree. */
+  SpecialArtifact getRunfilesArtifact(PathFragment rootRelativePath, ArtifactRoot root);
+
   /**
    * Returns the artifact for the derived TreeArtifact with directory {@code rootRelativePath},
    * creating it if necessary, and setting the root of that artifact to {@code root}. The artifact
@@ -94,32 +95,11 @@ public interface AnalysisEnvironment extends ActionRegistry {
   SpecialArtifact getSymlinkArtifact(PathFragment rootRelativePath, ArtifactRoot root);
 
   /**
-   * Creates a source artifact.
-   *
-   * <p>Do <b>NOT</b> use this unless you have a very good reason to do so and have consulted with
-   * someone knowledgeable. Source artifacts should be only created through {@link
-   * com.google.devtools.build.lib.analysis.configuredtargets.InputFileConfiguredTarget} by {@link
-   * ConfiguredTargetFactory}.
-   *
-   * <p>This method should only be used when that's not an option. Currently, the only known use
-   * case is the {@code ninja_build} rule, which, if it couldn't create source artifacts, would have
-   * to have every source artifact that Ninja actions use enumerated in its {@code srcs} attribute.
-   *
-   * <p>If you use this erroneously, inconsistencies can occur, for example, creating a source
-   * artifact with the wrong package path entry or in the wrong package.
-   */
-  Artifact getSourceArtifactForNinjaBuild(PathFragment execpath, Root root);
-
-  /**
    * Returns the artifact for the derived file {@code rootRelativePath}, creating it if necessary,
    * and setting the root of that artifact to {@code root}. The artifact will represent the output
    * directory of a {@code Fileset}.
    */
   Artifact getFilesetArtifact(PathFragment rootRelativePath, ArtifactRoot root);
-
-  /** Returns the middleman factory associated with the build. */
-  // TODO(bazel-team): remove this method and replace it with delegate methods.
-  MiddlemanFactory getMiddlemanFactory();
 
   /**
    * Returns the generating action for the given local artifact.
@@ -173,15 +153,6 @@ public interface AnalysisEnvironment extends ActionRegistry {
   Artifact getVolatileWorkspaceStatusArtifact() throws InterruptedException;
 
   /**
-   * Returns the Artifacts that contain the workspace status for the current build request.
-   *
-   * @param stamp whether stamping is enabled
-   * @param config the current build configuration.
-   */
-  ImmutableList<Artifact> getBuildInfo(
-      boolean stamp, BuildInfoKey key, BuildConfigurationValue config) throws InterruptedException;
-
-  /**
    * Returns the set of orphan Artifacts (i.e. Artifacts without generating action). Should only be
    * called after the ConfiguredTarget is created.
    */
@@ -194,4 +165,9 @@ public interface AnalysisEnvironment extends ActionRegistry {
   ImmutableSet<Artifact> getTreeArtifactsConflictingWithFiles();
 
   ActionKeyContext getActionKeyContext();
+
+  /**
+   * Returns and registers a Skyframe dependency on the {@link RepositoryMapping} of the main repo.
+   */
+  RepositoryMapping getMainRepoMapping() throws InterruptedException;
 }

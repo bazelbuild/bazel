@@ -90,13 +90,12 @@ final class HttpUploadHandler extends AbstractHttpHandler<FullHttpResponse> {
       throws Exception {
     checkState(userPromise == null, "handler can't be shared between pipelines.");
     userPromise = promise;
-    if (!(msg instanceof UploadCommand)) {
+    if (!(msg instanceof UploadCommand cmd)) {
       failAndResetUserPromise(
           new IllegalArgumentException(
               "Unsupported message type: " + StringUtil.simpleClassName(msg)));
       return;
     }
-    UploadCommand cmd = (UploadCommand) msg;
     path = constructPath(cmd.uri(), cmd.hash(), cmd.casUpload());
     contentLength = cmd.contentLength();
     HttpRequest request = buildRequest(path, constructHost(cmd.uri()), contentLength);

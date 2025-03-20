@@ -20,7 +20,6 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Map;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -46,24 +45,13 @@ public final class StarlarkMutableTest {
           () -> it.remove());
     }
     {
-      Iterator<?> it = list.listIterator();
-      it.next();
-      assertThrows(
-          UnsupportedOperationException.class,
-          () -> it.remove());
+      assertThrows(UnsupportedOperationException.class, list::listIterator);
     }
     {
-      Iterator<?> it = list.listIterator(1);
-      it.next();
-      assertThrows(
-          UnsupportedOperationException.class,
-          () -> it.remove());
+      assertThrows(UnsupportedOperationException.class, () -> list.listIterator(1));
     }
     {
-      List<Object> sublist = list.subList(1, 2);
-      assertThrows(
-          UnsupportedOperationException.class,
-          () -> sublist.set(0, 4));
+      assertThrows(UnsupportedOperationException.class, () -> list.subList(1, 2));
     }
   }
 
@@ -107,7 +95,7 @@ public final class StarlarkMutableTest {
         Dict.<String, String>builder()
             .put("one", "1")
             .put("two", "2.0")
-            .put("two", "2") // overrwrites previous entry
+            .put("two", "2") // overwrites previous entry
             .put("three", "3")
             .buildImmutable();
     assertThat(dict1.toString()).isEqualTo("{\"one\": \"1\", \"two\": \"2\", \"three\": \"3\"}");
@@ -125,19 +113,21 @@ public final class StarlarkMutableTest {
 
     // builder reuse and mutability
     Dict.Builder<String, String> builder = Dict.<String, String>builder().putAll(dict1);
+    builder.put("three", "33"); // overwrites previous entry
     Mutability mu = Mutability.create("test");
     Dict<String, String> dict3 = builder.build(mu);
-    dict3.putEntry("four", "4");
+    dict3.putEntry("four", "4"); // new entry
+    dict3.putEntry("two", "22"); // overwrites previous entry
     assertThat(dict3.toString())
-        .isEqualTo("{\"one\": \"1\", \"two\": \"2\", \"three\": \"3\", \"four\": \"4\"}");
+        .isEqualTo("{\"one\": \"1\", \"two\": \"22\", \"three\": \"33\", \"four\": \"4\"}");
     mu.close();
     assertThrows(EvalException.class, dict1::clearEntries); // frozen
     builder.put("five", "5"); // keep building
     Dict<String, String> dict4 = builder.buildImmutable();
     assertThat(dict4.toString())
-        .isEqualTo("{\"one\": \"1\", \"two\": \"2\", \"three\": \"3\", \"five\": \"5\"}");
+        .isEqualTo("{\"one\": \"1\", \"two\": \"2\", \"three\": \"33\", \"five\": \"5\"}");
     assertThat(dict3.toString())
         .isEqualTo(
-            "{\"one\": \"1\", \"two\": \"2\", \"three\": \"3\", \"four\": \"4\"}"); // unchanged
+            "{\"one\": \"1\", \"two\": \"22\", \"three\": \"33\", \"four\": \"4\"}"); // unchanged
   }
 }

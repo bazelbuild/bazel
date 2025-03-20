@@ -19,6 +19,7 @@ import static org.mockito.Mockito.when;
 
 import com.google.common.base.Joiner;
 import com.google.common.io.Files;
+import com.google.devtools.build.lib.buildeventservice.BuildEventServiceOptions.BesUploadMode;
 import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
@@ -88,7 +89,8 @@ public class TextFormatFileTransportTest {
             outputStream,
             defaultOpts,
             new LocalFilesArtifactUploader(),
-            artifactGroupNamer);
+            artifactGroupNamer,
+            BesUploadMode.WAIT_FOR_UPLOAD_COMPLETE);
     transport.sendBuildEvent(buildEvent);
 
     BuildEventStreamProtos.BuildEvent progress =
@@ -111,9 +113,9 @@ public class TextFormatFileTransportTest {
             Joiner.on(System.lineSeparator())
                 .join(Files.readLines(output, StandardCharsets.UTF_8)));
 
-    assertThat(contents).contains(trimLines(TextFormat.printToString(started)));
-    assertThat(contents).contains(trimLines(TextFormat.printToString(progress)));
-    assertThat(contents).contains(trimLines(TextFormat.printToString(completed)));
+    assertThat(contents).contains(trimLines(TextFormat.printer().printToString(started)));
+    assertThat(contents).contains(trimLines(TextFormat.printer().printToString(progress)));
+    assertThat(contents).contains(trimLines(TextFormat.printer().printToString(completed)));
   }
 
   private static String trimLines(String text) {

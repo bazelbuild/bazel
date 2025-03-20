@@ -28,6 +28,8 @@ import com.google.devtools.build.importdeps.AbstractClassEntryState.ExistingStat
 import com.google.devtools.build.importdeps.AbstractClassEntryState.IncompleteState;
 import com.google.devtools.build.importdeps.AbstractClassEntryState.MissingState;
 import com.google.devtools.build.importdeps.ClassInfo.MemberInfo;
+import org.objectweb.asm.Opcodes;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
@@ -45,7 +47,6 @@ import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.FieldVisitor;
 import org.objectweb.asm.MethodVisitor;
-import org.objectweb.asm.Opcodes;
 
 /** A cache that stores all the accessible classes in a set of JARs. */
 public final class ClassCache implements Closeable {
@@ -101,10 +102,6 @@ public final class ClassCache implements Closeable {
       this.zipFile = zipFile;
       this.jarPath = jarPath;
       this.isDirectDep = isDirectDep;
-    }
-
-    ZipFile getZipFile() {
-      return zipFile;
     }
 
     @Nullable
@@ -253,8 +250,11 @@ public final class ClassCache implements Closeable {
         boolean populateMembers)
         throws IOException {
       this.populateMembers = populateMembers;
-      this.bootclasspath = new ClassIndex("boot classpath", bootclasspath, Predicates.alwaysTrue());
-      this.inputJars = new ClassIndex("input jars", inputJars, Predicates.alwaysTrue());
+      this.bootclasspath =
+          new ClassIndex(
+              "boot classpath", bootclasspath, Predicates.alwaysTrue(), /* isBoot= */ true);
+      this.inputJars =
+          new ClassIndex("input jars", inputJars, Predicates.alwaysTrue(), /* isBoot= */ false);
       this.regularClasspath =
           new ClassIndex(
               "regular classpath",
@@ -262,7 +262,8 @@ public final class ClassCache implements Closeable {
               jar ->
                   bootclasspath.contains(jar)
                       || inputJars.contains(jar)
-                      || directClasspath.contains(jar));
+                      || directClasspath.contains(jar),
+              /* isBoot= */ false);
       // Reflect runtime resolution order, with input before classpath similar to javac
       this.orderedClasspath =
           ImmutableList.of(this.bootclasspath, this.inputJars, this.regularClasspath);
@@ -302,11 +303,12 @@ public final class ClassCache implements Closeable {
     private final ImmutableMap<String, LazyClassEntry> classIndex;
     private final Closer closer;
 
-    public ClassIndex(String name, ImmutableSet<Path> jarFiles, Predicate<Path> isDirect)
+    public ClassIndex(
+        String name, ImmutableSet<Path> jarFiles, Predicate<Path> isDirect, boolean isBoot)
         throws IOException {
       this.name = name;
       this.closer = Closer.create();
-      classIndex = buildClassIndex(jarFiles, closer, isDirect);
+      classIndex = buildClassIndex(jarFiles, closer, isDirect, isBoot);
     }
 
     @Override
@@ -341,19 +343,23 @@ public final class ClassCache implements Closeable {
     }
 
     private static ImmutableMap<String, LazyClassEntry> buildClassIndex(
-        ImmutableSet<Path> jars, Closer closer, Predicate<Path> isDirect) throws IOException {
+        ImmutableSet<Path> jars, Closer closer, Predicate<Path> isDirect, boolean isBoot)
+        throws IOException {
       HashMap<String, LazyClassEntry> result = new HashMap<>();
       for (Path jarPath : jars) {
         boolean jarIsDirect = isDirect.test(jarPath);
         try {
           ZipFile zipFile = closer.register(new ZipFile(jarPath.toFile()));
-          zipFile
-              .stream()
+          zipFile.stream()
               .forEach(
                   entry -> {
                     String name = entry.getName();
                     if (!name.endsWith(".class")) {
                       return; // Not a class file.
+                    }
+                    if (isBoot && name.startsWith("org/jspecify/annotations")) {
+                      // For details on the JSpecify special case, see StrictJavaDepsPlugin.
+                      return;
                     }
                     String internalName = name.substring(0, name.lastIndexOf('.'));
                     result.computeIfAbsent(
@@ -378,7 +384,7 @@ public final class ClassCache implements Closeable {
     private boolean directDep;
 
     public ClassInfoBuilder() {
-      super(Opcodes.ASM7);
+      super(Opcodes.ASM9);
     }
 
     @Override
@@ -412,11 +418,13 @@ public final class ClassCache implements Closeable {
       superClasses = combineWithoutNull(superName, interfaces);
     }
 
+    @CanIgnoreReturnValue
     public ClassInfoBuilder setJarPath(Path jarPath) {
       this.jarPath = jarPath;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public ClassInfoBuilder setDirect(boolean direct) {
       this.directDep = direct;
       return this;

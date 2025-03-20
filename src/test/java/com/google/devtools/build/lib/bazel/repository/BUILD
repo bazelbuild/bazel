@@ -1,6 +1,7 @@
-load("@rules_java//java:defs.bzl", "java_test")
+load("@rules_java//java:defs.bzl", "java_library", "java_test")
 
 package(
+    default_applicable_licenses = ["//:license"],
     default_testonly = 1,
     default_visibility = ["//src:__subpackages__"],
 )
@@ -27,9 +28,11 @@ java_library(
     data = [
         "test_decompress_archive.tar.gz",
         "test_decompress_archive.zip",
+        "test_files.ar",
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/bazel/repository",
+        "//src/main/java/com/google/devtools/build/lib/bazel/repository:repository_options",
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/rules:repository/repository_function",
@@ -46,9 +49,8 @@ java_library(
         "//third_party:guava",
         "//third_party:java-diff-utils",
         "//third_party:junit4",
-        "//third_party:mockito",
         "//third_party:truth",
-        "@bazel_tools//tools/java/runfiles",
+        "@rules_java//java/runfiles",
     ],
 )
 

@@ -51,7 +51,10 @@ javabase=${javabase%/bin/java}
 
 function set_up() {
   copy_examples
-  create_workspace_with_default_repos "WORKSPACE" "io_bazel"
+  cat > MODULE.bazel <<EOF
+module(name="io_bazel")
+EOF
+  add_rules_java "MODULE.bazel"
 }
 
 #
@@ -151,7 +154,11 @@ function test_shell() {
 function test_python() {
   assert_build "//examples/py:bin"
 
-  ./bazel-bin/examples/py/bin >& $TEST_log \
+  # Don't invoke the Python binary with RUNFILES_* set, as that causes
+  # it to look in the runfiles directory of this test, instead of the
+  # one belonging to the Python binary.
+  env -u RUNFILES_DIR -u RUNFILES_MANIFEST_FILE \
+    ./bazel-bin/examples/py/bin >& $TEST_log \
     || fail "//examples/py:bin execution failed"
   expect_log "Fib(5)=8"
 
@@ -159,7 +166,8 @@ function test_python() {
   echo "print('Hello')" > ./examples/py/bin.py
   # Ensure that we can rebuild //examples/py::bin without error.
   assert_build "//examples/py:bin"
-  ./bazel-bin/examples/py/bin >& $TEST_log \
+  env -u RUNFILES_DIR -u RUNFILES_MANIFEST_FILE \
+    ./bazel-bin/examples/py/bin >& $TEST_log \
     || fail "//examples/py:bin 2nd build execution failed"
   expect_log "Hello"
 }

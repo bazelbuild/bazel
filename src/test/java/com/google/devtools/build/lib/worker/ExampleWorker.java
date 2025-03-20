@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.worker;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.base.Ascii;
@@ -30,12 +31,15 @@ import com.google.gson.stream.JsonReader;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.io.PrintStream;
 import java.io.PrintWriter;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -46,6 +50,7 @@ import java.util.UUID;
 import java.util.function.BiFunction;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Stream;
 
 /** An example implementation of a worker process that is used for integration tests. */
 public final class ExampleWorker {
@@ -53,7 +58,7 @@ public final class ExampleWorker {
   static final Pattern FLAG_FILE_PATTERN = Pattern.compile("(?:@|--?flagfile=)(.+)");
 
   // A UUID that uniquely identifies this running worker process.
-  static final UUID workerUuid = UUID.randomUUID();
+  static final UUID WORKER_UUID = UUID.randomUUID();
 
   // A counter that increases with each work unit processed.
   static int workUnitCounter = 1;
@@ -80,7 +85,11 @@ public final class ExampleWorker {
     }
 
     @Override
+    @SuppressWarnings("SystemExitOutsideMain")
     public void processRequests() throws IOException {
+      ByteArrayOutputStream captured = new ByteArrayOutputStream();
+      WorkerIO workerIO = new WorkerIO(System.in, System.out, System.err, captured, captured);
+
       while (true) {
         WorkRequest request = messageProcessor.readWorkRequest();
         if (request == null) {
@@ -98,25 +107,25 @@ public final class ExampleWorker {
         if (request.getCancel()) {
           respondToCancelRequest(request);
         } else {
-          try {
-            startResponseThread(request);
-          } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            // We don't expect interrupts at this level, only inside the individual request
-            // handling threads, so here we just abort on interrupt.
-            e.printStackTrace();
-            return;
-          }
+          startResponseThread(workerIO, request);
         }
         if (workerOptions.exitAfter > 0 && workUnitCounter > workerOptions.exitAfter) {
           System.exit(0);
         }
+      }
+
+      try {
+        // Unwrap the system streams placing the original streams back
+        workerIO.close();
+      } catch (Exception e) {
+        workerIO.getOriginalErrorStream().println(e.getMessage());
       }
     }
   }
 
   public static void main(String[] args) throws Exception {
     if (ImmutableSet.copyOf(args).contains("--persistent_worker")) {
+      System.err.printf("Worker args: %s\n", String.join(" ", args));
       OptionsParser parser =
           OptionsParser.builder()
               .optionsClasses(ExampleWorkerOptions.class)
@@ -194,6 +203,7 @@ public final class ExampleWorker {
         try {
           if (currentRequest.getVerbosity() > 0) {
             originalStdErr.println("VERBOSE: Pretending to do work.");
+            originalStdErr.println("VERBOSE: Running in " + new File(".").getAbsolutePath());
           }
           parseOptionsAndLog(args);
         } catch (Exception e) {
@@ -246,7 +256,7 @@ public final class ExampleWorker {
     List<String> outputs = new ArrayList<>();
 
     if (options.writeUUID) {
-      outputs.add("UUID " + workerUuid);
+      outputs.add("UUID " + WORKER_UUID);
     }
 
     if (options.writeCounter) {
@@ -265,6 +275,15 @@ public final class ExampleWorker {
       }
     }
 
+    if (!options.printDirListing.isEmpty()) {
+      Path rootDir = Path.of(options.printDirListing);
+      try (Stream<Path> paths = Files.walk(rootDir, Integer.MAX_VALUE)) {
+        for (Path path : paths.collect(toImmutableList())) {
+          outputs.add(String.format("DIRENT %s %s", rootDir.relativize(path), getInode(path)));
+        }
+      }
+    }
+
     if (options.printRequests) {
       outputs.add("REQUEST: " + currentRequest);
     }
@@ -272,6 +291,15 @@ public final class ExampleWorker {
     if (options.printEnv) {
       for (Map.Entry<String, String> entry : System.getenv().entrySet()) {
         outputs.add(entry.getKey() + "=" + entry.getValue());
+      }
+    }
+
+    if (options.workTime != null) {
+      try {
+        Thread.sleep(options.workTime.toMillis());
+      } catch (InterruptedException e) {
+        System.err.printf(
+            "Interrupted while pretending to work for %d millis%n", options.workTime.toMillis());
       }
     }
 
@@ -283,6 +311,10 @@ public final class ExampleWorker {
         outputFile.println(outputStr);
       }
     }
+  }
+
+  private static long getInode(Path path) throws IOException {
+    return (long) Files.getAttribute(path, "unix:ino", LinkOption.NOFOLLOW_LINKS);
   }
 
   private ExampleWorker() {}

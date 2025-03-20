@@ -13,44 +13,37 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.io.InconsistentFilesystemException;
 import com.google.devtools.build.lib.packages.AdvertisedProviderSet;
 import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.Attribute;
-import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
 import com.google.devtools.build.lib.packages.DependencyFilter;
 import com.google.devtools.build.lib.packages.LabelVisitationUtils;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
-import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.skyframe.TargetLoadingUtil.TargetAndErrorIfAny;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import com.google.devtools.build.skyframe.ValueOrException2;
+import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.util.Collection;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
  * This class can be extended to define {@link SkyFunction}s that traverse a target and its
  * transitive dependencies and return values based on that traversal.
  *
- * <p>The {@code TProcessedTargets} type parameter represents the result of processing a target and
+ * <p>The {@code ProcessedTargetsT} type parameter represents the result of processing a target and
  * its transitive dependencies.
  *
  * <p>{@code TransitiveBaseTraversalFunction} asks for one to be constructed via {@link
@@ -82,8 +75,8 @@ public abstract class TransitiveBaseTraversalFunction<ProcessedTargetsT> impleme
       ProcessedTargetsT processedTargets,
       EventHandler eventHandler,
       TargetAndErrorIfAny targetAndErrorIfAny,
-      Iterable<Map.Entry<SkyKey, ValueOrException2<NoSuchPackageException, NoSuchTargetException>>>
-          depEntries);
+      SkyframeLookupResult depEntries,
+      Iterable<? extends SkyKey> depKeys);
 
   /**
    * Returns a {@link SkyValue} based on the target and any errors it has, and the values
@@ -94,6 +87,7 @@ public abstract class TransitiveBaseTraversalFunction<ProcessedTargetsT> impleme
 
   abstract Label argumentFromKey(SkyKey key);
 
+  @Nullable
   @Override
   public SkyValue compute(SkyKey key, Environment env)
       throws TransitiveBaseTraversalFunctionException, InterruptedException {
@@ -114,28 +108,27 @@ public abstract class TransitiveBaseTraversalFunction<ProcessedTargetsT> impleme
     // skyframe for building this node was for the corresponding PackageValue.
     Collection<SkyKey> labelDepKeys = getLabelDepKeys(env, targetAndErrorIfAny);
 
-    Map<SkyKey, ValueOrException2<NoSuchPackageException, NoSuchTargetException>> depMap =
-        env.getValuesOrThrow(labelDepKeys, NoSuchPackageException.class,
-            NoSuchTargetException.class);
+    SkyframeLookupResult depMap = env.getValuesAndExceptions(labelDepKeys);
     if (env.valuesMissing()) {
       return null;
     }
-    // Process deps from attributes. It is essential that the second-to-last getValue(s) call we
+    // Process deps from aspects. It is essential that the second-to-last getValue(s) call we
     // made to skyframe for building this node was for the corresponding PackageValue.
     Iterable<SkyKey> labelAspectKeys =
         getStrictLabelAspectDepKeys(env, depMap, targetAndErrorIfAny);
-    Set<Map.Entry<SkyKey, ValueOrException2<NoSuchPackageException, NoSuchTargetException>>>
-        labelAspectEntries =
-            env.getValuesOrThrow(
-                    labelAspectKeys, NoSuchPackageException.class, NoSuchTargetException.class)
-                .entrySet();
+    SkyframeLookupResult labelAspectEntries = env.getValuesAndExceptions(labelAspectKeys);
     if (env.valuesMissing()) {
       return null;
     }
 
     ProcessedTargetsT processedTargets = processTarget(targetAndErrorIfAny);
-    processDeps(processedTargets, env.getListener(), targetAndErrorIfAny, depMap.entrySet());
-    processDeps(processedTargets, env.getListener(), targetAndErrorIfAny, labelAspectEntries);
+    processDeps(processedTargets, env.getListener(), targetAndErrorIfAny, depMap, labelDepKeys);
+    processDeps(
+        processedTargets,
+        env.getListener(),
+        targetAndErrorIfAny,
+        labelAspectEntries,
+        labelAspectKeys);
 
     return computeSkyValue(targetAndErrorIfAny, processedTargets);
   }
@@ -153,7 +146,7 @@ public abstract class TransitiveBaseTraversalFunction<ProcessedTargetsT> impleme
 
   Iterable<SkyKey> getStrictLabelAspectDepKeys(
       SkyFunction.Environment env,
-      Map<SkyKey, ValueOrException2<NoSuchPackageException, NoSuchTargetException>> depMap,
+      SkyframeLookupResult depMap,
       TargetAndErrorIfAny targetAndErrorIfAny)
       throws InterruptedException {
     return getStrictLabelAspectKeys(targetAndErrorIfAny.getTarget(), depMap, env);
@@ -171,16 +164,12 @@ public abstract class TransitiveBaseTraversalFunction<ProcessedTargetsT> impleme
    * dependencies from the env to do so.
    */
   private Iterable<SkyKey> getStrictLabelAspectKeys(
-      Target target,
-      Map<SkyKey, ValueOrException2<NoSuchPackageException, NoSuchTargetException>> depMap,
-      Environment env)
-      throws InterruptedException {
-    if (!(target instanceof Rule)) {
+      Target target, SkyframeLookupResult depMap, Environment env) throws InterruptedException {
+    if (!(target instanceof Rule rule)) {
       // Aspects can be declared only for Rules.
       return ImmutableList.of();
     }
 
-    Rule rule = (Rule) target;
     if (!rule.hasAspects()) {
       return ImmutableList.of();
     }
@@ -192,7 +181,6 @@ public abstract class TransitiveBaseTraversalFunction<ProcessedTargetsT> impleme
       for (Aspect aspect : attribute.getAspects(rule)) {
         if (hasDepThatSatisfies(aspect, transitions.get(attribute), depMap, env)) {
           AspectDefinition.forEachLabelDepFromAllAttributesOfAspect(
-              rule,
               aspect,
               DependencyFilter.ALL_DEPS,
               (aspectAttribute, aspectLabel) -> depKeys.add(getKey(aspectLabel)));
@@ -204,20 +192,21 @@ public abstract class TransitiveBaseTraversalFunction<ProcessedTargetsT> impleme
 
   @Nullable
   protected abstract AdvertisedProviderSet getAdvertisedProviderSet(
-      Label toLabel,
-      @Nullable ValueOrException2<NoSuchPackageException, NoSuchTargetException> toVal,
-      Environment env)
-      throws InterruptedException;
+      Label toLabel, SkyValue toVal, Environment env) throws InterruptedException;
 
-  private final boolean hasDepThatSatisfies(
-      Aspect aspect,
-      Iterable<Label> depLabels,
-      Map<SkyKey, ValueOrException2<NoSuchPackageException, NoSuchTargetException>> fullDepMap,
-      Environment env)
+  private boolean hasDepThatSatisfies(
+      Aspect aspect, Iterable<Label> depLabels, SkyframeLookupResult fullDepMap, Environment env)
       throws InterruptedException {
     for (Label depLabel : depLabels) {
-      AdvertisedProviderSet advertisedProviderSet =
-          getAdvertisedProviderSet(depLabel, fullDepMap.get(depLabel), env);
+      SkyValue toVal;
+      try {
+        toVal =
+            fullDepMap.getOrThrow(
+                getKey(depLabel), NoSuchPackageException.class, NoSuchTargetException.class);
+      } catch (NoSuchPackageException | NoSuchTargetException e) {
+        continue;
+      }
+      AdvertisedProviderSet advertisedProviderSet = getAdvertisedProviderSet(depLabel, toVal, env);
       if (advertisedProviderSet != null
           && AspectDefinition.satisfies(aspect, advertisedProviderSet)) {
         return true;
@@ -226,112 +215,11 @@ public abstract class TransitiveBaseTraversalFunction<ProcessedTargetsT> impleme
     return false;
   }
 
-  interface TargetAndErrorIfAny {
-
-    boolean isPackageLoadedSuccessfully();
-
-    @Nullable NoSuchTargetException getErrorLoadingTarget();
-
-    Target getTarget();
-  }
-
-  @VisibleForTesting
-  static class TargetAndErrorIfAnyImpl implements TargetAndErrorIfAny {
-
-    private final boolean packageLoadedSuccessfully;
-    @Nullable private final NoSuchTargetException errorLoadingTarget;
-    private final Target target;
-
-    @VisibleForTesting
-    TargetAndErrorIfAnyImpl(
-        boolean packageLoadedSuccessfully,
-        @Nullable NoSuchTargetException errorLoadingTarget,
-        Target target) {
-      this.packageLoadedSuccessfully = packageLoadedSuccessfully;
-      this.errorLoadingTarget = errorLoadingTarget;
-      this.target = target;
-    }
-
-    @Override
-    public boolean isPackageLoadedSuccessfully() {
-      return packageLoadedSuccessfully;
-    }
-
-    @Override
-    @Nullable
-    public NoSuchTargetException getErrorLoadingTarget() {
-      return errorLoadingTarget;
-    }
-
-    @Override
-    public Target getTarget() {
-      return target;
-    }
-  }
-
-  @Nullable // Returns null if values are missing.
-  @VisibleForTesting
+  @Nullable
   TargetAndErrorIfAny loadTarget(Environment env, Label label)
       throws NoSuchTargetException, NoSuchPackageException, InterruptedException {
-    if (label.getName().contains("/")) {
-      // This target is in a subdirectory, therefore it could potentially be invalidated by
-      // a new BUILD file appearing in the hierarchy.
-      PathFragment containingDirectory = getContainingDirectory(label);
-      PackageIdentifier newPkgId =
-          PackageIdentifier.create(label.getRepository(), containingDirectory);
-      ContainingPackageLookupValue containingPackageLookupValue;
-      try {
-        containingPackageLookupValue =
-            (ContainingPackageLookupValue)
-                env.getValueOrThrow(
-                    ContainingPackageLookupValue.key(newPkgId),
-                    BuildFileNotFoundException.class,
-                    InconsistentFilesystemException.class);
-      } catch (InconsistentFilesystemException e) {
-        throw new NoSuchTargetException(label, e.getMessage());
-      }
-      if (containingPackageLookupValue == null) {
-        return null;
-      }
-
-      if (!containingPackageLookupValue.hasContainingPackage()) {
-        // This means the label's package doesn't exist. E.g. there is no package 'a' and we are
-        // trying to build the target for label 'a:b/foo'.
-        throw new BuildFileNotFoundException(
-            label.getPackageIdentifier(),
-            "BUILD file not found on package path for '"
-                + label.getPackageFragment().getPathString()
-                + "'");
-      }
-      if (!containingPackageLookupValue
-          .getContainingPackageName()
-          .equals(label.getPackageIdentifier())) {
-        throw new NoSuchTargetException(
-            label,
-            String.format(
-                "Label '%s' crosses boundary of subpackage '%s'",
-                label, containingPackageLookupValue.getContainingPackageName()));
-      }
-    }
-
-    SkyKey packageKey = PackageValue.key(label.getPackageIdentifier());
-    PackageValue packageValue =
-        (PackageValue) env.getValueOrThrow(packageKey, NoSuchPackageException.class);
-    if (env.valuesMissing() || packageValue == null) {
-      return null;
-    }
-
-    Package pkg = packageValue.getPackage();
-    Target target = pkg.getTarget(label.getName());
-    NoSuchTargetException error = pkg.containsErrors() ? new NoSuchTargetException(target) : null;
-    return new TargetAndErrorIfAnyImpl(
-        /* packageLoadedSuccessfully= */ !pkg.containsErrors(), error, target);
-  }
-
-  private static PathFragment getContainingDirectory(Label label) {
-    PathFragment pkg = label.getPackageFragment();
-    String name = label.getName();
-    return name.equals(".") ? pkg : pkg.getRelative(name).getParentDirectory();
+    Object o = TargetLoadingUtil.loadTarget(env, label);
+    return o instanceof TargetAndErrorIfAny ? (TargetAndErrorIfAny) o : null;
   }
 
   /**

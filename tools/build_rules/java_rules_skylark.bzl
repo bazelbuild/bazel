@@ -19,7 +19,18 @@ This is a quick and dirty rule to make Bazel compile itself. It's not production
 ready.
 """
 
+load("@rules_java//java/common:java_common.bzl", "java_common")
+
 _JarsInfo = provider(fields = ["compile_time_jars", "runtime_jars"])
+
+def _join_paths(separator, files):
+    """Joins the paths of the files separated by the given separator.
+
+    Args:
+      separator: string to separate the files paths
+      files: list of files to join their paths
+    """
+    return separator.join([f.path for f in files])
 
 def _java_library_impl(ctx):
     javac_options = ctx.fragments.java.default_javac_flags
@@ -48,7 +59,7 @@ def _java_library_impl(ctx):
     sources_param_file = ctx.actions.declare_file(class_jar.basename + "-2.params")
     ctx.actions.write(
         output = sources_param_file,
-        content = cmd_helper.join_paths("\n", depset(sources)),
+        content = _join_paths("\n", sources),
         is_executable = False,
     )
 
@@ -69,7 +80,7 @@ def _java_library_impl(ctx):
         cmd += "%s/bin/javac" % java_runtime.java_home
         cmd += " " + " ".join(javac_options)
         if compile_time_jars:
-            cmd += " -classpath '" + cmd_helper.join_paths(ctx.configuration.host_path_separator, compile_time_jars) + "'"
+            cmd += " -classpath '" + _join_paths(ctx.configuration.host_path_separator, compile_time_jars_list) + "'"
         cmd += " -d " + build_output + files + "\n"
 
     # We haven't got a good story for where these should end up, so
@@ -207,6 +218,7 @@ java_library_attrs = {
     "_jdk": attr.label(
         default = Label("@bazel_tools//tools/jdk:current_java_runtime"),
         providers = [java_common.JavaRuntimeInfo],
+        cfg = "exec",
     ),
     "data": attr.label_list(allow_files = True),
     "resources": attr.label_list(allow_files = True),

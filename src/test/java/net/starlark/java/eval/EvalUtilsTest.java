@@ -45,6 +45,7 @@ public final class EvalUtilsTest {
     assertThat(Starlark.type("foo")).isEqualTo("string");
     assertThat(Starlark.type(StarlarkInt.of(3))).isEqualTo("int");
     assertThat(Starlark.type(Tuple.of(1, 2, 3))).isEqualTo("tuple");
+    assertThat(Starlark.type(Tuple.of(1))).isEqualTo("tuple");
     assertThat(Starlark.type(StarlarkList.empty())).isEqualTo("list");
     assertThat(Starlark.type(Dict.empty())).isEqualTo("dict");
     assertThat(Starlark.type(Starlark.NONE)).isEqualTo("NoneType");

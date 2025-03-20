@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration.TestOptions;
+import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
@@ -35,7 +36,7 @@ import org.junit.runners.JUnit4;
 
 /** Tests for {@link TestTrimmingTransitionFactory.TestTrimmingTransition}. */
 @RunWith(JUnit4.class)
-public class TestTrimmingTransitionTest {
+public class TestTrimmingTransitionTest extends BuildViewTestCase {
   private static final PatchTransition TRIM_TRANSITION =
       TestTrimmingTransitionFactory.TestTrimmingTransition.INSTANCE;
 
@@ -74,7 +75,7 @@ public class TestTrimmingTransitionTest {
 
   @Test
   public void retainsStarlarkOptions() throws OptionsParsingException, InterruptedException {
-    Label starlarkOptionKey = Label.parseAbsoluteUnchecked("//options:foo");
+    Label starlarkOptionKey = Label.parseCanonicalUnchecked("//options:foo");
     String starlarkOptionValue = "bar";
 
     BuildOptions options =
@@ -96,15 +97,17 @@ public class TestTrimmingTransitionTest {
   }
 
   @Test
-  public void composeCommutativelyWithExecutionTransition()
-      throws OptionsParsingException, InterruptedException {
-    Label executionPlatform = Label.parseAbsoluteUnchecked("//platform:exec");
+  public void composeCommutativelyWithExecutionTransition() throws Exception {
+    Label executionPlatform = Label.parseCanonicalUnchecked("//platform:exec");
 
     PatchTransition execTransition =
-        ExecutionTransitionFactory.create()
+        ExecutionTransitionFactory.createFactory()
             .create(
                 AttributeTransitionData.builder()
                     .attributes(FakeAttributeMapper.empty())
+                    .analysisData(
+                        getSkyframeExecutor()
+                            .getStarlarkExecTransition(targetConfig.getOptions(), reporter))
                     .executionPlatform(executionPlatform)
                     .build());
     assertThat(execTransition).isNotNull();
@@ -112,9 +115,10 @@ public class TestTrimmingTransitionTest {
     // Apply the transition.
     BuildOptions options =
         BuildOptions.of(
-            ImmutableList.of(CoreOptions.class, PlatformOptions.class, TestOptions.class),
+            targetConfig.getOptions().getFragmentClasses(),
             "--platforms=//platform:target",
-            "--trim_test_configuration");
+            "--trim_test_configuration",
+            "--experimental_exec_configuration_distinguisher=off");
 
     EventHandler handler = new StoredEventHandler();
 

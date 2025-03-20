@@ -65,7 +65,7 @@ public final class WorkspaceRuleEventTest {
             "key2", "val2!",
             "key3", "val3!");
 
-    assertThat(event.getRule()).isEqualTo("my_rule");
+    assertThat(event.getContext()).isEqualTo("my_rule");
     assertThat(event.getLocation()).isEqualTo("foo:10:20");
 
     WorkspaceLogProtos.ExecuteEvent executeEvent = event.getExecuteEvent();

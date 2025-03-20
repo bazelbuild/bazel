@@ -1,4 +1,3 @@
-# Lint as: python2, python3
 # pylint: disable=g-direct-third-party-import
 # Copyright 2017 The Bazel Authors. All rights reserved.
 #
@@ -23,7 +22,6 @@ import os
 import sys
 import xml.etree.ElementTree as ET
 
-# Do not edit this line. Copybara replaces it with PY2 migration helper.
 from absl import app
 from absl import flags
 

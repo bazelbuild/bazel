@@ -120,7 +120,12 @@ public class BuildEventServiceGrpcClientTest {
       extraHeaders.put(Metadata.Key.of("metadata-foo", Metadata.ASCII_STRING_MARSHALLER), "bar");
       ClientInterceptor interceptor = MetadataUtils.newAttachHeadersInterceptor(extraHeaders);
       BuildEventServiceGrpcClient grpcClient =
-          new BuildEventServiceGrpcClient(server.getChannel(), null, interceptor);
+          new BuildEventServiceGrpcClient(
+              server.getChannel(),
+              null,
+              interceptor,
+              "testing/" + UUID.randomUUID(),
+              UUID.randomUUID());
       assertThat(grpcClient.openStream(ack -> {}).getStatus().get()).isEqualTo(Status.OK);
       assertThat(seenHeaders).hasSize(1);
       Metadata headers = seenHeaders.get(0);
@@ -133,7 +138,12 @@ public class BuildEventServiceGrpcClientTest {
   public void immediateSuccess() throws Exception {
     try (TestServer server = startTestServer(NOOP_SERVER.bindService())) {
       assertThat(
-              new BuildEventServiceGrpcClient(server.getChannel(), null, null)
+              new BuildEventServiceGrpcClient(
+                      server.getChannel(),
+                      null,
+                      null,
+                      "testing/" + UUID.randomUUID(),
+                      UUID.randomUUID())
                   .openStream(ack -> {})
                   .getStatus()
                   .get())
@@ -154,7 +164,12 @@ public class BuildEventServiceGrpcClientTest {
               }
             }.bindService())) {
       assertThat(
-              new BuildEventServiceGrpcClient(server.getChannel(), null, null)
+              new BuildEventServiceGrpcClient(
+                      server.getChannel(),
+                      null,
+                      null,
+                      "testing/" + UUID.randomUUID(),
+                      UUID.randomUUID())
                   .openStream(ack -> {})
                   .getStatus()
                   .get())

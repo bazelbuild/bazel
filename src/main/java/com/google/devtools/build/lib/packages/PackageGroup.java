@@ -14,10 +14,10 @@
 
 package com.google.devtools.build.lib.packages;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
-
+import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.License.DistributionType;
 import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
@@ -26,6 +26,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
+import javax.annotation.Nullable;
 import net.starlark.java.syntax.Location;
 
 /**
@@ -34,34 +35,41 @@ import net.starlark.java.syntax.Location;
  * can be asked if a specific package is included in it.
  */
 public class PackageGroup implements Target {
-  private boolean containsErrors;
+  private final boolean containsErrors;
   private final Label label;
   private final Location location;
-  private final Package containingPackage;
+  private final Packageoid containingPackageoid;
   private final PackageGroupContents packageSpecifications;
   private final List<Label> includes;
 
   public PackageGroup(
       Label label,
-      Package pkg,
+      Packageoid pkg,
       Collection<String> packageSpecifications,
       Collection<Label> includes,
+      boolean allowPublicPrivate,
+      boolean repoRootMeansCurrentRepo,
       EventHandler eventHandler,
       Location location) {
     this.label = label;
     this.location = location;
-    this.containingPackage = pkg;
+    this.containingPackageoid = pkg;
     this.includes = ImmutableList.copyOf(includes);
 
     // TODO(bazel-team): Consider refactoring so constructor takes a PackageGroupContents.
     ImmutableList.Builder<PackageSpecification> packagesBuilder = ImmutableList.builder();
+    boolean errorsFound = false;
     for (String packageSpecification : packageSpecifications) {
       PackageSpecification specification = null;
       try {
         specification =
-            PackageSpecification.fromString(label.getRepository(), packageSpecification);
+            PackageSpecification.fromString(
+                label.getRepository(),
+                packageSpecification,
+                allowPublicPrivate,
+                repoRootMeansCurrentRepo);
       } catch (PackageSpecification.InvalidPackageSpecificationException e) {
-        containsErrors = true;
+        errorsFound = true;
         eventHandler.handle(
             Package.error(location, e.getMessage(), Code.INVALID_PACKAGE_SPECIFICATION));
       }
@@ -70,6 +78,7 @@ public class PackageGroup implements Target {
         packagesBuilder.add(specification);
       }
     }
+    this.containsErrors = errorsFound;
     this.packageSpecifications = PackageGroupContents.create(packagesBuilder.build());
   }
 
@@ -81,16 +90,17 @@ public class PackageGroup implements Target {
     return packageSpecifications;
   }
 
-  public boolean contains(Package pkg) {
-    return packageSpecifications.containsPackage(pkg.getPackageIdentifier());
+  public boolean contains(PackageIdentifier pkgId) {
+    return packageSpecifications.containsPackage(pkgId);
   }
 
   public List<Label> getIncludes() {
     return includes;
   }
 
-  public List<String> getContainedPackages() {
-    return packageSpecifications.containedPackages().collect(toImmutableList());
+  // See PackageSpecification#asString.
+  public List<String> getContainedPackages(boolean includeDoubleSlash) {
+    return packageSpecifications.packageStrings(includeDoubleSlash);
   }
 
   @Override
@@ -108,18 +118,24 @@ public class PackageGroup implements Target {
     return label;
   }
 
-  @Override public String getName() {
-    return label.getName();
-  }
-
   @Override
   public License getLicense() {
     return License.NO_LICENSE;
   }
 
   @Override
-  public Package getPackage() {
-    return containingPackage;
+  public Packageoid getPackageoid() {
+    return containingPackageoid;
+  }
+
+  @Override
+  public Package.Metadata getPackageMetadata() {
+    return containingPackageoid.getMetadata();
+  }
+
+  @Override
+  public Package.Declarations getPackageDeclarations() {
+    return containingPackageoid.getDeclarations();
   }
 
   @Override
@@ -134,7 +150,13 @@ public class PackageGroup implements Target {
 
   @Override
   public String toString() {
-   return targetKind() + " " + getLabel();
+    return targetKind() + " " + getLabel();
+  }
+
+  @Override
+  @Nullable
+  public RuleVisibility getRawVisibility() {
+    return null;
   }
 
   @Override
@@ -142,7 +164,9 @@ public class PackageGroup implements Target {
     // Package groups are always public to avoid a PackageGroupConfiguredTarget
     // needing itself for the visibility check. It may work, but I did not
     // think it over completely.
-    return ConstantRuleVisibility.PUBLIC;
+    // (We override getRawVisibility() separately so as to not display this value during
+    // introspection.)
+    return RuleVisibility.PUBLIC;
   }
 
   @Override
@@ -152,5 +176,18 @@ public class PackageGroup implements Target {
 
   public static String targetKind() {
     return "package group";
+  }
+
+  @Override
+  public TargetData reduceForSerialization() {
+    return new AutoValue_PackageGroup_PackageGroupData(getLocation(), getLabel());
+  }
+
+  @AutoValue
+  abstract static class PackageGroupData implements TargetData {
+    @Override
+    public final String getTargetKind() {
+      return targetKind();
+    }
   }
 }

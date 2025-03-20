@@ -30,10 +30,10 @@ public class ConstraintSettingInfoTest extends BuildViewTestCase {
   public void constraintSetting_equalsTester() {
     new EqualsTester()
         .addEqualityGroup(
-            ConstraintSettingInfo.create(Label.parseAbsoluteUnchecked("//constraint:basic")),
-            ConstraintSettingInfo.create(Label.parseAbsoluteUnchecked("//constraint:basic")))
+            ConstraintSettingInfo.create(Label.parseCanonicalUnchecked("//constraint:basic")),
+            ConstraintSettingInfo.create(Label.parseCanonicalUnchecked("//constraint:basic")))
         .addEqualityGroup(
-            ConstraintSettingInfo.create(Label.parseAbsoluteUnchecked("//constraint:other")))
+            ConstraintSettingInfo.create(Label.parseCanonicalUnchecked("//constraint:other")))
         .testEquals();
   }
 }

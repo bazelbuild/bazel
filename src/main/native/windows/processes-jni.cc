@@ -33,17 +33,14 @@
 #include "src/main/native/windows/process.h"
 #include "src/main/native/windows/util.h"
 
+// Pipe buffer size, to match the Linux/MacOS default.
+#define PIPE_SIZE 65536
+
 template <typename T>
 static std::wstring ToString(const T& e) {
   std::wstringstream s;
   s << e;
   return s.str();
-}
-
-extern "C" JNIEXPORT jint JNICALL
-Java_com_google_devtools_build_lib_windows_WindowsProcesses_getpid(
-    JNIEnv* env, jclass clazz) {
-  return GetCurrentProcessId();
 }
 
 class JavaByteArray {
@@ -242,7 +239,7 @@ class NativeProcess {
     // Set up childs stdin pipe.
     {
       HANDLE pipe_read_h, pipe_write_h;
-      if (!CreatePipe(&pipe_read_h, &pipe_write_h, &sa, 0)) {
+      if (!CreatePipe(&pipe_read_h, &pipe_write_h, &sa, PIPE_SIZE)) {
         DWORD err_code = GetLastError();
         error_ = bazel::windows::MakeErrorMessage(
             WSTR(__FILE__), __LINE__, L"nativeCreateProcess", wpath, err_code);
@@ -290,7 +287,7 @@ class NativeProcess {
       }
     } else {
       HANDLE pipe_read_h, pipe_write_h;
-      if (!CreatePipe(&pipe_read_h, &pipe_write_h, &sa, 0)) {
+      if (!CreatePipe(&pipe_read_h, &pipe_write_h, &sa, PIPE_SIZE)) {
         DWORD err_code = GetLastError();
         error_ = bazel::windows::MakeErrorMessage(
             WSTR(__FILE__), __LINE__, L"nativeCreateProcess", wpath, err_code);
@@ -351,7 +348,7 @@ class NativeProcess {
       }
     } else {
       HANDLE pipe_read_h, pipe_write_h;
-      if (!CreatePipe(&pipe_read_h, &pipe_write_h, &sa, 0)) {
+      if (!CreatePipe(&pipe_read_h, &pipe_write_h, &sa, PIPE_SIZE)) {
         DWORD err_code = GetLastError();
         error_ = bazel::windows::MakeErrorMessage(
             WSTR(__FILE__), __LINE__, L"nativeCreateProcess", wpath, err_code);
@@ -472,6 +469,13 @@ Java_com_google_devtools_build_lib_windows_WindowsProcesses_writeStdin(
   return process->WriteStdin(env, java_bytes, offset, length);
 }
 
+extern "C" JNIEXPORT void JNICALL
+Java_com_google_devtools_build_lib_windows_WindowsProcesses_closeStdin(
+    JNIEnv* env, jclass clazz, jlong process_long) {
+  NativeProcess* process = reinterpret_cast<NativeProcess*>(process_long);
+  process->CloseStdin();
+}
+
 extern "C" JNIEXPORT jlong JNICALL
 Java_com_google_devtools_build_lib_windows_WindowsProcesses_getStdout(
     JNIEnv* env, jclass clazz, jlong process_long) {
@@ -519,7 +523,6 @@ Java_com_google_devtools_build_lib_windows_WindowsProcesses_waitFor(
     JNIEnv* env, jclass clazz, jlong process_long, jlong java_timeout) {
   NativeProcess* process = reinterpret_cast<NativeProcess*>(process_long);
   int res = process->WaitFor(static_cast<int64_t>(java_timeout));
-  process->CloseStdin();
   return static_cast<jint>(res);
 }
 

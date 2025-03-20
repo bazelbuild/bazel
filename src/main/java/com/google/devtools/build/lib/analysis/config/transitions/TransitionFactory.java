@@ -31,6 +31,13 @@ package com.google.devtools.build.lib.analysis.config.transitions;
  */
 public interface TransitionFactory<T extends TransitionFactory.Data> {
 
+  /** Used to report exceptions during transition creation. */
+  class TransitionCreationException extends RuntimeException {
+    public TransitionCreationException(String message) {
+      super(message);
+    }
+  }
+
   /** Enum that describes what type of transition a TransitionFactory creates. */
   enum TransitionType {
     /** A transition that can be used for rules or attributes. */
@@ -55,34 +62,37 @@ public interface TransitionFactory<T extends TransitionFactory.Data> {
   interface Data {}
 
   /** Returns a new {@link ConfigurationTransition}, based on the given data. */
-  ConfigurationTransition create(T data);
+  ConfigurationTransition create(T data) throws TransitionCreationException;
 
-  default TransitionType transitionType() {
-    return TransitionType.ANY;
-  }
+  /**
+   * Returns a {@link TransitionType} to clarify what data (if any) the factory requires to create a
+   * transation.
+   */
+  TransitionType transitionType();
 
   // TODO(https://github.com/bazelbuild/bazel/issues/7814): Once everything uses TransitionFactory,
   // remove these methods.
-  /** Returns {@code true} if the result of this {@link TransitionFactory} is a host transition. */
-  default boolean isHost() {
-    return false;
-  }
 
   /**
    * Returns {@code true} if the result of this {@link TransitionFactory} should be considered as
    * part of the tooling rather than a dependency of the original target.
    */
   default boolean isTool() {
-    if (isHost()) {
-      // Every host dependency is also a tool dependency.
-      return true;
-    }
-
     return false;
   }
 
   /** Returns {@code true} if the result of this {@link TransitionFactory} is a split transition. */
   default boolean isSplit() {
     return false;
+  }
+
+  /** Visit this trnsition factory with the given visitor. */
+  default void visit(Visitor<T> visitor) {
+    visitor.visit(this);
+  }
+
+  /** Interface used to progressively visit transitions. */
+  interface Visitor<T extends TransitionFactory.Data> {
+    void visit(TransitionFactory<T> factory);
   }
 }

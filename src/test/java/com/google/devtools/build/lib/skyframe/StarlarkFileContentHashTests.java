@@ -21,12 +21,12 @@ import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
+import com.google.devtools.build.lib.runtime.QuiescingExecutorsImpl;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.Root;
@@ -53,30 +53,42 @@ public class StarlarkFileContentHashTests extends BuildViewTestCase {
     scratch.file("bar/BUILD");
     scratch.file("helper/BUILD");
 
-    scratch.file("helper/ext.bzl", "def rule_impl(ctx):", "  return None");
+    scratch.file(
+        "helper/ext.bzl",
+        """
+        def rule_impl(ctx):
+            return None
+        """);
 
     scratch.file(
         "foo/ext.bzl",
-        "load('//helper:ext.bzl', 'rule_impl')",
-        "",
-        "foo1 = rule(implementation = rule_impl)",
-        "foo2 = rule(implementation = rule_impl)");
+        """
+        load("//helper:ext.bzl", "rule_impl")
+
+        foo1 = rule(implementation = rule_impl)
+        foo2 = rule(implementation = rule_impl)
+        """);
 
     scratch.file(
         "bar/ext.bzl",
-        "load('//helper:ext.bzl', 'rule_impl')",
-        "",
-        "bar1 = rule(implementation = rule_impl)");
+        """
+        load("//helper:ext.bzl", "rule_impl")
+
+        bar1 = rule(implementation = rule_impl)
+        """);
 
     scratch.file(
         "pkg/BUILD",
-        "load('//foo:ext.bzl', 'foo1')",
-        "load('//foo:ext.bzl', 'foo2')",
-        "load('//bar:ext.bzl', 'bar1')",
-        "",
-        "foo1(name = 'foo1')",
-        "foo2(name = 'foo2')",
-        "bar1(name = 'bar1')");
+        """
+        load("//bar:ext.bzl", "bar1")
+        load("//foo:ext.bzl", "foo1", "foo2")
+
+        foo1(name = "foo1")
+
+        foo2(name = "foo2")
+
+        bar1(name = "bar1")
+        """);
   }
 
   @Test
@@ -89,9 +101,11 @@ public class StarlarkFileContentHashTests extends BuildViewTestCase {
     String bar1 = getHash("pkg", "bar1");
     scratch.overwriteFile(
         "bar/ext.bzl",
-        "load('//helper:ext.bzl', 'rule_impl')",
-        "",
-        "bar1 = rule(implementation = rule_impl)");
+        """
+        load("//helper:ext.bzl", "rule_impl")
+
+        bar1 = rule(implementation = rule_impl)
+        """);
     invalidatePackages();
     assertThat(getHash("pkg", "bar1")).isEqualTo(bar1);
   }
@@ -111,10 +125,12 @@ public class StarlarkFileContentHashTests extends BuildViewTestCase {
     String bar1 = getHash("pkg", "bar1");
     scratch.overwriteFile(
         "bar/ext.bzl",
-        "load('//helper:ext.bzl', 'rule_impl')",
-        "# Some comments to change file hash",
-        "",
-        "bar1 = rule(implementation = rule_impl)");
+        """
+        load("//helper:ext.bzl", "rule_impl")
+        # Some comments to change file hash
+
+        bar1 = rule(implementation = rule_impl)
+        """);
     invalidatePackages();
     assertNotEquals(bar1, getHash("pkg", "bar1"));
   }
@@ -126,9 +142,11 @@ public class StarlarkFileContentHashTests extends BuildViewTestCase {
     String foo2 = getHash("pkg", "foo2");
     scratch.overwriteFile(
         "helper/ext.bzl",
-        "# Some comments to change file hash",
-        "def rule_impl(ctx):",
-        "  return None");
+        """
+        # Some comments to change file hash
+        def rule_impl(ctx):
+            return None
+        """);
     invalidatePackages();
     assertNotEquals(bar1, getHash("pkg", "bar1"));
     assertNotEquals(foo1, getHash("pkg", "foo1"));
@@ -141,10 +159,12 @@ public class StarlarkFileContentHashTests extends BuildViewTestCase {
     String foo2 = getHash("pkg", "foo2");
     scratch.overwriteFile(
         "bar/ext.bzl",
-        "load('//helper:ext.bzl', 'rule_impl')",
-        "# Some comments to change file hash",
-        "",
-        "bar1 = rule(implementation = rule_impl)");
+        """
+        load("//helper:ext.bzl", "rule_impl")
+        # Some comments to change file hash
+
+        bar1 = rule(implementation = rule_impl)
+        """);
     invalidatePackages();
     assertThat(getHash("pkg", "foo1")).isEqualTo(foo1);
     assertThat(getHash("pkg", "foo2")).isEqualTo(foo2);
@@ -160,7 +180,7 @@ public class StarlarkFileContentHashTests extends BuildViewTestCase {
    */
   private String getHash(String pkg, String name) throws Exception {
     PackageOptions packageOptions = Options.getDefaults(PackageOptions.class);
-    packageOptions.defaultVisibility = ConstantRuleVisibility.PUBLIC;
+    packageOptions.defaultVisibility = RuleVisibility.PUBLIC;
     packageOptions.showLoadingProgress = true;
     packageOptions.globbingThreads = 7;
     getSkyframeExecutor()
@@ -170,12 +190,13 @@ public class StarlarkFileContentHashTests extends BuildViewTestCase {
                 ImmutableList.of(Root.fromPath(rootDirectory)),
                 BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY),
             packageOptions,
-            Options.getDefaults(BuildLanguageOptions.class),
+            parseBuildLanguageOptions(),
             UUID.randomUUID(),
             ImmutableMap.<String, String>of(),
+            QuiescingExecutorsImpl.forTesting(),
             new TimestampGranularityMonitor(BlazeClock.instance()));
     skyframeExecutor.setActionEnv(ImmutableMap.<String, String>of());
-    SkyKey pkgLookupKey = PackageValue.key(PackageIdentifier.parse("@//" + pkg));
+    SkyKey pkgLookupKey = PackageIdentifier.createInMainRepo(pkg);
     EvaluationResult<PackageValue> result =
         SkyframeExecutorTestUtils.evaluate(
             getSkyframeExecutor(), pkgLookupKey, /*keepGoing=*/ false, reporter);

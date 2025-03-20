@@ -1,0 +1,110 @@
+book_path: /_book.yaml
+project_path: /_project.yaml
+
+title: Community & Product Partners
+landing_page:
+  header:
+    hide_lower_section: true
+  custom_css_path: /bazel.css
+
+  rows:
+  # Hero Row
+  - options:
+    - description-50
+    - hero
+    - large-headings
+    - no-image-background
+    classname: bazel-hero bazel-hero-full-bleed-light
+    items:
+    - classname: bazel-hero
+      image_path: /images/community.svg
+      heading: >
+        Community & Product Partners
+      description: >
+        Be a part of the community or partnership program by helping to improve the Bazel open source project.
+
+  # What's new Row
+  - options:
+    - no-image-background
+    - description-50
+    - large-headings
+    classname: bazel-body-light-cards
+    items:
+    - heading: Quicklinks<br><b>—</b>
+      description: >
+        Shortcuts to your favorite parts of the community guide.
+    - heading: Get help
+      path: /help
+      image_path: /images/why_faq.svg
+      description: >
+        Get and give support by joining the Bazel community on Slack, Stack Overflow, and more.
+    - heading: Community updates
+      path: /community/update
+      image_path: /images/new_3.svg
+      description: >
+        Tune in for our new monthly community update livestream.
+    - heading: Contributor's guide
+      path: /contribute/
+      image_path: /images/why_overview.svg
+      description: >
+        Discover how you can provide feedback, participate in the community, or write code for the Bazel project.
+
+  # Contributing row
+  - options:
+    - centered-header
+    - cards
+    background: white
+    heading: Contributing
+    description: >
+      Contribute code, feedback, or documentation to the Bazel OSS project.
+    items_across: 4
+    items:
+    - heading: Contributor's guide
+      path: /contribute/
+    - heading: Contribution policy
+      path: /contribute/policy
+    - heading: Patch acceptance process
+      path: /contribute/patch-acceptance
+    - heading: Maintainer's guide
+      path: /contribute/maintainers-guide
+    - heading: Codebase guide
+      path: /contribute/codebase
+    - heading: Searching the codebase
+      path: /contribute/search
+    - heading: Contribute documentation
+      path: /contribute/docs
+    - heading: Documentation style guide
+      path: /contribute/docs-style-guide
+    - heading: Writing design documents
+      path: /contribute/design-documents
+    - heading: Writing release notes
+      path: /contribute/release-notes
+
+  # Programs row
+  - options:
+    - centered-header
+    - cards
+    background: white
+    heading: Programs
+    description: >
+      Get supported, updated, and involved with our Bazel community programs.
+    items_across: 4
+    items:
+    - heading: Community updates
+      path: /community/update
+    - heading: Special Interest Groups
+      path: /community/sig
+    - heading: Bazel experts
+      path: /community/experts/
+    - heading: Bazel Product Partners
+      path: /community/partners/
+    - heading: Bazel users
+      path: /community/users
+    - heading: Nominate a recommended rule
+      path: /community/recommended-rules
+    - heading: Remote execution services
+      path: /community/remote-execution-services
+    - heading: Support channels
+      path: /help
+    - heading: Support policy
+      path: /contribute/policy

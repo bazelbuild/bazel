@@ -14,15 +14,17 @@
 
 package com.google.devtools.build.lib.analysis;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.DependencyFilter;
+import com.google.devtools.build.lib.packages.PackageArgs;
 import com.google.devtools.build.lib.packages.Type;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
+import javax.annotation.Nullable;
 
 /**
  * An {@link AttributeMap} that supports attribute type queries on both a rule and its aspects and
@@ -35,7 +37,7 @@ import java.util.function.Consumer;
  * <p>For example, given {@code deps = [":adep"]}, checking that {@code deps} exists or that it's
  * type is {@link com.google.devtools.build.lib.packages.BuildType#LABEL_LIST} are type queries.
  * Checking that its value is explicitly set in the BUILD File or that its value {@code [":adep"]}
- * are value queries..
+ * are value queries.
  *
  * <p>Value queries on aspect attributes trigger {@link UnsupportedOperationException}.
  */
@@ -50,16 +52,6 @@ class AspectAwareAttributeMapper implements AttributeMap {
   }
 
   @Override
-  public String getName() {
-    return ruleAttributes.getName();
-  }
-
-  @Override
-  public String getRuleClassName() {
-    return ruleAttributes.getRuleClassName();
-  }
-
-  @Override
   public Label getLabel() {
     return ruleAttributes.getLabel();
   }
@@ -71,13 +63,16 @@ class AspectAwareAttributeMapper implements AttributeMap {
     } else {
       Attribute attribute = aspectAttributes.get(attributeName);
       if (attribute == null) {
-        throw new IllegalArgumentException(String.format(
-            "no attribute '%s' in either %s or its aspects",
-            attributeName, ruleAttributes.getLabel()));
+        throw new IllegalArgumentException(
+            String.format(
+                "no attribute '%s' in either %s or its aspects",
+                attributeName, ruleAttributes.describeRule()));
       } else if (attribute.getType() != type) {
         throw new IllegalArgumentException(String.format(
             "attribute %s has type %s, not expected type %s",
             attributeName, attribute.getType(), type));
+      } else if (attribute.isImplicit()) {
+        return type.cast(attribute.getDefaultValue(/* rule= */ null));
       } else {
         throw new UnsupportedOperationException(
             String.format(
@@ -95,13 +90,11 @@ class AspectAwareAttributeMapper implements AttributeMap {
 
   @Override
   public Iterable<String> getAttributeNames() {
-    return ImmutableList.<String>builder()
-        .addAll(ruleAttributes.getAttributeNames())
-        .addAll(aspectAttributes.keySet())
-        .build();
+    return Iterables.concat(ruleAttributes.getAttributeNames(), aspectAttributes.keySet());
   }
 
   @Override
+  @Nullable
   public Type<?> getAttributeType(String attrName) {
     Type<?> type = ruleAttributes.getAttributeType(attrName);
     if (type != null) {
@@ -133,7 +126,7 @@ class AspectAwareAttributeMapper implements AttributeMap {
   }
 
   @Override
-  public void visitLabels(Attribute attribute, Consumer<Label> consumer) {
+  public void visitLabels(String attributeName, Consumer<Label> consumer) {
     throw new UnsupportedOperationException("rule + aspects label visition is not supported");
   }
 
@@ -143,23 +136,8 @@ class AspectAwareAttributeMapper implements AttributeMap {
   }
 
   @Override
-  public String getPackageDefaultHdrsCheck() {
-    return ruleAttributes.getPackageDefaultHdrsCheck();
-  }
-
-  @Override
-  public Boolean getPackageDefaultTestOnly() {
-    return ruleAttributes.getPackageDefaultTestOnly();
-  }
-
-  @Override
-  public String getPackageDefaultDeprecation() {
-    return ruleAttributes.getPackageDefaultDeprecation();
-  }
-
-  @Override
-  public ImmutableList<String> getPackageDefaultCopts() {
-    return ruleAttributes.getPackageDefaultCopts();
+  public PackageArgs getPackageArgs() {
+    return ruleAttributes.getPackageArgs();
   }
 
   @Override

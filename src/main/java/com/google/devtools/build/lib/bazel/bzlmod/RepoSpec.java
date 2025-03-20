@@ -14,53 +14,16 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
-import com.google.auto.value.AutoValue;
-import com.google.common.collect.ImmutableMap;
-import java.util.Optional;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.ryanharter.auto.value.gson.GenerateTypeAdapter;
 
 /**
- * A class holding information about the attributes of a repository rule and where the rule class is
- * defined.
+ * Contains information about a repo definition, including the ID of the underlying repo rule, and
+ * all its attributes (except for the name).
+ *
+ * @param repoRuleId The repo rule backing this repo.
+ * @param attributes All attribute values provided to the repo rule, except for <code>name</code>.
  */
-@AutoValue
-public abstract class RepoSpec {
-
-  /**
-   * The label string for the bzl file this repository rule is defined in, empty for native rule.
-   */
-  public abstract Optional<String> bzlFile();
-
-  public abstract String ruleClassName();
-
-  public abstract ImmutableMap<String, Object> attributes();
-
-  public static Builder builder() {
-    return new AutoValue_RepoSpec.Builder();
-  }
-
-  /** The builder for {@link RepoSpec} */
-  @AutoValue.Builder
-  public abstract static class Builder {
-    public abstract Builder setBzlFile(String bzlFile);
-
-    public abstract Builder setBzlFile(Optional<String> bzlFile);
-
-    public abstract Builder setRuleClassName(String name);
-
-    public abstract Builder setAttributes(ImmutableMap<String, Object> attributes);
-
-    public abstract RepoSpec build();
-  }
-
-  public boolean isNativeRepoRule() {
-    return !bzlFile().isPresent();
-  }
-
-  /**
-   * Return a string representing the rule class eg. Native repo rule: local_repository, Starlark
-   * repo rule: //:repo.bzl%my_repo
-   */
-  public String getRuleClass() {
-    return bzlFile().map(f -> f + "%").orElse("") + ruleClassName();
-  }
-}
+@AutoCodec
+@GenerateTypeAdapter
+public record RepoSpec(RepoRuleId repoRuleId, AttributeValues attributes) {}

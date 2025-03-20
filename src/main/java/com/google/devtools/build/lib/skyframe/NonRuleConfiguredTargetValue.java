@@ -13,8 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+
 import com.google.common.base.MoreObjects;
-import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
@@ -22,22 +22,17 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import javax.annotation.Nullable;
 
 /** A non-rule configured target in the context of a Skyframe graph. */
 @Immutable
 @ThreadSafe
-// Reached via OutputFileConfiguredTarget.
+// Reached via all ConfiguredTarget implementations except RuleConfiguredTarget.
 @AutoCodec(explicitlyAllowClass = RuleConfiguredTarget.class)
-public final class NonRuleConfiguredTargetValue implements ConfiguredTargetValue {
-  // These variables are only non-final because they may be clear()ed to save memory.
-  // configuredTarget is null only after it is cleared.
-  @Nullable private ConfiguredTarget configuredTarget;
-
-  // May be null either after clearing or because transitive packages are not tracked.
-  @Nullable private NestedSet<Package> transitivePackagesForPackageRootResolution;
+public final class NonRuleConfiguredTargetValue
+    extends AbstractConfiguredTargetValue<ConfiguredTarget> implements ConfiguredTargetValue {
 
   @AutoCodec.Instantiator
   @VisibleForSerialization
@@ -48,34 +43,14 @@ public final class NonRuleConfiguredTargetValue implements ConfiguredTargetValue
   }
 
   NonRuleConfiguredTargetValue(
-      ConfiguredTarget configuredTarget,
-      @Nullable NestedSet<Package> transitivePackagesForPackageRootResolution) {
-    this.configuredTarget = Preconditions.checkNotNull(configuredTarget);
-    this.transitivePackagesForPackageRootResolution = transitivePackagesForPackageRootResolution;
-  }
-
-  @Override
-  public ConfiguredTarget getConfiguredTarget() {
-    Preconditions.checkNotNull(configuredTarget);
-    return configuredTarget;
-  }
-
-  @Override
-  public NestedSet<Package> getTransitivePackagesForPackageRootResolution() {
-    return Preconditions.checkNotNull(transitivePackagesForPackageRootResolution);
-  }
-
-  @Override
-  public void clear(boolean clearEverything) {
-    Preconditions.checkNotNull(configuredTarget);
-    if (clearEverything) {
-      configuredTarget = null;
-    }
-    transitivePackagesForPackageRootResolution = null;
+      ConfiguredTarget configuredTarget, @Nullable NestedSet<Package.Metadata> transitivePackages) {
+    super(configuredTarget, transitivePackages);
   }
 
   @Override
   public String toString() {
-    return MoreObjects.toStringHelper(this).add("configuredTarget", configuredTarget).toString();
+    return MoreObjects.toStringHelper(this)
+        .add("configuredTarget", getConfiguredTarget())
+        .toString();
   }
 }

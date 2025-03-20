@@ -88,7 +88,7 @@ class TargetPatternsResultBuilder {
   private static Package findPackageInGraph(
       PackageIdentifier pkgIdentifier, WalkableGraph walkableGraph) throws InterruptedException {
     return Preconditions.checkNotNull(
-            ((PackageValue) walkableGraph.getValue(PackageValue.key(pkgIdentifier))), pkgIdentifier)
+            (PackageValue) walkableGraph.getValue(pkgIdentifier), pkgIdentifier)
         .getPackage();
   }
 

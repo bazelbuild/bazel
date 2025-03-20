@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.vfs.inmemoryfs;
 
 import static com.google.common.truth.Truth.assertThat;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.Lists;
@@ -26,7 +27,6 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.SymlinkAwareFileSystemTest;
-import com.google.testing.junit.testparameterinjector.TestParameter;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -412,18 +412,12 @@ public final class InMemoryFileSystemTest extends SymlinkAwareFileSystemTest {
     assertThat(symlink.getxattr("some.xattr")).isNull();
   }
 
-  // createSeekableByteChannel is not supported by InMemoryFileSystem.
   @Test
-  @Override
-  public void testCreateReadWriteByteChannelWrite(@TestParameter boolean overwrite) {}
+  public void testLargeFile() throws Exception {
+    Path file = testFS.getPath("/file");
 
-  // createSeekableByteChannel is not supported by InMemoryFileSystem.
-  @Test
-  @Override
-  public void testCreateReadWriteByteChannelWriteAfterSeek() {}
-
-  // createSeekableByteChannel is not supported by InMemoryFileSystem.
-  @Test
-  @Override
-  public void testCreateReadWriteByteChannelRead(@TestParameter({"0"}) int seekPosition) {}
+    String largeStr = "abcdefghijklmnopqrstuvwxyz".repeat(1000000);
+    FileSystemUtils.writeContent(file, UTF_8, largeStr);
+    assertThat(FileSystemUtils.readContent(file, UTF_8)).isEqualTo(largeStr);
+  }
 }

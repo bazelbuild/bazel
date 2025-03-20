@@ -14,27 +14,31 @@
 
 package com.google.devtools.build.lib.analysis.config;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.devtools.build.lib.skyframe.serialization.ImmutableMapCodecs.IMMUTABLE_MAP_CODEC;
+import static com.google.devtools.build.lib.skyframe.serialization.strings.UnsafeStringCodec.stringCodec;
+import static java.util.Comparator.naturalOrder;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
-import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.MapDifference;
 import com.google.common.collect.Maps;
-import com.google.common.collect.Multimap;
-import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.AsyncDeserializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.DeferredObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.LeafDeserializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.LeafObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.LeafSerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.Fingerprint;
-import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
@@ -42,6 +46,7 @@ import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.devtools.common.options.OptionsProvider;
 import com.google.devtools.common.options.ParsedOptionDescription;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
@@ -71,7 +76,21 @@ public final class BuildOptions implements Cloneable {
   public static Map<Label, Object> labelizeStarlarkOptions(Map<String, Object> starlarkOptions) {
     return starlarkOptions.entrySet().stream()
         .collect(
-            Collectors.toMap(e -> Label.parseAbsoluteUnchecked(e.getKey()), Map.Entry::getValue));
+            Collectors.toMap(e -> Label.parseCanonicalUnchecked(e.getKey()), Map.Entry::getValue));
+  }
+
+  /**
+   * Converts the map containing String representation of scopes attributes to a map of {@link
+   * Label} of Starlark options to their corresponding {@link Scope.ScopeType}.
+   */
+  private static ImmutableMap<Label, Scope.ScopeType> convertScopesAttributes(
+      Map<String, String> scopesAttributes, Map<String, Object> starlarkOptions) {
+    return scopesAttributes.entrySet().stream()
+        .filter(e -> starlarkOptions.containsKey(e.getKey()))
+        .collect(
+            toImmutableMap(
+                e -> Label.parseCanonicalUnchecked(e.getKey()),
+                e -> Scope.ScopeType.valueOfIgnoreCase(e.getValue())));
   }
 
   public static BuildOptions getDefaultBuildOptionsForFragments(
@@ -81,15 +100,6 @@ public final class BuildOptions implements Cloneable {
     } catch (OptionsParsingException e) {
       throw new IllegalArgumentException("Failed to parse empty options", e);
     }
-  }
-
-  /** Creates a new BuildOptions instance for host. */
-  public BuildOptions createHostOptions() {
-    Builder builder = builder();
-    for (FragmentOptions options : fragmentOptionsMap.values()) {
-      builder.addFragmentOptions(options.getHost());
-    }
-    return builder.addStarlarkOptions(starlarkOptionsMap).build();
   }
 
   /**
@@ -104,6 +114,8 @@ public final class BuildOptions implements Cloneable {
     }
     return builder
         .addStarlarkOptions(labelizeStarlarkOptions(provider.getStarlarkOptions()))
+        .addScopeTypeMap(
+            convertScopesAttributes(provider.getScopesAttributes(), provider.getStarlarkOptions()))
         .build();
   }
 
@@ -132,16 +144,35 @@ public final class BuildOptions implements Cloneable {
     return builder().addStarlarkOptions(starlarkOptions).build();
   }
 
-  /** Returns the actual instance of a FragmentOptions class. */
+  /**
+   * Returns the actual instance of a {@link FragmentOptions} class, or {@code null} if the options
+   * class is not present.
+   */
+  @Nullable
   public <T extends FragmentOptions> T get(Class<T> optionsClass) {
     FragmentOptions options = fragmentOptionsMap.get(optionsClass);
-    checkNotNull(options, "fragment options unavailable: %s", optionsClass);
     return optionsClass.cast(options);
   }
 
   /** Returns true if these options contain the given {@link FragmentOptions}. */
   public boolean contains(Class<? extends FragmentOptions> optionsClass) {
     return fragmentOptionsMap.containsKey(optionsClass);
+  }
+
+  /**
+   * Are these options "empty", meaning they contain no meaningful configuration information?
+   *
+   * <p>See {@link com.google.devtools.build.lib.analysis.config.transitions.NoConfigTransition}.
+   */
+  public boolean hasNoConfig() {
+    // Ideally the implementation is fragmentOptionsMap.isEmpty() && starlarkOptionsMap.isEmpty().
+    // See NoConfigTransition for why CoreOptions stays included.
+    return fragmentOptionsMap.size() == 1
+        && Iterables.getOnlyElement(fragmentOptionsMap.values())
+            .getClass()
+            .getSimpleName()
+            .equals("CoreOptions")
+        && starlarkOptionsMap.isEmpty();
   }
 
   /** Returns a hex digest string uniquely identifying the build options. */
@@ -157,6 +188,7 @@ public final class BuildOptions implements Cloneable {
               fingerprint.addString(options.cacheKey());
             }
             fingerprint.addString(OptionsBase.mapToCacheKey(starlarkOptionsMap));
+            fingerprint.addString(OptionsBase.mapToCacheKey(scopes));
             checksum = fingerprint.hexDigestAndReset();
           }
         }
@@ -165,27 +197,56 @@ public final class BuildOptions implements Cloneable {
     return checksum;
   }
 
+  /**
+   * Returns a user-friendly configuration identifier as a prefix of <code>fullId</code>.
+   *
+   * <p>This eliminates having to manipulate long full hashes, just like Git short commit hashes.
+   */
+  public String shortId() {
+    // Inherit Git's default commit hash prefix length. It's a principled choice with similar usage
+    // patterns. cquery, which uses this, has access to every configuration in the build. If it
+    // turns out this setting produces ambiguous prefixes, we could always compare configurations
+    // to find the actual minimal unambiguous length.
+    return checksum() == null ? "null" : checksum().substring(0, 7);
+  }
+
   @Override
   public String toString() {
     return MoreObjects.toStringHelper(this)
         .add("checksum", checksum())
         .add("fragmentOptions", fragmentOptionsMap.values())
         .add("starlarkOptions", starlarkOptionsMap)
+        .add("scopes", scopes)
         .toString();
   }
 
-  /** Returns the options contained in this collection. */
+  /** Returns the options contained in this collection, sorted by {@link FragmentOptions} name. */
   public ImmutableCollection<FragmentOptions> getNativeOptions() {
     return fragmentOptionsMap.values();
   }
 
-  /** Returns the set of fragment classes contained in these options. */
+  /**
+   * Returns the set of fragment classes contained in these options, sorted by {@link
+   * FragmentOptions} name.
+   */
   public ImmutableSet<Class<? extends FragmentOptions>> getFragmentClasses() {
     return fragmentOptionsMap.keySet();
   }
 
+  /** Starlark options, sorted lexicographically by name. */
   public ImmutableMap<Label, Object> getStarlarkOptions() {
     return starlarkOptionsMap;
+  }
+
+  /**
+   * Map of {@link ScopeType} for starlark options. Before the final {@link BuildOptions} is
+   * produced to create the final {@link BuildConfigurationKey}, the {@link ScopeType} for each
+   * starlark flag is expected to be resolved. If there is a transition involved introducing a
+   * starlark flag that is not already part of the baseline configuration, the {@link ScopeType} for
+   * that flag will be null until the final {@link BuildOptions} is produced.
+   */
+  public ImmutableMap<Label, Scope.ScopeType> getScopeTypeMap() {
+    return scopes;
   }
 
   /**
@@ -194,13 +255,17 @@ public final class BuildOptions implements Cloneable {
    */
   @Override
   public BuildOptions clone() {
-    ImmutableMap.Builder<Class<? extends FragmentOptions>, FragmentOptions> nativeOptionsBuilder =
-        ImmutableMap.builderWithExpectedSize(fragmentOptionsMap.size());
-    for (Map.Entry<Class<? extends FragmentOptions>, FragmentOptions> entry :
-        fragmentOptionsMap.entrySet()) {
-      nativeOptionsBuilder.put(entry.getKey(), entry.getValue().clone());
-    }
-    return new BuildOptions(nativeOptionsBuilder.build(), ImmutableMap.copyOf(starlarkOptionsMap));
+    ImmutableMap<Class<? extends FragmentOptions>, FragmentOptions> nativeOptions =
+        fragmentOptionsMap.entrySet().stream()
+            .collect(
+                toImmutableMap(
+                    Map.Entry::getKey,
+                    // Explicitly clone native options because FragmentOptions is mutable.
+                    e -> e.getValue().clone()));
+    // Note that this assumes that starlark option values are immutable.
+    ImmutableMap<Label, Object> starlarkOptions = ImmutableMap.copyOf(starlarkOptionsMap);
+    ImmutableMap<Label, Scope.ScopeType> scopes = this.scopes;
+    return new BuildOptions(nativeOptions, starlarkOptions, scopes);
   }
 
   @Override
@@ -221,88 +286,32 @@ public final class BuildOptions implements Cloneable {
 
   /** Maps options class definitions to FragmentOptions objects. */
   private final ImmutableMap<Class<? extends FragmentOptions>, FragmentOptions> fragmentOptionsMap;
-  /** Maps Starlark options names to Starlark options values. */
+
+  /**
+   * Maps Starlark options names to Starlark options values. This should never contain an entry for
+   * a Starlark option and the default value: if a Starlark option is explicitly or implicitly set
+   * to the default it should be removed from this map so that configurations are not duplicated
+   * needlessly.
+   */
   private final ImmutableMap<Label, Object> starlarkOptionsMap;
+
+  // TODO: b/377559852 - Merge scopes into starlarkOptionsMap
+  /** Maps Starlark options names to {@link Scope} information */
+  private final ImmutableMap<Label, Scope.ScopeType> scopes;
 
   // Lazily initialized both for performance and correctness - BuildOptions instances may be mutated
   // after construction but before consumption. Access via checksum() to ensure initialization. This
   // field is volatile as per https://errorprone.info/bugpattern/DoubleCheckedLocking, which
   // encourages using volatile even for immutable objects.
-  @Nullable private volatile String checksum = null;
+  @Nullable private transient volatile String checksum = null;
 
   private BuildOptions(
       ImmutableMap<Class<? extends FragmentOptions>, FragmentOptions> fragmentOptionsMap,
-      ImmutableMap<Label, Object> starlarkOptionsMap) {
+      ImmutableMap<Label, Object> starlarkOptionsMap,
+      ImmutableMap<Label, Scope.ScopeType> scopes) {
     this.fragmentOptionsMap = fragmentOptionsMap;
     this.starlarkOptionsMap = starlarkOptionsMap;
-  }
-
-  /**
-   * Applies any options set in the parsing result on top of these options, returning the resulting
-   * build options.
-   *
-   * <p>To preserve fragment trimming, this method will not expand the set of included native
-   * fragments. If the parsing result contains native options whose owning fragment is not part of
-   * these options they will be ignored (i.e. not set on the resulting options). Starlark options
-   * are not affected by this restriction.
-   *
-   * @param parsingResult any options that are being modified
-   * @return the new options after applying the parsing result to the original options
-   */
-  public BuildOptions applyParsingResult(OptionsParsingResult parsingResult) {
-    Map<Class<? extends FragmentOptions>, FragmentOptions> modifiedFragments =
-        toModifiedFragments(parsingResult);
-
-    BuildOptions.Builder builder = builder();
-    for (Map.Entry<Class<? extends FragmentOptions>, FragmentOptions> classAndFragment :
-        fragmentOptionsMap.entrySet()) {
-      Class<? extends FragmentOptions> fragmentClass = classAndFragment.getKey();
-      if (modifiedFragments.containsKey(fragmentClass)) {
-        builder.addFragmentOptions(modifiedFragments.get(fragmentClass));
-      } else {
-        builder.addFragmentOptions(classAndFragment.getValue());
-      }
-    }
-
-    Map<Label, Object> starlarkOptions = new HashMap<>(starlarkOptionsMap);
-    Map<Label, Object> parsedStarlarkOptions =
-        labelizeStarlarkOptions(parsingResult.getStarlarkOptions());
-    for (Map.Entry<Label, Object> starlarkOption : parsedStarlarkOptions.entrySet()) {
-      starlarkOptions.put(starlarkOption.getKey(), starlarkOption.getValue());
-    }
-    builder.addStarlarkOptions(starlarkOptions);
-    return builder.build();
-  }
-
-  private Map<Class<? extends FragmentOptions>, FragmentOptions> toModifiedFragments(
-      OptionsParsingResult parsingResult) {
-    Map<Class<? extends FragmentOptions>, FragmentOptions> replacedOptions = new HashMap<>();
-    for (ParsedOptionDescription parsedOption : parsingResult.asListOfExplicitOptions()) {
-      OptionDefinition optionDefinition = parsedOption.getOptionDefinition();
-
-      // All options obtained from an options parser are guaranteed to have been defined in an
-      // FragmentOptions class.
-      @SuppressWarnings("unchecked")
-      Class<? extends FragmentOptions> fragmentOptionClass =
-          (Class<? extends FragmentOptions>) optionDefinition.getField().getDeclaringClass();
-
-      FragmentOptions originalFragment = fragmentOptionsMap.get(fragmentOptionClass);
-      if (originalFragment == null) {
-        // Preserve trimming by ignoring fragments not present in the original options.
-        continue;
-      }
-      FragmentOptions newOptions =
-          replacedOptions.computeIfAbsent(fragmentOptionClass, unused -> originalFragment.clone());
-      try {
-        Object value =
-            parsingResult.getOptionValueDescription(optionDefinition.getOptionName()).getValue();
-        optionDefinition.getField().set(newOptions, value);
-      } catch (IllegalAccessException e) {
-        throw new IllegalStateException("Couldn't set " + optionDefinition.getField(), e);
-      }
-    }
-
-    return replacedOptions;
+    this.scopes = scopes;
   }
 
   /**
@@ -326,9 +335,8 @@ public final class BuildOptions implements Cloneable {
 
       // All options obtained from an options parser are guaranteed to have been defined in an
       // FragmentOptions class.
-      @SuppressWarnings("unchecked")
       Class<? extends FragmentOptions> fragmentClass =
-          (Class<? extends FragmentOptions>) optionDefinition.getField().getDeclaringClass();
+          optionDefinition.getDeclaringClass(FragmentOptions.class);
 
       FragmentOptions originalFragment = fragmentOptionsMap.get(fragmentClass);
       if (originalFragment == null) {
@@ -376,11 +384,13 @@ public final class BuildOptions implements Cloneable {
      * Merges the given BuildOptions into this builder, overriding any previous instances of
      * Starlark options or FragmentOptions subclasses found in the new BuildOptions.
      */
+    @CanIgnoreReturnValue
     public Builder merge(BuildOptions options) {
       for (FragmentOptions fragment : options.getNativeOptions()) {
         this.addFragmentOptions(fragment);
       }
       this.addStarlarkOptions(options.getStarlarkOptions());
+      this.addScopeTypeMap(options.getScopeTypeMap());
       return this;
     }
 
@@ -391,278 +401,126 @@ public final class BuildOptions implements Cloneable {
      *
      * <p>The options get preprocessed with {@link FragmentOptions#getNormalized}.
      */
+    @CanIgnoreReturnValue
     public <T extends FragmentOptions> Builder addFragmentOptions(T options) {
       fragmentOptions.put(options.getClass(), options.getNormalized());
       return this;
     }
 
     /**
+     * Returns the {@link FragmentOptions} for the given class, or {@code null} if that fragment is
+     * not present.
+     */
+    @Nullable
+    @SuppressWarnings("unchecked")
+    public <T extends FragmentOptions> T getFragmentOptions(Class<T> key) {
+      return (T) fragmentOptions.get(key);
+    }
+
+    /** Removes the value for the {@link FragmentOptions} with the given FragmentOptions class. */
+    @CanIgnoreReturnValue
+    public Builder removeFragmentOptions(Class<? extends FragmentOptions> key) {
+      fragmentOptions.remove(key);
+      return this;
+    }
+
+    /**
      * Adds multiple Starlark options to the builder. Overrides previous instances of the same key.
      */
+    @CanIgnoreReturnValue
     public Builder addStarlarkOptions(Map<Label, Object> options) {
       starlarkOptions.putAll(options);
       return this;
     }
 
     /** Adds a Starlark option to the builder. Overrides previous instances of the same key. */
+    @CanIgnoreReturnValue
     public Builder addStarlarkOption(Label key, Object value) {
       starlarkOptions.put(key, value);
       return this;
     }
 
-    /** Removes the value for the {@link FragmentOptions} with the given FragmentOptions class. */
-    public Builder removeFragmentOptions(Class<? extends FragmentOptions> key) {
-      fragmentOptions.remove(key);
+    /**
+     * Adds ScopeType for a Starlark option to the builder. Overrides previous instances of the same
+     * key.
+     */
+    @CanIgnoreReturnValue
+    public Builder addScopeType(Label key, Scope.ScopeType value) {
+      scopes.put(key, value);
       return this;
     }
 
-    /** Removes the value for the Starlark option with the given key. */
+    @CanIgnoreReturnValue
+    public Builder addScopeTypeMap(Map<Label, Scope.ScopeType> scopes) {
+      for (Map.Entry<Label, Scope.ScopeType> entry : scopes.entrySet()) {
+        this.scopes.put(entry.getKey(), entry.getValue());
+      }
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder removeScope(Label key) {
+      scopes.remove(key);
+      return this;
+    }
+
+    /** Removes the value and associated ScopeType for the Starlark option with the given key. */
+    @CanIgnoreReturnValue
     public Builder removeStarlarkOption(Label key) {
       starlarkOptions.remove(key);
+      removeScope(key);
       return this;
     }
 
     public BuildOptions build() {
       return new BuildOptions(
-          ImmutableSortedMap.copyOf(fragmentOptions, LEXICAL_FRAGMENT_OPTIONS_COMPARATOR),
-          ImmutableSortedMap.copyOf(starlarkOptions));
+          sortedImmutableHashMap(fragmentOptions, LEXICAL_FRAGMENT_OPTIONS_COMPARATOR),
+          sortedImmutableHashMap(starlarkOptions, naturalOrder()),
+          sortedImmutableHashMap(scopes, naturalOrder()));
+    }
+
+    /**
+     * Constructs a hash-based {@link ImmutableMap} copy of the given map, with an iteration order
+     * defined by the given key comparator.
+     *
+     * <p>The returned map has a deterministic iteration order but is <em>not</em> an {@link
+     * ImmutableSortedMap}, which uses binary search lookups. Hash-based lookups are expected to be
+     * much faster for build options.
+     */
+    private static <K, V> ImmutableMap<K, V> sortedImmutableHashMap(
+        Map<K, V> map, Comparator<K> keyComparator) {
+      List<Map.Entry<K, V>> entries = new ArrayList<>(map.entrySet());
+      entries.sort(Map.Entry.comparingByKey(keyComparator));
+      return ImmutableMap.copyOf(entries);
     }
 
     private final Map<Class<? extends FragmentOptions>, FragmentOptions> fragmentOptions =
         new HashMap<>();
-    private final Map<Label, Object> starlarkOptions = new HashMap<>();
+    private final LinkedHashMap<Label, Object> starlarkOptions = new LinkedHashMap<>();
+
+    // TODO: b/377559852 - Merge scopes into starlarkOptionsMap
+    private final LinkedHashMap<Label, Scope.ScopeType> scopes = new LinkedHashMap<>();
 
     private Builder() {}
   }
 
-  /** Returns the difference between two BuildOptions in a new {@link BuildOptions.OptionsDiff}. */
-  public static OptionsDiff diff(BuildOptions first, BuildOptions second) {
-    return diff(new OptionsDiff(), first, second);
+  public static ValueSharingCodec valueSharingCodec() {
+    return ValueSharingCodec.INSTANCE;
   }
 
   /**
-   * Returns the difference between two BuildOptions in a pre-existing {@link
-   * BuildOptions.OptionsDiff}.
+   * A value sharing codec for BuildOptions that does not rely on an OptionsChecksumCache.
    *
-   * <p>In a single pass through this method, the method can only compare a single "first" {@link
-   * BuildOptions} and single "second" BuildOptions; but an OptionsDiff instance can store the diff
-   * between a single "first" BuildOptions and multiple "second" BuildOptions. Being able to
-   * maintain a single OptionsDiff over multiple calls to diff is useful for, for example,
-   * aggregating the difference between a single BuildOptions and the results of applying a {@link
-   * com.google.devtools.build.lib.analysis.config.transitions.SplitTransition}) to it.
+   * <p>This allows the BuildOptions object to be serialized remotely, and fetched with a new
+   * instance without relying on an existing local primed cache.
    */
-  @SuppressWarnings("ReferenceEquality") // See comment above == comparison.
-  public static OptionsDiff diff(OptionsDiff diff, BuildOptions first, BuildOptions second) {
-    checkArgument(
-        !diff.hasStarlarkOptions,
-        "OptionsDiff cannot handle multiple 'second' BuildOptions with Starlark options and is"
-            + " trying to diff against %s",
-        diff);
-    checkNotNull(first);
-    checkNotNull(second);
-    if (first.equals(second)) {
-      return diff;
+  private static final class ValueSharingCodec extends DeferredObjectCodec<BuildOptions> {
+    private static final ValueSharingCodec INSTANCE = new ValueSharingCodec();
+
+    @Override
+    public boolean autoRegister() {
+      return false;
     }
-
-    // Check and report if either class has been trimmed of an options class that exists in the
-    // other.
-    ImmutableSet<Class<? extends FragmentOptions>> firstOptionClasses =
-        first.getNativeOptions().stream()
-            .map(FragmentOptions::getClass)
-            .collect(ImmutableSet.toImmutableSet());
-    ImmutableSet<Class<? extends FragmentOptions>> secondOptionClasses =
-        second.getNativeOptions().stream()
-            .map(FragmentOptions::getClass)
-            .collect(ImmutableSet.toImmutableSet());
-    Sets.difference(firstOptionClasses, secondOptionClasses).forEach(diff::addExtraFirstFragment);
-    Sets.difference(secondOptionClasses, firstOptionClasses).stream()
-        .map(second::get)
-        .forEach(diff::addExtraSecondFragment);
-
-    // For fragments in common, report differences.
-    for (Class<? extends FragmentOptions> clazz :
-        Sets.intersection(firstOptionClasses, secondOptionClasses)) {
-      FragmentOptions firstOptions = first.get(clazz);
-      FragmentOptions secondOptions = second.get(clazz);
-      // We avoid calling #equals because we are going to do a field-by-field comparison anyway.
-      if (firstOptions == secondOptions) {
-        continue;
-      }
-      for (OptionDefinition definition : OptionsParser.getOptionDefinitions(clazz)) {
-        Object firstValue = firstOptions.getValueFromDefinition(definition);
-        Object secondValue = secondOptions.getValueFromDefinition(definition);
-        if (!Objects.equals(firstValue, secondValue)) {
-          diff.addDiff(clazz, definition, firstValue, secondValue);
-        }
-      }
-    }
-
-    // Compare Starlark options for the two classes.
-    Map<Label, Object> starlarkFirst = first.starlarkOptionsMap;
-    Map<Label, Object> starlarkSecond = second.starlarkOptionsMap;
-    for (Label buildSetting : Sets.union(starlarkFirst.keySet(), starlarkSecond.keySet())) {
-      if (starlarkFirst.get(buildSetting) == null) {
-        diff.addExtraSecondStarlarkOption(buildSetting, starlarkSecond.get(buildSetting));
-      } else if (starlarkSecond.get(buildSetting) == null) {
-        diff.addExtraFirstStarlarkOption(buildSetting);
-      } else if (!starlarkFirst.get(buildSetting).equals(starlarkSecond.get(buildSetting))) {
-        diff.putStarlarkDiff(
-            buildSetting, starlarkFirst.get(buildSetting), starlarkSecond.get(buildSetting));
-      }
-    }
-    return diff;
-  }
-
-  /**
-   * A diff class for BuildOptions. Fields are meant to be populated and returned by {@link
-   * BuildOptions#diff}.
-   */
-  public static final class OptionsDiff {
-    private final Multimap<Class<? extends FragmentOptions>, OptionDefinition> differingOptions =
-        ArrayListMultimap.create();
-    // The keyset for the {@link first} and {@link second} maps are identical and indicate which
-    // specific options differ between the first and second built options.
-    private final Map<OptionDefinition, Object> first = new LinkedHashMap<>();
-    // Since this class can be used to track the result of transitions, {@link second} is a multimap
-    // to be able to handle {@link SplitTransition}s.
-    private final Multimap<OptionDefinition, Object> second = OrderedSetMultimap.create();
-    // List of "extra" fragments for each BuildOption aka fragments that were trimmed off one
-    // BuildOption but not the other.
-    private final Set<Class<? extends FragmentOptions>> extraFirstFragments = new HashSet<>();
-    private final Set<FragmentOptions> extraSecondFragments = new HashSet<>();
-
-    private final Map<Label, Object> starlarkFirst = new LinkedHashMap<>();
-    // TODO(b/112041323): This should also be multimap but we don't diff multiple times with
-    // Starlark options anywhere yet so add that feature when necessary.
-    private final Map<Label, Object> starlarkSecond = new LinkedHashMap<>();
-
-    private final List<Label> extraStarlarkOptionsFirst = new ArrayList<>();
-    private final Map<Label, Object> extraStarlarkOptionsSecond = new HashMap<>();
-
-    private boolean hasStarlarkOptions = false;
-
-    @VisibleForTesting
-    Set<Class<? extends FragmentOptions>> getExtraFirstFragmentClassesForTesting() {
-      return extraFirstFragments;
-    }
-
-    @VisibleForTesting
-    Set<FragmentOptions> getExtraSecondFragmentsForTesting() {
-      return extraSecondFragments;
-    }
-
-    public Map<OptionDefinition, Object> getFirst() {
-      return first;
-    }
-
-    public Multimap<OptionDefinition, Object> getSecond() {
-      return second;
-    }
-
-    private void addDiff(
-        Class<? extends FragmentOptions> fragmentOptionsClass,
-        OptionDefinition option,
-        Object firstValue,
-        Object secondValue) {
-      differingOptions.put(fragmentOptionsClass, option);
-      first.put(option, firstValue);
-      second.put(option, secondValue);
-    }
-
-    private void addExtraFirstFragment(Class<? extends FragmentOptions> options) {
-      extraFirstFragments.add(options);
-    }
-
-    private void addExtraSecondFragment(FragmentOptions options) {
-      extraSecondFragments.add(options);
-    }
-
-    private void putStarlarkDiff(Label buildSetting, Object firstValue, Object secondValue) {
-      starlarkFirst.put(buildSetting, firstValue);
-      starlarkSecond.put(buildSetting, secondValue);
-      hasStarlarkOptions = true;
-    }
-
-    private void addExtraFirstStarlarkOption(Label buildSetting) {
-      extraStarlarkOptionsFirst.add(buildSetting);
-      hasStarlarkOptions = true;
-    }
-
-    private void addExtraSecondStarlarkOption(Label buildSetting, Object value) {
-      extraStarlarkOptionsSecond.put(buildSetting, value);
-      hasStarlarkOptions = true;
-    }
-
-    /**
-     * Returns the labels of all starlark options that caused a difference between the first and
-     * second options set.
-     */
-    public Set<Label> getChangedStarlarkOptions() {
-      return ImmutableSet.<Label>builder()
-          .addAll(starlarkFirst.keySet())
-          .addAll(starlarkSecond.keySet())
-          .addAll(extraStarlarkOptionsFirst)
-          .addAll(extraStarlarkOptionsSecond.keySet())
-          .build();
-    }
-
-    @VisibleForTesting
-    Map<Label, Object> getStarlarkFirstForTesting() {
-      return starlarkFirst;
-    }
-
-    @VisibleForTesting
-    Map<Label, Object> getStarlarkSecondForTesting() {
-      return starlarkSecond;
-    }
-
-    @VisibleForTesting
-    List<Label> getExtraStarlarkOptionsFirstForTesting() {
-      return extraStarlarkOptionsFirst;
-    }
-
-    @VisibleForTesting
-    Map<Label, Object> getExtraStarlarkOptionsSecondForTesting() {
-      return extraStarlarkOptionsSecond;
-    }
-
-    /**
-     * Note: it's not enough for first and second to be empty, with trimming, they must also contain
-     * the same options classes.
-     */
-    boolean areSame() {
-      return first.isEmpty()
-          && second.isEmpty()
-          && extraSecondFragments.isEmpty()
-          && extraFirstFragments.isEmpty()
-          && differingOptions.isEmpty()
-          && starlarkFirst.isEmpty()
-          && starlarkSecond.isEmpty()
-          && extraStarlarkOptionsFirst.isEmpty()
-          && extraStarlarkOptionsSecond.isEmpty();
-    }
-
-    public String prettyPrint() {
-      StringBuilder toReturn = new StringBuilder();
-      for (String diff : getPrettyPrintList()) {
-        toReturn.append(diff).append(System.lineSeparator());
-      }
-      return toReturn.toString();
-    }
-
-    public List<String> getPrettyPrintList() {
-      List<String> toReturn = new ArrayList<>();
-      first.forEach(
-          (option, value) ->
-              toReturn.add(option.getOptionName() + ":" + value + " -> " + second.get(option)));
-      starlarkFirst.forEach(
-          (option, value) -> toReturn.add(option + ":" + value + starlarkSecond.get(option)));
-      return toReturn;
-    }
-  }
-
-  @SuppressWarnings("unused") // Used reflectively.
-  private static final class Codec implements ObjectCodec<BuildOptions> {
 
     @Override
     public Class<BuildOptions> getEncodedClass() {
@@ -672,19 +530,104 @@ public final class BuildOptions implements Cloneable {
     @Override
     public void serialize(
         SerializationContext context, BuildOptions options, CodedOutputStream codedOut)
-        throws IOException {
-      context.getDependency(OptionsChecksumCache.class).prime(options);
-      codedOut.writeStringNoTag(options.checksum());
+        throws SerializationException, IOException {
+      context.putSharedValue(options.fragmentOptionsMap, null, IMMUTABLE_MAP_CODEC, codedOut);
+      context.putSharedValue(options.starlarkOptionsMap, null, IMMUTABLE_MAP_CODEC, codedOut);
+      context.putSharedValue(options.scopes, null, IMMUTABLE_MAP_CODEC, codedOut);
     }
 
     @Override
-    public BuildOptions deserialize(DeserializationContext context, CodedInputStream codedIn)
-        throws IOException {
-      String checksum = codedIn.readString();
-      return checkNotNull(
-          context.getDependency(OptionsChecksumCache.class).getOptions(checksum),
-          "No options instance for %s",
-          checksum);
+    public DeferredValue<? extends BuildOptions> deserializeDeferred(
+        AsyncDeserializationContext context, CodedInputStream codedIn)
+        throws SerializationException, IOException {
+      var builder = new DeserializationBuilder();
+      context.getSharedValue(
+          codedIn,
+          null,
+          IMMUTABLE_MAP_CODEC,
+          builder,
+          DeserializationBuilder::setFragmentOptionsMap);
+      context.getSharedValue(
+          codedIn,
+          null,
+          IMMUTABLE_MAP_CODEC,
+          builder,
+          DeserializationBuilder::setStarlarkOptionsMap);
+      context.getSharedValue(
+          codedIn, null, IMMUTABLE_MAP_CODEC, builder, DeserializationBuilder::setScopes);
+      return builder;
+    }
+
+    private static final class DeserializationBuilder
+        implements DeferredObjectCodec.DeferredValue<BuildOptions> {
+
+      ImmutableMap<Class<? extends FragmentOptions>, FragmentOptions> fragmentOptionsMap;
+      ImmutableMap<Label, Object> starlarkOptionsMap;
+      // TODO: b/377559852 - Merge scopes into starlarkOptionsMap
+      ImmutableMap<Label, Scope.ScopeType> scopes;
+
+      @Override
+      public BuildOptions call() {
+        return new BuildOptions(fragmentOptionsMap, starlarkOptionsMap, scopes);
+      }
+
+      @SuppressWarnings("unchecked")
+      private static void setFragmentOptionsMap(DeserializationBuilder builder, Object value) {
+        builder.fragmentOptionsMap =
+            (ImmutableMap<Class<? extends FragmentOptions>, FragmentOptions>) value;
+      }
+
+      @SuppressWarnings("unchecked")
+      private static void setStarlarkOptionsMap(DeserializationBuilder builder, Object value) {
+        builder.starlarkOptionsMap = (ImmutableMap<Label, Object>) value;
+      }
+
+      @SuppressWarnings("unchecked")
+      private static void setScopes(DeserializationBuilder builder, Object value) {
+        builder.scopes = (ImmutableMap<Label, Scope.ScopeType>) value;
+      }
+    }
+  }
+
+  /**
+   * Codec for {@link BuildOptions}.
+   *
+   * <p>This codec works by serializing the {@link BuildOptions#checksum} only. This works due to
+   * the assumption that anytime a value containing a particular configuration is deserialized, it
+   * was previously requested using the same configuration key, thus priming the cache.
+   */
+  @VisibleForSerialization
+  public static final class Codec extends LeafObjectCodec<BuildOptions> {
+    private static final Codec INSTANCE = new Codec();
+
+    public static Codec buildOptionsCodec() {
+      return INSTANCE;
+    }
+
+    @Override
+    public Class<BuildOptions> getEncodedClass() {
+      return BuildOptions.class;
+    }
+
+    @Override
+    public void serialize(
+        LeafSerializationContext context, BuildOptions options, CodedOutputStream codedOut)
+        throws SerializationException, IOException {
+      if (!context.getDependency(OptionsChecksumCache.class).prime(options)) {
+        throw new SerializationException("Failed to prime cache for " + options.checksum());
+      }
+      context.serializeLeaf(options.checksum(), stringCodec(), codedOut);
+    }
+
+    @Override
+    public BuildOptions deserialize(LeafDeserializationContext context, CodedInputStream codedIn)
+        throws SerializationException, IOException {
+      String checksum = context.deserializeLeaf(codedIn, stringCodec());
+      BuildOptions result = context.getDependency(OptionsChecksumCache.class).getOptions(checksum);
+      if (result == null) {
+        throw new SerializationException("No options instance for " + checksum);
+      }
+      return result;
     }
   }
 
@@ -696,15 +639,22 @@ public final class BuildOptions implements Cloneable {
 
     /**
      * Called during deserialization to transform a checksum into a {@link BuildOptions} instance.
+     *
+     * <p>Returns {@code null} when the given checksum is unknown, in which case the codec throws
+     * {@link SerializationException}.
      */
+    @Nullable
     BuildOptions getOptions(String checksum);
 
     /**
      * Notifies the cache that it may be necessary to deserialize the given options diff's checksum.
      *
      * <p>Called each time an {@link BuildOptions} instance is serialized.
+     *
+     * @return whether this cache was successfully primed, if {@code false} the codec will throw
+     *     {@link SerializationException}
      */
-    void prime(BuildOptions options);
+    boolean prime(BuildOptions options);
   }
 
   /**
@@ -716,13 +666,15 @@ public final class BuildOptions implements Cloneable {
     private final ConcurrentMap<String, BuildOptions> map = new ConcurrentHashMap<>();
 
     @Override
+    @Nullable
     public BuildOptions getOptions(String checksum) {
       return map.get(checksum);
     }
 
     @Override
-    public void prime(BuildOptions options) {
+    public boolean prime(BuildOptions options) {
       map.putIfAbsent(options.checksum(), options);
+      return true;
     }
   }
 }

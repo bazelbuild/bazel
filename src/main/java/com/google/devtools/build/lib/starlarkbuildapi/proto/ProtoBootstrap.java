@@ -15,52 +15,54 @@
 package com.google.devtools.build.lib.starlarkbuildapi.proto;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
-import com.google.devtools.build.lib.starlarkbuildapi.ProtoInfoApi.ProtoInfoProviderApi;
-import com.google.devtools.build.lib.starlarkbuildapi.StarlarkAspectApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.Bootstrap;
-import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
-import net.starlark.java.eval.FlagGuardedValue;
+import com.google.devtools.build.lib.starlarkbuildapi.core.ContextAndFlagGuardedValue;
+import com.google.devtools.build.lib.starlarkbuildapi.stubs.ProviderStub;
 
 /** A {@link Bootstrap} for Starlark objects related to protocol buffers. */
 public class ProtoBootstrap implements Bootstrap {
+  private static final ImmutableSet<PackageIdentifier> allowedRepositories =
+      ImmutableSet.of(
+          PackageIdentifier.createUnchecked("_builtins", ""),
+          PackageIdentifier.createUnchecked("rules_proto", ""),
+          PackageIdentifier.createUnchecked("", "tools/build_defs/proto"));
 
   /** The name of the proto info provider in Starlark. */
   public static final String PROTO_INFO_STARLARK_NAME = "ProtoInfo";
 
-  /** The name of the proto toolchain info provider in Starlark. */
-  public static final String PROTO_TOOLCHAIN_INFO_STARLARK_NAME = "ProtoToolchainInfo";
-
   /** The name of the proto namespace in Starlark. */
   public static final String PROTO_COMMON_NAME = "proto_common";
 
-  private final ProtoInfoProviderApi protoInfoApiProvider;
-  private final Object protoCommon;
-  private final StarlarkAspectApi protoRegistryAspect;
-  private final ProviderApi protoRegistryProvider;
+  public static final String PROTO_COMMON_SECOND_NAME = "proto_common_do_not_use";
 
-  public ProtoBootstrap(
-      ProtoInfoProviderApi protoInfoApiProvider,
-      Object protoCommon,
-      StarlarkAspectApi protoRegistryAspect,
-      ProviderApi protoRegistryProvider) {
-    this.protoInfoApiProvider = protoInfoApiProvider;
+  private final Object protoCommon;
+
+  public ProtoBootstrap(Object protoCommon) {
     this.protoCommon = protoCommon;
-    this.protoRegistryAspect = protoRegistryAspect;
-    this.protoRegistryProvider = protoRegistryProvider;
   }
 
   @Override
   public void addBindingsToBuilder(ImmutableMap.Builder<String, Object> builder) {
-    builder.put(PROTO_INFO_STARLARK_NAME, protoInfoApiProvider);
-    builder.put(PROTO_COMMON_NAME, protoCommon);
     builder.put(
-        "ProtoRegistryAspect",
-        FlagGuardedValue.onlyWhenExperimentalFlagIsTrue(
-            BuildLanguageOptions.EXPERIMENTAL_GOOGLE_LEGACY_API, protoRegistryAspect));
+        PROTO_INFO_STARLARK_NAME,
+        ContextAndFlagGuardedValue.onlyInAllowedReposOrWhenIncompatibleFlagIsFalse(
+            BuildLanguageOptions.INCOMPATIBLE_STOP_EXPORTING_LANGUAGE_MODULES,
+            new ProviderStub(),
+            allowedRepositories));
     builder.put(
-        "ProtoRegistryProvider",
-        FlagGuardedValue.onlyWhenExperimentalFlagIsTrue(
-            BuildLanguageOptions.EXPERIMENTAL_GOOGLE_LEGACY_API, protoRegistryProvider));
+        PROTO_COMMON_NAME,
+        ContextAndFlagGuardedValue.onlyInAllowedReposOrWhenIncompatibleFlagIsFalse(
+            BuildLanguageOptions.INCOMPATIBLE_STOP_EXPORTING_LANGUAGE_MODULES,
+            protoCommon,
+            allowedRepositories));
+    builder.put(
+        PROTO_COMMON_SECOND_NAME,
+        ContextAndFlagGuardedValue.onlyInAllowedReposOrWhenIncompatibleFlagIsFalse(
+            BuildLanguageOptions.INCOMPATIBLE_STOP_EXPORTING_LANGUAGE_MODULES,
+            protoCommon,
+            allowedRepositories));
   }
 }

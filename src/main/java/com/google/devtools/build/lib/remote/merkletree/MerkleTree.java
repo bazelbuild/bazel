@@ -13,32 +13,40 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote.merkletree;
 
+import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
+
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.Directory;
 import build.bazel.remote.execution.v2.DirectoryNode;
 import build.bazel.remote.execution.v2.FileNode;
+import build.bazel.remote.execution.v2.SymlinkNode;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
-import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.MetadataProvider;
+import com.google.devtools.build.lib.actions.ArtifactPathResolver;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
+import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
+import com.google.devtools.build.lib.remote.Scrubber.SpawnScrubber;
+import com.google.devtools.build.lib.remote.merkletree.MerkleTree.ContentSource.PathSource;
+import com.google.devtools.build.lib.remote.merkletree.MerkleTree.ContentSource.VirtualActionInputSource;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.protobuf.ByteString;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.SortedMap;
 import java.util.SortedSet;
 import java.util.TreeMap;
@@ -47,32 +55,16 @@ import javax.annotation.Nullable;
 
 /** A merkle tree representation as defined by the remote execution api. */
 public class MerkleTree {
+  private static final String BAZEL_TOOL_INPUT_MARKER = "bazel_tool_input";
 
-  /** A path or contents */
-  public static class PathOrBytes {
+  /** A source of a file's content. */
+  public sealed interface ContentSource {
+    /** Content provided by an actual file. */
+    record PathSource(Path path) implements ContentSource {}
 
-    private final Path path;
-    private final ByteString bytes;
-
-    public PathOrBytes(Path path) {
-      this.path = Preconditions.checkNotNull(path, "path");
-      this.bytes = null;
-    }
-
-    public PathOrBytes(ByteString bytes) {
-      this.bytes = Preconditions.checkNotNull(bytes, "bytes");
-      this.path = null;
-    }
-
-    @Nullable
-    public Path getPath() {
-      return path;
-    }
-
-    @Nullable
-    public ByteString getBytes() {
-      return bytes;
-    }
+    /** Content provided by a virtual action input. */
+    record VirtualActionInputSource(VirtualActionInput virtualActionInput)
+        implements ContentSource {}
   }
 
   private interface MerkleTreeDirectoryVisitor {
@@ -88,10 +80,12 @@ public class MerkleTree {
   }
 
   private Map<Digest, Directory> digestDirectoryMap;
-  private Map<Digest, PathOrBytes> digestFileMap;
+  // Object is an unwrapped ContentSource to reduce retained memory when caching MerkleTrees.
+  private Map<Digest, Object> digestFileMap;
   @Nullable private final Directory rootProto;
   private final Digest rootDigest;
   private final SortedSet<DirectoryTree.FileNode> files;
+  private final SortedSet<DirectoryTree.SymlinkNode> symlinks;
   private final SortedMap<String, MerkleTree> directories;
   private final long inputFiles;
   private final long inputBytes;
@@ -100,6 +94,7 @@ public class MerkleTree {
       @Nullable Directory rootProto,
       Digest rootDigest,
       SortedSet<DirectoryTree.FileNode> files,
+      SortedSet<DirectoryTree.SymlinkNode> symlinks,
       SortedMap<String, MerkleTree> directories,
       long inputFiles,
       long inputBytes) {
@@ -108,6 +103,7 @@ public class MerkleTree {
     this.rootProto = rootProto;
     this.rootDigest = Preconditions.checkNotNull(rootDigest, "rootDigest");
     this.files = Preconditions.checkNotNull(files, "files");
+    this.symlinks = Preconditions.checkNotNull(symlinks, "symlinks");
     this.directories = Preconditions.checkNotNull(directories, "directories");
     this.inputFiles = inputFiles;
     this.inputBytes = inputBytes;
@@ -126,6 +122,10 @@ public class MerkleTree {
 
   private SortedSet<DirectoryTree.FileNode> getFiles() {
     return files;
+  }
+
+  private SortedSet<DirectoryTree.SymlinkNode> getSymlinks() {
+    return symlinks;
   }
 
   private SortedMap<String, MerkleTree> getDirectories() {
@@ -163,13 +163,17 @@ public class MerkleTree {
     return this.digestDirectoryMap;
   }
 
-  private Map<Digest, PathOrBytes> getDigestFileMap() {
+  private Map<Digest, Object> getDigestFileMap() {
     if (this.digestFileMap == null) {
-      Map<Digest, PathOrBytes> newDigestMap = Maps.newHashMap();
+      Map<Digest, Object> newDigestMap = Maps.newHashMap();
       visitTree(
           (dir) -> {
             for (DirectoryTree.FileNode file : dir.getFiles()) {
-              newDigestMap.put(file.getDigest(), toPathOrBytes(file));
+              if (file.getPath() != null) {
+                newDigestMap.put(file.getDigest(), file.getPath());
+              } else {
+                newDigestMap.put(file.getDigest(), file.getVirtualActionInput());
+              }
             }
           });
       this.digestFileMap = newDigestMap;
@@ -183,8 +187,15 @@ public class MerkleTree {
   }
 
   @Nullable
-  public PathOrBytes getFileByDigest(Digest digest) {
-    return getDigestFileMap().get(digest);
+  public ContentSource getFileByDigest(Digest digest) {
+    return switch (getDigestFileMap().get(digest)) {
+      case Path path -> new PathSource(path);
+      case VirtualActionInput virtualActionInput ->
+          new VirtualActionInputSource(virtualActionInput);
+      case null -> null;
+      default ->
+          throw new IllegalStateException("Unexpected value: " + getDigestFileMap().get(digest));
+    };
   }
 
   /**
@@ -201,20 +212,59 @@ public class MerkleTree {
    * @param inputs a map of path to input. The map is required to be sorted lexicographically by
    *     paths. Inputs of type tree artifacts are not supported and are expected to have been
    *     expanded before.
-   * @param metadataProvider provides metadata for all {@link ActionInput}s in {@code inputs}, as
-   *     well as any {@link ActionInput}s being discovered via directory expansion.
+   * @param inputMetadataProvider provides metadata for all {@link ActionInput}s in {@code inputs},
+   *     as well as any {@link ActionInput}s being discovered via directory expansion.
    * @param execRoot all paths in {@code inputs} need to be relative to this {@code execRoot}.
    * @param digestUtil a hashing utility
    */
   public static MerkleTree build(
       SortedMap<PathFragment, ActionInput> inputs,
-      MetadataProvider metadataProvider,
+      InputMetadataProvider inputMetadataProvider,
       Path execRoot,
+      ArtifactPathResolver artifactPathResolver,
+      @Nullable SpawnScrubber spawnScrubber,
+      DigestUtil digestUtil)
+      throws IOException {
+    return build(
+        inputs,
+        /* toolInputs= */ ImmutableSet.of(),
+        inputMetadataProvider,
+        execRoot,
+        artifactPathResolver,
+        spawnScrubber,
+        digestUtil);
+  }
+
+  /**
+   * Constructs a merkle tree from a lexicographically sorted map of inputs (files).
+   *
+   * @param inputs a map of path to input. The map is required to be sorted lexicographically by
+   *     paths. Inputs of type tree artifacts are not supported and are expected to have been
+   *     expanded before.
+   * @param inputMetadataProvider provides metadata for all {@link ActionInput}s in {@code inputs},
+   *     as well as any {@link ActionInput}s being discovered via directory expansion.
+   * @param execRoot all paths in {@code inputs} need to be relative to this {@code execRoot}.
+   * @param digestUtil a hashing utility
+   */
+  public static MerkleTree build(
+      SortedMap<PathFragment, ActionInput> inputs,
+      Set<PathFragment> toolInputs,
+      InputMetadataProvider inputMetadataProvider,
+      Path execRoot,
+      ArtifactPathResolver artifactPathResolver,
+      @Nullable SpawnScrubber spawnScrubber,
       DigestUtil digestUtil)
       throws IOException {
     try (SilentCloseable c = Profiler.instance().profile("MerkleTree.build(ActionInput)")) {
       DirectoryTree tree =
-          DirectoryTreeBuilder.fromActionInputs(inputs, metadataProvider, execRoot, digestUtil);
+          DirectoryTreeBuilder.fromActionInputs(
+              inputs,
+              toolInputs,
+              inputMetadataProvider,
+              execRoot,
+              artifactPathResolver,
+              spawnScrubber,
+              digestUtil);
       return build(tree, digestUtil);
     }
   }
@@ -241,21 +291,23 @@ public class MerkleTree {
           null,
           digestUtil.compute(new byte[0]),
           ImmutableSortedSet.of(),
+          ImmutableSortedSet.of(),
           ImmutableSortedMap.of(),
           0,
           0);
     }
     Map<PathFragment, MerkleTree> m = new HashMap<>();
     tree.visit(
-        (dirname, files, dirs) -> {
+        (dirname, files, symlinks, dirs) -> {
           SortedMap<String, MerkleTree> subDirs = new TreeMap<>();
           for (DirectoryTree.DirectoryNode dir : dirs) {
             PathFragment subDirname = dirname.getRelative(dir.getPathSegment());
             MerkleTree subMerkleTree =
-                Preconditions.checkNotNull(m.remove(subDirname), "subMerkleTree was null");
+                Preconditions.checkNotNull(
+                    m.remove(subDirname), "subMerkleTree at '%s' was null", subDirname);
             subDirs.put(dir.getPathSegment(), subMerkleTree);
           }
-          MerkleTree mt = buildMerkleTree(new TreeSet<>(files), subDirs, digestUtil);
+          MerkleTree mt = buildMerkleTree(files, symlinks, subDirs, digestUtil);
           m.put(dirname, mt);
         });
     MerkleTree rootMerkleTree = m.get(PathFragment.EMPTY_FRAGMENT);
@@ -281,9 +333,13 @@ public class MerkleTree {
     }
 
     // Some differ, do a full merge.
-    SortedSet<DirectoryTree.FileNode> files = Sets.newTreeSet();
+    SortedSet<DirectoryTree.FileNode> files = new TreeSet<>();
     for (MerkleTree merkleTree : merkleTrees) {
       files.addAll(merkleTree.getFiles());
+    }
+    SortedSet<DirectoryTree.SymlinkNode> symlinks = new TreeSet<>();
+    for (MerkleTree merkleTree : merkleTrees) {
+      symlinks.addAll(merkleTree.getSymlinks());
     }
 
     // Group all Merkle trees per path.
@@ -298,16 +354,20 @@ public class MerkleTree {
         .forEach(
             (baseName, dirsToMerge) -> directories.put(baseName, merge(dirsToMerge, digestUtil)));
 
-    return buildMerkleTree(files, directories, digestUtil);
+    return buildMerkleTree(files, symlinks, directories, digestUtil);
   }
 
   private static MerkleTree buildMerkleTree(
       SortedSet<DirectoryTree.FileNode> files,
+      SortedSet<DirectoryTree.SymlinkNode> symlinks,
       SortedMap<String, MerkleTree> directories,
       DigestUtil digestUtil) {
     Directory.Builder b = Directory.newBuilder();
     for (DirectoryTree.FileNode file : files) {
       b.addFiles(buildProto(file));
+    }
+    for (DirectoryTree.SymlinkNode symlink : symlinks) {
+      b.addSymlinks(buildProto(symlink));
     }
     for (Map.Entry<String, MerkleTree> nameAndDir : directories.entrySet()) {
       b.addDirectories(buildProto(nameAndDir.getKey(), nameAndDir.getValue()));
@@ -315,7 +375,7 @@ public class MerkleTree {
     Directory protoDir = b.build();
     Digest protoDirDigest = digestUtil.compute(protoDir);
 
-    long inputFiles = files.size();
+    long inputFiles = (long) files.size() + symlinks.size();
     for (MerkleTree dir : directories.values()) {
       inputFiles += dir.getInputFiles();
     }
@@ -328,24 +388,38 @@ public class MerkleTree {
       inputBytes += dir.getInputBytes();
     }
 
-    return new MerkleTree(protoDir, protoDirDigest, files, directories, inputFiles, inputBytes);
+    return new MerkleTree(
+        protoDir, protoDirDigest, files, symlinks, directories, inputFiles, inputBytes);
   }
 
   private static FileNode buildProto(DirectoryTree.FileNode file) {
-    return FileNode.newBuilder()
-        .setName(file.getPathSegment())
-        .setDigest(file.getDigest())
-        .setIsExecutable(file.isExecutable())
-        .build();
+    var node =
+        FileNode.newBuilder()
+            .setName(internalToUnicode(file.getPathSegment()))
+            .setDigest(file.getDigest())
+            // We always treat files as executable since Bazel will `chmod 555` on the output files
+            // of an action within ActionOutputMetadataStore#getMetadata after action execution if
+            // no metadata was injected. We can't use real executable bit of the file until this
+            // behavior is changed. See https://github.com/bazelbuild/bazel/issues/13262 for more
+            // details.
+            .setIsExecutable(true);
+    if (file.isToolInput()) {
+      node.getNodePropertiesBuilder().addPropertiesBuilder().setName(BAZEL_TOOL_INPUT_MARKER);
+    }
+    return node.build();
   }
 
   private static DirectoryNode buildProto(String baseName, MerkleTree dir) {
-    return DirectoryNode.newBuilder().setName(baseName).setDigest(dir.getRootDigest()).build();
+    return DirectoryNode.newBuilder()
+        .setName(internalToUnicode(baseName))
+        .setDigest(dir.getRootDigest())
+        .build();
   }
 
-  private static PathOrBytes toPathOrBytes(DirectoryTree.FileNode file) {
-    return file.getPath() != null
-        ? new PathOrBytes(file.getPath())
-        : new PathOrBytes(file.getBytes());
+  private static SymlinkNode buildProto(DirectoryTree.SymlinkNode symlink) {
+    return SymlinkNode.newBuilder()
+        .setName(internalToUnicode(symlink.getPathSegment()))
+        .setTarget(internalToUnicode(symlink.getTarget()))
+        .build();
   }
 }

@@ -1,4 +1,3 @@
-# Lint as: python3
 # Copyright 2020 The Bazel Authors. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -28,8 +27,6 @@ class BazelApiTest(test_base.TestBase):
   def setUp(self):
     test_base.TestBase.setUp(self)
     self._bazel_api = BazelApi(self.RunBazel)
-    self.ScratchFile('WORKSPACE')
-    self.CreateWorkspaceWithDefaultRepos('repo/WORKSPACE')
 
   def tearDown(self):
     test_base.TestBase.tearDown(self)
@@ -134,10 +131,12 @@ class BazelApiTest(test_base.TestBase):
 
   def testConfigWithStarlarkFlags(self):
     self.ScratchFile('testapp/defs.bzl', [
-        'def _flag_impl(settings, attr):', '  pass', 'string_flag = rule(',
+        'def _flag_impl(settings, attr):',
+        '  pass',
+        'string_flag = rule(',
         '  implementation = _flag_impl,',
-        '  build_setting = config.string(flag = True)'
-        ')'
+        '  build_setting = config.string(flag = True)',
+        ')',
     ])
     self.ScratchFile('testapp/BUILD', [
         'load(":defs.bzl", "string_flag")',

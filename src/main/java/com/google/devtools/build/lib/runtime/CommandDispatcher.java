@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.runtime;
 
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.util.Pair;
+import com.google.devtools.build.lib.util.io.CommandExtensionReporter;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.protobuf.Any;
 import java.util.List;
@@ -32,6 +33,12 @@ public interface CommandDispatcher {
     ERROR_OUT, // Return with an error
   }
 
+  /** How much output to emit on the console. */
+  enum UiVerbosity {
+    QUIET, // Only errors
+    NORMAL, // Everything
+  }
+
   /**
    * Executes a single command. Returns a {@link BlazeCommandResult} to indicate either an exit
    * code, the desire to shut down the server, or that a given binary should be executed by the
@@ -42,9 +49,11 @@ public interface CommandDispatcher {
       List<String> args,
       OutErr outErr,
       LockingMode lockingMode,
+      UiVerbosity uiVerbosity,
       String clientDescription,
       long firstContactTimeMillis,
       Optional<List<Pair<String, String>>> startupOptionsTaggedWithBazelRc,
-      List<Any> commandExtensions)
+      List<Any> commandExtensions,
+      CommandExtensionReporter commandExtensionReporter)
       throws InterruptedException;
 }

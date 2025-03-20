@@ -13,59 +13,74 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.CompletionContext;
 import com.google.devtools.build.lib.actions.CompletionContext.PathResolverFactory;
 import com.google.devtools.build.lib.analysis.AspectCompleteEvent;
 import com.google.devtools.build.lib.analysis.AspectValue;
+import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.ArtifactsInOutputGroup;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.ArtifactsToBuild;
-import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.bugreport.BugReporter;
-import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
-import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
 import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.causes.LabelCause;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.skyframe.AspectCompletionValue.AspectCompletionKey;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.CompletionFunction.Completor;
+import com.google.devtools.build.lib.skyframe.rewinding.ActionRewindStrategy;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
-import javax.annotation.Nullable;
+import java.util.function.Supplier;
 
 /** Manages completing builds for aspects. */
-class AspectCompletor
-    implements Completor<AspectValue, AspectCompletionValue, AspectCompletionKey, BuildEventId> {
+final class AspectCompletor
+    implements Completor<AspectValue, AspectCompletionValue, AspectCompletionKey> {
 
   static SkyFunction aspectCompletionFunction(
       PathResolverFactory pathResolverFactory,
       SkyframeActionExecutor skyframeActionExecutor,
       MetadataConsumerForMetrics.FilesMetricConsumer topLevelArtifactsMetric,
-      BugReporter bugReporter) {
+      ActionRewindStrategy actionRewindStrategy,
+      BugReporter bugReporter,
+      Supplier<Boolean> isSkymeld) {
     return new CompletionFunction<>(
         pathResolverFactory,
         new AspectCompletor(),
         skyframeActionExecutor,
         topLevelArtifactsMetric,
-        bugReporter);
+        actionRewindStrategy,
+        bugReporter,
+        isSkymeld);
   }
 
   @Override
   public Event getRootCauseError(
-      AspectValue value, AspectCompletionKey key, LabelCause rootCause, Environment env) {
+      AspectCompletionKey key, AspectValue value, LabelCause rootCause, Environment env)
+      throws InterruptedException {
     AspectKey aspectKey = key.actionLookupKey();
+    // Skyframe lookups here should not have large effect on the number of dependency edges as
+    // they are only needed for failed top-level aspects.
+    ConfiguredTargetValue baseTargetValue =
+        (ConfiguredTargetValue) env.getValue(aspectKey.getBaseConfiguredTargetKey());
+    checkNotNull(baseTargetValue, "Base configured target value should be ready!");
+
+    ConfiguredTargetAndData configuredTargetAndData =
+        ConfiguredTargetAndData.fromExistingConfiguredTargetInSkyframe(
+            baseTargetValue.getConfiguredTarget(), env);
+
     return Event.error(
-        value.getLocation(),
+        configuredTargetAndData.getLocation(),
         String.format(
             "%s, aspect %s: %s",
             aspectKey.getLabel(), aspectKey.getAspectClass().getName(), rootCause.getMessage()));
   }
 
   @Override
-  public String getLocationIdentifier(AspectValue value, AspectCompletionKey key, Environment env) {
+  public String getLocationIdentifier(AspectCompletionKey key, AspectValue value, Environment env) {
     AspectKey aspectKey = key.actionLookupKey();
     return aspectKey.getLabel() + ", aspect " + aspectKey.getAspectClass().getName();
   }
@@ -76,56 +91,28 @@ class AspectCompletor
   }
 
   @Override
-  @Nullable
-  public BuildEventId getFailureData(AspectCompletionKey key, AspectValue value, Environment env)
-      throws InterruptedException {
-    return getConfigurationEventIdFromAspectKey(key.actionLookupKey(), env);
-  }
-
-  @Override
-  public ExtendedEventHandler.Postable createFailed(
+  public AspectCompleteEvent createFailed(
+      AspectCompletionKey skyKey,
       AspectValue value,
       NestedSet<Cause> rootCauses,
       CompletionContext ctx,
       ImmutableMap<String, ArtifactsInOutputGroup> outputs,
-      BuildEventId configurationEventId) {
-    return AspectCompleteEvent.createFailed(value, ctx, rootCauses, configurationEventId, outputs);
-  }
-
-  @Nullable
-  private static BuildEventId getConfigurationEventIdFromAspectKey(
-      AspectKey aspectKey, Environment env) throws InterruptedException {
-    if (aspectKey.getBaseConfiguredTargetKey().getConfigurationKey() == null) {
-      return BuildEventIdUtil.nullConfigurationId();
-    } else {
-      BuildConfigurationValue buildConfigurationValue =
-          (BuildConfigurationValue)
-              env.getValue(aspectKey.getBaseConfiguredTargetKey().getConfigurationKey());
-      if (buildConfigurationValue == null) {
-        return null;
-      }
-      return buildConfigurationValue.getEventId();
-    }
+      Environment env) {
+    return AspectCompleteEvent.createFailed(
+        skyKey.actionLookupKey(), ctx, rootCauses, outputs, value.getWritesOutputToMasterLog());
   }
 
   @Override
-  public ExtendedEventHandler.Postable createSucceeded(
+  public AspectCompleteEvent createSucceeded(
       AspectCompletionKey skyKey,
       AspectValue value,
       CompletionContext completionContext,
       ArtifactsToBuild artifactsToBuild,
-      Environment env)
-      throws InterruptedException {
-    AspectKey aspectKey = skyKey.actionLookupKey();
-    BuildEventId configurationEventId = getConfigurationEventIdFromAspectKey(aspectKey, env);
-    if (configurationEventId == null) {
-      return null;
-    }
-
+      Environment env) {
     return AspectCompleteEvent.createSuccessful(
-        value,
+        skyKey.actionLookupKey(),
         completionContext,
         artifactsToBuild.getAllArtifactsByOutputGroup(),
-        configurationEventId);
+        value.getWritesOutputToMasterLog());
   }
 }

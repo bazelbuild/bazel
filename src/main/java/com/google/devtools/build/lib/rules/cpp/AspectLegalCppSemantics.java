@@ -14,11 +14,9 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
-
 /**
  * A marker for {@link CppSemantics} implementations that are legal as members of an aspect. These
  * implementations must not be heavy to serialize (e.g. a singleton is fine), so as not to weigh
  * down AspectKey.
  */
-public interface AspectLegalCppSemantics extends CppSemantics {
-}
+public interface AspectLegalCppSemantics extends CppSemantics {}

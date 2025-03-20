@@ -15,53 +15,50 @@
 package com.google.devtools.build.skyframe;
 
 import com.google.common.base.Preconditions;
+import com.google.devtools.build.lib.concurrent.QuiescingExecutor;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.skyframe.WalkableGraph.WalkableGraphFactory;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Optional;
-import java.util.concurrent.ExecutorService;
-import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /**
  * Includes options and states used by {@link MemoizingEvaluator#evaluate}, {@link
- * BuildDriver#evaluate} and {@link WalkableGraphFactory#prepareAndGet}
+ * MemoizingEvaluator#evaluate} and {@link WalkableGraphFactory#prepareAndGet}
  */
 public class EvaluationContext {
-  private final int numThreads;
-  @Nullable private final Supplier<ExecutorService> executorServiceSupplier;
+  private final int parallelism;
+  @Nullable private final QuiescingExecutor executor;
   private final boolean keepGoing;
   private final ExtendedEventHandler eventHandler;
-  private final boolean useForkJoinPool;
   private final boolean isExecutionPhase;
-  private final int cpuHeavySkyKeysThreadPoolSize;
-  private final int executionPhaseThreadPoolSize;
+  private final boolean mergingSkyframeAnalysisExecutionPhases;
+  private final UnnecessaryTemporaryStateDropperReceiver unnecessaryTemporaryStateDropperReceiver;
 
   protected EvaluationContext(
-      int numThreads,
-      @Nullable Supplier<ExecutorService> executorServiceSupplier,
+      int parallelism,
+      @Nullable QuiescingExecutor executor,
       boolean keepGoing,
       ExtendedEventHandler eventHandler,
-      boolean useForkJoinPool,
       boolean isExecutionPhase,
-      int cpuHeavySkyKeysThreadPoolSize,
-      int executionPhaseThreadPoolSize) {
-    Preconditions.checkArgument(0 < numThreads, "numThreads must be positive");
-    this.numThreads = numThreads;
-    this.executorServiceSupplier = executorServiceSupplier;
+      boolean mergingSkyframeAnalysisExecutionPhases,
+      UnnecessaryTemporaryStateDropperReceiver unnecessaryTemporaryStateDropperReceiver) {
+    this.parallelism = parallelism;
+    this.executor = executor;
     this.keepGoing = keepGoing;
     this.eventHandler = Preconditions.checkNotNull(eventHandler);
-    this.useForkJoinPool = useForkJoinPool;
     this.isExecutionPhase = isExecutionPhase;
-    this.cpuHeavySkyKeysThreadPoolSize = cpuHeavySkyKeysThreadPoolSize;
-    this.executionPhaseThreadPoolSize = executionPhaseThreadPoolSize;
+    this.mergingSkyframeAnalysisExecutionPhases = mergingSkyframeAnalysisExecutionPhases;
+    this.unnecessaryTemporaryStateDropperReceiver = unnecessaryTemporaryStateDropperReceiver;
   }
 
   public int getParallelism() {
-    return numThreads;
+    return parallelism;
   }
 
-  public Optional<Supplier<ExecutorService>> getExecutorServiceSupplier() {
-    return Optional.ofNullable(executorServiceSupplier);
+  public Optional<QuiescingExecutor> getExecutor() {
+    return Optional.ofNullable(executor);
   }
 
   public boolean getKeepGoing() {
@@ -72,50 +69,52 @@ public class EvaluationContext {
     return eventHandler;
   }
 
-  public EvaluationContext getCopyWithKeepGoing(boolean keepGoing) {
-    if (this.keepGoing == keepGoing) {
-      return this;
-    } else {
-      return new EvaluationContext(
-          this.numThreads,
-          this.executorServiceSupplier,
-          keepGoing,
-          this.eventHandler,
-          this.useForkJoinPool,
-          this.isExecutionPhase,
-          this.cpuHeavySkyKeysThreadPoolSize,
-          this.executionPhaseThreadPoolSize);
-    }
-  }
-
-  public boolean getUseForkJoinPool() {
-    return useForkJoinPool;
-  }
-
-  /**
-   * Returns the size of the thread pool for CPU-heavy tasks set by
-   * --experimental_skyframe_cpu_heavy_skykeys_thread_pool_size.
-   *
-   * <p>--experimental_skyframe_cpu_heavy_skykeys_thread_pool_size is currently incompatible with
-   * the execution phase, and this method will return -1.
-   */
-  public int getCPUHeavySkyKeysThreadPoolSize() {
-    if (isExecutionPhase) {
-      return -1;
-    }
-    return cpuHeavySkyKeysThreadPoolSize;
-  }
-
-  /**
-   * Returns the size of the thread pool to be used for the execution phase. Only applicable with
-   * --experimental_merged_skyframe_analysis_execution.
-   */
-  public int getExecutionPhaseThreadPoolSize() {
-    return executionPhaseThreadPoolSize;
-  }
-
   public boolean isExecutionPhase() {
     return isExecutionPhase;
+  }
+
+  public boolean mergingSkyframeAnalysisExecutionPhases() {
+    return mergingSkyframeAnalysisExecutionPhases;
+  }
+
+  /**
+   * Drops unnecessary temporary state used internally by the current evaluation.
+   *
+   * <p>If the current evaluation is slow because of GC thrashing, and the GC thrashing is partially
+   * caused by this temporary state, dropping it may reduce the wall time of the current evaluation.
+   * On the other hand, if the current evaluation is not GC thrashing, then dropping this temporary
+   * state will probably increase the wall time.
+   */
+  public interface UnnecessaryTemporaryStateDropper {
+    @ThreadSafe
+    void drop();
+  }
+
+  /**
+   * A receiver of a {@link UnnecessaryTemporaryStateDropper} instance tied to the current
+   * evaluation.
+   */
+  public interface UnnecessaryTemporaryStateDropperReceiver {
+    UnnecessaryTemporaryStateDropperReceiver NULL =
+        new UnnecessaryTemporaryStateDropperReceiver() {
+          @Override
+          public void onEvaluationStarted(UnnecessaryTemporaryStateDropper dropper) {}
+
+          @Override
+          public void onEvaluationFinished() {}
+        };
+
+    void onEvaluationStarted(UnnecessaryTemporaryStateDropper dropper);
+
+    void onEvaluationFinished();
+  }
+
+  public UnnecessaryTemporaryStateDropperReceiver getUnnecessaryTemporaryStateDropperReceiver() {
+    return unnecessaryTemporaryStateDropperReceiver;
+  }
+
+  public Builder builder() {
+    return newBuilder().copyFrom(this);
   }
 
   public static Builder newBuilder() {
@@ -124,79 +123,84 @@ public class EvaluationContext {
 
   /** Builder for {@link EvaluationContext}. */
   public static class Builder {
-    private int numThreads;
-    private Supplier<ExecutorService> executorServiceSupplier;
-    private boolean keepGoing;
-    private ExtendedEventHandler eventHandler;
-    private boolean useForkJoinPool;
-    private int cpuHeavySkyKeysThreadPoolSize;
-    private int executionJobsThreadPoolSize = 0;
-    private boolean isExecutionPhase = false;
+    protected int parallelism;
+    protected QuiescingExecutor executor;
+    protected boolean keepGoing;
+    protected ExtendedEventHandler eventHandler;
+    protected boolean isExecutionPhase = false;
+    protected boolean mergingSkyframeAnalysisExecutionPhases;
+    protected UnnecessaryTemporaryStateDropperReceiver unnecessaryTemporaryStateDropperReceiver =
+        UnnecessaryTemporaryStateDropperReceiver.NULL;
 
-    private Builder() {}
+    protected Builder() {}
 
-    public Builder copyFrom(EvaluationContext evaluationContext) {
-      this.numThreads = evaluationContext.numThreads;
-      this.executorServiceSupplier = evaluationContext.executorServiceSupplier;
+    @CanIgnoreReturnValue
+    protected Builder copyFrom(EvaluationContext evaluationContext) {
+      this.parallelism = evaluationContext.parallelism;
+      this.executor = evaluationContext.executor;
       this.keepGoing = evaluationContext.keepGoing;
       this.eventHandler = evaluationContext.eventHandler;
       this.isExecutionPhase = evaluationContext.isExecutionPhase;
-      this.useForkJoinPool = evaluationContext.useForkJoinPool;
-      this.executionJobsThreadPoolSize = evaluationContext.executionPhaseThreadPoolSize;
-      this.cpuHeavySkyKeysThreadPoolSize = evaluationContext.cpuHeavySkyKeysThreadPoolSize;
+      this.mergingSkyframeAnalysisExecutionPhases =
+          evaluationContext.mergingSkyframeAnalysisExecutionPhases;
+      this.unnecessaryTemporaryStateDropperReceiver =
+          evaluationContext.unnecessaryTemporaryStateDropperReceiver;
       return this;
     }
 
-    public Builder setNumThreads(int numThreads) {
-      this.numThreads = numThreads;
+    @CanIgnoreReturnValue
+    public Builder setParallelism(int parallelism) {
+      this.parallelism = parallelism;
       return this;
     }
 
-    public Builder setExecutorServiceSupplier(Supplier<ExecutorService> executorServiceSupplier) {
-      this.executorServiceSupplier = executorServiceSupplier;
+    @CanIgnoreReturnValue
+    public Builder setExecutor(QuiescingExecutor executor) {
+      this.executor = executor;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setKeepGoing(boolean keepGoing) {
       this.keepGoing = keepGoing;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setEventHandler(ExtendedEventHandler eventHandler) {
       this.eventHandler = eventHandler;
       return this;
     }
 
-    public Builder setUseForkJoinPool(boolean useForkJoinPool) {
-      this.useForkJoinPool = useForkJoinPool;
-      return this;
-    }
-
-    public Builder setCPUHeavySkyKeysThreadPoolSize(int cpuHeavySkyKeysThreadPoolSize) {
-      this.cpuHeavySkyKeysThreadPoolSize = cpuHeavySkyKeysThreadPoolSize;
-      return this;
-    }
-
-    public Builder setExecutionPhaseThreadPoolSize(int executionJobsThreadPoolSize) {
-      this.executionJobsThreadPoolSize = executionJobsThreadPoolSize;
-      return this;
-    }
-
+    @CanIgnoreReturnValue
     public Builder setExecutionPhase() {
-      isExecutionPhase = true;
+      this.isExecutionPhase = true;
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder setMergingSkyframeAnalysisExecutionPhases(
+        boolean mergingSkyframeAnalysisExecutionPhases) {
+      this.mergingSkyframeAnalysisExecutionPhases = mergingSkyframeAnalysisExecutionPhases;
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder setUnnecessaryTemporaryStateDropperReceiver(
+        UnnecessaryTemporaryStateDropperReceiver unnecessaryTemporaryStateDropperReceiver) {
+      this.unnecessaryTemporaryStateDropperReceiver = unnecessaryTemporaryStateDropperReceiver;
       return this;
     }
 
     public EvaluationContext build() {
       return new EvaluationContext(
-          numThreads,
-          executorServiceSupplier,
+          parallelism,
+          executor,
           keepGoing,
           eventHandler,
-          useForkJoinPool,
           isExecutionPhase,
-          cpuHeavySkyKeysThreadPoolSize,
-          executionJobsThreadPoolSize);
+          mergingSkyframeAnalysisExecutionPhases,
+          unnecessaryTemporaryStateDropperReceiver);
     }
   }
 }

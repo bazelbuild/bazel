@@ -51,10 +51,7 @@ public class J2ObjcConfiguration extends Fragment implements J2ObjcConfiguration
    * See https://j2objc.org/reference/j2objc.html for flag documentation.
    */
   private static final ImmutableList<String> J2OBJC_DEFAULT_TRANSLATION_FLAGS =
-      ImmutableList.of("-g");
-
-  /** The j2objc flag to generate ARC-compatible code. */
-  private static final String J2OBJC_USE_ARC_FLAG = "-use-arc";
+      ImmutableList.of("-g:relative"); // Java source debugging with WORKSPACE-relative paths.
 
   /**
    * Disallowed flags for J2ObjC translation. See https://j2objc.org/reference/j2objc.html for flag
@@ -67,9 +64,7 @@ public class J2ObjcConfiguration extends Fragment implements J2ObjcConfiguration
       "J2Objc translation flags: %s not supported. Unsupported flags are: %s";
 
   private final ImmutableList<String> translationFlags;
-  private final boolean removeDeadCode;
-  private final boolean experimentalJ2ObjcHeaderMap;
-  private final boolean experimentalShorterHeaderPath;
+
   @Nullable private final Label deadCodeReport;
 
   public J2ObjcConfiguration(BuildOptions buildOptions) {
@@ -80,9 +75,6 @@ public class J2ObjcConfiguration extends Fragment implements J2ObjcConfiguration
             .addAll(j2ObjcOptions.translationFlags)
             .addAll(J2OBJC_ALWAYS_ON_TRANSLATION_FLAGS)
             .build();
-    this.removeDeadCode = j2ObjcOptions.removeDeadCode;
-    this.experimentalJ2ObjcHeaderMap = j2ObjcOptions.experimentalJ2ObjcHeaderMap;
-    this.experimentalShorterHeaderPath = j2ObjcOptions.experimentalShorterHeaderPath;
     this.deadCodeReport = j2ObjcOptions.deadCodeReport;
   }
 
@@ -113,36 +105,6 @@ public class J2ObjcConfiguration extends Fragment implements J2ObjcConfiguration
       defaultLabel = "")
   public Label deadCodeReport() {
     return deadCodeReport;
-  }
-
-  /**
-   * Returns whether to perform J2ObjC dead code removal. If true, the list of entry classes will be
-   * collected transitively throuh "entry_classes" attribute on j2objc_library and used as entry
-   * points to perform dead code analysis. Unused classes will then be removed from the final ObjC
-   * app bundle.
-   */
-  public boolean removeDeadCode() {
-    return removeDeadCode;
-  }
-
-  /**
-   * Returns whether to generate J2ObjC header map in a separate action in parallel of the J2ObjC
-   * transpilation action.
-   */
-  public boolean experimentalJ2ObjcHeaderMap() {
-    return experimentalJ2ObjcHeaderMap;
-  }
-
-  /**
-   * Returns whether to use a shorter path for generated header files.
-   */
-  public boolean experimentalShorterHeaderPath() {
-    return experimentalShorterHeaderPath;
-  }
-
-  /** Returns whether objc_library should build generated files using ARC (-fobjc-arc). */
-  public boolean compileWithARC() {
-    return translationFlags.contains(J2OBJC_USE_ARC_FLAG);
   }
 
   @Override

@@ -58,7 +58,7 @@ public class PossibleAttributeValues {
    *     respected on a best-effort basis - multiple values may still be returned if an unoptimized
    *     code path is visited.
    */
-  static Iterable<Object> forRuleAndAttribute(
+  public static Iterable<Object> forRuleAndAttribute(
       Rule rule, Attribute attr, boolean mayTreatMultipleAsNone) {
     AggregatingAttributeMapper attributeMap = AggregatingAttributeMapper.of(rule);
     if (attr.getType().equals(BuildType.LABEL_LIST)
@@ -67,8 +67,8 @@ public class PossibleAttributeValues {
       // there's currently no syntax for expressing multiple scalar values). This unfortunately
       // isn't trivial because Bazel's label visitation logic includes special methods built
       // directly into Type.
-      return ImmutableList.<Object>of(
-          attributeMap.getReachableLabels(attr.getName(), /*includeSelectKeys=*/ false));
+      return ImmutableList.of(
+          attributeMap.getReachableLabels(attr.getName(), /* includeSelectKeys= */ false));
     }
 
     Iterable<?> concatenatedSelectsValue =

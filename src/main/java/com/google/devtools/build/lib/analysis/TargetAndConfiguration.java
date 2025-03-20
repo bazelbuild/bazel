@@ -35,23 +35,15 @@ public final class TargetAndConfiguration {
     this.configuration = configuration;
   }
 
-  // The node name in the graph. The name should be unique.
-  // It is not suitable for user display.
-  public String getName() {
-    return target.getLabel() + " "
-        + (configuration == null ? "null" : configuration.checksum());
-  }
-
   @Override
   public boolean equals(Object that) {
     if (this == that) {
       return true;
     }
-    if (!(that instanceof TargetAndConfiguration)) {
+    if (!(that instanceof TargetAndConfiguration thatNode)) {
       return false;
     }
 
-    TargetAndConfiguration thatNode = (TargetAndConfiguration) that;
     return thatNode.target.getLabel().equals(this.target.getLabel()) &&
         thatNode.configuration == this.configuration;
   }
@@ -63,7 +55,7 @@ public final class TargetAndConfiguration {
 
   @Override
   public String toString() {
-    return target.getLabel() + " (" + configuration + ")";
+    return target.getLabel() + " (" + configuration.shortId() + ")";
   }
 
   public Target getTarget() {

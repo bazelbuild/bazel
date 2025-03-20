@@ -16,15 +16,29 @@ package com.google.devtools.build.buildjar.javac.plugins.dependency;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.devtools.build.buildjar.javac.plugins.dependency.StrictJavaDepsPlugin.NonPlatformJar.Kind.FOR_JSPECIFY_FROM_PLATFORM;
+import static com.google.devtools.build.buildjar.javac.plugins.dependency.StrictJavaDepsPlugin.NonPlatformJar.Kind.IN_CLASSPATH;
+import static javax.tools.StandardLocation.CLASS_PATH;
 
+import com.google.auto.value.AutoOneOf;
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Streams;
 import com.google.devtools.build.buildjar.JarOwner;
 import com.google.devtools.build.buildjar.javac.plugins.BlazeJavaCompilerPlugin;
 import com.google.devtools.build.buildjar.javac.plugins.dependency.DependencyModule.StrictJavaDeps;
 import com.google.devtools.build.buildjar.javac.statistics.BlazeJavacStatistics;
 import com.google.devtools.build.lib.view.proto.Deps;
 import com.google.devtools.build.lib.view.proto.Deps.Dependency;
+import com.sun.source.tree.CompilationUnitTree;
+import com.sun.source.tree.IdentifierTree;
+import com.sun.source.tree.LambdaExpressionTree;
+import com.sun.source.tree.MemberSelectTree;
+import com.sun.source.tree.MethodTree;
+import com.sun.source.tree.PackageTree;
+import com.sun.source.tree.VariableTree;
+import com.sun.source.util.TreePath;
+import com.sun.source.util.TreePathScanner;
 import com.sun.tools.javac.code.Flags;
 import com.sun.tools.javac.code.Kinds;
 import com.sun.tools.javac.code.Symbol;
@@ -36,17 +50,20 @@ import com.sun.tools.javac.resources.CompilerProperties.Errors;
 import com.sun.tools.javac.resources.CompilerProperties.Warnings;
 import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.tree.TreeInfo;
-import com.sun.tools.javac.tree.TreeScanner;
 import com.sun.tools.javac.util.Context;
 import com.sun.tools.javac.util.Log;
 import com.sun.tools.javac.util.Log.WriterKind;
 import com.sun.tools.javac.util.Name;
+import com.sun.tools.javac.util.Names;
+import com.sun.tools.javac.util.Position;
+import java.io.File;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.UncheckedIOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -57,7 +74,9 @@ import java.util.jar.JarFile;
 import java.util.jar.Manifest;
 import javax.lang.model.element.AnnotationValue;
 import javax.lang.model.util.SimpleAnnotationValueVisitor8;
+import javax.tools.JavaFileManager;
 import javax.tools.JavaFileObject;
+import javax.tools.JavaFileObject.Kind;
 
 /**
  * A plugin for BlazeJavaCompiler that checks for types referenced directly in the source, but
@@ -77,10 +96,13 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
 
   /** Marks seen compilation toplevels and their import sections */
   private final Set<JCTree.JCCompilationUnit> toplevels;
+
   /** Marks seen ASTs */
   private final Set<JCTree> trees;
+
   /** Computed missing dependencies */
   private final Set<JarOwner> missingTargets;
+
   /** Strict deps diagnostics. */
   private final List<SjdDiagnostic> diagnostics;
 
@@ -127,13 +149,17 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
     errWriter = log.getWriter(WriterKind.ERROR);
     implicitDependencyExtractor =
         new ImplicitDependencyExtractor(
-            dependencyModule.getImplicitDependenciesMap(),
-            dependencyModule.getPlatformJars());
+            dependencyModule.getImplicitDependenciesMap(), dependencyModule.getPlatformJars());
     checkingTreeScanner = context.get(CheckingTreeScanner.class);
     if (checkingTreeScanner == null) {
-      Set<Path> platformJars = dependencyModule.getPlatformJars();
       checkingTreeScanner =
-          new CheckingTreeScanner(dependencyModule, diagnostics, missingTargets, platformJars);
+          new CheckingTreeScanner(
+              dependencyModule,
+              diagnostics,
+              missingTargets,
+              dependencyModule.getPlatformJars(),
+              context.get(JavaFileManager.class),
+              Names.instance(context));
       context.put(CheckingTreeScanner.class, checkingTreeScanner);
     }
   }
@@ -153,12 +179,12 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
           env.enclClass.sym.sourcefile != null
               ? env.enclClass.sym.sourcefile
               : env.toplevel.sourcefile;
+      TreePath path = new TreePath(env.toplevel);
       if (trees.add(env.tree)) {
-        checkingTreeScanner.scan(env.tree);
+        checkingTreeScanner.scan(new TreePath(path, env.tree), null);
       }
       if (toplevels.add(env.toplevel)) {
-        checkingTreeScanner.scan(env.toplevel.getImports());
-        checkingTreeScanner.scan(env.toplevel.getPackage());
+        checkingTreeScanner.scan(path, null);
         dependencyModule.addPackage(env.toplevel.packge);
       }
     } finally {
@@ -194,8 +220,7 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
               // we don't use the target mapping for the target, just the missing deps
               : canonicalizeTarget(dependencyModule.getTargetLabel());
       Set<JarOwner> canonicalizedMissing =
-          missingTargets
-              .stream()
+          missingTargets.stream()
               .filter(owner -> owner.label().isPresent())
               .sorted(Comparator.comparing((JarOwner owner) -> owner.label().get()))
               // for dependencies that are missing we canonicalize and remap the target so we don't
@@ -215,7 +240,7 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
    * types loaded from jar files provided by transitive (indirect) dependencies. Each type is
    * considered only once, so at most one warning is generated for it.
    */
-  private static class CheckingTreeScanner extends TreeScanner {
+  private static class CheckingTreeScanner extends TreePathScanner<Void, Void> {
 
     private final ImmutableSet<Path> directJars;
 
@@ -233,24 +258,35 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
 
     private final Set<JarOwner> seenTargets = new HashSet<>();
 
-    private final Set<Path> seenStrictDepsViolatingJars = new HashSet<>();
+    private final Set<NonPlatformJar> seenStrictDepsViolatingJars = new HashSet<>();
 
     /** The set of jars on the compilation bootclasspath. */
     private final Set<Path> platformJars;
 
+    private final JavaFileManager fileManager;
+
     /** The current source, for diagnostics. */
     private JavaFileObject source = null;
+
+    /** Cache of classpath (not platform) jars in which given symbols can be found. */
+    private final Map<ClassSymbol, Optional<Path>> classpathOnlyDepPaths = new HashMap<>();
+
+    private final Name jspecifyAnnotationsPackage;
 
     public CheckingTreeScanner(
         DependencyModule dependencyModule,
         List<SjdDiagnostic> diagnostics,
         Set<JarOwner> missingTargets,
-        Set<Path> platformJars) {
+        Set<Path> platformJars,
+        JavaFileManager fileManager,
+        Names names) {
       this.directJars = dependencyModule.directJars();
       this.diagnostics = diagnostics;
       this.missingTargets = missingTargets;
       this.directDependenciesMap = dependencyModule.getExplicitDependenciesMap();
       this.platformJars = platformJars;
+      this.fileManager = fileManager;
+      this.jspecifyAnnotationsPackage = names.fromString("org.jspecify.annotations");
     }
 
     Set<ClassSymbol> getSeenClasses() {
@@ -258,16 +294,16 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
     }
 
     /** Checks an AST node denoting a class type against direct/transitive dependencies. */
-    private void checkTypeLiteral(JCTree node, Symbol sym) {
+    private void checkTypeLiteral(Symbol sym) {
       if (sym == null || sym.kind != Kinds.Kind.TYP) {
         return;
       }
-      Path jarPath = getJarPath(sym.enclClass(), platformJars);
+      NonPlatformJar jar = getNonPlatformJar(sym.enclClass(), platformJars);
 
       // If this type symbol comes from a class file loaded from a jar, check
       // whether that jar was a direct dependency and error out otherwise.
-      if (jarPath != null && seenClasses.add(sym.enclClass())) {
-        collectExplicitDependency(jarPath, node, sym);
+      if (jar != null && seenClasses.add(sym.enclClass())) {
+        collectExplicitDependency(jar, sym);
       }
     }
 
@@ -275,13 +311,13 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
      * Marks the provided dependency as a direct/explicit dependency. Additionally, if
      * strict_java_deps is enabled, it emits a [strict] compiler warning/error.
      */
-    private void collectExplicitDependency(Path jarPath, JCTree node, Symbol sym) {
+    private void collectExplicitDependency(NonPlatformJar jar, Symbol sym) {
       // Does it make sense to emit a warning/error for this pair of (type, owner)?
       // We want to emit only one error/warning per owner.
-      if (!directJars.contains(jarPath) && seenStrictDepsViolatingJars.add(jarPath)) {
+      if (!directJars.contains(jar.pathOrEmpty()) && seenStrictDepsViolatingJars.add(jar)) {
         // IO cost here is fine because we only hit this path for an explicit dependency
         // _not_ in the direct jars, i.e. an error
-        JarOwner owner = readJarOwnerFromManifest(jarPath);
+        JarOwner owner = readJarOwnerFromManifest(jar);
         if (seenTargets.add(owner)) {
           // owner is of the form "//label/of:rule <Aspect name>" where <Aspect name> is
           // optional.
@@ -303,26 +339,36 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
               String.format(
                   "[strict] Using %s from an indirect dependency (TOOL_INFO: \"%s\").%s",
                   used, toolInfo, (owner.label().isPresent() ? " See command below **" : ""));
-          diagnostics.add(SjdDiagnostic.create(node.pos, message, source));
+          int pos =
+              Streams.stream(getCurrentPath())
+                  .map(t -> TreeInfo.getStartPos((JCTree) t))
+                  .filter(p -> p != Position.NOPOS)
+                  .findFirst()
+                  .orElse(Position.NOPOS);
+          diagnostics.add(SjdDiagnostic.create(pos, message, source));
         }
       }
 
-      if (!directDependenciesMap.containsKey(jarPath)) {
+      if (!directDependenciesMap.containsKey(jar.pathOrEmpty())) {
         // Also update the dependency proto
         Dependency dep =
             Dependency.newBuilder()
-                // Path.toString uses the platform separator (`\` on Windows) which may not
-                // match the format in params files (which currently always use `/`, see
-                // bazelbuild/bazel#4108). JavaBuilder should always parse Path strings into
-                // java.nio.file.Paths before comparing them.
-                .setPath(jarPath.toString())
+                // Path.toString uses the platform separator (`\` on Windows), but the proto must
+                // use the same separator as in the arguments.
+                //
+                // An empty path is OK in the cases we produce it. See readJarOwnerFromManifest.
+                .setPath(jar.pathOrEmpty().toString().replace(File.separatorChar, '/'))
                 .setKind(Dependency.Kind.EXPLICIT)
                 .build();
-        directDependenciesMap.put(jarPath, dep);
+        directDependenciesMap.put(jar.pathOrEmpty(), dep);
       }
     }
 
-    private static JarOwner readJarOwnerFromManifest(Path jarPath) {
+    private JarOwner readJarOwnerFromManifest(NonPlatformJar jar) {
+      if (jar.getKind() == FOR_JSPECIFY_FROM_PLATFORM) {
+        return JSPECIFY_JAR_OWNER;
+      }
+      Path jarPath = jar.inClasspath();
       try (JarFile jarFile = new JarFile(jarPath.toFile())) {
         Manifest manifest = jarFile.getManifest();
         if (manifest == null) {
@@ -342,21 +388,35 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
     }
 
     @Override
-    public void visitMethodDef(JCTree.JCMethodDecl method) {
-      if ((method.mods.flags & Flags.GENERATEDCONSTR) != 0) {
+    public Void visitMethod(MethodTree method, Void unused) {
+      if ((((JCTree.JCMethodDecl) method).mods.flags & Flags.GENERATEDCONSTR) != 0) {
         // If this is the constructor for an anonymous inner class, refrain from checking the
         // compiler-generated method signature. Don't skip scanning the method body though, there
         // might have been an anonymous initializer which still needs to be checked.
-        scan(method.body);
+        scan(method.getBody(), null);
       } else {
-        super.visitMethodDef(method);
+        super.visitMethod(method, null);
       }
+      return null;
+    }
+
+    @Override
+    public Void visitVariable(VariableTree variable, Void unused) {
+      scan(variable.getModifiers(), null);
+      JCTree vartype = ((JCTree.JCVariableDecl) variable).vartype;
+      if (vartype != null && vartype.pos != Position.NOPOS) {
+        scan(vartype, null);
+      }
+      scan(variable.getNameExpression(), null);
+      scan(variable.getInitializer(), null);
+      return null;
     }
 
     /** Visits an identifier in the AST. We only care about type symbols. */
     @Override
-    public void visitIdent(JCTree.JCIdent tree) {
-      checkTypeLiteral(tree, tree.sym);
+    public Void visitIdentifier(IdentifierTree tree, Void unused) {
+      checkTypeLiteral(((JCTree.JCIdent) tree).sym);
+      return null;
     }
 
     /**
@@ -365,24 +425,136 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
      * reference to Bar).
      */
     @Override
-    public void visitSelect(JCTree.JCFieldAccess tree) {
-      scan(tree.selected);
-      checkTypeLiteral(tree, tree.sym);
+    public Void visitMemberSelect(MemberSelectTree tree, Void unused) {
+      scan(tree.getExpression(), null);
+      checkTypeLiteral(((JCTree.JCFieldAccess) tree).sym);
+      return null;
     }
 
     @Override
-    public void visitLambda(JCTree.JCLambda tree) {
-      if (tree.paramKind != JCTree.JCLambda.ParameterKind.IMPLICIT) {
+    public Void visitLambdaExpression(LambdaExpressionTree tree, Void unused) {
+      if (((JCTree.JCLambda) tree).paramKind != JCTree.JCLambda.ParameterKind.IMPLICIT) {
         // don't record type uses for implicitly typed lambda parameters
-        scan(tree.params);
+        scan(tree.getParameters(), null);
       }
-      scan(tree.body);
+      scan(tree.getBody(), null);
+      return null;
     }
 
     @Override
-    public void visitPackageDef(JCTree.JCPackageDecl tree) {
-      scan(tree.annotations);
-      checkTypeLiteral(tree, tree.packge.package_info);
+    public Void visitPackage(PackageTree tree, Void unused) {
+      scan(tree.getAnnotations(), null);
+      checkTypeLiteral(((JCTree.JCPackageDecl) tree).packge.package_info);
+      return null;
+    }
+
+    @Override
+    public Void visitCompilationUnit(CompilationUnitTree tree, Void unused) {
+      scan(tree.getPackage(), null);
+      scan(tree.getImports(), null);
+      return null;
+    }
+
+    /**
+     * Returns the name of the <i>classpath</i> jar from which the given class symbol was loaded
+     * (with an exception for the JSpecify annotations) or else {@code null}.
+     *
+     * <p>If the symbol came from the platform (i.e., system modules/bootclasspath), rather than
+     * from the classpath, this method <i>usually</i> returns {@code null}. The exception is for
+     * JSpecify-annotation symbols that are read from the platform: For such a symbol, this method
+     * still returns the first <i>classpath</i> jar that contains the symbol, or, if no classpath
+     * jar contains the symbol, it returns {@code FOR_JSPECIFY_FROM_PLATFORM}. (The calling code
+     * later converts that to {@code JSPECIFY_JAR_OWNER}, which will lead to a strict-deps error,
+     * since that jar clearly isn't a direct dependency.) In this way, we pretend that the
+     * JSpecify-annotation symbols <i>aren't</i> part of the platform. That's important because in
+     * fact they aren't part of it <i>at runtime</i> and so we want to force users of those classes
+     * to declare a dependency on them.
+     *
+     * <p>This behavior is mildly unfortunate in the unusual situation that a project normally reads
+     * a JSpecify-annotations class from an uber-jar, rather than from the normal JSpecify target.
+     * In that case, we claim that the class is being loaded from the normal target. That is not the
+     * target that the project's developers are likely to want. It's even possible that the class
+     * isn't present on the reduced classpath but <i>would</i> be present (via the uber-jar) if only
+     * we compiled with the full classpath. The full-classpath compilation would still produce a
+     * strict-deps error, but it would produce one that recommends the correct jar/dependency. But
+     * as this code is, we fail with a suggestion of the normal JSpecify target, and we may or may
+     * not fall back to the full classpath.
+     *
+     * <p>OK, arguably it's unfortunate that <i>ever</i> we suggest that the normal JSpecify target
+     * is on the classpath when it isn't really. However, the most common result of that is going to
+     * be that we produce a more convenient error message. That convenience helps to offset any
+     * confusion that we produce. Still, we won't introduce similar behavior for other classes
+     * lightly.
+     *
+     * @param platformJars jars on javac's bootclasspath
+     */
+    private NonPlatformJar getNonPlatformJar(ClassSymbol classSymbol, Set<Path> platformJars) {
+      if (classSymbol == null) {
+        return null;
+      }
+
+      // Ignore symbols that appear in the sourcepath:
+      if (haveSourceForSymbol(classSymbol)) {
+        return null;
+      }
+
+      JavaFileObject classfile = classSymbol.classfile;
+
+      Path path = ImplicitDependencyExtractor.getJarPath(classfile);
+      // Filter out classes from the system modules and bootclasspath
+      if (path == null || platformJars.contains(path)) {
+        // ...except the JSpecify annotations, which we treat specially.
+        if (classSymbol.packge().fullname.equals(jspecifyAnnotationsPackage)) {
+          Path classpathJar = findLookingOnlyInClasspath(classSymbol);
+          return classpathJar != null
+              ? NonPlatformJar.forClasspathJar(classpathJar)
+              : NonPlatformJar.FOR_JSPECIFY_FROM_PLATFORM;
+        }
+        return null;
+      }
+
+      return NonPlatformJar.forClasspathJar(path);
+    }
+
+    /**
+     * Returns the first jar file in the classpath (not system modules, not bootclasspath) that
+     * contains the given class or {@code null} if no such jar is available.
+     */
+    private Path findLookingOnlyInClasspath(ClassSymbol sym) {
+      /*
+       * computeIfAbsent doesn't cache null results, so we store Optional instances instead.
+       *
+       * In practice, that won't normally matter much: The only case in which our computation
+       * function runs once per usage of a JSpecify-annotation class is the failing-build case—that
+       * is, when the class is not on the classpath.
+       */
+      return classpathOnlyDepPaths
+          .computeIfAbsent(
+              sym,
+              (unused) -> {
+                try {
+                  for (JavaFileObject file :
+                      fileManager.list(
+                          CLASS_PATH,
+                          sym.packge().fullname.toString(),
+                          ImmutableSet.of(Kind.CLASS),
+                          false /* do not return classes in subpackages */)) {
+                    /*
+                     * The query above returns all classpath classes from the given package. We can
+                     * imagine situations in which only *some* JSpecify annotations are present in a
+                     * given classpath jar (an uber-jar with unused classes removed?), so we want to
+                     * make sure that we found the class we want.
+                     */
+                    if (file.isNameCompatible(sym.getSimpleName().toString(), Kind.CLASS)) {
+                      return Optional.of(ImplicitDependencyExtractor.getJarPath(file));
+                    }
+                  }
+                } catch (IOException e) {
+                  throw new UncheckedIOException(e);
+                }
+                return Optional.empty();
+              })
+          .orElse(null);
     }
   }
 
@@ -411,9 +583,7 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
 
   private static ImmutableSet<String> getGeneratedBy(Symbol symbol) {
     ImmutableSet.Builder<String> suppressions = ImmutableSet.builder();
-    symbol
-        .getRawAttributes()
-        .stream()
+    symbol.getRawAttributes().stream()
         .filter(
             a -> {
               Name name = a.type.tsym.getQualifiedName();
@@ -422,9 +592,7 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
             })
         .flatMap(
             a ->
-                a.getElementValues()
-                    .entrySet()
-                    .stream()
+                a.getElementValues().entrySet().stream()
                     .filter(e -> e.getKey().getSimpleName().contentEquals("value"))
                     .map(e -> e.getValue()))
         .forEachOrdered(
@@ -468,37 +636,6 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
     return target;
   }
 
-  /**
-   * Returns the name of the jar file from which the given class symbol was loaded, if available,
-   * and null otherwise. Implicitly filters out jars from the compilation bootclasspath.
-   *
-   * @param platformJars jars on javac's bootclasspath
-   */
-  public static Path getJarPath(ClassSymbol classSymbol, Set<Path> platformJars) {
-    if (classSymbol == null) {
-      return null;
-    }
-
-    // Ignore symbols that appear in the sourcepath:
-    if (haveSourceForSymbol(classSymbol)) {
-      return null;
-    }
-
-    JavaFileObject classfile = classSymbol.classfile;
-
-    Path path = ImplicitDependencyExtractor.getJarPath(classfile);
-    if (path == null) {
-      return null;
-    }
-
-    // Filter out classes on bootclasspath
-    if (platformJars.contains(path)) {
-      return null;
-    }
-
-    return path;
-  }
-
   /** Returns true if the given classSymbol corresponds to one of the sources being compiled. */
   private static boolean haveSourceForSymbol(ClassSymbol classSymbol) {
     if (classSymbol.sourcefile == null) {
@@ -520,4 +657,57 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
   public boolean runOnAttributionErrors() {
     return true;
   }
+
+  /**
+   * Either a jar in the classpath or the well-known jar that contains the classes that are present
+   * in the platform at compile time but not runtime.
+   */
+  @AutoOneOf(NonPlatformJar.Kind.class)
+  abstract static class NonPlatformJar {
+    enum Kind {
+      IN_CLASSPATH,
+      FOR_JSPECIFY_FROM_PLATFORM,
+    }
+
+    abstract Kind getKind();
+
+    abstract Path inClasspath();
+
+    abstract Placeholder forJspecifyFromPlatform();
+
+    final Path pathOrEmpty() {
+      return getKind() == IN_CLASSPATH ? inClasspath() : EMPTY_PATH;
+    }
+
+    static NonPlatformJar forClasspathJar(Path s) {
+      return AutoOneOf_StrictJavaDepsPlugin_NonPlatformJar.inClasspath(s);
+    }
+
+    static final NonPlatformJar FOR_JSPECIFY_FROM_PLATFORM =
+        AutoOneOf_StrictJavaDepsPlugin_NonPlatformJar.forJspecifyFromPlatform(Placeholder.INSTANCE);
+  }
+
+  enum Placeholder {
+    INSTANCE
+  }
+
+  private static final Path EMPTY_PATH = Path.of("");
+
+  /**
+   * A special-purpose {@link JarOwner} instance that points to the main JSpecify target but is used
+   * when the JSpecify annotations are instead read from the platform.
+   *
+   * <p>We use this instance to force users to add the explicit JSpecify dependency—again, even
+   * though the annotations are present in the compile-time platform (i.e., bootclasspath or system
+   * modules). We require users to add the dependency because the annotations are <i>not</i> present
+   * in the <i>runtime</i> platform.
+   *
+   * <p>The {@link Path} argument that we pass to this instance doesn't matter because the build is
+   * usually going to fail. (Or, if a strict-deps enforcement is disabled, the user can't reasonably
+   * expect fully accurate dependency information, and our tools should be mostly resilient to an
+   * empty path.)
+   */
+  private static final JarOwner JSPECIFY_JAR_OWNER =
+      JarOwner.create(
+          EMPTY_PATH, "//third_party/java/jspecify_annotations", /* aspect= */ Optional.empty());
 }

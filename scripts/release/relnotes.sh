@@ -270,50 +270,52 @@ function generate_release_message() {
   local release_name="$1"
   local branch="${2:-HEAD}"
   local delimiter="${3-}"
-  local baseline="$(get_release_baseline "${branch}")"
-  local cherrypicks="$(get_cherrypicks "${branch}" "${baseline}")"
 
   get_release_title "$release_name"
   echo
 
-  if [ -n "${delimiter}" ]; then
-    echo "${delimiter}"
+  if [[ "$(is_rolling_release)" -eq 0 ]]; then
+    if [ -n "${delimiter}" ]; then
+      echo "${delimiter}"
+    fi
+    python3 ${RELNOTES_SCRIPT_DIR}/relnotes.py
+    if [ -n "${delimiter}" ]; then
+      echo "${delimiter}"
+    fi
+  else
+    local baseline="$(get_release_baseline "${branch}")"
+    local cherrypicks="$(get_cherrypicks "${branch}" "${baseline}")"
+
+    if [ -n "${delimiter}" ]; then
+      echo "${delimiter}"
+    fi
+    __create_revision_information $baseline $cherrypicks
+    if [ -n "${delimiter}" ]; then
+      echo "${delimiter}"
+    fi
+
+    echo
+
+    # Generate the release notes
+    local tmpfile=$(mktemp --tmpdir relnotes-XXXXXXXX)
+    trap "rm -f ${tmpfile}" EXIT
+
+    # Save the changelog so we compute the relnotes against HEAD.
+    git show master:CHANGELOG.md > "${tmpfile}"
+
+    local relnotes="$(create_release_notes "${tmpfile}" "${baseline}" ${cherrypicks})"
+    echo "${relnotes}" > "${tmpfile}"
+
+    __release_note_processor "${tmpfile}" || return 1
+    relnotes="$(cat ${tmpfile})"
+
+    cat "${tmpfile}"
   fi
-  __create_revision_information $baseline $cherrypicks
-  if [ -n "${delimiter}" ]; then
-    echo "${delimiter}"
-  fi
-
-  echo
-
-  # Generate the release notes
-  local tmpfile=$(mktemp --tmpdir relnotes-XXXXXXXX)
-  trap "rm -f ${tmpfile}" EXIT
-
-  # Save the changelog so we compute the relnotes against HEAD.
-  git show master:CHANGELOG.md > "${tmpfile}"
-
-  local relnotes="$(create_release_notes "${tmpfile}" "${baseline}" ${cherrypicks})"
-  echo "${relnotes}" > "${tmpfile}"
-
-  __release_note_processor "${tmpfile}" || return 1
-  relnotes="$(cat ${tmpfile})"
-
-  cat "${tmpfile}"
 }
 
-# Returns the release notes for the CHANGELOG.md taken from either from
-# the notes for a release candidate/rolling release, or from the commit message for a
-# full release.
+# Returns the release notes for the CHANGELOG.md for all releases -
+# release candidate, full release, and rolling release.
 function get_full_release_notes() {
   local release_name="$(get_full_release_name "$@")"
-
-  if [[ "${release_name}" =~ rc[0-9]+$ ]] || [[ "$(is_rolling_release)" -eq 1 ]]; then
-    # Release candidate or rolling release -> generate from the notes
-    generate_release_message "${release_name}" "$@"
-  else
-    # Full LTS release -> return the commit message
-    git_commit_msg "$@"
-  fi
+  generate_release_message "${release_name}" "$@"
 }
-

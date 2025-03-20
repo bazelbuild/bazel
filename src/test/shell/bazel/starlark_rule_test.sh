@@ -86,7 +86,7 @@ EOF
   ! bazel build //test:test &> $TEST_log \
       || fail "Should have resulted in an execution error"
 
-  expect_log "error executing command.*not_a_command"
+  expect_log "error executing Action command.*not_a_command"
 }
 
 # Regression test for https://github.com/bazelbuild/bazel/issues/13189
@@ -120,7 +120,7 @@ def _impl(ctx):
 foo = rule(
     implementation = _impl,
     attrs = {
-        "tool": attr.label(allow_single_file = True, executable = True, cfg = "host"),
+        "tool": attr.label(allow_single_file = True, executable = True, cfg = "exec"),
         "out": attr.output(mandatory = True),
     },
 )
@@ -133,7 +133,7 @@ EOF
   chmod +x bin.sh
 
   # //:x would fail without the bugfix of https://github.com/bazelbuild/bazel/issues/13189
-  bazel build //:x &> $TEST_log || fail "Expected sucesss"
+  bazel build //:x &> $TEST_log || fail "Expected success"
   bazel build //:y &> $TEST_log || fail "Expected success"
   rm BUILD bin.sh foo.bzl
 }

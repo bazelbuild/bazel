@@ -48,6 +48,8 @@ class GitRepositoryHelper {
     runGit("init");
     runGit("config", "user.email", "me@example.com");
     runGit("config", "user.name", "E X Ample");
+    runGit("commit", "--allow-empty", "-m", "Initial commit");
+    runGit("branch", "-M", "main");
   }
 
   /**

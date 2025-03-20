@@ -14,33 +14,35 @@
 
 package com.google.devtools.build.lib.skyframe;
 
-import static com.google.devtools.build.lib.rules.repository.ResolvedHashesFunction.ATTRIBUTES;
-import static com.google.devtools.build.lib.rules.repository.ResolvedHashesFunction.NATIVE;
-import static com.google.devtools.build.lib.rules.repository.ResolvedHashesFunction.REPOSITORIES;
-import static com.google.devtools.build.lib.rules.repository.ResolvedHashesFunction.RULE_CLASS;
+import static com.google.devtools.build.lib.packages.WorkspaceFactoryHelper.DEFAULT_WORKSPACE_SUFFIX_FILE;
+import static com.google.devtools.build.lib.rules.repository.ResolvedFileValue.ATTRIBUTES;
+import static com.google.devtools.build.lib.rules.repository.ResolvedFileValue.NATIVE;
+import static com.google.devtools.build.lib.rules.repository.ResolvedFileValue.REPOSITORIES;
+import static com.google.devtools.build.lib.rules.repository.ResolvedFileValue.RULE_CLASS;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSortedSet;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
-import com.google.devtools.build.lib.packages.Package.NameConflictException;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
+import com.google.devtools.build.lib.packages.TargetRecorder.NameConflictException;
 import com.google.devtools.build.lib.packages.WorkspaceFactory;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue.WorkspaceFileKey;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.rules.repository.ResolvedFileValue;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading;
@@ -58,10 +60,12 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import javax.annotation.Nullable;
 import net.starlark.java.eval.Module;
 import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkSemantics;
+import net.starlark.java.syntax.Comment;
 import net.starlark.java.syntax.FileOptions;
 import net.starlark.java.syntax.LoadStatement;
 import net.starlark.java.syntax.Location;
@@ -92,9 +96,19 @@ public class WorkspaceFileFunction implements SkyFunction {
   }
 
   @Override
+  @Nullable
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws WorkspaceFileFunctionException, InterruptedException {
     WorkspaceFileKey key = (WorkspaceFileKey) skyKey.argument();
+
+    if (key.getIndex() == 0 && directories.getProductName().equals("bazel")) {
+      env.getListener()
+          .handle(
+              Event.warn(
+                  "WORKSPACE support will be removed in Bazel 9 (late 2025), please migrate to"
+                      + " Bzlmod, see https://bazel.build/external/migration."));
+    }
+
     RootedPath workspaceFile = key.getPath();
     StarlarkSemantics starlarkSemantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
     if (starlarkSemantics == null) {
@@ -115,13 +129,14 @@ public class WorkspaceFileFunction implements SkyFunction {
             RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE.get(env));
     boolean useWorkspaceResolvedFile = resolvedFile.isPresent();
 
+    final boolean bzlmod = starlarkSemantics.getBool(BuildLanguageOptions.ENABLE_BZLMOD);
     boolean useWorkspaceBzlmodFile = false;
     RootedPath workspaceBzlmodFile =
         RootedPath.toRootedPath(
             workspaceFile.getRoot(),
             workspaceFile.getRootRelativePath().replaceName("WORKSPACE.bzlmod"));
     // We only need to check WORKSPACE.bzlmod when the resolved file isn't used.
-    if (!useWorkspaceResolvedFile && RepositoryDelegatorFunction.ENABLE_BZLMOD.get(env)) {
+    if (!useWorkspaceResolvedFile && bzlmod) {
       FileValue workspaceBzlmodFileValue =
           (FileValue) env.getValue(FileValue.key(workspaceBzlmodFile));
       if (workspaceBzlmodFileValue == null) {
@@ -159,11 +174,39 @@ public class WorkspaceFileFunction implements SkyFunction {
             .allowToplevelRebinding(true)
             .build();
 
+    // Calculate user workspace file content
+    StarlarkFile userWorkspaceFile = null;
+    if (useWorkspaceResolvedFile) {
+      // WORKSPACE.resolved file.
+      userWorkspaceFile =
+          StarlarkFile.parse(
+              ParserInput.fromString(
+                  workspaceFromResolvedFile, resolvedFile.get().asPath().toString()),
+              // The WORKSPACE.resolved file breaks through the usual privacy mechanism.
+              options.toBuilder().allowLoadPrivateSymbols(true).build());
+    } else if (useWorkspaceBzlmodFile) {
+      // If Bzlmod is enabled and WORKSPACE.bzlmod exists, then use this file instead of the
+      // original WORKSPACE file.
+      userWorkspaceFile = parseWorkspaceFile(workspaceBzlmodFile, options, starlarkSemantics, env);
+    } else if (workspaceFileValue.exists()) {
+      // normal WORKSPACE file
+      userWorkspaceFile = parseWorkspaceFile(workspaceFile, options, starlarkSemantics, env);
+    }
+
+    boolean shouldSkipWorkspacePrefix = useWorkspaceResolvedFile || useWorkspaceBzlmodFile;
+    boolean shouldSkipWorkspaceSuffix = useWorkspaceResolvedFile || useWorkspaceBzlmodFile;
+    if (userWorkspaceFile != null) {
+      for (Comment comment : userWorkspaceFile.getComments()) {
+        shouldSkipWorkspacePrefix |= comment.getText().contains("__SKIP_WORKSPACE_PREFIX__");
+        shouldSkipWorkspaceSuffix |= comment.getText().contains("__SKIP_WORKSPACE_SUFFIX__");
+      }
+    }
+
     // Accumulate workspace files (prefix + main + suffix).
     ArrayList<StarlarkFile> files = new ArrayList<>();
 
-    // 1. Workspace prefix (DEFAULT.WORKSPACE): Only added when not using the WORKSPACE.bzlmod file
-    if (!useWorkspaceBzlmodFile) {
+    // 1. Add WORKSPACE prefix (DEFAULT.WORKSPACE)
+    if (!shouldSkipWorkspacePrefix) {
       StarlarkFile file =
           StarlarkFile.parse(
               ParserInput.fromString(
@@ -176,31 +219,17 @@ public class WorkspaceFileFunction implements SkyFunction {
       files.add(file);
     }
 
-    // 2. Main workspace content
-    if (useWorkspaceResolvedFile) {
-      // WORKSPACE.resolved file.
-      StarlarkFile file =
-          StarlarkFile.parse(
-              ParserInput.fromString(
-                  workspaceFromResolvedFile, resolvedFile.get().asPath().toString()),
-              // The WORKSPACE.resolved file breaks through the usual privacy mechanism.
-              options.toBuilder().allowLoadPrivateSymbols(true).build());
-      files.add(file);
-    } else if (useWorkspaceBzlmodFile) {
-      // If Bzlmod is enabled and WORKSPACE.bzlmod exists, then use this file instead of the
-      // original WORKSPACE file.
-      files.add(parseWorkspaceFile(workspaceBzlmodFile, options, env));
-    } else if (workspaceFileValue.exists()) {
-      // normal WORKSPACE file
-      files.add(parseWorkspaceFile(workspaceFile, options, env));
+    // 2. Add user workspace content
+    if (userWorkspaceFile != null) {
+      files.add(userWorkspaceFile);
     }
 
-    // 3. Workspace suffix (DEFAULT.WORKSPACE.SUFFIX): Only added when using the WORKSPACE file.
-    if (!useWorkspaceResolvedFile && !useWorkspaceBzlmodFile) {
+    // 3. Add WORKSPACE suffix (DEFAULT.WORKSPACE.SUFFIX)
+    if (!shouldSkipWorkspaceSuffix) {
       StarlarkFile file =
           StarlarkFile.parse(
               ParserInput.fromString(
-                  ruleClassProvider.getDefaultWorkspaceSuffix(), "/DEFAULT.WORKSPACE.SUFFIX"),
+                  ruleClassProvider.getDefaultWorkspaceSuffix(), DEFAULT_WORKSPACE_SUFFIX_FILE),
               // The DEFAULT.WORKSPACE.SUFFIX file breaks through the usual privacy mechanism.
               options.toBuilder().allowLoadPrivateSymbols(true).build());
       if (!file.ok()) {
@@ -237,23 +266,6 @@ public class WorkspaceFileFunction implements SkyFunction {
     // -- start of historical WorkspaceFileFunction --
     // TODO(adonovan): reorganize and simplify.
 
-    Package.Builder builder =
-        packageFactory.newExternalPackageBuilder(
-            workspaceFile, ruleClassProvider.getRunfilesPrefix(), starlarkSemantics);
-
-    if (chunks.isEmpty()) {
-      return new WorkspaceFileValue(
-          buildAndReportEvents(builder, env),
-          /* loadedModules = */ ImmutableMap.<String, Module>of(),
-          /* loadToChunkMap = */ ImmutableMap.<String, Integer>of(),
-          /* bindings = */ ImmutableMap.<String, Object>of(),
-          workspaceFile,
-          /* idx = */ 0, // first fragment
-          /* hasNext = */ false,
-          ImmutableMap.of(),
-          ImmutableSortedSet.of());
-    }
-
     // Get the state at the end of the previous chunk.
     WorkspaceFileValue prevValue = null;
     if (key.getIndex() > 0) {
@@ -267,6 +279,42 @@ public class WorkspaceFileFunction implements SkyFunction {
         return prevValue;
       }
     }
+    RepositoryMapping repoMapping;
+    if (prevValue == null) {
+      repoMapping = RepositoryMapping.ALWAYS_FALLBACK;
+    } else {
+      repoMapping =
+          RepositoryMapping.createAllowingFallback(
+              prevValue
+                  .getRepositoryMapping()
+                  .getOrDefault(RepositoryName.MAIN, ImmutableMap.of()));
+    }
+    if (bzlmod) {
+      RepositoryMappingValue rootModuleMapping =
+          (RepositoryMappingValue)
+              env.getValue(RepositoryMappingValue.KEY_FOR_ROOT_MODULE_WITHOUT_WORKSPACE_REPOS);
+      if (rootModuleMapping == null) {
+        return null;
+      }
+      repoMapping = repoMapping.composeWith(rootModuleMapping.repositoryMapping());
+    }
+
+    // The default 'workspace name' is "__main__". Note that this is different from the "workspace
+    // name" returned by WorkspaceNameFunction, which is a fixed string when Bzlmod is enabled.
+    Package.Builder builder =
+        packageFactory.newExternalPackageBuilder(key, "__main__", repoMapping, starlarkSemantics);
+
+    if (chunks.isEmpty()) {
+      builder.setLoads(ImmutableList.of());
+      return new WorkspaceFileValue(
+          buildAndReportEvents(builder, env),
+          /* loadedModules= */ ImmutableMap.of(),
+          /* loadToChunkMap= */ ImmutableMap.of(),
+          /* bindings= */ ImmutableMap.of(),
+          workspaceFile,
+          /* idx= */ 0, // first fragment
+          /* hasNext= */ false);
+    }
 
     List<StarlarkFile> chunk = chunks.get(key.getIndex());
 
@@ -275,7 +323,7 @@ public class WorkspaceFileFunction implements SkyFunction {
         BzlLoadFunction.getLoadsFromStarlarkFiles(chunk);
     ImmutableList<Label> loadLabels =
         BzlLoadFunction.getLoadLabels(
-            env.getListener(), programLoads, rootPackage, RepositoryMapping.ALWAYS_FALLBACK);
+            env.getListener(), programLoads, rootPackage, repoMapping, starlarkSemantics);
     if (loadLabels == null) {
       NoSuchPackageException e =
           PackageFunction.PackageFunctionException.builder()
@@ -303,7 +351,17 @@ public class WorkspaceFileFunction implements SkyFunction {
     try {
       loadedModules =
           PackageFunction.loadBzlModules(
-              env, rootPackage, programLoads, keys.build(), bzlLoadFunctionForInlining);
+              env,
+              rootPackage,
+              // In error messages, attribute the blame to "WORKSPACE content" since we're not sure
+              // at this point what the actual source of the content was.
+              "WORKSPACE content",
+              programLoads,
+              keys.build(),
+              starlarkSemantics,
+              bzlLoadFunctionForInlining,
+              /* checkVisibility= */ !useWorkspaceResolvedFile,
+              BazelSkyframeExecutorConstants.ACTION_ON_FILESYSTEM_ERROR_CODE_LOADING_BZL_FILE);
     } catch (NoSuchPackageException e) {
       throw new WorkspaceFileFunctionException(e, Transience.PERSISTENT);
     }
@@ -318,9 +376,11 @@ public class WorkspaceFileFunction implements SkyFunction {
           new WorkspaceFactory(
               builder,
               ruleClassProvider,
-              packageFactory.getEnvironmentExtensions(),
               mu,
               key.getIndex() == 0,
+              // Due to rules_java_builtin in WORKSPACE prefix, we allow workspace() in the first 2
+              // load statement separated chunks
+              key.getIndex() <= 1,
               directories.getEmbeddedBinariesRoot(),
               directories.getWorkspace(),
               directories.getLocalJavabase(),
@@ -332,10 +392,14 @@ public class WorkspaceFileFunction implements SkyFunction {
         } catch (NameConflictException e) {
           throw new WorkspaceFileFunctionException(e, Transience.PERSISTENT);
         }
+        builder.setLoads(
+            Iterables.concat(prevValue.getLoadedModules().values(), loadedModules.values()));
+      } else {
+        builder.setLoads(loadedModules.values());
       }
       // Execute the partial files that comprise this chunk.
       for (StarlarkFile partialFile : chunk) {
-        parser.execute(partialFile, loadedModules, key);
+        parser.execute(partialFile, loadedModules);
       }
     }
 
@@ -347,13 +411,14 @@ public class WorkspaceFileFunction implements SkyFunction {
         parser.getVariableBindings(),
         workspaceFile,
         key.getIndex(),
-        key.getIndex() < chunks.size() - 1,
-        ImmutableMap.copyOf(parser.getManagedDirectories()),
-        parser.getDoNotSymlinkInExecrootPaths());
+        key.getIndex() < chunks.size() - 1);
   }
 
   private static StarlarkFile parseWorkspaceFile(
-      RootedPath workspaceFile, FileOptions options, Environment env)
+      RootedPath workspaceFile,
+      FileOptions options,
+      StarlarkSemantics starlarkSemantics,
+      Environment env)
       throws WorkspaceFileFunctionException {
     Path workspacePath = workspaceFile.asPath();
     byte[] bytes;
@@ -362,8 +427,20 @@ public class WorkspaceFileFunction implements SkyFunction {
     } catch (IOException ex) {
       throw new WorkspaceFileFunctionException(ex, Transience.TRANSIENT);
     }
-    StarlarkFile file =
-        StarlarkFile.parse(ParserInput.fromLatin1(bytes, workspacePath.toString()), options);
+    ParserInput parserInput;
+    try {
+      parserInput =
+          StarlarkUtil.createParserInput(
+              bytes,
+              workspacePath.toString(),
+              starlarkSemantics.get(BuildLanguageOptions.INCOMPATIBLE_ENFORCE_STARLARK_UTF8),
+              env.getListener());
+    } catch (
+        @SuppressWarnings("UnusedException") // createParserInput() reports its own error message
+        StarlarkUtil.InvalidUtf8Exception e) {
+      throw resolvedValueError("Failed to read WORKSPACE file");
+    }
+    StarlarkFile file = StarlarkFile.parse(parserInput);
     if (!file.ok()) {
       Event.replayEventsOn(env.getListener(), file.errors());
       throw resolvedValueError("Failed to parse WORKSPACE file");
@@ -396,10 +473,7 @@ public class WorkspaceFileFunction implements SkyFunction {
       throw new WorkspaceFileFunctionException(e, Transience.TRANSIENT);
     }
 
-    Event.replayEventsOn(env.getListener(), pkgBuilder.getEvents());
-    for (Postable postable : pkgBuilder.getPosts()) {
-      env.getListener().post(postable);
-    }
+    pkgBuilder.getLocalEventHandler().replayOn(env.getListener());
 
     return result;
   }
@@ -425,7 +499,7 @@ public class WorkspaceFileFunction implements SkyFunction {
    */
   private static ImmutableMap<String, Integer> createLoadToChunkMap(
       WorkspaceFileValue prevValue, WorkspaceFactory parser, WorkspaceFileKey key) {
-    ImmutableMap.Builder<String, Integer> builder = new ImmutableMap.Builder<String, Integer>();
+    ImmutableMap.Builder<String, Integer> builder = new ImmutableMap.Builder<>();
     if (prevValue == null) {
       for (String loadString : parser.getLoadedModules().keySet()) {
         builder.put(loadString, key.getIndex());
@@ -438,12 +512,7 @@ public class WorkspaceFileFunction implements SkyFunction {
         }
       }
     }
-    return builder.build();
-  }
-
-  @Override
-  public String extractTag(SkyKey skyKey) {
-    return null;
+    return builder.buildOrThrow();
   }
 
   private static final class WorkspaceFileFunctionException extends SkyFunctionException {
@@ -474,6 +543,7 @@ public class WorkspaceFileFunction implements SkyFunction {
    * immediately again; we probably should construct the statements directly out of the value to
    * improve performance.
    */
+  @Nullable
   private static String workspaceFromResolvedValue(RootedPath resolvedPath, Environment env)
       throws WorkspaceFileFunctionException, InterruptedException {
     ResolvedFileValue resolvedValue =

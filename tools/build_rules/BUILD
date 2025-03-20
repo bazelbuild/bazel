@@ -1,11 +1,14 @@
-load("//tools/python:private/defs.bzl", "py_test")
+load("@rules_python//python:defs.bzl", "py_test")
 
 licenses(["notice"])  # Apache 2.0
 
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
-    visibility = ["//tools:__pkg__"],
+    visibility = [
+        "//src/test/java/com/google/devtools/build/lib:__subpackages__",
+        "//tools:__pkg__",
+    ],
 )
 
 filegroup(

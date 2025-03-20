@@ -24,6 +24,8 @@
 #include <sys/stat.h>
 #include <time.h>
 
+#include <cstring>
+
 #ifndef _WIN32
 #include <unistd.h>
 #else
@@ -72,8 +74,6 @@ OutputJar::OutputJar()
   known_members_.emplace(manifest_.filename(), EntryInfo{&manifest_});
   known_members_.emplace(protobuf_meta_handler_.filename(),
                          EntryInfo{&protobuf_meta_handler_});
-  manifest_.AppendLine("Manifest-Version: 1.0");
-  manifest_.AppendLine("Created-By: singlejar");
 }
 
 static std::string Basename(const std::string &path) {
@@ -99,9 +99,15 @@ int OutputJar::Doit(Options *options) {
                            EntryInfo{&build_properties_});
   }
 
-  // TODO(b/28294322): do we need to resolve the path to be absolute or
-  // canonical?
-  build_properties_.AddProperty("build.target", options_->output_jar.c_str());
+  // Populate the manifest file.
+  manifest_.AppendLine("Manifest-Version: 1.0");
+  manifest_.AppendLine("Created-By: " + options_->output_jar_creator);
+
+  // TODO(b/28294322): remove fallback to output_jar
+  build_properties_.AddProperty("build.target",
+                                !options_->build_target.empty()
+                                    ? options_->build_target.c_str()
+                                    : options_->output_jar.c_str());
   if (options_->verbose) {
     fprintf(stderr, "combined_file_name=%s\n", options_->output_jar.c_str());
     if (!options_->main_class.empty()) {
@@ -129,9 +135,36 @@ int OutputJar::Doit(Options *options) {
     manifest_.AppendLine("Main-Class: " + options_->main_class);
   }
 
-  // Copy CDS archive file (.jsa) if it is set.
+  // Copy CDS archive file (.jsa) if it is set. Page aligned start offset
+  // is required.
   if (!options_->cds_archive.empty()) {
-    AppendCDSArchive(options->cds_archive);
+    AppendPageAlignedFile(options->cds_archive,
+                          "Jsa-Offset",
+                          std::string(),
+                          "cds.archive");
+  }
+
+  // Copy JDK lib/modules if set. Page aligned start offset is required for
+  // the file.
+  if (!options_->jdk_lib_modules.empty()) {
+    AppendPageAlignedFile(options_->jdk_lib_modules,
+                          "JDK-Lib-Modules-Offset",
+                          "JDK-Lib-Modules-Size",
+                          std::string());
+  }
+
+  if (options_->multi_release) {
+    manifest_.EnableMultiRelease();
+  }
+  manifest_.AddExports(options_->add_exports);
+  manifest_.AddOpens(options_->add_opens);
+  if (!options_->hermetic_java_home.empty()) {
+    manifest_.AppendLine("Hermetic-Java-Home: " + options_->hermetic_java_home);
+  }
+  for (auto &manifest_line : options_->manifest_lines) {
+    if (!manifest_line.empty()) {
+      manifest_.AppendLine(manifest_line);
+    }
   }
 
   for (auto &build_info_line : options_->build_info_lines) {
@@ -191,16 +224,15 @@ int OutputJar::Doit(Options *options) {
   // Ready to write zip entries. Decide whether created entries should be
   // compressed.
   bool compress = options_->force_compression || options_->preserve_compression;
-
-  // Write a directory entry for the META-INF
+  // First, write a directory entry for the META-INF, followed by the manifest
+  // file, followed by the build properties file.
   WriteMetaInf();
-
-  // Write the build properties file.
+  WriteEntry(manifest_.OutputEntry(compress));
   if (!options_->exclude_build_data) {
     WriteEntry(build_properties_.OutputEntry(compress));
   }
 
-  // Write classpath resources.
+  // Then classpath resources.
   for (auto &classpath_resource : classpath_resources_) {
     bool do_compress = compress;
     if (do_compress && !options_->nocompress_suffixes.empty()) {
@@ -228,21 +260,12 @@ int OutputJar::Doit(Options *options) {
     WriteEntry(classpath_resource->OutputEntry(do_compress));
   }
 
-  // Copy source files' contents.
+  // Then copy source files' contents.
   for (size_t ix = 0; ix < options_->input_jars.size(); ++ix) {
     if (!AddJar(ix)) {
       exit(1);
     }
   }
-
-  for (auto &manifest_line : options_->manifest_lines) {
-    if (!manifest_line.empty()) {
-      manifest_.AppendLine(manifest_line);
-    }
-  }
-
-  // Write the manifest file
-  WriteEntry(manifest_.OutputEntry(compress));
 
   // All entries written, write Central Directory and close.
   Close();
@@ -345,6 +368,16 @@ bool OutputJar::AddJar(int jar_path_index) {
     if (ends_with(file_name, file_name_length, ".SF") ||
         ends_with(file_name, file_name_length, ".RSA") ||
         ends_with(file_name, file_name_length, ".DSA")) {
+      continue;
+    }
+
+    // Skip module-info.class files
+    // Deploy jars are not modularized jars, and including module-infos from
+    // modularized dependencies doesn't work. See also b/204112761.
+    if (!options_->no_strip_module_info &&
+        (!strncmp(file_name, "module-info.class", file_name_length) ||
+         (begins_with(file_name, file_name_length, "META-INF/versions/") &&
+          ends_with(file_name, file_name_length, "/module-info.class")))) {
       continue;
     }
 
@@ -857,15 +890,8 @@ bool OutputJar::Close() {
       ecd->signature();
       ecd->this_disk_entries16(0xFFFF);
       ecd->total_entries16(0xFFFF);
-      // Java Compiler (javac) uses its own "optimized" Zip handler (see
-      // https://bugs.openjdk.java.net/browse/JDK-7018859) which may fail
-      // to handle 0xFFFFFFFF in the CEN size and CEN offset fields. Try
-      // to use 32-bit values here, too. Hopefully by the time we need to
-      // handle really large archives, this is fixes upstream. Note that this
-      // affects javac and javah only, 'jar' experiences no problems.
-      ecd->cen_size32(std::min(cen_size, static_cast<size_t>(0xFFFFFFFFUL)));
-      ecd->cen_offset32(
-          std::min(output_position, static_cast<off64_t>(0x0FFFFFFFFL)));
+      ecd->cen_size32(0xFFFFFFFF);
+      ecd->cen_offset32(0xFFFFFFFF);
     }
   } else {
     ECD *ecd = reinterpret_cast<ECD *>(ReserveCdh(sizeof(ECD)));
@@ -987,7 +1013,7 @@ ssize_t OutputJar::CopyAppendData(int in_fd, off64_t offset, size_t count) {
   return total_written;
 }
 
-void OutputJar::AppendFile(Options *options, const char *const file_path) {
+size_t OutputJar::AppendFile(Options *options, const char *const file_path) {
   int in_fd = open(file_path, O_RDONLY);
   struct stat statbuf;
   if (fstat(in_fd, &statbuf)) {
@@ -1009,9 +1035,11 @@ void OutputJar::AppendFile(Options *options, const char *const file_path) {
     fprintf(stderr, "Prepended %s (%" PRIu64 " bytes)\n", file_path,
             statbuf.st_size);
   }
+  return statbuf.st_size;
 }
 
-off64_t OutputJar::PageAlignedAppendFile(const std::string &file_path) {
+off64_t OutputJar::PageAlignedAppendFile(const std::string &file_path,
+                                         size_t *file_size) {
   // Align the file start offset at page boundary.
   off64_t cur_offset = Position();
   size_t pagesize;
@@ -1037,27 +1065,44 @@ off64_t OutputJar::PageAlignedAppendFile(const std::string &file_path) {
   }
 
   // Copy file
-  AppendFile(options_, file_path.c_str());
+  *file_size = AppendFile(options_, file_path.c_str());
 
   return aligned_offset;
 }
 
-void OutputJar::AppendCDSArchive(const std::string &cds_archive) {
+void OutputJar::AppendPageAlignedFile(
+    const std::string &file,
+    const std::string &offset_manifest_attr_name,
+    const std::string &size_manifest_attr_name,
+    const std::string &property_name) {
   // Align the shared archive start offset at page alignment, which is
   // required by mmap.
-  off64_t aligned_offset = OutputJar::PageAlignedAppendFile(cds_archive);
+  size_t file_size;
+  off64_t aligned_offset = OutputJar::PageAlignedAppendFile(file, &file_size);
 
-  // Write the file offset of the shared archive section as a manifest
-  // attribute.
-  char cds_manifest_attr[50];
-  snprintf( cds_manifest_attr, sizeof(cds_manifest_attr),
-    "Jsa-Offset: %ld", (long)aligned_offset); // NOLINT(runtime/int,
-                                              // google-runtime-int)
-  manifest_.AppendLine(cds_manifest_attr);
+  // Write the start offset of the copied content as a manifest attribute.
+  char offset_manifest_attr[50];
+  snprintf(offset_manifest_attr, sizeof(offset_manifest_attr),
+    "%s: %ld", offset_manifest_attr_name.c_str(),
+    (long)aligned_offset); // NOLINT(runtime/int,
+                           // google-runtime-int)
+  manifest_.AppendLine(offset_manifest_attr);
 
-  // Add to build_properties
-  build_properties_.AddProperty("cds.archive",
-                                cds_archive.c_str());
+  // Write the size of the copied content as a manifest attribute if the
+  // size_manifest_attr_name is not NULL.
+  if (!size_manifest_attr_name.empty()) {
+    char size_manifest_attr[50];
+    snprintf(size_manifest_attr, sizeof(size_manifest_attr),
+      "%s: %ld", size_manifest_attr_name.c_str(),
+      (long)file_size); // NOLINT(runtime/int,
+                        // google-runtime-int)
+    manifest_.AppendLine(size_manifest_attr);
+  }
+
+  if (!property_name.empty()) {
+    // Add to build_properties.
+    build_properties_.AddProperty(property_name.c_str(), file.c_str());
+  }
 }
 
 void OutputJar::ExtraCombiner(const std::string &entry_name,

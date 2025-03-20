@@ -17,15 +17,19 @@ package com.google.devtools.build.lib.util;
 import com.google.common.base.Ascii;
 import com.google.common.base.Throwables;
 import com.google.common.collect.Sets;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.Crash;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.ThrowableOrBuilder;
 import java.util.Set;
+import java.util.function.BooleanSupplier;
 import java.util.stream.Collectors;
 
 /** Factory methods for producing {@link Crash}-type {@link FailureDetail} messages. */
 public class CrashFailureDetails {
+
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   /**
    * Max message length in {@link FailureDetails.Throwable} submessage, anything beyond this is
@@ -45,23 +49,35 @@ public class CrashFailureDetails {
    */
   private static final int MAX_STACK_TRACE_SIZE = 1000;
 
+  private static BooleanSupplier oomDetector = () -> false;
+
   private CrashFailureDetails() {}
+
+  /** Registers a predicate to use for more aggressive {@link OutOfMemoryError} detection. */
+  public static void setOomDetector(BooleanSupplier oomDetector) {
+    CrashFailureDetails.oomDetector = oomDetector;
+  }
+
+  /** Returns whether an {@link OutOfMemoryError} was detected. */
+  public static boolean oomDetected() {
+    return oomDetector.getAsBoolean();
+  }
 
   public static DetailedExitCode detailedExitCodeForThrowable(Throwable throwable) {
     return DetailedExitCode.of(forThrowable(throwable));
   }
 
-  /**
-   * Returns a {@link Crash}-type {@link FailureDetail} with {@link Crash.Code#CRASH_UNKNOWN}, with
-   * its cause chain filled out.
-   */
+  /** Returns a {@link Crash}-type {@link FailureDetail} with its cause chain filled out. */
   public static FailureDetail forThrowable(Throwable throwable) {
-    Crash.Builder crashBuilder =
-        Crash.newBuilder()
-            .setCode(
-                (getRootCauseToleratingCycles(throwable) instanceof OutOfMemoryError)
-                    ? Crash.Code.CRASH_OOM
-                    : Crash.Code.CRASH_UNKNOWN);
+    Crash.Builder crashBuilder = Crash.newBuilder();
+    if (getRootCauseToleratingCycles(throwable) instanceof OutOfMemoryError) {
+      crashBuilder.setCode(Crash.Code.CRASH_OOM);
+    } else if (oomDetected()) {
+      logger.atWarning().log("Classifying non-OOM crash as OOM");
+      crashBuilder.setCode(Crash.Code.CRASH_OOM).setOomDetectorOverride(true);
+    } else {
+      crashBuilder.setCode(Crash.Code.CRASH_UNKNOWN);
+    }
     addCause(crashBuilder, throwable, Sets.newIdentityHashSet());
     return FailureDetail.newBuilder()
         .setMessage("Crashed: " + joinSummarizedCauses(crashBuilder))

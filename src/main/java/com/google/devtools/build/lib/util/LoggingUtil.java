@@ -22,10 +22,11 @@ import java.util.concurrent.Future;
 import java.util.logging.Level;
 import java.util.logging.LogRecord;
 import java.util.logging.Logger;
+import javax.annotation.Nullable;
 
 /**
- * Logging utilities for sending log messages to a remote service. Log messages
- * will not be output anywhere else, including the terminal and blaze clients.
+ * Logging utilities for sending log messages to a remote service. Log messages will not be output
+ * anywhere else, including the terminal and blaze clients.
  */
 @ThreadSafety.ThreadSafe
 public final class LoggingUtil {
@@ -35,8 +36,7 @@ public final class LoggingUtil {
   /**
    * Installs the remote logger.
    *
-   * <p>This can only be called once, and the caller should not keep the
-   * reference to the logger.
+   * <p>This can only be called once, and the caller should not keep the reference to the logger.
    *
    * @param logger The logger future. Must have already started.
    */
@@ -54,6 +54,7 @@ public final class LoggingUtil {
   }
 
   /** Returns the installed logger, or null if none is installed. */
+  @Nullable
   public static synchronized Logger getRemoteLogger() {
     try {
       return (remoteLogger == null) ? null : Uninterruptibles.getUninterruptibly(remoteLogger);

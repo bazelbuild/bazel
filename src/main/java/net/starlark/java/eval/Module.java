@@ -16,6 +16,7 @@ package net.starlark.java.eval;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Maps;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -40,46 +41,88 @@ import net.starlark.java.syntax.Resolver;
  * <p>Global bindings in a Module may shadow bindings inherited from the predeclared block.
  *
  * <p>A module may carry an arbitrary piece of client data. In Bazel, for example, the client data
- * records the module's build label (such as "//dir:file.bzl").
+ * records the module's build label (such as "//dir:file.bzl"). This client data is accessible to
+ * (for instance) application-defined builtin methods.
  *
- * <p>Use {@link #create} to create a {@link Module} with no predeclared bindings other than the
- * universal ones. Use {@link #withPredeclared(StarlarkSemantics, Map)} to create a module with the
- * predeclared environment specified by the map, using the semantics to determine whether any
- * FlagGuardedValues in the map are enabled or disabled.
+ * <p>You may create a Module using {@link #create}, {@link #withPredeclared}, or {@link
+ * #withPredeclaredAndData}. The latter two give you the ability to add predeclared bindings (beyond
+ * the universal ones) and client data. The particular {@link StarlarkSemantics} and client data may
+ * filter what predeclared bindings are available via {@link GuardedValue}.
  */
 public final class Module implements Resolver.Module {
 
-  // The module's predeclared environment. Excludes UNIVERSE bindings.
-  private ImmutableMap<String, Object> predeclared;
+  // The module's predeclared environment. Excludes UNIVERSE bindings. Values that are conditionally
+  // present are stored as GuardedValues regardless of whether they are actually enabled.
+  private final ImmutableMap<String, Object> predeclared;
 
   // The module's global variables, in order of creation.
   private final LinkedHashMap<String, Integer> globalIndex = new LinkedHashMap<>();
   private Object[] globals = new Object[8];
 
-  // An optional piece of metadata associated with the module/file.
-  // May be set after construction (too obscure to burden the constructors).
+  // An optional piece of application-specific metadata associated with the module/file.
   // Its toString appears to Starlark in str(function): "<function f from ...>".
-  @Nullable private Object clientData;
+  @Nullable private final Object clientData;
 
-  private Module(ImmutableMap<String, Object> predeclared) {
+  private final StarlarkSemantics semantics;
+
+  // An optional doc string for the module. Set after construction when evaluating a .bzl file.
+  @Nullable private String documentation;
+
+  private Module(
+      ImmutableMap<String, Object> predeclared,
+      @Nullable Object clientData,
+      StarlarkSemantics semantics) {
     this.predeclared = predeclared;
+    this.clientData = clientData;
+    this.semantics = semantics;
   }
 
   /**
-   * Constructs a Module with the specified predeclared bindings, filtered by the semantics, in
-   * addition to the standard environment, {@link Starlark#UNIVERSE}.
+   * Constructs a Module with the specified predeclared bindings (filtered by the semantics), in *
+   * addition to the standard environment, {@link Starlark#UNIVERSE}. No client data is set.
    */
   public static Module withPredeclared(
       StarlarkSemantics semantics, Map<String, Object> predeclared) {
-    return new Module(filter(predeclared, semantics));
+    return withPredeclaredAndData(semantics, predeclared, null);
+  }
+
+  /**
+   * Constructs a Module as above, but with the specified client data -- an arbitrary
+   * application-specific value to be associated with this Module. Client data may also affect the
+   * filtering of predeclareds alongside the semantics.
+   */
+  public static Module withPredeclaredAndData(
+      StarlarkSemantics semantics, Map<String, Object> predeclared, @Nullable Object clientData) {
+    return new Module(ImmutableMap.copyOf(predeclared), clientData, semantics);
   }
 
   /**
    * Creates a module with no predeclared bindings other than the standard environment, {@link
-   * Starlark#UNIVERSE}.
+   * Starlark#UNIVERSE}, and with no client data.
    */
   public static Module create() {
-    return new Module(/*predeclared=*/ ImmutableMap.of());
+    return new Module(
+        /* predeclared= */ ImmutableMap.of(), /* clientData= */ null, StarlarkSemantics.DEFAULT);
+  }
+
+  /**
+   * Returns the module (file) of the {@code depth}-th innermost enclosing Starlark function on the
+   * call stack, or null if number of the active calls that are functions defined in Starlark is
+   * less than or equal to {@code depth}.
+   *
+   * <p>This method is a temporary workaround for Starlarkification, to check {@code _builtin}
+   * restriction and should not be used anywhere else.
+   *
+   * @param depth the depth for the callstack.
+   * @throws IllegalArgumentException if {@code depth} is negative.
+   */
+  @Nullable
+  public static Module ofInnermostEnclosingStarlarkFunction(StarlarkThread thread, int depth) {
+    StarlarkFunction fn = thread.getInnermostEnclosingStarlarkFunction(depth);
+    if (fn != null) {
+      return fn.getModule();
+    }
+    return null;
   }
 
   /**
@@ -90,65 +133,72 @@ public final class Module implements Resolver.Module {
    */
   @Nullable
   public static Module ofInnermostEnclosingStarlarkFunction(StarlarkThread thread) {
-    for (Debug.Frame fr : thread.getDebugCallStack().reverse()) {
-      if (fr.getFunction() instanceof StarlarkFunction) {
-        return ((StarlarkFunction) fr.getFunction()).getModule();
-      }
+    return ofInnermostEnclosingStarlarkFunction(thread, 0);
+  }
+
+  /**
+   * Replaces an enabled {@link GuardedValue} with the value it guards.
+   *
+   * <p>A disabled {@link GuardedValue} is left in place for error reporting upon access, and should
+   * be treated as unavailable.
+   */
+  private Object filterGuardedValue(Object v) {
+    Preconditions.checkNotNull(v);
+    if (!(v instanceof GuardedValue)) {
+      return v;
     }
-    return null;
+    GuardedValue gv = (GuardedValue) v;
+    return gv.isObjectAccessibleUsingSemantics(semantics, clientData) ? gv.getObject() : gv;
   }
 
-  /**
-   * Returns a map in which each semantics-enabled FlagGuardedValue has been replaced by the value
-   * it guards. Disabled FlagGuardedValues are left in place, and should be treated as unavailable.
-   * The iteration order is unchanged.
-   */
-  private static ImmutableMap<String, Object> filter(
-      Map<String, Object> predeclared, StarlarkSemantics semantics) {
-    ImmutableMap.Builder<String, Object> filtered = ImmutableMap.builder();
-    for (Map.Entry<String, Object> bind : predeclared.entrySet()) {
-      Object v = bind.getValue();
-      if (v instanceof FlagGuardedValue) {
-        FlagGuardedValue fv = (FlagGuardedValue) bind.getValue();
-        if (fv.isObjectAccessibleUsingSemantics(semantics)) {
-          v = fv.getObject();
-        }
-      }
-      filtered.put(bind.getKey(), v);
-    }
-    return filtered.build();
-  }
-
-  /**
-   * Sets the client data (an arbitrary application-specific value) associated with the module. It
-   * may be retrieved using {@link #getClientData}. Its {@code toString} form appears in the result
-   * of {@code str(fn)} where {@code fn} is a StarlarkFunction: "<function f from ...>".
-   */
-  public void setClientData(@Nullable Object clientData) {
-    this.clientData = clientData;
-  }
-
-  /**
-   * Returns the client data associated with this module by a prior call to {@link #setClientData}.
-   */
+  /** Returns the client data associated with this module. */
   @Nullable
   public Object getClientData() {
     return clientData;
   }
 
-  /** Returns the value of a predeclared (not universal) binding in this module. */
-  Object getPredeclared(String name) {
-    return predeclared.get(name);
+  /** Sets the module's doc string. It may be retrieved using {@link #getDocumentation}. */
+  public void setDocumentation(String documentation) {
+    this.documentation = documentation;
+  }
+
+  /**
+   * Returns the module's doc string, or null if absent.
+   *
+   * <p>Morally equivalent to calling {@code program.getResolvedFunction().getDocumentation()} when
+   * the Module has a corresponding {@link net.starlark.java.syntax.Program}. We need to separately
+   * save the doc string inside the Module because (1) a Module will usually outlive the Program;
+   * and (2) there isn't always a 1-to-1 match between a Module and a Program (multiple programs may
+   * be executed in the same module in REPL or in tests).
+   */
+  @Nullable
+  public String getDocumentation() {
+    return documentation;
+  }
+
+  /**
+   * Returns the value of a predeclared (not universal) binding in this module.
+   *
+   * <p>In the case that the predeclared is a {@link GuardedValue}: If it is enabled, the underlying
+   * value is returned, otherwise the {@code GuardedValue} itself is returned for error reporting.
+   */
+  @Nullable
+  public Object getPredeclared(String name) {
+    Object value = predeclared.get(name);
+    if (value == null) {
+      return null;
+    }
+    return filterGuardedValue(value);
   }
 
   /**
    * Returns this module's additional predeclared bindings. (Excludes {@link Starlark#UNIVERSE}.)
    *
-   * <p>The map reflects any semantics-based filtering of FlagGuardedValues done by {@link
-   * #withPredeclared}: enabled FlagGuardedValues are replaced by their underlying value.
+   * <p>The map reflects any filtering of {@link GuardedValue}: enabled ones are replaced by the
+   * underlying values that they guard, while disabled ones are left in place for error reporting.
    */
-  public ImmutableMap<String, Object> getPredeclaredBindings() {
-    return predeclared;
+  public Map<String, Object> getPredeclaredBindings() {
+    return Maps.transformValues(predeclared, this::filterGuardedValue);
   }
 
   /**
@@ -166,7 +216,7 @@ public final class Module implements Resolver.Module {
         m.put(e.getKey(), v);
       }
     }
-    return m.build();
+    return m.buildOrThrow();
   }
 
   /** Implements the resolver's module interface. */
@@ -178,11 +228,12 @@ public final class Module implements Resolver.Module {
     }
 
     // predeclared?
-    Object v = predeclared.get(name);
+    Object v = getPredeclared(name);
     if (v != null) {
-      if (v instanceof FlagGuardedValue) {
-        // Name is correctly spelled, but access is disabled by a flag.
-        throw new Undefined(((FlagGuardedValue) v).getErrorFromAttemptingAccess(name), null);
+      if (v instanceof GuardedValue) {
+        // Name is correctly spelled, but access is disabled by a flag or by client data.
+        throw new Undefined(
+            ((GuardedValue) v).getErrorFromAttemptingAccess(name), /*candidates=*/ null);
       }
       return Resolver.Scope.PREDECLARED;
     }
@@ -204,6 +255,7 @@ public final class Module implements Resolver.Module {
    * Returns the value of the specified global variable, or null if not bound. Does not look in the
    * predeclared environment.
    */
+  @Nullable
   public Object getGlobal(String name) {
     Integer i = globalIndex.get(name);
     return i != null ? globals[i] : null;

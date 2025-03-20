@@ -24,15 +24,10 @@ import java.util.Set;
 /** Cache for NestedSets in the action graph. */
 public class KnownNestedSets extends BaseCache<Object, DepSetOfFiles> {
   private final KnownArtifacts knownArtifacts;
-  private final boolean deduplicateDepsets;
 
-  KnownNestedSets(
-      AqueryOutputHandler aqueryOutputHandler,
-      KnownArtifacts knownArtifacts,
-      boolean deduplicateDepsets) {
+  KnownNestedSets(AqueryOutputHandler aqueryOutputHandler, KnownArtifacts knownArtifacts) {
     super(aqueryOutputHandler);
     this.knownArtifacts = knownArtifacts;
-    this.deduplicateDepsets = deduplicateDepsets;
   }
 
   @Override
@@ -50,7 +45,7 @@ public class KnownNestedSets extends BaseCache<Object, DepSetOfFiles> {
     // meaningful info and sometimes even corrupt the proto3 output. More context: b/186193294.
     Set<Node> visited = new HashSet<>();
     for (NestedSet<?> succ : nestedSet.getNonLeaves()) {
-      if (!deduplicateDepsets || visited.add(succ.toNode())) {
+      if (visited.add(succ.toNode())) {
         depSetBuilder.addTransitiveDepSetIds(this.dataToIdAndStreamOutputProto(succ));
       }
     }

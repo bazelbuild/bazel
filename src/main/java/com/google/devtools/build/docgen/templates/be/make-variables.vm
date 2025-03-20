@@ -1,8 +1,10 @@
 #if (!$singlePage)
----
-layout: documentation
-title: Make Variables
----
+<html devsite>
+<head>
+  <meta name="project_path" value="/_project.yaml">
+  <meta name="book_path" value="/_book.yaml">
+</head>
+<body>
 #end
 #if (!$singlePage)
 #parse("com/google/devtools/build/docgen/templates/be/header.vm")
@@ -12,18 +14,19 @@ title: Make Variables
                       variables
      ============================================
 -->
-<h1 id="make-variables">"Make" Variables</h1>
+<h1 class="page-title" id="make-variables">Make Variables</h1>
+
+{% dynamic setvar source_file "src/main/java/com/google/devtools/build/docgen/templates/be/make-variables.vm" %}
+{% include "_buttons.html" %}
 
 #if (!$singlePage)
-<div class="toc">
-  <ul>
-    <li><a href="#use">Use</a></li>
-    <li><a href="#predefined_variables">Predefined variables</a></li>
-    <li><a href="#predefined_genrule_variables">Predefined genrule variables</a></li>
-    <li><a href="#predefined_label_variables">Predefined source/output path variables</a></li>
-    <li><a href="#custom_variables">Custom variables</a></li>
-  </ul>
-</div>
+<ul>
+  <li><a href="#use">Use</a></li>
+  <li><a href="#predefined_variables">Predefined variables</a></li>
+  <li><a href="#predefined_genrule_variables">Predefined genrule variables</a></li>
+  <li><a href="#predefined_label_variables">Predefined source/output path variables</a></li>
+  <li><a href="#custom_variables">Custom variables</a></li>
+</ul>
 #end
 <p>
   "Make" variables are a special class of expandable string variables available
@@ -86,7 +89,7 @@ title: Make Variables
 </p>
 
 <p>
-  To write <code>$</code> as a a string literal (i.e. to prevent variable
+  To write <code>$</code> as a string literal (i.e. to prevent variable
   expansion), write <code>$$</code>.
 </p>
 
@@ -116,7 +119,7 @@ title: Make Variables
 <ul><!--  keep alphabetically sorted  -->
   <li><code>COMPILATION_MODE</code>:
     <code>fastbuild</code>, <code>dbg</code>, or <code>opt</code>. (<a
-  href="https://docs.bazel.build/versions/main/user-manual.html#flag--compilation_mode">more
+  href="https://bazel.build/docs/user-manual#flag--compilation_mode">more
   details</a>)
   </li>
 </ul>
@@ -206,7 +209,6 @@ title: Make Variables
       entries, this expands to the package's root directory in the
       <code>genfiles</code> tree, <i>even if all output files are in the same
       subdirectory</i>!
-      <!-- (as a consequence of the "middleman" implementation) -->
     </p>
     <p>
       <b>Note:</b> Use <code>RULEDIR</code> over <code>@D</code> because
@@ -225,6 +227,24 @@ title: Make Variables
     </p>
   </li>
 </ul>
+
+<p>
+  <b>Note:</b> If the filenames corresponding to the input labels or the output
+  filenames contain spaces, <code>'</code>, or other special characters (or your
+  genrule is part of a Starlark macro which downstream users may invoke on such
+  files), then <code>$(SRCS)</code> and <code>$(OUTS)</code> are not suitable
+  for interpolation into a command line, as they do not have the semantics that
+  <code>"${@}"</code> would in Bash.
+</p>
+<p>One workaround is to convert to a Bash array, with
+  <pre><code>mapfile SRCS <<< "$$(sed -e 's/ /\\n/g' <<'genrule_srcs_expansion'
+$(SRC)
+genrule_srcs_expansion
+)</code></pre>
+and then use <code>"$$\{SRCS[@]}"</code> in subsequent command lines in place
+of <code>$(SRCS)</code>. A more robust option is to write a Starlark rule
+instead.
+</p>
 
 
 <h2 id="predefined_label_variables">Predefined source/output path variables</h2>
@@ -249,7 +269,7 @@ title: Make Variables
     <p>
       <code>execpath</code>:  Denotes the path beneath the
 
-      <a href="../output_directories.html">execroot</a>
+      <a href="/docs/output_directories">execroot</a>
     where Bazel runs build actions.
     </p>
     <p>
@@ -262,15 +282,15 @@ title: Make Variables
     </p>
     <p>
       Output files are staged similarly, but are also prefixed with the subpath
-      <code>bazel-out/cpu-compilation_mode/bin</code> (or for certain outputs:
-      <code>bazel-out/cpu-compilation_mode/genfiles</code>, or for the outputs
-      of host tools: <code>bazel-out/host/bin</code>). In the above example,
-      <code>//testapp:app</code> is a host tool because it appears in
+      <code>bazel-out/cpu-compilation_mode/bin</code> (or for the outputs of
+      tools: <code>bazel-out/cpu-opt-exec-hash/bin</code>). In the above example,
+      <code>//testapp:app</code> is a tool because it appears in
       <code>show_app_output</code>'s <code><a
       href="$expander.expandRef("genrule.tools")">tools</a></code> attribute.
       So its output file <code>app</code> is written to
-      <code>bazel-myproject/bazel-out/host/bin/testapp/app</code>. The exec path
-      is thus <code>bazel-out/host/bin/testapp/app</code>. This extra prefix
+      <code>bazel-myproject/bazel-out/cpu-opt-exec-hash/bin/testapp/app</code>.
+      The exec path is thus <code>
+      bazel-out/cpu-opt-exec-hash/bin/testapp/app</code>. This extra prefix
       makes it possible to build the same target for, say, two different CPUs in
       the same build without the results clobbering each other.
     </p>
@@ -284,14 +304,56 @@ title: Make Variables
 
   <li>
     <p>
-      <code>rootpath</code>: Denotes the runfiles path that a built binary can
-      use to find its dependencies at runtime.
-    </p>
+      <code>rootpath</code>: Denotes the path that a built binary can use to
+      find a dependency at runtime relative to the subdirectory of its runfiles
+      directory corresponding to the main repository.
+      <strong>Note:</strong> This only works if <a
+            href="/reference/command-line-reference#flag--enable_runfiles">
+      <code>--enable_runfiles</code></a> is enabled, which is not the case on
+      Windows by default. Use <code>rlocationpath</code> instead for
+      cross-platform support.
     <p>
-      This is the same as <code>execpath</code> but strips the output prefixes
-      described above. In the above example this means both
+      This is similar to <code>execpath</code> but strips the configuration
+      prefixes described above. In the example from above this means both
       <code>empty.source</code> and <code>app</code> use pure workspace-relative
       paths: <code>testapp/empty.source</code> and <code>testapp/app</code>.
+    </p>
+    <p>
+      The <code>rootpath</code> of a file in an external repository
+      <code>repo</code> will start with <code>../repo/</code>, followed by the
+      repository-relative path.
+    </p>
+    <p>
+      This has the same "one output only" requirements as <code>execpath</code>.
+    </p>
+  </li>
+
+  <li>
+    <p>
+      <code>rlocationpath</code>: The path a built binary can pass to the <code>
+      Rlocation</code> function of a runfiles library to find a dependency at
+      runtime, either in the runfiles directory (if available) or using the
+      runfiles manifest.
+    </p>
+    <p>
+      This is similar to <code>rootpath</code> in that it does not contain
+      configuration prefixes, but differs in that it always starts with the
+      name of the repository. In the example from above this means that <code>
+      empty.source</code> and <code>app</code> result in the following
+      paths: <code>myproject/testapp/empty.source</code> and <code>
+      myproject/testapp/app</code>.
+    </p>
+    <p>
+      The <code>rlocationpath</code> of a file in an external repository
+      <code>repo</code> will start with <code>repo/</code>, followed by the
+      repository-relative path.
+    </p>
+    <p>
+      Passing this path to a binary and resolving it to a file system path using
+      the runfiles libraries is the preferred approach to find dependencies at
+      runtime. Compared to <code>rootpath</code>, it has the advantage that it
+      works on all platforms and even if the runfiles directory is not
+      available.
     </p>
     <p>
       This has the same "one output only" requirements as <code>execpath</code>.
@@ -303,24 +365,25 @@ title: Make Variables
     <code>rootpath</code>, depending on the attribute being expanded. This is
     legacy pre-Starlark behavior and not recommended unless you really know what
     it does for a particular rule. See <a
-    href="https://github.com/bazelbuild/bazel/issues/2475#issuecomment-339318016">#2475</a>
+          href="https://github.com/bazelbuild/bazel/issues/2475#issuecomment-339318016">#2475</a>
     for details.
   </li>
 </ul>
 
 <p>
-  <code>execpaths</code>, <code>rootpaths</code>, and <code>locations</code> are
-  the plural variations of <code>execpath</code>, <code>rootpath</code>, and
-  <code>location</code>, respectively. They support labels producing multiple
-  outputs, in which case each output is listed separated by a space. Zero-output
-  rules and malformed labels produce build errors.
+  <code>execpaths</code>, <code>rootpaths</code>, <code>rlocationpaths</code>,
+  and <code>locations</code> are the plural variations of <code>execpath</code>,
+  <code>rootpath</code>, <code>rlocationpath</code>, and<code>location</code>,
+  respectively. They support labels producing multiple outputs, in which case
+  each output is listed separated by a space. Zero-output rules and malformed
+  labels produce build errors.
 </p>
 
 <p>
   All referenced labels must appear in the consuming target's <code>srcs</code>,
   output files, or <code>deps</code>. Otherwise the build fails. C++ targets can
   also reference labels in <code><a
-  href="$expander.expandRef("cc_binary.data")">data</a></code>.
+        href="$expander.expandRef("cc_binary.data")">data</a></code>.
 </p>
 
 <p>
@@ -347,9 +410,8 @@ title: Make Variables
 <p>
   The following are defined in C++ toolchain rules and available to any rule
   that sets <code>toolchains =
-  ["@bazel_tools//tools/cpp:current_cc_toolchain"]</code> (or
-  <code>"@bazel_tools//tools/cpp:current_cc_host_toolchain"</code>
-  for the host toolchain equivalent). Some rules, like <code><a
+  ["@bazel_tools//tools/cpp:toolchain_type"]</code>
+  Some rules, like <code><a
   href="$expander.expandRef("java_binary")">java_binary</a></code>, implicitly
   include the C++ toolchain in their rule definition. They inherit these variables
   automatically.
@@ -367,7 +429,7 @@ title: Make Variables
 <p>
   These variables are a fallback mechanism to be used by language experts in
   rare cases. If you are tempted to use them, please <a
-  href="https://bazel.build/support.html">contact the Bazel devs</a> first.
+  href="https://bazel.build/help">contact the Bazel devs</a> first.
 </p>
 
 <ul><!--  keep alphabetically sorted  -->
@@ -390,6 +452,10 @@ title: Make Variables
     architectures.
   </li>
 
+
+  <li> <code>DUMPBIN</code>: Microsoft COFF Binary File Dumper (dumpbin.exe) from
+    from Microsoft Visual Studio. </li>
+
   <li> <code>NM</code>: The "nm" command from crosstool. </li>
   <li> <code>OBJCOPY</code>: The objcopy command from the same suite as the C/C++
     compiler. </li>
@@ -403,8 +469,8 @@ title: Make Variables
 <p>
   The following are defined in Java toolchain rules and available to any rule
   that sets <code>toolchains =
-["@bazel_tools//tools/jdk:current_java_runtime"]</code> (or
-  <code>"@bazel_tools//tools/jdk:current_host_java_runtime"</code>
+["@rules_java//toolchains:current_java_runtime"]</code> (or
+  <code>"@rules_java//toolchains:current_host_java_runtime"</code>
   for the host toolchain equivalent).
 </p>
 
@@ -418,7 +484,7 @@ title: Make Variables
 <p>
   These variables are a fallback mechanism to be used by language experts in
   rare cases. If you are tempted to use them, please <a
-  href="https://bazel.build/support.html">contact the Bazel devs</a> first.
+  href="https://bazel.build/help">contact the Bazel devs</a> first.
 </p>
 
 <ul><!--  keep alphabetically sorted  -->
@@ -439,9 +505,9 @@ title: Make Variables
 <p><strong>Starlark-defined variables</strong></p>
 
 <p>
-  Rule and <a href="../toolchains.html">toolchain</a> writers can define
+  Rule and <a href="$expander.expandRef("toolchains")">toolchain</a> writers can define
   completely custom variables by returning a
-  <a href="../skylark/lib/TemplateVariableInfo.html">TemplateVariableInfo</a>
+  <a href="/rules/lib/TemplateVariableInfo">TemplateVariableInfo</a>
   provider. Any rules depending on these through the
   <code>toolchains</code> attribute can then read their values:
 </p>
@@ -453,3 +519,8 @@ title: Make Variables
 #parse("com/google/devtools/build/docgen/templates/be/footer.vm")
 #end
 
+
+#if (!$singlePage)
+</body>
+</html>
+#end

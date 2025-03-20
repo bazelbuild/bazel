@@ -56,6 +56,11 @@ function write_crosstool() {
 package(default_visibility = ["//visibility:public"])
 
 load(":cc_toolchain_config.bzl", "cc_toolchain_config")
+
+cc_library(
+    name = "link_extra_lib",
+)
+
 cc_library(
     name = "malloc",
 )
@@ -176,7 +181,7 @@ function test_legacy_make_variable() {
     "''"
 
   write_test_target
-  bazel build --cpu local --crosstool_top=//setup:toolchain //:display &> "$TEST_log" || fail "Build failed"
+  bazel build --extra_toolchains=//setup:cc-toolchain-local //:display &> "$TEST_log" || fail "Build failed"
   expect_log "CC_FLAGS: -test-cflag1 -test-cflag2"
 }
 
@@ -187,7 +192,7 @@ function test_sysroot() {
     "'/sys/root'"
 
   write_test_target
-  bazel build --cpu local --crosstool_top=//setup:toolchain //:display &> "$TEST_log" || fail "Build failed"
+  bazel build --extra_toolchains=//setup:cc-toolchain-local //:display &> "$TEST_log" || fail "Build failed"
   expect_log "CC_FLAGS: --sysroot=/sys/root"
 }
 
@@ -207,7 +212,7 @@ function test_feature_config() {
     "''"
 
   write_test_target
-  bazel build --cpu local --crosstool_top=//setup:toolchain //:display &> "$TEST_log" || fail "Build failed"
+  bazel build --extra_toolchains=//setup:cc-toolchain-local //:display &> "$TEST_log" || fail "Build failed"
   expect_log "CC_FLAGS: foo bar baz"
 }
 
@@ -227,7 +232,7 @@ function test_all_sources() {
      "'/sys/root'"
 
   write_test_target
-  bazel build --cpu local --crosstool_top=//setup:toolchain //:display &> "$TEST_log" || fail "Build failed"
+  bazel build --extra_toolchains=//setup:cc-toolchain-local //:display &> "$TEST_log" || fail "Build failed"
   expect_log "CC_FLAGS: -test-cflag1 -test-cflag2 --sysroot=/sys/root foo bar baz"
 }
 

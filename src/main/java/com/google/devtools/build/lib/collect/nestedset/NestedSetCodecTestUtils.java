@@ -20,8 +20,6 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester.VerificationFunction;
 import java.io.IOException;
@@ -32,11 +30,9 @@ public class NestedSetCodecTestUtils {
   private static final NestedSet<String> SHARED_NESTED_SET =
       NestedSetBuilder.<String>stableOrder().add("e").build();
 
-  @AutoCodec
-  static class HasNestedSet {
+  private static class HasNestedSet {
     private final NestedSet<String> nestedSetField;
 
-    @VisibleForSerialization
     HasNestedSet(NestedSet<String> nestedSetField) {
       this.nestedSetField = nestedSetField;
     }
@@ -114,9 +110,8 @@ public class NestedSetCodecTestUtils {
   }
 
   private static void verifyStructure(Object lhs, Object rhs) {
-    if (lhs instanceof Object[]) {
+    if (lhs instanceof Object[] lhsArray) {
       assertThat(rhs).isInstanceOf(Object[].class);
-      Object[] lhsArray = (Object[]) lhs;
       Object[] rhsArray = (Object[]) rhs;
       int n = lhsArray.length;
       assertThat(rhsArray).hasLength(n);

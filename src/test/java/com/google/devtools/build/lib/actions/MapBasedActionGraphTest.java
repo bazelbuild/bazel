@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
-import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil.UncheckedActionConflictException;
 import com.google.devtools.build.lib.actions.util.TestAction;
@@ -109,7 +108,7 @@ public final class MapBasedActionGraphTest {
           200,
           1,
           TimeUnit.SECONDS,
-          /*failFastOnException=*/ true,
+          ExceptionHandlingMode.FAIL_FAST,
           "action-graph-test",
           ErrorClassifier.DEFAULT);
       Path execRoot = fileSystem.getPath("/");

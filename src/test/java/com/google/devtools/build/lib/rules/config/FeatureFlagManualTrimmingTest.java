@@ -19,7 +19,6 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
@@ -73,49 +72,59 @@ public final class FeatureFlagManualTrimmingTest extends BuildViewTestCase {
   public void setUpFlagReadingRule() throws Exception {
     scratch.file(
         "test/read_flags.bzl",
-        "def _read_flags_impl(ctx):",
-        "  ctx.actions.write(",
-        "    ctx.outputs.flagdict,",
-        "    '\\n'.join(['%s:::%s' % (dep.label, dep[config_common.FeatureFlagInfo].value)",
-        "                for dep in ctx.attr.flags]))",
-        "  return [DefaultInfo(files = depset([ctx.outputs.flagdict]))]",
-        "read_flags = rule(",
-        "  implementation = _read_flags_impl,",
-        "  attrs = {'flags': attr.label_list()},",
-        "  outputs = {'flagdict': '%{name}.flags'},",
-        ")");
+        """
+        _FFI = config_common.FeatureFlagInfo
+
+        def _read_flags_impl(ctx):
+            result = ""
+            for dep in ctx.attr.flags:
+                if result:
+                    result += "\\n"
+                result += str(dep.label) + ":::"
+                if dep[_FFI].error == None:
+                    result += dep[_FFI].value
+                elif ctx.attr.skip_if_error:
+                    result += "[unresolvable]"
+                else:
+                    fail(dep[_FFI].error)
+            ctx.actions.write(ctx.outputs.flagdict, result)
+            return [DefaultInfo(files = depset([ctx.outputs.flagdict]))]
+
+        read_flags = rule(
+            implementation = _read_flags_impl,
+            attrs = {
+                "flags": attr.label_list(),
+                "skip_if_error": attr.bool(default = False),
+            },
+            outputs = {"flagdict": "%{name}.flags"},
+        )
+        """);
   }
 
   @Before
   public void setUpHostTransitionRule() throws Exception {
     scratch.file(
         "test/host_transition.bzl",
-        "def _host_transition_impl(ctx):",
-        "  files = depset(transitive = [src[DefaultInfo].files for src in ctx.attr.srcs])",
-        "  return [DefaultInfo(files = files)]",
-        "host_transition = rule(",
-        "  implementation = _host_transition_impl,",
-        "  attrs = {'srcs': attr.label_list(cfg='host')},",
-        ")");
-  }
+        """
+        def _host_transition_impl(ctx):
+            files = depset(transitive = [src[DefaultInfo].files for src in ctx.attr.srcs])
+            return [DefaultInfo(files = files)]
 
-  private ImmutableSortedMap<Label, String> getFlagMapFromConfiguration(
-      BuildConfigurationValue config) throws Exception {
-    return FeatureFlagValue.getFlagValues(config.getOptions());
+        host_transition = rule(
+            implementation = _host_transition_impl,
+            attrs = {"srcs": attr.label_list(cfg = "exec")},
+        )
+        """);
   }
 
   private ImmutableSortedMap<Label, String> getFlagValuesFromOutputFile(Artifact flagDict) {
     String fileContents =
         ((FileWriteAction) getActionGraph().getGeneratingAction(flagDict)).getFileContents();
-    return Splitter.on('\n')
-        .withKeyValueSeparator(":::")
-        .split(fileContents)
-        .entrySet()
-        .stream()
+    return Splitter.on('\n').withKeyValueSeparator(":::").split(fileContents).entrySet().stream()
         .collect(
             toImmutableSortedMap(
                 Ordering.natural(),
-                (entry) -> Label.parseAbsoluteUnchecked(entry.getKey()),
+                (entry) -> Label.parseCanonicalUnchecked(entry.getKey()),
                 Map.Entry::getValue));
   }
 
@@ -124,40 +133,55 @@ public final class FeatureFlagManualTrimmingTest extends BuildViewTestCase {
     useConfiguration("--noenforce_transitive_configs_for_config_feature_flag");
     scratch.file(
         "test/BUILD",
-        "load(':read_flags.bzl', 'read_flags')",
-        "feature_flag_setter(",
-        "    name = 'left',",
-        "    deps = [':common'],",
-        "    flag_values = {",
-        "        ':different_flag': 'left',",
-        "        ':common_flag': 'configured',",
-        "    },",
-        "    transitive_configs = [':common_flag'],",
-        ")",
-        "feature_flag_setter(",
-        "    name = 'right',",
-        "    deps = [':common'],",
-        "    flag_values = {",
-        "        ':different_flag': 'right',",
-        "        ':common_flag': 'configured',",
-        "    },",
-        "    transitive_configs = [':common_flag'],",
-        ")",
-        "read_flags(",
-        "    name = 'common',",
-        "    flags = [':common_flag'],",
-        "    transitive_configs = [':common_flag'],",
-        ")",
-        "config_feature_flag(",
-        "    name = 'different_flag',",
-        "    allowed_values = ['default', 'left', 'right'],",
-        "    default_value = 'default',",
-        ")",
-        "config_feature_flag(",
-        "    name = 'common_flag',",
-        "    allowed_values = ['default', 'configured', 'other'],",
-        "    default_value = 'default',",
-        ")");
+        """
+        load(":read_flags.bzl", "read_flags")
+
+        feature_flag_setter(
+            name = "left",
+            flag_values = {
+                ":different_flag": "left",
+                ":common_flag": "configured",
+            },
+            transitive_configs = [":common_flag"],
+            deps = [":common"],
+        )
+
+        feature_flag_setter(
+            name = "right",
+            flag_values = {
+                ":different_flag": "right",
+                ":common_flag": "configured",
+            },
+            transitive_configs = [":common_flag"],
+            deps = [":common"],
+        )
+
+        read_flags(
+            name = "common",
+            flags = [":common_flag"],
+            transitive_configs = [":common_flag"],
+        )
+
+        config_feature_flag(
+            name = "different_flag",
+            allowed_values = [
+                "default",
+                "left",
+                "right",
+            ],
+            default_value = "default",
+        )
+
+        config_feature_flag(
+            name = "common_flag",
+            allowed_values = [
+                "default",
+                "configured",
+                "other",
+            ],
+            default_value = "default",
+        )
+        """);
 
     Artifact leftFlags =
         Iterables.getOnlyElement(getFilesToBuild(getConfiguredTarget("//test:left")).toList());
@@ -168,81 +192,110 @@ public final class FeatureFlagManualTrimmingTest extends BuildViewTestCase {
   }
 
   @Test
-  public void featureFlagSetAndInTransitiveConfigs_GetsSetValue() throws Exception {
+  public void featureFlagSetAndInTransitiveConfigs_getsSetValue() throws Exception {
     scratch.file(
         "test/BUILD",
-        "load(':read_flags.bzl', 'read_flags')",
-        "feature_flag_setter(",
-        "    name = 'target',",
-        "    deps = [':reader'],",
-        "    flag_values = {",
-        "        ':trimmed_flag': 'left',",
-        "        ':used_flag': 'configured',",
-        "    },",
-        "    transitive_configs = [':used_flag'],",
-        ")",
-        "read_flags(",
-        "    name = 'reader',",
-        "    flags = [':used_flag'],",
-        "    transitive_configs = [':used_flag'],",
-        ")",
-        "config_feature_flag(",
-        "    name = 'trimmed_flag',",
-        "    allowed_values = ['default', 'left', 'right'],",
-        "    default_value = 'default',",
-        ")",
-        "config_feature_flag(",
-        "    name = 'used_flag',",
-        "    allowed_values = ['default', 'configured', 'other'],",
-        "    default_value = 'default',",
-        ")");
+        """
+        load(":read_flags.bzl", "read_flags")
+
+        feature_flag_setter(
+            name = "target",
+            flag_values = {
+                ":trimmed_flag": "left",
+                ":used_flag": "configured",
+            },
+            transitive_configs = [":used_flag"],
+            deps = [":reader"],
+        )
+
+        read_flags(
+            name = "reader",
+            flags = [":used_flag"],
+            transitive_configs = [":used_flag"],
+        )
+
+        config_feature_flag(
+            name = "trimmed_flag",
+            allowed_values = [
+                "default",
+                "left",
+                "right",
+            ],
+            default_value = "default",
+        )
+
+        config_feature_flag(
+            name = "used_flag",
+            allowed_values = [
+                "default",
+                "configured",
+                "other",
+            ],
+            default_value = "default",
+        )
+        """);
 
     Artifact targetFlags =
         Iterables.getOnlyElement(getFilesToBuild(getConfiguredTarget("//test:target")).toList());
 
-    Label usedFlag = Label.parseAbsolute("//test:used_flag", ImmutableMap.of());
+    Label usedFlag = Label.parseCanonical("//test:used_flag");
     assertThat(getFlagValuesFromOutputFile(targetFlags)).containsEntry(usedFlag, "configured");
   }
 
   @Test
-  public void featureFlagSetButNotInTransitiveConfigs_IsTrimmedOutAndCollapsesDuplicates()
+  public void featureFlagSetButNotInTransitiveConfigs_isTrimmedOutAndCollapsesDuplicates()
       throws Exception {
     scratch.file(
         "test/BUILD",
-        "load(':read_flags.bzl', 'read_flags')",
-        "feature_flag_setter(",
-        "    name = 'left',",
-        "    deps = [':common'],",
-        "    flag_values = {",
-        "        ':different_flag': 'left',",
-        "        ':common_flag': 'configured',",
-        "    },",
-        "    transitive_configs = [':common_flag'],",
-        ")",
-        "feature_flag_setter(",
-        "    name = 'right',",
-        "    deps = [':common'],",
-        "    flag_values = {" ,
-        "        ':different_flag': 'right',",
-        "        ':common_flag': 'configured',",
-        "    },",
-        "    transitive_configs = [':common_flag'],",
-        ")",
-        "read_flags(",
-        "    name = 'common',",
-        "    flags = [':common_flag'],",
-        "    transitive_configs = [':common_flag'],",
-        ")",
-        "config_feature_flag(",
-        "    name = 'different_flag',",
-        "    allowed_values = ['default', 'left', 'right'],",
-        "    default_value = 'default',",
-        ")",
-        "config_feature_flag(",
-        "    name = 'common_flag',",
-        "    allowed_values = ['default', 'configured', 'other'],",
-        "    default_value = 'default',",
-        ")");
+        """
+        load(":read_flags.bzl", "read_flags")
+
+        feature_flag_setter(
+            name = "left",
+            flag_values = {
+                ":different_flag": "left",
+                ":common_flag": "configured",
+            },
+            transitive_configs = [":common_flag"],
+            deps = [":common"],
+        )
+
+        feature_flag_setter(
+            name = "right",
+            flag_values = {
+                ":different_flag": "right",
+                ":common_flag": "configured",
+            },
+            transitive_configs = [":common_flag"],
+            deps = [":common"],
+        )
+
+        read_flags(
+            name = "common",
+            flags = [":common_flag"],
+            transitive_configs = [":common_flag"],
+        )
+
+        config_feature_flag(
+            name = "different_flag",
+            allowed_values = [
+                "default",
+                "left",
+                "right",
+            ],
+            default_value = "default",
+        )
+
+        config_feature_flag(
+            name = "common_flag",
+            allowed_values = [
+                "default",
+                "configured",
+                "other",
+            ],
+            default_value = "default",
+        )
+        """);
 
     Artifact leftFlags =
         Iterables.getOnlyElement(getFilesToBuild(getConfiguredTarget("//test:left")).toList());
@@ -254,80 +307,118 @@ public final class FeatureFlagManualTrimmingTest extends BuildViewTestCase {
   }
 
   @Test
-  public void featureFlagInTransitiveConfigsButNotSet_GetsDefaultValue() throws Exception {
+  public void featureFlagInTransitiveConfigsButNotSet_getsDefaultValue() throws Exception {
     scratch.file(
         "test/BUILD",
-        "load(':read_flags.bzl', 'read_flags')",
-        "feature_flag_setter(",
-        "    name = 'target',",
-        "    deps = [':reader'],",
-        "    flag_values = {",
-        "        ':trimmed_flag': 'left',",
-        "    },",
-        "    transitive_configs = [':used_flag'],",
-        ")",
-        "read_flags(",
-        "    name = 'reader',",
-        "    flags = [':used_flag'],",
-        "    transitive_configs = [':used_flag'],",
-        ")",
-        "config_feature_flag(",
-        "    name = 'trimmed_flag',",
-        "    allowed_values = ['default', 'left', 'right'],",
-        "    default_value = 'default',",
-        ")",
-        "config_feature_flag(",
-        "    name = 'used_flag',",
-        "    allowed_values = ['default', 'configured', 'other'],",
-        "    default_value = 'default',",
-        ")");
+        """
+        load(":read_flags.bzl", "read_flags")
+
+        feature_flag_setter(
+            name = "target",
+            flag_values = {
+                ":trimmed_flag": "left",
+            },
+            transitive_configs = [":used_flag"],
+            deps = [":reader"],
+        )
+
+        read_flags(
+            name = "reader",
+            flags = [":used_flag"],
+            transitive_configs = [":used_flag"],
+        )
+
+        config_feature_flag(
+            name = "trimmed_flag",
+            allowed_values = [
+                "default",
+                "left",
+                "right",
+            ],
+            default_value = "default",
+        )
+
+        config_feature_flag(
+            name = "used_flag",
+            allowed_values = [
+                "default",
+                "configured",
+                "other",
+            ],
+            default_value = "default",
+        )
+        """);
 
     Artifact targetFlags =
         Iterables.getOnlyElement(getFilesToBuild(getConfiguredTarget("//test:target")).toList());
 
-    Label usedFlag = Label.parseAbsolute("//test:used_flag", ImmutableMap.of());
+    Label usedFlag = Label.parseCanonical("//test:used_flag");
     assertThat(getFlagValuesFromOutputFile(targetFlags)).containsEntry(usedFlag, "default");
   }
 
   @Test
-  public void featureFlagInTransitiveConfigsButNotInTransitiveClosure_IsWastefulButDoesNotError()
+  public void featureFlagInTransitiveConfigsButNotInTransitiveClosure_isWastefulButDoesNotError()
       throws Exception {
     scratch.file(
         "test/BUILD",
-        "load(':read_flags.bzl', 'read_flags')",
-        "feature_flag_setter(",
-        "    name = 'left',",
-        "    deps = [':common'],",
-        "    flag_values = {",
-        "        ':different_flag': 'left',",
-        "        ':common_flag': 'configured',",
-        "    },",
-        "    transitive_configs = [':different_flag', ':common_flag'],",
-        ")",
-        "feature_flag_setter(",
-        "    name = 'right',",
-        "    deps = [':common'],",
-        "    flag_values = {",
-        "        ':different_flag': 'right',",
-        "        ':common_flag': 'configured',",
-        "    },",
-        "    transitive_configs = [':different_flag', ':common_flag'],",
-        ")",
-        "read_flags(",
-        "    name = 'common',",
-        "    flags = [':common_flag'],",
-        "    transitive_configs = [':different_flag', ':common_flag'],",
-        ")",
-        "config_feature_flag(",
-        "    name = 'different_flag',",
-        "    allowed_values = ['default', 'left', 'right'],",
-        "    default_value = 'default',",
-        ")",
-        "config_feature_flag(",
-        "    name = 'common_flag',",
-        "    allowed_values = ['default', 'configured', 'other'],",
-        "    default_value = 'default',",
-        ")");
+        """
+        load(":read_flags.bzl", "read_flags")
+
+        feature_flag_setter(
+            name = "left",
+            flag_values = {
+                ":different_flag": "left",
+                ":common_flag": "configured",
+            },
+            transitive_configs = [
+                ":different_flag",
+                ":common_flag",
+            ],
+            deps = [":common"],
+        )
+
+        feature_flag_setter(
+            name = "right",
+            flag_values = {
+                ":different_flag": "right",
+                ":common_flag": "configured",
+            },
+            transitive_configs = [
+                ":different_flag",
+                ":common_flag",
+            ],
+            deps = [":common"],
+        )
+
+        read_flags(
+            name = "common",
+            flags = [":common_flag"],
+            transitive_configs = [
+                ":different_flag",
+                ":common_flag",
+            ],
+        )
+
+        config_feature_flag(
+            name = "different_flag",
+            allowed_values = [
+                "default",
+                "left",
+                "right",
+            ],
+            default_value = "default",
+        )
+
+        config_feature_flag(
+            name = "common_flag",
+            allowed_values = [
+                "default",
+                "configured",
+                "other",
+            ],
+            default_value = "default",
+        )
+        """);
 
     Artifact leftFlags =
         Iterables.getOnlyElement(getFilesToBuild(getConfiguredTarget("//test:left")).toList());
@@ -339,35 +430,45 @@ public final class FeatureFlagManualTrimmingTest extends BuildViewTestCase {
   }
 
   @Test
-  public void emptyTransitiveConfigs_EquivalentRegardlessOfFeatureFlags() throws Exception {
+  public void emptyTransitiveConfigs_equivalentRegardlessOfFeatureFlags() throws Exception {
     scratch.file(
         "test/BUILD",
-        "load(':read_flags.bzl', 'read_flags')",
-        "feature_flag_setter(",
-        "    name = 'left',",
-        "    deps = [':reader'],",
-        "    flag_values = {",
-        "        ':used_flag': 'left',",
-        "    },",
-        "    transitive_configs = [':used_flag'],",
-        ")",
-        "feature_flag_setter(",
-        "    name = 'right',",
-        "    deps = [':reader'],",
-        "    flag_values = {",
-        "        ':used_flag': 'right',",
-        "    },",
-        "    transitive_configs = [':used_flag'],",
-        ")",
-        "read_flags(",
-        "    name = 'reader',",
-        "    transitive_configs = [],",
-        ")",
-        "config_feature_flag(",
-        "    name = 'used_flag',",
-        "    allowed_values = ['default', 'left', 'right'],",
-        "    default_value = 'default',",
-        ")");
+        """
+        load(":read_flags.bzl", "read_flags")
+
+        feature_flag_setter(
+            name = "left",
+            flag_values = {
+                ":used_flag": "left",
+            },
+            transitive_configs = [":used_flag"],
+            deps = [":reader"],
+        )
+
+        feature_flag_setter(
+            name = "right",
+            flag_values = {
+                ":used_flag": "right",
+            },
+            transitive_configs = [":used_flag"],
+            deps = [":reader"],
+        )
+
+        read_flags(
+            name = "reader",
+            transitive_configs = [],
+        )
+
+        config_feature_flag(
+            name = "used_flag",
+            allowed_values = [
+                "default",
+                "left",
+                "right",
+            ],
+            default_value = "default",
+        )
+        """);
 
     Artifact leftFlags =
         Iterables.getOnlyElement(getFilesToBuild(getConfiguredTarget("//test:left")).toList());
@@ -381,35 +482,45 @@ public final class FeatureFlagManualTrimmingTest extends BuildViewTestCase {
   }
 
   @Test
-  public void absentTransitiveConfigs_EquivalentRegardlessOfFeatureFlags() throws Exception {
+  public void absentTransitiveConfigs_equivalentRegardlessOfFeatureFlags() throws Exception {
     scratch.file(
         "test/BUILD",
-        "load(':read_flags.bzl', 'read_flags')",
-        "feature_flag_setter(",
-        "    name = 'left',",
-        "    deps = [':reader'],",
-        "    flag_values = {",
-        "        ':used_flag': 'left',",
-        "    },",
-        "    transitive_configs = [':used_flag'],",
-        ")",
-        "feature_flag_setter(",
-        "    name = 'right',",
-        "    deps = [':reader'],",
-        "    flag_values = {",
-        "        ':used_flag': 'right',",
-        "    },",
-        "    transitive_configs = [':used_flag'],",
-        ")",
-        "read_flags(",
-        "    name = 'reader',",
-        // no transitive_configs = equivalent to []
-        ")",
-        "config_feature_flag(",
-        "    name = 'used_flag',",
-        "    allowed_values = ['default', 'left', 'right'],",
-        "    default_value = 'default',",
-        ")");
+        """
+        load(":read_flags.bzl", "read_flags")
+
+        feature_flag_setter(
+            name = "left",
+            flag_values = {
+                ":used_flag": "left",
+            },
+            transitive_configs = [":used_flag"],
+            deps = [":reader"],
+        )
+
+        feature_flag_setter(
+            name = "right",
+            flag_values = {
+                ":used_flag": "right",
+            },
+            transitive_configs = [":used_flag"],
+            deps = [":reader"],
+        )
+
+        read_flags(
+            name = "reader",
+            # no transitive_configs = equivalent to []
+        )
+
+        config_feature_flag(
+            name = "used_flag",
+            allowed_values = [
+                "default",
+                "left",
+                "right",
+            ],
+            default_value = "default",
+        )
+        """);
 
     Artifact leftFlags =
         Iterables.getOnlyElement(getFilesToBuild(getConfiguredTarget("//test:left")).toList());
@@ -423,122 +534,175 @@ public final class FeatureFlagManualTrimmingTest extends BuildViewTestCase {
   }
 
   @Test
-  public void nonexistentLabelInTransitiveConfigs_DoesNotError() throws Exception {
+  public void magicLabelInTransitiveConfigs_doesNotError() throws Exception {
     scratch.file(
         "test/BUILD",
-        "load(':read_flags.bzl', 'read_flags')",
-        "feature_flag_setter(",
-        "    name = 'target',",
-        "    deps = [':reader'],",
-        "    flag_values = {",
-        "        ':trimmed_flag': 'left',",
-        "    },",
-        "    transitive_configs = [':false_flag'],",
-        ")",
-        "read_flags(",
-        "    name = 'reader',",
-        "    transitive_configs = [':false_flag'],",
-        ")",
-        "config_feature_flag(",
-        "    name = 'trimmed_flag',",
-        "    allowed_values = ['default', 'left', 'right'],",
-        "    default_value = 'default',",
-        ")");
+        """
+        load(":read_flags.bzl", "read_flags")
+
+        feature_flag_setter(
+            name = "target",
+            flag_values = {
+                ":trimmed_flag": "left",
+            },
+            transitive_configs = ["//command_line_option/fragment:test"],
+            deps = [":reader"],
+        )
+
+        read_flags(
+            name = "reader",
+            transitive_configs = ["//command_line_option/fragment:test"],
+        )
+
+        config_feature_flag(
+            name = "trimmed_flag",
+            allowed_values = [
+                "default",
+                "left",
+                "right",
+            ],
+            default_value = "default",
+        )
+        """);
 
     getConfiguredTarget("//test:target");
     assertNoEvents();
   }
 
   @Test
-  public void flagSetBySetterButNotInTransitiveConfigs_CanBeUsedByDeps() throws Exception {
+  public void flagSetBySetterButNotInTransitiveConfigs_canBeUsedByDeps() throws Exception {
     scratch.file(
         "test/BUILD",
-        "load(':read_flags.bzl', 'read_flags')",
-        "feature_flag_setter(",
-        "    name = 'target',",
-        "    deps = [':reader'],",
-        "    flag_values = {",
-        "        ':not_actually_trimmed_flag': 'left',",
-        "    },",
-        "    transitive_configs = [],",
-        ")",
-        "read_flags(",
-        "    name = 'reader',",
-        "    flags = [':not_actually_trimmed_flag'],",
-        "    transitive_configs = [':not_actually_trimmed_flag'],",
-        ")",
-        "config_feature_flag(",
-        "    name = 'not_actually_trimmed_flag',",
-        "    allowed_values = ['default', 'left', 'right'],",
-        "    default_value = 'default',",
-        ")");
+        """
+        load(":read_flags.bzl", "read_flags")
+
+        feature_flag_setter(
+            name = "target",
+            flag_values = {
+                ":not_actually_trimmed_flag": "left",
+            },
+            transitive_configs = [],
+            deps = [":reader"],
+        )
+
+        read_flags(
+            name = "reader",
+            flags = [":not_actually_trimmed_flag"],
+            transitive_configs = [":not_actually_trimmed_flag"],
+        )
+
+        config_feature_flag(
+            name = "not_actually_trimmed_flag",
+            allowed_values = [
+                "default",
+                "left",
+                "right",
+            ],
+            default_value = "default",
+        )
+        """);
 
     getConfiguredTarget("//test:target");
     assertNoEvents();
   }
 
   @Test
-  public void featureFlagInUnusedSelectBranchButNotInTransitiveConfigs_DoesNotError()
+  public void featureFlagInUnusedSelectBranchButNotInTransitiveConfigs_doesNotError()
       throws Exception {
     scratch.file(
         "test/BUILD",
-        "load(':read_flags.bzl', 'read_flags')",
-        "feature_flag_setter(",
-        "    name = 'target',",
-        "    deps = [':reader'],",
-        "    flag_values = {",
-        "        ':trimmed_flag': 'left',",
-        "    },",
-        "    transitive_configs = [':used_flag'],",
-        ")",
-        "read_flags(",
-        "    name = 'reader',",
-        "    flags = select({':used_flag@other': [':trimmed_flag'], '//conditions:default': []}),",
-        "    transitive_configs = [':used_flag'],",
-        ")",
-        "config_setting(",
-        "    name = 'used_flag@other',",
-        "    flag_values = {':used_flag': 'other'},",
-        ")",
-        "config_feature_flag(",
-        "    name = 'trimmed_flag',",
-        "    allowed_values = ['default', 'left', 'right'],",
-        "    default_value = 'default',",
-        ")",
-        "config_feature_flag(",
-        "    name = 'used_flag',",
-        "    allowed_values = ['default', 'configured', 'other'],",
-        "    default_value = 'default',",
-        ")");
+        """
+        load(":read_flags.bzl", "read_flags")
+
+        feature_flag_setter(
+            name = "target",
+            flag_values = {
+                ":trimmed_flag": "left",
+            },
+            transitive_configs = [":used_flag"],
+            deps = [":reader"],
+        )
+
+        read_flags(
+            name = "reader",
+            flags = select({
+                ":used_flag@other": [":trimmed_flag"],
+                "//conditions:default": [],
+            }),
+            transitive_configs = [":used_flag"],
+        )
+
+        config_setting(
+            name = "used_flag@other",
+            flag_values = {":used_flag": "other"},
+            transitive_configs = [":used_flag"],
+        )
+
+        config_feature_flag(
+            name = "trimmed_flag",
+            allowed_values = [
+                "default",
+                "left",
+                "right",
+            ],
+            default_value = "default",
+        )
+
+        config_feature_flag(
+            name = "used_flag",
+            allowed_values = [
+                "default",
+                "configured",
+                "other",
+            ],
+            default_value = "default",
+        )
+        """);
 
     getConfiguredTarget("//test:target");
     assertNoEvents();
   }
 
   @Test
-  public void featureFlagTarget_IsTrimmedToOnlyItself() throws Exception {
+  public void featureFlagTarget_isTrimmedToOnlyItself() throws Exception {
     scratch.file(
         "test/BUILD",
-        "load(':read_flags.bzl', 'read_flags')",
-        "feature_flag_setter(",
-        "    name = 'target',",
-        "    exports_flag = ':read_flag',",
-        "    flag_values = {",
-        "        ':trimmed_flag': 'left',",
-        "        ':read_flag': 'configured',",
-        "    },",
-        "    transitive_configs = [':trimmed_flag', ':read_flag'],",
-        ")",
-        "config_feature_flag(",
-        "    name = 'trimmed_flag',",
-        "    allowed_values = ['default', 'left', 'right'],",
-        "    default_value = 'default',",
-        ")",
-        "config_feature_flag(",
-        "    name = 'read_flag',",
-        "    allowed_values = ['default', 'configured', 'other'],",
-        "    default_value = 'default',",
-        ")");
+        """
+        load(":read_flags.bzl", "read_flags")
+
+        feature_flag_setter(
+            name = "target",
+            exports_flag = ":read_flag",
+            flag_values = {
+                ":trimmed_flag": "left",
+                ":read_flag": "configured",
+            },
+            transitive_configs = [
+                ":trimmed_flag",
+                ":read_flag",
+            ],
+        )
+
+        config_feature_flag(
+            name = "trimmed_flag",
+            allowed_values = [
+                "default",
+                "left",
+                "right",
+            ],
+            default_value = "default",
+        )
+
+        config_feature_flag(
+            name = "read_flag",
+            allowed_values = [
+                "default",
+                "configured",
+                "other",
+            ],
+            default_value = "default",
+        )
+        """);
 
     ConfiguredTarget target = getConfiguredTarget("//test:target");
     RuleContext ruleContext = getRuleContext(target);
@@ -546,40 +710,96 @@ public final class FeatureFlagManualTrimmingTest extends BuildViewTestCase {
         Iterables.getOnlyElement(ruleContext.getPrerequisiteConfiguredTargets("exports_flag"))
             .getConfiguration();
 
-    Label childLabel = Label.parseAbsoluteUnchecked("//test:read_flag");
-    assertThat(getFlagMapFromConfiguration(childConfiguration).keySet())
+    Label childLabel = Label.parseCanonicalUnchecked("//test:read_flag");
+    assertThat(childConfiguration.getOptions().getStarlarkOptions().keySet())
         .containsExactly(childLabel);
   }
 
   @Test
-  public void featureFlagAccessedByPathWithMissingLabel_ProducesError() throws Exception {
+  public void featureFlagReferencedByPathWithMissingLabel_producesNoImmediateError()
+      throws Exception {
+    scratch.file(
+        "test/BUILD",
+        """
+        load(":read_flags.bzl", "read_flags")
+
+        feature_flag_setter(
+            name = "target",
+            flag_values = {
+                ":used_flag": "configured",
+            },
+            transitive_configs = [":used_flag"],
+            deps = [":broken"],
+        )
+
+        filegroup(
+            name = "broken",
+            srcs = [":reader"],
+            transitive_configs = [],
+        )
+
+        read_flags(
+            name = "reader",
+            flags = [":used_flag"],
+            skip_if_error = True,
+            transitive_configs = [":used_flag"],
+        )
+
+        config_feature_flag(
+            name = "used_flag",
+            allowed_values = [
+                "default",
+                "configured",
+                "other",
+            ],
+            default_value = "default",
+        )
+        """);
+
+    getConfiguredTarget("//test:target");
+    assertNoEvents();
+  }
+
+  @Test
+  public void featureFlagAccessedByPathWithMissingLabel_producesImmediateError() throws Exception {
     reporter.removeHandler(failFastHandler); // expecting an error
     scratch.file(
         "test/BUILD",
-        "load(':read_flags.bzl', 'read_flags')",
-        "feature_flag_setter(",
-        "    name = 'target',",
-        "    deps = [':broken'],",
-        "    flag_values = {",
-        "        ':used_flag': 'configured',",
-        "    },",
-        "    transitive_configs = [':used_flag'],",
-        ")",
-        "filegroup(",
-        "    name = 'broken',",
-        "    srcs = [':reader'],",
-        "    transitive_configs = [],",
-        ")",
-        "read_flags(",
-        "    name = 'reader',",
-        "    flags = [':used_flag'],",
-        "    transitive_configs = [':used_flag'],",
-        ")",
-        "config_feature_flag(",
-        "    name = 'used_flag',",
-        "    allowed_values = ['default', 'configured', 'other'],",
-        "    default_value = 'default',",
-        ")");
+        """
+        load(":read_flags.bzl", "read_flags")
+
+        feature_flag_setter(
+            name = "target",
+            flag_values = {
+                ":used_flag": "configured",
+            },
+            transitive_configs = [":used_flag"],
+            deps = [":broken"],
+        )
+
+        filegroup(
+            name = "broken",
+            srcs = [":reader"],
+            transitive_configs = [],
+        )
+
+        read_flags(
+            name = "reader",
+            flags = [":used_flag"],
+            skip_if_error = False,
+            transitive_configs = [":used_flag"],
+        )
+
+        config_feature_flag(
+            name = "used_flag",
+            allowed_values = [
+                "default",
+                "configured",
+                "other",
+            ],
+            default_value = "default",
+        )
+        """);
 
     assertThat(getConfiguredTarget("//test:target")).isNull();
     assertContainsEvent(
@@ -589,35 +809,108 @@ public final class FeatureFlagManualTrimmingTest extends BuildViewTestCase {
   }
 
   @Test
-  public void featureFlagAccessedByPathWithMissingTransitiveConfigs_ProducesError()
+  public void featureFlagAccessedByPathWithMissingLabelAndSelect_producesError() throws Exception {
+    reporter.removeHandler(failFastHandler); // expecting an error
+    scratch.file(
+        "test/BUILD",
+        """
+        feature_flag_setter(
+            name = "target",
+            flag_values = {
+                ":used_flag": "configured",
+            },
+            transitive_configs = [":used_flag"],
+            deps = [":broken"],
+        )
+
+        filegroup(
+            name = "broken",
+            srcs = [":reader"],
+            transitive_configs = [],
+        )
+
+        filegroup(
+            name = "reader",
+            srcs = select({
+                ":used_flag@configured": ["a.txt"],
+                "//conditions:default": ["b.txt"],
+            }),
+            transitive_configs = [":used_flag"],
+        )
+
+        config_setting(
+            name = "used_flag@configured",
+            flag_values = {":used_flag": "configured"},
+            transitive_configs = [":used_flag"],
+        )
+
+        config_feature_flag(
+            name = "used_flag",
+            allowed_values = [
+                "default",
+                "configured",
+                "other",
+            ],
+            default_value = "default",
+        )
+        """);
+
+    assertThat(getConfiguredTarget("//test:target")).isNull();
+    assertContainsEvent(
+        "Feature flag //test:used_flag was accessed in a configuration it is not present in. All "
+            + "targets which depend on //test:used_flag directly or indirectly must name it in "
+            + "their transitive_configs attribute.");
+  }
+
+  @Test
+  public void featureFlagAccessedByPathWithMissingTransitiveConfigs_producesError()
       throws Exception {
     reporter.removeHandler(failFastHandler); // expecting an error
     scratch.file(
         "test/BUILD",
-        "load(':read_flags.bzl', 'read_flags')",
-        "feature_flag_setter(",
-        "    name = 'target',",
-        "    deps = [':broken'],",
-        "    flag_values = {",
-        "        ':used_flag': 'configured',",
-        "    },",
-        "    transitive_configs = [':used_flag'],",
-        ")",
-        "filegroup(",
-        "    name = 'broken',",
-        "    srcs = [':reader'],",
-        // no transitive_configs = equivalent to []
-        ")",
-        "read_flags(",
-        "    name = 'reader',",
-        "    flags = [':used_flag'],",
-        "    transitive_configs = [':used_flag'],",
-        ")",
-        "config_feature_flag(",
-        "    name = 'used_flag',",
-        "    allowed_values = ['default', 'configured', 'other'],",
-        "    default_value = 'default',",
-        ")");
+        """
+        load(":read_flags.bzl", "read_flags")
+
+        feature_flag_setter(
+            name = "target",
+            flag_values = {
+                ":used_flag": "configured",
+            },
+            transitive_configs = [":used_flag"],
+            deps = [":broken"],
+        )
+
+        filegroup(
+            name = "broken",
+            srcs = [":reader"],
+            # no transitive_configs = equivalent to []
+        )
+
+        filegroup(
+            name = "reader",
+            srcs = select({
+                ":used_flag@configured": ["a.txt"],
+                "//conditions:default": ["b.txt"],
+            }),
+            transitive_configs = [":used_flag"],
+        )
+
+        config_setting(
+            name = "used_flag@configured",
+            flag_values = {":used_flag": "configured"},
+            transitive_configs = [":used_flag"],
+        )
+
+        config_feature_flag(
+            name = "used_flag",
+            allowed_values = [
+                "default",
+                "configured",
+                "other",
+            ],
+            default_value = "default",
+        )
+        """);
 
     assertThat(getConfiguredTarget("//test:target")).isNull();
     assertContainsEvent(
@@ -627,156 +920,111 @@ public final class FeatureFlagManualTrimmingTest extends BuildViewTestCase {
   }
 
   @Test
-  public void featureFlagInHostConfiguration_HasDefaultValue() throws Exception {
+  public void featureFlagInExecConfiguration_hasDefaultValue() throws Exception {
     scratch.file(
         "test/BUILD",
-        "load(':host_transition.bzl', 'host_transition')",
-        "load(':read_flags.bzl', 'read_flags')",
-        "feature_flag_setter(",
-        "    name = 'target',",
-        "    deps = [':host'],",
-        "    flag_values = {",
-        "        ':used_flag': 'configured',",
-        "    },",
-        "    transitive_configs = [':used_flag'],",
-        ")",
-        "host_transition(",
-        "    name = 'host',",
-        "    srcs = [':reader'],",
-        "    transitive_configs = [':used_flag'],",
-        ")",
-        "read_flags(",
-        "    name = 'reader',",
-        "    flags = [':used_flag'],",
-        "    transitive_configs = [':used_flag'],",
-        ")",
-        "config_feature_flag(",
-        "    name = 'used_flag',",
-        "    allowed_values = ['default', 'configured', 'other'],",
-        "    default_value = 'default',",
-        ")");
+        """
+        load(":host_transition.bzl", "host_transition")
+        load(":read_flags.bzl", "read_flags")
+
+        feature_flag_setter(
+            name = "target",
+            flag_values = {
+                ":used_flag": "configured",
+            },
+            transitive_configs = [":used_flag"],
+            deps = [":host"],
+        )
+
+        host_transition(
+            name = "host",
+            srcs = [":reader"],
+            transitive_configs = [":used_flag"],
+        )
+
+        read_flags(
+            name = "reader",
+            flags = [":used_flag"],
+            transitive_configs = [":used_flag"],
+        )
+
+        config_feature_flag(
+            name = "used_flag",
+            allowed_values = [
+                "default",
+                "configured",
+                "other",
+            ],
+            default_value = "default",
+        )
+        """);
 
     Artifact targetFlags =
         Iterables.getOnlyElement(getFilesToBuild(getConfiguredTarget("//test:target")).toList());
 
-    Label usedFlag = Label.parseAbsolute("//test:used_flag", ImmutableMap.of());
+    Label usedFlag = Label.parseCanonical("//test:used_flag");
     assertThat(getFlagValuesFromOutputFile(targetFlags)).containsEntry(usedFlag, "default");
   }
 
   @Test
-  public void featureFlagInHostConfiguration_HasNoTransitiveConfigEnforcement() throws Exception {
+  public void featureFlagInExecConfiguration_hasNoTransitiveConfigEnforcement() throws Exception {
     scratch.file(
         "test/BUILD",
-        "load(':host_transition.bzl', 'host_transition')",
-        "load(':read_flags.bzl', 'read_flags')",
-        "feature_flag_setter(",
-        "    name = 'target',",
-        "    deps = [':host'],",
-        "    flag_values = {",
-        "        ':used_flag': 'configured',",
-        "    },",
-        // no transitive_configs
-        ")",
-        "host_transition(",
-        "    name = 'host',",
-        "    srcs = [':reader'],",
-        // no transitive_configs
-        ")",
-        "read_flags(",
-        "    name = 'reader',",
-        "    flags = [':used_flag'],",
-        // no transitive_configs
-        ")",
-        "config_feature_flag(",
-        "    name = 'used_flag',",
-        "    allowed_values = ['default', 'configured', 'other'],",
-        "    default_value = 'default',",
-        ")");
+        """
+        load(":host_transition.bzl", "host_transition")
+        load(":read_flags.bzl", "read_flags")
+
+        feature_flag_setter(
+            name = "target",
+            flag_values = {
+                ":used_flag": "configured",
+            },
+            deps = [":host"],
+            # no transitive_configs
+        )
+
+        host_transition(
+            name = "host",
+            srcs = [":reader"],
+            # no transitive_configs
+        )
+
+        read_flags(
+            name = "reader",
+            flags = [":used_flag"],
+            # no transitive_configs
+        )
+
+        config_feature_flag(
+            name = "used_flag",
+            allowed_values = [
+                "default",
+                "configured",
+                "other",
+            ],
+            default_value = "default",
+        )
+        """);
 
     getConfiguredTarget("//test:target");
     assertNoEvents();
   }
 
   @Test
-  public void noDistinctHostConfiguration_DoesNotResultInActionConflicts() throws Exception {
+  public void featureFlagAccessedDirectly_returnsDefaultValue() throws Exception {
     scratch.file(
         "test/BUILD",
-        "load(':host_transition.bzl', 'host_transition')",
-        "load(':read_flags.bzl', 'read_flags')",
-        "feature_flag_setter(",
-        "    name = 'target',",
-        "    deps = [':host', ':reader'],",
-        ")",
-        "host_transition(",
-        "    name = 'host',",
-        "    srcs = [':reader'],",
-        ")",
-        "read_flags(",
-        "    name = 'reader',",
-        "    flags = [],",
-        ")");
-
-    enableManualTrimmingAnd("--nodistinct_host_configuration");
-    ConfiguredTarget target = getConfiguredTarget("//test:target");
-    assertNoEvents();
-    // Note that '//test:reader' is accessed (and creates actions) in both the host and target
-    // configurations. If these are different but output to the same path (as was the case before
-    // --nodistinct_host_configuration caused --enforce_transitive_configs_for_config_feature_flag
-    // to become a no-op), then this causes action conflicts, as described in b/117932061 (for which
-    // this test is a regression test).
-    assertThat(getFilesToBuild(target).toList()).hasSize(1);
-    // Action conflict detection is not enabled for these tests. However, the action conflict comes
-    // from the outputs of the two configurations of //test:reader being unequal artifacts;
-    // hence, this test checks that the nested set of artifacts reachable from //test:target only
-    // contains one artifact, that is, they were deduplicated for being equal.
-  }
-
-
-  @Test
-  public void noDistinctHostConfiguration_DisablesEnforcementForBothHostAndTargetConfigs()
-      throws Exception {
-    scratch.file(
-        "test/BUILD",
-        "load(':host_transition.bzl', 'host_transition')",
-        "load(':read_flags.bzl', 'read_flags')",
-        "feature_flag_setter(",
-        "    name = 'target',",
-        "    deps = [':host', ':reader'],",
-        "    flag_values = {",
-        "        ':used_flag': 'configured',",
-        "    },",
-        // no transitive_configs
-        ")",
-        "host_transition(",
-        "    name = 'host',",
-        "    srcs = [':reader'],",
-        // no transitive_configs
-        ")",
-        "read_flags(",
-        "    name = 'reader',",
-        "    flags = [':used_flag'],",
-        // no transitive_configs
-        ")",
-        "config_feature_flag(",
-        "    name = 'used_flag',",
-        "    allowed_values = ['default', 'configured', 'other'],",
-        "    default_value = 'default',",
-        ")");
-
-    enableManualTrimmingAnd("--nodistinct_host_configuration");
-    getConfiguredTarget("//test:target");
-    assertNoEvents();
-  }
-
-  @Test
-  public void featureFlagAccessedDirectly_ReturnsDefaultValue() throws Exception {
-    scratch.file(
-        "test/BUILD",
-        "config_feature_flag(",
-        "    name = 'used_flag',",
-        "    allowed_values = ['default', 'configured', 'other'],",
-        "    default_value = 'default',",
-        ")");
+        """
+        config_feature_flag(
+            name = "used_flag",
+            allowed_values = [
+                "default",
+                "configured",
+                "other",
+            ],
+            default_value = "default",
+        )
+        """);
 
     assertThat(
             ConfigFeatureFlagProvider.fromTarget(getConfiguredTarget("//test:used_flag"))
@@ -785,30 +1033,37 @@ public final class FeatureFlagManualTrimmingTest extends BuildViewTestCase {
   }
 
   @Test
-  public void featureFlagAccessedViaTopLevelLibraryTarget_ReturnsDefaultValue() throws Exception {
+  public void featureFlagAccessedViaTopLevelLibraryTarget_returnsDefaultValue() throws Exception {
     scratch.file(
         "test/BUILD",
-        "load(':read_flags.bzl', 'read_flags')",
-        "read_flags(",
-        "    name = 'reader',",
-        "    flags = [':used_flag'],",
-        "    transitive_configs = [':used_flag'],",
-        ")",
-        "config_feature_flag(",
-        "    name = 'used_flag',",
-        "    allowed_values = ['default', 'configured', 'other'],",
-        "    default_value = 'default',",
-        ")");
+        """
+        load(":read_flags.bzl", "read_flags")
+
+        read_flags(
+            name = "reader",
+            flags = [":used_flag"],
+            transitive_configs = [":used_flag"],
+        )
+
+        config_feature_flag(
+            name = "used_flag",
+            allowed_values = [
+                "default",
+                "configured",
+                "other",
+            ],
+            default_value = "default",
+        )
+        """);
     Artifact targetFlags =
         Iterables.getOnlyElement(getFilesToBuild(getConfiguredTarget("//test:reader")).toList());
 
-    Label usedFlag = Label.parseAbsolute("//test:used_flag", ImmutableMap.of());
+    Label usedFlag = Label.parseCanonical("//test:used_flag");
     assertThat(getFlagValuesFromOutputFile(targetFlags)).containsEntry(usedFlag, "default");
   }
 
   @Test
-  public void featureFlagSettingRules_OverrideFlagsFromReverseTransitiveClosure()
-      throws Exception {
+  public void featureFlagSettingRules_overrideFlagsFromReverseTransitiveClosure() throws Exception {
     // In other words: if you have a dependency which sets feature flags itself, you don't need to
     // name any of the feature flags used by that target or its transitive closure, as it sets
     // feature flags itself.
@@ -818,41 +1073,56 @@ public final class FeatureFlagManualTrimmingTest extends BuildViewTestCase {
 
     scratch.file(
         "test/BUILD",
-        "load(':read_flags.bzl', 'read_flags')",
-        "filegroup(",
-        "    name = 'toplevel',",
-        "    srcs = [':target'],",
-        // no transitive_configs
-        ")",
-        "feature_flag_setter(",
-        "    name = 'target',",
-        "    deps = [':reader'],",
-        "    flag_values = {",
-        "        ':trimmed_flag': 'left',",
-        "        ':used_flag': 'configured',",
-        "    },",
-        "    transitive_configs = [':used_flag'],",
-        ")",
-        "read_flags(",
-        "    name = 'reader',",
-        "    flags = [':used_flag'],",
-        "    transitive_configs = [':used_flag'],",
-        ")",
-        "config_feature_flag(",
-        "    name = 'trimmed_flag',",
-        "    allowed_values = ['default', 'left', 'right'],",
-        "    default_value = 'default',",
-        ")",
-        "config_feature_flag(",
-        "    name = 'used_flag',",
-        "    allowed_values = ['default', 'configured', 'other'],",
-        "    default_value = 'default',",
-        ")");
+        """
+        load(":read_flags.bzl", "read_flags")
+
+        filegroup(
+            name = "toplevel",
+            srcs = [":target"],
+            # no transitive_configs
+        )
+
+        feature_flag_setter(
+            name = "target",
+            flag_values = {
+                ":trimmed_flag": "left",
+                ":used_flag": "configured",
+            },
+            transitive_configs = [":used_flag"],
+            deps = [":reader"],
+        )
+
+        read_flags(
+            name = "reader",
+            flags = [":used_flag"],
+            transitive_configs = [":used_flag"],
+        )
+
+        config_feature_flag(
+            name = "trimmed_flag",
+            allowed_values = [
+                "default",
+                "left",
+                "right",
+            ],
+            default_value = "default",
+        )
+
+        config_feature_flag(
+            name = "used_flag",
+            allowed_values = [
+                "default",
+                "configured",
+                "other",
+            ],
+            default_value = "default",
+        )
+        """);
 
     Artifact targetFlags =
         Iterables.getOnlyElement(getFilesToBuild(getConfiguredTarget("//test:toplevel")).toList());
 
-    Label usedFlag = Label.parseAbsolute("//test:used_flag", ImmutableMap.of());
+    Label usedFlag = Label.parseCanonical("//test:used_flag");
     assertThat(getFlagValuesFromOutputFile(targetFlags)).containsEntry(usedFlag, "configured");
   }
 
@@ -863,31 +1133,40 @@ public final class FeatureFlagManualTrimmingTest extends BuildViewTestCase {
     // BuildOptions instance for every configured target
     scratch.file(
         "test/BUILD",
-        "load(':read_flags.bzl', 'read_flags')",
-        "feature_flag_setter(",
-        "    name = 'toplevel_target',",
-        "    deps = [':dep'],",
-        "    flag_values = {",
-        "        ':used_flag': 'configured',",
-        "    },",
-        "    transitive_configs = [':used_flag'],",
-        ")",
-        "read_flags(",
-        "    name = 'dep',",
-        "    flags = [':used_flag'],",
-        "    transitive_configs = [':used_flag'],",
-        ")",
-        "config_feature_flag(",
-        "    name = 'used_flag',",
-        "    allowed_values = ['default', 'configured', 'other'],",
-        "    default_value = 'default',",
-        ")");
+        """
+        load(":read_flags.bzl", "read_flags")
+
+        feature_flag_setter(
+            name = "toplevel_target",
+            flag_values = {
+                ":used_flag": "configured",
+            },
+            transitive_configs = [":used_flag"],
+            deps = [":dep"],
+        )
+
+        read_flags(
+            name = "dep",
+            flags = [":used_flag"],
+            transitive_configs = [":used_flag"],
+        )
+
+        config_feature_flag(
+            name = "used_flag",
+            allowed_values = [
+                "default",
+                "configured",
+                "other",
+            ],
+            default_value = "default",
+        )
+        """);
 
     BuildOptions topLevelOptions =
         getConfiguration(getConfiguredTarget("//test:toplevel_target")).getOptions();
     PatchTransition transition =
         new ConfigFeatureFlagTaggedTrimmingTransitionFactory(BaseRuleClasses.TAGGED_TRIMMING_ATTR)
-            .create(RuleTransitionData.create((Rule) getTarget("//test:dep")));
+            .create(RuleTransitionData.create((Rule) getTarget("//test:dep"), null, ""));
     BuildOptions depOptions =
         transition.patch(
             new BuildOptionsView(topLevelOptions, transition.requiresOptionFragments()),
@@ -896,40 +1175,54 @@ public final class FeatureFlagManualTrimmingTest extends BuildViewTestCase {
   }
 
   @Test
-  public void featureFlagSetAndInTransitiveConfigs_GetsSetValueWhenTrimTest() throws Exception {
+  public void featureFlagSetAndInTransitiveConfigs_getsSetValueWhenTrimTest() throws Exception {
     scratch.file(
         "test/BUILD",
-        "load(':read_flags.bzl', 'read_flags')",
-        "feature_flag_setter(",
-        "    name = 'target',",
-        "    deps = [':reader'],",
-        "    flag_values = {",
-        "        ':trimmed_flag': 'left',",
-        "        ':used_flag': 'configured',",
-        "    },",
-        "    transitive_configs = [':used_flag'],",
-        ")",
-        "read_flags(",
-        "    name = 'reader',",
-        "    flags = [':used_flag'],",
-        "    transitive_configs = [':used_flag'],",
-        ")",
-        "config_feature_flag(",
-        "    name = 'trimmed_flag',",
-        "    allowed_values = ['default', 'left', 'right'],",
-        "    default_value = 'default',",
-        ")",
-        "config_feature_flag(",
-        "    name = 'used_flag',",
-        "    allowed_values = ['default', 'configured', 'other'],",
-        "    default_value = 'default',",
-        ")");
+        """
+        load(":read_flags.bzl", "read_flags")
+
+        feature_flag_setter(
+            name = "target",
+            flag_values = {
+                ":trimmed_flag": "left",
+                ":used_flag": "configured",
+            },
+            transitive_configs = [":used_flag"],
+            deps = [":reader"],
+        )
+
+        read_flags(
+            name = "reader",
+            flags = [":used_flag"],
+            transitive_configs = [":used_flag"],
+        )
+
+        config_feature_flag(
+            name = "trimmed_flag",
+            allowed_values = [
+                "default",
+                "left",
+                "right",
+            ],
+            default_value = "default",
+        )
+
+        config_feature_flag(
+            name = "used_flag",
+            allowed_values = [
+                "default",
+                "configured",
+                "other",
+            ],
+            default_value = "default",
+        )
+        """);
     enableManualTrimmingAnd("--trim_test_configuration");
 
     Artifact targetFlags =
         Iterables.getOnlyElement(getFilesToBuild(getConfiguredTarget("//test:target")).toList());
 
-    Label usedFlag = Label.parseAbsolute("//test:used_flag", ImmutableMap.of());
+    Label usedFlag = Label.parseCanonical("//test:used_flag");
     assertThat(getFlagValuesFromOutputFile(targetFlags)).containsEntry(usedFlag, "configured");
   }
 }

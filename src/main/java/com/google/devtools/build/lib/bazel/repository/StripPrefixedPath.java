@@ -14,11 +14,13 @@
 
 package com.google.devtools.build.lib.bazel.repository;
 
-import com.google.common.base.Optional;
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
+
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.util.Optional;
 
 /**
  * Utility class for removing a prefix from an archive's path.
@@ -36,17 +38,19 @@ public final class StripPrefixedPath {
    * could cause collisions, if a zip file had one entry for bin/some-binary and another entry for
    * /bin/some-binary.
    *
-   * Note that the prefix is stripped to move the files up one level, so if you have an entry
+   * <p>Note that the prefix is stripped to move the files up one level, so if you have an entry
    * "foo/../bar" and a prefix of "foo", the result will be "bar" not "../bar".
    */
-  public static StripPrefixedPath maybeDeprefix(String entry, Optional<String> prefix) {
+  public static StripPrefixedPath maybeDeprefix(byte[] entry, Optional<String> prefix) {
     Preconditions.checkNotNull(entry);
     PathFragment entryPath = relativize(entry);
-    if (!prefix.isPresent()) {
+    if (prefix.isEmpty()) {
       return new StripPrefixedPath(entryPath, false, false);
     }
 
-    PathFragment prefixPath = relativize(prefix.get());
+    // Bazel parses Starlark files, which are the ultimate source of prefixes, as Latin-1
+    // (ISO-8859-1).
+    PathFragment prefixPath = relativize(prefix.get().getBytes(ISO_8859_1));
     boolean found = false;
     boolean skip = false;
     if (entryPath.startsWith(prefixPath)) {
@@ -64,8 +68,8 @@ public final class StripPrefixedPath {
   /**
    * Normalize the path and, if it is absolute, make it relative (e.g., /foo/bar becomes foo/bar).
    */
-  private static PathFragment relativize(String path) {
-    PathFragment entryPath = PathFragment.create(path);
+  private static PathFragment relativize(byte[] path) {
+    PathFragment entryPath = createPathFragment(path);
     if (entryPath.isAbsolute()) {
       entryPath = entryPath.toRelative();
     }
@@ -79,10 +83,10 @@ public final class StripPrefixedPath {
   }
 
   public static PathFragment maybeDeprefixSymlink(
-      PathFragment linkPathFragment, Optional<String> prefix, Path root) {
-    boolean wasAbsolute = linkPathFragment.isAbsolute();
+      byte[] rawTarget, Optional<String> prefix, Path root) {
+    boolean wasAbsolute = createPathFragment(rawTarget).isAbsolute();
     // Strip the prefix from the link path if set.
-    linkPathFragment = maybeDeprefix(linkPathFragment.getPathString(), prefix).getPathFragment();
+    PathFragment linkPathFragment = maybeDeprefix(rawTarget, prefix).getPathFragment();
     if (wasAbsolute) {
       // Recover the path to an absolute path as maybeDeprefix() relativize the path
       // even if the prefix is not set
@@ -103,4 +107,10 @@ public final class StripPrefixedPath {
     return skip;
   }
 
+  static PathFragment createPathFragment(byte[] rawBytes) {
+    // Bazel internally represents paths as raw bytes by using the Latin-1 encoding, which has the
+    // property that (new String(bytes, ISO_8859_1)).getBytes(ISO_8859_1)) equals bytes for every
+    // byte array bytes.
+    return PathFragment.create(new String(rawBytes, ISO_8859_1));
+  }
 }

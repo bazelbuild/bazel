@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.util.io;
 
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 
 /**
@@ -42,12 +43,14 @@ public class LoggingTerminalWriter implements AnsiTerminalWriter {
     transcript = "";
   }
 
+  @CanIgnoreReturnValue
   @Override
   public AnsiTerminalWriter append(String text) throws IOException {
     transcript += text;
     return this;
   }
 
+  @CanIgnoreReturnValue
   @Override
   public AnsiTerminalWriter newline() throws IOException {
     if (!discardHighlight) {
@@ -58,6 +61,7 @@ public class LoggingTerminalWriter implements AnsiTerminalWriter {
     return this;
   }
 
+  @CanIgnoreReturnValue
   @Override
   public AnsiTerminalWriter okStatus() throws IOException {
     if (!discardHighlight) {
@@ -66,6 +70,7 @@ public class LoggingTerminalWriter implements AnsiTerminalWriter {
     return this;
   }
 
+  @CanIgnoreReturnValue
   @Override
   public AnsiTerminalWriter failStatus() throws IOException {
     if (!discardHighlight) {
@@ -74,6 +79,7 @@ public class LoggingTerminalWriter implements AnsiTerminalWriter {
     return this;
   }
 
+  @CanIgnoreReturnValue
   @Override
   public AnsiTerminalWriter normal() throws IOException {
     if (!discardHighlight) {

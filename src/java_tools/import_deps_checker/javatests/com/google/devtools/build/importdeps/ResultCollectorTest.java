@@ -16,6 +16,7 @@ package com.google.devtools.build.importdeps;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.importdeps.AbstractClassEntryState.IncompleteState;
 import com.google.devtools.build.importdeps.AbstractClassEntryState.MissingState;
@@ -103,10 +104,11 @@ public class ResultCollectorTest {
   public void testIndirectDeps() {
     Path a = Paths.get("a");
     Path b = Paths.get("b");
-    collector.addIndirectDep(b);
-    collector.addIndirectDep(a);
-    collector.addIndirectDep(b);
-    assertThat(collector.getSortedIndirectDeps()).containsExactly(a, b).inOrder();
+    collector.addIndirectDep("B", b);
+    collector.addIndirectDep("A", a);
+    collector.addIndirectDep("B", b);
+    ImmutableMultimap<Path, String> indirectDeps = collector.getSortedIndirectDeps();
+    assertThat(indirectDeps.keySet()).containsExactly(a, b).inOrder();
     assertThat(collector.isEmpty()).isFalse();
   }
 

@@ -40,10 +40,6 @@ public final class PatternExpandingError implements BuildEvent {
     return pattern;
   }
 
-  public boolean getSkipped() {
-    return skipped;
-  }
-
   public static PatternExpandingError failed(List<String> pattern, String message) {
     return new PatternExpandingError(pattern, message, false);
   }
@@ -80,5 +76,10 @@ public final class PatternExpandingError implements BuildEvent {
             .setDescription(message)
             .build();
     return GenericBuildEvent.protoChaining(this).setAborted(failure).build();
+  }
+
+  @Override
+  public boolean storeForReplay() {
+    return true;
   }
 }

@@ -23,22 +23,18 @@ else
   ADDITIONAL_JARS="$(grep -o '".*\.jar"' tools/distributions/${DISTRIBUTION}/${DISTRIBUTION}_java.BUILD | sed 's/"//g' | sed 's|^|/usr/share/|g')"
 fi
 
-# Parse third_party/googleapis/BUILD.bazel to find the proto files we need to compile from googleapis
-GOOGLE_API_PROTOS="$(grep -o '".*\.proto"' third_party/googleapis/BUILD.bazel | sed 's/"//g' | sed 's|^|third_party/googleapis/|g')"
-PROTO_FILES=$(find third_party/remoteapis ${GOOGLE_API_PROTOS} third_party/pprof src/main/protobuf src/main/java/com/google/devtools/build/lib/buildeventstream/proto src/main/java/com/google/devtools/build/skyframe src/main/java/com/google/devtools/build/lib/skyframe/proto src/main/java/com/google/devtools/build/lib/bazel/debug src/main/java/com/google/devtools/build/lib/starlarkdebug/proto src/main/java/com/google/devtools/build/lib/packages/metrics/package_metrics.proto -name "*.proto")
-LIBRARY_JARS=$(find $ADDITIONAL_JARS third_party -name '*.jar' | grep -Fv JavaBuilder | grep -Fv third_party/guava/guava | grep -ve 'third_party/grpc/grpc.*jar' | grep -Fv third_party/netty_tcnative | tr "\n" " ")
-GRPC_JAVA_VERSION=1.41.0
-GRPC_LIBRARY_JARS=$(find third_party/grpc -name '*.jar' | grep -e ".*${GRPC_JAVA_VERSION}.*jar" | tr "\n" " ")
-GUAVA_VERSION=30.1.1
-GUAVA_JARS=$(find third_party/guava -name '*.jar' | grep -e ".*${GUAVA_VERSION}.*jar" | tr "\n" " ")
-LIBRARY_JARS="${LIBRARY_JARS} ${GRPC_LIBRARY_JARS} ${GUAVA_JARS}"
+PROTO_FILES=$(find third_party/remoteapis third_party/pprof src/main/protobuf src/main/java/com/google/devtools/build/lib/buildeventstream/proto src/main/java/com/google/devtools/build/skyframe src/main/java/com/google/devtools/build/lib/skyframe/proto src/main/java/com/google/devtools/build/lib/bazel/debug src/main/java/com/google/devtools/build/lib/starlarkdebug/proto src/main/java/com/google/devtools/build/lib/packages/metrics/package_load_metrics.proto -name "*.proto")
+# For protobuf jars, derived/jars/protobuf+/java/core/libcore.jar must be in front of derived/jars/protobuf+/java/core/liblite.jar, so we sort jars here
+LIBRARY_JARS=$(find $ADDITIONAL_JARS -name '*.jar' | sort | grep -Fv JavaBuilder | tr "\n" " ")
+MAVEN_JARS=$(find "derived/maven" -name '*.jar' | grep -Fv netty-tcnative | tr "\n" " ")
+LIBRARY_JARS="${LIBRARY_JARS} ${MAVEN_JARS}"
 
-DIRS=$(echo src/{java_tools/singlejar/java/com/google/devtools/build/zip,main/java} tools/java/runfiles ${OUTPUT_DIR}/src)
+DIRS=$(echo src/{java_tools/singlejar/java/com/google/devtools/build/zip,main/java,tools/starlark/java} tools/java/runfiles ${OUTPUT_DIR}/src)
 # Exclude source files that are not needed for Bazel itself, which avoids dependencies like truth.
 EXCLUDE_FILES="src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/testing/* src/main/java/com/google/devtools/build/lib/collect/nestedset/NestedSetCodecTestUtils.java"
 # Exclude whole directories under the bazel src tree that bazel itself
 # doesn't depend on.
-EXCLUDE_DIRS="src/main/java/com/google/devtools/build/skydoc src/main/java/com/google/devtools/build/docgen tools/java/runfiles/testing src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils src/main/java/com/google/devtools/common/options/testing"
+EXCLUDE_DIRS="src/main/java/com/google/devtools/build/docgen src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils src/main/java/com/google/devtools/common/options/testing src/main/java/com/google/devtools/build/lib/testing"
 for d in $EXCLUDE_DIRS ; do
   for f in $(find $d -type f) ; do
     EXCLUDE_FILES+=" $f"
@@ -141,7 +137,8 @@ function java_compilation() {
   # additional arguments to be passed to javac.
   run "${JAVAC}" -classpath "${classpath}" -sourcepath "${sourcepath}" \
       -d "${output}/classes" -source "$JAVA_VERSION" -target "$JAVA_VERSION" \
-      -encoding UTF-8 ${BAZEL_JAVAC_OPTS} "@${paramfile}"
+      -encoding UTF-8 --add-exports=java.base/jdk.internal.misc=ALL-UNNAMED \
+      ${BAZEL_JAVAC_OPTS} "@${paramfile}"
 
   log "Extracting helper classes for $name..."
   for f in ${library_jars} ; do
@@ -156,11 +153,16 @@ function create_deploy_jar() {
   local output=$3
   shift 3
   local packages=""
+  # Only keep the services subdirectory of META-INF (needed for AutoService).
+  for i in $output/classes/META-INF/*; do
+    local package=$(basename $i)
+    if [[ "$package" != "services" ]]; then
+      rm -r "$i"
+    fi
+  done
   for i in $output/classes/*; do
     local package=$(basename $i)
-    if [[ "$package" != "META-INF" ]]; then
-      packages="$packages -C $output/classes $package"
-    fi
+    packages="$packages -C $output/classes $package"
   done
 
   log "Creating $name.jar..."
@@ -171,7 +173,7 @@ function create_deploy_jar() {
 HOW_TO_BOOTSTRAP='
 
 --------------------------------------------------------------------------------
-NOTE: This failure is likely occuring if you are trying to bootstrap bazel from
+NOTE: This failure is likely occurring if you are trying to bootstrap bazel from
 a developer checkout. Those checkouts do not include the generated output of
 the protoc compiler (as we prefer not to version generated files).
 
@@ -184,7 +186,7 @@ the protoc compiler (as we prefer not to version generated files).
   compile.sh on the unpacked archive.
 
 The full install instructions to install a release version of bazel can be found
-at https://docs.bazel.build/install-compile-source.html
+at https://bazel.build/install/compile-source
 For a rationale, why the bootstrap process is organized in this way, see
 https://bazel.build/designs/2016/10/11/distribution-artifact.html
 --------------------------------------------------------------------------------
@@ -223,7 +225,6 @@ if [ -z "${BAZEL_SKIP_JAVA_COMPILATION}" ]; then
                 -Isrc/main/java/com/google/devtools/build/lib/bazel/debug/ \
                 -Isrc/main/java/com/google/devtools/build/lib/starlarkdebug/proto/ \
                 -Ithird_party/remoteapis/ \
-                -Ithird_party/googleapis/ \
                 -Ithird_party/pprof/ \
                 --java_out=${OUTPUT_DIR}/src \
                 --plugin=protoc-gen-grpc="${GRPC_JAVA_PLUGIN-}" \
@@ -246,11 +247,14 @@ if [ -z "${BAZEL_SKIP_JAVA_COMPILATION}" ]; then
   done
 
   # Create the bazel_tools repository.
-  BAZEL_TOOLS_REPO=${OUTPUT_DIR}/embedded_tools
+  BAZEL_TOOLS_REPO=${OUTPUT_DIR}/archive/embedded_tools
   mkdir -p ${BAZEL_TOOLS_REPO}
   cat <<EOF >${BAZEL_TOOLS_REPO}/WORKSPACE
 workspace(name = 'bazel_tools')
 EOF
+
+  # Set up the MODULE.bazel file for `bazel_tools`
+  link_file "${PWD}/src/MODULE.tools" "${BAZEL_TOOLS_REPO}/MODULE.bazel"
 
   mkdir -p "${BAZEL_TOOLS_REPO}/src/conditions"
   link_file "${PWD}/src/conditions/BUILD.tools" \
@@ -260,23 +264,26 @@ EOF
 
   link_dir ${PWD}/third_party ${BAZEL_TOOLS_REPO}/third_party
 
+  # Set up the function_transition_allowlist target, which needs to exist for
+  # Starlark rules that use Starlark transitions.
+  mkdir -p "${BAZEL_TOOLS_REPO}/tools/allowlists/function_transition_allowlist"
+  link_file "${PWD}/tools/allowlists/function_transition_allowlist/BUILD.tools" \
+      "${BAZEL_TOOLS_REPO}/tools/allowlists/function_transition_allowlist/BUILD"
+  link_children "${PWD}" tools/allowlists "${BAZEL_TOOLS_REPO}"
+
   # Create @bazel_tools//tools/cpp/runfiles
   mkdir -p ${BAZEL_TOOLS_REPO}/tools/cpp/runfiles
-  link_file "${PWD}/tools/cpp/runfiles/runfiles_src.h" \
+  link_file "${PWD}/tools/cpp/runfiles/runfiles.h" \
       "${BAZEL_TOOLS_REPO}/tools/cpp/runfiles/runfiles.h"
-  # Transform //tools/cpp/runfiles:runfiles_src.cc to
-  # @bazel_tools//tools/cpp/runfiles:runfiles.cc
-  # Keep this transformation logic in sync with the
-  # //tools/cpp/runfiles:srcs_for_embedded_tools genrule.
-  sed 's|^#include.*/runfiles_src.h.*|#include \"tools/cpp/runfiles/runfiles.h\"|' \
-      "${PWD}/tools/cpp/runfiles/runfiles_src.cc" > \
-      "${BAZEL_TOOLS_REPO}/tools/cpp/runfiles/runfiles.cc"
   link_file "${PWD}/tools/cpp/runfiles/BUILD.tools" \
       "${BAZEL_TOOLS_REPO}/tools/cpp/runfiles/BUILD"
 
+  # Create @bazel_tools//tools/cpp/modules_tools
+  mkdir -p ${BAZEL_TOOLS_REPO}/tools/cpp/modules_tools
+  link_file "${PWD}/tools/cpp/modules_tools/BUILD.tools" "${BAZEL_TOOLS_REPO}/tools/cpp/modules_tools/BUILD"
+
   # Create @bazel_tools//tools/sh
   mkdir -p ${BAZEL_TOOLS_REPO}/tools/sh
-  link_file "${PWD}/tools/sh/sh_configure.bzl" "${BAZEL_TOOLS_REPO}/tools/sh/sh_configure.bzl"
   link_file "${PWD}/tools/sh/sh_toolchain.bzl" "${BAZEL_TOOLS_REPO}/tools/sh/sh_toolchain.bzl"
   link_file "${PWD}/tools/sh/BUILD.tools" "${BAZEL_TOOLS_REPO}/tools/sh/BUILD"
 
@@ -287,18 +294,11 @@ EOF
 
   # Create @bazel_tools//tools/java/runfiles
   mkdir -p ${BAZEL_TOOLS_REPO}/tools/java/runfiles
-  link_file "${PWD}/tools/java/runfiles/Runfiles.java" "${BAZEL_TOOLS_REPO}/tools/java/runfiles/Runfiles.java"
-  link_file "${PWD}/tools/java/runfiles/Util.java" "${BAZEL_TOOLS_REPO}/tools/java/runfiles/Util.java"
   link_file "${PWD}/tools/java/runfiles/BUILD.tools" "${BAZEL_TOOLS_REPO}/tools/java/runfiles/BUILD"
 
   # Create @bazel_tools/tools/python/BUILD
   mkdir -p ${BAZEL_TOOLS_REPO}/tools/python
   link_file "${PWD}/tools/python/BUILD.tools" "${BAZEL_TOOLS_REPO}/tools/python/BUILD"
-
-  # Create @bazel_tools/tools/android/BUILD
-  mkdir -p ${BAZEL_TOOLS_REPO}/tools/android
-  link_file "${PWD}/tools/android/BUILD.tools" "${BAZEL_TOOLS_REPO}/tools/android/BUILD"
-  link_children "${PWD}" tools/android "${BAZEL_TOOLS_REPO}"
 
   # Create the rest of @bazel_tools//tools/...
   link_children "${PWD}" tools/cpp "${BAZEL_TOOLS_REPO}"
@@ -306,17 +306,8 @@ EOF
   link_children "${PWD}" tools/python "${BAZEL_TOOLS_REPO}"
   link_children "${PWD}" tools "${BAZEL_TOOLS_REPO}"
 
-  # Set up @bazel_tools//platforms properly
-  mkdir -p ${BAZEL_TOOLS_REPO}/platforms
-  cp tools/platforms/BUILD.tools ${BAZEL_TOOLS_REPO}/platforms/BUILD
-
-  # Overwrite tools.WORKSPACE, this is only for the bootstrap binary
-  chmod u+w "${OUTPUT_DIR}/classes/com/google/devtools/build/lib/bazel/rules/tools.WORKSPACE"
-  cat <<EOF >${OUTPUT_DIR}/classes/com/google/devtools/build/lib/bazel/rules/tools.WORKSPACE
-local_repository(name = 'bazel_tools', path = '${BAZEL_TOOLS_REPO}')
-bind(name = "cc_toolchain", actual = "@bazel_tools//tools/cpp:default-toolchain")
-local_config_platform(name = 'local_config_platform')
-EOF
+  # Set up @maven properly
+  cp derived/maven/BUILD.vendor derived/maven/BUILD
 
   create_deploy_jar "libblaze" "com.google.devtools.build.lib.bazel.Bazel" \
       ${OUTPUT_DIR}
@@ -325,52 +316,6 @@ fi
 log "Creating Bazel install base..."
 ARCHIVE_DIR=${OUTPUT_DIR}/archive
 mkdir -p ${ARCHIVE_DIR}
-
-# Prepare @platforms local repository
-link_dir ${PWD}/platforms ${ARCHIVE_DIR}/platforms
-
-# Dummy build-runfiles (we can't compile C++ yet, so we can't have the real one)
-if [ "${PLATFORM}" = "windows" ]; then
-  # We don't rely on runfiles trees on Windows
-  cat <<'EOF' >${ARCHIVE_DIR}/build-runfiles${EXE_EXT}
-#!/bin/sh
-mkdir -p $2
-cp $1 $2/MANIFEST
-EOF
-else
-  cat <<'EOF' >${ARCHIVE_DIR}/build-runfiles${EXE_EXT}
-#!/bin/sh
-# This is bash implementation of build-runfiles: reads space-separated paths
-# from each line in the file in $1, then creates a symlink under $2 for the
-# first element of the pair that points to the second element of the pair.
-#
-# bash is a terrible tool for this job, but in this case, that's the only one
-# we have (we could hand-compile a little .jar file like we hand-compile the
-# bootstrap version of Bazel, but we'd still need a shell wrapper around it, so
-# it's not clear whether that would be a win over a few lines of Lovecraftian
-# code)
-MANIFEST="$1"
-TREE="$2"
-
-rm -fr "$TREE"
-mkdir -p "$TREE"
-
-# Read the lines in $MANIFEST. the usual "for VAR in $(cat FILE)" idiom won't do
-# because the lines in FILE contain spaces.
-while read LINE; do
-  # Split each line into two parts on the first space
-  SYMLINK_PATH="${LINE%% *}"
-  TARGET_PATH="${LINE#* }"
-  ABSOLUTE_SYMLINK_PATH="$TREE/$SYMLINK_PATH"
-  mkdir -p "$(dirname $ABSOLUTE_SYMLINK_PATH)"
-  ln -s "$TARGET_PATH" "$ABSOLUTE_SYMLINK_PATH"
-done < "$MANIFEST"
-
-cp "$MANIFEST" "$TREE/MANIFEST"
-EOF
-fi
-
-chmod 0755 ${ARCHIVE_DIR}/build-runfiles${EXE_EXT}
 
 function build_jni() {
   local -r output_dir=$1
@@ -386,9 +331,8 @@ function build_jni() {
     mkdir -p "$(dirname "$tmp_output")"
     mkdir -p "$(dirname "$output")"
 
-    # Keep this `find` command in sync with the `srcs` of
-    # //src/main/native/windows:windows_jni
-    local srcs=$(find src/main/native/windows -name '*.cc' -o -name '*.h')
+    # Keep this in sync with the `srcs` of //src/main/native/windows:windows_jni
+    local -r srcs="src/main/native/common.cc $(find src/main/native/windows -name '*.cc' -o -name '*.h')"
     [ -n "$srcs" ] || fail "Could not find sources for Windows JNI library"
 
     # do not quote $srcs because we need to expand it to multiple args
@@ -412,7 +356,7 @@ cp $OUTPUT_DIR/libblaze.jar ${ARCHIVE_DIR}
 # TODO(b/28965185): Remove when xcode-locator is no longer required in embedded_binaries.
 log "Compiling xcode-locator..."
 if [[ $PLATFORM == "darwin" ]]; then
-  run /usr/bin/xcrun --sdk macosx clang -mmacosx-version-min=10.9 -fobjc-arc -framework CoreServices -framework Foundation -o ${ARCHIVE_DIR}/xcode-locator tools/osx/xcode_locator.m
+  run /usr/bin/xcrun --sdk macosx clang -mmacosx-version-min=10.13 -fobjc-arc -framework CoreServices -framework Foundation -o ${ARCHIVE_DIR}/xcode-locator tools/osx/xcode_locator.m
 else
   cp tools/osx/xcode_locator_stub.sh ${ARCHIVE_DIR}/xcode-locator
 fi
@@ -444,6 +388,7 @@ function run_bazel_jar() {
       -XX:+HeapDumpOnOutOfMemoryError -Xverify:none -Dfile.encoding=ISO-8859-1 \
       -XX:HeapDumpPath=${OUTPUT_DIR} \
       -Djava.util.logging.config.file=${OUTPUT_DIR}/javalog.properties \
+      --add-opens java.base/java.lang=ALL-UNNAMED \
       ${JNI_FLAGS} \
       -jar ${ARCHIVE_DIR}/libblaze.jar \
       --batch \

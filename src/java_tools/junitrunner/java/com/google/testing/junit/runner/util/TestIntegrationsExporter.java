@@ -31,17 +31,6 @@ public class TestIntegrationsExporter {
 
   private final Callback callback;
 
-  /**
-   * Creates a fake {@code TestIntegrationsExporter} instance, passing values to the passed-in
-   * callback.
-   *
-   * @param callback Callback to use when values are exported
-   * @return exporter instance
-   */
-  public static TestIntegrationsExporter createFake(final Callback callback) {
-    return new TestIntegrationsExporter(callback);
-  }
-
   protected TestIntegrationsExporter(Callback callback) {
     this.callback = callback;
   }

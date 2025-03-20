@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.runtime;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil.configurationId;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
@@ -42,10 +43,7 @@ public final class TargetSummaryEvent implements BuildEventWithOrderConstraint {
       boolean expectTestSummary,
       @Nullable BlazeTestStatus overallTestStatus) {
     Label label = target.getOriginalLabel();
-    BuildEventId configId =
-        target.getConfigurationChecksum() != null
-            ? BuildEventIdUtil.configurationId(target.getConfigurationChecksum())
-            : BuildEventIdUtil.nullConfigurationId();
+    BuildEventId configId = configurationId(target.getLookupKey().getConfigurationKey());
     ImmutableList.Builder<BuildEventId> postAfter = ImmutableList.builder();
     postAfter.add(BuildEventIdUtil.targetCompleted(label, configId));
     if (expectTestSummary) {

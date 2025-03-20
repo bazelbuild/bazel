@@ -30,7 +30,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import com.google.testing.junit.testparameterinjector.TestParameters;
 import com.google.testing.junit.testparameterinjector.TestParameters.TestParametersValues;
-import com.google.testing.junit.testparameterinjector.TestParameters.TestParametersValuesProvider;
+import com.google.testing.junit.testparameterinjector.TestParametersValuesProvider;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.Arrays;
@@ -151,7 +151,7 @@ public class PathTransformingDelegateFileSystemTest {
     }
   }
 
-  private static class FileSystemMethodProvider implements TestParametersValuesProvider {
+  private static class FileSystemMethodProvider extends TestParametersValuesProvider {
 
     private static final ImmutableSet<Method> IGNORED =
         ImmutableSet.of(
@@ -169,7 +169,7 @@ public class PathTransformingDelegateFileSystemTest {
     }
 
     @Override
-    public ImmutableList<TestParametersValues> provideValues() {
+    public ImmutableList<TestParametersValues> provideValues(Context context) {
       return stream(FileSystem.class.getDeclaredMethods())
           .filter(
               m ->

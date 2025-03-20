@@ -11,6 +11,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
+# WARNING:
+# https://github.com/bazelbuild/bazel/issues/17713
+# .bzl files in this package (tools/build_defs/repo) are evaluated
+# in a Starlark environment without "@_builtins" injection, and must not refer
+# to symbols associated with build/workspace .bzl files
+
 """Utils for manipulating external repositories, once fetched.
 
 ### Setup
@@ -72,17 +79,45 @@ def _use_native_patch(patch_args):
             return False
     return True
 
-def _download_patch(ctx, patch_url, integrity, auth):
+def _download_patch(ctx, patch_url, integrity, auth = None):
     name = patch_url.split("/")[-1]
     patch_path = ctx.path(_REMOTE_PATCH_DIR).get_child(name)
     ctx.download(
         patch_url,
         patch_path,
         canonical_id = ctx.attr.canonical_id,
-        auth = auth,
+        auth = get_auth(ctx, [patch_url]) if auth == None else auth,
         integrity = integrity,
     )
     return patch_path
+
+def download_remote_files(ctx, auth = None):
+    """Utility function for downloading remote files.
+
+    This rule is intended to be used in the implementation function of
+    a repository rule. It assumes the parameters `remote_file_urls` and
+    `remote_file_integrity` to be present in `ctx.attr`.
+
+    Args:
+      ctx: The repository context of the repository rule calling this utility
+        function.
+      auth: An optional dict specifying authentication information for some of the URLs.
+    """
+    pending = [
+        ctx.download(
+            remote_file_urls,
+            path,
+            canonical_id = ctx.attr.canonical_id,
+            auth = get_auth(ctx, remote_file_urls) if auth == None else auth,
+            integrity = ctx.attr.remote_file_integrity.get(path, ""),
+            block = False,
+        )
+        for path, remote_file_urls in ctx.attr.remote_file_urls.items()
+    ]
+
+    # Wait until the requests are done
+    for p in pending:
+        p.wait()
 
 def patch(ctx, patches = None, patch_cmds = None, patch_cmds_win = None, patch_tool = None, patch_args = None, auth = None):
     """Implementation of patching an already extracted repository.
@@ -145,6 +180,11 @@ def patch(ctx, patches = None, patch_cmds = None, patch_cmds_win = None, patch_t
         patch_args = ctx.attr.patch_args
     if patch_args == None:
         patch_args = []
+
+    if hasattr(ctx.attr, "patch_strip"):
+        new_patch_args = ["-p%s" % ctx.attr.patch_strip]
+        new_patch_args.extend(patch_args)
+        patch_args = new_patch_args
 
     if len(remote_patches) > 0 or len(patches) > 0 or len(patch_cmds) > 0:
         ctx.report_progress("Patching repository")
@@ -219,7 +259,7 @@ def maybe(repo_rule, name, **kwargs):
     """Utility function for only adding a repository if it's not already present.
 
     This is to implement safe repositories.bzl macro documented in
-    https://docs.bazel.build/versions/main/skylark/deploying.html#dependencies.
+    https://bazel.build/rules/deploying#dependencies.
 
     Args:
         repo_rule: repository rule function.
@@ -244,7 +284,10 @@ def read_netrc(ctx, filename):
       dict mapping a machine names to a dict with the information provided
       about them
     """
-    contents = ctx.read(filename)
+
+    # Do not cause the repo rule to rerun due to changes to auth info when it is
+    # successful. Failures are not cached.
+    contents = ctx.read(filename, watch = "no")
     return parse_netrc(contents, filename)
 
 def parse_netrc(contents, filename = None):
@@ -282,6 +325,8 @@ def parse_netrc(contents, filename = None):
                 macdef = None
                 currentmacro = ""
         else:
+            line = line.replace("\t", " ")
+
             # Essentially line.split(None) which starlark does not support.
             tokens = [
                 w.strip()
@@ -361,9 +406,13 @@ def use_netrc(netrc, urls, patterns):
             # authentication. So ignore them.
             continue
         host = schemerest[1].split("/")[0].split(":")[0]
-        if not host in netrc:
+        if host in netrc:
+            authforhost = netrc[host]
+        elif "" in netrc:
+            authforhost = netrc[""]
+        else:
             continue
-        authforhost = netrc[host]
+
         if host in patterns:
             auth_dict = {
                 "type": "pattern",
@@ -385,3 +434,49 @@ def use_netrc(netrc, urls, patterns):
             }
 
     return auth
+
+def read_user_netrc(ctx):
+    """Read user's default netrc file.
+
+    Args:
+      ctx: The repository context of the repository rule calling this utility function.
+
+    Returns:
+      dict mapping a machine names to a dict with the information provided about them.
+    """
+    if ctx.os.name.startswith("windows"):
+        home_dir = ctx.os.environ.get("USERPROFILE", "")
+    else:
+        home_dir = ctx.os.environ.get("HOME", "")
+
+    if not home_dir:
+        return {}
+
+    netrcfile = "{}/.netrc".format(home_dir)
+    if not ctx.path(netrcfile).exists:
+        return {}
+    return read_netrc(ctx, netrcfile)
+
+def get_auth(ctx, urls):
+    """Utility function to obtain the correct auth dict for a list of urls from .netrc file.
+
+    Support optional netrc and auth_patterns attributes if available.
+
+    Args:
+      ctx: The repository context of the repository rule calling this utility
+        function.
+      urls: the list of urls to read
+
+    Returns:
+      the auth dict which can be passed to repository_ctx.download
+    """
+    if hasattr(ctx.attr, "netrc") and ctx.attr.netrc:
+        netrc = read_netrc(ctx, ctx.attr.netrc)
+    elif "NETRC" in ctx.os.environ:
+        netrc = read_netrc(ctx, ctx.os.environ["NETRC"])
+    else:
+        netrc = read_user_netrc(ctx)
+    auth_patterns = {}
+    if hasattr(ctx.attr, "auth_patterns") and ctx.attr.auth_patterns:
+        auth_patterns = ctx.attr.auth_patterns
+    return use_netrc(netrc, urls, auth_patterns)

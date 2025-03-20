@@ -34,6 +34,7 @@ public interface ArtifactOwner {
   @SerializationConstant
   ArtifactOwner NULL_OWNER =
       new ArtifactOwner() {
+        @Nullable
         @Override
         public Label getLabel() {
           return null;

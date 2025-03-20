@@ -15,12 +15,9 @@ package com.google.devtools.build.lib.view.java;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.util.ConfigurationTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -41,30 +38,15 @@ public class JavaConfigurationTest extends ConfigurationTestCase {
     assertThat(cfg.getJavaLauncherLabel()).isNull();
 
     // Explicitly enabled launcher as default
-    scratch.file("foo/BUILD", "filegroup(name='bar')", "filegroup(name='baz')");
+    scratch.file(
+        "foo/BUILD",
+        """
+        filegroup(name = "bar")
+
+        filegroup(name = "baz")
+        """);
     config = create("--java_launcher=//foo:bar");
     cfg = config.getFragment(JavaConfiguration.class);
-    assertThat(Label.parseAbsoluteUnchecked("//foo:bar")).isEqualTo(cfg.getJavaLauncherLabel());
-  }
-
-  @Test
-  public void testHostCrosstoolTop() throws Exception {
-    BuildConfigurationCollection configs = createCollection();
-    BuildConfigurationValue config = Iterables.getOnlyElement(configs.getTargetConfigurations());
-    assertThat(config.getFragment(CppConfiguration.class).getRuleProvidingCcToolchainProvider())
-        .isEqualTo(Label.parseAbsoluteUnchecked("//tools/cpp:toolchain"));
-
-    BuildConfigurationValue hostConfig = configs.getHostConfiguration();
-    assertThat(hostConfig.getFragment(CppConfiguration.class).getRuleProvidingCcToolchainProvider())
-        .isEqualTo(Label.parseAbsoluteUnchecked("//tools/cpp:toolchain"));
-  }
-
-
-  @Test
-  public void testConfigurationsHaveUniqueOutputDirectories() throws Exception {
-    assertConfigurationsHaveUniqueOutputDirectories(createCollection("--cpu=k8"));
-
-    assertConfigurationsHaveUniqueOutputDirectories(
-        createCollection("--cpu=k8", "--compilation_mode=opt"));
+    assertThat(Label.parseCanonicalUnchecked("//foo:bar")).isEqualTo(cfg.getJavaLauncherLabel());
   }
 }

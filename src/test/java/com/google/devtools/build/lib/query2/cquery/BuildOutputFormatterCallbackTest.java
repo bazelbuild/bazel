@@ -22,7 +22,9 @@ import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment;
+import com.google.devtools.build.lib.query2.common.CqueryNode;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.QueryParser;
@@ -73,7 +75,7 @@ public class BuildOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
     Set<String> targetPatternSet = new LinkedHashSet<>();
     expression.collectTargetPatterns(targetPatternSet);
     helper.setQuerySettings(Setting.NO_IMPLICIT_DEPS);
-    PostAnalysisQueryEnvironment<KeyedConfiguredTarget> env =
+    PostAnalysisQueryEnvironment<CqueryNode> env =
         ((ConfiguredTargetQueryHelper) helper).getPostAnalysisQueryEnvironment(targetPatternSet);
 
     ByteArrayOutputStream output = new ByteArrayOutputStream();
@@ -83,7 +85,8 @@ public class BuildOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
             options,
             new PrintStream(output),
             getHelper().getSkyframeExecutor(),
-            env.getAccessor());
+            env.getAccessor(),
+            LabelPrinter.legacy());
     env.evaluateQuery(expression, callback);
     return Arrays.asList(output.toString().split(System.lineSeparator()));
   }
@@ -92,17 +95,19 @@ public class BuildOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
   public void selectInAttribute() throws Exception {
     writeFile(
         "test/BUILD",
-        "my_rule(",
-        "  name = 'my_rule',",
-        "  deps = select({",
-        "    ':garfield': ['lasagna.java', 'naps.java'],",
-        "    '//conditions:default': ['mondays.java']",
-        "  })",
-        ")",
-        "config_setting(",
-        "  name = 'garfield',",
-        "  values = {'foo': 'cat'}",
-        ")");
+        """
+        my_rule(
+          name = 'my_rule',
+          deps = select({
+            ':garfield': ['lasagna.java', 'naps.java'],
+            '//conditions:default': ['mondays.java']
+          })
+        )
+        config_setting(
+          name = 'garfield',
+          values = {'foo': 'cat'}
+        )
+        """);
 
     getHelper().useConfiguration("--foo=cat");
     assertThat(getOutput("//test:my_rule"))
@@ -133,23 +138,25 @@ public class BuildOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
   public void alias() throws Exception {
     writeFile(
         "test/BUILD",
-        "my_rule(",
-        "  name = 'my_rule',",
-        "  deps = select({",
-        "    ':garfield': ['lasagna.java', 'naps.java'],",
-        "    '//conditions:default': ['mondays.java']",
-        "  })",
-        ")",
-        "config_setting(",
-        "  name = 'garfield',",
-        "  values = {'foo': 'cat'}",
-        ")",
-        "alias(",
-        "  name = 'my_alias',",
-        "  actual = ':my_rule'",
-        ")",
-        "# Rule my_alias instantiated at (most recent call last):",
-        "#   /workspace/test/BUILD:12:6 in <toplevel>");
+        """
+        my_rule(
+          name = 'my_rule',
+          deps = select({
+            ':garfield': ['lasagna.java', 'naps.java'],
+            '//conditions:default': ['mondays.java']
+          })
+        )
+        config_setting(
+          name = 'garfield',
+          values = {'foo': 'cat'}
+        )
+        alias(
+          name = 'my_alias',
+          actual = ':my_rule'
+        )
+        # Rule my_alias instantiated at (most recent call last):
+        #   /workspace/test/BUILD:12:6 in <toplevel>
+        """);
 
     assertThat(getOutput("//test:my_alias"))
         .containsExactly(
@@ -167,25 +174,27 @@ public class BuildOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
   public void aliasWithSelect() throws Exception {
     writeFile(
         "test/BUILD",
-        "my_rule(",
-        "  name = 'my_first_rule',",
-        "  deps = ['penne.java'],",
-        ")",
-        "my_rule(",
-        "  name = 'my_second_rule',",
-        "  deps = ['linguini.java'],",
-        ")",
-        "config_setting(",
-        "  name = 'garfield',",
-        "  values = {'foo': 'cat'}",
-        ")",
-        "alias(",
-        "  name = 'my_alias',",
-        "  actual = select({",
-        "    ':garfield': ':my_first_rule',",
-        "    '//conditions:default': ':my_second_rule'",
-        "  })",
-        ")");
+        """
+        my_rule(
+          name = 'my_first_rule',
+          deps = ['penne.java'],
+        )
+        my_rule(
+          name = 'my_second_rule',
+          deps = ['linguini.java'],
+        )
+        config_setting(
+          name = 'garfield',
+          values = {'foo': 'cat'}
+        )
+        alias(
+          name = 'my_alias',
+          actual = select({
+            ':garfield': ':my_first_rule',
+            '//conditions:default': ':my_second_rule'
+          })
+        )
+        """);
 
     getHelper().useConfiguration("--foo=cat");
     assertThat(getOutput("//test:my_alias"))
@@ -216,17 +225,19 @@ public class BuildOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
   public void sourceFile() throws Exception {
     writeFile(
         "test/BUILD",
-        "my_rule(",
-        "  name = 'my_rule',",
-        "  deps = select({",
-        "    ':garfield': ['lasagna.java', 'naps.java'],",
-        "    '//conditions:default': ['mondays.java']",
-        "  })",
-        ")",
-        "config_setting(",
-        "  name = 'garfield',",
-        "  values = {'foo': 'cat'}",
-        ")");
+        """
+        my_rule(
+          name = 'my_rule',
+          deps = select({
+            ':garfield': ['lasagna.java', 'naps.java'],
+            '//conditions:default': ['mondays.java']
+          })
+        )
+        config_setting(
+          name = 'garfield',
+          values = {'foo': 'cat'}
+        )
+        """);
 
     assertThat(getOutput("//test:lasagna.java")).containsExactly("");
   }
@@ -235,18 +246,20 @@ public class BuildOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
   public void outputFile() throws Exception {
     writeFile(
         "test/BUILD",
-        "my_rule(",
-        "  name = 'my_rule',",
-        "  deps = select({",
-        "    ':garfield': ['lasagna.java', 'naps.java'],",
-        "    '//conditions:default': ['mondays.java']",
-        "  }),",
-        "  out = 'output.txt'",
-        ")",
-        "config_setting(",
-        "  name = 'garfield',",
-        "  values = {'foo': 'cat'}",
-        ")");
+        """
+        my_rule(
+          name = 'my_rule',
+          deps = select({
+            ':garfield': ['lasagna.java', 'naps.java'],
+            '//conditions:default': ['mondays.java']
+          }),
+          out = 'output.txt'
+        )
+        config_setting(
+          name = 'garfield',
+          values = {'foo': 'cat'}
+        )
+        """);
 
     getHelper().useConfiguration("--foo=cat");
     assertThat(getOutput("//test:output.txt"))

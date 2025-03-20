@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableListMultimap;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 
@@ -56,6 +57,7 @@ public final class OptionsTester {
    * Tests that there are no non-Option instance fields. Fields not annotated with @Option will not
    * be considered for equality.
    */
+  @CanIgnoreReturnValue
   public OptionsTester testAllInstanceFieldsAnnotatedWithOption() {
     for (Field field : getAllFields(optionsClass)) {
       if (!Modifier.isStatic(field.getModifiers())) {
@@ -78,6 +80,7 @@ public final class OptionsTester {
    * <p>Note that testConvert is not actually run on the ConverterTesters; it is expected that they
    * are run elsewhere.
    */
+  @CanIgnoreReturnValue
   public OptionsTester testAllDefaultValuesTestedBy(ConverterTesterMap testers) {
     ImmutableListMultimap.Builder<Class<? extends Converter<?>>, Field> converterClassesBuilder =
         ImmutableListMultimap.builder();

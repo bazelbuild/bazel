@@ -27,7 +27,7 @@ import org.junit.runners.JUnit4;
 public class RegexPatternConverterTest {
   @Test
   public void consistentEqualsAndHashCodeForSamePattern() {
-    new ConverterTester(RegexPatternConverter.class)
+    new ConverterTester(RegexPatternConverter.class, /*conversionContext=*/ null)
         .addEqualityGroup("")
         .addEqualityGroup(".*")
         .addEqualityGroup("[^\\s]+")
@@ -39,7 +39,7 @@ public class RegexPatternConverterTest {
     String regex = "a";
     String semanticallyTheSame = "[a]";
 
-    new ConverterTester(RegexPatternConverter.class)
+    new ConverterTester(RegexPatternConverter.class, /*conversionContext=*/ null)
         .addEqualityGroup(regex)
         .addEqualityGroup(semanticallyTheSame)
         .testConvert();

@@ -1,0 +1,82 @@
+<html devsite>
+<head>
+  <meta name="project_path" value="/_project.yaml">
+  <meta name="book_path" value="/_book.yaml">
+</head>
+<body>
+
+<h1 class="page-title" id="modules.${page.name}">${page.title}</h1>
+
+{% dynamic setvar source_file "${page.sourceFile}" %}
+{% include "_buttons.html" %}
+<!-- {% raw %} -->
+
+${page.documentation}
+
+#if (!$page.methods.isEmpty())
+<h2>Members</h2>
+<ul>
+#foreach ($method in $page.methods)
+  #if ($method.documented())
+  <li>
+    <a href="#${method.name}">${method.name}</a>
+  </li>
+  #end
+#end
+</ul>
+#end
+
+#foreach ($method in $page.methods)
+  #if ($method.documented())
+    <h2 id="${method.name}">${method.name}</h2>
+    #if (!$method.signature.isEmpty())
+    <p><pre class="rule-signature">${method.signature}</pre></p>
+    #end
+
+    ${method.documentation}
+
+    #if (!$method.params.isEmpty())
+      <!-- hide-from-toc is a class used by DevSite for the public Bazel site
+      (https://developers.google.com/devsite/reference/styles/headings#hide_headings_from_the_toc) -->
+      <h3 class="hide-from-toc">Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+        #foreach ($param in $method.params)
+          <tr>
+            <td id="${param.method.name}.${param.name}">
+              <code>${param.name}</code>
+            </td>
+            <td>
+            #if (!$param.type.isEmpty())
+              ${param.type};
+            #end
+            #if (!$param.defaultValue.isEmpty())
+             default is <code>${param.defaultValue}</code><br/>
+            #else
+             required<br/>
+            #end
+              ${param.documentation}
+            </td>
+          </tr>
+        #end
+        </tbody>
+      </table>
+    #end
+    ${method.returnTypeExtraMessage}
+  #end
+#end
+
+</body>
+</html>
+
+<!-- {% endraw %} -->

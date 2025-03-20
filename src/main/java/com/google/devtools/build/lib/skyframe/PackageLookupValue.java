@@ -16,10 +16,13 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Interner;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.packages.BuildFileName;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -52,7 +55,6 @@ public abstract class PackageLookupValue implements SkyValue {
   @SerializationConstant
   public static final DeletedPackageLookupValue DELETED_PACKAGE_VALUE =
       new DeletedPackageLookupValue();
-
   enum ErrorReason {
     /** There is no BUILD file. */
     NO_BUILD_FILE,
@@ -64,18 +66,18 @@ public abstract class PackageLookupValue implements SkyValue {
     DELETED_PACKAGE,
 
     /** The repository was not found. */
-    REPOSITORY_NOT_FOUND
+    REPOSITORY_NOT_FOUND,
   }
 
   protected PackageLookupValue() {}
 
-  public static PackageLookupValue success(
+  public static PackageLookupValue successfulExternalPackageLookup(
       RepositoryDirectoryValue repository, Root root, BuildFileName buildFileName) {
-    return new SuccessfulPackageLookupValue(repository, root, buildFileName);
+    return SuccessfulExternalPackageLookupValue.create(repository, root, buildFileName);
   }
 
   public static PackageLookupValue success(Root root, BuildFileName buildFileName) {
-    return new SuccessfulPackageLookupValue(null, root, buildFileName);
+    return SuccessfulPackageLookupValue.create(root, buildFileName);
   }
 
   public static PackageLookupValue invalidPackageName(String errorMsg) {
@@ -126,7 +128,6 @@ public abstract class PackageLookupValue implements SkyValue {
   }
 
   public static Key key(PackageIdentifier pkgIdentifier) {
-    Preconditions.checkArgument(!pkgIdentifier.getRepository().isDefault());
     return Key.create(pkgIdentifier);
   }
 
@@ -136,49 +137,57 @@ public abstract class PackageLookupValue implements SkyValue {
   }
 
   /** {@link SkyKey} for {@link PackageLookupValue} computation. */
-  @AutoCodec.VisibleForSerialization
+  @VisibleForSerialization
   @AutoCodec
   static class Key extends AbstractSkyKey<PackageIdentifier> {
-    private static final Interner<Key> interner = BlazeInterners.newWeakInterner();
+    private static final SkyKeyInterner<Key> interner = SkyKey.newInterner();
 
     private Key(PackageIdentifier arg) {
       super(arg);
     }
 
-    @AutoCodec.VisibleForSerialization
-    @AutoCodec.Instantiator
-    static Key create(PackageIdentifier arg) {
+    private static Key create(PackageIdentifier arg) {
       return interner.intern(new Key(arg));
+    }
+
+    @VisibleForSerialization
+    @AutoCodec.Interner
+    static Key intern(Key key) {
+      return interner.intern(key);
     }
 
     @Override
     public SkyFunctionName functionName() {
       return SkyFunctions.PACKAGE_LOOKUP;
     }
+
+    @Override
+    public SkyKeyInterner<Key> getSkyKeyInterner() {
+      return interner;
+    }
   }
 
-  /** Successful lookup value. */
+  /** Successful lookup value for a package in the main repo. */
+  @AutoCodec
   public static class SuccessfulPackageLookupValue extends PackageLookupValue {
-    /**
-     * The repository value the meaning of the path depends on (e.g., an external repository
-     * controlling a symbolic link the path goes trough). Can be {@code null}, if does not depend on
-     * such a repository; will always be {@code null} for packages in the main repository.
-     */
-    @Nullable private final RepositoryDirectoryValue repository;
+    private static final Interner<SuccessfulPackageLookupValue> INTERNER =
+        BlazeInterners.newWeakInterner();
 
     private final Root root;
     private final BuildFileName buildFileName;
 
-    SuccessfulPackageLookupValue(
-        @Nullable RepositoryDirectoryValue repository, Root root, BuildFileName buildFileName) {
-      this.repository = repository;
+    SuccessfulPackageLookupValue(Root root, BuildFileName buildFileName) {
       this.root = root;
       this.buildFileName = buildFileName;
     }
 
-    @Nullable
-    public RepositoryDirectoryValue repository() {
-      return repository;
+    @AutoCodec.Instantiator
+    @VisibleForSerialization
+    static SuccessfulPackageLookupValue create(Root root, BuildFileName buildFileName) {
+      // In practice there will be very few unique values. Most successful package lookups succeed
+      // against the first root (maybe there's only a single root!), there are only a few possible
+      // build file names (for Blaze there's just one!).
+      return INTERNER.intern(new SuccessfulPackageLookupValue(root, buildFileName));
     }
 
     @Override
@@ -208,18 +217,57 @@ public abstract class PackageLookupValue implements SkyValue {
 
     @Override
     public boolean equals(Object obj) {
-      if (!(obj instanceof SuccessfulPackageLookupValue)) {
+      if (!(obj instanceof SuccessfulPackageLookupValue other)) {
         return false;
       }
-      SuccessfulPackageLookupValue other = (SuccessfulPackageLookupValue) obj;
-      return root.equals(other.root)
-          && buildFileName == other.buildFileName
-          && Objects.equal(repository, other.repository);
+      return root.equals(other.root) && buildFileName == other.buildFileName;
     }
 
     @Override
     public int hashCode() {
-      return Objects.hashCode(root.hashCode(), buildFileName.hashCode(), repository);
+      return Objects.hashCode(root.hashCode(), buildFileName.hashCode());
+    }
+  }
+
+  /** Successful lookup value for a package in an external repo. */
+  @AutoCodec
+  public static class SuccessfulExternalPackageLookupValue extends SuccessfulPackageLookupValue {
+    private static final Interner<SuccessfulExternalPackageLookupValue> INTERNER =
+        BlazeInterners.newWeakInterner();
+
+    /**
+     * The repository value, so as to be sensitive to changes to realpaths of external repositories.
+     */
+    private final RepositoryDirectoryValue repository;
+
+    SuccessfulExternalPackageLookupValue(
+        RepositoryDirectoryValue repository, Root root, BuildFileName buildFileName) {
+      super(root, buildFileName);
+      this.repository = repository;
+    }
+
+    @AutoCodec.Instantiator
+    @VisibleForSerialization
+    static SuccessfulExternalPackageLookupValue create(
+        RepositoryDirectoryValue repository, Root root, BuildFileName buildFileName) {
+      return INTERNER.intern(
+          new SuccessfulExternalPackageLookupValue(repository, root, buildFileName));
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      if (!(obj instanceof SuccessfulExternalPackageLookupValue other)) {
+        return false;
+      }
+      if (!super.equals(obj)) {
+        return false;
+      }
+      return repository.equals(other.repository);
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hashCode(super.hashCode(), repository);
     }
   }
 
@@ -278,10 +326,9 @@ public abstract class PackageLookupValue implements SkyValue {
 
     @Override
     public boolean equals(Object obj) {
-      if (!(obj instanceof InvalidNamePackageLookupValue)) {
+      if (!(obj instanceof InvalidNamePackageLookupValue other)) {
         return false;
       }
-      InvalidNamePackageLookupValue other = (InvalidNamePackageLookupValue) obj;
       return errorMsg.equals(other.errorMsg);
     }
 
@@ -334,11 +381,9 @@ public abstract class PackageLookupValue implements SkyValue {
 
     @Override
     public boolean equals(Object obj) {
-      if (!(obj instanceof IncorrectRepositoryReferencePackageLookupValue)) {
+      if (!(obj instanceof IncorrectRepositoryReferencePackageLookupValue other)) {
         return false;
       }
-      IncorrectRepositoryReferencePackageLookupValue other =
-          (IncorrectRepositoryReferencePackageLookupValue) obj;
       return Objects.equal(invalidPackageIdentifier, other.invalidPackageIdentifier)
           && Objects.equal(correctedPackageIdentifier, other.correctedPackageIdentifier);
     }
@@ -351,7 +396,7 @@ public abstract class PackageLookupValue implements SkyValue {
     @Override
     public String toString() {
       return String.format(
-          "%s: invalidPackageIdenfitier: %s, corrected: %s",
+          "%s: invalidPackageIdentifier: %s, corrected: %s",
           this.getClass().getSimpleName(),
           this.invalidPackageIdentifier,
           this.correctedPackageIdentifier);
@@ -378,10 +423,10 @@ public abstract class PackageLookupValue implements SkyValue {
    * a non-existent repository.
    */
   public static class NoRepositoryPackageLookupValue extends UnsuccessfulPackageLookupValue {
-    private final String repositoryName;
+    private final RepositoryName repositoryName;
     private final String reason;
 
-    NoRepositoryPackageLookupValue(String repositoryName, String reason) {
+    NoRepositoryPackageLookupValue(RepositoryName repositoryName, String reason) {
       this.repositoryName = repositoryName;
       this.reason = reason;
     }
@@ -395,5 +440,60 @@ public abstract class PackageLookupValue implements SkyValue {
     public String getErrorMsg() {
       return String.format("The repository '%s' could not be resolved: %s", repositoryName, reason);
     }
+  }
+
+  /**
+   * Creates the error message for the input {@linkplain Label label} has a subpackage crossing
+   * boundary.
+   *
+   * <p>Returns {@code null} if no subpackage is discovered or the subpackage is marked as DELETED.
+   */
+  @Nullable
+  static String getErrorMessageForLabelCrossingPackageBoundary(
+      Root pkgRoot,
+      Label label,
+      PackageIdentifier subpackageIdentifier,
+      PackageLookupValue packageLookupValue) {
+    String message = null;
+    if (packageLookupValue.packageExists()) {
+      message =
+          String.format(
+              "Label '%s' is invalid because '%s' is a subpackage", label, subpackageIdentifier);
+      Root subPackageRoot = packageLookupValue.getRoot();
+
+      if (pkgRoot.equals(subPackageRoot)) {
+        PathFragment labelRootPathFragment = label.getPackageIdentifier().getSourceRoot();
+        PathFragment subpackagePathFragment = subpackageIdentifier.getSourceRoot();
+        if (subpackagePathFragment.startsWith(labelRootPathFragment)) {
+          PathFragment labelNameInSubpackage =
+              PathFragment.create(label.getName())
+                  .subFragment(
+                      subpackagePathFragment.segmentCount() - labelRootPathFragment.segmentCount());
+          message += "; perhaps you meant to put the" + " colon here: '";
+          if (subpackageIdentifier.getRepository().isMain()) {
+            message += "//";
+          }
+          message += subpackageIdentifier + ":" + labelNameInSubpackage + "'?";
+        } else {
+          // TODO: Is this a valid case? How do we handle this case?
+        }
+      } else {
+        message +=
+            "; have you deleted "
+                + subpackageIdentifier
+                + "/BUILD? "
+                + "If so, use the --deleted_packages="
+                + subpackageIdentifier
+                + " option";
+      }
+    } else if (packageLookupValue instanceof IncorrectRepositoryReferencePackageLookupValue) {
+      message =
+          String.format(
+              "Label '%s' is invalid because '%s' is a subpackage",
+              label,
+              ((IncorrectRepositoryReferencePackageLookupValue) packageLookupValue)
+                  .correctedPackageIdentifier);
+    }
+    return message;
   }
 }

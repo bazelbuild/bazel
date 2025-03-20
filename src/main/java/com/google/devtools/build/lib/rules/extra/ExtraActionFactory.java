@@ -15,9 +15,8 @@
 package com.google.devtools.build.lib.rules.extra;
 
 import com.google.common.collect.Lists;
+import com.google.devtools.build.lib.actions.ActionConflictException;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.CompositeRunfilesSupplier;
-import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.CommandHelper;
 import com.google.devtools.build.lib.analysis.ConfigurationMakeVariableContext;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -26,18 +25,19 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
-import com.google.devtools.build.lib.analysis.ShToolchain;
 import com.google.devtools.build.lib.analysis.extra.ExtraActionSpec;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.Type;
-import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.packages.Types;
 import java.util.List;
+import javax.annotation.Nullable;
 
 /**
  * Factory for 'extra_action'.
  */
 public final class ExtraActionFactory implements RuleConfiguredTargetFactory {
   @Override
+  @Nullable
   public ConfiguredTarget create(RuleContext context)
       throws InterruptedException, RuleErrorException, ActionConflictException {
     // This rule doesn't produce any output when listed as a build target.
@@ -46,11 +46,10 @@ public final class ExtraActionFactory implements RuleConfiguredTargetFactory {
     List<Artifact> resolvedData = Lists.newArrayList();
 
     CommandHelper commandHelper =
-        CommandHelper.builder(context).addHostToolDependencies("tools").build();
+        CommandHelper.builder(context).addToolDependencies("tools").build();
 
     resolvedData.addAll(context.getPrerequisiteArtifacts("data").list());
-    List<String>outputTemplates =
-        context.attributes().get("out_templates", Type.STRING_LIST);
+    List<String> outputTemplates = context.attributes().get("out_templates", Types.STRING_LIST);
 
     String command = context.attributes().get("cmd", Type.STRING);
     // This is a bit of a hack. We want to run the MakeVariableExpander first, so we expand $ on
@@ -62,8 +61,11 @@ public final class ExtraActionFactory implements RuleConfiguredTargetFactory {
     command = command.replace("$(ACTION_ID)", "$$(ACTION_ID)");
     command = command.replace("$(OWNER_LABEL_DIGEST)", "$$(OWNER_LABEL_DIGEST)");
     command = command.replace("$(output ", "$$(output ");
-    ConfigurationMakeVariableContext makeVariableContext = new ConfigurationMakeVariableContext(
-        context, context.getTarget().getPackage(), context.getConfiguration());
+    ConfigurationMakeVariableContext makeVariableContext =
+        new ConfigurationMakeVariableContext(
+            context.getTarget().getPackageDeclarations(),
+            context.getConfiguration(),
+            context.getDefaultTemplateVariableProviders());
     command = context
         .getExpander(makeVariableContext)
         .withDataExecLocations()
@@ -72,15 +74,12 @@ public final class ExtraActionFactory implements RuleConfiguredTargetFactory {
     boolean requiresActionOutput =
         context.attributes().get("requires_action_output", Type.BOOLEAN);
 
-    PathFragment shExecutable = ShToolchain.getPathOrError(context);
     if (context.hasErrors()) {
       return null;
     }
     ExtraActionSpec spec =
         new ExtraActionSpec(
-            shExecutable,
             commandHelper.getResolvedTools(),
-            CompositeRunfilesSupplier.fromSuppliers(commandHelper.getToolsRunfilesSuppliers()),
             resolvedData,
             outputTemplates,
             command,

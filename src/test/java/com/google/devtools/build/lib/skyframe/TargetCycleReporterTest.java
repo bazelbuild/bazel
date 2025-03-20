@@ -14,8 +14,10 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.StarlarkAspectClass;
@@ -42,19 +44,39 @@ public final class TargetCycleReporterTest extends BuildViewTestCase {
   public void loadingPhaseCycleWithDifferentTopLevelKeyTypes() throws Exception {
     scratch.file(
         "foo/BUILD",
-        "genrule(name = 'a', srcs = [], outs = ['a.o'], cmd = 'echo uh > $@')",
-        "genrule(name = 'b', srcs = [], outs = ['b.o'], cmd = 'echo hi > $@', visibility = [':c'])",
-        "genrule(name = 'c', srcs = [], outs = ['c.o'], cmd = 'echo hi > $@')");
+        """
+        genrule(
+            name = "a",
+            srcs = [],
+            outs = ["a.o"],
+            cmd = "echo uh > $@",
+        )
+
+        genrule(
+            name = "b",
+            srcs = [],
+            outs = ["b.o"],
+            cmd = "echo hi > $@",
+            visibility = [":c"],
+        )
+
+        genrule(
+            name = "c",
+            srcs = [],
+            outs = ["c.o"],
+            cmd = "echo hi > $@",
+        )
+        """);
     TargetCycleReporter cycleReporter = new TargetCycleReporter(getPackageManager());
     CycleInfo cycle =
         new CycleInfo(
             ImmutableList.of(
-                TransitiveTargetKey.of(Label.parseAbsoluteUnchecked("//foo:b")),
-                TransitiveTargetKey.of(Label.parseAbsoluteUnchecked("//foo:c"))));
+                TransitiveTargetKey.of(Label.parseCanonicalUnchecked("//foo:b")),
+                TransitiveTargetKey.of(Label.parseCanonicalUnchecked("//foo:c"))));
 
     ConfiguredTargetKey ctKey =
         ConfiguredTargetKey.builder()
-            .setLabel(Label.parseAbsoluteUnchecked("//foo:a"))
+            .setLabel(Label.parseCanonicalUnchecked("//foo:a"))
             .setConfiguration(targetConfig)
             .build();
     assertThat(cycleReporter.getAdditionalMessageAboutCycle(reporter, ctKey, cycle))
@@ -72,9 +94,10 @@ public final class TargetCycleReporterTest extends BuildViewTestCase {
         AspectKeyCreator.createTopLevelAspectsKey(
             ImmutableList.of(
                 new StarlarkAspectClass(
-                    Label.parseAbsoluteUnchecked("//foo:b"), "my Starlark key")),
-            Label.parseAbsoluteUnchecked("//foo:a"),
-            targetConfig);
+                    keyForBuild(Label.parseCanonicalUnchecked("//foo:b")), "my Starlark key")),
+            Label.parseCanonicalUnchecked("//foo:a"),
+            targetConfig,
+            /* topLevelAspectsParameters= */ ImmutableMap.of());
     assertThat(cycleReporter.getAdditionalMessageAboutCycle(reporter, starlarkAspectKey, cycle))
         .contains(
             "The cycle is caused by a visibility edge from //foo:b to the non-package_group "

@@ -19,7 +19,8 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -67,18 +68,14 @@ public class ImmutableSharedKeyMap<K, V> extends CompactImmutableMap<K, V> {
               K key = (K) keys[i];
               builder.put(key, i);
             }
-            this.indexMap = builder.build();
+            this.indexMap = builder.buildOrThrow();
           }
         }
       }
     }
 
-    private ImmutableMap<K, Integer> getIndexMap() {
-      return indexMap;
-    }
-
     int offsetForKey(K key) {
-      return getIndexMap().getOrDefault(key, -1);
+      return indexMap.getOrDefault(key, -1);
     }
 
     @Override
@@ -86,10 +83,9 @@ public class ImmutableSharedKeyMap<K, V> extends CompactImmutableMap<K, V> {
       if (this == o) {
         return true;
       }
-      if (!(o instanceof OffsetTable)) {
+      if (!(o instanceof OffsetTable<?> that)) {
         return false;
       }
-      OffsetTable<?> that = (OffsetTable<?>) o;
       return Arrays.equals(this.keys, that.keys);
     }
 
@@ -164,16 +160,31 @@ public class ImmutableSharedKeyMap<K, V> extends CompactImmutableMap<K, V> {
     return Objects.hashCode(offsetTable, Arrays.hashCode(values));
   }
 
+  /**
+   * Creates an {@link ImmutableSharedKeyMap} directly from an {@link ImmutableMap}.
+   *
+   * <p>This is a more efficient alternative to using a {@link Builder} when the input is already in
+   * the form of an {@link ImmutableMap}.
+   *
+   * <p>This method could accept a more general type of {@link java.util.Map}, but it is
+   * intentionally overly strict to ensure that copies are only made from a type with a meaningful
+   * iteration order (and because there is no current use case for other types of maps).
+   */
+  public static <K, V> ImmutableSharedKeyMap<K, V> copyOf(ImmutableMap<K, V> map) {
+    return new ImmutableSharedKeyMap<>(map.keySet().toArray(), map.values().toArray());
+  }
+
   public static <K, V> Builder<K, V> builder() {
     return new Builder<>();
   }
 
   /** Builder for {@link ImmutableSharedKeyMap}. */
-  public static class Builder<K, V> {
+  public static final class Builder<K, V> {
     private final List<Object> entries = new ArrayList<>();
 
     private Builder() {}
 
+    @CanIgnoreReturnValue
     public Builder<K, V> put(K key, V value) {
       entries.add(key);
       entries.add(value);

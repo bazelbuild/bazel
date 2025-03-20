@@ -1,36 +1,45 @@
 #if (!$singlePage)
----
-layout: documentation
-title: ${ruleFamily.name} Rules
----
+<html devsite>
+<head>
+  <meta name="project_path" value="/_project.yaml">
+  <meta name="book_path" value="/_book.yaml">
+</head>
+<body>
 #end
 #if (!$singlePage)
 #parse("com/google/devtools/build/docgen/templates/be/header.vm")
+<html>
+<body>
 #end
 
-<h1>${ruleFamily.name} Rules</h1>
+<h1 class="page-title">${ruleFamily.name} Rules</h1>
+
+{% dynamic setvar source_file "src/main/java/com/google/devtools/build/docgen/templates/be/rules.vm" %}
+{% include "_buttons.html" %}
 
 ${ruleFamily.summary}
 
 #if (!$singlePage)
-<div class="toc">
-  <h2>Rules</h2>
-  <ul>
+<h2>Rules</h2>
+<ul>
 #foreach ($rule in $ruleFamily.rules)
-    <li>
-      <a href="#${rule.ruleName}">
-        ${rule.ruleName}#if($rule.isDeprecated()) (deprecated)#end
-      </a>
-    </li>
+  <li>
+    <a href="#${rule.ruleName}">
+      ${rule.ruleName}#if($rule.isDeprecated()) (deprecated)#end
+    </a>
+  </li>
 #end
-  </ul>
-</div>
+</ul>
 #end
 
 #foreach ($rule in $ruleFamily.rules)
   <h2 id="${rule.ruleName}"#if($rule.isDeprecated()) class="deprecated"#end>
     ${rule.ruleName}
   </h2>
+
+  <a class="button button-with-icon" href="${rule.sourceUrl}" target="_blank">
+  View rule source<span class="material-icons icon-after" aria-hidden="true">open_in_new</span>
+  </a>
 
   <pre class="rule-signature">${rule.attributeSignature}</pre>
 
@@ -51,7 +60,7 @@ ${ruleFamily.summary}
       <tr>
         <td id="${rule.ruleName}.name"><code>name</code></td>
         <td>
-          <p><code><a href="../build-ref.html#name">Name</a>; required</code></p>
+          <p><a href="$expander.expandRef("build-ref#name")">Name</a>; required</p>
           <p>A unique name for this target.</p>
           ${rule.nameExtraHtmlDoc}
         </td>
@@ -64,7 +73,7 @@ ${ruleFamily.summary}
         </td>
         <td>
           #if (!$attribute.synopsis.isEmpty())
-          <p><code>${attribute.synopsis}</code></p>
+          <p>${attribute.synopsis}</p>
           #end
           $attribute.htmlDocumentation
         </td>
@@ -77,4 +86,6 @@ ${ruleFamily.summary}
 
 #if (!$singlePage)
 #parse("com/google/devtools/build/docgen/templates/be/footer.vm")
+</body>
+</html>
 #end

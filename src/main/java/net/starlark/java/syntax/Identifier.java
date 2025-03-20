@@ -28,7 +28,7 @@ public final class Identifier extends Expression {
   @Nullable private Resolver.Binding binding;
 
   Identifier(FileLocations locs, String name, int nameOffset) {
-    super(locs);
+    super(locs, Kind.IDENTIFIER);
     this.name = name;
     this.nameOffset = nameOffset;
   }
@@ -69,11 +69,6 @@ public final class Identifier extends Expression {
   @Override
   public void accept(NodeVisitor visitor) {
     visitor.visit(this);
-  }
-
-  @Override
-  public Kind kind() {
-    return Kind.IDENTIFIER;
   }
 
   /** Reports whether the string is a valid identifier. */
@@ -128,8 +123,7 @@ public final class Identifier extends Expression {
       result.add((Identifier) lhs);
       return;
     }
-    if (lhs instanceof ListExpression) {
-      ListExpression variables = (ListExpression) lhs;
+    if (lhs instanceof ListExpression variables) {
       for (Expression expression : variables.getElements()) {
         collectBoundIdentifiers(expression, result);
       }

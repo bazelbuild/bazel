@@ -14,6 +14,7 @@
 
 package net.starlark.java.syntax;
 
+import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -68,7 +69,7 @@ public final class Resolver extends NodeVisitor {
 
     @Override
     public String toString() {
-      return super.toString().toLowerCase();
+      return Ascii.toLowerCase(super.toString());
     }
   }
 
@@ -76,7 +77,7 @@ public final class Resolver extends NodeVisitor {
    * A Binding is a static abstraction of a variable. The Resolver maps each Identifier to a
    * Binding.
    */
-  public static final class Binding {
+  public static sealed class Binding permits ComprehensionBinding {
     private Scope scope;
     private final int index; // index within frame (LOCAL/CELL), freevars (FREE), or module (GLOBAL)
     @Nullable private final Identifier first; // first binding use, if syntactic
@@ -115,12 +116,46 @@ public final class Resolver extends NodeVisitor {
     }
   }
 
+  /** A {@link Binding} for a variable of a list or dict comprehension. */
+  public static final class ComprehensionBinding extends Binding {
+    // Used only for determining the range of locations encompassing the comprehension's lexical
+    // scope. Can be replaced with {start0, end0, start1, end1} positions if we switch to a
+    // non-AST-based evaluation model.
+    private final Comprehension node;
+
+    private ComprehensionBinding(Scope scope, int index, Identifier first, Comprehension node) {
+      super(scope, index, first);
+      this.node = node;
+    }
+
+    /** Returns true if the given location falls within the scope of the comprehension. */
+    public boolean inScope(Location loc) {
+      if (!loc.file().equals(node.getStartLocation().file())) {
+        return false;
+      }
+      // Following Python3, the first for clause of a comprehension is resolved outside the
+      // comprehension block. All the other loops are resolved in the scope of their own bindings,
+      // permitting forward references.
+      Comprehension.For for0 = (Comprehension.For) node.getClauses().get(0);
+      Expression iterable0 = for0.getIterable();
+      if (loc.compareTo(iterable0.getStartLocation()) >= 0
+          && loc.compareTo(iterable0.getEndLocation()) < 0) {
+        return false;
+      }
+      if (loc.compareTo(node.getStartLocation()) >= 0 && loc.compareTo(node.getEndLocation()) < 0) {
+        return true;
+      }
+      return false;
+    }
+  }
+
   /** A Resolver.Function records information about a resolved function. */
   public static final class Function {
 
     private final String name;
     private final Location location;
     private final ImmutableList<Parameter> params;
+    @Nullable private final Expression returnType;
     private final ImmutableList<Statement> body;
     private final boolean hasVarargs;
     private final boolean hasKwargs;
@@ -136,6 +171,7 @@ public final class Resolver extends NodeVisitor {
         String name,
         Location loc,
         ImmutableList<Parameter> params,
+        @Nullable Expression returnType,
         ImmutableList<Statement> body,
         boolean hasVarargs,
         boolean hasKwargs,
@@ -146,6 +182,7 @@ public final class Resolver extends NodeVisitor {
       this.name = name;
       this.location = loc;
       this.params = params;
+      this.returnType = returnType;
       this.body = body;
       this.hasVarargs = hasVarargs;
       this.hasKwargs = hasKwargs;
@@ -185,6 +222,23 @@ public final class Resolver extends NodeVisitor {
      */
     public String getName() {
       return name;
+    }
+
+    /** Returns the value denoted by the function's doc string literal, or null if absent. */
+    @Nullable
+    public String getDocumentation() {
+      if (getBody().isEmpty()) {
+        return null;
+      }
+      Statement first = getBody().get(0);
+      if (!(first instanceof ExpressionStatement)) {
+        return null;
+      }
+      Expression expr = ((ExpressionStatement) first).getExpression();
+      if (!(expr instanceof StringLiteral)) {
+        return null;
+      }
+      return ((StringLiteral) expr).getValue();
     }
 
     /** Returns the function's local bindings, parameters first. */
@@ -233,6 +287,11 @@ public final class Resolver extends NodeVisitor {
       return params;
     }
 
+    @Nullable
+    public Expression getReturnType() {
+      return returnType;
+    }
+
     /**
      * Returns the effective statements of the function's body. (For the implicit function created
      * to evaluate a single standalone expression, this may contain a synthesized Return statement.)
@@ -258,6 +317,16 @@ public final class Resolver extends NodeVisitor {
      */
     public int numKeywordOnlyParams() {
       return numKeywordOnlyParams;
+    }
+
+    /** Returns the number of non-residual parameters. */
+    public int getNumNonResidualParameters() {
+      return params.size() - (hasKwargs ? 1 : 0) - (hasVarargs ? 1 : 0);
+    }
+
+    /** Returns the number of ordinary (non-residual, non-keyword-only) parameters. */
+    public int getNumOrdinaryParameters() {
+      return params.size() - (hasKwargs ? 1 : 0) - (hasVarargs ? 1 : 0) - numKeywordOnlyParams;
     }
 
     /** Returns the names of the parameters. Order is as for {@link #getParameters}. */
@@ -323,6 +392,21 @@ public final class Resolver extends NodeVisitor {
     };
   }
 
+  /**
+   * Represents a lexical block.
+   *
+   * <p>Blocks should not be confused with frames. A block generally (but not always) corresponds to
+   * a syntactic element that may introduce variables; the variable is only accessible within the
+   * block (and its descendants, unless shadowed). A frame is the place where the variable's content
+   * will be stored, and is associated with the current enclosing function. Blocks are used to map
+   * an identifier to the proper variable binding, whereas frames are used to ensure each binding
+   * has a distinct slot of memory.
+   *
+   * <p>In particular, comprehension expressions have their own block but share the same underlying
+   * frame as their enclosing function. This means that comprehension-local variables are not
+   * accessible outside the comprehension, yet these variables are still stored alongside the other
+   * local variables of the function.
+   */
   private static class Block {
     @Nullable private final Block parent; // enclosing block, or null for tail of list
     @Nullable Node syntax; // Comprehension, DefStatement/LambdaExpression, StarlarkFile, or null
@@ -468,7 +552,187 @@ public final class Resolver extends NodeVisitor {
     }
   }
 
+  @Override
+  public void visit(ReturnStatement node) {
+    if (locals.syntax instanceof StarlarkFile) {
+      errorf(node, "return statements must be inside a function");
+    }
+    super.visit(node);
+  }
+
+  @Override
+  public void visit(CallExpression node) {
+    // validate call arguments
+    boolean seenVarargs = false;
+    boolean seenKwargs = false;
+    Set<String> keywords = null;
+    for (Argument arg : node.getArguments()) {
+      if (arg instanceof Argument.Positional) {
+        if (seenVarargs) {
+          errorf(arg, "positional argument may not follow *args");
+        } else if (seenKwargs) {
+          errorf(arg, "positional argument may not follow **kwargs");
+        } else if (keywords != null) {
+          errorf(arg, "positional argument may not follow keyword argument");
+        }
+
+      } else if (arg instanceof Argument.Keyword) {
+        String keyword = ((Argument.Keyword) arg).getName();
+        if (seenVarargs) {
+          errorf(arg, "keyword argument %s may not follow *args", keyword);
+        } else if (seenKwargs) {
+          errorf(arg, "keyword argument %s may not follow **kwargs", keyword);
+        }
+        if (keywords == null) {
+          keywords = new HashSet<>();
+        }
+        if (!keywords.add(keyword)) {
+          errorf(arg, "duplicate keyword argument: %s", keyword);
+        }
+
+      } else if (arg instanceof Argument.Star) {
+        if (seenKwargs) {
+          errorf(arg, "*args may not follow **kwargs");
+        } else if (seenVarargs) {
+          errorf(arg, "multiple *args not allowed");
+        }
+        seenVarargs = true;
+
+      } else if (arg instanceof Argument.StarStar) {
+        if (seenKwargs) {
+          errorf(arg, "multiple **kwargs not allowed");
+        }
+        seenKwargs = true;
+      }
+    }
+
+    super.visit(node);
+  }
+
+  @Override
+  public void visit(ForStatement node) {
+    if (locals.syntax instanceof StarlarkFile) {
+      errorf(
+          node,
+          "for loops are not allowed at the top level. You may move it inside a function "
+              + "or use a comprehension, [f(x) for x in sequence]");
+    }
+    loopCount++;
+    visit(node.getCollection());
+    assign(node.getVars());
+    visitBlock(node.getBody());
+    Preconditions.checkState(loopCount > 0);
+    loopCount--;
+  }
+
+  @Override
+  public void visit(LoadStatement node) {
+    if (!(locals.syntax instanceof StarlarkFile)) {
+      errorf(node, "load statement not at top level");
+    }
+    // Skip super.visit: don't revisit local Identifier as a use.
+  }
+
+  @Override
+  public void visit(FlowStatement node) {
+    if (node.getFlowKind() != TokenKind.PASS && loopCount <= 0) {
+      errorf(node, "%s statement must be inside a for loop", node.getFlowKind());
+    }
+    super.visit(node);
+  }
+
+  @Override
+  public void visit(DotExpression node) {
+    visit(node.getObject());
+    // Do not visit the field.
+  }
+
+  @Override
+  public void visit(Comprehension node) {
+    ImmutableList<Comprehension.Clause> clauses = node.getClauses();
+
+    // Following Python3, the first for clause is resolved
+    // outside the comprehension block. All the other loops
+    // are resolved in the scope of their own bindings,
+    // permitting forward references.
+    Comprehension.For for0 = (Comprehension.For) clauses.get(0);
+    visit(for0.getIterable());
+
+    // A comprehension defines a distinct lexical block in the same function's frame.
+    // New bindings go in the frame but aren't visible to the parent block.
+    pushLocalBlock(node, this.locals.frame, this.locals.freevars);
+
+    for (Comprehension.Clause clause : clauses) {
+      if (clause instanceof Comprehension.For forClause) {
+        createBindingsForLHS(forClause.getVars());
+      }
+    }
+    for (int i = 0; i < clauses.size(); i++) {
+      Comprehension.Clause clause = clauses.get(i);
+      if (clause instanceof Comprehension.For forClause) {
+        if (i > 0) {
+          visit(forClause.getIterable());
+        }
+        assign(forClause.getVars());
+      } else {
+        Comprehension.If ifClause = (Comprehension.If) clause;
+        visit(ifClause.getCondition());
+      }
+    }
+    visit(node.getBody());
+    popLocalBlock();
+  }
+
+  @Override
+  public void visit(DefStatement node) {
+    node.setResolvedFunction(
+        resolveFunction(
+            node,
+            node.getIdentifier().getName(),
+            node.getIdentifier().getStartLocation(),
+            node.getParameters(),
+            node.getBody()));
+  }
+
+  @Override
+  public void visit(LambdaExpression expr) {
+    expr.setResolvedFunction(
+        resolveFunction(
+            expr,
+            "lambda",
+            expr.getStartLocation(),
+            expr.getParameters(),
+            ImmutableList.of(ReturnStatement.make(expr.getBody()))));
+  }
+
+  @Override
+  public void visit(IfStatement node) {
+    if (locals.syntax instanceof StarlarkFile) {
+      errorf(
+          node,
+          "if statements are not allowed at the top level. You may move it inside a function "
+              + "or use an if expression (x if condition else y).");
+    }
+    super.visit(node);
+  }
+
+  @Override
+  public void visit(AssignmentStatement node) {
+    visit(node.getRHS());
+
+    // Disallow: [e, ...] += rhs
+    // Other bad cases are handled in assign.
+    if (node.isAugmented() && node.getLHS() instanceof ListExpression) {
+      errorf(
+          node.getOperatorLocation(),
+          "cannot perform augmented assignment on a list or tuple expression");
+    }
+
+    assign(node.getLHS());
+  }
+
   // Resolves a non-binding identifier to an existing binding, or null.
+  @Nullable
   private Binding use(Identifier id) {
     String name = id.getName();
 
@@ -560,161 +824,6 @@ public final class Resolver extends NodeVisitor {
     }
 
     return bind;
-  }
-
-  @Override
-  public void visit(ReturnStatement node) {
-    if (locals.syntax instanceof StarlarkFile) {
-      errorf(node, "return statements must be inside a function");
-    }
-    super.visit(node);
-  }
-
-  @Override
-  public void visit(CallExpression node) {
-    // validate call arguments
-    boolean seenVarargs = false;
-    boolean seenKwargs = false;
-    Set<String> keywords = null;
-    for (Argument arg : node.getArguments()) {
-      if (arg instanceof Argument.Positional) {
-        if (seenVarargs) {
-          errorf(arg, "positional argument may not follow *args");
-        } else if (seenKwargs) {
-          errorf(arg, "positional argument may not follow **kwargs");
-        } else if (keywords != null) {
-          errorf(arg, "positional argument may not follow keyword argument");
-        }
-
-      } else if (arg instanceof Argument.Keyword) {
-        String keyword = ((Argument.Keyword) arg).getName();
-        if (seenVarargs) {
-          errorf(arg, "keyword argument %s may not follow *args", keyword);
-        } else if (seenKwargs) {
-          errorf(arg, "keyword argument %s may not follow **kwargs", keyword);
-        }
-        if (keywords == null) {
-          keywords = new HashSet<>();
-        }
-        if (!keywords.add(keyword)) {
-          errorf(arg, "duplicate keyword argument: %s", keyword);
-        }
-
-      } else if (arg instanceof Argument.Star) {
-        if (seenKwargs) {
-          errorf(arg, "*args may not follow **kwargs");
-        } else if (seenVarargs) {
-          errorf(arg, "multiple *args not allowed");
-        }
-        seenVarargs = true;
-
-      } else if (arg instanceof Argument.StarStar) {
-        if (seenKwargs) {
-          errorf(arg, "multiple **kwargs not allowed");
-        }
-        seenKwargs = true;
-      }
-    }
-
-    super.visit(node);
-  }
-
-  @Override
-  public void visit(ForStatement node) {
-    if (locals.syntax instanceof StarlarkFile) {
-      errorf(
-          node,
-          "for loops are not allowed at the top level. You may move it inside a function "
-              + "or use a comprehension, [f(x) for x in sequence]");
-    }
-    loopCount++;
-    visit(node.getCollection());
-    assign(node.getVars());
-    visitBlock(node.getBody());
-    Preconditions.checkState(loopCount > 0);
-    loopCount--;
-  }
-
-  @Override
-  public void visit(LoadStatement node) {
-    if (!(locals.syntax instanceof StarlarkFile)) {
-      errorf(node, "load statement not at top level");
-    }
-    // Skip super.visit: don't revisit local Identifier as a use.
-  }
-
-  @Override
-  public void visit(FlowStatement node) {
-    if (node.getKind() != TokenKind.PASS && loopCount <= 0) {
-      errorf(node, "%s statement must be inside a for loop", node.getKind());
-    }
-    super.visit(node);
-  }
-
-  @Override
-  public void visit(DotExpression node) {
-    visit(node.getObject());
-    // Do not visit the field.
-  }
-
-  @Override
-  public void visit(Comprehension node) {
-    ImmutableList<Comprehension.Clause> clauses = node.getClauses();
-
-    // Following Python3, the first for clause is resolved
-    // outside the comprehension block. All the other loops
-    // are resolved in the scope of their own bindings,
-    // permitting forward references.
-    Comprehension.For for0 = (Comprehension.For) clauses.get(0);
-    visit(for0.getIterable());
-
-    // A comprehension defines a distinct lexical block
-    // in the same function's frame.
-    pushLocalBlock(node, this.locals.frame, this.locals.freevars);
-
-    for (Comprehension.Clause clause : clauses) {
-      if (clause instanceof Comprehension.For) {
-        Comprehension.For forClause = (Comprehension.For) clause;
-        createBindingsForLHS(forClause.getVars());
-      }
-    }
-    for (int i = 0; i < clauses.size(); i++) {
-      Comprehension.Clause clause = clauses.get(i);
-      if (clause instanceof Comprehension.For) {
-        Comprehension.For forClause = (Comprehension.For) clause;
-        if (i > 0) {
-          visit(forClause.getIterable());
-        }
-        assign(forClause.getVars());
-      } else {
-        Comprehension.If ifClause = (Comprehension.If) clause;
-        visit(ifClause.getCondition());
-      }
-    }
-    visit(node.getBody());
-    popLocalBlock();
-  }
-
-  @Override
-  public void visit(DefStatement node) {
-    node.setResolvedFunction(
-        resolveFunction(
-            node,
-            node.getIdentifier().getName(),
-            node.getIdentifier().getStartLocation(),
-            node.getParameters(),
-            node.getBody()));
-  }
-
-  @Override
-  public void visit(LambdaExpression expr) {
-    expr.setResolvedFunction(
-        resolveFunction(
-            expr,
-            "lambda",
-            expr.getStartLocation(),
-            expr.getParameters(),
-            ImmutableList.of(ReturnStatement.make(expr.getBody()))));
   }
 
   // Common code for def, lambda.
@@ -817,6 +926,7 @@ public final class Resolver extends NodeVisitor {
         name,
         loc,
         params.build(),
+        syntax instanceof DefStatement def ? def.getReturnType() : null,
         body,
         star != null && star.getIdentifier() != null,
         starStar != null,
@@ -831,32 +941,6 @@ public final class Resolver extends NodeVisitor {
       errorf(param, "duplicate parameter: %s", param.getName());
     }
     params.add(param);
-  }
-
-  @Override
-  public void visit(IfStatement node) {
-    if (locals.syntax instanceof StarlarkFile) {
-      errorf(
-          node,
-          "if statements are not allowed at the top level. You may move it inside a function "
-              + "or use an if expression (x if condition else y).");
-    }
-    super.visit(node);
-  }
-
-  @Override
-  public void visit(AssignmentStatement node) {
-    visit(node.getRHS());
-
-    // Disallow: [e, ...] += rhs
-    // Other bad cases are handled in assign.
-    if (node.isAugmented() && node.getLHS() instanceof ListExpression) {
-      errorf(
-          node.getOperatorLocation(),
-          "cannot perform augmented assignment on a list or tuple expression");
-    }
-
-    assign(node.getLHS());
   }
 
   /**
@@ -895,9 +979,16 @@ public final class Resolver extends NodeVisitor {
       // Binding is local to file, function, or comprehension.
       bind = locals.bindings.get(name);
       if (bind == null) {
-        // New local binding: add to enclosing function's frame and bindings map.
+        // New local binding: add to current block's bindings map, current function's frame.
+        // (These are distinct entities in the case where the current block is a comprehension.)
         isNew = true;
-        bind = new Binding(Scope.LOCAL, locals.frame.size(), id);
+        if (locals.syntax instanceof Comprehension comprehension) {
+          // Assumption: any block nested in a comprehension is either another comprehension or has
+          // its own frame (e.g. a lambda).
+          bind = new ComprehensionBinding(Scope.LOCAL, locals.frame.size(), id, comprehension);
+        } else {
+          bind = new Binding(Scope.LOCAL, locals.frame.size(), id);
+        }
         locals.bindings.put(name, bind);
         locals.frame.add(bind);
       }
@@ -1017,13 +1108,14 @@ public final class Resolver extends NodeVisitor {
         new Function(
             "<toplevel>",
             file.getStartLocation(),
-            /*params=*/ ImmutableList.of(),
-            /*body=*/ stmts,
-            /*hasVarargs=*/ false,
-            /*hasKwargs=*/ false,
-            /*numKeywordOnlyParams=*/ 0,
+            /* params= */ ImmutableList.of(),
+            /* returnType= */ null,
+            /* body= */ stmts,
+            /* hasVarargs= */ false,
+            /* hasKwargs= */ false,
+            /* numKeywordOnlyParams= */ 0,
             frame,
-            /*freevars=*/ ImmutableList.of(),
+            /* freevars= */ ImmutableList.of(),
             r.globals));
   }
 
@@ -1050,13 +1142,14 @@ public final class Resolver extends NodeVisitor {
     return new Function(
         "<expr>",
         expr.getStartLocation(),
-        /*params=*/ ImmutableList.of(),
+        /* params= */ ImmutableList.of(),
+        /* returnType= */ null,
         ImmutableList.of(ReturnStatement.make(expr)),
-        /*hasVarargs=*/ false,
-        /*hasKwargs=*/ false,
-        /*numKeywordOnlyParams=*/ 0,
+        /* hasVarargs= */ false,
+        /* hasKwargs= */ false,
+        /* numKeywordOnlyParams= */ 0,
         frame,
-        /*freevars=*/ ImmutableList.of(),
+        /* freevars= */ ImmutableList.of(),
         r.globals);
   }
 

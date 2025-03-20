@@ -14,46 +14,22 @@
 
 """cc_library Starlark implementation replacing native"""
 
+load(":common/cc/attrs.bzl", "common_attrs", "linkstatic_doc")
+load(":common/cc/cc_common.bzl", "cc_common")
 load(":common/cc/cc_helper.bzl", "cc_helper")
-load(":blaze/common/toplevel_aliases.bzl", "CcInfo", "cc_common", "cc_internal")
+load(":common/cc/cc_info.bzl", "CcInfo")
 load(":common/cc/semantics.bzl", "semantics")
 
-def _check_src_extension(file):
-    extension = "." + file.extension
-    if cc_helper.matches_extension(extension, ALLOWED_SRC_FILES) or cc_helper.is_shared_library_extension_valid(file.path):
-        return True
-    return False
-
-def _check_srcs_extensions(ctx):
-    for src in ctx.attr.srcs:
-        if DefaultInfo in src:
-            files = src[DefaultInfo].files.to_list()
-            if len(files) == 1 and files[0].is_source:
-                if not _check_src_extension(files[0]) and not files[0].is_directory:
-                    fail("source file '{}' is misplaced here".format(str(src.label)), attr = "srcs")
-            else:
-                at_least_one_good = False
-                for file in files:
-                    if _check_src_extension(file) or file.is_directory:
-                        at_least_one_good = True
-                        break
-                if not at_least_one_good:
-                    fail("'{}' does not produce any cc_library srcs files".format(str(src.label)), attr = "srcs")
+cc_internal = _builtins.internal.cc_internal
 
 def _cc_library_impl(ctx):
-    _check_srcs_extensions(ctx)
-    cpp_config = ctx.fragments.cpp
+    cc_helper.check_srcs_extensions(ctx, ALLOWED_SRC_FILES, "cc_library", True)
 
-    if (not cpp_config.experimental_cc_implementation_deps() and
-        len(ctx.attr.implementation_deps) > 0):
-        fail("requires --experimental_cc_implementation_deps", attr = "implementation_deps")
+    semantics.check_cc_shared_library_tags(ctx)
 
-    common = cc_internal.create_common(ctx = ctx)
-    common.report_invalid_options(ctx = ctx)
+    cc_toolchain = cc_helper.find_cpp_toolchain(ctx)
+    cc_helper.report_invalid_options(cc_toolchain, ctx.fragments.cpp)
 
-    cc_toolchain = common.toolchain
-
-    cc_internal.init_make_variables(ctx = ctx, cc_toolchain = cc_toolchain)
     feature_configuration = cc_common.configure_features(
         ctx = ctx,
         cc_toolchain = cc_toolchain,
@@ -61,36 +37,46 @@ def _cc_library_impl(ctx):
         unsupported_features = ctx.disabled_features,
     )
 
+    cc_helper.check_cpp_modules(ctx, feature_configuration)
+
     precompiled_files = cc_helper.build_precompiled_files(ctx = ctx)
 
+    semantics.validate_attributes(ctx = ctx)
     _check_no_repeated_srcs(ctx)
 
-    compilation_contexts = cc_helper.get_compilation_contexts_from_deps(ctx.attr.deps)
-    if not _is_stl(ctx.attr.tags):
-        compilation_contexts.append(ctx.attr._stl[CcInfo].compilation_context)
+    semantics.check_can_use_implementation_deps(ctx)
+    interface_deps = ctx.attr.deps + semantics.get_cc_runtimes(ctx, True)
+    runtimes_copts = semantics.get_cc_runtimes_copts(ctx)
+    compilation_contexts = cc_helper.get_compilation_contexts_from_deps(interface_deps)
     implementation_compilation_contexts = cc_helper.get_compilation_contexts_from_deps(ctx.attr.implementation_deps)
+
+    additional_make_variable_substitutions = cc_helper.get_toolchain_global_make_variables(cc_toolchain)
+    additional_make_variable_substitutions.update(cc_helper.get_cc_flags_make_variable(ctx, feature_configuration, cc_toolchain))
+
     (compilation_context, srcs_compilation_outputs) = cc_common.compile(
         actions = ctx.actions,
         name = ctx.label.name,
         cc_toolchain = cc_toolchain,
         feature_configuration = feature_configuration,
-        user_compile_flags = common.copts,
-        defines = common.defines,
-        local_defines = common.local_defines,
-        loose_includes = common.loose_include_dirs,
-        system_includes = common.system_include_dirs,
-        copts_filter = common.copts_filter,
-        srcs = common.srcs,
-        private_hdrs = common.private_hdrs,
-        public_hdrs = common.public_hdrs,
+        user_compile_flags = runtimes_copts + cc_helper.get_copts(ctx, feature_configuration, additional_make_variable_substitutions, attr = "copts"),
+        conly_flags = cc_helper.get_copts(ctx, feature_configuration, additional_make_variable_substitutions, attr = "conlyopts"),
+        cxx_flags = cc_helper.get_copts(ctx, feature_configuration, additional_make_variable_substitutions, attr = "cxxopts"),
+        defines = cc_helper.defines(ctx, additional_make_variable_substitutions),
+        local_defines = cc_helper.local_defines(ctx, additional_make_variable_substitutions) + cc_helper.get_local_defines_for_runfiles_lookup(ctx, ctx.attr.deps + ctx.attr.implementation_deps),
+        system_includes = cc_helper.system_include_dirs(ctx, additional_make_variable_substitutions),
+        copts_filter = cc_helper.copts_filter(ctx, additional_make_variable_substitutions),
+        purpose = "cc_library-compile",
+        srcs = cc_helper.get_srcs(ctx),
+        module_interfaces = cc_helper.get_cpp_module_interfaces(ctx),
+        private_hdrs = cc_helper.get_private_hdrs(ctx),
+        public_hdrs = cc_helper.get_public_hdrs(ctx),
         code_coverage_enabled = cc_helper.is_code_coverage_enabled(ctx),
         compilation_contexts = compilation_contexts,
         implementation_compilation_contexts = implementation_compilation_contexts,
-        hdrs_checking_mode = cc_internal.determine_hdrs_checking_mode(ctx = ctx, semantics = semantics.get_semantics()),
-        grep_includes = ctx.executable._grep_includes,
         textual_hdrs = ctx.files.textual_hdrs,
         include_prefix = ctx.attr.include_prefix,
         strip_include_prefix = ctx.attr.strip_include_prefix,
+        additional_inputs = ctx.files.additional_compiler_inputs,
     )
 
     precompiled_objects = cc_common.create_compilation_outputs(
@@ -122,7 +108,6 @@ def _cc_library_impl(ctx):
     has_compilation_outputs = not cc_helper.is_compilation_outputs_empty(compilation_outputs)
     linking_context = CcInfo().linking_context
     empty_archive_linking_context = CcInfo().linking_context
-    is_google = True
 
     linking_contexts = cc_helper.get_linking_contexts_from_deps(ctx.attr.deps)
     linking_contexts.extend(cc_helper.get_linking_contexts_from_deps(ctx.attr.implementation_deps))
@@ -142,8 +127,24 @@ def _cc_library_impl(ctx):
         )
         linking_contexts.append(linkstamps_linking_context)
 
-    linking_outputs = None
     if has_compilation_outputs:
+        dll_name_suffix = ""
+        additional_inputs = _filter_linker_scripts(ctx.files.deps) + ctx.files.additional_linker_inputs
+        link_variables = {}
+        is_windows_enabled = cc_common.is_enabled(feature_configuration = feature_configuration, feature_name = "targets_windows")
+        if is_windows_enabled:
+            dll_name_suffix = cc_helper.dll_hash_suffix(ctx, feature_configuration, ctx.fragments.cpp)
+            generated_def_file = None
+
+            def_parser = ctx.file._def_parser
+            if def_parser != None:
+                generated_def_file = cc_helper.generate_def_file(ctx, def_parser, compilation_outputs.objects, ctx.label.name + dll_name_suffix)
+                output_group_builder["def_file"] = depset([generated_def_file])
+
+            win_def_file = cc_helper.get_windows_def_file_for_linking(ctx, ctx.file.win_def_file, generated_def_file, feature_configuration)
+            link_variables["def_file_path"] = win_def_file.path
+            additional_inputs.append(win_def_file)
+
         (
             linking_context,
             linking_outputs,
@@ -153,37 +154,38 @@ def _cc_library_impl(ctx):
             compilation_outputs = compilation_outputs,
             cc_toolchain = cc_toolchain,
             feature_configuration = feature_configuration,
-            additional_inputs = _filter_linker_scripts(ctx.files.deps),
+            additional_inputs = additional_inputs,
             linking_contexts = linking_contexts,
-            grep_includes = ctx.executable._grep_includes,
-            user_link_flags = common.linkopts,
+            user_link_flags = cc_helper.linkopts(ctx, additional_make_variable_substitutions, cc_toolchain),
             alwayslink = ctx.attr.alwayslink,
             disallow_dynamic_library = not create_dynamic_library,
+            linked_dll_name_suffix = dll_name_suffix,
+            variables_extension = link_variables,
         )
-    elif is_google:
-        filename = "lib" + ctx.label.name
-        if cc_common.is_enabled(
-            feature_configuration = feature_configuration,
-            feature_name = "targets_windows",
-        ):
-            filename += ".lib"
-        else:
-            filename += ".a"
-        archive = ctx.actions.declare_file(filename)
-        ctx.actions.write(archive, "")
-        library = cc_common.create_library_to_link(
+    elif semantics.should_create_empty_archive():
+        precompiled_files_count = 0
+        for precompiled_files_entry in precompiled_files:
+            precompiled_files_count += len(precompiled_files_entry)
+
+        (
+            linking_context,
+            linking_outputs,
+        ) = cc_common.create_linking_context_from_compilation_outputs(
             actions = ctx.actions,
-            feature_configuration = feature_configuration,
+            name = ctx.label.name,
             cc_toolchain = cc_toolchain,
-            static_library = archive,
-        )
-        if len(precompiled_files) == 0:
-            empty_archive_linking_context = _build_linking_context_from_library(ctx, [library])
-        linking_outputs = struct(
-            library_to_link = library,
+            compilation_outputs = cc_common.create_compilation_outputs(),
+            feature_configuration = feature_configuration,
+            disallow_dynamic_library = True,
+            alwayslink = ctx.attr.alwayslink,
         )
 
-    _add_linker_artifacts_output_groups(ctx, output_group_builder, linking_outputs)
+        if precompiled_files_count == 0:
+            empty_archive_linking_context = linking_context
+    else:
+        linking_outputs = struct(library_to_link = None)
+
+    _add_linker_artifacts_output_groups(output_group_builder, linking_outputs)
 
     precompiled_libraries = _convert_precompiled_libraries_to_library_to_link(
         ctx,
@@ -200,26 +202,24 @@ def _cc_library_impl(ctx):
             precompiled_libraries,
         )
 
-    precompiled_linking_context = _build_linking_context_from_library(ctx, precompiled_libraries)
+    precompiled_linking_context = cc_helper.build_linking_context_from_libraries(ctx, precompiled_libraries)
 
-    contexts_to_merge = []
-    contexts_to_merge.append(linking_context)
+    contexts_to_merge = [precompiled_linking_context, empty_archive_linking_context]
     if has_compilation_outputs:
         contexts_to_merge.append(linking_context)
     else:
-        user_link_flags = common.linkopts
+        user_link_flags = cc_helper.linkopts(ctx, additional_make_variable_substitutions, cc_toolchain)
         linker_scripts = _filter_linker_scripts(ctx.files.deps)
-        if len(common.linkopts) > 0 or len(linker_scripts) > 0:
+        additional_linker_inputs = ctx.files.additional_linker_inputs
+        if len(user_link_flags) > 0 or len(linker_scripts) > 0 or len(additional_linker_inputs) > 0 or not semantics.should_create_empty_archive():
             linker_input = cc_common.create_linker_input(
                 owner = ctx.label,
-                user_link_flags = depset(user_link_flags),
-                additional_inputs = depset(linker_scripts),
+                user_link_flags = user_link_flags,
+                additional_inputs = depset(linker_scripts + additional_linker_inputs),
             )
             contexts_to_merge.append(cc_common.create_linking_context(linker_inputs = depset([linker_input])))
 
         contexts_to_merge.extend(linking_contexts)
-    contexts_to_merge.append(precompiled_linking_context)
-    contexts_to_merge.append(empty_archive_linking_context)
 
     linking_context = cc_common.merge_linking_contexts(
         linking_contexts = contexts_to_merge,
@@ -230,9 +230,11 @@ def _cc_library_impl(ctx):
         precompiled_libraries,
     )
 
-    cc_native_library_info = cc_internal.collect_native_cc_libraries(
+    linking_context_for_runfiles = cc_helper.build_linking_context_from_libraries(ctx, libraries_to_link)
+
+    cc_native_library_info = cc_helper.collect_native_cc_libraries(
         deps = ctx.attr.deps,
-        libraries_to_link = libraries_to_link,
+        libraries = libraries_to_link,
     )
 
     files_builder = []
@@ -258,30 +260,38 @@ def _cc_library_impl(ctx):
             elif artifacts_to_build.interface_library != None:
                 files_builder.append(artifacts_to_build.interface_library)
 
-    instrumented_object_files = []
-    instrumented_object_files.extend(compilation_outputs.objects)
-    instrumented_object_files.extend(compilation_outputs.pic_objects)
-    instrumented_files_info = common.instrumented_files_info(
-        files = instrumented_object_files,
-        with_base_line_coverage = True,
+    instrumented_files_info = cc_helper.create_cc_instrumented_files_info(
+        ctx = ctx,
+        cc_config = ctx.fragments.cpp,
+        cc_toolchain = cc_toolchain,
+        metadata_files = compilation_outputs.gcno_files() + compilation_outputs.pic_gcno_files(),
     )
 
-    runfiles = ctx.runfiles()
-
+    runfiles_list = []
     for data_dep in ctx.attr.data:
-        runfiles = runfiles.merge(ctx.runfiles(transitive_files = data_dep[DefaultInfo].files))
-        runfiles = runfiles.merge(data_dep[DefaultInfo].data_runfiles)
+        if data_dep[DefaultInfo].data_runfiles.files:
+            runfiles_list.append(data_dep[DefaultInfo].data_runfiles)
+        else:
+            # This branch ensures interop with custom Starlark rules following
+            # https://bazel.build/extending/rules#runfiles_features_to_avoid
+            runfiles_list.append(ctx.runfiles(transitive_files = data_dep[DefaultInfo].files))
+            runfiles_list.append(data_dep[DefaultInfo].default_runfiles)
 
     for src in ctx.attr.srcs:
-        runfiles = runfiles.merge(src[DefaultInfo].default_runfiles)
+        runfiles_list.append(src[DefaultInfo].default_runfiles)
 
     for dep in ctx.attr.deps:
-        runfiles = runfiles.merge(dep[DefaultInfo].default_runfiles)
+        runfiles_list.append(dep[DefaultInfo].default_runfiles)
 
-    default_runfiles = ctx.runfiles(files = cc_helper.get_dynamic_libraries_for_runtime(linking_context, True))
+    for dep in ctx.attr.implementation_deps:
+        runfiles_list.append(dep[DefaultInfo].default_runfiles)
+
+    runfiles = ctx.runfiles().merge_all(runfiles_list)
+
+    default_runfiles = ctx.runfiles(files = cc_helper.get_dynamic_libraries_for_runtime(linking_context_for_runfiles, True))
     default_runfiles = runfiles.merge(default_runfiles)
 
-    data_runfiles = ctx.runfiles(files = cc_helper.get_dynamic_libraries_for_runtime(linking_context, False))
+    data_runfiles = ctx.runfiles(files = cc_helper.get_dynamic_libraries_for_runtime(linking_context_for_runfiles, False))
     data_runfiles = runfiles.merge(data_runfiles)
 
     current_output_groups = cc_helper.build_output_groups_for_emitting_compile_providers(
@@ -301,7 +311,10 @@ def _cc_library_impl(ctx):
         data_runfiles = data_runfiles,
     ))
 
-    debug_context = cc_helper.merge_cc_debug_contexts(compilation_outputs, cc_helper.get_providers(ctx.attr.deps, CcInfo))
+    debug_context = cc_helper.merge_cc_debug_contexts(
+        compilation_outputs,
+        cc_helper.get_providers(ctx.attr.deps + ctx.attr.implementation_deps, CcInfo),
+    )
     cc_info = CcInfo(
         compilation_context = compilation_context,
         linking_context = linking_context,
@@ -317,16 +330,9 @@ def _cc_library_impl(ctx):
     providers.append(OutputGroupInfo(**merged_output_groups))
     providers.append(instrumented_files_info)
 
-    if ctx.fragments.cpp.enable_legacy_cc_provider():
-        # buildifier: disable=rule-impl-return
-        return struct(
-            cc = cc_internal.create_cc_provider(cc_info = cc_info),
-            providers = providers,
-        )
-    else:
-        return providers
+    return providers
 
-def _add_linker_artifacts_output_groups(ctx, output_group_builder, linking_outputs):
+def _add_linker_artifacts_output_groups(output_group_builder, linking_outputs):
     archive_file = []
     dynamic_library = []
 
@@ -337,7 +343,7 @@ def _add_linker_artifacts_output_groups(ctx, output_group_builder, linking_outpu
 
     if lib.static_library != None:
         archive_file.append(lib.static_library)
-    if lib.pic_static_library != None:
+    elif lib.pic_static_library != None:
         archive_file.append(lib.pic_static_library)
 
     if lib.resolved_symlink_dynamic_library != None:
@@ -375,7 +381,6 @@ def _convert_precompiled_libraries_to_library_to_link(
         static_library = None
         pic_static_library = None
         dynamic_library = None
-        interface_library = None
 
         has_pic = identifier in pic_static_libraries
         has_always_pic = identifier in alwayslink_pic_static_libraries
@@ -473,23 +478,9 @@ def _identifier_of_library(library):
     if library.dynamic_library != None:
         return _identifier_of_artifact(library.dynamic_library)
     if library.interface_library != None:
-        return _identifier_of_artifact(library.interface_libary)
+        return _identifier_of_artifact(library.interface_library)
 
     return None
-
-def _build_linking_context_from_library(ctx, libraries):
-    if len(libraries) == 0:
-        return CcInfo().linking_context
-    linker_input = cc_common.create_linker_input(
-        owner = ctx.label,
-        libraries = depset(libraries),
-    )
-
-    linking_context = cc_common.create_linking_context(
-        linker_inputs = depset([linker_input]),
-    )
-
-    return linking_context
 
 def _create_libraries_to_link_list(current_library, precompiled_libraries):
     libraries = []
@@ -563,75 +554,408 @@ DEPS_ALLOWED_RULES = [
     "objc_library",
     "cc_import",
     "cc_proto_library",
+    "gentpl",
+    "gentplvars",
+    "genantlr",
+    "sh_library",
+    "cc_binary",
+    "cc_test",
 ]
 
-def _is_stl(tags):
-    return "__CC_STL__" in tags
-
-def _get_stl(tags):
-    stl = Label("@//third_party/stl")
-    if not _is_stl(tags):
-        return stl
-    return None
-
-attrs = {
-    "srcs": attr.label_list(
-        allow_files = True,
-        flags = ["DIRECT_COMPILE_TIME_INPUT"],
-    ),
-    "alwayslink": attr.bool(default = False),
-    "linkstatic": attr.bool(default = False),
-    "implementation_deps": attr.label_list(providers = [CcInfo], allow_files = False),
-    "hdrs": attr.label_list(
-        allow_files = True,
-        flags = ["ORDER_INDEPENDENT", "DIRECT_COMPILE_TIME_INPUT"],
-    ),
-    "strip_include_prefix": attr.string(),
-    "include_prefix": attr.string(),
-    "textual_hdrs": attr.label_list(
-        allow_files = True,
-        flags = ["ORDER_INDEPENDENT", "DIRECT_COMPILE_TIME_INPUT"],
-    ),
-    "linkstamp": attr.label(allow_single_file = True),
-    "win_def_file": attr.label(allow_files = [".def"]),
-    "linkopts": attr.string_list(),
-    "nocopts": attr.string(),
-    "hdrs_check": attr.string(default = cc_internal.default_hdrs_check_computed_default()),
-    "includes": attr.string_list(),
-    "defines": attr.string_list(),
-    "copts": attr.string_list(),
-    "_default_copts": attr.string_list(default = cc_internal.default_copts_computed_default()),
-    "local_defines": attr.string_list(),
-    "deps": attr.label_list(
-        providers = [CcInfo],
-        flags = ["SKIP_ANALYSIS_TIME_FILETYPE_CHECK"],
-        allow_files = LINKER_SCRIPT + PREPROCESSED_C,
-        allow_rules = DEPS_ALLOWED_RULES,
-    ),
-    "data": attr.label_list(
-        allow_files = True,
-        flags = ["SKIP_CONSTRAINTS_OVERRIDE"],
-    ),
-    "_stl": attr.label(default = _get_stl),
-    "_grep_includes": attr.label(
-        allow_files = True,
-        executable = True,
-        cfg = "exec",
-        default = Label("@" + semantics.get_repo() + "//tools/cpp:grep-includes"),
-    ),
-    "_cc_toolchain": attr.label(default = "@//tools/cpp:current_cc_toolchain"),
-}
-attrs.update(semantics.get_licenses_attr())
-attrs.update(semantics.get_distribs_attr())
-attrs.update(semantics.get_loose_mode_in_hdrs_check_allowed_attr())
 cc_library = rule(
     implementation = _cc_library_impl,
-    attrs = attrs,
-    toolchains = ["@//tools/cpp:toolchain_type"],
+    doc = """
+<p>Use <code>cc_library()</code> for C++-compiled libraries.
+  The result is  either a <code>.so</code>, <code>.lo</code>,
+  or <code>.a</code>, depending on what is needed.
+</p>
+
+<p>
+  If you build something with static linking that depends on
+  a <code>cc_library</code>, the output of a depended-on library rule
+  is the <code>.a</code> file. If you specify
+   <code>alwayslink=True</code>, you get the <code>.lo</code> file.
+</p>
+
+<p>
+  The actual output file name is <code>lib<i>foo</i>.so</code> for
+  the shared library, where <i>foo</i> is the name of the rule.  The
+  other kinds of libraries end with <code>.lo</code> and <code>.a</code>,
+  respectively.  If you need a specific shared library name, for
+  example, to define a Python module, use a genrule to copy the library
+  to the desired name.
+</p>
+
+<h4 id="hdrs">Header inclusion checking</h4>
+
+<p>
+  All header files that are used in the build must be declared in
+  the <code>hdrs</code> or <code>srcs</code> of <code>cc_*</code> rules.
+  This is enforced.
+</p>
+
+<p>
+  For <code>cc_library</code> rules, headers in <code>hdrs</code> comprise the
+  public interface of the library and can be directly included both
+  from the files in <code>hdrs</code> and <code>srcs</code> of the library
+  itself as well as from files in <code>hdrs</code> and <code>srcs</code>
+  of <code>cc_*</code> rules that list the library in their <code>deps</code>.
+  Headers in <code>srcs</code> must only be directly included from the files
+  in <code>hdrs</code> and <code>srcs</code> of the library itself. When
+  deciding whether to put a header into <code>hdrs</code> or <code>srcs</code>,
+  you should ask whether you want consumers of this library to be able to
+  directly include it. This is roughly the same decision as
+  between <code>public</code> and <code>private</code> visibility in programming languages.
+</p>
+
+<p>
+  <code>cc_binary</code> and <code>cc_test</code> rules do not have an exported
+  interface, so they also do not have a <code>hdrs</code> attribute. All headers
+  that belong to the binary or test directly should be listed in
+  the <code>srcs</code>.
+</p>
+
+<p>
+  To illustrate these rules, look at the following example.
+</p>
+
+<pre><code class="lang-starlark">
+cc_binary(
+    name = "foo",
+    srcs = [
+        "foo.cc",
+        "foo.h",
+    ],
+    deps = [":bar"],
+)
+
+cc_library(
+    name = "bar",
+    srcs = [
+        "bar.cc",
+        "bar-impl.h",
+    ],
+    hdrs = ["bar.h"],
+    deps = [":baz"],
+)
+
+cc_library(
+    name = "baz",
+    srcs = [
+        "baz.cc",
+        "baz-impl.h",
+    ],
+    hdrs = ["baz.h"],
+)
+</code></pre>
+
+<p>
+  The allowed direct inclusions in this example are listed in the table below.
+  For example <code>foo.cc</code> is allowed to directly
+  include <code>foo.h</code> and <code>bar.h</code>, but not <code>baz.h</code>.
+</p>
+
+<table class="table table-striped table-bordered table-condensed">
+  <thead>
+    <tr><th>Including file</th><th>Allowed inclusions</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>foo.h</td><td>bar.h</td></tr>
+    <tr><td>foo.cc</td><td>foo.h bar.h</td></tr>
+    <tr><td>bar.h</td><td>bar-impl.h baz.h</td></tr>
+    <tr><td>bar-impl.h</td><td>bar.h baz.h</td></tr>
+    <tr><td>bar.cc</td><td>bar.h bar-impl.h baz.h</td></tr>
+    <tr><td>baz.h</td><td>baz-impl.h</td></tr>
+    <tr><td>baz-impl.h</td><td>baz.h</td></tr>
+    <tr><td>baz.cc</td><td>baz.h baz-impl.h</td></tr>
+  </tbody>
+</table>
+
+<p>
+  The inclusion checking rules only apply to <em>direct</em>
+  inclusions. In the example above <code>foo.cc</code> is allowed to
+  include <code>bar.h</code>, which may include <code>baz.h</code>, which in
+  turn is allowed to include <code>baz-impl.h</code>. Technically, the
+  compilation of a <code>.cc</code> file may transitively include any header
+  file in the <code>hdrs</code> or <code>srcs</code> in
+  any <code>cc_library</code> in the transitive <code>deps</code> closure. In
+  this case the compiler may read <code>baz.h</code> and <code>baz-impl.h</code>
+  when compiling <code>foo.cc</code>, but <code>foo.cc</code> must not
+  contain <code>#include "baz.h"</code>. For that to be
+  allowed, <code>baz</code> must be added to the <code>deps</code>
+  of <code>foo</code>.
+</p>
+
+<p>
+  Bazel depends on toolchain support to enforce the inclusion checking rules.
+  The <code>layering_check</code> feature has to be supported by the toolchain
+  and requested explicitly, for example via the
+  <code>--features=layering_check</code> command-line flag or the
+  <code>features</code> parameter of the
+  <a href="${link package}"><code>package</code></a> function. The toolchains
+  provided by Bazel only support this feature with clang on Unix and macOS.
+</p>
+
+<h4 id="cc_library_examples">Examples</h4>
+
+<p id="alwayslink_lib_example">
+   We use the <code>alwayslink</code> flag to force the linker to link in
+   this code although the main binary code doesn't reference it.
+</p>
+
+<pre><code class="lang-starlark">
+cc_library(
+    name = "ast_inspector_lib",
+    srcs = ["ast_inspector_lib.cc"],
+    hdrs = ["ast_inspector_lib.h"],
+    visibility = ["//visibility:public"],
+    deps = ["//third_party/llvm/llvm/tools/clang:frontend"],
+    # alwayslink as we want to be able to call things in this library at
+    # debug time, even if they aren't used anywhere in the code.
+    alwayslink = 1,
+)
+</code></pre>
+
+
+<p>The following example comes from
+   <code>third_party/python2_4_3/BUILD</code>.
+   Some of the code uses the <code>dl</code> library (to load
+   another, dynamic library), so this
+   rule specifies the <code>-ldl</code> link option to link the
+   <code>dl</code> library.
+</p>
+
+<pre><code class="lang-starlark">
+cc_library(
+    name = "python2_4_3",
+    linkopts = [
+        "-ldl",
+        "-lutil",
+    ],
+    deps = ["//third_party/expat"],
+)
+</code></pre>
+
+<p>The following example comes from <code>third_party/kde/BUILD</code>.
+   We keep pre-built <code>.so</code> files in the depot.
+   The header files live in a subdirectory named <code>include</code>.
+</p>
+
+<pre><code class="lang-starlark">
+cc_library(
+    name = "kde",
+    srcs = [
+        "lib/libDCOP.so",
+        "lib/libkdesu.so",
+        "lib/libkhtml.so",
+        "lib/libkparts.so",
+        <var>...more .so files...</var>,
+    ],
+    includes = ["include"],
+    deps = ["//third_party/X11"],
+)
+</code></pre>
+
+<p>The following example comes from <code>third_party/gles/BUILD</code>.
+   Third-party code often needs some <code>defines</code> and
+   <code>linkopts</code>.
+</p>
+
+<pre><code class="lang-starlark">
+cc_library(
+    name = "gles",
+    srcs = [
+        "GLES/egl.h",
+        "GLES/gl.h",
+        "ddx.c",
+        "egl.c",
+    ],
+    defines = [
+        "USE_FLOAT",
+        "__GL_FLOAT",
+        "__GL_COMMON",
+    ],
+    linkopts = ["-ldl"],  # uses dlopen(), dl library
+    deps = [
+        "es",
+        "//third_party/X11",
+    ],
+)
+</code></pre>
+""",
+    attrs = common_attrs | {
+        "hdrs": attr.label_list(
+            allow_files = True,
+            flags = ["ORDER_INDEPENDENT", "DIRECT_COMPILE_TIME_INPUT"],
+            doc = """
+The list of header files published by
+this library to be directly included by sources in dependent rules.
+<p>This is the strongly preferred location for declaring header files that
+ describe the interface for the library. These headers will be made
+ available for inclusion by sources in this rule or in dependent rules.
+ Headers not meant to be included by a client of this library should be
+ listed in the <code>srcs</code> attribute instead, even if they are
+ included by a published header. See <a href="#hdrs">"Header inclusion
+ checking"</a> for a more detailed description. </p>
+<p>Permitted <code>headers</code> file types:
+  <code>.h</code>,
+  <code>.hh</code>,
+  <code>.hpp</code>,
+  <code>.hxx</code>.
+</p>
+        """,
+        ),
+        "textual_hdrs": attr.label_list(
+            allow_files = True,
+            flags = ["ORDER_INDEPENDENT", "DIRECT_COMPILE_TIME_INPUT"],
+            doc = """
+The list of header files published by
+this library to be textually included by sources in dependent rules.
+<p>This is the location for declaring header files that cannot be compiled on their own;
+ that is, they always need to be textually included by other source files to build valid
+ code.</p>
+""",
+        ),
+        "deps": attr.label_list(
+            providers = [CcInfo],
+            flags = ["SKIP_ANALYSIS_TIME_FILETYPE_CHECK"],
+            allow_files = LINKER_SCRIPT + PREPROCESSED_C,
+            allow_rules = DEPS_ALLOWED_RULES,
+            doc = """
+The list of other libraries that the library target depends upon.
+
+<p>These can be <code>cc_library</code> or <code>objc_library</code> targets.</p>
+
+<p>See general comments about <code>deps</code>
+  at <a href="${link common-definitions#typical-attributes}">Typical attributes defined by
+  most build rules</a>.
+</p>
+<p>These should be names of C++ library rules.
+   When you build a binary that links this rule's library,
+   you will also link the libraries in <code>deps</code>.
+</p>
+<p>Despite the "deps" name, not all of this library's clients
+   belong here.  Run-time data dependencies belong in <code>data</code>.
+   Source files generated by other rules belong in <code>srcs</code>.
+</p>
+<p>To link in a pre-compiled third-party library, add its name to
+   the <code>srcs</code> instead.
+</p>
+<p>To depend on something without linking it to this library, add its
+   name to the <code>data</code> instead.
+</p>
+""",
+        ),
+        "implementation_deps": attr.label_list(providers = [CcInfo], allow_files = False, doc = """
+The list of other libraries that the library target depends on. Unlike with
+<code>deps</code>, the headers and include paths of these libraries (and all their
+transitive deps) are only used for compilation of this library, and not libraries that
+depend on it. Libraries specified with <code>implementation_deps</code> are still linked in
+binary targets that depend on this library.
+"""),
+        "strip_include_prefix": attr.string(doc = """
+The prefix to strip from the paths of the headers of this rule.
+
+<p>When set, the headers in the <code>hdrs</code> attribute of this rule are accessible
+at their path with this prefix cut off.
+
+<p>If it's a relative path, it's taken as a package-relative one. If it's an absolute one,
+it's understood as a repository-relative path.
+
+<p>The prefix in the <code>include_prefix</code> attribute is added after this prefix is
+stripped.
+
+<p>This attribute is only legal under <code>third_party</code>.
+"""),
+        "include_prefix": attr.string(doc = """
+The prefix to add to the paths of the headers of this rule.
+
+<p>When set, the headers in the <code>hdrs</code> attribute of this rule are accessible
+at is the value of this attribute prepended to their repository-relative path.
+
+<p>The prefix in the <code>strip_include_prefix</code> attribute is removed before this
+prefix is added.
+
+<p>This attribute is only legal under <code>third_party</code>.
+"""),
+        "additional_compiler_inputs": attr.label_list(
+            allow_files = True,
+            flags = ["ORDER_INDEPENDENT", "DIRECT_COMPILE_TIME_INPUT"],
+            doc = """
+Any additional files you might want to pass to the compiler command line, such as sanitizer
+ignorelists, for example. Files specified here can then be used in copts with the
+$(location) function.
+""",
+        ),
+        "alwayslink": attr.bool(default = False, doc = """
+If 1, any binary that depends (directly or indirectly) on this C++
+library will link in all the object files for the files listed in
+<code>srcs</code>, even if some contain no symbols referenced by the binary.
+This is useful if your code isn't explicitly called by code in
+the binary, e.g., if your code registers to receive some callback
+provided by some service.
+
+<p>If alwayslink doesn't work with VS 2017 on Windows, that is due to a
+<a href="https://github.com/bazelbuild/bazel/issues/3949">known issue</a>,
+please upgrade your VS 2017 to the latest version.</p>
+"""),
+        "linkstatic": attr.bool(default = False, doc = linkstatic_doc),
+        "linkstamp": attr.label(allow_single_file = True, doc = """
+Simultaneously compiles and links the specified C++ source file into the final
+binary. This trickery is required to introduce timestamp
+information into binaries; if we compiled the source file to an
+object file in the usual way, the timestamp would be incorrect.
+A linkstamp compilation may not include any particular set of
+compiler flags and so should not depend on any particular
+header, compiler option, or other build variable.
+<em class='harmful'>This option should only be needed in the
+<code>base</code> package.</em>
+"""),
+        "linkopts": attr.string_list(doc = """
+See <a href="${link cc_binary.linkopts}"><code>cc_binary.linkopts</code></a>.
+The <code>linkopts</code> attribute is also applied to any target that
+depends, directly or indirectly, on this library via <code>deps</code>
+attributes (or via other attributes that are treated similarly:
+the <a href="${link cc_binary.malloc}"><code>malloc</code></a>
+attribute of <a href="${link cc_binary}"><code>cc_binary</code></a>). Dependency
+linkopts take precedence over dependent linkopts (i.e. dependency linkopts
+appear later in the command line). Linkopts specified in
+<a href='../user-manual.html#flag--linkopt'><code>--linkopt</code></a>
+take precedence over rule linkopts.
+</p>
+<p>
+Note that the <code>linkopts</code> attribute only applies
+when creating <code>.so</code> files or executables, not
+when creating <code>.a</code> or <code>.lo</code> files.
+So if the <code>linkstatic=True</code> attribute is set, the
+<code>linkopts</code> attribute has no effect on the creation of
+this library, only on other targets which depend on this library.
+</p>
+<p>
+Also, it is important to note that "-Wl,-soname" or "-Xlinker -soname"
+options are not supported and should never be specified in this attribute.
+</p>
+<p> The <code>.so</code> files produced by <code>cc_library</code>
+rules are not linked against the libraries that they depend
+on.  If you're trying to create a shared library for use
+outside of the main repository, e.g. for manual use
+with <code>dlopen()</code> or <code>LD_PRELOAD</code>,
+it may be better to use a <code>cc_binary</code> rule
+with the <code>linkshared=True</code> attribute.
+See <a href="${link cc_binary.linkshared}"><code>cc_binary.linkshared</code></a>.
+</p>
+"""),
+        # buildifier: disable=attr-license
+        "licenses": attr.license() if hasattr(attr, "license") else attr.string_list(),
+        "_stl": semantics.get_stl(),
+        "_def_parser": semantics.get_def_parser(),
+        "_use_auto_exec_groups": attr.bool(default = True),
+    } | semantics.get_distribs_attr() | semantics.get_implementation_deps_allowed_attr() | semantics.get_nocopts_attr(),
+    toolchains = cc_helper.use_cpp_toolchain() +
+                 semantics.get_runtimes_toolchain(),
     fragments = ["cpp"] + semantics.additional_fragments(),
-    incompatible_use_toolchain_transition = True,
+    provides = [CcInfo],
     exec_groups = {
-        "cpp_link": exec_group(copy_from_rule = True),
+        "cpp_link": exec_group(toolchains = cc_helper.use_cpp_toolchain()),
     },
-    compile_one_filetype = [".cc", ".h", ".c"],
 )

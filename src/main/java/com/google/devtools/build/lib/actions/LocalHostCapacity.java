@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.actions;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
-import com.google.devtools.build.lib.util.OS;
 
 /**
  * This class estimates the local host's resource capacity.
@@ -26,7 +25,6 @@ import com.google.devtools.build.lib.util.OS;
 public final class LocalHostCapacity {
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
-  private static final OS currentOS = OS.getCurrent();
   private static ResourceSet localHostCapacity;
 
   private LocalHostCapacity() {}
@@ -39,21 +37,7 @@ public final class LocalHostCapacity {
   }
 
   private static ResourceSet getNewLocalHostCapacity() {
-    ResourceSet localResources = null;
-    switch (currentOS) {
-      case DARWIN:
-        localResources = LocalHostResourceManagerDarwin.getLocalHostResources();
-        break;
-      case LINUX:
-        localResources = LocalHostResourceManagerLinux.getLocalHostResources();
-        break;
-      default:
-        break;
-    }
-    if (localResources == null) {
-      localResources = LocalHostResourceFallback.getLocalHostResources();
-    }
-
+    ResourceSet localResources = LocalHostResource.get();
     logger.atInfo().log(
         "Determined local resources: RAM=%dMB, CPU=%.1f",
         (int) localResources.getMemoryMb(), localResources.getCpuUsage());

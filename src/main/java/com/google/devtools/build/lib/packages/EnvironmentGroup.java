@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.packages;
 
+import com.google.auto.value.AutoValue;
 import com.google.common.base.Predicate;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Iterables;
@@ -32,6 +33,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import javax.annotation.Nullable;
 import net.starlark.java.syntax.Location;
 
 /**
@@ -64,21 +66,21 @@ import net.starlark.java.syntax.Location;
 public class EnvironmentGroup implements Target {
   private final EnvironmentLabels environmentLabels;
   private final Location location;
-  private final Package containingPackage;
+  private final Packageoid containingPackageoid;
 
   /**
    * Predicate that matches labels from a different package than the initialized package.
    */
   private static final class DifferentPackage implements Predicate<Label> {
-    private final Package containingPackage;
+    private final Packageoid containingPackageoid;
 
-    private DifferentPackage(Package containingPackage) {
-      this.containingPackage = containingPackage;
+    private DifferentPackage(Packageoid containingPackageoid) {
+      this.containingPackageoid = containingPackageoid;
     }
 
     @Override
     public boolean apply(Label environment) {
-      return !environment.getPackageName().equals(containingPackage.getName());
+      return !environment.getPackageName().equals(containingPackageoid.getMetadata().getName());
     }
   }
 
@@ -94,18 +96,14 @@ public class EnvironmentGroup implements Target {
    */
   EnvironmentGroup(
       Label label,
-      Package pkg,
+      Packageoid packageoid,
       final List<Label> environments,
       List<Label> defaults,
       Location location) {
     this.environmentLabels = new EnvironmentLabels(label, environments, defaults);
     this.location = location;
-    this.containingPackage = pkg;
-  }
-
-  @Override
-  public boolean isImmutable() {
-    return true; // immutable and Starlark-hashable
+    // TODO(https://github.com/bazelbuild/bazel/issues/23852): verify that packageoid is top-level.
+    this.containingPackageoid = packageoid;
   }
 
   public EnvironmentLabels getEnvironmentLabels() {
@@ -128,7 +126,8 @@ public class EnvironmentGroup implements Target {
 
     // All environments should belong to the same package as this group.
     for (Label environment :
-        Iterables.filter(environmentLabels.environments, new DifferentPackage(containingPackage))) {
+        Iterables.filter(
+            environmentLabels.environments, new DifferentPackage(containingPackageoid))) {
       events.add(
           Package.error(
               location,
@@ -265,13 +264,18 @@ public class EnvironmentGroup implements Target {
   }
 
   @Override
-  public String getName() {
-    return environmentLabels.label.getName();
+  public Packageoid getPackageoid() {
+    return containingPackageoid;
   }
 
   @Override
-  public Package getPackage() {
-    return containingPackage;
+  public Package.Metadata getPackageMetadata() {
+    return containingPackageoid.getMetadata();
+  }
+
+  @Override
+  public Package.Declarations getPackageDeclarations() {
+    return containingPackageoid.getDeclarations();
   }
 
   @Override
@@ -305,8 +309,17 @@ public class EnvironmentGroup implements Target {
   }
 
   @Override
+  @Nullable
+  public RuleVisibility getRawVisibility() {
+    return null;
+  }
+
+  @Override
   public RuleVisibility getVisibility() {
-    return ConstantRuleVisibility.PRIVATE; // No rule should be referencing an environment_group.
+    // No rule should be referencing an environment_group.
+    // (We override getRawVisibility() separately so as to not display this value during
+    // introspection.)
+    return RuleVisibility.PRIVATE;
   }
 
   @Override
@@ -316,5 +329,18 @@ public class EnvironmentGroup implements Target {
 
   public static String targetKind() {
     return "environment group";
+  }
+
+  @Override
+  public TargetData reduceForSerialization() {
+    return new AutoValue_EnvironmentGroup_EnvironmentGroupData(getLocation(), getLabel());
+  }
+
+  @AutoValue
+  abstract static class EnvironmentGroupData implements TargetData {
+    @Override
+    public final String getTargetKind() {
+      return targetKind();
+    }
   }
 }

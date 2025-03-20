@@ -54,10 +54,6 @@ msys*|mingw*|cygwin*)
   declare -r is_windows=false
   ;;
 esac
-if "$is_windows"; then
-  export MSYS_NO_PATHCONV=1
-  export MSYS2_ARG_CONV_EXCL="*"
-fi
 
 add_to_bazelrc "build --package_path=%workspace%"
 
@@ -126,25 +122,14 @@ EOF
 #### TESTS #############################################################
 
 
-function test_set_flag_with_workspace_name() {
-  local -r pkg=$FUNCNAME
-  mkdir -p $pkg
-
-  write_build_setting_bzl "@${WORKSPACE_NAME}"
-
-  bazel build //$pkg:my_drink --@//$pkg:type="coffee" \
-    > output 2>"$TEST_log" || fail "Expected success"
-
-  expect_log "type=coffee"
-}
-
 function test_reference_inner_repository_flags() {
   local -r pkg=$FUNCNAME
   local -r subpkg="$pkg/sub"
   mkdir -p $subpkg
 
   ## set up outer repo
-  cat > $pkg/WORKSPACE <<EOF
+  cat > $(setup_module_dot_bazel "$pkg/MODULE.bazel") <<EOF
+local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(
   name = "sub",
   path = "./sub")
@@ -194,14 +179,12 @@ rule_with_transition = rule(
     cfg = my_transition,
     attrs = {
         "src": attr.label(allow_files = True),
-        "_whitelist_function_transition":
-            attr.label(default = "@bazel_tools//tools/whitelists/function_transition_whitelist"),
     },
 )
 EOF
 
-  cat > $subpkg/WORKSPACE <<EOF
-workspace(name = "sub")
+  cat > $(setup_module_dot_bazel "$subpkg/MODULE.bazel") <<EOF
+module(name = "sub")
 EOF
 
   # from the outer repo
@@ -228,10 +211,14 @@ EOF
   expect_log "value before transition: prickly-pear"
   expect_log "value after transition: prickly-pear"
 
+  bazel clean 2>"$TEST_log" || fail "Clean failed"
+
   bazel build :my_target --@sub//:my_flag=prickly-pear \
       > output 2>"$TEST_log" || fail "Expected success"
   expect_log "value before transition: prickly-pear"
   expect_log "value after transition: prickly-pear"
+
+  bazel clean 2>"$TEST_log" || fail "Clean failed"
 
   bazel build :my_target --@//:my_flag=prickly-pear \
       > output 2>"$TEST_log" || fail "Expected success"

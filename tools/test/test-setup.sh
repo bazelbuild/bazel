@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Copyright 2015 The Bazel Authors. All rights reserved.
 #
@@ -17,16 +17,9 @@
 # shift stderr to stdout.
 exec 2>&1
 
-no_echo=
-if [[ "$1" = "--no_echo" ]]; then
-  # Don't print anything to stdout in this special case.
-  # Currently needed for persistent test runner.
-  no_echo="true"
-  shift
-else
-  echo 'exec ${PAGER:-/usr/bin/less} "$0" || exit 1'
-  echo "Executing tests from ${TEST_TARGET}"
-fi
+# Executing the test log will page it.
+echo 'exec ${PAGER:-/usr/bin/less} "$0" || exit 1'
+echo "Executing tests from ${TEST_TARGET}"
 
 function is_absolute {
   [[ "$1" = /* ]] || [[ "$1" =~ ^[a-zA-Z]:[/\\].* ]]
@@ -36,6 +29,11 @@ function is_absolute {
 # runfiles directory, so using $PWD is not a reliable way to find the execution
 # root.
 EXEC_ROOT="$PWD"
+
+# Declare that the executable is running in a `bazel test` environment
+# This allows test frameworks to enable output to the unprefixed environment variable
+# For example, if `BAZEL_TEST` and `XML_OUTPUT_FILE` are defined, write JUnit output
+export BAZEL_TEST=1
 
 # Bazel sets some environment vars to relative paths to improve caching and
 # support remote execution, where the absolute path may not be known to Bazel.
@@ -54,8 +52,10 @@ is_absolute "$TEST_UNDECLARED_OUTPUTS_DIR" ||
   TEST_UNDECLARED_OUTPUTS_DIR="$PWD/$TEST_UNDECLARED_OUTPUTS_DIR"
 is_absolute "$TEST_UNDECLARED_OUTPUTS_MANIFEST" ||
   TEST_UNDECLARED_OUTPUTS_MANIFEST="$PWD/$TEST_UNDECLARED_OUTPUTS_MANIFEST"
-is_absolute "$TEST_UNDECLARED_OUTPUTS_ZIP" ||
-  TEST_UNDECLARED_OUTPUTS_ZIP="$PWD/$TEST_UNDECLARED_OUTPUTS_ZIP"
+if [[ -n "$TEST_UNDECLARED_OUTPUTS_ZIP" ]]; then
+  is_absolute "$TEST_UNDECLARED_OUTPUTS_ZIP" ||
+    TEST_UNDECLARED_OUTPUTS_ZIP="$PWD/$TEST_UNDECLARED_OUTPUTS_ZIP"
+fi
 is_absolute "$TEST_UNDECLARED_OUTPUTS_ANNOTATIONS" ||
   TEST_UNDECLARED_OUTPUTS_ANNOTATIONS="$PWD/$TEST_UNDECLARED_OUTPUTS_ANNOTATIONS"
 is_absolute "$TEST_UNDECLARED_OUTPUTS_ANNOTATIONS_DIR" ||
@@ -102,6 +102,7 @@ export -n TEST_UNDECLARED_OUTPUTS_ANNOTATIONS
 if [[ -n "${TEST_TOTAL_SHARDS+x}" ]] && ((TEST_TOTAL_SHARDS != 0)); then
   export GTEST_SHARD_INDEX="${TEST_SHARD_INDEX}"
   export GTEST_TOTAL_SHARDS="${TEST_TOTAL_SHARDS}"
+  export GTEST_SHARD_STATUS_FILE="${TEST_SHARD_STATUS_FILE}"
 fi
 export GTEST_TMP_DIR="${TEST_TMPDIR}"
 
@@ -124,8 +125,6 @@ function rlocation() {
   fi
 }
 
-export -f rlocation
-export -f is_absolute
 # If RUNFILES_MANIFEST_ONLY is set to 1 and the manifest file does exist,
 # then test programs should use manifest file to find runfiles.
 if [[ "${RUNFILES_MANIFEST_ONLY:-}" == "1" && -e "${RUNFILES_MANIFEST_FILE:-}" ]]; then
@@ -148,9 +147,7 @@ if [ -z "$COVERAGE_DIR" ]; then
 fi
 
 # This header marks where --test_output=streamed will start being printed.
-if [[ -z "$no_echo" ]]; then
-  echo "-----------------------------------------------------------------------------"
-fi
+echo "-----------------------------------------------------------------------------"
 
 # Unused if EXPERIMENTAL_SPLIT_XML_GENERATION is set.
 function encode_stream {
@@ -197,7 +194,7 @@ function write_xml_output_file {
       error_msg="<error message=\"exited with error code $exitCode\"></error>"
     fi
     test_name="${TEST_BINARY#./}"
-    test_name="${TEST_BINARY#../}"
+    test_name="${test_name#../}"
     # Ensure that test shards have unique names in the xml output.
     if [[ -n "${TEST_TOTAL_SHARDS+x}" ]] && ((TEST_TOTAL_SHARDS != 0)); then
       ((shard_num=TEST_SHARD_INDEX+1))
@@ -237,6 +234,17 @@ else
   TEST_PATH="$(rlocation $TEST_WORKSPACE/$EXE)"
 fi
 
+# Redefine rlocation to notify users of its removal - it used to be exported.
+# TODO: Remove this before Bazel 9.
+function rlocation() {
+  caller 0 | {
+    read LINE SUB FILE
+    echo >&2 "ERROR: rlocation is no longer implicitly provided by Bazel's test setup, but called from $SUB in line $LINE of $FILE. Please use https://github.com/bazelbuild/rules_shell/blob/main/shell/runfiles/runfiles.bash instead."
+    exit 1
+  }
+}
+export -f rlocation
+
 # TODO(jsharpe): Use --test_env=TEST_SHORT_EXEC_PATH=true to activate this code
 # path to workaround a bug with long executable paths when executing remote
 # tests on Windows.
@@ -271,7 +279,7 @@ function kill_group {
 childPid=""
 function signal_children {
   local signal="${1-}"
-  if [ "${signal}" = "SIGTERM" ] && [ -z "$no_echo" ]; then
+  if [ "${signal}" = "SIGTERM" ]; then
     echo "-- Test timed out at $(date +"%F %T %Z") --"
   fi
   if [ ! -z "$childPid" ]; then
@@ -324,15 +332,20 @@ if [[ "${EXPERIMENTAL_SPLIT_XML_GENERATION}" == "1" ]]; then
     ("$1" "$TEST_PATH" "${@:3}" 2>&1) <&0 &
   fi
 else
+  set -o pipefail
   if [ -z "$COVERAGE_DIR" ]; then
-    ("${TEST_PATH}" "$@" 2> >(tee -a "${XML_OUTPUT_FILE}.log" >&2) 1> >(tee -a "${XML_OUTPUT_FILE}.log") 2>&1) <&0 &
+    ("${TEST_PATH}" "$@" 2>&1 | tee -a "${XML_OUTPUT_FILE}.log") <&0 &
   else
-    ("$1" "$TEST_PATH" "${@:3}" 2> >(tee -a "${XML_OUTPUT_FILE}.log" >&2) 1> >(tee -a "${XML_OUTPUT_FILE}.log") 2>&1) <&0 &
+    ("$1" "$TEST_PATH" "${@:3}" 2>&1 | tee -a "${XML_OUTPUT_FILE}.log") <&0 &
   fi
+  set +o pipefail
 fi
 childPid=$!
 
 # Cleanup helper
+# It would be nice to use `kill -0 $PPID` here, but when whatever called this
+# is running as a different user (as happens in remote execution) that will
+# return an error, causing us to prematurely reap a running test.
 ( if ! (ps -p $$ &> /dev/null || [ "`pgrep -a -g $$ 2> /dev/null`" != "" ] ); then
    # `ps` is known to be unrunnable in the darwin sandbox-exec environment due
    # to being a set-uid root program. pgrep exists in most environments, but not
@@ -346,18 +359,20 @@ childPid=$!
  done
  # Parent process not found - we've been abandoned! Clean up test processes.
  kill_group SIGKILL $childPid
-) &
+) &>/dev/null &
 cleanupPid=$!
 
 set +m
 
+# Wait until $childPid fully exits.
+# We need to wait in a loop because wait is interrupted by any incoming trapped
+# signal (https://www.gnu.org/software/bash/manual/bash.html#Signals).
+while kill -0 $childPid 2>/dev/null; do
+  wait $childPid
+done
+# Wait one more time to retrieve the exit code.
 wait $childPid
-# If interrupted by a signal, use the signal as the exit code. But allow
-# the child to actually finish from the signal we sent _it_ via signal_child.
-# (Waiting on a stopped process is a no-op).
-# Only once - if we receive multiple signals (of any sort), give up.
 exitCode=$?
-wait $childPid
 
 # By this point, we have everything we're willing to wait for. Tidy up our own
 # processes and move on.
@@ -415,14 +430,22 @@ fi
 
 # Zip up undeclared outputs.
 if [[ -n "$TEST_UNDECLARED_OUTPUTS_ZIP" ]] && cd "$TEST_UNDECLARED_OUTPUTS_DIR"; then
-  shopt -s dotglob
-  if [[ "$(echo *)" != "*" ]]; then
-    # If * found nothing, echo printed the literal *.
-    # Otherwise echo printed the top-level files and directories.
-    # Pass files to zip with *, so paths with spaces aren't broken up.
-    zip -qr "$TEST_UNDECLARED_OUTPUTS_ZIP" -- * 2>/dev/null || \
-        echo >&2 "Could not create \"$TEST_UNDECLARED_OUTPUTS_ZIP\": zip not found or failed"
+  shopt -s dotglob nullglob
+  # Capture the contents of TEST_UNDECLARED_OUTPUTS_DIR prior to creating the output.zip
+  UNDECLARED_OUTPUTS=(*)
+  if [[ "${#UNDECLARED_OUTPUTS[@]}" != 0 ]]; then
+    if ! zip_output="$(zip -qr "$TEST_UNDECLARED_OUTPUTS_ZIP" -- "${UNDECLARED_OUTPUTS[@]}")" ; then
+      echo >&2 "Could not create \"$TEST_UNDECLARED_OUTPUTS_ZIP\": $zip_output"
+      exit 1
+    fi
+    # Use 'rm' instead of 'zip -m' so that we don't follow symlinks when deleting the
+    # contents.
+    rm -r "${UNDECLARED_OUTPUTS[@]}"
   fi
 fi
 
+# Raise the original signal if the test terminated abnormally.
+if [ $exitCode -gt 128 ]; then
+  kill -$(($exitCode - 128)) $$ &> /dev/null
+fi
 exit $exitCode

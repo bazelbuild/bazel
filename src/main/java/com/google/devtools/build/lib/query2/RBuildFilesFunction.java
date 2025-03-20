@@ -65,13 +65,12 @@ public class RBuildFilesFunction implements QueryFunction {
       QueryExpression expression,
       List<Argument> args,
       Callback<T> callback) {
-    if (!(env instanceof SkyQueryEnvironment)) {
+    if (!(env instanceof SkyQueryEnvironment skyEnv)) {
       return env.immediateFailedFuture(
           new QueryException(
               "rbuildfiles can only be used with SkyQueryEnvironment",
               Query.Code.RBUILDFILES_FUNCTION_REQUIRES_SKYQUERY));
     }
-    SkyQueryEnvironment skyEnv = ((SkyQueryEnvironment) env);
     return skyEnv.getRBuildFiles(
         args.stream()
             .map(argument -> PathFragment.create(argument.getWord()))

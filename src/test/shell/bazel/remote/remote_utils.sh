@@ -71,10 +71,41 @@ function count_disk_ac_files() {
   fi
 }
 
+# Pass in the root of the disk cache and count number of files under /cas directory
+# output int to stdout
+function count_disk_cas_files() {
+  if [ -d "$1/cas" ]; then
+    expr $(find "$1/cas" -type f | wc -l)
+  else
+    echo 0
+  fi
+}
+
 function count_remote_ac_files() {
   if [ -d "$cas_path/ac" ]; then
     expr $(find "$cas_path/ac" -type f | wc -l)
   else
     echo 0
   fi
+}
+
+function count_remote_cas_files() {
+  if [ -d "$cas_path/cas" ]; then
+    expr $(find "$cas_path/cas" -type f | wc -l)
+  else
+    echo 0
+  fi
+}
+
+function remote_cas_file_exist() {
+  local file=$1
+  [ -f "$cas_path/cas/${file:0:2}/$file" ]
+}
+
+function append_remote_cas_files() {
+  find "$cas_path/cas" -type f >> $1
+}
+
+function delete_remote_cas_files() {
+  rm -rf "$cas_path/cas"
 }

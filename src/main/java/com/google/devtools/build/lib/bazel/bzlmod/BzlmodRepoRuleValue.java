@@ -14,13 +14,14 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
-import com.google.common.collect.Interner;
-import com.google.devtools.build.lib.concurrent.BlazeInterners;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.AbstractSkyKey;
 import com.google.devtools.build.skyframe.SkyFunctionName;
+import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
 /** The result of {@link BzlmodRepoRuleFunction}, holding a repository rule instance. */
@@ -41,12 +42,12 @@ public class BzlmodRepoRuleValue implements SkyValue {
     return pkg.getRule(ruleName);
   }
 
-  public static Key key(String repositoryName) {
+  public static Key key(RepositoryName repositoryName) {
     return Key.create(repositoryName);
   }
 
   /** Represents an unsuccessful repository lookup. */
-  public static final class RepoRuleNotFoundValue extends BzlmodRepoRuleValue {
+  private static final class RepoRuleNotFoundValue extends BzlmodRepoRuleValue {
     private RepoRuleNotFoundValue() {
       super(/*pkg=*/ null, /*ruleName=*/ null);
     }
@@ -57,26 +58,35 @@ public class BzlmodRepoRuleValue implements SkyValue {
     }
   }
 
-  public static final RepoRuleNotFoundValue REPO_RULE_NOT_FOUND_VALUE = new RepoRuleNotFoundValue();
+  public static final BzlmodRepoRuleValue REPO_RULE_NOT_FOUND_VALUE = new RepoRuleNotFoundValue();
 
   /** Argument for the SkyKey to request a BzlmodRepoRuleValue. */
   @AutoCodec
-  public static class Key extends AbstractSkyKey<String> {
-    private static final Interner<Key> interner = BlazeInterners.newWeakInterner();
+  public static class Key extends AbstractSkyKey<RepositoryName> {
+    private static final SkyKeyInterner<Key> interner = SkyKey.newInterner();
 
-    private Key(String arg) {
+    private Key(RepositoryName arg) {
       super(arg);
     }
 
-    @AutoCodec.VisibleForSerialization
-    @AutoCodec.Instantiator
-    static Key create(String arg) {
+    private static Key create(RepositoryName arg) {
       return interner.intern(new Key(arg));
+    }
+
+    @VisibleForSerialization
+    @AutoCodec.Interner
+    static Key intern(Key key) {
+      return interner.intern(key);
     }
 
     @Override
     public SkyFunctionName functionName() {
       return BZLMOD_REPO_RULE;
+    }
+
+    @Override
+    public SkyKeyInterner<Key> getSkyKeyInterner() {
+      return interner;
     }
   }
 }

@@ -23,37 +23,28 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventWithConfiguration;
 import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
-import com.google.devtools.build.lib.buildeventstream.NullConfiguration;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.TestSize;
-import com.google.devtools.build.lib.packages.Type;
-import java.util.Collection;
+import com.google.devtools.build.lib.packages.Types;
+import javax.annotation.Nullable;
 
-/** Event reporting about the configurations associated with a given target */
+/** Event reporting about the configuration associated with a given target */
 public class TargetConfiguredEvent implements BuildEventWithConfiguration {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
   private final Target target;
-  private final Collection<BuildConfigurationValue> configurations;
+  @Nullable private final BuildConfigurationValue configuration;
 
-  TargetConfiguredEvent(Target target, Collection<BuildConfigurationValue> configurations) {
-    this.configurations = configurations;
+  public TargetConfiguredEvent(Target target, @Nullable BuildConfigurationValue configuration) {
     this.target = target;
+    this.configuration = configuration;
   }
 
   @Override
-  public Collection<BuildEvent> getConfigurations() {
-    ImmutableList.Builder<BuildEvent> builder = new ImmutableList.Builder<>();
-    for (BuildConfigurationValue config : configurations) {
-      if (config != null) {
-        builder.add(config.toBuildEvent());
-      } else {
-        builder.add(new NullConfiguration());
-      }
-    }
-    return builder.build();
+  public ImmutableList<BuildEvent> getConfigurations() {
+    return ImmutableList.of(BuildConfigurationValue.buildEvent(configuration));
   }
 
   @Override
@@ -62,33 +53,20 @@ public class TargetConfiguredEvent implements BuildEventWithConfiguration {
   }
 
   @Override
-  public Collection<BuildEventId> getChildrenEvents() {
-    ImmutableList.Builder<BuildEventId> childrenBuilder = ImmutableList.builder();
-    for (BuildConfigurationValue config : configurations) {
-      if (config != null) {
-        childrenBuilder.add(
-            BuildEventIdUtil.targetCompleted(target.getLabel(), config.getEventId()));
-      } else {
-        childrenBuilder.add(
-            BuildEventIdUtil.targetCompleted(
-                target.getLabel(), BuildEventIdUtil.nullConfigurationId()));
-      }
-    }
-    return childrenBuilder.build();
+  public ImmutableList<BuildEventId> getChildrenEvents() {
+    return ImmutableList.of(
+        BuildEventIdUtil.targetCompleted(
+            target.getLabel(), BuildConfigurationValue.configurationId(configuration)));
   }
 
   private static BuildEventStreamProtos.TestSize bepTestSize(String targetName, TestSize size) {
     if (size != null) {
-      switch (size) {
-        case SMALL:
-          return BuildEventStreamProtos.TestSize.SMALL;
-        case MEDIUM:
-          return BuildEventStreamProtos.TestSize.MEDIUM;
-        case LARGE:
-          return BuildEventStreamProtos.TestSize.LARGE;
-        case ENORMOUS:
-          return BuildEventStreamProtos.TestSize.ENORMOUS;
-      }
+      return switch (size) {
+        case SMALL -> BuildEventStreamProtos.TestSize.SMALL;
+        case MEDIUM -> BuildEventStreamProtos.TestSize.MEDIUM;
+        case LARGE -> BuildEventStreamProtos.TestSize.LARGE;
+        case ENORMOUS -> BuildEventStreamProtos.TestSize.ENORMOUS;
+      };
     }
     logger.atInfo().log("Target %s has a test size of: %s", targetName, size);
     return BuildEventStreamProtos.TestSize.UNKNOWN;
@@ -102,7 +80,7 @@ public class TargetConfiguredEvent implements BuildEventWithConfiguration {
     if (rule != null && RawAttributeMapper.of(rule).has("tags")) {
       // Not every rule has tags, as, due to the "external" package we also have to expect
       // repository rules at this place.
-      builder.addAllTag(RawAttributeMapper.of(rule).getMergedValues("tags", Type.STRING_LIST));
+      builder.addAllTag(RawAttributeMapper.of(rule).getMergedValues("tags", Types.STRING_LIST));
     }
     if (TargetUtils.isTestRule(target)) {
       builder.setTestSize(

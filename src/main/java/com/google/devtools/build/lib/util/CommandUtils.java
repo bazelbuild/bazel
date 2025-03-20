@@ -19,15 +19,15 @@ import com.google.devtools.build.lib.shell.AbnormalTerminationException;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.shell.CommandResult;
+import javax.annotation.Nullable;
 
-/**
- * Utility methods relating to the {@link Command} class.
- */
+/** Utility methods relating to the {@link Command} class. */
 public class CommandUtils {
 
   private CommandUtils() {} // Prevent instantiation.
 
   @VisibleForTesting
+  @Nullable
   static String cwd(Command command) {
     return command.getWorkingDirectory() == null ? null : command.getWorkingDirectory().getPath();
   }
@@ -44,8 +44,8 @@ public class CommandUtils {
         CommandFailureUtils.describeCommandFailure(verbose, cwd(command), command)
             + ": "
             + exception.getMessage();
-    if (exception instanceof AbnormalTerminationException) {
-      CommandResult result = ((AbnormalTerminationException) exception).getResult();
+    if (exception instanceof AbnormalTerminationException abnormalTerminationException) {
+      CommandResult result = abnormalTerminationException.getResult();
       try {
         return message + "\n"
             + new String(result.getStdout())

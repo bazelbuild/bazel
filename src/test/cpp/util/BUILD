@@ -20,7 +20,6 @@ cc_test(
 
 cc_test(
     name = "file_test",
-    size = "small",
     srcs = ["file_test.cc"] + select({
         "//src/conditions:windows": [
             "file_windows_test.cc",
@@ -32,6 +31,7 @@ cc_test(
     deps = [
         ":test_util",
         "//src/main/cpp/util:filesystem",
+        "@abseil-cpp//absl/strings",
         "@com_google_googletest//:gtest_main",
     ] + select({
         "//src/conditions:windows": [

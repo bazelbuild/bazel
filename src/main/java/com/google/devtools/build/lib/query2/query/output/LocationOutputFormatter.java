@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.query2.query.output;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.hash.HashFunction;
+import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.query2.common.AbstractBlazeQueryEnvironment;
 import com.google.devtools.build.lib.query2.common.CommonQueryOptions;
@@ -28,8 +29,10 @@ import com.google.devtools.build.lib.query2.engine.SynchronizedDelegatingOutputF
 import com.google.devtools.build.lib.query2.engine.ThreadSafeOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.query.aspectresolvers.AspectResolver;
 import com.google.devtools.build.lib.server.FailureDetails.Query;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.io.OutputStream;
+import javax.annotation.Nullable;
 
 /**
  * An output formatter that prints the labels of the targets, preceded by
@@ -40,7 +43,7 @@ import java.io.OutputStream;
 class LocationOutputFormatter extends AbstractUnorderedFormatter {
 
   private boolean relativeLocations;
-  private boolean displaySourceFileLocation;
+  @Nullable private PathFragment overrideSourceRoot;
 
   @Override
   public String getName() {
@@ -52,7 +55,11 @@ class LocationOutputFormatter extends AbstractUnorderedFormatter {
       CommonQueryOptions options, AspectResolver aspectResolver, HashFunction hashFunction) {
     super.setOptions(options, aspectResolver, hashFunction);
     this.relativeLocations = options.relativeLocations;
-    this.displaySourceFileLocation = options.displaySourceFileLocation;
+  }
+
+  @Override
+  public void setOverrideSourceRoot(PathFragment overrideSourceRoot) {
+    this.overrideSourceRoot = overrideSourceRoot;
   }
 
   @Override
@@ -75,7 +82,7 @@ class LocationOutputFormatter extends AbstractUnorderedFormatter {
 
   @Override
   public OutputFormatterCallback<Target> createPostFactoStreamCallback(
-      OutputStream out, final QueryOptions options) {
+      OutputStream out, final QueryOptions options, LabelPrinter labelPrinter) {
     return new TextOutputFormatterCallback<Target>(out) {
 
       @Override
@@ -83,11 +90,11 @@ class LocationOutputFormatter extends AbstractUnorderedFormatter {
         final String lineTerm = options.getLineTerminator();
         for (Target target : partialResult) {
           writer
-              .append(FormatUtils.getLocation(target, relativeLocations, displaySourceFileLocation))
+              .append(FormatUtils.getLocation(target, relativeLocations, overrideSourceRoot))
               .append(": ")
               .append(target.getTargetKind())
               .append(" ")
-              .append(target.getLabel().getCanonicalForm())
+              .append(labelPrinter.toString(target.getLabel()))
               .append(lineTerm);
         }
       }
@@ -98,6 +105,6 @@ class LocationOutputFormatter extends AbstractUnorderedFormatter {
   public ThreadSafeOutputFormatterCallback<Target> createStreamCallback(
       OutputStream out, QueryOptions options, QueryEnvironment<?> env) {
     return new SynchronizedDelegatingOutputFormatterCallback<>(
-        createPostFactoStreamCallback(out, options));
+        createPostFactoStreamCallback(out, options, env.getLabelPrinter()));
   }
 }

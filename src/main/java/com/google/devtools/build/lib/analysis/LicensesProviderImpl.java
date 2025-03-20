@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.analysis;
 
-import com.google.common.collect.ListMultimap;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -22,12 +21,15 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeMap;
+import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.License;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
+import net.starlark.java.eval.StarlarkValue;
 
 /** A {@link ConfiguredTarget} that has licensed targets in its transitive closure. */
 @Immutable
-public final class LicensesProviderImpl implements LicensesProvider {
+public final class LicensesProviderImpl implements LicensesProvider, StarlarkValue {
   public static final LicensesProvider EMPTY =
       new LicensesProviderImpl(NestedSetBuilder.<TargetLicense>emptySet(Order.LINK_ORDER), null);
 
@@ -38,6 +40,11 @@ public final class LicensesProviderImpl implements LicensesProvider {
       NestedSet<TargetLicense> transitiveLicenses, TargetLicense outputLicenses) {
     this.transitiveLicenses = transitiveLicenses;
     this.outputLicenses = outputLicenses;
+  }
+
+  @Override
+  public BuiltinProvider<LicensesProvider> getProvider() {
+    return LicensesProvider.PROVIDER;
   }
 
   /**
@@ -65,10 +72,7 @@ public final class LicensesProviderImpl implements LicensesProvider {
         builder.add(new TargetLicense(rule.getLabel(), rule.getLicense()));
       }
 
-      ListMultimap<String, ? extends TransitiveInfoCollection> configuredMap =
-          ruleContext.getConfiguredTargetMap();
-
-      if (rule.getRuleClassObject().isBazelLicense()) {
+      if (rule.getRuleClassObject().isPackageMetadataRule()) {
         // Don't crawl a new-style license, it's effectively a leaf.
         // The representation of the new-style rule is unfortunately hardcoded here,
         // but this is code in the old-style licensing path that will ultimately be removed.
@@ -77,8 +81,9 @@ public final class LicensesProviderImpl implements LicensesProvider {
           // Only add the transitive licenses for the attributes that do not have the
           // output_licenses.
           Attribute attribute = attributes.getAttributeDefinition(depAttrName);
-          for (TransitiveInfoCollection dep : configuredMap.get(depAttrName)) {
-            LicensesProvider provider = dep.getProvider(LicensesProvider.class);
+          for (ConfiguredTargetAndData dep :
+              ruleContext.getPrerequisiteConfiguredTargets(depAttrName)) {
+            LicensesProvider provider = dep.getConfiguredTarget().get(LicensesProvider.PROVIDER);
             if (provider == null) {
               continue;
             }

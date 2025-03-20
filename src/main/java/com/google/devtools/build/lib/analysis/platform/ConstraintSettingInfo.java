@@ -73,11 +73,10 @@ public class ConstraintSettingInfo extends NativeInfo implements ConstraintSetti
 
   @Override
   public boolean equals(Object other) {
-    if (!(other instanceof ConstraintSettingInfo)) {
+    if (!(other instanceof ConstraintSettingInfo otherConstraint)) {
       return false;
     }
 
-    ConstraintSettingInfo otherConstraint = (ConstraintSettingInfo) other;
     return Objects.equal(label, otherConstraint.label);
   }
 
@@ -88,10 +87,9 @@ public class ConstraintSettingInfo extends NativeInfo implements ConstraintSetti
 
   @Override
   public void repr(Printer printer) {
-    Printer.format(printer, "ConstraintSettingInfo(%s", label.toString());
+    printer.append("ConstraintSettingInfo(").append(label.toString());
     if (defaultConstraintValueLabel != null) {
-      Printer.format(
-          printer, ", default_constraint_value=%s", defaultConstraintValueLabel.toString());
+      printer.append(", default_constraint_value=").append(defaultConstraintValueLabel.toString());
     }
     printer.append(")");
   }

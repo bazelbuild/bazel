@@ -11,6 +11,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
+# WARNING:
+# https://github.com/bazelbuild/bazel/issues/17713
+# .bzl files in this package (tools/build_defs/repo) are evaluated
+# in a Starlark environment without "@_builtins" injection, and must not refer
+# to symbols associated with build/workspace .bzl files
+
 """Code for interacting with git binary to get the file tree checked out at the specified revision.
 """
 
@@ -79,8 +86,8 @@ def git_repo(ctx, directory):
         recursive_init_submodules = ctx.attr.recursive_init_submodules,
     )
 
-    ctx.report_progress("Cloning %s of %s" % (reset_ref, ctx.attr.remote))
-    if (ctx.attr.verbose):
+    _report_progress(ctx, git_repo)
+    if ctx.attr.verbose:
         print("git.bzl: Cloning or updating %s repository %s using strip_prefix of [%s]" %
               (
                   " (%s)" % shallow if shallow else "",
@@ -94,6 +101,12 @@ def git_repo(ctx, directory):
     shallow_date = _get_head_date(ctx, git_repo)
 
     return struct(commit = actual_commit, shallow_since = shallow_date)
+
+def _report_progress(ctx, git_repo, *, shallow_failed = False):
+    warning = ""
+    if shallow_failed:
+        warning = " (shallow fetch failed, fetching full history)"
+    ctx.report_progress("Cloning %s of %s%s" % (git_repo.reset_ref, git_repo.remote, warning))
 
 def _update(ctx, git_repo):
     ctx.delete(git_repo.directory)
@@ -113,7 +126,7 @@ def _update(ctx, git_repo):
 
 def init(ctx, git_repo):
     cl = ["git", "init", str(git_repo.directory)]
-    st = ctx.execute(cl, environment = ctx.os.environ)
+    st = ctx.execute(cl, environment = ctx.os.environ | _GIT_LOCAL_ENV_VARS)
     if st.return_code != 0:
         _error(ctx.name, cl, st.stderr)
 
@@ -133,6 +146,7 @@ def fetch(ctx, git_repo):
         # "ignore what is specified and fetch all tags".
         # The arguments below work correctly for both before 1.9 and after 1.9,
         # as we directly specify the list of references to fetch.
+        _report_progress(ctx, git_repo, shallow_failed = True)
         _git(
             ctx,
             git_repo,
@@ -152,9 +166,12 @@ def clean(ctx, git_repo):
 
 def update_submodules(ctx, git_repo, recursive = False):
     if recursive:
-        _git(ctx, git_repo, "submodule", "update", "--init", "--recursive", "--checkout", "--force")
+        # "protocol.file.allow=always" allows the submodule command clone from a local directory.
+        # It's necessary for Git 2.38.1 and assoicated backport versions.
+        # See https://github.com/bazelbuild/bazel/issues/17040
+        _git(ctx, git_repo, "-c", "protocol.file.allow=always", "submodule", "update", "--init", "--recursive", "--checkout", "--force")
     else:
-        _git(ctx, git_repo, "submodule", "update", "--init", "--checkout", "--force")
+        _git(ctx, git_repo, "-c", "protocol.file.allow=always", "submodule", "update", "--init", "--checkout", "--force")
 
 def _get_head_commit(ctx, git_repo):
     return _git(ctx, git_repo, "log", "-n", "1", "--pretty=format:%H")
@@ -163,14 +180,14 @@ def _get_head_date(ctx, git_repo):
     return _git(ctx, git_repo, "log", "-n", "1", "--pretty=format:%cd", "--date=raw")
 
 def _git(ctx, git_repo, command, *args):
-    start = ["git", command]
+    start = [command]
     st = _execute(ctx, git_repo, start + list(args))
     if st.return_code != 0:
-        _error(ctx.name, start + list(args), st.stderr)
+        _error(ctx.name, ["git"] + start + list(args), st.stderr)
     return st.stdout
 
 def _git_maybe_shallow(ctx, git_repo, command, *args):
-    start = ["git", command]
+    start = [command]
     args_list = list(args)
     if git_repo.shallow:
         st = _execute(ctx, git_repo, start + [git_repo.shallow] + args_list)
@@ -178,10 +195,35 @@ def _git_maybe_shallow(ctx, git_repo, command, *args):
             return st
     return _execute(ctx, git_repo, start + args_list)
 
+# List of variables to unset when calling `git` to ensure no interference of
+# operation. This is in the form of a dict that can be passed to `execute()`.
+# This list is taken from the output of `git rev-parse --local-env-vars`
+_GIT_LOCAL_ENV_VARS = {
+    "GIT_ALTERNATE_OBJECT_DIRECTORIES": None,
+    "GIT_CONFIG": None,
+    "GIT_CONFIG_PARAMETERS": None,
+    "GIT_CONFIG_COUNT": None,
+    "GIT_OBJECT_DIRECTORY": None,
+    "GIT_DIR": None,
+    "GIT_WORK_TREE": None,
+    "GIT_IMPLICIT_WORK_TREE": None,
+    "GIT_GRAFT_FILE": None,
+    "GIT_INDEX_FILE": None,
+    "GIT_NO_REPLACE_OBJECTS": None,
+    "GIT_REPLACE_REF_BASE": None,
+    "GIT_PREFIX": None,
+    "GIT_INTERNAL_SUPER_PREFIX": None,
+    "GIT_SHALLOW_FILE": None,
+    "GIT_COMMON_DIR": None,
+}
+
 def _execute(ctx, git_repo, args):
+    # "core.fsmonitor=false" disables git from spawning a file system monitor which can cause hangs when cloning a lot.
+    # See https://github.com/bazelbuild/bazel/issues/21438
+    start = ["git", "-c", "core.fsmonitor=false"]
     return ctx.execute(
-        args,
-        environment = ctx.os.environ,
+        start + args,
+        environment = ctx.os.environ | _GIT_LOCAL_ENV_VARS,
         working_directory = str(git_repo.directory),
     )
 

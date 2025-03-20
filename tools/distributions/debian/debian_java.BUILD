@@ -42,7 +42,6 @@ java_import(
         "java/netty-transport-native-epoll.jar",
         "java/netty-transport-native-kqueue.jar",
         "java/netty-transport-native-unix-common.jar",
-        "java/netty-transport-sctp.jar",
     ],
 )
 
@@ -107,12 +106,6 @@ java_import(
 java_import(
     name = "apache_commons_compress",
     jars = ["java/commons-compress.jar"],
-)
-
-# libcommons-logging-java
-java_import(
-    name = "apache_commons_logging",
-    jars = ["java/commons-logging.jar"],
 )
 
 # libcommons-pool2-java
@@ -354,7 +347,6 @@ java_import(
     runtime_deps = [
         ":api_client",
         ":guava",
-        "@//third_party/aws-sdk-auth-lite",
     ],
 )
 
@@ -458,4 +450,23 @@ java_import(
         "java/hamcrest-core.jar",
         "java/junit4.jar",
     ],
+)
+
+# libreactive-streams-java
+java_import(
+    name = "reactive_streams",
+    jars = ["java/reactive-streams.jar"],
+)
+
+# librx-java
+java_import(
+    name = "rxjava3",
+    jars = ["java/rxjava.jar"],
+    deps = [":reactive_streams"],
+)
+
+# libcaffeine-java
+java_import(
+    name = "caffeine",
+    jars = ["java/caffeine.jar"],
 )

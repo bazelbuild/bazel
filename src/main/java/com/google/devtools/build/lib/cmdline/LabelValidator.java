@@ -20,11 +20,17 @@ import java.util.Objects;
 import javax.annotation.Nullable;
 
 /**
- * The canonical place to parse and validate Blaze labels.
+ * The canonical place to parse and validate labels.
+ *
+ * <p>NOTE: The methods in this file are called both by Bazel and external programs, so they must
+ * accept both internal and Unicode strings (see StringEncoding.java for more information). We can
+ * get away with a single entry point for both encodings because all determinations we need to make
+ * about the syntax of labels are based solely on ASCII code points, which are encoded identically
+ * in both kinds of string.
  */
 public final class LabelValidator {
 
-  // Target names allow all 7-bit ASCII characters except
+  // Target names allow all ASCII characters except
   // 0-31 (control characters)
   // 58 ':' (colon)
   // 92 '\' (backslash) - directory separator (on Windows); may be allowed in the future
@@ -36,13 +42,12 @@ public final class LabelValidator {
   /**
    * Matches punctuation in target names which doesn't require quoting in a blaze query.
    *
-   * Note that . is also allowed in target names, and doesn't require quoting, but has restrictions
-   * on its surrounding characters; see {@link #validateTargetName(String)}.
+   * <p>Note that . is also allowed in target names, and doesn't require quoting, but has
+   * restrictions on its surrounding characters; see {@link #validateTargetName(String)}.
    */
-  private static final CharMatcher PUNCTUATION_NOT_REQUIRING_QUOTING =
-      CharMatcher.anyOf("!%-@^_`");
+  private static final CharMatcher PUNCTUATION_NOT_REQUIRING_QUOTING = CharMatcher.anyOf("!%-@^_`");
 
-  // Package names allow all 7-bit ASCII characters except
+  // Package names allow all ASCII characters except
   // 0-31 (control characters)
   // 58 ':' (colon) - target name separator
   // 92 '\' (backslash) - directory separator (on Windows); may be allowed in the future
@@ -58,23 +63,22 @@ public final class LabelValidator {
   /**
    * Matches characters allowed in target names regardless of context.
    *
-   * Note that the only other characters allowed in target names are / and . but they have
+   * <p>Note that the only other characters allowed in target names are / and . but they have
    * restrictions around surrounding characters; see {@link #validateTargetName(String)}.
    */
   private static final CharMatcher ALWAYS_ALLOWED_TARGET_CHARACTERS =
       CharMatcher.javaLetterOrDigit()
           .or(PUNCTUATION_REQUIRING_QUOTING)
           .or(PUNCTUATION_NOT_REQUIRING_QUOTING)
-          // On unix platforms, strings obtained from readdir() are bytes "decoded" as latin1.  But
-          // the user is likely to have stored UTF-8 in them.  So we permit all non-ASCII characters
-          // in UTF-8 by allowing all high bytes.
-          .or(CharMatcher.inRange((char) 128, (char) 255))
+          // Accept any non-ASCII character, which is also guaranteed to be (part of) the encoding
+          // of a non-ASCII code point, both for internal and Unicode strings.
+          .or(CharMatcher.inRange((char) 128, (char) 65535))
           .precomputed();
 
   @VisibleForTesting
   static final String PACKAGE_NAME_ERROR =
       "package names may contain A-Z, a-z, 0-9, or any of ' !\"#$%&'()*+,-./;<=>?[]^_`{|}~'"
-          + " (most 7-bit ascii characters except 0-31, 127, ':', or '\\')";
+          + " (any ASCII character except 0-31, 127, ':', or '\\')";
 
   @VisibleForTesting
   static final String PACKAGE_NAME_DOT_ERROR =

@@ -13,6 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote;
 
+import static org.junit.Assume.assumeTrue;
+
+import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.util.OS;
 import io.netty.handler.ssl.SslContextBuilder;
 import io.netty.handler.ssl.SslProvider;
 import org.junit.Test;
@@ -22,8 +26,14 @@ import org.junit.runners.JUnit4;
 /** Tests that we use OpenSSL instead of a Java implementation. */
 @RunWith(JUnit4.class)
 public class NativeSslTest {
+  private static final ImmutableSet<OS> OS_WITH_NATIVE_SSL =
+      ImmutableSet.of(OS.LINUX, OS.DARWIN, OS.WINDOWS);
+
   @Test
   public void nativeSslPresent() throws Exception {
+    // Skip the test on platforms where native SSL is not available.
+    assumeTrue(OS_WITH_NATIVE_SSL.contains(OS.getCurrent()));
+
     SslContextBuilder.forClient().sslProvider(SslProvider.OPENSSL).build();
   }
 }

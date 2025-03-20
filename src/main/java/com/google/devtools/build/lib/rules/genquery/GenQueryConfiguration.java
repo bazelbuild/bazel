@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.analysis.config.RequiresOptions;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionMetadataTag;
 
 /** {@link Fragment} for {@link GenQuery}. */
 @RequiresOptions(options = {GenQueryConfiguration.GenQueryOptions.class})
@@ -29,25 +30,25 @@ public class GenQueryConfiguration extends Fragment {
   /** GenQuery-specific options. */
   public static class GenQueryOptions extends FragmentOptions {
     @Option(
-        name = "compress_in_memory_genquery_results",
+        name = "experimental_skip_ttvs_for_genquery",
         defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+        metadataTags = {OptionMetadataTag.EXPERIMENTAL},
         help =
-            "If true, the in-memory representation of genquery results may be compressed as "
-                + "is necessary. Can save sufficient memory at the expense of more CPU usage.")
-    public boolean compressInMemoryResults;
+            "If true, genquery loads its scope's transitive closure directly instead of by using "
+                + "'TransitiveTargetValue' Skyframe work.")
+    public boolean skipTtvs;
   }
 
-  private final boolean inMemoryCompressionEnabled;
+  private final boolean skipTtvs;
 
   public GenQueryConfiguration(BuildOptions buildOptions) {
-    this.inMemoryCompressionEnabled =
-        buildOptions.get(GenQueryOptions.class).compressInMemoryResults;
+    this.skipTtvs = buildOptions.get(GenQueryOptions.class).skipTtvs;
   }
 
-  /** Returns whether or not genquery stored in memory can be stored in compressed form. */
-  boolean inMemoryCompressionEnabled() {
-    return inMemoryCompressionEnabled;
+  /** Returns whether genquery should load its scope's transitive closure directly. */
+  boolean skipTtvs() {
+    return skipTtvs;
   }
 }

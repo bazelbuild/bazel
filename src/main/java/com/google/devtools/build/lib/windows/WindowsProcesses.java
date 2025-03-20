@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.windows;
 
 import com.google.devtools.build.lib.jni.JniLoader;
+import java.io.InputStream;
 
 /** Process management on Windows. */
 public class WindowsProcesses {
@@ -66,9 +67,12 @@ public class WindowsProcesses {
    *
    * <p>Blocks until either some data was written or the process is terminated.
    *
-   * @return the number of bytes written
+   * @return the number of bytes written, or -1 if an error occurs.
    */
   public static native int writeStdin(long process, byte[] bytes, int offset, int length);
+
+  /** Closes the stdin of the specified process. */
+  public static native void closeStdin(long process);
 
   /** Returns an opaque identifier of stdout stream for the process. */
   public static native long getStdout(long process);
@@ -142,7 +146,4 @@ public class WindowsProcesses {
   public static native String processGetLastError(long process);
 
   public static native String streamGetLastError(long process);
-
-  /** Returns the PID of the current process. */
-  public static native int getpid();
 }

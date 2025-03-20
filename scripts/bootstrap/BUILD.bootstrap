@@ -3,9 +3,12 @@ load("@bazel_tools//tools/jdk:default_java_toolchain.bzl", "default_java_toolcha
 # This toolchain is used to bootstrap Bazel.
 default_java_toolchain(
     name = "bootstrap_toolchain",
-    bootclasspath = ["@bazel_tools//tools/jdk:platformclasspath.jar"],
+    bootclasspath = ["@bazel_tools//tools/jdk:platformclasspath"],
     genclass = ["//src/java_tools/buildjar:bootstrap_genclass_deploy.jar"],
+    header_compiler = None,  # avoid remote_java_tools dependency
+    header_compiler_direct = None,  # ditto
     ijar = ["//third_party/ijar"],
+    jacocorunner = None,  # avoid remote_java_tools dependency
     java_runtime = "@local_jdk//:jdk",
     javabuilder = ["//src/java_tools/buildjar:bootstrap_VanillaJavaBuilder_deploy.jar"],
     jvm_opts = [
@@ -15,9 +18,10 @@ default_java_toolchain(
         "-XX:+TieredCompilation",
         "-XX:TieredStopAtLevel=1",
     ],
+    oneversion = None,  # avoid remote_java_tools dependency
     singlejar = ["//src/tools/singlejar:singlejar"],
-    source_version = "8",
+    source_version = "21",
     tags = ["manual"],
-    target_version = "8",
+    target_version = "21",
     visibility = ["//visibility:public"],
 )

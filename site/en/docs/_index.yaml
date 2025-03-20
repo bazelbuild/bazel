@@ -1,0 +1,210 @@
+book_path: /_book.yaml
+project_path: /_project.yaml
+
+title: Using Bazel
+landing_page:
+  header:
+    hide_lower_section: true
+  custom_css_path: /bazel.css
+
+  rows:
+  # Hero Row
+  - options:
+    - description-50
+    - hero
+    - large-headings
+    - no-image-background
+    classname: bazel-hero bazel-hero-full-bleed-light
+    items:
+    - classname: bazel-hero
+      image_path: /images/guide.svg
+      heading: >
+        User guide
+      description: >
+        Explore the Bazel documentation to find tutorials and guides for users of all levels.
+
+  # Jumpdown Row
+  - options:
+    - centered-header
+    - large-headings
+    - padding-large
+    classname: bazel-jumpdown-row
+    custom_html: >
+      <a href="#release">Release<span class="material-icons">arrow_downward</span>
+      </a>
+      <a href="#basics">Basics<span class="material-icons">
+      arrow_downward</span></a>
+      <a href="#advanced">Advanced<span class="material-icons">arrow_downward</span></a>
+      <a href="#remote-distribution">Remote distribution<span class="material-icons">arrow_downward</span></a>
+      <a href="#tutorials">Tutorials<span class="material-icons">arrow_downward</span></a>
+      <a href="#migrate">Migrate<span class="material-icons">arrow_downward</span></a>
+
+  # Release row
+  - options:
+    - centered-header
+    - cards
+    background: white
+    heading: Release
+    description: >
+      Learn about Bazel's release model, latest releases, and compatibility policies.
+    items_across: 4
+    items:
+    - heading: Release model
+      path: /release/
+    - heading: Backward compatibility
+      path: /release/backward-compatibility
+    - heading: Rule compatibility
+      path: /release/rule-compatibility
+
+  # Basics row
+  - options:
+    - centered-header
+    - cards
+    background: white
+    heading: Basics
+    description: >
+      Get started with BUILD files, learn to run Bazel, and query your build for data.
+    items_across: 4
+    items:
+    - heading: BUILD style guide
+      path: /build/style-guide
+    - heading: Sharing variables
+      path: /build/share-variables
+    - heading: Working with external dependencies
+      path: /build/external
+    - heading: Managing external dependencies with Bzlmod
+      path: /build/bzlmod
+    - heading: Recommended rules
+      path: /community/recommended-rules
+    - heading: Building programs with Bazel
+      path: /run/build
+    - heading: Commands and options
+      path: /docs/user-manual
+    - heading: Writing bazelrc configuration files
+      path: /run/bazelrc
+    - heading: Calling Bazel from scripts
+      path: /run/scripts
+    - heading: Client/server implementation
+      path: /run/client-server
+    - heading: Query quickstart
+      path: /query/quickstart
+    - heading: Query guide
+      path: /query/guide
+    - heading: Query language
+      path: /query/language
+    - heading: Action graph query (aquery)
+      path: /query/aquery
+    - heading: Configurable query (cquery)
+      path: /query/cquery
+
+  # Advanced row
+  - options:
+    - centered-header
+    - cards
+    background: white
+    heading: Advanced
+    description: >
+      Configure and optimize your builds with these advanced options.
+    items_across: 4
+    items:
+    - heading: Configurable build attributes
+      path: /configure/attributes
+    - heading: Integrating with C++ rules
+      path: /configure/integrate-cpp
+    - heading: Code coverage with Bazel
+      path: /configure/coverage
+    - heading: "Optimizing Bazel: Best practices"
+      path: /configure/best-practices
+    - heading: Using Bazel on Windows
+      path: /configure/windows
+    - heading: Extracting build performance metrics
+      path: /advanced/performance/build-performance-metrics
+    - heading: Breaking down build performance
+      path: /advanced/performance/build-performance-breakdown
+    - heading: JSON trace profile
+      path: /advanced/performance/json-trace-profile
+    - heading: Optimize memory
+      path: /advanced/performance/memory
+    - heading: Optimize build iteration speed
+      path: /advanced/performance/iteration-speed
+
+  # Remote distrubution row
+  - options:
+    - centered-header
+    - cards
+    background: white
+    heading: Remote distribution
+    description: >
+      Take advantage of Bazel's scalability with remote distribution.
+    items_across: 4
+    items:
+    - heading: RBE overview
+      path: /remote/rbe/
+    - heading: RBE rules
+      path: /remote/rules
+    - heading: RBE CI
+      path: /remote/ci
+    - heading: Dynamic execution
+      path: /remote/dynamic
+    - heading: Remote caching
+      path: /remote/caching
+    - heading: Docker Sandbox
+      path: /remote/sandbox
+    - heading: Non-hermetic WORKSPACE rules
+      path: /remote/workspace
+    - heading: Remote cache hits
+      path: /remote/cache-remote
+    - heading: Local cache hits
+      path: /remote/cache-local
+    - heading: Output directory layout
+      path: /remote/output-directories
+    - heading: Persistent workers
+      path: /remote/persistent/
+    - heading: Multiplex workers
+      path: /remote/multiplex
+    - heading: Creating workers
+      path: /remote/creating
+    - heading: BEP overview
+      path: /remote/bep/
+    - heading: BEP examples
+      path: /remote/bep-examples
+    - heading: BEP glossary
+      path: /remote/bep-glossary
+
+  # Tutorials row
+  - options:
+    - centered-header
+    - cards
+    background: white
+    heading: Tutorials
+    description: >
+      Follow these tutorials to try out aspects of Bazel. More coming soon!
+    items_across: 4
+    items:
+    - heading: C++ use cases
+      path: /tutorials/cpp-use-cases
+    - heading: Configuring C++ toolchains
+      path: /tutorials/ccp-toolchain-config
+    - heading: Dependency graphs
+      path: /tutorials/cpp-dependency
+    - heading: Use labels to reference targets
+      path: /tutorials/cpp-labels
+
+  # Migrate row
+  - options:
+    - centered-header
+    - cards
+    background: white
+    heading: Migrate
+    description: >
+      Ready to move your project to Bazel? Our migration guides show you how.
+    items_across: 4
+    items:
+    - heading: Overview
+      path: /migrate/
+    - heading: Maven to Bazel
+      path: /migrate/maven
+    - heading: Xcode to Bazel
+      path: /migrate/xcode
+    - heading: CocoaPods Dependencies
+      path: /migrate/cocoapods

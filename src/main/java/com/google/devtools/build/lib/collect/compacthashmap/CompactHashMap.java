@@ -384,6 +384,7 @@ public class CompactHashMap<K, V> extends AbstractMap<K, V> {
     return indexOf(key) != -1;
   }
 
+  @Nullable
   @SuppressWarnings("unchecked") // values only contains Vs
   @Override
   public V get(@Nullable Object key) {
@@ -657,8 +658,7 @@ public class CompactHashMap<K, V> extends AbstractMap<K, V> {
 
     @Override
     public boolean contains(@Nullable Object o) {
-      if (o instanceof Entry) {
-        Entry<?, ?> entry = (Entry<?, ?>) o;
+      if (o instanceof Entry<?, ?> entry) {
         int index = indexOf(entry.getKey());
         return index != -1 && Objects.equal(values[index], entry.getValue());
       }
@@ -667,8 +667,7 @@ public class CompactHashMap<K, V> extends AbstractMap<K, V> {
 
     @Override
     public boolean remove(@Nullable Object o) {
-      if (o instanceof Entry) {
-        Entry<?, ?> entry = (Entry<?, ?>) o;
+      if (o instanceof Entry<?, ?> entry) {
         int index = indexOf(entry.getKey());
         if (index != -1 && Objects.equal(values[index], entry.getValue())) {
           removeEntry(index);
@@ -735,8 +734,7 @@ public class CompactHashMap<K, V> extends AbstractMap<K, V> {
 
     @Override
     public boolean equals(@Nullable Object object) {
-      if (object instanceof Entry) {
-        Entry<?, ?> that = (Entry<?, ?>) object;
+      if (object instanceof Entry<?, ?> that) {
         return Objects.equal(this.key, that.getKey())
             && Objects.equal(this.getValue(), that.getValue());
       }
@@ -835,24 +833,6 @@ public class CompactHashMap<K, V> extends AbstractMap<K, V> {
         return (V) values[entry];
       }
     };
-  }
-
-  /**
-   * Ensures that this {@code CompactHashMap} has the smallest representation in memory, given its
-   * current size.
-   */
-  public void trimToSize() {
-    if (needsAllocArrays()) {
-      return;
-    }
-    int size = this.size;
-    if (size < entries.length) {
-      resizeEntries(size);
-    }
-    int minimumTableSize = closedTableSize(size);
-    if (minimumTableSize < table.length) {
-      resizeTable(minimumTableSize);
-    }
   }
 
   @Override

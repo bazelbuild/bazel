@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
@@ -87,6 +86,7 @@ public class ArtifactFactory implements ArtifactResolver {
     private int buildId = -1;
 
     /** Returns artifact if it present in the cache, otherwise null. */
+    @Nullable
     @ThreadSafe
     SourceArtifact getArtifact(PathFragment execPath) {
       Entry cacheEntry = pathToSourceArtifact.get(execPath);
@@ -100,6 +100,7 @@ public class ArtifactFactory implements ArtifactResolver {
      * {@link #findSourceRoot}) may disagree. In that case, the artifact will be valid, but unusable
      * by any action (since no action has properly declared it as an input).
      */
+    @Nullable
     @ThreadSafe
     SourceArtifact getArtifactIfValid(PathFragment execPath) {
       Entry cacheEntry = pathToSourceArtifact.get(execPath);
@@ -249,6 +250,18 @@ public class ArtifactFactory implements ArtifactResolver {
             /*contentBasedPath=*/ false);
   }
 
+  public Artifact.DerivedArtifact getRunfilesArtifact(
+      PathFragment rootRelativePath, ArtifactRoot root, ArtifactOwner owner) {
+    validatePath(rootRelativePath, root);
+    return (Artifact.DerivedArtifact)
+        getArtifact(
+            root,
+            root.getExecPath().getRelative(rootRelativePath),
+            owner,
+            SpecialArtifactType.RUNFILES,
+            /* contentBasedPath= */ false);
+  }
+
   /**
    * Returns an artifact that represents a TreeArtifact; that is, a directory containing some tree
    * of ArtifactFiles unknown at analysis time.
@@ -357,6 +370,21 @@ public class ArtifactFactory implements ArtifactResolver {
     }
   }
 
+  private boolean isDefinitelyNotSourceExecPath(PathFragment execPath) {
+    // Source exec paths cannot escape the source root.
+    if (siblingRepositoryLayout) {
+      // The exec path may start with .. if using --experimental_sibling_repository_layout, so test
+      // the subfragment from index 1 onwards.
+      if (execPath.subFragment(1).containsUplevelReferences()) {
+        return true;
+      }
+    } else if (execPath.containsUplevelReferences()) {
+      return true;
+    }
+
+    return false;
+  }
+
   /**
    * Returns an {@link Artifact} with exec path formed by composing {@code baseExecPath} and {@code
    * relativePath} (via {@code baseExecPath.getRelative(relativePath)} if baseExecPath is not null).
@@ -368,6 +396,7 @@ public class ArtifactFactory implements ArtifactResolver {
    * no matching artifact in {@link #sourceArtifactCache} initially, but when it goes to create it,
    * does find it there, but that is a benign race.
    */
+  @Nullable
   @ThreadSafe
   public SourceArtifact resolveSourceArtifactWithAncestor(
       PathFragment relativePath,
@@ -385,14 +414,7 @@ public class ArtifactFactory implements ArtifactResolver {
     PathFragment execPath =
         baseExecPath != null ? baseExecPath.getRelative(relativePath) : relativePath;
 
-    // Source exec paths cannot escape the source root.
-    if (siblingRepositoryLayout) {
-      // The exec path may start with .. if using --experimental_sibling_repository_layout, so test
-      // the subfragment from index 1 onwards.
-      if (execPath.subFragment(1).containsUplevelReferences()) {
-        return null;
-      }
-    } else if (execPath.containsUplevelReferences()) {
+    if (isDefinitelyNotSourceExecPath(execPath)) {
       return null;
     }
 
@@ -450,6 +472,7 @@ public class ArtifactFactory implements ArtifactResolver {
     return resolveSourceArtifactWithAncestor(execPath, null, null, repositoryName);
   }
 
+  @Nullable
   @Override
   public Map<PathFragment, SourceArtifact> resolveSourceArtifacts(
       Iterable<PathFragment> execPaths, PackageRootResolver resolver)
@@ -458,8 +481,7 @@ public class ArtifactFactory implements ArtifactResolver {
     ArrayList<PathFragment> unresolvedPaths = new ArrayList<>();
 
     for (PathFragment execPath : execPaths) {
-      if (execPath.containsUplevelReferences()) {
-        // Source exec paths cannot escape the source root.
+      if (isDefinitelyNotSourceExecPath(execPath)) {
         result.put(execPath, null);
         continue;
       }
@@ -499,6 +521,7 @@ public class ArtifactFactory implements ArtifactResolver {
     return execRoot.getRelative(execPath);
   }
 
+  @Nullable
   @ThreadSafe
   private SourceArtifact createArtifactIfNotValid(Root sourceRoot, PathFragment execPath) {
     if (sourceRoot == null) {
@@ -530,14 +553,8 @@ public class ArtifactFactory implements ArtifactResolver {
     }
   }
 
-  /**
-   * Determines if an artifact is derived, that is, its root is a derived root or its exec path
-   * starts with the bazel-out prefix.
-   *
-   * @param execPath The artifact's exec path.
-   */
-  @VisibleForTesting // for our own unit tests only.
-  boolean isDerivedArtifact(PathFragment execPath) {
+  @Override
+  public boolean isDerivedArtifact(PathFragment execPath) {
     return execPath.startsWith(derivedPathPrefix);
   }
 }

@@ -14,18 +14,31 @@
 package com.google.devtools.build.lib.packages;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.devtools.build.lib.skyframe.serialization.strings.UnsafeStringCodec.stringCodec;
 
 import com.google.common.collect.ImmutableCollection;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Multimap;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.LeafDeserializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.LeafObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.LeafSerializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import com.google.errorprone.annotations.Keep;
+import com.google.protobuf.CodedInputStream;
+import com.google.protobuf.CodedOutputStream;
+import java.io.IOException;
+import java.util.Collection;
+import java.util.Map;
 import java.util.Objects;
 
 /**
  * Objects of this class contain values of some attributes of rules. Used for passing this
  * information to the aspects.
  */
-@AutoCodec
 public final class AspectParameters {
   private final ImmutableMultimap<String, String> attributes;
 
@@ -33,27 +46,23 @@ public final class AspectParameters {
     this.attributes = ImmutableMultimap.copyOf(attributes);
   }
 
+  @SerializationConstant @VisibleForSerialization
   public static final AspectParameters EMPTY = new AspectParameters(ImmutableMultimap.of());
 
-  @AutoCodec.Instantiator
-  @AutoCodec.VisibleForSerialization
-  static AspectParameters create(ImmutableMultimap<String, String> attributes) {
+  private static AspectParameters create(ImmutableMultimap<String, String> attributes) {
     if (attributes.isEmpty()) {
       return EMPTY;
     }
     return new AspectParameters(attributes);
   }
 
-  /**
-   * A builder for @{link {@link AspectParameters} class.
-   */
+  /** A builder for {@link AspectParameters} class. */
   public static class Builder {
     private final ImmutableMultimap.Builder<String, String> attributes =
         ImmutableMultimap.builder();
 
-    /**
-     * Adds a new pair of attribute-value.
-     */
+    /** Adds a new pair of attribute-value. */
+    @CanIgnoreReturnValue
     public Builder addAttribute(String name, String value) {
       attributes.put(name, value);
       return this;
@@ -93,6 +102,7 @@ public final class AspectParameters {
   }
 
   @Override
+  @SuppressWarnings("UndefinedEquals") // ImmutableMultimap inherits equals from AbstractMultimap
   public boolean equals(Object other) {
     if (this == other) {
       return true;
@@ -112,5 +122,52 @@ public final class AspectParameters {
   @Override
   public String toString() {
     return attributes.toString();
+  }
+
+  /**
+   * This codec causes {@link AspectParameters} memoization to use {@link Object#equals}.
+   *
+   * <p>This improves determinism over memoization using reference quality, which can result in
+   * different serialized representations of equivalent values.
+   */
+  @Keep
+  private static final class Codec extends LeafObjectCodec<AspectParameters> {
+    @Override
+    public Class<AspectParameters> getEncodedClass() {
+      return AspectParameters.class;
+    }
+
+    @Override
+    public void serialize(
+        LeafSerializationContext context, AspectParameters obj, CodedOutputStream codedOut)
+        throws SerializationException, IOException {
+      ImmutableMap<String, Collection<String>> attributes = obj.attributes.asMap();
+      codedOut.writeInt32NoTag(attributes.size());
+      for (Map.Entry<String, Collection<String>> entry : attributes.entrySet()) {
+        context.serializeLeaf(entry.getKey(), stringCodec(), codedOut);
+        Collection<String> values = entry.getValue();
+        codedOut.writeInt32NoTag(values.size());
+        for (String value : values) {
+          context.serializeLeaf(value, stringCodec(), codedOut);
+        }
+      }
+    }
+
+    @Override
+    public AspectParameters deserialize(
+        LeafDeserializationContext context, CodedInputStream codedIn)
+        throws SerializationException, IOException {
+      int size = codedIn.readInt32();
+      var builder = ImmutableMultimap.<String, String>builder();
+      for (int i = 0; i < size; i++) {
+        String key = context.deserializeLeaf(codedIn, stringCodec());
+        int valuesCount = codedIn.readInt32();
+        for (int j = 0; j < valuesCount; j++) {
+          String value = context.deserializeLeaf(codedIn, stringCodec());
+          builder.put(key, value);
+        }
+      }
+      return create(builder.build());
+    }
   }
 }

@@ -21,9 +21,12 @@ import com.google.common.collect.ImmutableSet;
 import io.reactivex.rxjava3.annotations.NonNull;
 import io.reactivex.rxjava3.core.Completable;
 import io.reactivex.rxjava3.core.CompletableEmitter;
+import io.reactivex.rxjava3.core.Flowable;
 import io.reactivex.rxjava3.core.Single;
 import io.reactivex.rxjava3.core.SingleObserver;
 import io.reactivex.rxjava3.disposables.Disposable;
+import io.reactivex.rxjava3.functions.Action;
+import io.reactivex.rxjava3.subjects.AsyncSubject;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -68,13 +71,13 @@ public final class AsyncTaskCache<KeyT, ValueT> {
   private int state = STATE_ACTIVE;
 
   @GuardedBy("lock")
-  private final List<CompletableEmitter> terminationSubscriber = new ArrayList<>();
+  private final ArrayList<CompletableEmitter> terminationSubscriber = new ArrayList<>();
 
   @GuardedBy("lock")
-  private final Map<KeyT, ValueT> finished = new HashMap<>();
+  private Map<KeyT, ValueT> finished = new HashMap<>();
 
   @GuardedBy("lock")
-  private final Map<KeyT, Execution> inProgress = new HashMap<>();
+  private Map<KeyT, Execution> inProgress = new HashMap<>();
 
   public static <KeyT, ValueT> AsyncTaskCache<KeyT, ValueT> create() {
     return new AsyncTaskCache<>();
@@ -130,6 +133,8 @@ public final class AsyncTaskCache<KeyT, ValueT> {
     @GuardedBy("lock")
     private final List<SingleObserver<? super ValueT>> observers = new ArrayList<>();
 
+    private final AsyncSubject<ValueT> completion = AsyncSubject.create();
+
     Execution(KeyT key, Single<ValueT> upstream) {
       this.key = key;
       this.upstream = upstream;
@@ -181,6 +186,9 @@ public final class AsyncTaskCache<KeyT, ValueT> {
             observer.onSuccess(value);
           }
 
+          completion.onNext(value);
+          completion.onComplete();
+
           maybeNotifyTermination();
         }
       }
@@ -196,6 +204,8 @@ public final class AsyncTaskCache<KeyT, ValueT> {
           for (SingleObserver<? super ValueT> observer : ImmutableList.copyOf(observers)) {
             observer.onError(error);
           }
+
+          completion.onError(error);
 
           maybeNotifyTermination();
         }
@@ -256,14 +266,31 @@ public final class AsyncTaskCache<KeyT, ValueT> {
   /**
    * Executes a task.
    *
+   * @see #execute(Object, Single, Action, Action, boolean).
+   */
+  public Single<ValueT> execute(KeyT key, Single<ValueT> task, boolean force) {
+    return execute(key, task, () -> {}, () -> {}, force);
+  }
+
+  /**
+   * Executes a task. If the task has already finished, this execution of the task is ignored unless
+   * `force` is true. If the task is in progress this execution of the task is always ignored.
+   *
    * <p>If the cache is already shutdown, a {@link CancellationException} will be emitted.
    *
    * @param key identifies the task.
+   * @param onAlreadyRunning callback called when provided task is already running.
+   * @param onAlreadyFinished callback called when provided task is already finished.
    * @param force re-execute a finished task if set to {@code true}.
    * @return a {@link Single} which turns to completed once the task is finished or propagates the
    *     error if any.
    */
-  public Single<ValueT> execute(KeyT key, Single<ValueT> task, boolean force) {
+  public Single<ValueT> execute(
+      KeyT key,
+      Single<ValueT> task,
+      Action onAlreadyRunning,
+      Action onAlreadyFinished,
+      boolean force) {
     return Single.create(
         emitter -> {
           synchronized (lock) {
@@ -273,14 +300,20 @@ public final class AsyncTaskCache<KeyT, ValueT> {
             }
 
             if (!force && finished.containsKey(key)) {
+              onAlreadyFinished.run();
               emitter.onSuccess(finished.get(key));
               return;
             }
 
             finished.remove(key);
 
-            Execution execution =
-                inProgress.computeIfAbsent(key, ignoredKey -> new Execution(key, task));
+            Execution execution = inProgress.get(key);
+            if (execution != null) {
+              onAlreadyRunning.run();
+            } else {
+              execution = new Execution(key, task);
+              inProgress.put(key, execution);
+            }
 
             // We must subscribe the execution within the scope of lock to avoid race condition
             // that:
@@ -324,6 +357,39 @@ public final class AsyncTaskCache<KeyT, ValueT> {
     }
   }
 
+  /**
+   * Waits for the in-progress tasks to finish. Any tasks that are submitted after the call are not
+   * waited.
+   */
+  public void awaitInProgressTasks() throws InterruptedException {
+    Completable completable =
+        Completable.defer(
+            () -> {
+              ImmutableList<Execution> executions;
+              synchronized (lock) {
+                executions = ImmutableList.copyOf(inProgress.values());
+              }
+
+              if (executions.isEmpty()) {
+                return Completable.complete();
+              }
+
+              return Completable.fromPublisher(
+                  Flowable.fromIterable(executions)
+                      .flatMapSingle(e -> Single.fromObservable(e.completion)));
+            });
+
+    try {
+      completable.blockingAwait();
+    } catch (RuntimeException e) {
+      Throwable cause = e.getCause();
+      if (cause != null) {
+        throwIfInstanceOf(cause, InterruptedException.class);
+      }
+      throw e;
+    }
+  }
+
   /** Waits for the channel to become terminated. */
   public void awaitTermination() throws InterruptedException {
     Completable completable =
@@ -331,6 +397,10 @@ public final class AsyncTaskCache<KeyT, ValueT> {
             emitter -> {
               synchronized (lock) {
                 if (state == STATE_TERMINATED) {
+                  // Reduce retained size in case references to the cache are held after shutdown.
+                  terminationSubscriber.trimToSize();
+                  inProgress = new HashMap<>();
+                  finished = new HashMap<>();
                   emitter.onComplete();
                 } else {
                   terminationSubscriber.add(emitter);
@@ -425,10 +495,25 @@ public final class AsyncTaskCache<KeyT, ValueT> {
           cache.executeIfNot(key, task.toSingleDefault(Optional.empty())));
     }
 
-    /** Same as {@link AsyncTaskCache#executeIfNot} but operates on {@link Completable}. */
+    /** Same as {@link AsyncTaskCache#execute} but operates on {@link Completable}. */
     public Completable execute(KeyT key, Completable task, boolean force) {
+      return execute(key, task, () -> {}, () -> {}, force);
+    }
+
+    /** Same as {@link AsyncTaskCache#execute} but operates on {@link Completable}. */
+    public Completable execute(
+        KeyT key,
+        Completable task,
+        Action onAlreadyRunning,
+        Action onAlreadyFinished,
+        boolean force) {
       return Completable.fromSingle(
-          cache.execute(key, task.toSingleDefault(Optional.empty()), force));
+          cache.execute(
+              key,
+              task.toSingleDefault(Optional.empty()),
+              onAlreadyRunning,
+              onAlreadyFinished,
+              force));
     }
 
     /** Returns a set of keys for tasks which is finished. */
@@ -452,6 +537,14 @@ public final class AsyncTaskCache<KeyT, ValueT> {
      */
     public void shutdown() {
       cache.shutdown();
+    }
+
+    /**
+     * Waits for the in-progress tasks to finish. Any tasks that are submitted after the call are
+     * not waited.
+     */
+    public void awaitInProgressTasks() throws InterruptedException {
+      cache.awaitInProgressTasks();
     }
 
     /** Waits for the cache to become terminated. */

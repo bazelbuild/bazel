@@ -22,7 +22,6 @@ import build.bazel.remote.execution.v2.ExecutionCapabilities;
 import build.bazel.remote.execution.v2.GetCapabilitiesRequest;
 import build.bazel.remote.execution.v2.ServerCapabilities;
 import build.bazel.remote.execution.v2.SymlinkAbsolutePathStrategy;
-import build.bazel.semver.SemVer;
 import com.google.devtools.build.lib.remote.ApiVersion;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import io.grpc.stub.StreamObserver;
@@ -31,29 +30,39 @@ import io.grpc.stub.StreamObserver;
 final class CapabilitiesServer extends CapabilitiesImplBase {
   private final DigestUtil digestUtil;
   private final boolean execEnabled;
+  private final RemoteWorkerOptions workerOptions;
 
-  public CapabilitiesServer(DigestUtil digestUtil, boolean execEnabled) {
+  public CapabilitiesServer(
+      DigestUtil digestUtil, boolean execEnabled, RemoteWorkerOptions workerOptions) {
     this.digestUtil = digestUtil;
     this.execEnabled = execEnabled;
+    this.workerOptions = workerOptions;
   }
 
   @Override
   public void getCapabilities(
       GetCapabilitiesRequest request, StreamObserver<ServerCapabilities> responseObserver) {
-    SemVer current = ApiVersion.current.toSemVer();
     DigestFunction.Value df = digestUtil.getDigestFunction();
+
+    var builder = ServerCapabilities.newBuilder();
+    if (workerOptions.legacyApi) {
+      builder
+          .setLowApiVersion(ApiVersion.twoPointZero.toSemVer())
+          .setHighApiVersion(ApiVersion.twoPointZero.toSemVer());
+    } else {
+      builder
+          .setLowApiVersion(ApiVersion.low.toSemVer())
+          .setHighApiVersion(ApiVersion.high.toSemVer());
+    }
     ServerCapabilities.Builder response =
-        ServerCapabilities.newBuilder()
-            .setLowApiVersion(current)
-            .setHighApiVersion(current)
-            .setCacheCapabilities(
-                CacheCapabilities.newBuilder()
-                    .addDigestFunctions(df)
-                    .setSymlinkAbsolutePathStrategy(SymlinkAbsolutePathStrategy.Value.DISALLOWED)
-                    .setActionCacheUpdateCapabilities(
-                        ActionCacheUpdateCapabilities.newBuilder().setUpdateEnabled(true).build())
-                    .setMaxBatchTotalSizeBytes(CasServer.MAX_BATCH_SIZE_BYTES)
-                    .build());
+        builder.setCacheCapabilities(
+            CacheCapabilities.newBuilder()
+                .addDigestFunctions(df)
+                .setSymlinkAbsolutePathStrategy(SymlinkAbsolutePathStrategy.Value.DISALLOWED)
+                .setActionCacheUpdateCapabilities(
+                    ActionCacheUpdateCapabilities.newBuilder().setUpdateEnabled(true).build())
+                .setMaxBatchTotalSizeBytes(CasServer.MAX_BATCH_SIZE_BYTES)
+                .build());
     if (execEnabled) {
       response.setExecutionCapabilities(
           ExecutionCapabilities.newBuilder().setDigestFunction(df).setExecEnabled(true).build());

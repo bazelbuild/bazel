@@ -14,7 +14,7 @@
 package com.google.devtools.build.skyframe;
 
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
-import java.util.function.Supplier;
+import com.google.devtools.build.skyframe.NodeEntry.DirtyType;
 import javax.annotation.Nullable;
 
 /** Receiver for various stages of the lifetime of a skyframe node evaluation. */
@@ -24,40 +24,53 @@ public interface EvaluationProgressReceiver {
   /** A no-op {@link EvaluationProgressReceiver}. */
   EvaluationProgressReceiver NULL = new EvaluationProgressReceiver() {};
 
-  /** New state of the value entry after evaluation. */
+  /** The state of a node after it was evaluated. */
   enum EvaluationState {
-    /** The value was successfully re-evaluated. */
-    BUILT,
-    /** The value is clean or re-validated. */
-    CLEAN,
-  }
+    SUCCESS_VERSION_CHANGED(true, true),
+    SUCCESS_VERSION_UNCHANGED(true, false),
+    FAIL_VERSION_CHANGED(false, true),
+    FAIL_VERSION_UNCHANGED(false, true);
 
-  /** Whether or not evaluation of this node succeeded. */
-  enum EvaluationSuccessState {
-    SUCCESS(true),
-    FAILURE(false);
-
-    EvaluationSuccessState(boolean succeeded) {
-      this.succeeded = succeeded;
+    static EvaluationState get(@Nullable SkyValue valueMaybeWithMetadata, boolean versionChanged) {
+      boolean success = ValueWithMetadata.justValue(valueMaybeWithMetadata) != null;
+      if (versionChanged) {
+        return success ? SUCCESS_VERSION_CHANGED : FAIL_VERSION_CHANGED;
+      } else {
+        return success ? SUCCESS_VERSION_UNCHANGED : FAIL_VERSION_UNCHANGED;
+      }
     }
 
     private final boolean succeeded;
+    private final boolean versionChanged;
 
+    EvaluationState(boolean succeeded, boolean versionChanged) {
+      this.succeeded = succeeded;
+      this.versionChanged = versionChanged;
+    }
+
+    /**
+     * Whether the node has a value.
+     *
+     * <p>If {@code false}, the node has only an error and no value.
+     */
     public boolean succeeded() {
       return succeeded;
     }
 
-    public Supplier<EvaluationSuccessState> supplier() {
-      return () -> this;
+    /**
+     * Whether the node's {@link NodeEntry#getVersion} changed as a result of this evaluation.
+     *
+     * <p>If {@code true}, the node was built at the current version and its {@link
+     * NodeEntry#getVersion} changed, either because it was built incrementally and changed or was
+     * built as part of a clean build. Parents need to be rebuilt.
+     *
+     * <p>If {@code false}, the node's {@link NodeEntry#getVersion} did not change, either because
+     * it was deemed up-to-date and not built or was built incrementally and evaluated to the same
+     * value as its prior evaluation. Parents do not necessarily need to be rebuilt.
+     */
+    public boolean versionChanged() {
+      return versionChanged;
     }
-  }
-
-  /** New state of the value entry after invalidation. */
-  enum InvalidationState {
-    /** The value is dirty, although it might get re-validated again. */
-    DIRTY,
-    /** The value is dirty and got deleted, cannot get re-validated again. */
-    DELETED,
   }
 
   /** Overall state of the node while it is being evaluated. */
@@ -73,16 +86,18 @@ public interface EvaluationProgressReceiver {
   }
 
   /**
-   * Notifies that the node for {@code key} has been invalidated.
-   *
-   * <p>{@code state} indicates the new state of the value.
+   * Notifies that the node for {@code skyKey} has been {@linkplain NodeEntry#markDirty marked
+   * dirty} with the given {@link DirtyType}.
    *
    * <p>May be called concurrently from multiple threads.
    *
-   * <p>If {@code state} is {@link InvalidationState#DIRTY}, should only be called after a
-   * successful {@link ThinNodeEntry#markDirty} call: a call that returns a non-null value.
+   * <p>Only called after a successful {@link NodeEntry#markDirty} call: a call that returns a
+   * non-null value.
    */
-  default void invalidated(SkyKey skyKey, InvalidationState state) {}
+  default void dirtied(SkyKey skyKey, DirtyType dirtyType) {}
+
+  /** Notifies that the node for {@code skyKey} was deleted. */
+  default void deleted(SkyKey skyKey) {}
 
   /**
    * Notifies that {@code skyKey} is about to get queued for evaluation.
@@ -110,23 +125,22 @@ public interface EvaluationProgressReceiver {
   default void stateEnding(SkyKey skyKey, NodeState nodeState) {}
 
   /**
-   * Notifies that the node for {@code skyKey} has been evaluated, or found to not need
-   * re-evaluation.
+   * Notifies that the node for {@code skyKey} has been evaluated.
    *
-   * @param newValue The new value. Only available if just evaluated, i.e. on success *and* {@code
-   *     state == EvaluationState.BUILT}
-   * @param newError The new error. Only available if just evaluated, i.e. on error *and* {@code
-   *     state == EvaluationState.BUILT}
-   * @param evaluationSuccessState whether the node has a value or only an error, behind a {@link
-   *     Supplier} for lazy retrieval. Available regardless of whether the node was just evaluated
-   * @param state {@code EvaluationState.BUILT} if the node needed to be evaluated and has a new
-   *     value or error (i.e., {@code EvaluationState.BUILT} if and only if at least one of newValue
-   *     and newError is non-null)
+   * @param state the current state of the node for {@code skyKey}
+   * @param newValue the node's value if {@link EvaluationState#versionChanged()} and {@link
+   *     EvaluationState#succeeded()}, otherwise {@code null}
+   * @param newError the node's error if it has one and {@link EvaluationState#versionChanged()}
+   * @param directDeps direct dependencies of {@code skyKey} if the node was just built, otherwise
+   *     {@code null}
    */
   default void evaluated(
       SkyKey skyKey,
+      EvaluationState state,
       @Nullable SkyValue newValue,
       @Nullable ErrorInfo newError,
-      Supplier<EvaluationSuccessState> evaluationSuccessState,
-      EvaluationState state) {}
+      @Nullable GroupedDeps directDeps) {}
+
+  /** Notifies that the node for {@code skyKey} has been change pruned. */
+  default void changePruned(SkyKey skyKey) {}
 }

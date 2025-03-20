@@ -52,7 +52,7 @@ class CommandNameCacheImpl implements CommandNameCache {
     while (!queue.isEmpty()) {
       Command cur = queue.remove();
       builder.add(cur.name());
-      for (Class<? extends BlazeCommand> clazz : cur.inherits()) {
+      for (Class<? extends BlazeCommand> clazz : cur.inheritsOptionsFrom()) {
         Command parent = clazz.getAnnotation(Command.class);
         if (visited.add(parent)) {
           queue.add(parent);

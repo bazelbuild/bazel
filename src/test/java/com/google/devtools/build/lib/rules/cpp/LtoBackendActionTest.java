@@ -14,8 +14,11 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.ensureMemoizedIsInitializedIsSet;
+import static com.google.devtools.build.lib.skyframe.serialization.testutils.Dumper.dumpStructureWithEquivalenceReduction;
 import static org.junit.Assert.assertThrows;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.AbstractAction;
@@ -29,23 +32,23 @@ import com.google.devtools.build.lib.actions.DiscoveredModulesPruner;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.ThreadStateReceiver;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
-import com.google.devtools.build.lib.analysis.Runfiles;
-import com.google.devtools.build.lib.analysis.SingleRunfilesSupplier;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.util.ActionTester;
 import com.google.devtools.build.lib.analysis.util.ActionTester.ActionCombinationFactory;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestUtil;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.StoredEventHandler;
-import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.exec.util.TestExecutorBuilder;
+import com.google.devtools.build.lib.skyframe.serialization.ArrayCodec;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationDepsUtils;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.vfs.UnixGlob;
-import java.util.Arrays;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import java.util.HashMap;
 import java.util.Map;
 import org.junit.Before;
@@ -62,7 +65,7 @@ public class LtoBackendActionTest extends BuildViewTestCase {
   private Artifact index2Artifact;
   private Artifact imports1Artifact;
   private Artifact imports2Artifact;
-  private Artifact destinationArtifact;
+  private Artifact.DerivedArtifact destinationArtifact;
   private BitcodeFiles allBitcodeFiles;
   private AnalysisTestUtil.CollectingAnalysisEnvironment collectingAnalysisEnvironment;
   private ActionExecutionContext context;
@@ -87,26 +90,23 @@ public class LtoBackendActionTest extends BuildViewTestCase {
 
   @Before
   public final void createExecutorAndContext() throws Exception {
-    BinTools binTools = BinTools.forUnitTesting(directories, analysisMock.getEmbeddedTools());
-    Executor executor = new TestExecutorBuilder(fileSystem, directories, binTools).build();
+    Executor executor = new TestExecutorBuilder(fileSystem, directories).build();
     context =
         new ActionExecutionContext(
             executor,
-            /*actionInputFileCache=*/ null,
+            /* inputMetadataProvider= */ null,
             ActionInputPrefetcher.NONE,
             actionKeyContext,
-            /*metadataHandler=*/ null,
-            /*rewindingEnabled=*/ false,
+            /* outputMetadataStore= */ null,
+            /* rewindingEnabled= */ false,
             LostInputsCheck.NONE,
             new FileOutErr(),
             new StoredEventHandler(),
-            /*clientEnv=*/ ImmutableMap.of(),
-            /*topLevelFilesets=*/ ImmutableMap.of(),
-            /*artifactExpander=*/ null,
-            /*actionFileSystem=*/ null,
-            /*skyframeDepsResult=*/ null,
+            /* clientEnv= */ ImmutableMap.of(),
+            /* artifactExpander= */ null,
+            /* actionFileSystem= */ null,
             DiscoveredModulesPruner.DEFAULT,
-            UnixGlob.DEFAULT_SYSCALLS,
+            SyscallCache.NO_CACHE,
             ThreadStateReceiver.NULL_INSTANCE);
   }
 
@@ -127,15 +127,15 @@ public class LtoBackendActionTest extends BuildViewTestCase {
         .isEqualTo(ActionsTestUtil.NULL_ACTION_OWNER.getLabel());
     assertThat(action.getInputs().toList()).containsExactly(bitcode1Artifact, index1Artifact);
     assertThat(action.getOutputs()).containsExactly(destinationArtifact);
-    assertThat(action.getSpawn().getLocalResources())
+    assertThat(action.getSpawnForTesting().getLocalResources())
         .isEqualTo(AbstractAction.DEFAULT_RESOURCE_SET);
     assertThat(action.getArguments()).containsExactly("/bin/clang");
     assertThat(action.getProgressMessage()).isEqualTo("Test");
-    assertThat(action.inputsDiscovered()).isFalse();
+    assertThat(action.inputsKnown()).isFalse();
 
     // Discover inputs, which should not add any inputs since bitcode1.imports is empty.
     action.discoverInputs(context);
-    assertThat(action.inputsDiscovered()).isTrue();
+    assertThat(action.inputsKnown()).isTrue();
     assertThat(action.getInputs().toList()).containsExactly(bitcode1Artifact, index1Artifact);
   }
 
@@ -156,15 +156,15 @@ public class LtoBackendActionTest extends BuildViewTestCase {
         .isEqualTo(ActionsTestUtil.NULL_ACTION_OWNER.getLabel());
     assertThat(action.getInputs().toList()).containsExactly(bitcode2Artifact, index2Artifact);
     assertThat(action.getOutputs()).containsExactly(destinationArtifact);
-    assertThat(action.getSpawn().getLocalResources())
+    assertThat(action.getSpawnForTesting().getLocalResources())
         .isEqualTo(AbstractAction.DEFAULT_RESOURCE_SET);
     assertThat(action.getArguments()).containsExactly("/bin/clang");
     assertThat(action.getProgressMessage()).isEqualTo("Test");
-    assertThat(action.inputsDiscovered()).isFalse();
+    assertThat(action.inputsKnown()).isFalse();
 
     // Discover inputs, which should add bitcode1.o which is listed in bitcode2.imports.
     action.discoverInputs(context);
-    assertThat(action.inputsDiscovered()).isTrue();
+    assertThat(action.inputsKnown()).isTrue();
     assertThat(action.getInputs().toList())
         .containsExactly(bitcode1Artifact, bitcode2Artifact, index2Artifact);
   }
@@ -173,10 +173,8 @@ public class LtoBackendActionTest extends BuildViewTestCase {
     EXECUTABLE,
     IMPORTS_INFO,
     MNEMONIC,
-    RUNFILES_SUPPLIER,
     INPUT,
-    FIXED_ENVIRONMENT,
-    VARIABLE_ENVIRONMENT
+    FIXED_ENVIRONMENT
   }
 
   @Test
@@ -212,24 +210,6 @@ public class LtoBackendActionTest extends BuildViewTestCase {
 
             builder.setMnemonic(attributesToFlip.contains(KeyAttributes.MNEMONIC) ? "a" : "b");
 
-            if (attributesToFlip.contains(KeyAttributes.RUNFILES_SUPPLIER)) {
-              builder.addRunfilesSupplier(
-                  new SingleRunfilesSupplier(
-                      PathFragment.create("a"),
-                      Runfiles.EMPTY,
-                      artifactA,
-                      /* buildRunfileLinks= */ false,
-                      /* runfileLinksEnabled= */ false));
-            } else {
-              builder.addRunfilesSupplier(
-                  new SingleRunfilesSupplier(
-                      PathFragment.create("a"),
-                      Runfiles.EMPTY,
-                      artifactB,
-                      /* buildRunfileLinks= */ false,
-                      /* runfileLinksEnabled= */ false));
-            }
-
             if (attributesToFlip.contains(KeyAttributes.INPUT)) {
               builder.addInput(artifactA);
             } else {
@@ -241,9 +221,6 @@ public class LtoBackendActionTest extends BuildViewTestCase {
               env.put("foo", "bar");
             }
             builder.setEnvironment(env);
-            if (attributesToFlip.contains(KeyAttributes.VARIABLE_ENVIRONMENT)) {
-              builder.setInheritedEnvironment(Arrays.asList("baz"));
-            }
 
             SpawnAction action = builder.build(ActionsTestUtil.NULL_ACTION_OWNER, targetConfig);
             collectingAnalysisEnvironment.registerAction(action);
@@ -261,7 +238,7 @@ public class LtoBackendActionTest extends BuildViewTestCase {
         new LtoBackendAction.Builder()
             .addImportsInfo(
                 new BitcodeFiles(
-                    new NestedSetBuilder<Artifact>(Order.STABLE_ORDER)
+                    NestedSet.<Artifact>builder(Order.STABLE_ORDER)
                         .add(getSourceArtifact("file2.o"))
                         .build()),
                 imports1Artifact)
@@ -272,5 +249,38 @@ public class LtoBackendActionTest extends BuildViewTestCase {
         assertThrows(ActionExecutionException.class, () -> action.discoverInputs(context));
 
     assertThat(e).hasMessageThat().endsWith("(first 10): file1.o, file3.o");
+  }
+
+  @Test
+  public void serializationRoundTrip_resetsInputs() throws Exception {
+    LtoBackendAction action =
+        (LtoBackendAction)
+            new LtoBackendAction.Builder()
+                .addImportsInfo(allBitcodeFiles, imports2Artifact)
+                .addInput(bitcode2Artifact)
+                .addInput(index2Artifact)
+                .addOutput(destinationArtifact)
+                .setExecutable(scratch.file("/bin/clang").asFragment())
+                .setProgressMessage("Test")
+                .build(ActionsTestUtil.NULL_ACTION_OWNER, targetConfig);
+    destinationArtifact.setGeneratingActionKey(ActionsTestUtil.NULL_ACTION_LOOKUP_DATA);
+    ensureMemoizedIsInitializedIsSet(action);
+
+    String originalStructure = dumpStructureWithEquivalenceReduction(action);
+
+    ImmutableList<Artifact> originalInputs = action.getInputs().toList();
+    var unused = action.discoverInputs(context);
+    assertThat(action.getInputs().toList()).isNotEqualTo(originalInputs);
+
+    new SerializationTester(action)
+        .makeMemoizingAndAllowFutureBlocking(/* allowFutureBlocking= */ true)
+        .addCodec(ArrayCodec.forComponentType(Artifact.class))
+        .setVerificationFunction(
+            (unusedInput, deserialized) ->
+                assertThat(dumpStructureWithEquivalenceReduction(deserialized))
+                    .isEqualTo(originalStructure))
+        .addDependencies(getCommonSerializationDependencies())
+        .addDependencies(SerializationDepsUtils.SERIALIZATION_DEPS_FOR_TEST)
+        .runTests();
   }
 }

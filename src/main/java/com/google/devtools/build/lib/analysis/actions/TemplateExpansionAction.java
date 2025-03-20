@@ -18,28 +18,30 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.AbstractAction;
-import com.google.devtools.build.lib.actions.ActionContinuationOrResult;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.SpawnContinuation;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
+import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.server.FailureDetails.Execution;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
 import java.io.IOException;
 import java.util.List;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
+import net.starlark.java.eval.EvalException;
 
 /** Action to expand a template and write the expanded content to a file. */
 @Immutable // if all substitutions are immutable
@@ -126,57 +128,63 @@ public final class TemplateExpansionAction extends AbstractAction {
         makeExecutable);
   }
 
+  static ActionResult execute(
+      ActionExecutionContext actionExecutionContext,
+      AbstractAction action,
+      TemplateExpansionContext.TemplateMetadata templateMetadata)
+      throws ActionExecutionException, InterruptedException {
+    try {
+      ImmutableList<SpawnResult> result =
+          actionExecutionContext
+              .getContext(TemplateExpansionContext.class)
+              .expandTemplate(action, actionExecutionContext, templateMetadata);
+
+      return ActionResult.create(result);
+    } catch (EvalException e) {
+      DetailedExitCode exitCode =
+          DetailedExitCode.of(
+              FailureDetail.newBuilder()
+                  .setExecution(
+                      Execution.newBuilder()
+                          .setCode(Execution.Code.LOCAL_TEMPLATE_EXPANSION_FAILURE))
+                  .build());
+      throw new ActionExecutionException(e, action, /* catastrophe= */ false, exitCode);
+    } catch (ExecException e) {
+      throw ActionExecutionException.fromExecException(e, action);
+    }
+  }
+
+  @Override
+  public ActionResult execute(ActionExecutionContext actionExecutionContext)
+      throws ActionExecutionException, InterruptedException {
+    return TemplateExpansionAction.execute(
+        actionExecutionContext,
+        this,
+        TemplateExpansionContext.TemplateMetadata.builder()
+            .setTemplate(template)
+            .setPrimaryOutput(getPrimaryOutput())
+            .setSubstitutions(substitutions)
+            .setMakeExecutable(makeExecutable)
+            .build());
+  }
+
   @VisibleForTesting
-  public String getFileContents() throws IOException {
-    return LocalTemplateExpansionStrategy.INSTANCE.getExpandedTemplateUnsafe(this,
-        ArtifactPathResolver.IDENTITY);
+  public String getFileContents() throws IOException, EvalException {
+    return LocalTemplateExpansionStrategy.INSTANCE.getExpandedTemplateUnsafe(
+        template, substitutions, ArtifactPathResolver.IDENTITY);
   }
 
   @Override
-  public String getStarlarkContent() throws IOException {
+  public String getStarlarkContent() throws IOException, EvalException {
     return getFileContents();
-  }
-
-  @Override
-  public final ActionContinuationOrResult beginExecution(
-      ActionExecutionContext actionExecutionContext) throws InterruptedException {
-    SpawnContinuation first =
-        actionExecutionContext
-            .getContext(TemplateExpansionContext.class)
-            .expandTemplate(TemplateExpansionAction.this, actionExecutionContext);
-    return new ActionContinuationOrResult() {
-      private SpawnContinuation spawnContinuation = first;
-
-      @Nullable
-      @Override
-      public ListenableFuture<?> getFuture() {
-        return spawnContinuation.getFuture();
-      }
-
-      @Override
-      public ActionContinuationOrResult execute()
-          throws ActionExecutionException, InterruptedException {
-        SpawnContinuation nextContinuation;
-        try {
-          nextContinuation = spawnContinuation.execute();
-          if (!nextContinuation.isDone()) {
-            spawnContinuation = nextContinuation;
-            return this;
-          }
-        } catch (ExecException e) {
-          throw e.toActionExecutionException(
-              TemplateExpansionAction.this);
-        }
-        return ActionContinuationOrResult.of(ActionResult.create(nextContinuation.get()));
-      }
-    };
   }
 
   @Override
   protected void computeKey(
       ActionKeyContext actionKeyContext,
-      @Nullable ArtifactExpander artifactExpander,
-      Fingerprint fp) {
+      @Nullable InputMetadataProvider inputMetadataProvider,
+      Fingerprint fp)
+      throws EvalException {
     fp.addString(GUID);
     fp.addString(String.valueOf(makeExecutable));
     fp.addString(template.getKey());
@@ -185,6 +193,13 @@ public final class TemplateExpansionAction extends AbstractAction {
       fp.addString(entry.getKey());
       fp.addString(entry.getValue());
     }
+  }
+
+  @Override
+  public String describeKey() {
+    return String.format(
+        "GUID: %s\nmakeExecutable: %s\ntemplate: %s\nsubstitutions: %s\n",
+        GUID, makeExecutable, template.getKey(), substitutions);
   }
 
   @Override
@@ -210,7 +225,7 @@ public final class TemplateExpansionAction extends AbstractAction {
   }
 
   @Override
-  public Dict<String, String> getStarlarkSubstitutions() {
+  public Dict<String, String> getStarlarkSubstitutions() throws EvalException {
     Dict.Builder<String, String> builder = Dict.builder();
     for (Substitution entry : substitutions) {
       builder.put(entry.getKey(), entry.getValue());

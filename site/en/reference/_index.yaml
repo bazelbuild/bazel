@@ -1,0 +1,74 @@
+book_path: /_book.yaml
+project_path: /_project.yaml
+
+title: Reference
+landing_page:
+  header:
+    hide_lower_section: true
+  custom_css_path: /bazel.css
+
+  rows:
+  # Hero Row
+  - options:
+    - description-50
+    - hero
+    - large-headings
+    - no-image-background
+    classname: bazel-hero bazel-hero-full-bleed-light
+    items:
+    - classname: bazel-hero
+      image_path: /images/reference.svg
+      heading: >
+        Reference
+      description: >
+        Look up commands, queries, and terminology necessary to working with Bazel.
+
+  # Build encyclopedia Row
+  - options:
+    - no-image-background
+    - description-50
+    - large-headings
+    classname: bazel-body-light-cards
+    heading: Reference guides
+    description: >
+      Search these reference materials to quickly find the syntax and options you need.
+    items_across: 4
+    items:
+    - heading: Build encyclopedia
+      path: /reference/be
+      image_path: /images/essential_reference.svg
+      description: >
+        Use the Build Encyclopedia as the source of truth for all Bazel functions, as it autogenerates with each new build.
+    - heading: Test encyclopedia
+      path: /reference/test-encyclopedia
+      image_path: /images/test.png
+      description: >
+        Learn about the runtime environment for and expected behavior of Bazel tests.
+    - heading: Command line reference
+      path: /reference/command-line-reference
+      image_path: /images/why_overview.svg
+      description: >
+        Find options and syntax for working in a command line environment.
+    - heading: Query reference
+      path: /query/language
+      image_path: /images/why_faq.svg
+      description: >
+        Reference the query manual when analyzing build dependencies with one of Bazel's query languages.
+
+  # Glossary Row
+  - options:
+    - large-headings
+    - description-50
+    - no-image-background
+    classname: bazel-body-light-row
+    items:
+    - image_left: true
+      image_path: /images/new_2.svg
+      heading: <br><br>Glossary<br><b>—</b>
+      path: ''
+      description: >
+        Look up specialized vocabulary, as well as context-specific uses of common words.
+      buttons:
+      - label: Read the glossary
+        path: /reference/glossary
+        classname: button bazel-button-dark

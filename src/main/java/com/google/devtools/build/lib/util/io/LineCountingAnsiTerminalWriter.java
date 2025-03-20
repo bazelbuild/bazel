@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.util.io;
 
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 
 /**
@@ -29,12 +30,14 @@ public class LineCountingAnsiTerminalWriter implements AnsiTerminalWriter {
     this.lineCount = 0;
   }
 
+  @CanIgnoreReturnValue
   @Override
   public AnsiTerminalWriter append(String text) throws IOException {
     terminal.writeString(text);
     return this;
   }
 
+  @CanIgnoreReturnValue
   @Override
   public AnsiTerminalWriter newline() throws IOException {
     terminal.writeString(System.lineSeparator());
@@ -42,12 +45,14 @@ public class LineCountingAnsiTerminalWriter implements AnsiTerminalWriter {
     return this;
   }
 
+  @CanIgnoreReturnValue
   @Override
   public AnsiTerminalWriter okStatus() throws IOException {
     terminal.textGreen();
     return this;
   }
 
+  @CanIgnoreReturnValue
   @Override
   public AnsiTerminalWriter failStatus() throws IOException {
     terminal.textRed();
@@ -55,6 +60,7 @@ public class LineCountingAnsiTerminalWriter implements AnsiTerminalWriter {
     return this;
   }
 
+  @CanIgnoreReturnValue
   @Override
   public AnsiTerminalWriter normal() throws IOException {
     terminal.resetTerminal();

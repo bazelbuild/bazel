@@ -70,6 +70,64 @@ public class ExecutionInfoModifierTest {
   }
 
   @Test
+  public void executionInfoModifier_multipleOptionsAdditive() throws Exception {
+    var modifier1 =
+        converter.convert(
+            "Genrule=+x,CppCompile=-y1,GenericAction=+z,MergeLayers=+t,OtherAction=+o");
+    var modifier2 =
+        converter.convert(
+            "Genrule=-x,CppCompile=+y1,CppCompile=+y2,GenericAction=+z,MergeLayers=+u");
+    var modifier3 = converter.convert(".*=-t");
+
+    var modifiers = ImmutableList.of(modifier1, modifier2, modifier3);
+    assertModifierMatchesAndResults(modifiers, /* additive= */ true, "Genrule", ImmutableSet.of());
+    assertModifierMatchesAndResults(
+        modifiers, /* additive= */ true, "CppCompile", ImmutableSet.of("y1", "y2"));
+    assertModifierMatchesAndResults(
+        modifiers, /* additive= */ true, "GenericAction", ImmutableSet.of("z"));
+    assertModifierMatchesAndResults(
+        modifiers, /* additive= */ true, "MergeLayers", ImmutableSet.of("u"));
+    assertModifierMatchesAndResults(
+        modifiers, /* additive= */ true, "OtherAction", ImmutableSet.of("o"));
+  }
+
+  @Test
+  public void executionInfoModifier_multipleOptionsNonAdditive() throws Exception {
+    var modifier1 =
+        converter.convert(
+            "Genrule=+x,CppCompile=-y1,GenericAction=+z,MergeLayers=+t,OtherAction=+o");
+    var modifier2 =
+        converter.convert(
+            "Genrule=-x,CppCompile=+y1,CppCompile=+y2,GenericAction=+z,MergeLayers=+u");
+    var modifier3 = converter.convert(".*=-t");
+
+    var modifiers1 = ImmutableList.of(modifier1, modifier2);
+
+    assertModifierMatchesAndResults(
+        modifiers1, /* additive= */ false, "Genrule", ImmutableSet.of());
+    assertModifierMatchesAndResults(
+        modifiers1, /* additive= */ false, "CppCompile", ImmutableSet.of("y1", "y2"));
+    assertModifierMatchesAndResults(
+        modifiers1, /* additive= */ false, "GenericAction", ImmutableSet.of("z"));
+    assertModifierMatchesAndResults(
+        modifiers1, /* additive= */ false, "MergeLayers", ImmutableSet.of("u"));
+    assertThat(ExecutionInfoModifier.matches(modifiers1, false, "OtherAction")).isFalse();
+
+    var modifiers2 = ImmutableList.of(modifier1, modifier2, modifier3);
+
+    assertModifierMatchesAndResults(
+        modifiers2, /* additive= */ false, "Genrule", ImmutableSet.of());
+    assertModifierMatchesAndResults(
+        modifiers2, /* additive= */ false, "CppCompile", ImmutableSet.of());
+    assertModifierMatchesAndResults(
+        modifiers2, /* additive= */ false, "GenericAction", ImmutableSet.of());
+    assertModifierMatchesAndResults(
+        modifiers2, /* additive= */ false, "MergeLayers", ImmutableSet.of());
+    assertModifierMatchesAndResults(
+        modifiers2, /* additive= */ false, "OtherAction", ImmutableSet.of());
+  }
+
+  @Test
   public void executionInfoModifier_invalidFormat_throws() throws Exception {
     List<String> invalidModifiers =
         ImmutableList.of("A", "=", "A=", "A=+", "=+", "A=-B,A", "A=B", "A", ",");
@@ -110,9 +168,18 @@ public class ExecutionInfoModifierTest {
 
   private void assertModifierMatchesAndResults(
       ExecutionInfoModifier modifier, String mnemonic, Set<String> expectedKeys) {
+    assertModifierMatchesAndResults(
+        ImmutableList.of(modifier), /* additive= */ false, mnemonic, expectedKeys);
+  }
+
+  private void assertModifierMatchesAndResults(
+      List<ExecutionInfoModifier> modifiers,
+      boolean additive,
+      String mnemonic,
+      Set<String> expectedKeys) {
     Map<String, String> copy = new HashMap<>();
-    modifier.apply(mnemonic, copy);
-    assertThat(modifier.matches(mnemonic)).isTrue();
+    ExecutionInfoModifier.apply(modifiers, additive, mnemonic, copy);
+    assertThat(ExecutionInfoModifier.matches(modifiers, additive, mnemonic)).isTrue();
     assertThat(copy)
         .containsExactlyEntriesIn(
             expectedKeys.stream().collect(ImmutableMap.toImmutableMap(k -> k, unused -> "")));

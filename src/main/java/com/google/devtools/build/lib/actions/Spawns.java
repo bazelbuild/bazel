@@ -19,24 +19,33 @@ import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
 import java.io.IOException;
 import java.time.Duration;
+import java.util.Map;
 
 /** Helper methods relating to implementations of {@link Spawn}. */
 public final class Spawns {
   private Spawns() {}
 
-  /**
-   * Returns {@code true} if the result of {@code spawn} may be cached.
-   */
+  /** Returns {@code true} if the result of {@code spawn} may be cached. */
   public static boolean mayBeCached(Spawn spawn) {
-    return !spawn.getExecutionInfo().containsKey(ExecutionRequirements.NO_CACHE)
-        && !spawn.getExecutionInfo().containsKey(ExecutionRequirements.LOCAL);
+    return mayBeCached(spawn.getExecutionInfo());
+  }
+
+  /** Returns {@code true} if the result of {@code spawn} may be cached. */
+  public static boolean mayBeCached(Map<String, String> executionInfo) {
+    return !executionInfo.containsKey(ExecutionRequirements.NO_CACHE)
+        && !executionInfo.containsKey(ExecutionRequirements.LOCAL);
   }
 
   /** Returns {@code true} if the result of {@code spawn} may be cached remotely. */
   public static boolean mayBeCachedRemotely(Spawn spawn) {
-    return mayBeCached(spawn)
-        && !spawn.getExecutionInfo().containsKey(ExecutionRequirements.NO_REMOTE)
-        && !spawn.getExecutionInfo().containsKey(ExecutionRequirements.NO_REMOTE_CACHE);
+    return mayBeCachedRemotely(spawn.getExecutionInfo());
+  }
+
+  /** Returns {@code true} if the result of {@code spawn} may be cached remotely. */
+  public static boolean mayBeCachedRemotely(Map<String, String> executionInfo) {
+    return mayBeCached(executionInfo)
+        && !executionInfo.containsKey(ExecutionRequirements.NO_REMOTE)
+        && !executionInfo.containsKey(ExecutionRequirements.NO_REMOTE_CACHE);
   }
 
   /** Returns {@code true} if {@code spawn} may be executed remotely. */
@@ -93,6 +102,15 @@ public final class Spawns {
   }
 
   /**
+   * Returns whether the {@link Spawn} supports sandboxing for multiplex workers through the {@code
+   * WorkRequest.sandbox_dir} field.
+   */
+  public static boolean supportsMultiplexSandboxing(Spawn spawn) {
+    return "1"
+        .equals(spawn.getExecutionInfo().get(ExecutionRequirements.SUPPORTS_MULTIPLEX_SANDBOXING));
+  }
+
+  /**
    * Returns which worker protocol format a Spawn claims a persistent worker uses. Defaults to proto
    * if the protocol format is not specified.
    */
@@ -102,16 +120,14 @@ public final class Spawns {
         spawn.getExecutionInfo().get(ExecutionRequirements.REQUIRES_WORKER_PROTOCOL);
 
     if (protocolFormat != null) {
-      switch (protocolFormat) {
-        case "json":
-          return ExecutionRequirements.WorkerProtocolFormat.JSON;
-        case "proto":
-          return ExecutionRequirements.WorkerProtocolFormat.PROTO;
-        default:
-          throw new IOException(
-              "requires-worker-protocol must be set to a valid worker protocol format: json or"
-                  + " proto");
-      }
+      return switch (protocolFormat) {
+        case "json" -> ExecutionRequirements.WorkerProtocolFormat.JSON;
+        case "proto" -> ExecutionRequirements.WorkerProtocolFormat.PROTO;
+        default ->
+            throw new IOException(
+                "requires-worker-protocol must be set to a valid worker protocol format: json or"
+                    + " proto");
+      };
     } else {
       return ExecutionRequirements.WorkerProtocolFormat.PROTO;
     }
@@ -167,7 +183,7 @@ public final class Spawns {
    * {@code toString()} of Spawns.
    */
   public static String prettyPrint(Spawn spawn) {
-    if (spawn.getResourceOwner() != null && spawn.getResourceOwner().getPrimaryOutput() != null) {
+    if (spawn.getResourceOwner().getPrimaryOutput() != null) {
       return spawn.getClass().getSimpleName()
           + " for "
           + spawn.getResourceOwner().getPrimaryOutput().prettyPrint();

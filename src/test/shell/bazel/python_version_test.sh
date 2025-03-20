@@ -58,13 +58,6 @@ msys*)
   ;;
 esac
 
-if "$is_windows"; then
-  # Disable MSYS path conversion that converts path-looking command arguments to
-  # Windows paths (even if they arguments are not in fact paths).
-  export MSYS_NO_PATHCONV=1
-  export MSYS2_ARG_CONV_EXCL="*"
-fi
-
 #### TESTS #############################################################
 
 # Check that our environment setup works.
@@ -73,10 +66,29 @@ function test_can_run_py_binaries() {
 
   cat > test/BUILD << EOF
 py_binary(
-    name = "main2",
-    python_version = "PY2",
-    srcs = ['main2.py'],
+    name = "main3",
+    python_version = "PY3",
+    srcs = ["main3.py"],
 )
+EOF
+
+  cat > test/main3.py << EOF
+import platform
+print("I am Python " + platform.python_version_tuple()[0])
+EOF
+
+  bazel run //test:main3 \
+      &> $TEST_log || fail "bazel run failed"
+  expect_log "I am Python 3"
+}
+
+# Verify that a bzlmod without any workspace interference is able to
+# run Python rules.
+# This test is obsolete once the Python rules are removed from Bazel itself.
+function test_pure_bzlmod_can_build_py_binary() {
+  mkdir -p test
+
+  cat > test/BUILD << EOF
 py_binary(
     name = "main3",
     python_version = "PY3",
@@ -84,19 +96,11 @@ py_binary(
 )
 EOF
 
-  cat > test/main2.py << EOF
-import platform
-print("I am Python " + platform.python_version_tuple()[0])
-EOF
-  cp test/main2.py test/main3.py
+  touch test/main3.py
 
-  bazel run //test:main2 \
-      &> $TEST_log || fail "bazel run failed"
-  expect_log "I am Python 2"
-
-  bazel run //test:main3 \
-      &> $TEST_log || fail "bazel run failed"
-  expect_log "I am Python 3"
+  # Build instead of run. The autodetecting toolchain may not produce something
+  # that actually works (it could be a fake or some arbitrary system python).
+  bazel build --enable_bzlmod //test:main3 &> $TEST_log || fail "unable to build py binary"
 }
 
 # Test that access to runfiles works (in general, and under our test environment
@@ -121,7 +125,7 @@ EOF
 from bazel_tools.tools.python.runfiles import runfiles
 
 r = runfiles.Create()
-path = r.Rlocation("$WORKSPACE_NAME/test/data.txt")
+path = r.Rlocation("_main/test/data.txt")
 print("Rlocation returned: " + str(path))
 if path is not None:
   with open(path, 'rt') as f:
@@ -143,6 +147,11 @@ EOF
 # The specific issue #5104 was caused by file permissions being lost when
 # unzipping runfiles, which led to an unexecutable runtime.
 function test_build_python_zip_works_with_workspace_runtime() {
+  cat > MODULE.bazel << EOF
+module(name="pyzip")
+bazel_dep(name = "rules_python", version = "0.19.0")
+EOF
+
   mkdir -p test
 
   # The runfiles interpreter is either a sh script or bat script depending on
@@ -154,7 +163,8 @@ function test_build_python_zip_works_with_workspace_runtime() {
   fi
 
   cat > test/BUILD << EOF
-load("@bazel_tools//tools/python:toolchain.bzl", "py_runtime_pair")
+load("@rules_python//python:py_runtime.bzl", "py_runtime")
+load("@rules_python//python:py_runtime_pair.bzl", "py_runtime_pair")
 
 py_binary(
     name = "pybin",
@@ -201,6 +211,66 @@ EOF
   expect_log "I am mockpy!"
 }
 
+# Verify that looking up runfiles that require repo mapping works
+function test_build_python_zip_bzlmod_repo_mapping_runfiles() {
+  cat > MODULE.bazel << EOF
+module(name="pyzip")
+bazel_dep(name = "rules_python", version = "0.19.0")
+EOF
+  mkdir test
+  cat > test/BUILD << EOF
+py_binary(
+  name = "pybin",
+  srcs = ["pybin.py"],
+  deps = ["@rules_python//python/runfiles"],
+  data = ["data.txt"],
+)
+EOF
+  echo "data" > test/data.txt
+  cat > test/pybin.py << EOF
+from python.runfiles import runfiles
+rf = runfiles.Create()
+path = rf.Rlocation("pyzip/test/data.txt")
+with open(path, "r") as fp:
+  fp.read()
+EOF
+
+  bazel run --enable_bzlmod --build_python_zip //test:pybin &> $TEST_log || fail "bazel run failed"
+
+  unzip -p bazel-bin/test/pybin.zip runfiles/_repo_mapping > actual_repo_mapping
+  assert_contains ",pyzip,_main" actual_repo_mapping
+}
+
+# Test that running a zip app without RUN_UNDER_RUNFILES=1 removes the
+# temporary directory it creates
+function test_build_python_zip_cleans_up_temporary_module_space() {
+
+  mkdir test
+  cat > test/BUILD << EOF
+py_binary(
+  name = "pybin",
+  srcs = ["pybin.py"],
+)
+EOF
+  cat > test/pybin.py << EOF
+print(__file__)
+EOF
+
+  bazel build //test:pybin --build_python_zip &> $TEST_log || fail "bazel build failed"
+  # Clear out runfiles variables to ensure that the binary finds its own
+  # runfiles correctly.
+  pybin_location=$(env -u RUNFILES_DIR -u RUNFILES_MANIFEST_FILE \
+      -u RUNFILES_MANIFEST_ONLY -u JAVA_RUNFILES -u PYTHON_RUNFILES \
+      bazel-bin/test/pybin)
+
+  # The pybin location is "<ms root>/runfiles/<workspace>/test/pybin.py",
+  # so we have to go up 4 directories to get to the module space root
+  module_space_dir=$(dirname $(dirname $(dirname $(dirname "$pybin_location"))))
+  if [[ -d "$module_space_dir" ]]; then
+    fail "expected module space directory to be deleted, but $module_space_dir still exists"
+  fi
+}
+
 function test_get_python_zip_file_via_output_group() {
   touch foo.py
   cat > BUILD <<'EOF'
@@ -212,294 +282,6 @@ EOF
   bazel build :foo --build_python_zip=false --output_groups=python_zip_file \
       &> $TEST_log || fail "bazel build failed"
   [[ -f "bazel-bin/foo.zip" ]] || fail "failed to build python zip file via output group"
-}
-
-function test_pybin_can_have_different_version_pybin_as_data_dep() {
-  # TODO(#8503): Fix this test for windows.
-  if "$is_windows"; then
-    return
-  fi
-
-  mkdir -p test
-
-  cat > test/BUILD << EOF
-py_binary(
-  name = "py2bin",
-  srcs = ["py2bin.py"],
-  python_version = "PY2",
-)
-py_binary(
-  name = "py3bin",
-  srcs = ["py3bin.py"],
-  python_version = "PY3",
-)
-py_binary(
-  name = "py2bin_calling_py3bin",
-  srcs = ["py2bin_calling_py3bin.py"],
-  deps = ["@bazel_tools//tools/python/runfiles"],
-  data = [":py3bin"],
-  python_version = "PY2",
-)
-py_binary(
-  name = "py3bin_calling_py2bin",
-  srcs = ["py3bin_calling_py2bin.py"],
-  deps = ["@bazel_tools//tools/python/runfiles"],
-  data = [":py2bin"],
-  python_version = "PY3",
-)
-EOF
-
-  cat > test/py2bin.py << EOF
-import platform
-
-print("Inner bin uses Python " + platform.python_version_tuple()[0])
-EOF
-  cp test/py2bin.py test/py3bin.py
-
-  cat > test/py2bin_calling_py3bin.py << EOF
-import platform
-import subprocess
-from bazel_tools.tools.python.runfiles import runfiles
-
-print("Outer bin uses Python " + platform.python_version_tuple()[0])
-
-r = runfiles.Create()
-bin_path = r.Rlocation("$WORKSPACE_NAME/test/py3bin")
-assert bin_path is not None
-
-subprocess.call([bin_path])
-EOF
-  sed s/py3bin/py2bin/ test/py2bin_calling_py3bin.py > test/py3bin_calling_py2bin.py
-
-  EXPFLAG="--incompatible_py3_is_default=false \
---incompatible_py2_outputs_are_suffixed=false"
-
-  bazel build $EXPFLAG //test:py2bin_calling_py3bin //test:py3bin_calling_py2bin \
-      || fail "bazel build failed"
-  PY2_OUTER_BIN=$(bazel info bazel-bin $EXPFLAG)/test/py2bin_calling_py3bin
-  PY3_OUTER_BIN=$(bazel info bazel-bin $EXPFLAG --python_version=PY3)/test/py3bin_calling_py2bin
-
-  RUNFILES_MANIFEST_FILE= RUNFILES_DIR= $PY2_OUTER_BIN &> $TEST_log
-  expect_log "Outer bin uses Python 2"
-  expect_log "Inner bin uses Python 3"
-
-  RUNFILES_MANIFEST_FILE= RUNFILES_DIR= $PY3_OUTER_BIN &> $TEST_log
-  expect_log "Outer bin uses Python 3"
-  expect_log "Inner bin uses Python 2"
-}
-
-function test_shbin_can_have_different_version_pybins_as_data_deps() {
-  # Uses bash, disable on windows.
-  if "$is_windows"; then
-    return
-  fi
-
-  mkdir -p test
-
-  cat > test/BUILD << EOF
-py_binary(
-  name = "py2bin",
-  srcs = ["py2bin.py"],
-  python_version = "PY2",
-)
-py_binary(
-  name = "py3bin",
-  srcs = ["py3bin.py"],
-  python_version = "PY3",
-)
-sh_binary(
-  name = "shbin_calling_py23bins",
-  srcs = ["shbin_calling_py23bins.sh"],
-  deps = ["@bazel_tools//tools/bash/runfiles"],
-  data = [":py2bin", ":py3bin"],
-)
-EOF
-
-  cat > test/py2bin.py << EOF
-import platform
-
-print("py2bin uses Python " + platform.python_version_tuple()[0])
-EOF
-  sed s/py2bin/py3bin/ test/py2bin.py > test/py3bin.py
-  chmod u+x test/py2bin.py test/py3bin.py
-
-  # The workspace name is initialized in testenv.sh; use that var rather than
-  # hardcoding it here. The extra sed pass is so we can selectively expand that
-  # one var while keeping the rest of the heredoc literal.
-  cat | sed "s/{{WORKSPACE_NAME}}/$WORKSPACE_NAME/" > test/shbin_calling_py23bins.sh << 'EOF'
-# --- begin runfiles.bash initialization ---
-# Copy-pasted from Bazel's Bash runfiles library (tools/bash/runfiles/runfiles.bash).
-set -euo pipefail
-if [[ ! -d "${RUNFILES_DIR:-/dev/null}" && ! -f "${RUNFILES_MANIFEST_FILE:-/dev/null}" ]]; then
-  if [[ -f "$0.runfiles_manifest" ]]; then
-    export RUNFILES_MANIFEST_FILE="$0.runfiles_manifest"
-  elif [[ -f "$0.runfiles/MANIFEST" ]]; then
-    export RUNFILES_MANIFEST_FILE="$0.runfiles/MANIFEST"
-  elif [[ -f "$0.runfiles/bazel_tools/tools/bash/runfiles/runfiles.bash" ]]; then
-    export RUNFILES_DIR="$0.runfiles"
-  fi
-fi
-if [[ -f "${RUNFILES_DIR:-/dev/null}/bazel_tools/tools/bash/runfiles/runfiles.bash" ]]; then
-  source "${RUNFILES_DIR}/bazel_tools/tools/bash/runfiles/runfiles.bash"
-elif [[ -f "${RUNFILES_MANIFEST_FILE:-/dev/null}" ]]; then
-  source "$(grep -m1 "^bazel_tools/tools/bash/runfiles/runfiles.bash " \
-            "$RUNFILES_MANIFEST_FILE" | cut -d ' ' -f 2-)"
-else
-  echo >&2 "ERROR: cannot find @bazel_tools//tools/bash/runfiles:runfiles.bash"
-  exit 1
-fi
-# --- end runfiles.bash initialization ---
-
-$(rlocation {{WORKSPACE_NAME}}/test/py2bin)
-$(rlocation {{WORKSPACE_NAME}}/test/py3bin)
-EOF
-
-  chmod u+x test/shbin_calling_py23bins.sh
-
-  EXPFLAG="--incompatible_py3_is_default=false \
---incompatible_py2_outputs_are_suffixed=false"
-
-  bazel build $EXPFLAG //test:shbin_calling_py23bins \
-      || fail "bazel build failed"
-  SH_BIN=$(bazel info bazel-bin $EXPFLAG)/test/shbin_calling_py23bins
-
-  RUNFILES_MANIFEST_FILE= RUNFILES_DIR= $SH_BIN &> $TEST_log
-  expect_log "py2bin uses Python 2"
-  expect_log "py3bin uses Python 3"
-}
-
-function test_genrule_can_have_different_version_pybins_as_tools() {
-  # This test currently checks that we can use --host_force_python to get
-  # PY2 and PY3 binaries in tools. In the future we'll support both modes in the
-  # same build without a flag (#6443).
-
-  mkdir -p test
-
-  cat > test/BUILD << 'EOF'
-py_binary(
-  name = "pybin",
-  srcs = ["pybin.py"],
-)
-genrule(
-  name = "genrule_calling_pybin",
-  outs = ["out.txt"],
-  tools = [":pybin"],
-  cmd = "$(location :pybin) > $(location out.txt)"
-)
-EOF
-
-  cat > test/pybin.py << EOF
-import platform
-
-print("pybin uses Python " + platform.python_version_tuple()[0])
-EOF
-  chmod u+x test/pybin.py
-
-  EXPFLAG="--incompatible_py3_is_default=false \
---incompatible_py2_outputs_are_suffixed=false"
-
-  echo "Using $EXPFLAG" > $TEST_log
-  bazel build $EXPFLAG --host_force_python=PY2 //test:genrule_calling_pybin \
-      || fail "bazel build failed"
-  ARTIFACT=$(bazel info bazel-genfiles $EXPFLAG)/test/out.txt
-  cat $ARTIFACT > $TEST_log
-  expect_log "pybin uses Python 2"
-
-  echo "Using $EXPFLAG" > $TEST_log
-  bazel build $EXPFLAG --host_force_python=PY3 //test:genrule_calling_pybin \
-      || fail "bazel build failed"
-  ARTIFACT=$(bazel info bazel-genfiles $EXPFLAG)/test/out.txt
-  cat $ARTIFACT > $TEST_log
-  expect_log "pybin uses Python 3"
-}
-
-function test_can_build_same_target_for_both_versions_in_one_build() {
-  # Uses bash, disable on windows.
-  if "$is_windows"; then
-    return
-  fi
-
-  mkdir -p test
-
-  cat > test/BUILD << EOF
-py_library(
-  name = "common",
-  srcs = ["common.py"],
-)
-py_binary(
-  name = "py2bin",
-  srcs = ["py2bin.py"],
-  deps = [":common"],
-  python_version = "PY2",
-)
-py_binary(
-  name = "py3bin",
-  srcs = ["py3bin.py"],
-  deps = [":common"],
-  python_version = "PY3",
-)
-sh_binary(
-  name = "shbin",
-  srcs = ["shbin.sh"],
-  deps = ["@bazel_tools//tools/bash/runfiles"],
-  data = [":py2bin", ":py3bin"],
-)
-EOF
-
-  cat > test/common.py << EOF
-import platform
-
-print("common using Python " + platform.python_version_tuple()[0])
-EOF
-
-  cat > test/py2bin.py << EOF
-import common
-EOF
-  chmod u+x test/py2bin.py
-  cp test/py2bin.py test/py3bin.py
-
-  # The workspace name is initialized in testenv.sh; use that var rather than
-  # hardcoding it here. The extra sed pass is so we can selectively expand that
-  # one var while keeping the rest of the heredoc literal.
-  cat | sed "s/{{WORKSPACE_NAME}}/$WORKSPACE_NAME/" > test/shbin.sh << 'EOF'
-# --- begin runfiles.bash initialization ---
-# Copy-pasted from Bazel's Bash runfiles library (tools/bash/runfiles/runfiles.bash).
-set -euo pipefail
-if [[ ! -d "${RUNFILES_DIR:-/dev/null}" && ! -f "${RUNFILES_MANIFEST_FILE:-/dev/null}" ]]; then
-  if [[ -f "$0.runfiles_manifest" ]]; then
-    export RUNFILES_MANIFEST_FILE="$0.runfiles_manifest"
-  elif [[ -f "$0.runfiles/MANIFEST" ]]; then
-    export RUNFILES_MANIFEST_FILE="$0.runfiles/MANIFEST"
-  elif [[ -f "$0.runfiles/bazel_tools/tools/bash/runfiles/runfiles.bash" ]]; then
-    export RUNFILES_DIR="$0.runfiles"
-  fi
-fi
-if [[ -f "${RUNFILES_DIR:-/dev/null}/bazel_tools/tools/bash/runfiles/runfiles.bash" ]]; then
-  source "${RUNFILES_DIR}/bazel_tools/tools/bash/runfiles/runfiles.bash"
-elif [[ -f "${RUNFILES_MANIFEST_FILE:-/dev/null}" ]]; then
-  source "$(grep -m1 "^bazel_tools/tools/bash/runfiles/runfiles.bash " \
-            "$RUNFILES_MANIFEST_FILE" | cut -d ' ' -f 2-)"
-else
-  echo >&2 "ERROR: cannot find @bazel_tools//tools/bash/runfiles:runfiles.bash"
-  exit 1
-fi
-# --- end runfiles.bash initialization ---
-
-$(rlocation {{WORKSPACE_NAME}}/test/py2bin)
-$(rlocation {{WORKSPACE_NAME}}/test/py3bin)
-EOF
-  chmod u+x test/shbin.sh
-
-  EXPFLAG="--incompatible_py3_is_default=false \
---incompatible_py2_outputs_are_suffixed=false"
-
-  bazel build $EXPFLAG //test:shbin \
-      || fail "bazel build failed"
-  SH_BIN=$(bazel info bazel-bin)/test/shbin
-
-  RUNFILES_MANIFEST_FILE= RUNFILES_DIR= $SH_BIN &> $TEST_log
-  expect_log "common using Python 2"
-  expect_log "common using Python 3"
 }
 
 # TODO(brandjon): Rename this file to python_test.sh or else move the below to
@@ -552,24 +334,11 @@ function test_output_roots() {
   # It's hard to get build output paths reliably, so we'll just check the output
   # of bazel info.
 
-  # Legacy behavior, PY2 case.
-  bazel info bazel-bin \
-      --incompatible_py2_outputs_are_suffixed=false --python_version=PY2 \
-      &> $TEST_log || fail "bazel info failed"
-  expect_log "bazel-out/.*/bin"
-  expect_not_log "bazel-out/.*-py2.*/bin"
-
   # Legacy behavior, PY3 case.
   bazel info bazel-bin \
       --incompatible_py2_outputs_are_suffixed=false --python_version=PY3 \
       &> $TEST_log || fail "bazel info failed"
   expect_log "bazel-out/.*-py3.*/bin"
-
-  # New behavior, PY2 case.
-  bazel info bazel-bin \
-      --incompatible_py2_outputs_are_suffixed=true --python_version=PY2 \
-      &> $TEST_log || fail "bazel info failed"
-  expect_log "bazel-out/.*-py2.*/bin"
 
   # New behavior, PY3 case.
   bazel info bazel-bin \
@@ -599,120 +368,6 @@ function test_default_output_root_is_bazel_bin() {
   expect_log "bazel-out/.*/bin"
   expect_not_log "bazel-out/.*-py2.*/bin"
   expect_not_log "bazel-out/.*-py3.*/bin"
-}
-
-# Tests that we get a warning when host tools fail due to being built for the
-# wrong Python version. See #7899 and #8549 for context, as well as
-# {@link PyCommon#shouldWarnAboutHostVersionUponFailure}.
-# TODO(#6443): Delete this once we no longer have the host configuration.
-function test_host_version_mismatch_warning() {
-  mkdir -p test
-
-  cat > test/BUILD << 'EOF'
-py_binary(
-    name = "passing_tool_using_py2_explicitly",
-    srcs = ["success.py"],
-    main = "success.py",
-    python_version = "PY2",
-)
-
-py_binary(
-    name = "failing_tool_using_py2_explicitly",
-    srcs = ["fail.py"],
-    main = "fail.py",
-    python_version = "PY2",
-)
-
-py_binary(
-    name = "failing_tool_using_py3_explicitly",
-    srcs = ["fail.py"],
-    main = "fail.py",
-    python_version = "PY3",
-)
-
-py_binary(
-    name = "failing_tool_using_py3_implicitly",
-    srcs = ["fail.py"],
-    main = "fail.py",
-)
-
-# For each tool, a genrule target that uses it.
-
-genrule(
-    name = "invoke_passing_tool_using_py2_explicitly",
-    cmd = "$(location :passing_tool_using_py2_explicitly) > $@",
-    tools = [":passing_tool_using_py2_explicitly"],
-    outs = ["passing_tool_using_py2_explicitly.txt"],
-)
-
-genrule(
-    name = "invoke_failing_tool_using_py2_explicitly",
-    cmd = "$(location :failing_tool_using_py2_explicitly) > $@",
-    tools = [":failing_tool_using_py2_explicitly"],
-    outs = ["failing_tool_using_py2_explicitly.txt"],
-)
-
-genrule(
-    name = "invoke_failing_tool_using_py3_explicitly",
-    cmd = "$(location :failing_tool_using_py3_explicitly) > $@",
-    tools = [":failing_tool_using_py3_explicitly"],
-    outs = ["failing_tool_using_py3_explicitly.txt"],
-)
-
-genrule(
-    name = "invoke_failing_tool_using_py3_implicitly",
-    cmd = "$(location :failing_tool_using_py3_implicitly) > $@",
-    tools = [":failing_tool_using_py3_implicitly"],
-    outs = ["failing_tool_using_py3_implicitly.txt"],
-)
-EOF
-  cat > test/success.py << EOF
-print("Successfully did nothing.")
-EOF
-  cat > test/fail.py << EOF
-import sys
-sys.exit(1)
-EOF
-
-  # Relies on --incompatible_py3_is_default being true (flipped in Bazel 0.25).
-
-  # The warning should be present if the tool
-  #   1) was built with toolchains enabled,
-  #   2) in the host config,
-  #   3) with a mismatched version, or a version set implicitly,
-  #   4) and it failed during execution.
-
-  # Warning should be present due to explicit version mismatch with host config.
-  bazel build //test:invoke_failing_tool_using_py2_explicitly \
-      --incompatible_use_python_toolchains=true --host_force_python=PY3 \
-      &> $TEST_log && fail "bazel build succeeded (expected failure)"
-  expect_log "it is a Python 2 program that was built in the host \
-configuration, which uses Python 3"
-
-  # Warning should be present due to implicitly set version, even though it
-  # matches host config.
-  bazel build //test:invoke_failing_tool_using_py3_implicitly \
-      --incompatible_use_python_toolchains=true --host_force_python=PY3 \
-      &> $TEST_log && fail "bazel build succeeded (expected failure)"
-  expect_log "it is running under Python 3 instead of Python 2"
-
-  # No warning if version was set explicitly and matches host config.
-  bazel build //test:invoke_failing_tool_using_py2_explicitly \
-      --incompatible_use_python_toolchains=true --host_force_python=PY2 \
-      &> $TEST_log && fail "bazel build succeeded (expected failure)"
-  expect_not_log "Note: The above Python target's failure"
-
-  # No warning if toolchains are disabled.
-  bazel build //test:invoke_failing_tool_using_py2_explicitly \
-      --incompatible_use_python_toolchains=false --host_force_python=PY3 \
-      &> $TEST_log && fail "bazel build succeeded (expected failure)"
-  expect_not_log "Note: The above Python target's failure"
-
-  # No warning if it succeeded during execution.
-  bazel build //test:invoke_passing_tool_using_py2_explicitly \
-      --incompatible_use_python_toolchains=true --host_force_python=PY3 \
-      &> $TEST_log || fail "bazel build failed (expected success)"
-  expect_not_log "Note: The above Python target's failure"
 }
 
 # Regression test for (bazelbuild/continuous-integration#578): Ensure that a
@@ -767,6 +422,137 @@ EOF
       || fail "bazel build failed"
   cat bazel-bin/test/out.txt &> $TEST_log
   expect_log "Tool output"
+}
+
+function test_external_runfiles() {
+  cat >> MODULE.bazel <<EOF
+local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
+local_repository(
+  name = "repo2",
+  path = "repo2"
+)
+EOF
+  mkdir repo2
+  touch repo2/REPO.bazel
+  cat > repo2/BUILD <<EOF
+package(default_visibility=["//visibility:public"])
+filegroup(name="r2files", srcs=["r2.txt"])
+EOF
+  touch repo2/r2.txt
+
+  mkdir py
+  cat > py/BUILD <<EOF
+py_binary(
+  name = "foo", srcs=["foo.py"],
+  data = ["@repo2//:r2files"],
+)
+EOF
+  touch py/foo.py
+
+  # We're testing for this flag's behavior, so force it to true.
+  # TODO(https://github.com/bazelbuild/bazel/issues/12821): Remove this test
+  # when this behavior is removed
+  bazel build --legacy_external_runfiles=true //py:foo
+  if "$is_windows"; then
+    exe=".exe"
+  else
+    exe=""
+  fi
+
+  cp bazel-bin/py/foo$exe.runfiles_manifest runfiles_manifest
+  assert_contains _main/external/+local_repository+repo2/r2.txt runfiles_manifest \
+    "runfiles manifest didn't have external path mapping"
+
+  # By default, Python binaries are put into zip files on Windows and don't
+  # have a real runfiles tree.
+  if ! "$is_windows"; then
+    find bazel-bin/py/foo.runfiles > runfiles_listing
+    assert_contains bazel-bin/py/foo.runfiles/_main/external/+local_repository+repo2/r2.txt \
+      runfiles_listing \
+      "runfiles didn't have external links"
+  fi
+}
+
+function test_incompatible_python_disallow_native_rules_external_repos() {
+
+  mkdir ../external_repo
+  external_repo=$(cd ../external_repo && pwd)
+
+  cat > $external_repo/MODULE.bazel <<EOF
+module(name="external_repo")
+EOF
+
+  # There's special logic to handle targets at the root.
+  cat > $external_repo/BUILD <<EOF
+py_library(
+    name = "root",
+    visibility = ["//visibility:public"],
+)
+EOF
+  mkdir $external_repo/pkg
+  cat > $external_repo/pkg/BUILD <<EOF
+py_library(
+    name = "pkg",
+    visibility = ["//visibility:public"],
+)
+EOF
+
+  touch bin.py
+  cat > BUILD <<EOF
+load("@rules_python//python:py_binary.bzl", "py_binary")
+load("@rules_python//python:py_runtime.bzl", "py_runtime")
+load("@rules_python//python:py_runtime_pair.bzl", "py_runtime_pair")
+
+py_binary(
+    name = "bin",
+    srcs = ["bin.py"],
+    deps = [
+        "@external_repo//:root",
+        "@external_repo//pkg:pkg",
+    ],
+)
+py_runtime(
+    name = "runtime",
+    interpreter_path = "/fakepython",
+    python_version = "PY3",
+)
+py_runtime_pair(
+    name = "pair",
+    py3_runtime = ":runtime",
+)
+# A custom toolchain is used so this test is independent of
+# custom python toolchain setup the integration test performs
+toolchain(
+  name = "py_toolchain",
+  toolchain = ":pair",
+  toolchain_type = "@rules_python//python:toolchain_type",
+)
+package_group(
+    name = "allowed",
+    packages = [
+        "//__EXTERNAL_REPOS__/external_repo/...",
+        "//__EXTERNAL_REPOS__/external_repo+/...",
+        "//__EXTERNAL_REPOS__/bazel_tools/...",
+        ##"//tools/python/windows...",
+    ],
+)
+EOF
+  cat >> $(setup_module_dot_bazel MODULE.bazel) <<EOF
+bazel_dep(name = "external_repo", version="0.0.0")
+local_path_override(
+    module_name = "external_repo",
+    # A relative path must be used to keep Windows CI happy.
+    path = "../external_repo",
+)
+EOF
+  add_rules_python "MODULE.bazel"
+
+  bazel build \
+    --extra_toolchains=//:py_toolchain \
+    --incompatible_python_disallow_native_rules \
+    --python_native_rules_allowlist=//:allowed \
+    //:bin &> $TEST_log || fail "build failed"
+
 }
 
 run_suite "Tests for how the Python rules handle Python 2 vs Python 3"

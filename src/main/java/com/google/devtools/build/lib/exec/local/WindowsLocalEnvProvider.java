@@ -63,6 +63,6 @@ public final class WindowsLocalEnvProvider implements LocalEnvProvider {
     p = p.replace('/', '\\');
     result.put("TMP", p);
     result.put("TEMP", p);
-    return result.build();
+    return result.buildOrThrow();
   }
 }

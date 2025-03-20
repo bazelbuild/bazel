@@ -22,16 +22,16 @@ import java.util.LinkedHashSet;
 import java.util.Set;
 
 /**
- * Converter that translates a string of the form "value1,value2,-value3,value4"
- * into a corresponding set of allowed Enum values.
+ * Converter that translates a string of the form "value1,value2,-value3,value4" into a
+ * corresponding set of allowed Enum values.
  *
- * <p>Values preceded by '-' are excluded from this set. So "value1,-value2,value3"
- * translates to the set [EnumType.value1, EnumType.value3].
+ * <p>Values preceded by '-' are excluded from this set. So "value1,-value2,value3" translates to
+ * the set [EnumType.value1, EnumType.value3].
  *
- * <p>If *all* values are exclusions (e.g. "-value1,-value2,-value3"), the returned
- * set contains all values for the Enum type *except* those specified.
+ * <p>If *all* values are exclusions (e.g. "-value1,-value2,-value3"), the returned set contains all
+ * values for the Enum type *except* those specified.
  */
-class EnumFilterConverter<E extends Enum<E>> implements Converter<Set<E>> {
+class EnumFilterConverter<E extends Enum<E>> extends Converter.Contextless<Set<E>> {
 
   private final Set<String> allowedValues = new LinkedHashSet<>();
   private final Class<E> typeClass;
@@ -54,7 +54,7 @@ class EnumFilterConverter<E extends Enum<E>> implements Converter<Set<E>> {
   /**
    * Returns the set of allowed values for the option.
    *
-   * Implements {@link #convert(String)}.
+   * <p>Implements {@link Converter#convert(String, Object)}.
    */
   @Override
   public Set<E> convert(String input) throws OptionsParsingException {

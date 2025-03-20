@@ -13,209 +13,153 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.java;
 
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.BuiltinProvider;
-import com.google.devtools.build.lib.packages.NativeInfo;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
-import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
-import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
+import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.packages.StarlarkInfo;
+import com.google.devtools.build.lib.packages.StarlarkInfoWithSchema;
+import com.google.devtools.build.lib.packages.StarlarkProviderWrapper;
+import com.google.devtools.build.lib.packages.StructImpl;
+import com.google.devtools.build.lib.skyframe.BzlLoadValue;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Optional;
-import net.starlark.java.annot.Param;
-import net.starlark.java.annot.ParamType;
-import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkMethod;
-import net.starlark.java.eval.EvalException;
-import net.starlark.java.eval.NoneType;
-import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
-import net.starlark.java.eval.StarlarkThread;
-import net.starlark.java.eval.StarlarkValue;
-import net.starlark.java.syntax.Location;
 
 /** Information about the system APIs for a Java compilation. */
-@AutoCodec
 @Immutable
-public class BootClassPathInfo extends NativeInfo implements StarlarkValue {
+public class BootClassPathInfo extends StarlarkInfoWrapper {
 
   /** Provider singleton constant. */
-  public static final Provider PROVIDER = new Provider();
+  public static final StarlarkProviderWrapper<BootClassPathInfo> PROVIDER = new Provider();
+  public static final StarlarkProviderWrapper<BootClassPathInfo> RULES_JAVA_PROVIDER =
+      new RulesJavaProvider();
+  public static final StarlarkProviderWrapper<BootClassPathInfo> WORKSPACE_PROVIDER =
+      new WorkspaceProvider();
 
-  /** Provider class for {@link BootClassPathInfo} objects. */
-  @StarlarkBuiltin(name = "Provider", documented = false, doc = "")
-  public static class Provider extends BuiltinProvider<BootClassPathInfo> implements ProviderApi {
-    private Provider() {
-      super("BootClassPathInfo", BootClassPathInfo.class);
-    }
-
-    @StarlarkMethod(
-        name = "BootClassPathInfo",
-        doc = "The <code>BootClassPathInfo</code> constructor.",
-        documented = false,
-        parameters = {
-          @Param(name = "bootclasspath", positional = false, named = true, defaultValue = "[]"),
-          @Param(name = "auxiliary", positional = false, named = true, defaultValue = "[]"),
-          @Param(
-              name = "system",
-              positional = false,
-              named = true,
-              allowedTypes = {
-                @ParamType(type = FileApi.class),
-                @ParamType(type = NoneType.class),
-                @ParamType(type = Sequence.class),
-              },
-              defaultValue = "None",
-              doc =
-                  "The inputs to javac's --system flag, either a directory or a listing of files,"
-                      + " which must contain at least 'release', 'lib/modules', and"
-                      + " 'lib/jrt-fs.jar'"),
-        },
-        selfCall = true,
-        useStarlarkThread = true)
-    public BootClassPathInfo bootClassPathInfo(
-        Sequence<?> bootClassPathList,
-        Sequence<?> auxiliaryList,
-        Object systemOrNone,
-        StarlarkThread thread)
-        throws EvalException {
-      NestedSet<Artifact> systemInputs = getSystemInputs(systemOrNone);
-      Optional<PathFragment> systemPath = getSystemPath(systemInputs);
-      return new BootClassPathInfo(
-          getBootClassPath(bootClassPathList),
-          getAuxiliary(auxiliaryList),
-          systemInputs,
-          systemPath,
-          thread.getCallerLocation());
-    }
-
-    private static NestedSet<Artifact> getBootClassPath(Sequence<?> bootClassPathList)
-        throws EvalException {
-      return NestedSetBuilder.wrap(
-          Order.STABLE_ORDER, Sequence.cast(bootClassPathList, Artifact.class, "bootclasspath"));
-    }
-
-    private static NestedSet<Artifact> getAuxiliary(Sequence<?> auxiliaryList)
-        throws EvalException {
-      return NestedSetBuilder.wrap(
-          Order.STABLE_ORDER, Sequence.cast(auxiliaryList, Artifact.class, "auxiliary"));
-    }
-
-    private static NestedSet<Artifact> getSystemInputs(Object systemOrNone) throws EvalException {
-      if (systemOrNone == Starlark.NONE) {
-        return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
-      }
-      if (systemOrNone instanceof Artifact) {
-        return NestedSetBuilder.create(Order.STABLE_ORDER, (Artifact) systemOrNone);
-      }
-      if (systemOrNone instanceof Sequence<?>) {
-        return NestedSetBuilder.wrap(
-            Order.STABLE_ORDER, Sequence.cast(systemOrNone, Artifact.class, "system"));
-      }
-      throw Starlark.errorf(
-          "for system, got %s, want File, sequence, or None", Starlark.type(systemOrNone));
-    }
-
-    private static Optional<PathFragment> getSystemPath(NestedSet<Artifact> systemInputs)
-        throws EvalException {
-      ImmutableList<Artifact> inputs = systemInputs.toList();
-      if (inputs.isEmpty()) {
-        return Optional.empty();
-      }
-      if (inputs.size() == 1) {
-        Artifact input = getOnlyElement(inputs);
-        if (!input.isTreeArtifact()) {
-          throw Starlark.errorf("for system, %s is not a directory", input.getExecPathString());
+  private static final BootClassPathInfo EMPTY =
+      new BootClassPathInfo(null) {
+        @Override
+        public NestedSet<Artifact> bootclasspath() {
+          return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
         }
-        return Optional.of(input.getExecPath());
-      }
-      Optional<PathFragment> input =
-          inputs.stream()
-              .map(Artifact::getExecPath)
-              .filter(p -> p.getBaseName().equals("release"))
-              .map(PathFragment::getParentDirectory)
-              .findAny();
-      if (!input.isPresent()) {
-        throw Starlark.errorf("for system, expected inputs to contain 'release'");
-      }
-      return input;
-    }
-  }
 
-  private final NestedSet<Artifact> bootclasspath;
-  private final NestedSet<Artifact> auxiliary;
-  private final NestedSet<Artifact> systemInputs;
-  private final Optional<PathFragment> systemPath;
+        @Override
+        public NestedSet<Artifact> auxiliary() {
+          return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+        }
 
-  @VisibleForSerialization
-  @AutoCodec.Instantiator
-  public BootClassPathInfo(
-      NestedSet<Artifact> bootclasspath,
-      NestedSet<Artifact> auxiliary,
-      NestedSet<Artifact> systemInputs,
-      Optional<PathFragment> systemPath,
-      Location creationLocation) {
-    super(creationLocation);
-    this.bootclasspath = bootclasspath;
-    this.auxiliary = auxiliary;
-    this.systemInputs = systemInputs;
-    this.systemPath = systemPath;
-  }
+        @Override
+        public NestedSet<Artifact> systemInputs() {
+          return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+        }
 
-  @Override
-  public Provider getProvider() {
-    return PROVIDER;
-  }
+        @Override
+        public Optional<PathFragment> systemPath() {
+          return Optional.empty();
+        }
 
-  public static BootClassPathInfo create(NestedSet<Artifact> bootclasspath) {
-    return new BootClassPathInfo(
-        bootclasspath,
-        NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER),
-        NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER),
-        Optional.empty(),
-        null);
-  }
+        @Override
+        public boolean isEmpty() {
+          return true;
+        }
+      };
 
   public static BootClassPathInfo empty() {
-    return new BootClassPathInfo(
-        NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER),
-        NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER),
-        NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER),
-        Optional.empty(),
-        null);
+    return EMPTY;
+  }
+
+  private BootClassPathInfo(StructImpl underlying) {
+    super(underlying);
+  }
+
+  public static BootClassPathInfo wrap(Info info) throws RuleErrorException {
+    com.google.devtools.build.lib.packages.Provider.Key key = info.getProvider().getKey();
+    if (key.equals(PROVIDER.getKey())) {
+      return PROVIDER.wrap(info);
+    } else if (key.equals(RULES_JAVA_PROVIDER.getKey())) {
+      return RULES_JAVA_PROVIDER.wrap(info);
+    } else if (key.equals(WORKSPACE_PROVIDER.getKey())) {
+      return WORKSPACE_PROVIDER.wrap(info);
+    } else {
+      throw new RuleErrorException("expected BootClassPathInfo, got: " + key);
+    }
   }
 
   /** The jar files containing classes for system APIs, i.e. a Java <= 8 bootclasspath. */
-  public NestedSet<Artifact> bootclasspath() {
-    return bootclasspath;
+  public NestedSet<Artifact> bootclasspath() throws RuleErrorException {
+    return getUnderlyingNestedSet("bootclasspath", Artifact.class);
   }
 
   /**
    * The jar files containing extra classes for system APIs that should not be put in the system
    * image to support split-package compilation scenarios.
    */
-  public NestedSet<Artifact> auxiliary() {
-    return auxiliary;
-  }
-
-  /** An argument to the javac >= 9 {@code --system} flag. */
-  public Optional<PathFragment> systemPath() {
-    return systemPath;
+  public NestedSet<Artifact> auxiliary() throws RuleErrorException {
+    return getUnderlyingNestedSet("_auxiliary", Artifact.class);
   }
 
   /** Contents of the directory that is passed to the javac >= 9 {@code --system} flag. */
-  public NestedSet<Artifact> systemInputs() {
-    return systemInputs;
+  public NestedSet<Artifact> systemInputs() throws RuleErrorException {
+    return getUnderlyingNestedSet("_system_inputs", Artifact.class);
   }
 
-  public boolean isEmpty() {
-    return bootclasspath.isEmpty();
+  /** An argument to the javac >= 9 {@code --system} flag. */
+  public Optional<PathFragment> systemPath() throws RuleErrorException {
+    return Optional.ofNullable(getUnderlyingValue("_system_path", String.class))
+        .map(PathFragment::create);
+  }
+
+  public boolean isEmpty() throws RuleErrorException {
+    return bootclasspath().isEmpty()
+        && auxiliary().isEmpty()
+        && systemInputs().isEmpty()
+        && systemPath().isEmpty();
+  }
+
+  private static class RulesJavaProvider extends Provider {
+    private RulesJavaProvider() {
+      super(keyForBuild(Label.parseCanonicalUnchecked("//java/private:boot_class_path_info.bzl")));
+    }
+  }
+
+  private static class WorkspaceProvider extends Provider {
+    private WorkspaceProvider() {
+      super(
+          keyForBuild(
+              Label.parseCanonicalUnchecked(
+                  "@@rules_java//java/private:boot_class_path_info.bzl")));
+    }
+  }
+
+  private static class Provider extends StarlarkProviderWrapper<BootClassPathInfo> {
+    private Provider() {
+      this(
+          keyForBuild(
+              Label.parseCanonicalUnchecked(
+                  JavaSemantics.RULES_JAVA_PROVIDER_LABELS_PREFIX
+                      + "java/private:boot_class_path_info.bzl")));
+    }
+
+    private Provider(BzlLoadValue.Key key) {
+      super(key, "BootClassPathInfo");
+    }
+
+    @Override
+    public BootClassPathInfo wrap(Info value) throws RuleErrorException {
+      if (value instanceof StarlarkInfoWithSchema
+          && value.getProvider().getKey().equals(getKey())) {
+        return new BootClassPathInfo((StarlarkInfo) value);
+      } else {
+        throw new RuleErrorException(
+            "got value of type '" + Starlark.type(value) + "', want 'BootClassPathInfo'");
+      }
+    }
   }
 }

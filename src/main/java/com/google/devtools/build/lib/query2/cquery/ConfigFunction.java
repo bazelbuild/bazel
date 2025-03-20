@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.query2.cquery;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.query2.common.AbstractBlazeQueryEnvironment;
+import com.google.devtools.build.lib.query2.common.CqueryNode;
 import com.google.devtools.build.lib.query2.engine.Callback;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Argument;
@@ -29,11 +30,10 @@ import java.util.List;
 
 /**
  * A "config" query expression for cquery. The first argument is the expression to be evaluated. The
- * second argument is either "host", "target", "null", or an arbitrary configuration's hash (the
- * same hash cquery annotates label outputs with) to specify which configuration the user is seeking
- * to query in. If some but not all results of expr can be found in the specified config, the subset
- * that can be is returned. If no results of expr can be found in the specified config, an error is
- * thrown.
+ * second argument is "target", "null", or an arbitrary configuration's hash (the same hash cquery
+ * annotates label outputs with) to specify which configuration the user is seeking to query in. If
+ * some but not all results of expr can be found in the specified config, the subset that can be is
+ * returned. If no results of expr can be found in the specified config, an error is thrown.
  *
  * <pre> expr ::= CONFIG '(' expr ',' word ')'</pre>
  */
@@ -59,7 +59,7 @@ public final class ConfigFunction implements QueryFunction {
 
   /**
    * This function is only viable with ConfiguredTargetQueryEnvironment which extends {@link
-   * AbstractBlazeQueryEnvironment <KeyedConfiguredTarget>}
+   * AbstractBlazeQueryEnvironment <CqueryNode>}.
    */
   @Override
   @SuppressWarnings("unchecked")
@@ -75,16 +75,16 @@ public final class ConfigFunction implements QueryFunction {
     // Turn "'string'" to "string" (remove the surrounding apostrophes).
     configuration = configuration.substring(1, configuration.length() - 1);
 
-    final QueryTaskFuture<ThreadSafeMutableSet<T>> targets =
+    QueryTaskFuture<ThreadSafeMutableSet<T>> targetsFuture =
         QueryUtil.evalAll(env, context, targetExpression.getExpression());
 
     return env.whenSucceedsCall(
-        targets,
+        targetsFuture,
         ((ConfiguredTargetQueryEnvironment) env)
             .getConfiguredTargetsForConfigFunction(
                 targetExpression.toString(),
-                (ThreadSafeMutableSet<KeyedConfiguredTarget>) targets.getIfSuccessful(),
+                targetsFuture,
                 configuration,
-                (Callback<KeyedConfiguredTarget>) callback));
+                (Callback<CqueryNode>) callback));
   }
 }

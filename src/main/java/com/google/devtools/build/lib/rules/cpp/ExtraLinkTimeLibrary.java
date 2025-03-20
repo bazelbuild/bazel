@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.ExtraLinkTimeLibraryApi;
+import net.starlark.java.eval.SymbolGenerator;
 
 /**
  * An extra library to include in a link. The actual library is built at link time.
@@ -58,7 +59,10 @@ public interface ExtraLinkTimeLibrary extends ExtraLinkTimeLibraryApi {
    * libraries.
    */
   BuildLibraryOutput buildLibraries(
-      RuleContext context, boolean staticMode, boolean forDynamicLibrary)
+      RuleContext context,
+      boolean staticMode,
+      boolean forDynamicLibrary,
+      SymbolGenerator<?> symbolGenerator)
       throws InterruptedException, RuleErrorException;
 
   /**
@@ -70,8 +74,14 @@ public interface ExtraLinkTimeLibrary extends ExtraLinkTimeLibraryApi {
   Builder getBuilder();
 
   /**
-   * The Builder interface builds an ExtraLinkTimeLibrary.
+   * Used to identify the "class" of this Library. The Java class is usually sufficient unless
+   * behaviour is controlled dynamically.
    */
+  default Object getKey() {
+    return this.getClass();
+  }
+
+  /** The Builder interface builds an ExtraLinkTimeLibrary. */
   public interface Builder {
     /**
      * Add the inputs associated with another instance of the same

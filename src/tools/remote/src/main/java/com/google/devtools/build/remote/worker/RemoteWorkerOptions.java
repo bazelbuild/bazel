@@ -15,7 +15,6 @@
 package com.google.devtools.build.remote.worker;
 
 import com.google.common.flogger.GoogleLogger;
-import com.google.devtools.build.lib.actions.LocalHostCapacity;
 import com.google.devtools.build.lib.util.ResourceConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -29,66 +28,70 @@ public class RemoteWorkerOptions extends OptionsBase {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   @Option(
-    name = "listen_port",
-    defaultValue = "8080",
-    category = "build_worker",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help = "Listening port for the netty server."
-  )
+      name = "listen_port",
+      defaultValue = "8080",
+      category = "build_worker",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Listening port for the netty server.")
   public int listenPort;
 
   @Option(
-    name = "work_path",
-    defaultValue = "null",
-    category = "build_worker",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help = "A directory for the build worker to do work."
-  )
+      name = "work_path",
+      defaultValue = "null",
+      category = "build_worker",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "A directory for the build worker to do work.")
   public String workPath;
 
   @Option(
-    name = "cas_path",
-    defaultValue = "null",
-    category = "build_worker",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help = "A directory for the build worker to store it's files in. If left unset, and if no "
-        + "other store is set, the worker falls back to an in-memory store."
-  )
+      name = "cas_path",
+      defaultValue = "null",
+      category = "build_worker",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "A directory for the build worker to store it's files in. If left unset, and if no "
+              + "other store is set, the worker falls back to an in-memory store.")
   public String casPath;
 
   @Option(
-    name = "debug",
-    defaultValue = "false",
-    category = "build_worker",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help =
-        "Turn this on for debugging remote job failures. There will be extra messages and the "
-            + "work directory will be preserved in the case of failure."
-  )
+      name = "debug",
+      defaultValue = "false",
+      category = "build_worker",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Turn this on for debugging remote job failures. There will be extra messages and the "
+              + "work directory will be preserved in the case of failure.")
   public boolean debug;
 
   @Option(
-    name = "pid_file",
-    defaultValue = "null",
-    category = "build_worker",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help = "File for writing the process id for this worker when it is fully started."
-  )
+      name = "legacy_api",
+      defaultValue = "false",
+      category = "build_worker",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Restrict worker to RemoteApi version 2.0 capabilities")
+  public boolean legacyApi;
+
+  @Option(
+      name = "pid_file",
+      defaultValue = "null",
+      category = "build_worker",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "File for writing the process id for this worker when it is fully started.")
   public String pidFile;
 
   @Option(
-    name = "sandboxing",
-    defaultValue = "false",
-    category = "build_worker",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help = "If supported on this platform, use sandboxing for increased hermeticity."
-  )
+      name = "sandboxing",
+      defaultValue = "false",
+      category = "build_worker",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "If supported on this platform, use sandboxing for increased hermeticity.")
   public boolean sandboxing;
 
   @Option(
@@ -112,13 +115,12 @@ public class RemoteWorkerOptions extends OptionsBase {
   public List<String> sandboxingTmpfsDirs;
 
   @Option(
-    name = "sandboxing_block_network",
-    defaultValue = "false",
-    category = "build_worker",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help = "When using sandboxing, block network access for running actions."
-  )
+      name = "sandboxing_block_network",
+      defaultValue = "false",
+      category = "build_worker",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "When using sandboxing, block network access for running actions.")
   public boolean sandboxingBlockNetwork;
 
   @Option(
@@ -176,22 +178,29 @@ public class RemoteWorkerOptions extends OptionsBase {
               + "requires client authentication (aka mTLS).")
   public String tlsCaCertificate;
 
+  @Option(
+      name = "expected_authorization_token",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "The authorization token expected to be present in every request. This is useful for"
+              + " testing only.")
+  public String expectedAuthorizationToken;
+
   private static final int MAX_JOBS = 16384;
 
   /**
    * Converter for jobs. Takes {@value FLAG_SYNTAX}. Values must be between 1 and {@value MAX_JOBS}.
    * Values higher than {@value MAX_JOBS} will be set to {@value MAX_JOBS}.
    */
-  public static class JobsConverter extends ResourceConverter {
+  public static class JobsConverter extends ResourceConverter.IntegerConverter {
     public JobsConverter() {
-      super(
-          () -> (int) Math.ceil(LocalHostCapacity.getLocalHostCapacity().getCpuUsage()),
-          1,
-          MAX_JOBS);
+      super(/* auto= */ HOST_CPUS_SUPPLIER, /* minValue= */ 1, /* maxValue= */ MAX_JOBS);
     }
 
     @Override
-    public int checkAndLimit(int value) throws OptionsParsingException {
+    public Integer checkAndLimit(Integer value) throws OptionsParsingException {
       if (value < minValue) {
         throw new OptionsParsingException(
             String.format("Value '(%d)' must be at least %d.", value, minValue));
@@ -199,7 +208,7 @@ public class RemoteWorkerOptions extends OptionsBase {
       if (value > maxValue) {
         logger.atWarning().log(
             "Flag remoteWorker \"jobs\" ('%d') was set too high. "
-                + "This is a result of passing large values to --local_resources or --jobs. "
+                + "This is a result of passing large values to --jobs. "
                 + "Using '%d' jobs",
             value, maxValue);
         value = maxValue;

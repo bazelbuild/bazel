@@ -14,18 +14,15 @@
 
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyKey;
 
 /** Common parent class of SkyKeys that wrap a {@link RecursivePkgKey}. */
-abstract class RecursivePkgSkyKey extends RecursivePkgKey implements SkyKey {
-  RecursivePkgSkyKey(
-      RepositoryName repositoryName,
-      RootedPath rootedPath,
-      ImmutableSet<PathFragment> excludedPaths) {
+public abstract class RecursivePkgSkyKey extends RecursivePkgKey implements SkyKey {
+  public RecursivePkgSkyKey(
+      RepositoryName repositoryName, RootedPath rootedPath, IgnoredSubdirectories excludedPaths) {
     super(repositoryName, rootedPath, excludedPaths);
   }
 
@@ -37,8 +34,8 @@ abstract class RecursivePkgSkyKey extends RecursivePkgKey implements SkyKey {
   @Override
   public boolean equals(Object o) {
     return super.equals(o)
-        && ((o instanceof RecursivePkgSkyKey))
-        && ((RecursivePkgSkyKey) o).functionName().equals(functionName());
+        && o instanceof RecursivePkgSkyKey recursivePkgSkyKey
+        && recursivePkgSkyKey.functionName().equals(functionName());
   }
 
   /** Don't bother to memoize hashCode because {@link RecursivePkgKey#hashCode} is cheap enough. */

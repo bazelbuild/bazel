@@ -15,7 +15,7 @@ package com.google.devtools.build.lib.remote.zstd;
 
 import static java.lang.Math.max;
 
-import com.github.luben.zstd.ZstdOutputStream;
+import com.github.luben.zstd.ZstdOutputStreamNoFinalizer;
 import com.google.common.base.Preconditions;
 import java.io.FilterInputStream;
 import java.io.IOException;
@@ -35,7 +35,7 @@ public class ZstdCompressingInputStream extends FilterInputStream {
   public static final int MIN_BUFFER_SIZE = 4 + 14 + 3 + 1;
 
   private final PipedInputStream pis;
-  private ZstdOutputStream zos;
+  private ZstdOutputStreamNoFinalizer zos;
   private final int size;
 
   public ZstdCompressingInputStream(InputStream in) throws IOException {
@@ -49,7 +49,7 @@ public class ZstdCompressingInputStream extends FilterInputStream {
         String.format("The buffer size must be at least %d bytes", MIN_BUFFER_SIZE));
     this.size = size;
     this.pis = new PipedInputStream(size);
-    this.zos = new ZstdOutputStream(new PipedOutputStream(pis));
+    this.zos = new ZstdOutputStreamNoFinalizer(new PipedOutputStream(pis));
   }
 
   private void reFill() throws IOException {

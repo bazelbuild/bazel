@@ -21,6 +21,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.time.Duration;
 import java.util.List;
+import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Module;
 import net.starlark.java.eval.Mutability;
@@ -56,11 +57,12 @@ class Main {
 
   static {
     Mutability mu = Mutability.create("interpreter");
-    thread = new StarlarkThread(mu, StarlarkSemantics.DEFAULT);
+    thread = StarlarkThread.createTransient(mu, StarlarkSemantics.DEFAULT);
     thread.setPrintHandler((th, msg) -> System.out.println(msg));
   }
 
   // Prompts the user for a chunk of input, and returns it.
+  @Nullable
   private static String prompt() {
     StringBuilder input = new StringBuilder();
     System.out.print(START_PROMPT);
@@ -112,6 +114,7 @@ class Main {
   /** Provide a REPL evaluating Starlark code. */
   @SuppressWarnings("CatchAndPrintStackTrace")
   private static void readEvalPrintLoop() {
+    module.setDocumentation("<REPL>"); // Do not retrieve a module docstring from REPL input.
     System.err.println("Welcome to Starlark (java.starlark.net)");
     String line;
 

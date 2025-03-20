@@ -35,12 +35,12 @@ public final class PathFragmentFilter {
 
   /**
    * Converts from a colon-separated list of of paths with optional '-' prefix into the
-   * PathFragmentFilter:
-   *   [-]path1[,[-]path2]...
+   * PathFragmentFilter: [-]path1[,[-]path2]...
    *
-   * Order of paths is not important. Empty entries are ignored. '-' marks an excluded path.
+   * <p>Order of paths is not important. Empty entries are ignored. '-' marks an excluded path.
    */
-  public static class PathFragmentFilterConverter implements Converter<PathFragmentFilter> {
+  public static class PathFragmentFilterConverter
+      extends Converter.Contextless<PathFragmentFilter> {
 
     @Override
     public PathFragmentFilter convert(String input) {

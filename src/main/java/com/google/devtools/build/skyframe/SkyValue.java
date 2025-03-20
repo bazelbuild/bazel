@@ -13,15 +13,19 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
+import java.io.PrintStream;
+
 /** A return value of a {@code SkyFunction}. */
 public interface SkyValue {
 
-  /**
-   * Returns true for values that can be reused across builds. Some values are inherently "flaky",
-   * like test statuses or stamping information, and in certain circumstances, those values cannot
-   * be shared across builds/servers.
-   */
-  default boolean dataIsShareable() {
-    return true;
+  /** Return whether this value was cleared to reduce memory use. */
+  default boolean isCleared() {
+    return false;
+  }
+
+  /** Print a representation of this value for debugging purposes. */
+  default void debugPrint(PrintStream out) {
+    // Just use toString.
+    out.println(this);
   }
 }

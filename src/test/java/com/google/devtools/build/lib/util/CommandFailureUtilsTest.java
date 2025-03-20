@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.util;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import java.util.Arrays;
@@ -30,7 +31,7 @@ public class CommandFailureUtilsTest {
 
   @Test
   public void describeCommandFailure() throws Exception {
-    String target = "//foo:bar";
+    Label target = Label.parseCanonicalUnchecked("//foo:bar");
     String[] args = new String[3];
     args[0] = "/bin/sh";
     args[1] = "-c";
@@ -40,25 +41,27 @@ public class CommandFailureUtilsTest {
     env.put("PATH", "/usr/bin:/bin:/sbin");
     String cwd = null;
     PlatformInfo executionPlatform =
-        PlatformInfo.builder().setLabel(Label.parseAbsoluteUnchecked("//platform:exec")).build();
+        PlatformInfo.builder().setLabel(Label.parseCanonicalUnchecked("//platform:exec")).build();
     String message =
         CommandFailureUtils.describeCommandFailure(
             false,
+            "Mnemonic",
             Arrays.asList(args),
             env,
             cwd,
             "cfg12345",
-            target,
-            executionPlatform.label().toString());
+            "target " + target,
+            executionPlatform.label(),
+            "local");
     assertThat(message)
         .isEqualTo(
-            "sh failed: error executing command (from target //foo:bar) "
+            "sh failed: error executing Mnemonic command (from target //foo:bar) "
                 + "/bin/sh -c 'echo Some errors 1>&2; echo Some output; exit 42'");
   }
 
   @Test
   public void describeCommandFailure_verbose() throws Exception {
-    String target = "//foo:bar";
+    Label target = Label.parseCanonicalUnchecked("//foo:bar");
     String[] args = new String[3];
     args[0] = "/bin/sh";
     args[1] = "-c";
@@ -68,30 +71,35 @@ public class CommandFailureUtilsTest {
     env.put("PATH", "/usr/bin:/bin:/sbin");
     String cwd = null;
     PlatformInfo executionPlatform =
-        PlatformInfo.builder().setLabel(Label.parseAbsoluteUnchecked("//platform:exec")).build();
+        PlatformInfo.builder().setLabel(Label.parseCanonicalUnchecked("//platform:exec")).build();
     String message =
         CommandFailureUtils.describeCommandFailure(
             true,
+            "Mnemonic",
             Arrays.asList(args),
             env,
             cwd,
             "cfg12345",
-            target,
-            executionPlatform.label().toString());
+            "target " + target,
+            executionPlatform.label(),
+            "local");
     assertThat(message)
         .isEqualTo(
-            "sh failed: error executing command (from target //foo:bar) \n"
-                + "  (exec env - \\\n"
-                + "    FOO=foo \\\n"
-                + "    PATH=/usr/bin:/bin:/sbin \\\n"
-                + "  /bin/sh -c 'echo Some errors 1>&2; echo Some output; exit 42')\n"
-                + "# Configuration: cfg12345\n"
-                + "# Execution platform: //platform:exec");
+            """
+            sh failed: error executing Mnemonic command (from target //foo:bar)\s
+              (exec env - \\
+                FOO=foo \\
+                PATH=/usr/bin:/bin:/sbin \\
+              /bin/sh -c 'echo Some errors 1>&2; echo Some output; exit 42')
+            # Configuration: cfg12345
+            # Execution platform: //platform:exec
+            # Runner: local\
+            """);
   }
 
   @Test
   public void describeCommandFailure_longMessage() throws Exception {
-    String target = "//foo:bar";
+    Label target = Label.parseCanonicalUnchecked("//foo:bar");
     String[] args = new String[40];
     args[0] = "some_command";
     for (int i = 1; i < args.length; i++) {
@@ -104,19 +112,21 @@ public class CommandFailureUtilsTest {
     env.put("PATH", "/usr/bin:/bin:/sbin");
     String cwd = "/my/working/directory";
     PlatformInfo executionPlatform =
-        PlatformInfo.builder().setLabel(Label.parseAbsoluteUnchecked("//platform:exec")).build();
+        PlatformInfo.builder().setLabel(Label.parseCanonicalUnchecked("//platform:exec")).build();
     String message =
         CommandFailureUtils.describeCommandFailure(
             false,
+            "Mnemonic",
             Arrays.asList(args),
             env,
             cwd,
             "cfg12345",
-            target,
-            executionPlatform.label().toString());
+            "target " + target,
+            executionPlatform.label(),
+            "local");
     assertThat(message)
         .isEqualTo(
-            "some_command failed: error executing command (from target //foo:bar) "
+            "some_command failed: error executing Mnemonic command (from target //foo:bar) "
                 + "some_command arg1 arg2 arg3 arg4 arg5 arg6 'with spaces' arg8 '*' arg10 "
                 + "arg11 arg12 arg13 arg14 arg15 arg16 arg17 arg18 "
                 + "arg19 arg20 arg21 arg22 arg23 arg24 arg25 arg26 "
@@ -126,7 +136,7 @@ public class CommandFailureUtilsTest {
 
   @Test
   public void describeCommandFailure_longMessage_verbose() throws Exception {
-    String target = "//foo:bar";
+    Label target = Label.parseCanonicalUnchecked("//foo:bar");
     String[] args = new String[40];
     args[0] = "some_command";
     for (int i = 1; i < args.length; i++) {
@@ -139,35 +149,40 @@ public class CommandFailureUtilsTest {
     env.put("PATH", "/usr/bin:/bin:/sbin");
     String cwd = "/my/working/directory";
     PlatformInfo executionPlatform =
-        PlatformInfo.builder().setLabel(Label.parseAbsoluteUnchecked("//platform:exec")).build();
+        PlatformInfo.builder().setLabel(Label.parseCanonicalUnchecked("//platform:exec")).build();
     String message =
         CommandFailureUtils.describeCommandFailure(
             true,
+            "Mnemonic",
             Arrays.asList(args),
             env,
             cwd,
             "cfg12345",
-            target,
-            executionPlatform.label().toString());
+            "target " + target,
+            executionPlatform.label(),
+            "local");
     assertThat(message)
         .isEqualTo(
-            "some_command failed: error executing command (from target //foo:bar) \n"
-                + "  (cd /my/working/directory && \\\n"
-                + "  exec env - \\\n"
-                + "    FOO=foo \\\n"
-                + "    PATH=/usr/bin:/bin:/sbin \\\n"
-                + "  some_command arg1 arg2 arg3 arg4 arg5 arg6 'with spaces' arg8 '*' arg10 "
-                + "arg11 arg12 arg13 arg14 arg15 arg16 arg17 arg18 "
-                + "arg19 arg20 arg21 arg22 arg23 arg24 arg25 arg26 "
-                + "arg27 arg28 arg29 arg30 arg31 arg32 arg33 arg34 "
-                + "arg35 arg36 arg37 arg38 arg39)\n"
-                + "# Configuration: cfg12345\n"
-                + "# Execution platform: //platform:exec");
+            """
+            some_command failed: error executing Mnemonic command (from target //foo:bar)\s
+              (cd /my/working/directory && \\
+              exec env - \\
+                FOO=foo \\
+                PATH=/usr/bin:/bin:/sbin \\
+              some_command arg1 arg2 arg3 arg4 arg5 arg6 'with spaces' arg8 '*' arg10 \
+            arg11 arg12 arg13 arg14 arg15 arg16 arg17 arg18 \
+            arg19 arg20 arg21 arg22 arg23 arg24 arg25 arg26 \
+            arg27 arg28 arg29 arg30 arg31 arg32 arg33 arg34 \
+            arg35 arg36 arg37 arg38 arg39)
+            # Configuration: cfg12345
+            # Execution platform: //platform:exec
+            # Runner: local\
+            """);
   }
 
   @Test
   public void describeCommandFailure_singleSkippedArgument() throws Exception {
-    String target = "//foo:bar";
+    Label target = Label.parseCanonicalUnchecked("//foo:bar");
     String[] args = new String[35]; // Long enough to make us skip 1 argument below.
     args[0] = "some_command";
     for (int i = 1; i < args.length; i++) {
@@ -176,23 +191,25 @@ public class CommandFailureUtilsTest {
     Map<String, String> env = new LinkedHashMap<>();
     String cwd = "/my/working/directory";
     PlatformInfo executionPlatform =
-        PlatformInfo.builder().setLabel(Label.parseAbsoluteUnchecked("//platform:exec")).build();
+        PlatformInfo.builder().setLabel(Label.parseCanonicalUnchecked("//platform:exec")).build();
     String message =
         CommandFailureUtils.describeCommandFailure(
             false,
+            "Mnemonic",
             Arrays.asList(args),
             env,
             cwd,
             "cfg12345",
-            target,
-            executionPlatform.label().toString());
+            "target " + target,
+            executionPlatform.label(),
+            "local");
     assertThat(message)
         .isEqualTo(
-            "some_command failed: error executing command (from target //foo:bar) some_command"
-                + " arg1 arg2 arg3 arg4 arg5 arg6 arg7 arg8 arg9"
-                + " arg10 arg11 arg12 arg13 arg14 arg15 arg16 arg17 arg18 arg19 arg20 arg21 arg22"
-                + " arg23 arg24 arg25 arg26 arg27 arg28 arg29 arg30 arg31 arg32 arg33 ..."
-                + " (remaining 1 argument skipped)");
+            "some_command failed: error executing Mnemonic command (from target //foo:bar)"
+                + " some_command arg1 arg2 arg3 arg4 arg5 arg6 arg7 arg8 arg9 arg10 arg11 arg12"
+                + " arg13 arg14 arg15 arg16 arg17 arg18 arg19 arg20 arg21 arg22 arg23 arg24 arg25"
+                + " arg26 arg27 arg28 arg29 arg30 arg31 arg32 arg33 ... (remaining 1 argument"
+                + " skipped)");
   }
 
   @Test
@@ -210,32 +227,41 @@ public class CommandFailureUtilsTest {
     env.put("FOO", "foo");
     env.put("PATH", "/usr/bin:/bin:/sbin");
 
+    ImmutableList<String> envToClear = ImmutableList.of("CLEAR", "THIS");
+
     String cwd = "/my/working/directory";
     PlatformInfo executionPlatform =
-        PlatformInfo.builder().setLabel(Label.parseAbsoluteUnchecked("//platform:exec")).build();
+        PlatformInfo.builder().setLabel(Label.parseCanonicalUnchecked("//platform:exec")).build();
     String message =
         CommandFailureUtils.describeCommand(
             CommandDescriptionForm.COMPLETE,
             true,
             Arrays.asList(args),
             env,
+            envToClear,
             cwd,
             "cfg12345",
-            executionPlatform.label().toString());
+            executionPlatform.label(),
+            "remote");
 
     assertThat(message)
         .isEqualTo(
-            "(cd /my/working/directory && \\\n"
-                + "  exec env - \\\n"
-                + "    FOO=foo \\\n"
-                + "    PATH=/usr/bin:/bin:/sbin \\\n"
-                + "  some_command \\\n"
-                + "    arg1 \\\n"
-                + "    arg2 \\\n"
-                + "    'with spaces' \\\n"
-                + "    '*' \\\n"
-                + "    arg5)\n"
-                + "# Configuration: cfg12345\n"
-                + "# Execution platform: //platform:exec");
+            """
+            (cd /my/working/directory && \\
+              exec env - \\
+                -u CLEAR \\
+                -u THIS \\
+                FOO=foo \\
+                PATH=/usr/bin:/bin:/sbin \\
+              some_command \\
+                arg1 \\
+                arg2 \\
+                'with spaces' \\
+                '*' \\
+                arg5)
+            # Configuration: cfg12345
+            # Execution platform: //platform:exec
+            # Runner: remote\
+            """);
   }
 }

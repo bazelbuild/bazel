@@ -15,14 +15,20 @@
 package com.google.devtools.build.lib.skyframe.serialization.autocodec;
 
 import java.lang.annotation.ElementType;
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Specifies that AutoCodec should generate a codec implementation for the annotated class. For
- * classes, this is generally only needed if they do interning or other non-trivial creation-time
- * work.
+ * Specifies that AutoCodec should generate a codec implementation for the annotated class. This is
+ * generally only needed in the following cases:
+ *
+ * <ol>
+ * <li>Interning work. {@link com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey}
+ * </li>
+ * <li>Non-trivial calculations and field initialization. {@link
+ * com.google.devtools.build.lib.pkgcache.TestFilter} </li>
+ * <li>Some paths are forbidden for DynamicCodec. {@link
+ * com.google.devtools.build.lib.skyframe.serialization.AutoRegistry} </li>
+ * </ol>
  *
  * <p>Example:
  *
@@ -34,47 +40,21 @@ import java.lang.annotation.Target;
  * The {@code _AutoCodec} suffix is added to the {@code Target} to obtain the generated class name.
  * In the example, that results in a class named {@code Target_AutoCodec} but applications should
  * not need to directly access the generated class.
- *
- * <p>DEPRECATED for this next purpose (use {@link SerializationConstant} instead): Alternative to
- * {@link SerializationConstant}.
  */
-// TODO(janakr): remove ElementType.FIELD from this: migrate usages to @SerializationConstant.
-@Target({ElementType.TYPE, ElementType.FIELD})
-// TODO(janakr): remove once serialization is complete.
-@Retention(RetentionPolicy.RUNTIME)
-// TODO(janakr): remove unnecessary @AutoCodec annotations throughout our codebase.
+@Target(ElementType.TYPE)
 public @interface AutoCodec {
-  /**
-   * AutoCodec recursively derives a codec using the public interfaces of the class.
-   *
-   * <p>Specific strategies are described below.
-   */
-  enum Strategy {
-    /**
-     * Uses a constructor or factory method of the class to synthesize a codec.
-     *
-     * <p>This strategy depends on
-     *
-     * <ul>
-     *   <li>a designated constructor or factory method to inspect to generate the codec
-     *   <li>each parameter must match a member field on name and the field will be interpreted as
-     *       an instance of the parameter type.
-     * </ul>
-     *
-     * <p>If there is a unique constructor, @AutoCodec may select that as the default instantiator,
-     * otherwise one must be selected using the {@link AutoCodec.Instantiator} annotation.
-     */
-    INSTANTIATOR,
-    /**
-     * For use with {@link com.google.auto.value.AutoValue} classes with an {@link
-     * com.google.auto.value.AutoValue.Builder} static nested Builder class: uses the builder when
-     * deserializing.
-     */
-    AUTO_VALUE_BUILDER,
-  }
+  // AutoCodec works by determining a unique *instantiator*, either a constructor or factory method,
+  // to serve as a specification for serialization. The @AutoCodec.Instantiator tag can be helpful
+  // for marking a specific instantiator.
+  //
+  // AutoCodec inspects the parameters of the instantiator and finds fields of the class
+  // corresponding in both name and type. For serialization, it generates code that reads those
+  // fields using reflection. For deserialization it generates code to invoke the instantiator.
 
   /**
-   * Marks a specific method when using the INSTANTIATOR strategy.
+   * Marks a specific method to use as the instantiator.
+   *
+   * <p>This marking is required when the class has more than one constructor.
    *
    * <p>Indicates an instantiator, either a constructor or factory method, for codec generation. A
    * compile-time error will result if multiple methods are thus tagged.
@@ -82,7 +62,14 @@ public @interface AutoCodec {
   @Target({ElementType.CONSTRUCTOR, ElementType.METHOD})
   @interface Instantiator {}
 
-  Strategy strategy() default Strategy.INSTANTIATOR;
+  /**
+   * Marks a static method to use for interning.
+   *
+   * <p>The method must accept an instance of the enclosing {@code AutoCodec} tagged class and
+   * return an instance of the tagged class.
+   */
+  @Target({ElementType.METHOD})
+  @interface Interner {}
 
   /**
    * Checks whether or not this class is allowed to be serialized. See {@link
@@ -95,13 +82,4 @@ public @interface AutoCodec {
    * com.google.devtools.build.lib.skyframe.serialization.SerializationContext#addExplicitlyAllowedClass}.
    */
   Class<?>[] explicitlyAllowClass() default {};
-
-  /**
-   * Signals that the annotated element is only visible for use by serialization. It should not be
-   * used by other callers.
-   *
-   * <p>TODO(janakr): Add an ErrorProne checker to enforce this.
-   */
-  @Target({ElementType.TYPE, ElementType.METHOD, ElementType.CONSTRUCTOR, ElementType.FIELD})
-  @interface VisibleForSerialization {}
 }

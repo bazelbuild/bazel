@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.util;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.cmdline.Label;
 import javax.annotation.Nullable;
 
 /**
@@ -23,7 +24,7 @@ import javax.annotation.Nullable;
 public interface DescribableExecutionUnit {
 
   @Nullable
-  default String getTargetLabel() {
+  default String getTargetDescription() {
     return null;
   }
 
@@ -38,7 +39,7 @@ public interface DescribableExecutionUnit {
 
   /** Returns the Label of the execution platform for the command, if any, as a String. */
   @Nullable
-  default String getExecutionPlatformLabelString() {
+  default Label getExecutionPlatformLabel() {
     return null;
   }
 
@@ -47,4 +48,6 @@ public interface DescribableExecutionUnit {
   default String getConfigurationChecksum() {
     return null;
   }
+
+  String getMnemonic();
 }

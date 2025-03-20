@@ -20,13 +20,18 @@ import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL;
 import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 import static com.google.devtools.build.lib.packages.Type.INTEGER;
 import static com.google.devtools.build.lib.packages.Type.STRING;
-import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
+import static com.google.devtools.build.lib.packages.Types.STRING_LIST;
+import static java.util.stream.Collectors.joining;
 
+import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters.BooleanConverter;
@@ -35,9 +40,12 @@ import com.google.devtools.common.options.Converters.StringConverter;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import javax.annotation.Nullable;
 import net.starlark.java.eval.StarlarkInt;
 
 /**
@@ -45,6 +53,9 @@ import net.starlark.java.eval.StarlarkInt;
  * domain-specific (i.e. aren't consumed within a single {@link FragmentOptions}).
  */
 public class CoreOptionConverters {
+
+  // Not instantiable.
+  private CoreOptionConverters() {}
 
   /**
    * The set of converters used for {@link com.google.devtools.build.lib.packages.BuildSetting}
@@ -59,10 +70,10 @@ public class CoreOptionConverters {
           .put(LABEL, new LabelConverter())
           .put(LABEL_LIST, new LabelListConverter())
           .put(NODEP_LABEL, new LabelConverter())
-          .build();
+          .buildOrThrow();
 
   /** A converter from strings to Starlark int values. */
-  private static class StarlarkIntConverter implements Converter<StarlarkInt> {
+  private static class StarlarkIntConverter extends Converter.Contextless<StarlarkInt> {
     @Override
     public StarlarkInt convert(String input) throws OptionsParsingException {
       // Note that Starlark rule attribute values are currently restricted
@@ -84,8 +95,8 @@ public class CoreOptionConverters {
   /** A converter from strings to Labels. */
   public static class LabelConverter implements Converter<Label> {
     @Override
-    public Label convert(String input) throws OptionsParsingException {
-      return convertOptionsLabel(input);
+    public Label convert(String input, Object conversionContext) throws OptionsParsingException {
+      return convertOptionsLabel(input, conversionContext);
     }
 
     @Override
@@ -97,10 +108,11 @@ public class CoreOptionConverters {
   /** A converter from comma-separated strings to Label lists. */
   public static class LabelListConverter implements Converter<List<Label>> {
     @Override
-    public List<Label> convert(String input) throws OptionsParsingException {
+    public List<Label> convert(String input, Object conversionContext)
+        throws OptionsParsingException {
       ImmutableList.Builder<Label> result = ImmutableList.builder();
       for (String label : Splitter.on(",").omitEmptyStrings().split(input)) {
-        result.add(convertOptionsLabel(label));
+        result.add(convertOptionsLabel(label, conversionContext));
       }
       return result.build();
     }
@@ -112,33 +124,33 @@ public class CoreOptionConverters {
   }
 
   /**
+   * A converter from comma-separated strings to Labels which preserves order, but in case of
+   * duplicates, keeps only the first copy.
+   */
+  public static class LabelOrderedSetConverter extends LabelListConverter {
+    @Override
+    public List<Label> convert(String input, Object conversionContext)
+        throws OptionsParsingException {
+      Set<Label> alreadySeen = new HashSet<>();
+      ImmutableList.Builder<Label> result = ImmutableList.builder();
+      for (Label label : super.convert(input, conversionContext)) {
+        if (alreadySeen.add(label)) {
+          result.add(label);
+        }
+      }
+      return result.build();
+    }
+  }
+
+  /**
    * A converter that returns null if the input string is empty, otherwise it converts the input to
    * a label.
    */
   public static class EmptyToNullLabelConverter implements Converter<Label> {
     @Override
-    public Label convert(String input) throws OptionsParsingException {
-      return input.isEmpty() ? null : convertOptionsLabel(input);
-    }
-
-    @Override
-    public String getTypeDescription() {
-      return "a build target label";
-    }
-  }
-
-  /** A label converter that returns a default value if the input string is empty. */
-  public static class DefaultLabelConverter implements Converter<Label> {
-    private final Label defaultValue;
-
-    protected DefaultLabelConverter(String defaultValue) {
-      this.defaultValue =
-          defaultValue.equals("null") ? null : Label.parseAbsoluteUnchecked(defaultValue);
-    }
-
-    @Override
-    public Label convert(String input) throws OptionsParsingException {
-      return input.isEmpty() ? defaultValue : convertOptionsLabel(input);
+    @Nullable
+    public Label convert(String input, Object conversionContext) throws OptionsParsingException {
+      return input.isEmpty() ? null : convertOptionsLabel(input, conversionContext);
     }
 
     @Override
@@ -150,7 +162,8 @@ public class CoreOptionConverters {
   /** Flag converter for a map of unique keys with optional labels as values. */
   public static class LabelMapConverter implements Converter<Map<String, Label>> {
     @Override
-    public Map<String, Label> convert(String input) throws OptionsParsingException {
+    public Map<String, Label> convert(String input, Object conversionContext)
+        throws OptionsParsingException {
       // Use LinkedHashMap so we can report duplicate keys more easily while preserving order
       Map<String, Label> result = new LinkedHashMap<>();
       for (String entry : Splitter.on(",").omitEmptyStrings().trimResults().split(input)) {
@@ -163,7 +176,7 @@ public class CoreOptionConverters {
         } else {
           key = entry.substring(0, sepIndex);
           String value = entry.substring(sepIndex + 1);
-          label = value.isEmpty() ? null : convertOptionsLabel(value);
+          label = value.isEmpty() ? null : convertOptionsLabel(value, conversionContext);
         }
         if (result.containsKey(key)) {
           throw new OptionsParsingException("Key '" + key + "' appears twice");
@@ -174,8 +187,89 @@ public class CoreOptionConverters {
     }
 
     @Override
+    public boolean starlarkConvertible() {
+      return true;
+    }
+
+    @Override
+    public String reverseForStarlark(Object converted) {
+      @SuppressWarnings("unchecked")
+      Map<String, Label> typedValue = (Map<String, Label>) converted;
+      return typedValue.entrySet().stream()
+          .map(
+              e ->
+                  e.getValue() == null
+                      ? e.getKey()
+                      : String.format("%s=%s", e.getKey(), e.getValue()))
+          .collect(joining(","));
+    }
+
+    @Override
     public String getTypeDescription() {
       return "a comma-separated list of keys optionally followed by '=' and a label";
+    }
+  }
+
+  /** Flag converter for assigning a Label to a String. */
+  public static class LabelToStringEntryConverter implements Converter<Map.Entry<Label, String>> {
+    @Override
+    public Map.Entry<Label, String> convert(String input, Object conversionContext)
+        throws OptionsParsingException {
+      // TODO(twigg): This doesn't work well if the labels can themselves have an '='
+      long equalsCount = input.chars().filter(c -> c == '=').count();
+      if (equalsCount != 1 || input.charAt(0) == '=' || input.charAt(input.length() - 1) == '=') {
+        throw new OptionsParsingException(
+            "Variable definitions must be in the form of a 'name=value' assignment. 'name' and"
+                + " 'value' must be non-empty and may not include '='.");
+      }
+      int pos = input.indexOf("=");
+      Label name = convertOptionsLabel(input.substring(0, pos), conversionContext);
+      String value = input.substring(pos + 1);
+      return Maps.immutableEntry(name, value);
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "a 'label=value' assignment";
+    }
+  }
+
+  /**
+   * Flag converter for canonicalizing a label (possibly with a "/..." suffix) and/or define by
+   * converting the label to unambiguous canonical form.
+   */
+  public static class CustomFlagConverter implements Converter<String> {
+    public static final String SUBPACKAGES_SUFFIX = "/...";
+
+    @Override
+    public String convert(String input, Object conversionContext) throws OptionsParsingException {
+      if (!input.startsWith("//") && !input.startsWith("@")) {
+        // This is a --define flag.
+        return input;
+      }
+      // A "/..." suffix is not valid label syntax, so replace it with arbitrary valid syntax and
+      // transform it back after conversion.
+      String invalidSubpackagesSuffix = SUBPACKAGES_SUFFIX;
+      String validSubpackagesSuffix = ":__subpackages__";
+      String escapedUnconvertedLabel =
+          input.endsWith(invalidSubpackagesSuffix)
+              ? input.substring(0, input.length() - invalidSubpackagesSuffix.length())
+                  + validSubpackagesSuffix
+              : input;
+      String escapedConvertedLabel =
+          convertOptionsLabel(escapedUnconvertedLabel, conversionContext)
+              .getUnambiguousCanonicalForm();
+      if (escapedConvertedLabel.endsWith(validSubpackagesSuffix)) {
+        return escapedConvertedLabel.substring(
+                0, escapedConvertedLabel.length() - validSubpackagesSuffix.length())
+            + invalidSubpackagesSuffix;
+      }
+      return escapedConvertedLabel;
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "an absolute label or define";
     }
   }
 
@@ -200,15 +294,33 @@ public class CoreOptionConverters {
     }
   }
 
-  private static final Label convertOptionsLabel(String input) throws OptionsParsingException {
+  private static Label convertOptionsLabel(String input, @Nullable Object conversionContext)
+      throws OptionsParsingException {
     try {
+      if (conversionContext instanceof Label.PackageContext) {
+        // This can happen if this converter is being used to convert flag values specified in
+        // Starlark, for example in a transition implementation function.
+        return Label.parseWithPackageContext(input, (Label.PackageContext) conversionContext);
+      }
       // Check if the input starts with '/'. We don't check for "//" so that
       // we get a better error message if the user accidentally tries to use
       // an absolute path (starting with '/') for a label.
       if (!input.startsWith("/") && !input.startsWith("@")) {
         input = "//" + input;
       }
-      return Label.parseAbsolute(input, ImmutableMap.of());
+      if (conversionContext == null) {
+        // This can happen in the first round of option parsing, before repo mappings are
+        // calculated. In this case, it actually doesn't matter how we parse label-typed flags, as
+        // they shouldn't be used anywhere anyway.
+        return Label.parseCanonical(input);
+      }
+      Preconditions.checkArgument(
+          conversionContext instanceof RepositoryMapping,
+          "bad conversion context type: %s",
+          conversionContext.getClass().getName());
+      // This can happen in the second round of option parsing.
+      return Label.parseWithRepoContext(
+          input, Label.RepoContext.of(RepositoryName.MAIN, (RepositoryMapping) conversionContext));
     } catch (LabelSyntaxException e) {
       throw new OptionsParsingException(e.getMessage());
     }

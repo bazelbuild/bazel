@@ -55,12 +55,9 @@ msys*)
   ;;
 esac
 
-if "$is_windows"; then
-  # Disable MSYS path conversion that converts path-looking command arguments to
-  # Windows paths (even if they arguments are not in fact paths).
-  export MSYS_NO_PATHCONV=1
-  export MSYS2_ARG_CONV_EXCL="*"
-fi
+function set_up() {
+  add_rules_java MODULE.bazel
+}
 
 #### TESTS #############################################################
 
@@ -139,7 +136,9 @@ sh_test(
   srcs = ["slowtest.sh"],
 )
 EOF
-    bazel test --test_summary=terse //$pkg/... &>$TEST_log \
+    # --build_tests_only is necessary in Skymeld mode to prevent the execution
+    # error from being hit before any TestAnalyzedEvent.
+    bazel test --test_summary=terse --build_tests_only //$pkg/... &>$TEST_log \
       && fail "expected failure" || :
     expect_not_log 'NO STATUS'
     expect_log 'testsrc'
@@ -155,6 +154,7 @@ function test_process_spawned_by_test_doesnt_block_test_from_completing() {
   mkdir -p $pkg || fail "mkdir -p $pkg failed"
 
   cat > $pkg/BUILD <<'EOF'
+load("@rules_java//java:java_test.bzl", "java_test")
 java_test(
     name = "my_test",
     main_class = "test.MyTest",
@@ -206,11 +206,6 @@ EOF
 }
 
 function test_print_relative_test_log_paths() {
-  # The symlink resolution done by PathPrettyPrinter doesn't seem to work on
-  # Windows.
-  # TODO(nharmata): Fix this.
-  [[ "$is_windows" == "true" ]] && return 0
-
   local -r pkg="$FUNCNAME"
   mkdir -p "$pkg" || fail "mkdir -p $pkg failed"
   cat > "$pkg"/BUILD <<'EOF'
@@ -229,6 +224,14 @@ EOF
   expect_log "^  $testlogs_dir/$pkg/fail/test.log$"
 
   bazel test --print_relative_test_log_paths=true //"$pkg":fail &> $TEST_log \
+    && fail "expected failure"
+  expect_log "^  ${PRODUCT_NAME}-testlogs/$pkg/fail/test.log$"
+
+  # Tell bazel to not create the symlinks where these relative logs would be,
+  # but still pretend that they exist in logging.
+  bazel test --print_relative_test_log_paths=true \
+    --experimental_convenience_symlinks=log_only \
+    //"$pkg":fail &> $TEST_log \
     && fail "expected failure"
   expect_log "^  ${PRODUCT_NAME}-testlogs/$pkg/fail/test.log$"
 }

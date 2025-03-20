@@ -13,16 +13,22 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime.commands;
 
-import com.google.common.base.Joiner;
+import static com.google.devtools.build.lib.runtime.Command.BuildPhase.ANALYZES;
+
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.config.CoreOptions.IncludeConfigFragmentsEnum;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.BuildTool;
 import com.google.devtools.build.lib.buildtool.CqueryProcessor;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.cmdline.TargetPattern;
+import com.google.devtools.build.lib.cmdline.TargetPattern.Parser;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.query2.cquery.ConfiguredTargetQueryEnvironment;
 import com.google.devtools.build.lib.query2.cquery.CqueryOptions;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
+import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.QueryParser;
 import com.google.devtools.build.lib.query2.engine.QuerySyntaxException;
@@ -31,10 +37,14 @@ import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.runtime.KeepGoingOption;
+import com.google.devtools.build.lib.runtime.LoadingPhaseThreadsOption;
 import com.google.devtools.build.lib.server.FailureDetails.ConfigurableQuery;
 import com.google.devtools.build.lib.server.FailureDetails.ConfigurableQuery.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.skyframe.RepositoryMappingValue.RepositoryMappingResolutionException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.util.InterruptedFailureDetails;
 import com.google.devtools.common.options.OptionPriority.PriorityCategory;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
@@ -48,17 +58,18 @@ import java.util.Set;
 /** Handles the 'cquery' command on the Blaze command line. */
 @Command(
     name = "cquery",
-    builds = true,
+    buildPhase = ANALYZES,
     // We inherit from TestCommand so that we pick up changes like `test --test_arg=foo` in .bazelrc
     // files.
     // Without doing this, there is no easy way to use the output of cquery to determine whether a
     // test has changed between two invocations, because the testrunner action is not easily
     // introspectable.
-    inherits = {TestCommand.class},
+    inheritsOptionsFrom = {TestCommand.class},
     options = {CqueryOptions.class},
     usesConfigurationOptions = true,
     shortDescription = "Loads, analyzes, and queries the specified targets w/ configurations.",
     allowResidue = true,
+    binaryStdOut = true,
     completion = "label",
     help = "resource:cquery.txt")
 public final class CqueryCommand implements BlazeCommand {
@@ -105,13 +116,35 @@ public final class CqueryCommand implements BlazeCommand {
 
   @Override
   public BlazeCommandResult exec(CommandEnvironment env, OptionsParsingResult options) {
-    if (options.getResidue().isEmpty()) {
-      String message =
-          "Missing query expression. Use the 'help cquery' command for syntax and help.";
-      env.getReporter().handle(Event.error(message));
-      return createFailureResult(message, Code.COMMAND_LINE_EXPRESSION_MISSING);
+    TargetPattern.Parser mainRepoTargetParser;
+    try {
+      RepositoryMapping repoMapping =
+          env.getSkyframeExecutor()
+              .getMainRepoMapping(
+                  env.getOptions().getOptions(KeepGoingOption.class).keepGoing,
+                  env.getOptions().getOptions(LoadingPhaseThreadsOption.class).threads,
+                  env.getReporter());
+      mainRepoTargetParser =
+          new Parser(env.getRelativeWorkingDirectory(), RepositoryName.MAIN, repoMapping);
+    } catch (RepositoryMappingResolutionException e) {
+      env.getReporter().handle(Event.error(e.getMessage()));
+      return BlazeCommandResult.detailedExitCode(e.getDetailedExitCode());
+    } catch (InterruptedException e) {
+      String errorMessage = "Fetch interrupted: " + e.getMessage();
+      env.getReporter().handle(Event.error(errorMessage));
+      return BlazeCommandResult.detailedExitCode(
+          InterruptedFailureDetails.detailedExitCode(errorMessage));
     }
-    String query = Joiner.on(' ').join(options.getResidue());
+
+    String query = null;
+    try {
+      query =
+          QueryOptionHelper.readQuery(
+              options.getOptions(CqueryOptions.class), options, env, /* allowEmptyQuery= */ false);
+    } catch (QueryException e) {
+      return BlazeCommandResult.failureDetail(e.getFailureDetail());
+    }
+
     HashMap<String, QueryFunction> functions = new HashMap<>();
     for (QueryFunction queryFunction : ConfiguredTargetQueryEnvironment.FUNCTIONS) {
       functions.put(queryFunction.getName(), queryFunction);
@@ -148,10 +181,11 @@ public final class CqueryCommand implements BlazeCommand {
             .setTargets(topLevelTargets)
             .setStartTimeMillis(env.getCommandStartTime())
             .setCheckforActionConflicts(false)
+            .setReportIncompatibleTargets(false)
             .build();
     DetailedExitCode detailedExitCode =
-        new BuildTool(env, new CqueryProcessor(expr))
-            .processRequest(request, null)
+        new BuildTool(env, new CqueryProcessor(expr, mainRepoTargetParser))
+            .processRequest(request, null, options)
             .getDetailedExitCode();
     return BlazeCommandResult.detailedExitCode(detailedExitCode);
   }

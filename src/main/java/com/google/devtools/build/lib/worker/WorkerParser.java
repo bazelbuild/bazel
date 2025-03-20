@@ -15,9 +15,9 @@
 package com.google.devtools.build.lib.worker;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements.WorkerProtocolFormat;
@@ -41,16 +41,30 @@ import java.util.regex.Pattern;
  * persistent worker process (actions with equal keys are allowed to use the same worker process),
  * and a separate list of flag files. The result is encapsulated as a {@link WorkerConfig}.
  */
-class WorkerParser {
-  public static final String ERROR_MESSAGE_PREFIX =
+public class WorkerParser {
+  private static final String ERROR_MESSAGE_PREFIX =
       "Worker strategy cannot execute this %s action, ";
-  public static final String REASON_NO_FLAGFILE =
-      "because the command-line arguments do not contain at least one @flagfile or --flagfile=";
+  private static final String REASON_NO_FLAGFILE =
+      "because the command-line arguments do not contain exactly one @flagfile or --flagfile=";
+  private static final String REASON_EXCESS_FLAGFILE =
+      "because the command-line arguments has a @flagfile or --flagfile= argument before the end";
+  private static final String REASON_NO_FINAL_FLAGFILE =
+      "because the command-line arguments does not end with a @flagfile or --flagfile= argument";
 
-  /** Pattern for @flagfile.txt and --flagfile=flagfile.txt */
+  /**
+   * Pattern for @flagfile.txt and --flagfile=flagfile.txt. This doesn't handle @@-escapes, those
+   * are checked for separately.
+   */
   private static final Pattern FLAG_FILE_PATTERN = Pattern.compile("(?:@|--?flagfile=)(.+)");
 
+  /**
+   * Legacy pattern for @flagfile.txt and --flagfile=flagfile.txt. This doesn't handle @@-escapes.
+   */
+  private static final Pattern LEGACY_FLAG_FILE_PATTERN = Pattern.compile("(?:@|--?flagfile=)(.+)");
+
+  /** The global execRoot. */
   private final Path execRoot;
+
   private final WorkerOptions workerOptions;
   private final LocalEnvProvider localEnvProvider;
   private final BinTools binTools;
@@ -82,20 +96,12 @@ class WorkerParser {
     ImmutableMap<String, String> env =
         localEnvProvider.rewriteLocalEnv(spawn.getEnvironment(), binTools, "/tmp");
 
-    SortedMap<PathFragment, HashCode> workerFiles =
-        WorkerFilesHash.getWorkerFilesWithHashes(
-            spawn, context.getArtifactExpander(), context.getMetadataProvider());
+    SortedMap<PathFragment, byte[]> workerFiles =
+        WorkerFilesHash.getWorkerFilesWithDigests(
+            spawn, context.getArtifactExpander(), context.getInputMetadataProvider());
 
     HashCode workerFilesCombinedHash = WorkerFilesHash.getCombinedHash(workerFiles);
 
-    WorkerProtocolFormat protocolFormat = Spawns.getWorkerProtocolFormat(spawn);
-    if (!workerOptions.experimentalJsonWorkerProtocol) {
-      if (protocolFormat == WorkerProtocolFormat.JSON) {
-        throw new IOException(
-            "Persistent worker protocol format must be set to proto unless"
-                + " --experimental_worker_allow_json_protocol is used");
-      }
-    }
     WorkerKey key =
         createWorkerKey(
             spawn,
@@ -106,7 +112,7 @@ class WorkerParser {
             workerFiles,
             workerOptions,
             context.speculating(),
-            protocolFormat);
+            Spawns.getWorkerProtocolFormat(spawn));
     return new WorkerConfig(key, flagFiles);
   }
 
@@ -121,24 +127,47 @@ class WorkerParser {
       ImmutableMap<String, String> env,
       Path execRoot,
       HashCode workerFilesCombinedHash,
-      SortedMap<PathFragment, HashCode> workerFiles,
+      SortedMap<PathFragment, byte[]> workerFiles,
       WorkerOptions options,
       boolean dynamic,
       WorkerProtocolFormat protocolFormat) {
+    String workerKeyMnemonic = Spawns.getWorkerKeyMnemonic(spawn);
+    boolean multiplex = options.workerMultiplex && Spawns.supportsMultiplexWorkers(spawn);
+    if (dynamic && !(Spawns.supportsMultiplexSandboxing(spawn) && options.multiplexSandboxing)) {
+      multiplex = false;
+    }
+    boolean sandboxed;
+    if (multiplex) {
+      sandboxed =
+          Spawns.supportsMultiplexSandboxing(spawn) && (options.multiplexSandboxing || dynamic);
+    } else {
+      sandboxed = options.workerSandboxing || dynamic;
+    }
+    boolean useInMemoryTracking = false;
+    if (sandboxed) {
+      List<String> mnemonics = options.workerSandboxInMemoryTracking;
+      useInMemoryTracking = mnemonics != null && mnemonics.contains(workerKeyMnemonic);
+    }
     return new WorkerKey(
         workerArgs,
         env,
         execRoot,
-        Spawns.getWorkerKeyMnemonic(spawn),
+        workerKeyMnemonic,
         workerFilesCombinedHash,
         workerFiles,
-        /* sandboxed= */ options.workerSandboxing || dynamic,
-        /* multiplex= */ options.workerMultiplex
-            && Spawns.supportsMultiplexWorkers(spawn)
-            && !dynamic
-            && !options.workerSandboxing,
+        sandboxed,
+        useInMemoryTracking,
+        multiplex,
         Spawns.supportsWorkerCancellation(spawn),
         protocolFormat);
+  }
+
+  private static boolean isFlagFileArg(String arg) {
+    return FLAG_FILE_PATTERN.matcher(arg).matches() && !arg.startsWith("@@");
+  }
+
+  private static boolean isLegacyFlagFileArg(String arg) {
+    return LEGACY_FLAG_FILE_PATTERN.matcher(arg).matches();
   }
 
   /**
@@ -146,38 +175,58 @@ class WorkerParser {
    * persistent worker ({@code workerArgs}) and the part that goes into the {@code WorkRequest}
    * protobuf ({@code flagFiles}).
    */
-  private ImmutableList<String> splitSpawnArgsIntoWorkerArgsAndFlagFiles(
+  @VisibleForTesting
+  ImmutableList<String> splitSpawnArgsIntoWorkerArgsAndFlagFiles(
       Spawn spawn, List<String> flagFiles) throws UserExecException {
     ImmutableList.Builder<String> workerArgs = ImmutableList.builder();
-    for (String arg : spawn.getArguments()) {
-      if (FLAG_FILE_PATTERN.matcher(arg).matches()) {
-        flagFiles.add(arg);
-      } else {
-        workerArgs.add(arg);
-      }
+    ImmutableList<String> args = spawn.getArguments();
+    if (args.isEmpty()) {
+      throwFlagFileFailure(REASON_NO_FLAGFILE, spawn);
     }
-
-    if (flagFiles.isEmpty()) {
-      throw new UserExecException(
-          FailureDetails.FailureDetail.newBuilder()
-              .setMessage(
-                  String.format(ERROR_MESSAGE_PREFIX + REASON_NO_FLAGFILE, spawn.getMnemonic()))
-              .setWorker(
-                  FailureDetails.Worker.newBuilder()
-                      .setCode(FailureDetails.Worker.Code.NO_FLAGFILE))
-              .build());
+    if (workerOptions.strictFlagfiles) {
+      if (!isFlagFileArg(Iterables.getLast(args))) {
+        throwFlagFileFailure(REASON_NO_FINAL_FLAGFILE, spawn);
+      }
+      flagFiles.add(Iterables.getLast(args));
+      for (int i = 0; i < args.size() - 1; i++) {
+        if (isFlagFileArg(args.get(i))) {
+          throwFlagFileFailure(REASON_EXCESS_FLAGFILE, spawn);
+        } else {
+          workerArgs.add(args.get(i));
+        }
+      }
+    } else {
+      for (String arg : args) {
+        if (isLegacyFlagFileArg(arg)) {
+          flagFiles.add(arg);
+        } else {
+          workerArgs.add(arg);
+        }
+      }
+      if (flagFiles.isEmpty()) {
+        throwFlagFileFailure(REASON_NO_FLAGFILE, spawn);
+      }
     }
 
     ImmutableList.Builder<String> mnemonicFlags = ImmutableList.builder();
 
     workerOptions.workerExtraFlags.stream()
-        .filter(entry -> entry.getKey().equals(spawn.getMnemonic()))
+        .filter(entry -> entry.getKey().equals(Spawns.getWorkerKeyMnemonic(spawn)))
         .forEach(entry -> mnemonicFlags.add(entry.getValue()));
 
-    return workerArgs
-        .add("--persistent_worker")
-        .addAll(MoreObjects.firstNonNull(mnemonicFlags.build(), ImmutableList.of()))
-        .build();
+    return workerArgs.add("--persistent_worker").addAll(mnemonicFlags.build()).build();
+  }
+
+  private void throwFlagFileFailure(String reason, Spawn spawn) throws UserExecException {
+    String message =
+        String.format(
+            ERROR_MESSAGE_PREFIX + reason + "%n%s", spawn.getMnemonic(), spawn.getArguments());
+    throw new UserExecException(
+        FailureDetails.FailureDetail.newBuilder()
+            .setMessage(message)
+            .setWorker(
+                FailureDetails.Worker.newBuilder().setCode(FailureDetails.Worker.Code.NO_FLAGFILE))
+            .build());
   }
 
   /** A pair of the {@link WorkerKey} and the list of flag files. */

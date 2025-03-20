@@ -44,49 +44,17 @@ source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
 
 function test_platforms_repository_builds_itself() {
   # We test that a built-in @platforms repository is buildable.
-  bazel build @platforms//:all &> $TEST_log \
+  bazel build @@platforms//:all &> $TEST_log \
       || fail "Build failed unexpectedly"
 }
 
-function test_platforms_can_be_overridden() {
-  # We test that a custom repository can override @platforms in their
-  # WORKSPACE file.
-  mkdir -p platforms_can_be_overridden || fail "couldn't create directory"
-  touch platforms_can_be_overridden/BUILD || \ fail "couldn't touch BUILD file"
-  cat > platforms_can_be_overridden/WORKSPACE <<EOF
-local_repository(
-  name = 'platforms',
-  path = '../override',
-)
-EOF
-
-  mkdir -p override || fail "couldn't create override directory"
-  touch override/WORKSPACE || fail "couldn't touch override/WORKSPACE"
-  cat > override/BUILD <<EOF
-# Have to use a rule that doesn't require a target platform, or else there will
-# be a cycle.
-toolchain_type(name = 'yolo')
-EOF
-
-  cd platforms_can_be_overridden || fail "couldn't cd into workspace"
-  bazel build @platforms//:yolo &> $TEST_log || \
-    fail "Bazel failed to build @platforms"
-}
-
-function test_incompatible_use_platforms_repo_for_constraints() {
-  # We test that a built-in @platforms repository is buildable.
-  bazel build --incompatible_use_platforms_repo_for_constraints @bazel_tools//platforms:all &> \
-    $TEST_log && fail "Build passed when we expected an error."
-  expect_log "Constraints from @bazel_tools//platforms have been removed."
-}
-
-
 function test_platform_accessor() {
+  add_platforms "MODULE.bazel"
   cat > rules.bzl <<'EOF'
 def _impl(ctx):
   platform = ctx.attr.platform[platform_common.PlatformInfo]
-  properties = platform.exec_properties
-  print("The properties are:", properties)
+  label = platform.label
+  print("The label is:", label)
   return []
 
 print_props = rule(
@@ -106,15 +74,11 @@ print_props(
 
 platform(
     name = "my_platform",
-    exec_properties = {
-        "key": "value",
-        "key2": "value2",
-        }
 )
 EOF
 
   bazel build --experimental_platforms_api=true :a &> $TEST_log || fail "Build failed"
-  grep 'The properties are: {"key2": "value2", "key": "value"}' $TEST_log || fail "Did not find expected properties"
+  expect_log 'The label is: //:my_platform'
 }
 
 run_suite "platform repo test"

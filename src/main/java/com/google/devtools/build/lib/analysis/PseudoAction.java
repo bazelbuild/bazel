@@ -22,12 +22,13 @@ import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.server.FailureDetails.Execution;
 import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.protobuf.Extension;
@@ -41,11 +42,10 @@ import javax.annotation.Nullable;
  * about rules to extra_actions.
  */
 public class PseudoAction<InfoType extends MessageLite> extends AbstractAction {
-  @AutoCodec.VisibleForSerialization protected final UUID uuid;
+  @VisibleForSerialization protected final UUID uuid;
   private final String mnemonic;
 
-  @AutoCodec.VisibleForSerialization
-  protected final Extension<ExtraActionInfo, InfoType> infoExtension;
+  @VisibleForSerialization protected final Extension<ExtraActionInfo, InfoType> infoExtension;
 
   private final InfoType info;
 
@@ -86,7 +86,7 @@ public class PseudoAction<InfoType extends MessageLite> extends AbstractAction {
   @Override
   protected void computeKey(
       ActionKeyContext actionKeyContext,
-      @Nullable Artifact.ArtifactExpander artifactExpander,
+      @Nullable InputMetadataProvider inputMetadataProvider,
       Fingerprint fp) {
     fp.addUUID(uuid);
     fp.addBytes(getInfo().toByteArray());

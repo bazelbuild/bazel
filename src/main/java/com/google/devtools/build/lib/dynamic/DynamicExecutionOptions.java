@@ -13,14 +13,21 @@
 // limitations under the License.
 package com.google.devtools.build.lib.dynamic;
 
+import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.primitives.Ints;
+import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
-import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsParsingException;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import javax.annotation.Nullable;
 
 /** Options related to dynamic spawn execution. */
 public class DynamicExecutionOptions extends OptionsBase {
@@ -40,14 +47,20 @@ public class DynamicExecutionOptions extends OptionsBase {
       expansion = {
         "--internal_spawn_scheduler",
         "--spawn_strategy=dynamic",
-      })
+      },
+      deprecationWarning =
+          "--experimental_spawn_scheduler is deprecated. Using dynamic execution for everything is"
+              + " rarely a good idea (see https://bazel.build/remote/dynamic). If you really want"
+              + " to enable dynamic execution globally, pass `--internal_spawn_scheduler "
+              + "--spawn_strategy=dynamic`.")
+  @Deprecated
   public Void experimentalSpawnScheduler;
 
   @Option(
       name = "internal_spawn_scheduler",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
+      defaultValue = "true",
       help =
           "Placeholder option so that we can tell in Blaze whether the spawn scheduler was "
               + "enabled.")
@@ -56,42 +69,41 @@ public class DynamicExecutionOptions extends OptionsBase {
   @Option(
       name = "dynamic_local_strategy",
       converter = Converters.StringToStringListConverter.class,
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
       defaultValue = "null",
       allowMultiple = true,
       help =
-          "The local strategies, in order, to use for the given mnemonic. Passing"
-              + " 'local' as the mnemonic sets the default for unspecified mnemonics. Takes"
-              + " [mnemonic=]local_strategy[,local_strategy,...]")
+          "The local strategies, in order, to use for the given mnemonic - the first applicable "
+              + "strategy is used. For example, `worker,sandboxed` runs actions that support "
+              + "persistent workers using the worker strategy, and all others using the sandboxed "
+              + "strategy. If no mnemonic is given, the list of strategies is used as the "
+              + "fallback for all mnemonics. The default fallback list is `worker,sandboxed`, or"
+              + "`worker,sandboxed,standalone` if `experimental_local_lockfree_output` is set. "
+              + "Takes [mnemonic=]local_strategy[,local_strategy,...]")
   public List<Map.Entry<String, List<String>>> dynamicLocalStrategy;
 
   @Option(
       name = "dynamic_remote_strategy",
       converter = Converters.StringToStringListConverter.class,
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
       defaultValue = "null",
       allowMultiple = true,
       help =
-          "The remote strategies to use for the given mnemonic. Passing 'remote'"
-              + " as the mnemonic sets the default for unspecified mnemonics. Takes"
-              + " [mnemonic=]remote_strategy[,remote_strategy,...]")
+          "The remote strategies, in order, to use for the given mnemonic - the first applicable "
+              + "strategy is used. If no mnemonic is given, the list of strategies is used as the "
+              + "fallback for all mnemonics. The default fallback list is `remote`, so this flag "
+              + "usually does not need to be set explicitly. "
+              + "Takes [mnemonic=]remote_strategy[,remote_strategy,...]")
   public List<Map.Entry<String, List<String>>> dynamicRemoteStrategy;
 
   @Option(
-      name = "dynamic_worker_strategy",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      metadataTags = {OptionMetadataTag.DEPRECATED},
-      defaultValue = "",
-      help = "Deprecated. Please use --dynamic_local_strategy=worker_strategy,local_strategy.")
-  public String dynamicWorkerStrategy;
-
-  @Option(
-      name = "experimental_local_execution_delay",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
+      name = "dynamic_local_execution_delay",
+      oldName = "experimental_local_execution_delay",
+      oldNameWarning = false,
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
       defaultValue = "1000",
       help =
           "How many milliseconds should local execution be delayed, if remote execution was faster"
@@ -99,41 +111,96 @@ public class DynamicExecutionOptions extends OptionsBase {
   public int localExecutionDelay;
 
   @Option(
-      name = "experimental_debug_spawn_scheduler",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      name = "debug_spawn_scheduler",
+      oldName = "experimental_debug_spawn_scheduler",
+      oldNameWarning = false,
+      documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.UNKNOWN},
       defaultValue = "false")
   public boolean debugSpawnScheduler;
 
   @Option(
-      name = "experimental_require_availability_info",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      defaultValue = "false",
+      name = "experimental_dynamic_slow_remote_time",
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
+      defaultValue = "0",
       help =
-          "If true, fail the build if there are actions that set requires-darwin but do not have"
-              + "Xcode availability-related execution requirements set.")
-  public boolean requireAvailabilityInfo;
+          "If >0, the time a dynamically run action must run remote-only before we"
+              + " prioritize its local execution to avoid remote timeouts."
+              + " This may hide some problems on the remote execution system. Do not turn this on"
+              + " without monitoring of remote execution issues.")
+  public Duration slowRemoteTime;
 
   @Option(
-      name = "experimental_availability_info_exempt",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      defaultValue = "Genrule,TestRunner",
-      converter = Converters.CommaSeparatedOptionListConverter.class,
+      name = "experimental_dynamic_local_load_factor",
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
+      defaultValue = "0",
       help =
-          "A comma-separated list of mnemonics that are not required to have Xcode-related "
-              + "execution info if --experimental_require_availability_info=true. No-op if "
-              + "--experimental_require_availability_info=false.")
-  public List<String> availabilityInfoExempt;
+          "Controls how much load from dynamic execution to put on the local machine."
+              + " This flag adjusts how many actions in dynamic execution we will schedule"
+              + " concurrently. It is based on the number of CPUs Blaze thinks is available,"
+              + " which can be controlled with the --local_cpu_resources flag."
+              + "\nIf this flag is 0, all actions are scheduled locally immediately. If > 0,"
+              + " the amount of actions scheduled locally is limited by the number of CPUs"
+              + " available. If < 1, the load factor is used to reduce the number of locally"
+              + " scheduled actions when the number of actions waiting to schedule is high."
+              + " This lessens the load on the local machine in the clean build case, where"
+              + " the local machine does not contribute much.")
+  public double localLoadFactor;
 
   @Option(
-      name = "experimental_dynamic_skip_first_build",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      defaultValue = "false",
+      name = "experimental_dynamic_exclude_tools",
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
+      defaultValue = "true",
       help =
-          "If set, dynamic execution is turned off until there has been at least one successful"
-              + " build.")
-  public boolean skipFirstBuild;
+          "When set, targets that are build \"for tool\" are not subject to dynamic execution. Such"
+              + " targets are extremely unlikely to be built incrementally and thus not worth"
+              + " spending local cycles on.")
+  public boolean excludeTools;
+
+  @Option(
+      name = "experimental_dynamic_ignore_local_signals",
+      documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
+      converter = SignalListConverter.class,
+      effectTags = {OptionEffectTag.EXECUTION},
+      defaultValue = "null",
+      help =
+          "Takes a list of OS signal numbers. If a local branch of dynamic execution"
+              + " gets killed with any of these signals, the remote branch will be allowed to"
+              + " finish instead. For persistent workers, this only affects signals that kill"
+              + " the worker process.")
+  public Set<Integer> ignoreLocalSignals;
+
+  /** Converts comma-separated lists of signal numbers into a set of signal numbers. */
+  public static class SignalListConverter implements Converter<Set<Integer>> {
+    @Override
+    public ImmutableSet<Integer> convert(String input, @Nullable Object conversionContext)
+        throws OptionsParsingException {
+      if (input == null || "null".equals(input)) {
+        return ImmutableSet.of();
+      }
+      Iterable<String> parts = Splitter.on(",").split(input);
+      if (!parts.iterator().hasNext()) {
+        throw new OptionsParsingException("Requires at least one signal number");
+      }
+      ImmutableSet.Builder<Integer> signals = new ImmutableSet.Builder<>();
+      for (String p : parts) {
+        String trimmed = p.trim();
+        Integer signalNum = Ints.tryParse(trimmed);
+        if (signalNum != null && signalNum > 0) {
+          signals.add(signalNum);
+        } else {
+          throw new OptionsParsingException(String.format("No such signal %s", trimmed));
+        }
+      }
+      return signals.build();
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "a comma-separated list of signal numbers";
+    }
+  }
 }

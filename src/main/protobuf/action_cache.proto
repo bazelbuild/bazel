@@ -55,5 +55,9 @@ message ActionCacheStatistics {
   // Breakdown of the cache misses based on the reasons behind them.
   repeated MissDetail miss_details = 5;
 
-  // NEXT TAG: 6
+  // Time it took to load the action cache from disk. Reported as 0 if the
+  // action cache has not been loaded in this invocation.
+  uint64 load_time_in_ms = 6;
+
+  // NEXT TAG: 7
 }

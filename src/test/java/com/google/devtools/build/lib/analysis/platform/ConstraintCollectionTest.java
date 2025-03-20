@@ -29,17 +29,17 @@ public class ConstraintCollectionTest extends BuildViewTestCase {
   @Test
   public void testSetArithmetic() throws Exception {
     ConstraintSettingInfo setting1 =
-        ConstraintSettingInfo.create(Label.parseAbsoluteUnchecked("//foo:s1"));
+        ConstraintSettingInfo.create(Label.parseCanonicalUnchecked("//foo:s1"));
     ConstraintValueInfo value1 =
-        ConstraintValueInfo.create(setting1, Label.parseAbsoluteUnchecked("//foo:value1"));
+        ConstraintValueInfo.create(setting1, Label.parseCanonicalUnchecked("//foo:value1"));
     ConstraintSettingInfo setting2 =
-        ConstraintSettingInfo.create(Label.parseAbsoluteUnchecked("//foo:s2"));
+        ConstraintSettingInfo.create(Label.parseCanonicalUnchecked("//foo:s2"));
     ConstraintValueInfo value2 =
-        ConstraintValueInfo.create(setting2, Label.parseAbsoluteUnchecked("//foo:value2"));
+        ConstraintValueInfo.create(setting2, Label.parseCanonicalUnchecked("//foo:value2"));
     ConstraintSettingInfo setting3 =
-        ConstraintSettingInfo.create(Label.parseAbsoluteUnchecked("//foo:s3"));
+        ConstraintSettingInfo.create(Label.parseCanonicalUnchecked("//foo:s3"));
     ConstraintValueInfo value3 =
-        ConstraintValueInfo.create(setting3, Label.parseAbsoluteUnchecked("//foo:value3"));
+        ConstraintValueInfo.create(setting3, Label.parseCanonicalUnchecked("//foo:value3"));
 
     ConstraintCollection collection =
         ConstraintCollection.builder().addConstraints(value1, value2).build();
@@ -57,11 +57,12 @@ public class ConstraintCollectionTest extends BuildViewTestCase {
   public void testSetArithmetic_withDefaultValues() throws Exception {
     ConstraintSettingInfo setting =
         ConstraintSettingInfo.create(
-            Label.parseAbsoluteUnchecked("//foo:s"), Label.parseAbsoluteUnchecked("//foo:value1"));
+            Label.parseCanonicalUnchecked("//foo:s"),
+            Label.parseCanonicalUnchecked("//foo:value1"));
     ConstraintValueInfo value1 =
-        ConstraintValueInfo.create(setting, Label.parseAbsoluteUnchecked("//foo:value1"));
+        ConstraintValueInfo.create(setting, Label.parseCanonicalUnchecked("//foo:value1"));
     ConstraintValueInfo value2 =
-        ConstraintValueInfo.create(setting, Label.parseAbsoluteUnchecked("//foo:value2"));
+        ConstraintValueInfo.create(setting, Label.parseCanonicalUnchecked("//foo:value2"));
 
     ConstraintCollection collection1 =
         ConstraintCollection.builder().addConstraints(value1).build();
@@ -80,15 +81,15 @@ public class ConstraintCollectionTest extends BuildViewTestCase {
   @Test
   public void testDiff() throws Exception {
     ConstraintSettingInfo setting1 =
-        ConstraintSettingInfo.create(Label.parseAbsoluteUnchecked("//foo:s1"));
+        ConstraintSettingInfo.create(Label.parseCanonicalUnchecked("//foo:s1"));
     ConstraintValueInfo value1 =
-        ConstraintValueInfo.create(setting1, Label.parseAbsoluteUnchecked("//foo:value1"));
+        ConstraintValueInfo.create(setting1, Label.parseCanonicalUnchecked("//foo:value1"));
     ConstraintSettingInfo setting2 =
-        ConstraintSettingInfo.create(Label.parseAbsoluteUnchecked("//foo:s2"));
+        ConstraintSettingInfo.create(Label.parseCanonicalUnchecked("//foo:s2"));
     ConstraintValueInfo value2a =
-        ConstraintValueInfo.create(setting2, Label.parseAbsoluteUnchecked("//foo:value2a"));
+        ConstraintValueInfo.create(setting2, Label.parseCanonicalUnchecked("//foo:value2a"));
     ConstraintValueInfo value2b =
-        ConstraintValueInfo.create(setting2, Label.parseAbsoluteUnchecked("//foo:value2b"));
+        ConstraintValueInfo.create(setting2, Label.parseCanonicalUnchecked("//foo:value2b"));
 
     ConstraintCollection collection1 =
         ConstraintCollection.builder().addConstraints(value1, value2a).build();

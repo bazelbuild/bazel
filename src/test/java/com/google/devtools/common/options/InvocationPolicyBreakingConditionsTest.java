@@ -15,6 +15,7 @@ package com.google.devtools.common.options;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.SetValue.Behavior;
 import org.junit.Test;
@@ -46,7 +47,7 @@ public class InvocationPolicyBreakingConditionsTest extends InvocationPolicyEnfo
     TestOptions testOptions = getTestOptions();
     assertThat(testOptions.testString).isEqualTo(TEST_STRING_USER_VALUE);
 
-    enforcer.enforce(parser, "test");
+    enforcer.enforce(parser, "test", ImmutableList.builder());
 
     // Still user value.
     testOptions = getTestOptions();
@@ -75,7 +76,7 @@ public class InvocationPolicyBreakingConditionsTest extends InvocationPolicyEnfo
     TestOptions testOptions = getTestOptions();
     assertThat(testOptions.testString).isEqualTo(TEST_STRING_USER_VALUE);
 
-    enforcer.enforce(parser, "test");
+    enforcer.enforce(parser, "test", ImmutableList.builder());
 
     // Still user value.
     testOptions = getTestOptions();
@@ -95,7 +96,7 @@ public class InvocationPolicyBreakingConditionsTest extends InvocationPolicyEnfo
     assertThat(testOptions.testString).isEqualTo(TEST_STRING_USER_VALUE);
 
     // Shouldn't throw.
-    enforcer.enforce(parser, "test");
+    enforcer.enforce(parser, "test", ImmutableList.builder());
 
     // Still user value.
     testOptions = getTestOptions();

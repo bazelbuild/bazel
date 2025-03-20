@@ -59,8 +59,8 @@ class UnzipProcessor : public ZipExtractorProcessor {
 
   virtual ~UnzipProcessor() {}
 
-  virtual void Process(const char* filename, const u4 attr,
-                       const u1* data, const size_t size);
+  virtual void Process(const char *filename, u4 attr, const u1 *data,
+                       size_t size);
   virtual bool Accept(const char* filename, const u4 attr) {
     // All entry files are accepted by default.
     if (file_names.empty()) {
@@ -254,9 +254,13 @@ char **read_filelist(char *filename) {
   }
 
   int nb_entries = 1;
-  for (int i = 0; i < file_stat.total_size; i++) {
+  for (u8 i = 0; i < file_stat.total_size; i++) {
     if (data[i] == '\n') {
       nb_entries++;
+    }
+    if (nb_entries == INT_MAX) {
+      fprintf(stderr, "too many input files");
+      return NULL;
     }
   }
 
@@ -271,7 +275,7 @@ char **read_filelist(char *filename) {
   // Create the corresponding array
   int j = 1;
   filelist[0] = content;
-  for (int i = 0; i < file_stat.total_size; i++) {
+  for (u8 i = 0; i < file_stat.total_size; i++) {
     if (content[i] == '\n') {
       content[i] = 0;
       if (i + 1 < file_stat.total_size) {

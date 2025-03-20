@@ -17,22 +17,22 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.actions.AbstractCommandLine;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
+import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.CoptsFilter;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ExpansionException;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
 import java.util.List;
 import javax.annotation.Nullable;
 
 /** The compile command line for the C++ compile action. */
-@AutoCodec
 public final class CompileCommandLine {
   private final Artifact sourceFile;
   private final CoptsFilter coptsFilter;
@@ -41,9 +41,7 @@ public final class CompileCommandLine {
   private final String actionName;
   private final Artifact dotdFile;
 
-  @AutoCodec.Instantiator
-  @VisibleForSerialization
-  CompileCommandLine(
+  private CompileCommandLine(
       Artifact sourceFile,
       CoptsFilter coptsFilter,
       FeatureConfiguration featureConfiguration,
@@ -65,9 +63,10 @@ public final class CompileCommandLine {
   }
 
   /** Returns the environment variables that should be set for C++ compile actions. */
-  ImmutableMap<String, String> getEnvironment() throws CommandLineExpansionException {
+  ImmutableMap<String, String> getEnvironment(PathMapper pathMapper)
+      throws CommandLineExpansionException {
     try {
-      return featureConfiguration.getEnvironmentVariables(actionName, variables);
+      return featureConfiguration.getEnvironmentVariables(actionName, variables, pathMapper);
     } catch (ExpansionException e) {
       throw new CommandLineExpansionException(e.getMessage());
     }
@@ -88,18 +87,26 @@ public final class CompileCommandLine {
    *     unmodified original variables are used.
    */
   List<String> getArguments(
-      @Nullable PathFragment parameterFilePath, @Nullable CcToolchainVariables overwrittenVariables)
+      @Nullable PathFragment parameterFilePath,
+      @Nullable CcToolchainVariables overwrittenVariables,
+      PathMapper pathMapper)
       throws CommandLineExpansionException {
     List<String> commandLine = new ArrayList<>();
 
     // first: The command name.
-    commandLine.add(getToolPath());
+    if (pathMapper.isNoop()) {
+      commandLine.add(getToolPath());
+    } else {
+      // getToolPath() ultimately returns a PathFragment's getSafePathString(), so its safe to
+      // reparse it here with no risk of e.g. altering a user-specified absolute path.
+      commandLine.add(pathMapper.map(PathFragment.create(getToolPath())).getSafePathString());
+    }
 
     // second: The compiler options.
     if (parameterFilePath != null) {
       commandLine.add("@" + parameterFilePath.getSafePathString());
     } else {
-      commandLine.addAll(getCompilerOptions(overwrittenVariables));
+      commandLine.addAll(getCompilerOptions(overwrittenVariables, pathMapper));
     }
     return commandLine;
   }
@@ -111,18 +118,19 @@ public final class CompileCommandLine {
    * @param cppCompileAction - {@link CppCompileAction} owning this {@link CompileCommandLine}.
    */
   public CommandLine getFilteredFeatureConfigurationCommandLine(CppCompileAction cppCompileAction) {
-    return new CommandLine() {
+    return new AbstractCommandLine() {
 
       @Override
       public Iterable<String> arguments() throws CommandLineExpansionException {
         CcToolchainVariables overwrittenVariables = cppCompileAction.getOverwrittenVariables();
-        List<String> compilerOptions = getCompilerOptions(overwrittenVariables);
+        List<String> compilerOptions = getCompilerOptions(overwrittenVariables, PathMapper.NOOP);
         return ImmutableList.<String>builder().add(getToolPath()).addAll(compilerOptions).build();
       }
     };
   }
 
-  public List<String> getCompilerOptions(@Nullable CcToolchainVariables overwrittenVariables)
+  public List<String> getCompilerOptions(
+      @Nullable CcToolchainVariables overwrittenVariables, PathMapper pathMapper)
       throws CommandLineExpansionException {
     try {
       List<String> options = new ArrayList<>();
@@ -134,7 +142,8 @@ public final class CompileCommandLine {
         updatedVariables = variablesBuilder.build();
       }
       addFilteredOptions(
-          options, featureConfiguration.getPerFeatureExpansions(actionName, updatedVariables));
+          options,
+          featureConfiguration.getPerFeatureExpansions(actionName, updatedVariables, pathMapper));
 
       return options;
     } catch (ExpansionException e) {
@@ -175,18 +184,18 @@ public final class CompileCommandLine {
   /**
    * Returns all user provided copts flags.
    *
-   * TODO(b/64108724): Get rid of this method when we don't need to parse copts to collect include
-   * directories anymore (meaning there is a way of specifying include directories using an
+   * <p>TODO(b/64108724): Get rid of this method when we don't need to parse copts to collect
+   * include directories anymore (meaning there is a way of specifying include directories using an
    * explicit attribute, not using platform-dependent garbage bag that copts is).
    */
-  public ImmutableList<String> getCopts() {
+  public ImmutableList<String> getCopts(PathMapper pathMapper) {
     if (variables.isAvailable(CompileBuildVariables.USER_COMPILE_FLAGS.getVariableName())) {
       try {
         return CcToolchainVariables.toStringList(
-            variables, CompileBuildVariables.USER_COMPILE_FLAGS.getVariableName());
+            variables, CompileBuildVariables.USER_COMPILE_FLAGS.getVariableName(), pathMapper);
       } catch (ExpansionException e) {
         throw new IllegalStateException(
-            "Should not happen - 'user_compile_flags' should be a string list, but wasn't.");
+            "Should not happen - 'user_compile_flags' should be a string list, but wasn't.", e);
       }
     } else {
       return ImmutableList.of();
@@ -203,7 +212,7 @@ public final class CompileCommandLine {
     private final Artifact sourceFile;
     private CoptsFilter coptsFilter;
     private FeatureConfiguration featureConfiguration;
-    private CcToolchainVariables variables = CcToolchainVariables.EMPTY;
+    private CcToolchainVariables variables = CcToolchainVariables.empty();
     private final String actionName;
     @Nullable private final Artifact dotdFile;
 
@@ -226,16 +235,19 @@ public final class CompileCommandLine {
     }
 
     /** Sets the feature configuration for this compile action. */
+    @CanIgnoreReturnValue
     public Builder setFeatureConfiguration(FeatureConfiguration featureConfiguration) {
       this.featureConfiguration = featureConfiguration;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setVariables(CcToolchainVariables variables) {
       this.variables = variables;
       return this;
     }
 
+    @CanIgnoreReturnValue
     @VisibleForTesting
     Builder setCoptsFilter(CoptsFilter filter) {
       this.coptsFilter = Preconditions.checkNotNull(filter);

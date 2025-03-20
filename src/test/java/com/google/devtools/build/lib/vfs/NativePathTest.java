@@ -20,6 +20,7 @@ import com.google.common.collect.Lists;
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.vfs.util.FileSystems;
+import com.google.devtools.build.lib.vfs.util.TestUnixGlobPathDiscriminator;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -124,25 +125,27 @@ public class NativePathTest {
 
   @Test
   public void testGlob() throws Exception {
-    Collection<Path> textFiles = UnixGlob.forPath(fs.getPath(tmpDir.getPath()))
-        .addPattern("*/*.txt")
-        .globInterruptible();
+    Collection<Path> textFiles =
+        new UnixGlob.Builder(fs.getPath(tmpDir.getPath()), SyscallCache.NO_CACHE)
+            .addPattern("*/*.txt")
+            .globInterruptible();
     assertThat(textFiles).hasSize(1);
     Path onlyFile = textFiles.iterator().next();
     assertThat(onlyFile).isEqualTo(fs.getPath(anotherFile.getPath()));
 
     Collection<Path> onlyFiles =
-        UnixGlob.forPath(fs.getPath(tmpDir.getPath()))
-        .addPattern("*")
-        .setExcludeDirectories(true)
-        .globInterruptible();
+        new UnixGlob.Builder(fs.getPath(tmpDir.getPath()), SyscallCache.NO_CACHE)
+            .addPattern("*")
+            .setPathDiscriminator(
+                new TestUnixGlobPathDiscriminator(p -> true, (p, isDir) -> !isDir))
+            .globInterruptible();
     assertPathSet(onlyFiles, aFile.getPath());
 
     Collection<Path> directoriesToo =
-        UnixGlob.forPath(fs.getPath(tmpDir.getPath()))
-        .addPattern("*")
-        .setExcludeDirectories(false)
-        .globInterruptible();
+        new UnixGlob.Builder(fs.getPath(tmpDir.getPath()), SyscallCache.NO_CACHE)
+            .addPattern("*")
+            .setPathDiscriminator(new TestUnixGlobPathDiscriminator(p -> true, (p, isDir) -> true))
+            .globInterruptible();
     assertPathSet(directoriesToo, aFile.getPath(), aDirectory.getPath());
   }
 

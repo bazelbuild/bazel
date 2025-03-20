@@ -14,13 +14,18 @@
 
 package com.google.devtools.build.lib.runtime;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
+import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.exec.local.LocalExecutionOptions;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.OsUtils;
-import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
@@ -33,7 +38,10 @@ public final class ProcessWrapper {
   private static final String BIN_BASENAME = "process-wrapper" + OsUtils.executableExtension();
 
   /** Path to the process-wrapper binary to use. */
-  private final Path binPath;
+  private final PathFragment binPath;
+
+  /** The process-wrapper binary from {@link BinTools#getActionInput}. */
+  private final ActionInput actionInput;
 
   /** Grace delay between asking a process to stop and forcibly killing it, or null for none. */
   @Nullable private final Duration killDelay;
@@ -43,8 +51,13 @@ public final class ProcessWrapper {
 
   /** Creates a new process-wrapper instance from explicit values. */
   @VisibleForTesting
-  public ProcessWrapper(Path binPath, @Nullable Duration killDelay, boolean gracefulSigterm) {
-    this.binPath = binPath;
+  public ProcessWrapper(
+      PathFragment binPath,
+      ActionInput actionInput,
+      @Nullable Duration killDelay,
+      boolean gracefulSigterm) {
+    this.binPath = checkNotNull(binPath);
+    this.actionInput = checkNotNull(actionInput);
     this.killDelay = killDelay;
     this.gracefulSigterm = gracefulSigterm;
   }
@@ -62,9 +75,14 @@ public final class ProcessWrapper {
 
     boolean gracefulSigterm = options != null && options.processWrapperGracefulSigterm;
 
-    Path path = cmdEnv.getBlazeWorkspace().getBinTools().getEmbeddedPath(BIN_BASENAME);
-    if (OS.isPosixCompatible() && path != null && path.exists()) {
-      return new ProcessWrapper(path, killDelay, gracefulSigterm);
+    BinTools binTools = cmdEnv.getBlazeWorkspace().getBinTools();
+    ActionInput actionInput = binTools.getActionInput(BIN_BASENAME);
+    if (actionInput != null && OS.isPosixCompatible()) {
+      return new ProcessWrapper(
+          binTools.getEmbeddedPath(BIN_BASENAME).asFragment(),
+          actionInput,
+          killDelay,
+          gracefulSigterm);
     } else {
       return null;
     }
@@ -72,27 +90,31 @@ public final class ProcessWrapper {
 
   /** Returns a new {@link CommandLineBuilder} for the process-wrapper tool. */
   public CommandLineBuilder commandLineBuilder(List<String> commandArguments) {
-    return new CommandLineBuilder(
-        binPath.getPathString(), commandArguments, killDelay, gracefulSigterm);
+    return new CommandLineBuilder(binPath, commandArguments, killDelay, gracefulSigterm);
+  }
+
+  /** Returns an {@link ActionInput} representation of the process-wrapper tool. */
+  public ActionInput asActionInput() {
+    return actionInput;
   }
 
   /**
    * A builder class for constructing the full command line to run a command using the
    * process-wrapper tool.
    */
-  public static class CommandLineBuilder {
-    private final String processWrapperPath;
+  public static final class CommandLineBuilder {
+    private PathFragment processWrapperPath;
     private final List<String> commandArguments;
     @Nullable private final Duration killDelay;
     private boolean gracefulSigterm;
 
-    private Path stdoutPath;
-    private Path stderrPath;
+    private PathFragment stdoutPath;
+    private PathFragment stderrPath;
     private Duration timeout;
-    private Path statisticsPath;
+    private PathFragment statisticsPath;
 
     private CommandLineBuilder(
-        String processWrapperPath,
+        PathFragment processWrapperPath,
         List<String> commandArguments,
         @Nullable Duration killDelay,
         boolean gracefulSigterm) {
@@ -102,31 +124,48 @@ public final class ProcessWrapper {
       this.gracefulSigterm = gracefulSigterm;
     }
 
+    /**
+     * Overrides the location of the process-wrapper tool in the command line.
+     *
+     * <p>By default, the process-wrapper tool is invoked at its embedded location in the install
+     * base. Setting an alternate path may be useful if the command is not being run locally.
+     */
+    @CanIgnoreReturnValue
+    public CommandLineBuilder overrideProcessWrapperPath(PathFragment processWrapperPath) {
+      this.processWrapperPath = processWrapperPath;
+      return this;
+    }
+
     /** Sets the path to use for redirecting stdout, if any. */
-    public CommandLineBuilder setStdoutPath(Path stdoutPath) {
+    @CanIgnoreReturnValue
+    public CommandLineBuilder setStdoutPath(PathFragment stdoutPath) {
       this.stdoutPath = stdoutPath;
       return this;
     }
 
     /** Sets the path to use for redirecting stderr, if any. */
-    public CommandLineBuilder setStderrPath(Path stderrPath) {
+    @CanIgnoreReturnValue
+    public CommandLineBuilder setStderrPath(PathFragment stderrPath) {
       this.stderrPath = stderrPath;
       return this;
     }
 
     /** Sets the timeout for the command run using the process-wrapper tool. */
+    @CanIgnoreReturnValue
     public CommandLineBuilder setTimeout(Duration timeout) {
       this.timeout = timeout;
       return this;
     }
 
     /** Sets the path for writing execution statistics (e.g. resource usage). */
-    public CommandLineBuilder setStatisticsPath(Path statisticsPath) {
+    @CanIgnoreReturnValue
+    public CommandLineBuilder setStatisticsPath(PathFragment statisticsPath) {
       this.statisticsPath = statisticsPath;
       return this;
     }
 
     /** Incorporates settings from a spawn's execution info. */
+    @CanIgnoreReturnValue
     public CommandLineBuilder addExecutionInfo(Map<String, String> executionInfo) {
       if (executionInfo.containsKey(ExecutionRequirements.GRACEFUL_TERMINATION)) {
         gracefulSigterm = true;
@@ -137,13 +176,13 @@ public final class ProcessWrapper {
     /** Build the command line to invoke a specific command using the process wrapper tool. */
     public ImmutableList<String> build() {
       ImmutableList.Builder<String> fullCommandLine = new ImmutableList.Builder<>();
-      fullCommandLine.add(processWrapperPath);
+      fullCommandLine.add(processWrapperPath.getPathString());
 
       if (timeout != null) {
-        fullCommandLine.add("--timeout=" + timeout.getSeconds());
+        fullCommandLine.add("--timeout=" + timeout.toSeconds());
       }
       if (killDelay != null) {
-        fullCommandLine.add("--kill_delay=" + killDelay.getSeconds());
+        fullCommandLine.add("--kill_delay=" + killDelay.toSeconds());
       }
       if (stdoutPath != null) {
         fullCommandLine.add("--stdout=" + stdoutPath);

@@ -28,6 +28,10 @@
 #include "src/main/native/windows/process.h"
 #include "src/tools/launcher/util/launcher_util.h"
 
+#if (__cplusplus >= 201703L)
+#include <filesystem>  // NOLINT
+#endif
+
 namespace bazel {
 namespace launcher {
 
@@ -162,8 +166,7 @@ static void WriteJarClasspath(const wstring& jar_path,
 }
 
 wstring JavaBinaryLauncher::GetJunctionBaseDir() {
-  wstring binary_base_path =
-      GetBinaryPathWithExtension(this->GetCommandlineArguments()[0]);
+  wstring binary_base_path = GetBinaryPathWithExtension(GetLauncherPath());
   wstring result;
   if (!NormalizePath(binary_base_path + L".j", &result)) {
     die(L"Failed to get normalized junction base directory.");
@@ -191,8 +194,7 @@ void JavaBinaryLauncher::DeleteJunctionBaseDir() {
 }
 
 wstring JavaBinaryLauncher::CreateClasspathJar(const wstring& classpath) {
-  wstring binary_base_path =
-      GetBinaryPathWithoutExtension(this->GetCommandlineArguments()[0]);
+  wstring binary_base_path = GetBinaryPathWithoutExtension(GetLauncherPath());
   wstring abs_manifest_jar_dir_norm = GetManifestJarDir(binary_base_path);
 
   wostringstream manifest_classpath;
@@ -251,7 +253,11 @@ wstring JavaBinaryLauncher::CreateClasspathJar(const wstring& classpath) {
   wstring jar_manifest_file_path =
       binary_base_path + rand_id + L".jar_manifest";
   blaze_util::AddUncPrefixMaybe(&jar_manifest_file_path);
+#if (__cplusplus >= 201703L)
+  wofstream jar_manifest_file{std::filesystem::path(jar_manifest_file_path)};
+#else
   wofstream jar_manifest_file(jar_manifest_file_path);
+#endif
   jar_manifest_file << L"Manifest-Version: 1.0\n";
   // No line in the MANIFEST.MF file may be longer than 72 bytes.
   // A space prefix indicates the line is still the content of the last
@@ -312,8 +318,7 @@ ExitCode JavaBinaryLauncher::Launch() {
   // Run deploy jar if needed, otherwise generate the CLASSPATH by rlocation.
   if (this->singlejar) {
     wstring deploy_jar =
-        GetBinaryPathWithoutExtension(this->GetCommandlineArguments()[0]) +
-        L"_deploy.jar";
+        GetBinaryPathWithoutExtension(GetLauncherPath()) + L"_deploy.jar";
     if (!DoesFilePathExist(deploy_jar.c_str())) {
       die(L"Option --singlejar was passed, but %s does not exist.\n  (You may "
           "need to build it explicitly.)",
@@ -321,11 +326,14 @@ ExitCode JavaBinaryLauncher::Launch() {
     }
     classpath << deploy_jar << L';';
   } else {
+    wstring path;
     // Add main advice classpath if exists
     if (!this->main_advice_classpath.empty()) {
-      classpath << this->main_advice_classpath << L';';
+      wstringstream main_advice_classpath_ss(this->main_advice_classpath);
+      while (getline(main_advice_classpath_ss, path, L';')) {
+        classpath << this->Rlocation(path) << L';';
+      }
     }
-    wstring path;
     wstringstream classpath_ss(this->GetLaunchInfoByKey(CLASSPATH));
     while (getline(classpath_ss, path, L';')) {
       classpath << this->Rlocation(path) << L';';

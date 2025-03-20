@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.actions;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.time.Duration;
 import java.util.EnumMap;
 import java.util.Map;
@@ -25,6 +26,7 @@ import java.util.function.ToLongFunction;
 import javax.annotation.Nullable;
 
 /** Metrics aggregated per execution kind. */
+@SuppressWarnings("GoodTime") // Use ints instead of Durations to improve build time (cl/505728570)
 public final class AggregatedSpawnMetrics {
 
   public static final AggregatedSpawnMetrics EMPTY = new AggregatedSpawnMetrics(ImmutableMap.of());
@@ -130,10 +132,10 @@ public final class AggregatedSpawnMetrics {
    * <p>Example: {@code getTotalDuration(SpawnMetrics::queueTime)} will give the total queue time
    * across all execution kinds.
    */
-  public Duration getTotalDuration(Function<SpawnMetrics, Duration> extract) {
-    Duration result = Duration.ZERO;
+  public int getTotalDuration(Function<SpawnMetrics, Integer> extract) {
+    int result = 0;
     for (SpawnMetrics metric : metricsMap.values()) {
-      result = result.plus(extract.apply(metric));
+      result += extract.apply(metric);
     }
     return result;
   }
@@ -155,7 +157,9 @@ public final class AggregatedSpawnMetrics {
   public String toString(Duration total, boolean summary) {
     // For now keep compatibility with the old output and only report the remote execution.
     // TODO(michalt): Change this once the local and worker executions populate more metrics.
-    return SpawnMetrics.ExecKind.REMOTE + " " + getRemoteMetrics().toString(total, summary);
+    return SpawnMetrics.ExecKind.REMOTE
+        + " "
+        + getRemoteMetrics().toString((int) total.toMillis(), summary);
   }
 
   /** Builder for {@link AggregatedSpawnMetrics}. */
@@ -172,31 +176,37 @@ public final class AggregatedSpawnMetrics {
       return new AggregatedSpawnMetrics(Maps.immutableEnumMap(map));
     }
 
+    @CanIgnoreReturnValue
     public Builder addDurations(SpawnMetrics metrics) {
       getBuilder(metrics.execKind()).addDurations(metrics);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addDurations(AggregatedSpawnMetrics aggregated) {
       aggregated.getAllMetrics().forEach(this::addDurations);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addNonDurations(SpawnMetrics metrics) {
       getBuilder(metrics.execKind()).addNonDurations(metrics);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addNonDurations(AggregatedSpawnMetrics aggregated) {
       aggregated.getAllMetrics().forEach(this::addNonDurations);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder maxNonDurations(SpawnMetrics metrics) {
       getBuilder(metrics.execKind()).maxNonDurations(metrics);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder maxNonDurations(AggregatedSpawnMetrics aggregated) {
       aggregated.getAllMetrics().forEach(this::maxNonDurations);
       return this;

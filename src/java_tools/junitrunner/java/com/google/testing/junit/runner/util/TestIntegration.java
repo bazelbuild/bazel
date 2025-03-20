@@ -14,6 +14,7 @@
 
 package com.google.testing.junit.runner.util;
 
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.EnumMap;
 import java.util.Map;
 
@@ -140,9 +141,11 @@ public class TestIntegration {
     /**
      * Sets the Contact Email value. The contact email is used for users to identify how to contact
      * the TestIntegration owner. This is optional.
+     *
      * @param email Email of the team responsible for this TestIntegration.
      * @return Builder
      */
+    @CanIgnoreReturnValue
     public Builder setContactEmail(String email) {
       this.contactEmail = email;
       return this;
@@ -151,9 +154,11 @@ public class TestIntegration {
     /**
      * Sets the component ID value, used to identify the tool that this TestIntegration belongs to.
      * This is optional.
+     *
      * @param id ID of the component.
      * @return Builder
      */
+    @CanIgnoreReturnValue
     public Builder setComponentId(String id) {
       this.componentId = id;
       return this;
@@ -161,32 +166,37 @@ public class TestIntegration {
 
     /**
      * Sets the name for the tool for this TestIntegration.
+     *
      * @param name Name of this TestIntegration.
      * @return Builder
      */
+    @CanIgnoreReturnValue
     public Builder setName(String name) {
       this.name = name;
       return this;
     }
 
     /**
-     * Sets the URL of this TestIntegration. It should be a FQDN, with optional url
-     * encoded parameters.
+     * Sets the URL of this TestIntegration. It should be a FQDN, with optional url encoded
+     * parameters.
+     *
      * @param url The location of the TestIntegration.
      * @return Builder
      */
+    @CanIgnoreReturnValue
     public Builder setUrl(String url) {
       this.url = url;
       return this;
     }
 
     /**
-     * Sets the url of the icon. The icon should look good even if scaled down to 16x16.
-     * This is optional; if not set, it will instead use the value passed to
-     * {@link #setIconName(String)}.
-     * @param  iconUrl Location of the icon.
+     * Sets the url of the icon. The icon should look good even if scaled down to 16x16. This is
+     * optional; if not set, it will instead use the value passed to {@link #setIconName(String)}.
+     *
+     * @param iconUrl Location of the icon.
      * @return Builder
      */
+    @CanIgnoreReturnValue
     public Builder setIconUrl(String iconUrl) {
       this.iconUrl = iconUrl;
       return this;
@@ -199,6 +209,7 @@ public class TestIntegration {
      * @param iconName name of the icon.
      * @return Builder
      */
+    @CanIgnoreReturnValue
     public Builder setIconName(String iconName) {
       this.iconName = iconName;
       return this;
@@ -207,31 +218,37 @@ public class TestIntegration {
     /**
      * Sets the description. The description is used to describe the TestIntegration object's
      * purpose. This is optional; if it isn't set, it will have a default value of {@code ""}.
-     * @param  description The description for this TestIntegration.
+     *
+     * @param description The description for this TestIntegration.
      * @return Builder
      */
+    @CanIgnoreReturnValue
     public Builder setDescription(String description) {
       this.description = description;
       return this;
     }
 
     /**
-     * Sets the foreground color of the TestIntegration link. This is optional; if it isn't set,
-     * the link created will use the default foreground color per the tool's CSS.
+     * Sets the foreground color of the TestIntegration link. This is optional; if it isn't set, the
+     * link created will use the default foreground color per the tool's CSS.
+     *
      * @param foregroundColor The foreground color of the link, e.g. {@code "#000000"}.
      * @return Builder
      */
+    @CanIgnoreReturnValue
     public Builder setForegroundColor(String foregroundColor) {
       this.foregroundColor = foregroundColor;
       return this;
     }
 
     /**
-     * Sets the background color of the TestIntegration link. This is optional; if it isn't set,
-     * the link created will use the default background color per the tool's CSS.
+     * Sets the background color of the TestIntegration link. This is optional; if it isn't set, the
+     * link created will use the default background color per the tool's CSS.
+     *
      * @param backgroundColor The background color of the link, e.g. {@code "#ffffff"}.
      * @return Builder
      */
+    @CanIgnoreReturnValue
     public Builder setBackgroundColor(String backgroundColor) {
       this.backgroundColor = backgroundColor;
       return this;

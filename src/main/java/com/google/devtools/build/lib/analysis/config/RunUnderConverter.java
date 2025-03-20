@@ -14,23 +14,24 @@
 package com.google.devtools.build.lib.analysis.config;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelConverter;
+import com.google.devtools.build.lib.analysis.config.RunUnder.CommandRunUnder;
+import com.google.devtools.build.lib.analysis.config.RunUnder.LabelRunUnder;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.shell.ShellUtils.TokenizationException;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 
-/**
- * --run_under options converter.
- */
+/** --run_under options converter. */
 public class RunUnderConverter implements Converter<RunUnder> {
+  private static final LabelConverter LABEL_CONVERTER = new LabelConverter();
+
   @Override
-  public RunUnder convert(final String input) throws OptionsParsingException {
+  public RunUnder convert(final String input, Object conversionContext)
+      throws OptionsParsingException {
     final List<String> runUnderList = new ArrayList<>();
     try {
       ShellUtils.tokenize(runUnderList, input);
@@ -45,127 +46,16 @@ public class RunUnderConverter implements Converter<RunUnder> {
         ImmutableList.copyOf(runUnderList.subList(1, runUnderList.size()));
     if (runUnderCommand.startsWith("//") || runUnderCommand.startsWith("@")) {
       try {
-        final Label runUnderLabel = Label.parseAbsolute(runUnderCommand, ImmutableMap.of());
-        return new RunUnderLabel(input, runUnderLabel, runUnderSuffix);
-      } catch (LabelSyntaxException e) {
+        final Label runUnderLabel = LABEL_CONVERTER.convert(runUnderCommand, conversionContext);
+        return new LabelRunUnder(input, runUnderSuffix, runUnderLabel);
+      } catch (OptionsParsingException e) {
         throw new OptionsParsingException("Not a valid label " + e.getMessage());
       }
     } else {
-      return new RunUnderCommand(input, runUnderCommand, runUnderSuffix);
+      return new CommandRunUnder(input, runUnderSuffix, runUnderCommand);
     }
   }
 
-  private static final class RunUnderLabel implements RunUnder {
-    private final String input;
-    private final Label runUnderLabel;
-    private final ImmutableList<String> runUnderList;
-
-    RunUnderLabel(String input, Label runUnderLabel, ImmutableList<String> runUnderList) {
-      this.input = input;
-      this.runUnderLabel = runUnderLabel;
-      this.runUnderList = runUnderList;
-    }
-
-    @Override
-    public String getValue() {
-      return input;
-    }
-
-    @Override
-    public Label getLabel() {
-      return runUnderLabel;
-    }
-
-    @Override
-    public String getCommand() {
-      return null;
-    }
-
-    @Override
-    public ImmutableList<String> getOptions() {
-      return runUnderList;
-    }
-
-    @Override
-    public String toString() {
-      return input;
-    }
-
-    @Override
-    public boolean equals(Object other) {
-      if (this == other) {
-        return true;
-      } else if (other instanceof RunUnderLabel) {
-        RunUnderLabel otherRunUnderLabel = (RunUnderLabel) other;
-        return Objects.equals(input, otherRunUnderLabel.input)
-            && Objects.equals(runUnderLabel, otherRunUnderLabel.runUnderLabel)
-            && Objects.equals(runUnderList, otherRunUnderLabel.runUnderList);
-      } else {
-        return false;
-      }
-    }
-
-    @Override
-    public int hashCode() {
-      return Objects.hash(input, runUnderLabel, runUnderList);
-    }
-  }
-
-  private static final class RunUnderCommand implements RunUnder {
-    private final String input;
-    private final String runUnderCommand;
-    private final ImmutableList<String> runUnderList;
-
-    RunUnderCommand(String input, String runUnderCommand, ImmutableList<String> runUnderList) {
-      this.input = input;
-      this.runUnderCommand = runUnderCommand;
-      this.runUnderList = runUnderList;
-    }
-
-    @Override
-    public String getValue() {
-      return input;
-    }
-
-    @Override
-    public Label getLabel() {
-      return null;
-    }
-
-    @Override
-    public String getCommand() {
-      return runUnderCommand;
-    }
-
-    @Override
-    public ImmutableList<String> getOptions() {
-      return runUnderList;
-    }
-
-    @Override
-    public String toString() {
-      return input;
-    }
-
-    @Override
-    public boolean equals(Object other) {
-      if (this == other) {
-        return true;
-      } else if (other instanceof RunUnderCommand) {
-        RunUnderCommand otherRunUnderCommand = (RunUnderCommand) other;
-        return Objects.equals(input, otherRunUnderCommand.input)
-            && Objects.equals(runUnderCommand, otherRunUnderCommand.runUnderCommand)
-            && Objects.equals(runUnderList, otherRunUnderCommand.runUnderList);
-      } else {
-        return false;
-      }
-    }
-
-    @Override
-    public int hashCode() {
-      return Objects.hash(input, runUnderCommand, runUnderList);
-    }
-  }
   @Override
   public String getTypeDescription() {
     return "a prefix in front of command";

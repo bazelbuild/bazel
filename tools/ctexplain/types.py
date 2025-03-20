@@ -1,4 +1,3 @@
-# Lint as: python3
 # Copyright 2020 The Bazel Authors. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,7 +16,6 @@
 from typing import Mapping
 from typing import Optional
 from typing import Tuple
-# Do not edit this line. Copybara replaces it with PY2 migration helper.
 from dataclasses import dataclass
 from dataclasses import field
 from frozendict import frozendict

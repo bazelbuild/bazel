@@ -38,40 +38,59 @@ public class ToolchainTest extends BuildViewTestCase {
   public void createConstraints() throws Exception {
     scratch.file(
         "constraint/BUILD",
-        "constraint_setting(name = 'basic')",
-        "constraint_value(name = 'foo',",
-        "    constraint_setting = ':basic',",
-        "    )",
-        "constraint_value(name = 'bar',",
-        "    constraint_setting = ':basic',",
-        "    )");
+        """
+        constraint_setting(name = "basic")
+
+        constraint_value(
+            name = "foo",
+            constraint_setting = ":basic",
+        )
+
+        constraint_value(
+            name = "bar",
+            constraint_setting = ":basic",
+        )
+        """);
   }
 
   @Test
   public void testToolchain() throws Exception {
     scratch.file(
         "toolchain/toolchain_def.bzl",
-        "def _impl(ctx):",
-        "  toolchain = platform_common.ToolchainInfo(",
-        "      data = ctx.attr.data)",
-        "  return [toolchain]",
-        "toolchain_def = rule(",
-        "    implementation = _impl,",
-        "    attrs = {",
-        "       'data': attr.string()})");
+        """
+        def _impl(ctx):
+            toolchain = platform_common.ToolchainInfo(
+                data = ctx.attr.data,
+            )
+            return [toolchain]
+
+        toolchain_def = rule(
+            implementation = _impl,
+            attrs = {
+                "data": attr.string(),
+            },
+        )
+        """);
     scratch.file(
         "toolchain/BUILD",
-        "load(':toolchain_def.bzl', 'toolchain_def')",
-        "toolchain_type(name = 'demo_toolchain')",
-        "toolchain(",
-        "  name = 'toolchain1',",
-        "  toolchain_type = ':demo_toolchain',",
-        "  exec_compatible_with = ['//constraint:foo'],",
-        "  target_compatible_with = ['//constraint:bar'],",
-        "  toolchain = ':toolchain_def1')",
-        "toolchain_def(",
-        "  name = 'toolchain_def1',",
-        "  data = 'foo')");
+        """
+        load(":toolchain_def.bzl", "toolchain_def")
+
+        toolchain_type(name = "demo_toolchain")
+
+        toolchain(
+            name = "toolchain1",
+            exec_compatible_with = ["//constraint:foo"],
+            target_compatible_with = ["//constraint:bar"],
+            toolchain = ":toolchain_def1",
+            toolchain_type = ":demo_toolchain",
+        )
+
+        toolchain_def(
+            name = "toolchain_def1",
+            data = "foo",
+        )
+        """);
 
     ConfiguredTarget target = getConfiguredTarget("//toolchain:toolchain1");
     assertThat(target).isNotNull();
@@ -80,21 +99,23 @@ public class ToolchainTest extends BuildViewTestCase {
     assertThat(provider).isNotNull();
     assertThat(provider.toolchainType())
         .isEqualTo(
-            ToolchainTypeInfo.create(Label.parseAbsoluteUnchecked("//toolchain:demo_toolchain")));
+            ToolchainTypeInfo.create(Label.parseCanonicalUnchecked("//toolchain:demo_toolchain")));
 
     ConstraintSettingInfo basicConstraintSetting =
-        ConstraintSettingInfo.create(Label.parseAbsoluteUnchecked("//constraint:basic"));
+        ConstraintSettingInfo.create(Label.parseCanonicalUnchecked("//constraint:basic"));
     assertThat(provider.execConstraints().get(basicConstraintSetting))
         .isEqualTo(
             ConstraintValueInfo.create(
-                basicConstraintSetting, Label.parseAbsoluteUnchecked("//constraint:foo")));
+                basicConstraintSetting, Label.parseCanonicalUnchecked("//constraint:foo")));
     assertThat(provider.targetConstraints().get(basicConstraintSetting))
         .isEqualTo(
             ConstraintValueInfo.create(
-                basicConstraintSetting, Label.parseAbsoluteUnchecked("//constraint:bar")));
+                basicConstraintSetting, Label.parseCanonicalUnchecked("//constraint:bar")));
 
-    assertThat(provider.toolchainLabel())
-        .isEqualTo(Label.parseAbsoluteUnchecked("//toolchain:toolchain_def1"));
+    assertThat(provider.resolvedToolchainLabel())
+        .isEqualTo(Label.parseCanonicalUnchecked("//toolchain:toolchain_def1"));
+    assertThat(provider.targetLabel())
+        .isEqualTo(Label.parseCanonicalUnchecked("//toolchain:toolchain1"));
   }
 
   @Test
@@ -102,29 +123,44 @@ public class ToolchainTest extends BuildViewTestCase {
     useConfiguration("--compilation_mode=opt");
     scratch.file(
         "toolchain/toolchain_def.bzl",
-        "def _impl(ctx):",
-        "  toolchain = platform_common.ToolchainInfo(",
-        "      data = ctx.attr.data)",
-        "  return [toolchain]",
-        "toolchain_def = rule(",
-        "    implementation = _impl,",
-        "    attrs = {",
-        "       'data': attr.string()})");
+        """
+        def _impl(ctx):
+            toolchain = platform_common.ToolchainInfo(
+                data = ctx.attr.data,
+            )
+            return [toolchain]
+
+        toolchain_def = rule(
+            implementation = _impl,
+            attrs = {
+                "data": attr.string(),
+            },
+        )
+        """);
     scratch.file(
         "toolchain/BUILD",
-        "load(':toolchain_def.bzl', 'toolchain_def')",
-        "toolchain_type(name = 'demo_toolchain')",
-        "config_setting(",
-        "  name = 'optimised',",
-        "  values = {'compilation_mode': 'opt'})",
-        "toolchain(",
-        "  name = 'toolchain1',",
-        "  toolchain_type = ':demo_toolchain',",
-        "  target_settings = [':optimised'],",
-        "  toolchain = ':toolchain_def1')",
-        "toolchain_def(",
-        "  name = 'toolchain_def1',",
-        "  data = 'foo')");
+        """
+        load(":toolchain_def.bzl", "toolchain_def")
+
+        toolchain_type(name = "demo_toolchain")
+
+        config_setting(
+            name = "optimised",
+            values = {"compilation_mode": "opt"},
+        )
+
+        toolchain(
+            name = "toolchain1",
+            target_settings = [":optimised"],
+            toolchain = ":toolchain_def1",
+            toolchain_type = ":demo_toolchain",
+        )
+
+        toolchain_def(
+            name = "toolchain_def1",
+            data = "foo",
+        )
+        """);
 
     ConfiguredTarget target = getConfiguredTarget("//toolchain:toolchain1");
     DeclaredToolchainInfo provider = PlatformProviderUtils.declaredToolchainInfo(target);
@@ -133,11 +169,21 @@ public class ToolchainTest extends BuildViewTestCase {
     assertThat(provider).isNotNull();
     assertThat(provider.toolchainType())
         .isEqualTo(
-            ToolchainTypeInfo.create(Label.parseAbsoluteUnchecked("//toolchain:demo_toolchain")));
-    assertThat(provider.targetSettings().stream().anyMatch(ConfigMatchingProvider::matches))
+            ToolchainTypeInfo.create(Label.parseCanonicalUnchecked("//toolchain:demo_toolchain")));
+    // Ensure target settings completely matches (and not just vacuously e.g. if somehow empty)
+    assertThat(provider.targetSettings()).isNotEmpty();
+    assertThat(
+            provider.targetSettings().stream()
+                .allMatch(x -> x.result().equals(ConfigMatchingProvider.MatchResult.MATCH)))
         .isTrue();
-    assertThat(provider.toolchainLabel())
-        .isEqualTo(Label.parseAbsoluteUnchecked("//toolchain:toolchain_def1"));
+    assertThat(
+            provider.targetSettings().stream()
+                .anyMatch(x -> x.result() instanceof ConfigMatchingProvider.MatchResult.InError))
+        .isFalse();
+    assertThat(provider.resolvedToolchainLabel())
+        .isEqualTo(Label.parseCanonicalUnchecked("//toolchain:toolchain_def1"));
+    assertThat(provider.targetLabel())
+        .isEqualTo(Label.parseCanonicalUnchecked("//toolchain:toolchain1"));
   }
 
   @Test
@@ -145,29 +191,44 @@ public class ToolchainTest extends BuildViewTestCase {
     useConfiguration("--compilation_mode=fastbuild");
     scratch.file(
         "toolchain/toolchain_def.bzl",
-        "def _impl(ctx):",
-        "  toolchain = platform_common.ToolchainInfo(",
-        "      data = ctx.attr.data)",
-        "  return [toolchain]",
-        "toolchain_def = rule(",
-        "    implementation = _impl,",
-        "    attrs = {",
-        "       'data': attr.string()})");
+        """
+        def _impl(ctx):
+            toolchain = platform_common.ToolchainInfo(
+                data = ctx.attr.data,
+            )
+            return [toolchain]
+
+        toolchain_def = rule(
+            implementation = _impl,
+            attrs = {
+                "data": attr.string(),
+            },
+        )
+        """);
     scratch.file(
         "toolchain/BUILD",
-        "load(':toolchain_def.bzl', 'toolchain_def')",
-        "toolchain_type(name = 'demo_toolchain')",
-        "config_setting(",
-        "  name = 'optimised',",
-        "  values = {'compilation_mode': 'opt'})",
-        "toolchain(",
-        "  name = 'toolchain1',",
-        "  toolchain_type = ':demo_toolchain',",
-        "  target_settings = [':optimised'],",
-        "  toolchain = ':toolchain_def1')",
-        "toolchain_def(",
-        "  name = 'toolchain_def1',",
-        "  data = 'foo')");
+        """
+        load(":toolchain_def.bzl", "toolchain_def")
+
+        toolchain_type(name = "demo_toolchain")
+
+        config_setting(
+            name = "optimised",
+            values = {"compilation_mode": "opt"},
+        )
+
+        toolchain(
+            name = "toolchain1",
+            target_settings = [":optimised"],
+            toolchain = ":toolchain_def1",
+            toolchain_type = ":demo_toolchain",
+        )
+
+        toolchain_def(
+            name = "toolchain_def1",
+            data = "foo",
+        )
+        """);
 
     ConfiguredTarget target = getConfiguredTarget("//toolchain:toolchain1");
     DeclaredToolchainInfo provider = PlatformProviderUtils.declaredToolchainInfo(target);
@@ -176,41 +237,65 @@ public class ToolchainTest extends BuildViewTestCase {
     assertThat(provider).isNotNull();
     assertThat(provider.toolchainType())
         .isEqualTo(
-            ToolchainTypeInfo.create(Label.parseAbsoluteUnchecked("//toolchain:demo_toolchain")));
-    assertThat(provider.targetSettings().stream().anyMatch(ConfigMatchingProvider::matches))
+            ToolchainTypeInfo.create(Label.parseCanonicalUnchecked("//toolchain:demo_toolchain")));
+    assertThat(
+            provider.targetSettings().stream()
+                .anyMatch(x -> x.result().equals(ConfigMatchingProvider.MatchResult.MATCH)))
         .isFalse();
-    assertThat(provider.toolchainLabel())
-        .isEqualTo(Label.parseAbsoluteUnchecked("//toolchain:toolchain_def1"));
+    assertThat(provider.resolvedToolchainLabel())
+        .isEqualTo(Label.parseCanonicalUnchecked("//toolchain:toolchain_def1"));
+    assertThat(provider.targetLabel())
+        .isEqualTo(Label.parseCanonicalUnchecked("//toolchain:toolchain1"));
   }
 
   @Test
   public void ruleDefinitionIncorrectlyDependsOnToolchainInstance() throws Exception {
     scratch.file(
         "toolchain/toolchain_def.bzl",
-        "def _impl(ctx):",
-        "  return [platform_common.ToolchainInfo()]",
-        "toolchain_def = rule(",
-        "    implementation = _impl,",
-        "    attrs = {})");
+        """
+        def _impl(ctx):
+            return [platform_common.ToolchainInfo()]
+
+        toolchain_def = rule(
+            implementation = _impl,
+            attrs = {},
+        )
+        """);
     scratch.file(
         "toolchain/BUILD",
-        "load(':toolchain_def.bzl', 'toolchain_def')",
-        "toolchain_type(name = 'demo_toolchain')",
-        "toolchain(",
-        "  name = 'toolchain1',",
-        "  toolchain_type = ':demo_toolchain',",
-        "  exec_compatible_with = ['//constraint:foo'],",
-        "  target_compatible_with = ['//constraint:bar'],",
-        "  toolchain = ':toolchain_def1')",
-        "toolchain_def(name = 'toolchain_def1')");
+        """
+        load(":toolchain_def.bzl", "toolchain_def")
+
+        toolchain_type(name = "demo_toolchain")
+
+        toolchain(
+            name = "toolchain1",
+            exec_compatible_with = ["//constraint:foo"],
+            target_compatible_with = ["//constraint:bar"],
+            toolchain = ":toolchain_def1",
+            toolchain_type = ":demo_toolchain",
+        )
+
+        toolchain_def(name = "toolchain_def1")
+        """);
     scratch.file(
         "rule/rule_def.bzl",
-        "def _impl(ctx):",
-        "    pass",
-        "my_rule = rule(",
-        "    implementation = _impl,",
-        "    toolchains = ['//toolchain:toolchain1'])");
-    scratch.file("rule/BUILD", "load('//rule:rule_def.bzl', 'my_rule')", "my_rule(name = 'me')");
+        """
+        def _impl(ctx):
+            pass
+
+        my_rule = rule(
+            implementation = _impl,
+            toolchains = ["//toolchain:toolchain1"],
+        )
+        """);
+    scratch.file(
+        "rule/BUILD",
+        """
+        load("//rule:rule_def.bzl", "my_rule")
+
+        my_rule(name = "me")
+        """);
     reporter.removeHandler(failFastHandler); // expect errors
     ConfiguredTarget target = getConfiguredTarget("//rule:me");
     assertThat(target).isNull();

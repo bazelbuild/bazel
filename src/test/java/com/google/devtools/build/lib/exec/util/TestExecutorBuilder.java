@@ -22,10 +22,10 @@ import com.google.devtools.build.lib.analysis.actions.FileWriteActionContext;
 import com.google.devtools.build.lib.analysis.actions.LocalTemplateExpansionStrategy;
 import com.google.devtools.build.lib.analysis.actions.SymlinkTreeActionContext;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionContext;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.events.Reporter;
-import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.exec.BlazeExecutor;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.FileWriteStrategy;
@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.List;
 
 /**
@@ -48,7 +49,7 @@ import java.util.List;
  */
 public class TestExecutorBuilder {
   public static final ImmutableList<Class<? extends OptionsBase>> DEFAULT_OPTIONS =
-      ImmutableList.of(ExecutionOptions.class, CommonCommandOptions.class);
+      ImmutableList.of(ExecutionOptions.class, CommonCommandOptions.class, CoreOptions.class);
   private final FileSystem fileSystem;
   private final Path execRoot;
   private Reporter reporter = new Reporter(new EventBus());
@@ -59,35 +60,38 @@ public class TestExecutorBuilder {
   private final SpawnStrategyRegistry.Builder strategyRegistryBuilder =
       SpawnStrategyRegistry.builder();
 
-  public TestExecutorBuilder(
-      FileSystem fileSystem, BlazeDirectories directories, BinTools binTools) {
-    this(fileSystem, directories.getExecRoot(TestConstants.WORKSPACE_NAME), binTools);
+  public TestExecutorBuilder(FileSystem fileSystem, BlazeDirectories directories) {
+    this(fileSystem, directories.getExecRoot(TestConstants.WORKSPACE_NAME));
   }
 
-  public TestExecutorBuilder(FileSystem fileSystem, Path execRoot, BinTools binTools) {
+  public TestExecutorBuilder(FileSystem fileSystem, Path execRoot) {
     this.fileSystem = fileSystem;
     this.execRoot = execRoot;
     addContext(FileWriteActionContext.class, new FileWriteStrategy());
     addContext(TemplateExpansionContext.class, new LocalTemplateExpansionStrategy());
-    addContext(SymlinkTreeActionContext.class, new SymlinkTreeStrategy(null, binTools));
+    addContext(SymlinkTreeActionContext.class, new SymlinkTreeStrategy(null, execRoot, "__main__"));
     addContext(SpawnStrategyResolver.class, new SpawnStrategyResolver());
   }
 
+  @CanIgnoreReturnValue
   public TestExecutorBuilder setReporter(Reporter reporter) {
     this.reporter = reporter;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public TestExecutorBuilder setOptionsParser(OptionsParser optionsParser) {
     this.optionsParser = optionsParser;
     return this;
   }
 
+  @CanIgnoreReturnValue
   public TestExecutorBuilder parseOptions(String... options) throws OptionsParsingException {
     this.optionsParser.parse(options);
     return this;
   }
 
+  @CanIgnoreReturnValue
   public TestExecutorBuilder parseOptions(List<String> options) throws OptionsParsingException {
     this.optionsParser.parse(options);
     return this;
@@ -99,6 +103,7 @@ public class TestExecutorBuilder {
    * <p>If two action contexts are registered with the same identifying type and commandline
    * identifier the last registered will take precedence.
    */
+  @CanIgnoreReturnValue
   public <T extends ActionContext> TestExecutorBuilder addContext(
       Class<T> identifyingType, T context, String... commandlineIdentifiers) {
     actionContextRegistryBuilder.register(identifyingType, context, commandlineIdentifiers);
@@ -106,6 +111,7 @@ public class TestExecutorBuilder {
   }
 
   /** Makes the given strategy available in the execution phase. */
+  @CanIgnoreReturnValue
   public TestExecutorBuilder addStrategy(SpawnStrategy strategy, String... commandlineIdentifiers) {
     strategyRegistryBuilder.registerStrategy(strategy, commandlineIdentifiers);
     return this;
@@ -116,11 +122,13 @@ public class TestExecutorBuilder {
    *
    * <p>Replaces any previously set default strategies.
    */
+  @CanIgnoreReturnValue
   public TestExecutorBuilder setDefaultStrategies(String... strategies) {
     strategyRegistryBuilder.setDefaultStrategies(ImmutableList.copyOf(strategies));
     return this;
   }
 
+  @CanIgnoreReturnValue
   public TestExecutorBuilder setExecution(String mnemonic, String strategy) {
     strategyRegistryBuilder.addMnemonicFilter(mnemonic, ImmutableList.of(strategy));
     return this;

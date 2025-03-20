@@ -14,20 +14,15 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi.java;
 
-import com.google.devtools.build.docgen.annot.DocCategory;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
+import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
 import javax.annotation.Nullable;
-import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
-import net.starlark.java.eval.Sequence;
-import net.starlark.java.eval.StarlarkValue;
+import net.starlark.java.eval.StarlarkSemantics;
 
 /** A tuple of a java classes jar and its associated source and interface archives. */
-@StarlarkBuiltin(
-    name = "java_output",
-    category = DocCategory.BUILTIN,
-    doc = "The outputs of Java compilation.")
-public interface JavaOutputApi<FileT extends FileApi> extends StarlarkValue {
+public interface JavaOutputApi<FileT extends FileApi> extends StructApi {
 
   @StarlarkMethod(name = "class_jar", doc = "A classes jar file.", structField = true)
   FileT getClassJar();
@@ -115,9 +110,10 @@ public interface JavaOutputApi<FileT extends FileApi> extends StarlarkValue {
 
   @StarlarkMethod(
       name = "source_jars",
-      doc = "A list of sources archive files.",
+      doc = "A depset of sources archive files.",
       allowReturnNones = true,
+      useStarlarkSemantics = true,
       structField = true)
   @Nullable
-  Sequence<FileT> getSrcJarsStarlark();
+  Depset getSrcJarsStarlark(StarlarkSemantics semantics);
 }

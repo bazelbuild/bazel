@@ -1,0 +1,120 @@
+# Based on paths provided in the CODEOWNERS file
+
+# Add 'awaiting-review' to any PR opened
+awaiting-review:
+- changed-files:
+  - any-glob-to-any-file: '**/*'
+
+team-ExternalDeps:
+- changed-files:
+  - any-glob-to-any-file:
+    - src/main/java/com/google/devtools/build/lib/bazel/bzlmod/**/*
+    - src/test/java/com/google/devtools/build/lib/bazel/bzlmod/**/*
+    - src/test/py/bazel/bzlmod/**/*
+    - src/main/java/com/google/devtools/build/lib/bazel/repository/**/*
+    - src/test/java/com/google/devtools/build/lib/bazel/repository/**/*
+
+team-Documentation:
+- changed-files:
+  - any-glob-to-any-file: site/**/*
+
+team-Remote-Exec:
+- changed-files:
+  - any-glob-to-any-file:
+    - src/main/java/com/google/devtools/build/lib/remote/**/*
+    - src/test/java/com/google/devtools/build/lib/remote/**/*
+    - src/test/py/bazel/remote/**/*
+    - src/test/shell/bazel/remote/**/*
+    - src/tools/remote/**/*
+    - third_party/remoteapis/build/bazel/remote/**/*
+
+team-Rules-Python:
+- changed-files:
+  - any-glob-to-any-file:
+    - src/main/java/com/google/devtools/build/lib/bazel/rules/python/**/*
+    - src/main/java/com/google/devtools/build/lib/rules/python/**/*
+
+team-Rules-Java:
+- changed-files:
+  - any-glob-to-any-file:
+    - src/java_tools/**/*
+    - src/main/java/com/google/devtools/build/lib/rules/java/**/*
+    - src/test/java/com/google/devtools/build/lib/rules/java/**/*
+    - src/tools/singlejar/**/*
+    - tools/java/**/*
+    - tools/jdk/**/*
+
+team-Android:
+- changed-files:
+  - any-glob-to-any-file:
+    - src/tools/android/java/com/google/devtools/build/android/**/*
+    - src/test/java/com/google/devtools/build/android/**/*
+    - src/test/shell/bazel/android/**/*
+    - tools/android/**/*
+    - src/main/java/com/google/devtools/build/lib/starlarkbuildapi/android/**/*
+
+team-Configurability:
+- changed-files:
+  - any-glob-to-any-file:
+    - src/main/java/com/google/devtools/build/lib/analysis/**/*
+    - src/test/java/com/google/devtools/build/lib/analysis/**/*
+    - src/main/java/com/google/devtools/build/lib/query2/cquery/**/*
+    - src/test/java/com/google/devtools/build/lib/query2/cquery/**/*
+    - src/main/java/com/google/devtools/build/lib/rules/platform/**/*
+    - src/test/java/com/google/devtools/build/lib/rules/platform/**/*
+    - tools/platforms/**/*
+
+team-Performance:
+- changed-files:
+  - any-glob-to-any-file:
+    - src/main/java/com/google/devtools/build/lib/profiler/**/*
+    - src/main/java/com/google/devtools/build/lib/query2/aquery/**/*
+    - src/main/java/com/google/devtools/build/lib/query2/query/**/*
+    - src/main/java/com/google/devtools/build/lib/metrics/**/*
+    - src/main/java/com/google/devtools/build/lib/actions/**/*
+    - src/main/protobuf/analysis_v2.proto
+
+team-CLI:
+- changed-files:
+  - any-glob-to-any-file:
+    - src/main/java/com/google/devtools/build/lib/runtime/UiStateTracker.java
+    - src/main/java/com/google/devtools/build/lib/runtime/UiEventHandler.java
+    - src/main/java/com/google/devtools/build/lib/runtime/SkymeldUiStateTracker.java
+
+team-Local-Exec:
+- changed-files:
+  - any-glob-to-any-file:
+    - src/main/java/com/google/devtools/build/lib/sandbox/**/*
+    - src/main/java/com/google/devtools/build/lib/worker/**/*
+    - src/main/java/com/google/devtools/build/lib/dynamic/**/*
+
+team-Rules-CPP:
+- changed-files:
+  - any-glob-to-any-file:
+    - tools/cpp/**/*
+    - src/main/cpp/**/*
+    - src/test/java/com/google/devtools/build/lib/rules/cpp/**/*
+    - src/main/java/com/google/devtools/build/lib/rules/cpp/**/*
+    - src/main/java/com/google/devtools/build/lib/starlarkbuildapi/cpp/**/*
+
+team-Rules-ObjC:
+- changed-files:
+  - any-glob-to-any-file:
+    - src/main/java/com/google/devtools/build/lib/rules/objc/**/*
+    - src/main/java/com/google/devtools/build/lib/starlarkbuildapi/apple/**/*
+
+team-OSS:
+- changed-files:
+  - any-glob-to-any-file: .github/**/*
+
+# team-Rules-Server
+
+# team-Starlark-Interpreter
+
+# team-Starlark-Integration
+
+# team-Rules-API
+
+# team-Loading-API
+
+# team-Core

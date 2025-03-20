@@ -1,4 +1,3 @@
-# Lint as: python3
 # Copyright 2020 The Bazel Authors. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,10 +14,9 @@
 """Tests for summary.py."""
 import unittest
 
-# Do not edit this line. Copybara replaces it with PY2 migration helper.
 from frozendict import frozendict
 
-# Do not edit this line. Copybara replaces it with PY2 migration helper..third_party.bazel.tools.ctexplain.analyses.summary as summary
+import tools.ctexplain.analyses.summary as summary
 from tools.ctexplain.types import Configuration
 from tools.ctexplain.types import ConfiguredTarget
 from tools.ctexplain.types import NullConfiguration

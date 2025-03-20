@@ -26,14 +26,13 @@ import org.junit.runners.JUnit4;
 
 /** Tests for the non-trivial creation logic of {@link ErrorInfo}. */
 @RunWith(JUnit4.class)
-public class ErrorInfoTest {
+public final class ErrorInfoTest {
 
   /** Dummy SkyFunctionException implementation for the sake of testing. */
-  private static class DummySkyFunctionException extends SkyFunctionException {
+  private static final class DummySkyFunctionException extends SkyFunctionException {
     private final boolean isCatastrophic;
 
-    public DummySkyFunctionException(Exception cause, boolean isTransient,
-        boolean isCatastrophic) {
+    DummySkyFunctionException(Exception cause, boolean isTransient, boolean isCatastrophic) {
       super(cause, isTransient ? Transience.TRANSIENT : Transience.PERSISTENT);
       this.isCatastrophic = isCatastrophic;
     }
@@ -86,8 +85,8 @@ public class ErrorInfoTest {
   public void testFromCycle() {
     CycleInfo cycle =
         new CycleInfo(
-            ImmutableList.of(GraphTester.toSkyKey("PATH, 1234")),
-            ImmutableList.of(GraphTester.toSkyKey("CYCLE, 4321")));
+            ImmutableList.of(GraphTester.skyKey("PATH, 1234")),
+            ImmutableList.of(GraphTester.skyKey("CYCLE, 4321")));
 
     ErrorInfo errorInfo = ErrorInfo.fromCycle(cycle);
 
@@ -100,8 +99,8 @@ public class ErrorInfoTest {
   public void testFromChildErrors() {
     CycleInfo cycle =
         new CycleInfo(
-            ImmutableList.of(GraphTester.toSkyKey("PATH, 1234")),
-            ImmutableList.of(GraphTester.toSkyKey("CYCLE, 4321")));
+            ImmutableList.of(GraphTester.skyKey("PATH, 1234")),
+            ImmutableList.of(GraphTester.skyKey("CYCLE, 4321")));
     ErrorInfo cycleErrorInfo = ErrorInfo.fromCycle(cycle);
 
     Exception exception1 = new IOException("ehhhhh");
@@ -119,7 +118,7 @@ public class ErrorInfoTest {
         ErrorInfo.fromException(
             new ReifiedSkyFunctionException(dummyException2), /*isTransitivelyTransient=*/ false);
 
-    SkyKey currentKey = GraphTester.toSkyKey("CURRENT, 9876");
+    SkyKey currentKey = GraphTester.skyKey("CURRENT, 9876");
 
     ErrorInfo errorInfo = ErrorInfo.fromChildErrors(
         currentKey, ImmutableList.of(cycleErrorInfo, exceptionErrorInfo1, exceptionErrorInfo2));
@@ -138,14 +137,30 @@ public class ErrorInfoTest {
   }
 
   @Test
-  public void testCannotCreateErrorInfoWithoutExceptionOrCycle() {
-    // Brittle, but confirms we failed for the right reason.
-    IllegalStateException e =
+  public void cannotCreateErrorInfoWithoutExceptionOrCycle() {
+    Exception e =
         assertThrows(
-            IllegalStateException.class,
-            () -> new ErrorInfo(/*exception=*/ null, ImmutableList.of(), false, false, false));
+            RuntimeException.class,
+            () ->
+                new ErrorInfo(
+                    /*exception=*/ null, /*cycles=*/ ImmutableList.of(), false, false, false));
+    assertThat(e).hasMessageThat().contains("At least one of exception and cycles must be present");
+  }
+
+  @Test
+  public void cannotCreateErrorInfoWithDirectTransienceButNotTransitiveTransience() {
+    Exception e =
+        assertThrows(
+            RuntimeException.class,
+            () ->
+                new ErrorInfo(
+                    new Exception(),
+                    /*cycles=*/ ImmutableList.of(),
+                    /*isDirectlyTransient=*/ true,
+                    /*isTransitivelyTransient=*/ false,
+                    /*isCatastrophic=*/ false));
     assertThat(e)
         .hasMessageThat()
-        .isEqualTo("At least one of exception and cycles must be non-null/empty, respectively");
+        .contains("Cannot be directly transient but not transitively transient");
   }
 }

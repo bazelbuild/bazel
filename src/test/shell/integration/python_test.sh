@@ -50,8 +50,6 @@ msys*|mingw*|cygwin*)
 esac
 
 if "$is_windows"; then
-  export MSYS_NO_PATHCONV=1
-  export MSYS2_ARG_CONV_EXCL="*"
   declare -r EXE_EXT=".exe"
 else
   declare -r EXE_EXT=""
@@ -73,9 +71,20 @@ fi
 #   - Otherwise, put your test in //src/test/shell/bazel. That suite can invoke
 #     actual Python 2 and 3 interpreters.
 
+# Python's import system distinguishes between "regular files" and other files
+# in some cases (e.g. /dev/null). Here, we are trying to verify that a generated
+# __init__.py file passes the isfile() check that the import logic performs and
+# would fail for a "character device" (e.g. symlinked to /dev/null). For more
+# info, see:
+# * https://github.com/bazelbuild/bazel/issues/1458
+# * https://github.com/bazelbuild/bazel/issues/2394
+# * https://bugs.python.org/issue28425
 function test_python_binary_empty_files_in_runfiles_are_regular_files() {
+  add_rules_python "MODULE.bazel"
   mkdir -p test/mypackage
   cat > test/BUILD <<'EOF'
+load("@rules_python//python:py_test.bzl", "py_test")
+
 py_test(
     name = "a",
     srcs = [
@@ -101,11 +110,11 @@ if not os.path.exists(file_to_check):
   print("mypackage/__init__.py does not exist")
   sys.exit(1)
 
-if os.path.islink(file_to_check):
-  print("mypackage/__init__.py is a symlink, expected a regular file")
-  sys.exit(1)
+# Symlinks to regular files are OK.
+realpath = os.path.realpath(file_to_check)
+print("{} realpath is: {}".format(file_to_check, realpath))
 
-if not os.path.isfile(file_to_check):
+if not os.path.isfile(realpath):
   print("mypackage/__init__.py is not a regular file")
   sys.exit(1)
 
@@ -114,29 +123,6 @@ EOF
   touch test/mypackage/b.py
 
   bazel test --test_output=streamed //test:a &> $TEST_log || fail "test failed"
-}
-
-function test_building_transitive_py_binary_runfiles_trees() {
-  touch main.py script.sh
-  chmod u+x script.sh
-  cat > BUILD <<'EOF'
-py_binary(
-    name = 'py-tool',
-    srcs = ['main.py'],
-    main = 'main.py',
-)
-
-sh_binary(
-    name = 'sh-tool',
-    srcs = ['script.sh'],
-    data = [':py-tool'],
-)
-EOF
-  bazel build --experimental_build_transitive_python_runfiles :sh-tool
-  [ -d "bazel-bin/py-tool${EXE_EXT}.runfiles" ] || fail "py_binary runfiles tree not built"
-  bazel clean
-  bazel build --noexperimental_build_transitive_python_runfiles :sh-tool
-  [ ! -e "bazel-bin/py-tool${EXE_EXT}.runfiles" ] || fail "py_binary runfiles tree built"
 }
 
 run_suite "Tests for the Python rules"

@@ -16,16 +16,14 @@ import java.io.FileOutputStream;
 import java.util.jar.JarOutputStream;
 import java.util.zip.ZipEntry;
 import org.objectweb.asm.AnnotationVisitor;
-import org.objectweb.asm.Attribute;
-import org.objectweb.asm.ByteVector;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 
 /**
- * GenKeepForCompile creates a jarfile containing a class definition that has the KeepForCOmpile
- * attribute.
+ * GenKeepForCompile creates a jarfile containing a class definition that has the kotlin.Metadata
+ * annotation.
  */
 public class GenKeepForCompile implements Opcodes {
 
@@ -62,7 +60,15 @@ public class GenKeepForCompile implements Opcodes {
         AnnotationVisitor annotationVisitor1 = annotationVisitor0.visitArray("d1");
         annotationVisitor1.visit(
             null,
-            "\u0000\u0014\n\u0000\n\u0002\u0010\u000e\n\u0002\u0018\u0002\n\u0000\n\u0002\u0018\u0002\n\u0002\u0010\u0008\u001a!\u0010\u0000\u001a\u00020\u0001*\u00020\u00022\u0012\u0010\u0003\u001a\u000e\u0012\u0004\u0012\u00020\u0005\u0012\u0004\u0012\u00020\u00010\u0004H\u0086\u0008");
+            "\u0000\u0014\n"
+                + "\u0000\n"
+                + "\u0002\u0010\u000e\n"
+                + "\u0002\u0018\u0002\n"
+                + "\u0000\n"
+                + "\u0002\u0018\u0002\n"
+                + "\u0002\u0010\u0008\u001a!\u0010\u0000\u001a\u00020\u0001*\u00020\u00022\u0012"
+                + "\u0010\u0003\u001a\u000e\u0012\u0004\u0012\u00020\u0005\u0012\u0004\u0012\u00020"
+                + "\u00010\u0004H\u0086\u0008");
         annotationVisitor1.visitEnd();
       }
       {
@@ -103,17 +109,6 @@ public class GenKeepForCompile implements Opcodes {
             methodVisitor.visitParameterAnnotation(1, "Lorg/jetbrains/annotations/NotNull;", false);
         annotationVisitor0.visitEnd();
       }
-      // ATTRIBUTE com.google.devtools.ijar.KeepForCompile
-      // ASM-ifier doesn't emit attributes it does not know about :( - emitting by hand here.
-      methodVisitor.visitAttribute(
-          new Attribute("com.google.devtools.ijar.KeepForCompile") {
-            @Override
-            public ByteVector write(
-                ClassWriter cw, byte[] code, int len, int maxStack, int maxLocals) {
-              // nothing to write, just get the attribute's name in the file.
-              return new ByteVector();
-            }
-          });
 
       methodVisitor.visitCode();
       Label label0 = new Label();

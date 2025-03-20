@@ -16,28 +16,16 @@
 #
 # target_compatible_with.sh variations for external repos.
 
-# --- begin runfiles.bash initialization ---
-set -euo pipefail
-
-if [[ ! -d "${RUNFILES_DIR:-/dev/null}" && ! -f "${RUNFILES_MANIFEST_FILE:-/dev/null}" ]]; then
-  if [[ -f "$TEST_SRCDIR/MANIFEST" ]]; then
-    export RUNFILES_MANIFEST_FILE="$TEST_SRCDIR/MANIFEST"
-  elif [[ -f "$0.runfiles/MANIFEST" ]]; then
-    export RUNFILES_MANIFEST_FILE="$0.runfiles/MANIFEST"
-  elif [[ -f "$TEST_SRCDIR/io_bazel/tools/bash/runfiles/runfiles.bash" ]]; then
-    export RUNFILES_DIR="$TEST_SRCDIR"
-  fi
-fi
-if [[ -f "${RUNFILES_DIR:-/dev/null}/io_bazel/tools/bash/runfiles/runfiles.bash" ]]; then
-  source "${RUNFILES_DIR}/io_bazel/tools/bash/runfiles/runfiles.bash"
-elif [[ -f "${RUNFILES_MANIFEST_FILE:-/dev/null}" ]]; then
-  source "$(grep -m1 "^io_bazel/tools/bash/runfiles/runfiles.bash " \
-            "$RUNFILES_MANIFEST_FILE" | cut -d ' ' -f 2-)"
-else
-  echo >&2 "ERROR: cannot find //third_party/bazel/tools/bash/runfiles:runfiles.bash"
-  exit 1
-fi
-# --- end runfiles.bash initialization ---
+# --- begin runfiles.bash initialization v3 ---
+# Copy-pasted from the Bazel Bash runfiles library v3.
+set -uo pipefail; set +e; f=bazel_tools/tools/bash/runfiles/runfiles.bash
+source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
+  source "$(grep -sm1 "^$f " "${RUNFILES_MANIFEST_FILE:-/dev/null}" | cut -f2- -d' ')" 2>/dev/null || \
+  source "$0.runfiles/$f" 2>/dev/null || \
+  source "$(grep -sm1 "^$f " "$0.runfiles_manifest" | cut -f2- -d' ')" 2>/dev/null || \
+  source "$(grep -sm1 "^$f " "$0.exe.runfiles_manifest" | cut -f2- -d' ')" 2>/dev/null || \
+  { echo>&2 "ERROR: cannot find $f"; exit 1; }; f=; set -e
+# --- end runfiles.bash initialization v3 ---
 
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
@@ -57,20 +45,16 @@ msys*)
   ;;
 esac
 
-if "$is_windows"; then
-  export MSYS_NO_PATHCONV=1
-  export MSYS2_ARG_CONV_EXCL="*"
-fi
-
 function set_up() {
   mkdir -p target_skipping || fail "couldn't create directory"
+  touch target_skipping/MODULE.bazel
   cat > target_skipping/pass.sh <<EOF || fail "couldn't create pass.sh"
 #!/bin/bash
 exit 0
 EOF
   chmod +x target_skipping/pass.sh
 
-  cat > target_skipping/fail.sh <<EOF|| fail "couldn't create fail.sh"
+  cat > target_skipping/fail.sh <<EOF || fail "couldn't create fail.sh"
 #!/bin/bash
 exit 1
 EOF
@@ -173,9 +157,6 @@ sh_binary(
     ],
 )
 EOF
-
-  cat > target_skipping/WORKSPACE <<EOF || fail "couldn't create WORKSPACE"
-EOF
 }
 
 add_to_bazelrc "test --nocache_test_results"
@@ -186,14 +167,15 @@ function tear_down() {
 }
 
 function test_failure_on_incompatible_top_level_target_in_external_repo() {
-  cat >> target_skipping/WORKSPACE <<EOF
+  cat > $(setup_module_dot_bazel "target_skipping/MODULE.bazel") <<EOF
+local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(
     name = "test_repo",
     path = "third_party/test_repo",
 )
 EOF
   mkdir -p target_skipping/third_party/test_repo/
-  touch target_skipping/third_party/test_repo/WORKSPACE
+  touch target_skipping/third_party/test_repo/REPO.bazel
   cat > target_skipping/third_party/test_repo/BUILD <<EOF
 cc_binary(
     name = "bin",
@@ -215,30 +197,30 @@ EOF
     --platforms=@//:foo3_platform \
     --build_event_text_file="${TEST_log}".build.json \
     @test_repo//:bin &> "${TEST_log}" && fail "Bazel passed unexpectedly."
-  expect_log 'ERROR: Target @test_repo//:bin is incompatible and cannot be built'
-  expect_log '^FAILED: Build did NOT complete successfully'
+  expect_log 'ERROR:.*Target @@+local_repository+test_repo//:bin is incompatible and cannot be built'
+  expect_log '^ERROR: Build did NOT complete successfully'
   # Now look at the build event log.
   mv "${TEST_log}".build.json "${TEST_log}"
   expect_log '^    name: "PARSING_FAILURE"$'
-  expect_log 'Target @test_repo//:bin is incompatible and cannot be built.'
+  expect_log 'Target @@+local_repository+test_repo//:bin is incompatible and cannot be built.'
 }
 
 # Regression test for https://github.com/bazelbuild/bazel/issues/12374
 function test_repository_defines_target_compatible_with() {
   cat > repo.bzl <<EOF
-def _repo_rule_impl(repo_ctx):
+def impl(repo_ctx):
     pass
 
 repo_rule = repository_rule(
-    implementation = _repo_rule_impl,
+    implementation = impl,
     attrs = {
         "target_compatible_with": attr.label_list(),
     },
 )
 EOF
 
-  cat >> WORKSPACE <<EOF
-load(':repo.bzl', 'repo_rule')
+  cat >> MODULE.bazel <<EOF
+repo_rule = use_repo_rule(':repo.bzl', 'repo_rule')
 repo_rule(name = 'defines_tcw')
 EOF
 

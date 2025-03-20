@@ -1,4 +1,5 @@
-load("@rules_java//java:defs.bzl", "java_library", "java_test")
+load("@rules_java//java:java_library.bzl", "java_library")
+load("@rules_java//java:java_test.bzl", "java_test")
 
 package(default_visibility = ["//visibility:public"])
 

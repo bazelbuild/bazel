@@ -31,9 +31,6 @@ public interface MockRuleCustomBehavior {
    */
   void customize(RuleClass.Builder builder, RuleDefinitionEnvironment env);
 
-  /* Predefined no-op behavior.  */
-  MockRuleCustomBehavior NOOP = (builder, env) -> {};
-
   /**
    * Predefined behavior that populates a list of attributes.
    */

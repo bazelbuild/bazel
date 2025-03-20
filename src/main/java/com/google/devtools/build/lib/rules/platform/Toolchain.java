@@ -17,7 +17,7 @@ package com.google.devtools.build.lib.rules.platform;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
+import com.google.devtools.build.lib.actions.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
@@ -32,11 +32,14 @@ import com.google.devtools.build.lib.analysis.platform.PlatformProviderUtils;
 import com.google.devtools.build.lib.analysis.platform.ToolchainTypeInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.Type;
+import javax.annotation.Nullable;
 
 /** Defines a toolchain that can be used by rules. */
 public class Toolchain implements RuleConfiguredTargetFactory {
 
   @Override
+  @Nullable
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
 
@@ -53,19 +56,37 @@ public class Toolchain implements RuleConfiguredTargetFactory {
         ruleContext.getPrerequisites(ToolchainRule.TARGET_SETTING_ATTR).stream()
             .map(target -> target.getProvider(ConfigMatchingProvider.class))
             .collect(toImmutableList());
-    Label toolchainLabel =
+    Label resolvedToolchainLabel =
         ruleContext.attributes().get(ToolchainRule.TOOLCHAIN_ATTR, BuildType.NODEP_LABEL);
+    boolean targetToExecConstraints =
+        ruleContext
+            .attributes()
+            .get(ToolchainRule.USE_TARGET_PLATFORM_CONSTRAINTS_ATTR, Type.BOOLEAN);
+    if (targetToExecConstraints && !(execConstraints.isEmpty() && targetConstraints.isEmpty())) {
+      ruleContext.attributeError(
+          ToolchainRule.USE_TARGET_PLATFORM_CONSTRAINTS_ATTR,
+          "Cannot set use_target_platform_constraints to True and also set exec_compatible_with or "
+              + "target_compatible_with");
+      return null;
+    }
 
     DeclaredToolchainInfo registeredToolchain;
     try {
-      registeredToolchain =
+      var registeredToolchainBuilder =
           DeclaredToolchainInfo.builder()
               .toolchainType(toolchainType)
-              .addExecConstraints(execConstraints)
-              .addTargetConstraints(targetConstraints)
               .addTargetSettings(targetSettings)
-              .toolchainLabel(toolchainLabel)
-              .build();
+              .resolvedToolchainLabel(resolvedToolchainLabel)
+              .targetLabel(ruleContext.getLabel());
+      if (targetToExecConstraints) {
+        registeredToolchain = registeredToolchainBuilder.buildWithTargetToExecConstraints();
+      } else {
+        registeredToolchain =
+            registeredToolchainBuilder
+                .addExecConstraints(execConstraints)
+                .addTargetConstraints(targetConstraints)
+                .build();
+      }
     } catch (DeclaredToolchainInfo.DuplicateConstraintException e) {
       if (e.execConstraintsException() != null) {
         ruleContext.attributeError(

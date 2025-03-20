@@ -1,3 +1,5 @@
+load("@rules_python//python:py_binary.bzl", "py_binary")
+
 package(default_visibility = ["//visibility:public"])
 
 py_binary(
@@ -28,9 +30,4 @@ cc_binary(
     srcs = ["bar.cc"],
     data = ["bar-cc-data.txt"],
     deps = ["@bazel_tools//tools/cpp/runfiles"],
-)
-
-sh_binary(
-    name = "bar-sh-run-under",
-    srcs = ["bar-run-under.sh"],
 )

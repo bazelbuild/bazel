@@ -13,30 +13,37 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.MoreObjects.ToStringHelper;
 import com.google.common.collect.ImmutableList;
+import javax.annotation.Nullable;
 
 /**
  * Basic implementation of {@link ActionLookupValue} where the value itself owns and maintains the
  * list of generating actions.
  */
 public class BasicActionLookupValue implements ActionLookupValue {
-  protected final ImmutableList<ActionAnalysisMetadata> actions;
-
-  protected BasicActionLookupValue(ImmutableList<ActionAnalysisMetadata> actions) {
-    this.actions = actions;
-  }
+  @Nullable protected final transient ImmutableList<ActionAnalysisMetadata> actions;
 
   @VisibleForTesting
-  public BasicActionLookupValue(Actions.GeneratingActions generatingActions) {
-    this(generatingActions.getActions());
+  public BasicActionLookupValue(ImmutableList<ActionAnalysisMetadata> actions) {
+    this.actions = actions;
   }
 
   @Override
   public ImmutableList<ActionAnalysisMetadata> getActions() {
-    return actions;
+    return checkNotNull(actions, "actions are not available on deserialized instances");
+  }
+
+  @Override
+  public int getNumActions() {
+    if (actions == null) {
+      return 0;
+    }
+    return actions.size();
   }
 
   protected ToStringHelper getStringHelper() {

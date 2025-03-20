@@ -30,38 +30,61 @@ public final class CcBadDependenciesTest extends BuildViewTestCase {
   @Test
   public void testRejectsSingleUnknownSourceFile() throws Exception {
     reporter.removeHandler(failFastHandler);
-    scratch.file("foo/BUILD",
-                "cc_library(name = 'foo', srcs = ['unknown.oops'])");
+    scratch.file("foo/BUILD", "cc_library(name = 'foo', srcs = ['unknown.oops'])");
     scratch.file("foo/unknown.oops", "foo");
     configure("//foo:foo");
-    assertContainsEvent(getErrorMsgMisplacedFiles(
-        "srcs", "cc_library", "//foo:foo", "//foo:unknown.oops"));
+    assertContainsEvent(
+        getErrorMsgMisplacedFiles("srcs", "cc_library", "@@//foo:foo", "@@//foo:unknown.oops"));
   }
 
   @Test
   public void testAcceptsDependencyWithAtLeastOneGoodSource() throws Exception {
-    scratch.file("dependency/BUILD",
-                "genrule(name = 'goodandbad_gen', ",
-                "        cmd = '/bin/true',",
-                "        outs = ['good.cc', 'bad.oops'])");
-    scratch.file("foo/BUILD",
-                "cc_library(name = 'foo',",
-                "           srcs = ['//dependency:goodandbad_gen'])");
+    scratch.file(
+        "dependency/BUILD",
+        """
+        genrule(
+            name = "goodandbad_gen",
+            outs = [
+                "good.cc",
+                "bad.oops",
+            ],
+            cmd = "/bin/true",
+        )
+        """);
+    scratch.file(
+        "foo/BUILD",
+        """
+        cc_library(
+            name = "foo",
+            srcs = ["//dependency:goodandbad_gen"],
+        )
+        """);
     configure("//foo:foo");
   }
 
   @Test
   public void testRejectsBadGeneratedFile() throws Exception {
+    setBuildLanguageOptions("--experimental_builtins_injection_override=+cc_library");
     reporter.removeHandler(failFastHandler);
-    scratch.file("dependency/BUILD",
-        "genrule(name = 'generated', ",
-        "        cmd = '/bin/true',",
-        "        outs = ['bad.oops'])");
-    scratch.file("foo/BUILD",
-        "cc_library(name = 'foo',",
-        "           srcs = ['//dependency:generated'])");
+    scratch.file(
+        "dependency/BUILD",
+        """
+        genrule(
+            name = "generated",
+            outs = ["bad.oops"],
+            cmd = "/bin/true",
+        )
+        """);
+    scratch.file(
+        "foo/BUILD",
+        """
+        cc_library(
+            name = "foo",
+            srcs = ["//dependency:generated"],
+        )
+        """);
     configure("//foo:foo");
     assertContainsEvent(
-        getErrorMsgNoGoodFiles("srcs", "cc_library", "//foo:foo", "//dependency:generated"));
+        "attribute srcs: '@@//dependency:generated' does not produce any cc_library srcs files");
   }
 }

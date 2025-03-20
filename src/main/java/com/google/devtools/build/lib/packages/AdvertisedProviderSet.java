@@ -16,7 +16,9 @@ package com.google.devtools.build.lib.packages;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.Fingerprint;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
 import java.util.Objects;
 
@@ -47,8 +49,11 @@ public final class AdvertisedProviderSet {
     this.starlarkProviders = starlarkProviders;
   }
 
+  @SerializationConstant
   public static final AdvertisedProviderSet ANY =
       new AdvertisedProviderSet(true, ImmutableSet.of(), ImmutableSet.of());
+
+  @SerializationConstant
   public static final AdvertisedProviderSet EMPTY =
       new AdvertisedProviderSet(false, ImmutableSet.of(), ImmutableSet.of());
 
@@ -160,9 +165,8 @@ public final class AdvertisedProviderSet {
       starlarkProviders = new ArrayList<>();
     }
 
-    /**
-     * Advertise all providers inherited from a parent rule.
-     */
+    /** Advertise all providers inherited from a parent rule. */
+    @CanIgnoreReturnValue
     public Builder addParent(AdvertisedProviderSet parentSet) {
       Preconditions.checkState(!canHaveAnyProvider, "Alias rules inherit from no other rules");
       Preconditions.checkState(!parentSet.canHaveAnyProvider(),
@@ -172,6 +176,7 @@ public final class AdvertisedProviderSet {
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addBuiltin(Class<?> builtinProvider) {
       this.builtinProviders.add(builtinProvider);
       return this;
@@ -191,11 +196,13 @@ public final class AdvertisedProviderSet {
           ImmutableSet.copyOf(builtinProviders), ImmutableSet.copyOf(starlarkProviders));
     }
 
+    @CanIgnoreReturnValue
     public Builder addStarlark(String providerName) {
       starlarkProviders.add(StarlarkProviderIdentifier.forLegacy(providerName));
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addStarlark(StarlarkProviderIdentifier id) {
       starlarkProviders.add(id);
       return this;

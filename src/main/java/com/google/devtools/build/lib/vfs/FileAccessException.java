@@ -11,12 +11,13 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 package com.google.devtools.build.lib.vfs;
 
-import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
-import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
+import static com.google.devtools.build.lib.skyframe.serialization.strings.UnsafeStringCodec.stringCodec;
+
+import com.google.devtools.build.lib.skyframe.serialization.LeafDeserializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.LeafObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.LeafSerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
@@ -47,7 +48,7 @@ public class FileAccessException extends IOException {
    * Therefore, we need to provide our own codec for @link FileAccessException}.
    */
   @SuppressWarnings("unused") // found by CLASSPATH-scanning magic
-  private static class Codec implements ObjectCodec<FileAccessException> {
+  private static class Codec extends LeafObjectCodec<FileAccessException> {
     @Override
     public Class<? extends FileAccessException> getEncodedClass() {
       return FileAccessException.class;
@@ -55,15 +56,26 @@ public class FileAccessException extends IOException {
 
     @Override
     public void serialize(
-        SerializationContext context, FileAccessException fae, CodedOutputStream codedOut)
+        LeafSerializationContext context, FileAccessException fae, CodedOutputStream codedOut)
         throws SerializationException, IOException {
-      context.serialize(fae.getMessage(), codedOut);
+      String message = fae.getMessage();
+      if (message == null) {
+        codedOut.writeBoolNoTag(false);
+        return;
+      }
+      codedOut.writeBoolNoTag(true);
+      context.serializeLeaf(message, stringCodec(), codedOut);
     }
 
     @Override
-    public FileAccessException deserialize(DeserializationContext context, CodedInputStream codedIn)
+    public FileAccessException deserialize(
+        LeafDeserializationContext context, CodedInputStream codedIn)
         throws SerializationException, IOException {
-      String message = context.deserialize(codedIn);
+      boolean hasMessage = codedIn.readBool();
+      if (!hasMessage) {
+        return new FileAccessException(null);
+      }
+      String message = context.deserializeLeaf(codedIn, stringCodec());
       return new FileAccessException(message);
     }
   }

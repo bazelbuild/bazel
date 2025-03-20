@@ -14,22 +14,21 @@
 
 package com.google.devtools.build.lib.analysis.test;
 
-import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLine;
-import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.actions.Compression;
-import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
+import com.google.devtools.build.lib.analysis.config.RunUnder.CommandRunUnder;
+import com.google.devtools.build.lib.analysis.constraints.ConstraintConstants;
 import com.google.devtools.build.lib.packages.TargetUtils;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.Path;
 import javax.annotation.Nullable;
 
@@ -52,13 +51,13 @@ public final class TestTargetExecutionSettings {
   private final Artifact runfilesInputManifest;
   private final Artifact instrumentedFileManifest;
   private final boolean testRunnerFailFast;
+  private final OS executionOs;
 
   TestTargetExecutionSettings(
       RuleContext ruleContext,
       RunfilesSupport runfilesSupport,
       Artifact executable,
       Artifact instrumentedFileManifest,
-      Artifact persistentTestRunnerFlagFile,
       int shards,
       int runs)
       throws InterruptedException { // due to CommandLine.arguments
@@ -68,35 +67,8 @@ public final class TestTargetExecutionSettings {
     TestConfiguration testConfig = config.getFragment(TestConfiguration.class);
 
     CommandLine targetArgs = runfilesSupport.getArgs();
-    if (persistentTestRunnerFlagFile != null) {
-      // If an flag artifact exists for the persistent test runner, register an action that writes
-      // the test arguments to the said artifact. When the test runner runs in a persistent worker,
-      // the worker expects to find the test arguments in a special flag file.
-      ImmutableList.Builder<String> testTargetArgs = new ImmutableList.Builder<>();
-      try {
-        testTargetArgs.addAll(targetArgs.arguments());
-      } catch (CommandLineExpansionException e) {
-        // Don't fail the build and ignore the runfiles arguments.
-        ruleContext.ruleError("Could not expand test target arguments: " + e.getMessage());
-      }
-      testTargetArgs.addAll(testConfig.getTestArguments());
-      ruleContext.registerAction(
-          FileWriteAction.create(
-              ruleContext.getActionOwner(),
-              persistentTestRunnerFlagFile,
-              /* fileContents= */ Joiner.on(System.lineSeparator()).join(testTargetArgs.build()),
-              /* makeExecutable= */ false,
-              /* allowCompression= */ Compression.DISALLOW));
-
-      // When using the persistent test runner the test arguments are passed through --flagfile.
-      testArguments =
-          CommandLine.of(
-              ImmutableList.of(
-                  "--flagfile=" + persistentTestRunnerFlagFile.getRootRelativePathString()));
-    } else {
-      testArguments =
-          CommandLine.concat(targetArgs, ImmutableList.copyOf(testConfig.getTestArguments()));
-    }
+    testArguments =
+        CommandLine.concat(targetArgs, ImmutableList.copyOf(testConfig.getTestArguments()));
 
     totalShards = shards;
     totalRuns = runs;
@@ -106,15 +78,18 @@ public final class TestTargetExecutionSettings {
     this.testFilter = testConfig.getTestFilter();
     this.testRunnerFailFast = testConfig.getTestRunnerFailFast();
     this.executable = executable;
-    this.runfilesSymlinksCreated = runfilesSupport.isBuildRunfileLinks();
+    this.runfilesSymlinksCreated = runfilesSupport.getRunfilesTree().isBuildRunfileLinks();
     this.runfilesDir = runfilesSupport.getRunfilesDirectory();
     this.runfiles = runfilesSupport.getRunfiles();
     this.runfilesInputManifest = runfilesSupport.getRunfilesInputManifest();
     this.instrumentedFileManifest = instrumentedFileManifest;
+    this.executionOs =
+        ConstraintConstants.getOsFromConstraints(ruleContext.getExecutionPlatform().constraints());
   }
 
+  @Nullable
   private static Artifact getRunUnderExecutable(RuleContext ruleContext) {
-    TransitiveInfoCollection runUnderTarget = ruleContext.getPrerequisite(":run_under");
+    TransitiveInfoCollection runUnderTarget = ruleContext.getRunUnderPrerequisite();
     return runUnderTarget == null
         ? null
         : runUnderTarget.getProvider(FilesToRunProvider.class).getExecutable();
@@ -187,18 +162,20 @@ public final class TestTargetExecutionSettings {
     return instrumentedFileManifest;
   }
 
-  public boolean needsShell(boolean executedOnWindows) {
-    RunUnder r = getRunUnder();
-    if (r == null) {
+  public OS getExecutionOs() {
+    return executionOs;
+  }
+
+  public boolean needsShell() {
+    if (getRunUnder() instanceof CommandRunUnder commandRunUnder) {
+      String command = commandRunUnder.command();
+      // --run_under commands that do not contain '/' are either shell built-ins or need to be
+      // located on the PATH env, so we wrap them in a shell invocation. Note that we
+      // shell-tokenize
+      // the --run_under parameter and getCommand only returns the first such token.
+      return !command.contains("/") && (!executionOs.equals(OS.WINDOWS) || !command.contains("\\"));
+    } else {
       return false;
     }
-    String command = r.getCommand();
-    if (command == null) {
-      return false;
-    }
-    // --run_under commands that do not contain '/' are either shell built-ins or need to be
-    // located on the PATH env, so we wrap them in a shell invocation. Note that we shell-tokenize
-    // the --run_under parameter and getCommand only returns the first such token.
-    return !command.contains("/") && (!executedOnWindows || !command.contains("\\"));
   }
 }

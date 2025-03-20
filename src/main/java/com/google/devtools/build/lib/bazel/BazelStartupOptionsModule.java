@@ -18,8 +18,8 @@ import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
-import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
+import java.util.List;
 
 /** Provides Bazel startup flags. */
 public class BazelStartupOptionsModule extends BlazeModule {
@@ -27,6 +27,7 @@ public class BazelStartupOptionsModule extends BlazeModule {
   public static final class Options extends OptionsBase {
     @Option(
         name = "bazelrc",
+        allowMultiple = true,
         defaultValue = "null", // NOTE: purely decorative, rc files are read by the client.
         documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
         effectTags = {OptionEffectTag.CHANGES_INPUTS},
@@ -46,22 +47,7 @@ public class BazelStartupOptionsModule extends BlazeModule {
                 + "the following two locations: the workspace directory, then the user's home "
                 + "directory.\n"
                 + "Note: command line options will always supersede any option in bazelrc.")
-    public String blazerc;
-
-    // TODO(b/36168162): Remove this after the transition period is ower. This now only serves to
-    // provide accurate warnings about which old files are being missed.
-    @Option(
-        name = "master_bazelrc",
-        defaultValue = "true", // NOTE: purely decorative, rc files are read by the client.
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.NO_OP},
-        metadataTags = {OptionMetadataTag.DEPRECATED},
-        help =
-            "If this option is false, the master bazelrcs are not read. Otherwise, Bazel looks for "
-                + "master rcs in three locations, reading them all, in order: "
-                + "$workspace/tools/bazel.rc, a .bazelrc file near the bazel binary, and the "
-                + "global rc, /etc/bazel.bazelrc.")
-    public boolean masterBlazerc;
+    public List<String> blazerc;
 
     // For the system_rc, it can be /etc/bazel.bazelrc, or a special Windows value, or can be
     // custom-set by the Bazel distributor. We don't list a known path in the help output in order

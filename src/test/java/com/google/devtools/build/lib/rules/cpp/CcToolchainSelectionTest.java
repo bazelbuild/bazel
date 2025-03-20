@@ -16,12 +16,12 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.analysis.util.ScratchAttributeWriter;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.util.MockPlatformSupport;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import org.junit.Before;
@@ -53,10 +53,10 @@ public class CcToolchainSelectionTest extends BuildViewTestCase {
             .setList("srcs", "a.cc")
             .write();
     ToolchainInfo toolchainInfo =
-        getRuleContext(target)
-            .getToolchainContext()
-            .forToolchainType(Label.parseAbsolute(CPP_TOOLCHAIN_TYPE, ImmutableMap.of()));
-    CcToolchainProvider toolchain = (CcToolchainProvider) toolchainInfo.getValue("cc");
+        getRuleContext(target).getToolchainInfo(Label.parseCanonical(CPP_TOOLCHAIN_TYPE));
+    CcToolchainProvider toolchain =
+        CcToolchainProvider.PROVIDER.wrap((Info) toolchainInfo.getValue("cc"));
+
     assertThat(toolchain.getToolchainIdentifier()).endsWith("k8");
   }
 
@@ -71,10 +71,10 @@ public class CcToolchainSelectionTest extends BuildViewTestCase {
             .setList("srcs", "a.cc")
             .write();
     ToolchainInfo toolchainInfo =
-        getRuleContext(target)
-            .getToolchainContext()
-            .forToolchainType(Label.parseAbsolute(CPP_TOOLCHAIN_TYPE, ImmutableMap.of()));
-    CcToolchainProvider toolchain = (CcToolchainProvider) toolchainInfo.getValue("cc");
+        getRuleContext(target).getToolchainInfo(Label.parseCanonical(CPP_TOOLCHAIN_TYPE));
+    CcToolchainProvider toolchain =
+        CcToolchainProvider.PROVIDER.wrap((Info) toolchainInfo.getValue("cc"));
+    ;
     assertThat(toolchain.getToolchainIdentifier()).endsWith("k8");
   }
 
@@ -101,6 +101,7 @@ public class CcToolchainSelectionTest extends BuildViewTestCase {
         "   all_files = ':dummy_filegroup',",
         ")",
         "filegroup(name = 'dummy_filegroup')");
+    mockToolsConfig.append("mock_platform/BUILD", "platform(name = 'mock-piii-platform')");
 
     useConfiguration(
         "--incompatible_enable_cc_toolchain_resolution",

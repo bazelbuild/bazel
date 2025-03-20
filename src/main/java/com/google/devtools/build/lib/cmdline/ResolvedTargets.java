@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.cmdline;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.Set;
@@ -113,6 +114,7 @@ public final class ResolvedTargets<T> {
       return new ResolvedTargets<>(targets, filteredTargets, hasError);
     }
 
+    @CanIgnoreReturnValue
     public Builder<T> merge(ResolvedTargets<T> other) {
       removeAll(other.filteredTargets);
       addAll(other.targets);
@@ -122,12 +124,14 @@ public final class ResolvedTargets<T> {
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder<T> add(T target) {
       targets.add(target);
       filteredTargets.remove(target);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder<T> addAll(Collection<T> targets) {
       this.targets.addAll(targets);
       this.filteredTargets.removeAll(targets);
@@ -139,12 +143,14 @@ public final class ResolvedTargets<T> {
       filteredTargets.add(target);
     }
 
+    @CanIgnoreReturnValue
     public Builder<T> removeAll(Collection<T> targets) {
       this.filteredTargets.addAll(targets);
       this.targets.removeAll(targets);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder<T> filter(Predicate<T> predicate) {
       Set<T> oldTargets = targets;
       targets = Sets.newLinkedHashSet();
@@ -158,11 +164,13 @@ public final class ResolvedTargets<T> {
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder<T> setError() {
       this.hasError = true;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder<T> mergeError(boolean hasError) {
       this.hasError |= hasError;
       return this;

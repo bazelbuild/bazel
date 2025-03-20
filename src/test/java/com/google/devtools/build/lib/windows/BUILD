@@ -1,6 +1,7 @@
-load("@rules_java//java:defs.bzl", "java_test")
+load("@rules_java//java:defs.bzl", "java_binary", "java_test")
 
 package(
+    default_applicable_licenses = ["//:license"],
     default_testonly = 1,
     default_visibility = ["//src:__subpackages__"],
 )
@@ -40,13 +41,13 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/windows",
         "//src/main/java/com/google/devtools/build/lib/windows:file",
         "//src/main/java/com/google/devtools/build/lib/windows:processes",
-        "//src/main/java/com/google/devtools/build/lib/windows:windows_short_path",
+        "//src/main/java/com/google/devtools/build/lib/windows:windows_path_operations",
         "//src/test/java/com/google/devtools/build/lib/testutil",
         "//src/test/java/com/google/devtools/build/lib/windows/util",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
-        "@bazel_tools//tools/java/runfiles",
+        "@rules_java//java/runfiles",
     ],
 )
 
@@ -54,6 +55,7 @@ java_binary(
     name = "MockSubprocess",
     testonly = 1,
     srcs = ["MockSubprocess.java"],
+    deps = ["//third_party:guava"],
 )
 
 cc_binary(

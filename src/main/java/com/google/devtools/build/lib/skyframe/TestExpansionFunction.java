@@ -31,7 +31,7 @@ import com.google.devtools.build.lib.skyframe.TestExpansionValue.TestExpansionKe
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import com.google.devtools.build.skyframe.ValueOrException;
+import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -48,9 +48,10 @@ import javax.annotation.Nullable;
 // TODO(ulfjack): What about test_suite rules that include each other.
 final class TestExpansionFunction implements SkyFunction {
   @Override
+  @Nullable
   public SkyValue compute(SkyKey key, Environment env) throws InterruptedException {
     TestExpansionKey expansion = (TestExpansionKey) key.argument();
-    SkyKey packageKey = PackageValue.key(expansion.getLabel().getPackageIdentifier());
+    SkyKey packageKey = expansion.getLabel().getPackageIdentifier();
     PackageValue pkg = (PackageValue) env.getValue(packageKey);
     if (env.valuesMissing()) {
       return null;
@@ -150,24 +151,22 @@ final class TestExpansionFunction implements SkyFunction {
     List<Label> labels = new ArrayList<>();
     Set<PackageIdentifier> pkgIdentifiers = new HashSet<>();
     mapper.visitLabels(
-        mapper.getAttributeDefinition(attrName),
+        attrName,
         label -> {
           labels.add(label);
           pkgIdentifiers.add(label.getPackageIdentifier());
         });
-
-    Map<SkyKey, ValueOrException<NoSuchPackageException>> packages =
-        env.getValuesOrThrow(PackageValue.keys(pkgIdentifiers), NoSuchPackageException.class);
+    SkyframeLookupResult packages = env.getValuesAndExceptions(pkgIdentifiers);
     if (env.valuesMissing()) {
       return false;
     }
     boolean hasError = false;
     Map<PackageIdentifier, Package> packageMap = new HashMap<>();
-    for (Map.Entry<SkyKey, ValueOrException<NoSuchPackageException>> entry : packages.entrySet()) {
+    for (PackageIdentifier key : pkgIdentifiers) {
       try {
         packageMap.put(
-            (PackageIdentifier) entry.getKey().argument(),
-            ((PackageValue) entry.getValue().get()).getPackage());
+            key,
+            ((PackageValue) packages.getOrThrow(key, NoSuchPackageException.class)).getPackage());
       } catch (NoSuchPackageException e) {
         env.getListener().handle(Event.error(e.getMessage()));
         hasError = true;
@@ -201,11 +200,5 @@ final class TestExpansionFunction implements SkyFunction {
       }
     }
     return hasError;
-  }
-
-  @Nullable
-  @Override
-  public String extractTag(SkyKey skyKey) {
-    return null;
   }
 }

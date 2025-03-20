@@ -19,10 +19,7 @@ import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
-import net.starlark.java.eval.Dict;
-import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
-import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
 
 /**
@@ -127,25 +124,4 @@ public interface LibraryToLinkApi<
       doc = "Whether to link the static library/objects in the --whole_archive block.",
       structField = true)
   boolean getAlwayslink();
-
-  @StarlarkMethod(
-      name = "shared_non_lto_backends",
-      documented = false,
-      allowReturnNones = true,
-      useStarlarkThread = true)
-  @Nullable
-  Dict<FileT, LtoBackendArtifactsT> getSharedNonLtoBackendsForStarlark(StarlarkThread thread)
-      throws EvalException;
-
-  @StarlarkMethod(
-      name = "pic_shared_non_lto_backends",
-      documented = false,
-      allowReturnNones = true,
-      useStarlarkThread = true)
-  @Nullable
-  Dict<FileT, LtoBackendArtifactsT> getPicSharedNonLtoBackendsForStarlark(StarlarkThread thread)
-      throws EvalException;
-
-  @StarlarkMethod(name = "must_keep_debug", documented = false, useStarlarkThread = true)
-  boolean getMustKeepDebugForStarlark(StarlarkThread thread) throws EvalException;
 }

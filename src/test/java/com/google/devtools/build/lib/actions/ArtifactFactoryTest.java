@@ -23,7 +23,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
-import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -87,7 +86,7 @@ public class ArtifactFactoryTest {
     barRelative = barPath.getRelative("barsource.txt");
 
     alienPath = PathFragment.create("external/alien");
-    alienPackage = PackageIdentifier.create("@alien", alienPath);
+    alienPackage = PackageIdentifier.create("alien", alienPath);
     alienRelative = alienPath.getRelative("alien.txt");
 
     artifactFactory = new ArtifactFactory(execRoot.getParentDirectory(), "bazel-out");

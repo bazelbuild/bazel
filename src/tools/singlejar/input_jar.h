@@ -22,6 +22,8 @@
 #include <inttypes.h>
 #include <stdlib.h>
 
+#include <cstddef>
+#include <cstdint>
 #include <string>
 
 #include "src/tools/singlejar/diag.h"
@@ -51,7 +53,11 @@ class InputJar {
 #endif
 
   // Opens the file, memory maps it and locates Central Directory.
-  bool Open(const std::string& path);
+  bool Open(const std::string &path);
+
+  // Creates an input jar from data that's already in memory.
+  // Requires a non-empty path for use in diagnostics.
+  bool Open(const std::string &path, unsigned char *data, size_t length);
 
   // Returns the next Central Directory Header or nullptr.
   const CDH *NextEntry(const LH **local_header_ptr) {
@@ -98,6 +104,8 @@ class InputJar {
   }
 
  private:
+  bool LocateCentralDirectory(const std::string &path);
+
   std::string path_;
   MappedFile mapped_file_;
   const CDH *cdh_;  // current directory entry

@@ -17,6 +17,7 @@ import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.List;
 import javax.annotation.Nullable;
 
@@ -31,7 +32,7 @@ public final class CrashContext {
    * a crash in an async thread.
    */
   public static CrashContext halt() {
-    return new CrashContext(/*haltJvm=*/ true);
+    return new CrashContext(/* haltJvm= */ true, /* returnIfCrashInProgress= */ false);
   }
 
   /**
@@ -41,7 +42,19 @@ public final class CrashContext {
    * <p>The caller is responsible for terminating the server with an appropriate exit code.
    */
   public static CrashContext keepAlive() {
-    return new CrashContext(/*haltJvm=*/ false);
+    return new CrashContext(/* haltJvm= */ false, /* returnIfCrashInProgress= */ false);
+  }
+
+  /**
+   * Creates a {@link CrashContext} that instructs {@link BugReporter} to halt the JVM when handling
+   * a crash if there is no other crash in progress, and return otherwise.
+   *
+   * <p>This should only be used when it is not feasible to conduct an orderly shutdown, for example
+   * a crash in an async thread, and where that async thread must make progress while another crash
+   * is already shutting down the {@code BlazeRuntime}. This can prevent deadlocks during shutdown.
+   */
+  public static CrashContext haltOrReturnIfCrashInProgress() {
+    return new CrashContext(/* haltJvm= */ true, /* returnIfCrashInProgress= */ true);
   }
 
   private final boolean haltJvm;
@@ -51,24 +64,29 @@ public final class CrashContext {
   @Nullable private String heapDumpPath = null;
   private EventHandler eventHandler =
       event -> System.err.println(event.getKind() + ": " + event.getMessage());
+  private final boolean returnIfCrashInProgress;
 
-  private CrashContext(boolean haltJvm) {
+  private CrashContext(boolean haltJvm, boolean returnIfCrashInProgress) {
     this.haltJvm = haltJvm;
+    this.returnIfCrashInProgress = returnIfCrashInProgress;
   }
 
   /** Sets the arguments that {@link BugReporter} should include with the bug report. */
+  @CanIgnoreReturnValue
   public CrashContext withArgs(String... args) {
     this.args = ImmutableList.copyOf(args);
     return this;
   }
 
   /** Sets the arguments that {@link BugReporter} should include with the bug report. */
+  @CanIgnoreReturnValue
   public CrashContext withArgs(List<String> args) {
     this.args = ImmutableList.copyOf(args);
     return this;
   }
 
   /** Disables bug reporting. */
+  @CanIgnoreReturnValue
   public CrashContext withoutBugReport() {
     sendBugReport = false;
     return this;
@@ -78,6 +96,7 @@ public final class CrashContext {
    * Sets a custom additional message that should be including when handling an {@link
    * OutOfMemoryError}.
    */
+  @CanIgnoreReturnValue
   public CrashContext withExtraOomInfo(String extraOomInfo) {
     this.extraOomInfo = extraOomInfo;
     return this;
@@ -100,6 +119,7 @@ public final class CrashContext {
    *
    * <p>If this method is not called, the event is printed to {@link System#err}.
    */
+  @CanIgnoreReturnValue
   public CrashContext reportingTo(EventHandler eventHandler) {
     this.eventHandler = eventHandler;
     return this;
@@ -128,6 +148,10 @@ public final class CrashContext {
 
   EventHandler getEventHandler() {
     return eventHandler;
+  }
+
+  boolean returnIfCrashInProgress() {
+    return returnIfCrashInProgress;
   }
 
   @Override

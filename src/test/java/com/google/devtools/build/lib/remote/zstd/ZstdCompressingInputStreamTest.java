@@ -34,9 +34,9 @@ public class ZstdCompressingInputStreamTest {
     rand.nextBytes(data);
 
     ByteArrayInputStream bais = new ByteArrayInputStream(data);
-    ZstdCompressingInputStream zdis = new ZstdCompressingInputStream(bais);
-
-    assertThat(Zstd.decompress(ByteStreams.toByteArray(zdis), data.length)).isEqualTo(data);
+    try (ZstdCompressingInputStream zdis = new ZstdCompressingInputStream(bais)) {
+      assertThat(Zstd.decompress(ByteStreams.toByteArray(zdis), data.length)).isEqualTo(data);
+    }
   }
 
   @Test
@@ -46,9 +46,9 @@ public class ZstdCompressingInputStreamTest {
     rand.nextBytes(data);
 
     ByteArrayInputStream bais = new ByteArrayInputStream(data);
-    ZstdCompressingInputStream zdis =
-        new ZstdCompressingInputStream(bais, ZstdCompressingInputStream.MIN_BUFFER_SIZE);
-
-    assertThat(Zstd.decompress(ByteStreams.toByteArray(zdis), data.length)).isEqualTo(data);
+    try (ZstdCompressingInputStream zdis =
+        new ZstdCompressingInputStream(bais, ZstdCompressingInputStream.MIN_BUFFER_SIZE)) {
+      assertThat(Zstd.decompress(ByteStreams.toByteArray(zdis), data.length)).isEqualTo(data);
+    }
   }
 }

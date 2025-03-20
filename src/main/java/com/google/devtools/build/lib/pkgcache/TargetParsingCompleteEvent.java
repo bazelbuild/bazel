@@ -35,9 +35,9 @@ import java.util.Collection;
 import javax.annotation.Nullable;
 
 /** This event is fired just after target pattern evaluation is completed. */
-public class TargetParsingCompleteEvent implements BuildEventWithOrderConstraint {
+public final class TargetParsingCompleteEvent implements BuildEventWithOrderConstraint {
   /** A target-like object that is lighter than a target but has all data needed by callers. */
-  public static class ThinTarget {
+  public static final class ThinTarget {
     private final Label label;
     @Nullable private final String ruleClass;
     private final String targetKind;
@@ -189,6 +189,11 @@ public class TargetParsingCompleteEvent implements BuildEventWithOrderConstraint
                 .addAllTestLabels(Collections2.transform(tests, Label::toString)));
 
     return GenericBuildEvent.protoChaining(this).setExpanded(expanded).build();
+  }
+
+  @Override
+  public boolean storeForReplay() {
+    return true;
   }
 
   private static ImmutableSet<ThinTarget> asThinTargets(Collection<Target> targets) {

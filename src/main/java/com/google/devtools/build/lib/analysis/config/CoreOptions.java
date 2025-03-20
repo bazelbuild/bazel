@@ -15,28 +15,31 @@
 package com.google.devtools.build.lib.analysis.config;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.EmptyToNullLabelConverter;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelListConverter;
+import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelToStringEntryConverter;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Converters.BooleanConverter;
+import com.google.devtools.common.options.Converters.CommaSeparatedOptionSetConverter;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
-import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
-import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.TriState;
-import java.util.AbstractMap.SimpleEntry;
-import java.util.LinkedHashMap;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeSet;
 
 /**
  * Core options affecting a {@link BuildConfigurationValue} that don't belong in domain-specific
@@ -49,15 +52,24 @@ import java.util.Map;
  * BuildConfigurationValue instances.)
  *
  * <p>IMPORTANT: when adding new options, be sure to consider whether those values should be
- * propagated to the host configuration or not.
+ * propagated to the exec configuration or not.
  *
  * <p>ALSO IMPORTANT: all option types MUST define a toString method that gives identical results
  * for semantically identical option values. The simplest way to ensure that is to return the input
  * string.
  */
 public class CoreOptions extends FragmentOptions implements Cloneable {
-  public static final OptionDefinition CPU =
-      OptionsParser.getOptionDefinitionByName(CoreOptions.class, "cpu");
+
+  @Option(
+      name = "scl_config",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "Name of the scl config defined in PROJECT.scl. Note that this feature is still under"
+              + " development b/324119879.")
+  public String sclConfig;
 
   @Option(
       name = "incompatible_merge_genfiles_directory",
@@ -69,23 +81,96 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   public boolean mergeGenfilesDirectory;
 
   @Option(
+      name = "experimental_exec_config",
+      defaultValue = "@_builtins//:common/builtin_exec_platforms.bzl%bazel_exec_transition",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "If set to '//some:label:my.bzl%my_transition', uses my_transition for 'cfg = \"exec\"' "
+              + "semantics instead of Bazel's internal exec transition logic.  Else uses Bazel's "
+              + "internal logic.")
+  public String starlarkExecConfig;
+
+  @Option(
+      name = "experimental_propagate_custom_flag",
+      defaultValue = "null",
+      allowMultiple = true,
+      converter = CoreOptionConverters.CustomFlagConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "Which custom flags (starlark flags or defines) to propagate to the exec transition, by"
+              + " key. e.g. if '--define=a=b' should be propagated, set"
+              + " `--experimental_propagate_custom_flag=a`")
+  public List<String> customFlagsToPropagate;
+
+  @Option(
+      name = "experimental_exclude_defines_from_exec_config",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "If true, don't propagate '--define's to the exec transition at default; only propagate"
+              + " defines specified by `--experimental_propagate_custom_flag`.")
+  public boolean excludeDefinesFromExecConfig;
+
+  @Option(
+      name = "experimental_exclude_starlark_flags_from_exec_config",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "If true, don't propagate starlark flags to the exec transition at default; only"
+              + " propagate starlark flags specified in `--experimental_propagate_custom_flag`.")
+  public boolean excludeStarlarkFlagsFromExecConfig;
+
+  @Option(
       name = "experimental_platform_in_output_dir",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help =
-          "If true, the target platform is used in the output directory name instead of the CPU.")
+          "If true, a shortname for the target platform is used in the output directory name"
+              + " instead of the CPU. The exact scheme is experimental and subject to change:"
+              + " First, in the rare case the --platforms option does not have exactly one value, a"
+              + " hash of the platforms option is used. Next, if any shortname for the current"
+              + " platform was registered by --experimental_override_name_platform_in_output_dir,"
+              + " then that shortname is used. Then, if"
+              + " --experimental_use_platforms_in_output_dir_legacy_heuristic is set, use a"
+              + " shortname based off the current platform Label. Finally, a hash of the platform"
+              + " option is used as a last resort.")
   public boolean platformInOutputDir;
 
   @Option(
-      name = "incompatible_use_platforms_repo_for_constraints",
-      defaultValue = "false",
+      name = "experimental_use_platforms_in_output_dir_legacy_heuristic",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help = "If true, constraint settings from @bazel_tools are removed.")
-  public boolean usePlatformsRepoForConstraints;
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "Please only use this flag as part of a suggested migration or testing strategy. Note"
+              + " that the heuristic has known deficiencies and it is suggested to migrate to"
+              + " relying on just --experimental_override_name_platform_in_output_dir.")
+  public boolean usePlatformsInOutputDirLegacyHeuristic;
+
+  @Option(
+      name = "experimental_override_name_platform_in_output_dir",
+      converter = LabelToStringEntryConverter.class,
+      defaultValue = "null",
+      allowMultiple = true,
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "Each entry should be of the form label=value where label refers to a platform and values"
+              + " is the desired shortname to use in the output path. Only used when"
+              + " --experimental_platform_in_output_dir is true. Has highest naming priority.")
+  public List<Map.Entry<Label, String>> overrideNamePlatformInOutputDirEntries;
 
   @Option(
       name = "define",
@@ -94,22 +179,20 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       allowMultiple = true,
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.CHANGES_INPUTS, OptionEffectTag.AFFECTS_OUTPUTS},
-      help = "Each --define option specifies an assignment for a build variable.")
+      help =
+          "Each --define option specifies an assignment for a build variable."
+              + " In case of multiple values for a variable, the last one wins.")
   public List<Map.Entry<String, String>> commandLineBuildVariables;
 
+  // TODO: blaze-configurability-team - Remove this when --cpu is fully deprecated.
   @Option(
-      name = "collapse_duplicate_defines",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
-      effectTags = {
-        OptionEffectTag.LOADING_AND_ANALYSIS,
-        OptionEffectTag.LOSES_INCREMENTAL_STATE,
-      },
-      help =
-          "When enabled, redundant --defines will be removed early in the build. This avoids"
-              + " unnecessary loss of the analysis cache for certain types of equivalent"
-              + " builds.")
-  public boolean collapseDuplicateDefines;
+      name = "allowed_cpu_values",
+      defaultValue = "",
+      converter = CommaSeparatedOptionSetConverter.class,
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.CHANGES_INPUTS, OptionEffectTag.AFFECTS_OUTPUTS},
+      help = "Allowed values for the --cpu flag.")
+  public ImmutableList<String> allowedCpuValues;
 
   @Option(
       name = "cpu",
@@ -117,8 +200,11 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       converter = AutoCpuConverter.class,
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.CHANGES_INPUTS, OptionEffectTag.AFFECTS_OUTPUTS},
-      metadataTags = {OptionMetadataTag.EXPLICIT_IN_OUTPUT_PATH},
-      help = "The target CPU.")
+      // Don't set an actual deprecation notice: this is still heavily used and will be ignored.
+      help =
+          "Deprecated: this flag is not used internally by Blaze although there are legacy platform"
+              + " mappings to allow for backwards compatibility. Do not use this flag, instead use"
+              + " --platforms with an appropriate platform definition.")
   public String cpu;
 
   @Option(
@@ -132,18 +218,6 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       },
       help = "Minimum command line length before creating a parameter file.")
   public int minParamFileSize;
-
-  @Option(
-      name = "defer_param_files",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {
-        OptionEffectTag.LOADING_AND_ANALYSIS,
-        OptionEffectTag.EXECUTION,
-        OptionEffectTag.ACTION_COMMAND_LINES
-      },
-      help = "This option is deprecated and has no effect and will be removed in the future.")
-  public boolean deferParamFiles;
 
   @Option(
       name = "experimental_extended_sanity_checks",
@@ -163,15 +237,26 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS, OptionEffectTag.EAGERNESS_TO_EXIT},
       help =
           "If this option is enabled, filesets crossing package boundaries are reported "
-              + "as errors. It does not work when check_fileset_dependencies_recursively is "
-              + "disabled.")
+              + "as errors.")
   public boolean strictFilesets;
+
+  // This option is only used during execution. However, it is a required input to the analysis
+  // phase, as otherwise flipping this flag would not invalidate already-executed actions.
+  @Option(
+      name = "experimental_writable_outputs",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help = "If true, the file permissions of action outputs are set to 0755 instead of 0555")
+  public boolean experimentalWritableOutputs;
 
   @Option(
       name = "experimental_strict_fileset_output",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
       effectTags = {OptionEffectTag.EXECUTION},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help =
           "If this option is enabled, filesets will treat all output artifacts as regular files. "
               + "They will not traverse directories or be sensitive to symlinks.")
@@ -227,7 +312,6 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       defaultValue = "fastbuild",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.ACTION_COMMAND_LINES},
-      metadataTags = {OptionMetadataTag.EXPLICIT_IN_OUTPUT_PATH},
       help = "Specify the mode the binary will be built in. Values: 'fastbuild', 'dbg', 'opt'.")
   public CompilationMode compilationMode;
 
@@ -243,15 +327,19 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   public CompilationMode hostCompilationMode;
 
   @Option(
-      name = "experimental_enable_aspect_hints",
+      name = "incompatible_auto_exec_groups",
       defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL})
-  public boolean enableAspectHints;
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "When enabled, an exec groups is automatically created for each toolchain used by a rule."
+              + " For this to work rule needs to specify `toolchain` parameter on its actions. For"
+              + " more information, see https://github.com/bazelbuild/bazel/issues/17134.")
+  public boolean useAutoExecGroups;
 
   /** Regardless of input, converts to an empty list. For use with affectedByStarlarkTransition */
-  public static class EmptyListConverter implements Converter<List<String>> {
+  public static class EmptyListConverter extends Converter.Contextless<List<String>> {
     @Override
     public List<String> convert(String input) throws OptionsParsingException {
       return ImmutableList.of();
@@ -284,6 +372,45 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       metadataTags = {OptionMetadataTag.INTERNAL})
   public List<String> affectedByStarlarkTransition;
 
+  /** Values for the --experimental_exec_configuration_distinguisher options */
+  public enum ExecConfigurationDistinguisherScheme {
+    /** Use hash of selected execution platform for platform_suffix. */
+    LEGACY,
+    /** Do not touch platform_suffix or do anything else. * */
+    OFF,
+    /** Use hash of entire configuration (with platform_suffix="") for platform_suffix. * */
+    FULL_HASH,
+    /** Set platform_suffix to "exec", instead update `affected by starlark transition` * */
+    DIFF_TO_AFFECTED
+  }
+
+  /** Converter for the {@code --experimental_exec_configuration_distinguisher} options. */
+  public static class ExecConfigurationDistinguisherSchemeConverter
+      extends EnumConverter<ExecConfigurationDistinguisherScheme> {
+    public ExecConfigurationDistinguisherSchemeConverter() {
+      super(
+          ExecConfigurationDistinguisherScheme.class,
+          "Exec transition configuration distinguisher scheme");
+    }
+  }
+
+  @Option(
+      name = "experimental_exec_configuration_distinguisher",
+      defaultValue = "off",
+      converter = ExecConfigurationDistinguisherSchemeConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "Please only use this flag as part of a suggested migration or testing strategy due to"
+              + " potential for action conflicts. Controls how the execution transition changes the"
+              + " platform_suffix flag. In legacy mode, sets it to a hash of the execution"
+              + " platform. In fullhash mode, sets it to a hash of the entire configuration. In off"
+              + " mode, does not touch it.")
+  public ExecConfigurationDistinguisherScheme execConfigurationDistinguisherScheme;
+
+  /* At the moment, EXPLICIT_IN_OUTPUT_PATH is not being set here because platform_suffix
+   * is being used as a configuration distinguisher for the exec transition. */
   @Option(
       name = "platform_suffix",
       defaultValue = "null",
@@ -295,24 +422,6 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       },
       help = "Specifies a suffix to be added to the configuration directory.")
   public String platformSuffix;
-
-  // TODO(bazel-team): The test environment is actually computed in BlazeRuntime and this option
-  // is not read anywhere else. Thus, it should be in a different options class, preferably one
-  // specific to the "test" command or maybe in its own configuration fragment.
-  @Option(
-      name = "test_env",
-      converter = Converters.OptionalAssignmentConverter.class,
-      allowMultiple = true,
-      defaultValue = "null",
-      documentationCategory = OptionDocumentationCategory.TESTING,
-      effectTags = {OptionEffectTag.TEST_RUNNER},
-      help =
-          "Specifies additional environment variables to be injected into the test runner "
-              + "environment. Variables can be either specified by name, in which case its value "
-              + "will be read from the Bazel client environment, or by the name=value pair. "
-              + "This option can be used multiple times to specify several variables. "
-              + "Used only by the 'bazel test' command.")
-  public List<Map.Entry<String, String>> testEnvironment;
 
   // TODO(bazel-team): The set of available variables from the client environment for actions
   // is computed independently in CommandEnvironment to inject a more restricted client
@@ -341,7 +450,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},
       help =
-          "Specifies the set of environment variables available to actions with host or execution"
+          "Specifies the set of environment variables available to actions with execution"
               + " configurations. Variables can be either specified by name, in which case the"
               + " value will be taken from the invocation environment, or by the name=value pair"
               + " which sets the value independent of the invocation environment. This option can"
@@ -362,6 +471,17 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   public boolean collectCodeCoverage;
 
   @Option(
+      name = "experimental_collect_code_coverage_for_generated_files",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      help =
+          "If specified, Bazel will also generate collect coverage information for generated"
+              + " files.")
+  public boolean collectCodeCoverageForGeneratedFiles;
+
+  @Option(
       name = "build_runfile_manifests",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
@@ -369,7 +489,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       help =
           "If true, write runfiles manifests for all targets. If false, omit them. Local tests will"
               + " fail to run when false.")
-  public boolean buildRunfilesManifests;
+  public boolean buildRunfileManifests;
 
   @Option(
       name = "build_runfile_links",
@@ -378,12 +498,12 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help =
           "If true, build runfiles symlink forests for all targets.  "
-              + "If false, write only manifests when possible.")
-  public boolean buildRunfiles;
+              + "If false, write them only when required by a local action, test or run command.")
+  public boolean buildRunfileLinks;
 
   @Option(
       name = "legacy_external_runfiles",
-      defaultValue = "true",
+      defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help =
@@ -392,22 +512,16 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   public boolean legacyExternalRunfiles;
 
   @Option(
-      name = "check_fileset_dependencies_recursively",
+      name = "incompatible_always_include_files_in_data",
       defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      deprecationWarning =
-          "This flag is a no-op and fileset dependencies are always checked "
-              + "to ensure correctness of builds.",
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS})
-  public boolean checkFilesetDependenciesRecursively;
-
-  @Option(
-      name = "experimental_skyframe_native_filesets",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
-      deprecationWarning = "This flag is a no-op and skyframe-native-filesets is always true.")
-  public boolean skyframeNativeFileset;
+      documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "If true, native rules add <code>DefaultInfo.files</code> of data dependencies to "
+              + "their runfiles, which matches the recommended behavior for Starlark rules ("
+              + "https://bazel.build/extending/rules#runfiles_features_to_avoid).")
+  public boolean alwaysIncludeFilesToBuildInData;
 
   @Option(
       name = "run_under",
@@ -425,36 +539,26 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
               + " '//package:target --options'.")
   public RunUnder runUnder;
 
-  @Option(
-      name = "distinct_host_configuration",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
-      effectTags = {
-        OptionEffectTag.LOSES_INCREMENTAL_STATE,
-        OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION,
-        OptionEffectTag.LOADING_AND_ANALYSIS,
-      },
-      help =
-          "Build all the tools used during the build for a distinct configuration from that used "
-              + "for the target program. When this is disabled, the same configuration is used for "
-              + "host and target programs. This may cause undesirable rebuilds of tools such as "
-              + "the protocol compiler (and then everything downstream) whenever a minor change "
-              + "is made to the target configuration, such as setting the linker options. When "
-              + "this is enabled (the default), a distinct configuration will be used to build the "
-              + "tools, preventing undesired rebuilds. However, certain libraries will then need "
-              + "to be compiled twice, once for each configuration, which may cause some builds "
-              + "to be slower. As a rule of thumb, this option is likely to benefit users that "
-              + "make frequent changes in configuration (e.g. opt/dbg).  "
-              + "Please read the user manual for the full explanation.")
-  public boolean useDistinctHostConfiguration;
-
+  // TODO(b/248763226): Consider moving this to a non-FragmentOptions.
   @Option(
       name = "check_visibility",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
-      help = "If disabled, visibility errors are demoted to warnings.")
+      help = "If disabled, visibility errors in target dependencies are demoted to warnings.")
   public boolean checkVisibility;
+
+  @Option(
+      name = "incompatible_check_testonly_for_output_files",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "If enabled, check testonly for prerequisite targets that are output files by"
+              + " looking up the testonly of the generating rule. This matches visibility"
+              + " checking.")
+  public boolean checkTestonlyForOutputFiles;
 
   // Moved from viewOptions to here because license information is very expensive to serialize.
   // Having it here allows us to skip computation of transitive license information completely
@@ -462,12 +566,9 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   @Option(
       name = "check_licenses",
       defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
-      help =
-          "Check that licensing constraints imposed by dependent packages "
-              + "do not conflict with distribution modes of the targets being built. "
-              + "By default, licenses are not checked.")
+      help = "Deprecated in favor of --config=check_licenses.")
   public boolean checkLicenses;
 
   @Option(
@@ -494,14 +595,45 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
               + " existing build actions.")
   public List<Label> actionListeners;
 
+  /** Values for the --experimental_output_directory_naming_scheme options */
+  public enum OutputDirectoryNamingScheme {
+    /** Use `affected by starlark transition` to track configuration changes */
+    LEGACY,
+    /** Produce name based on diff from some baseline BuildOptions (usually top-level) */
+    DIFF_AGAINST_BASELINE,
+    /** Like DIFF_AGAINST_BASELINE, but compare against post-exec baseline if isExec is set. */
+    DIFF_AGAINST_DYNAMIC_BASELINE
+  }
+
+  /** Converter for the {@code --experimental_output_directory_naming_scheme} options. */
+  public static class OutputDirectoryNamingSchemeConverter
+      extends EnumConverter<OutputDirectoryNamingScheme> {
+    public OutputDirectoryNamingSchemeConverter() {
+      super(OutputDirectoryNamingScheme.class, "Output directory naming scheme");
+    }
+  }
+
   @Option(
-      name = "is host configuration",
-      defaultValue = "false",
+      name = "experimental_output_directory_naming_scheme",
+      defaultValue = "diff_against_dynamic_baseline",
+      converter = OutputDirectoryNamingSchemeConverter.class,
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
-      metadataTags = {OptionMetadataTag.INTERNAL},
-      help = "Shows whether these options are set for host configuration.")
-  public boolean isHost;
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "Please only use this flag as part of a suggested migration or testing strategy. In"
+              + " legacy mode, transitions (generally only Starlark) set and use `affected by"
+              + " Starlark transition` to determine the ST hash. In diff_against_baseline mode,"
+              + " `affected by Starlark transition` is ignored and instead ST hash is determined,"
+              + " for all configuration, by diffing against the top-level configuration.")
+  public OutputDirectoryNamingScheme outputDirectoryNamingScheme;
+
+  public boolean useBaselineForOutputDirectoryNamingScheme() {
+    return switch (outputDirectoryNamingScheme) {
+      case DIFF_AGAINST_BASELINE, DIFF_AGAINST_DYNAMIC_BASELINE -> true;
+      case LEGACY -> false;
+    };
+  }
 
   @Option(
       name = "is exec configuration",
@@ -538,7 +670,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
 
   @Option(
       name = "analysis_testing_deps_limit",
-      defaultValue = "1000",
+      defaultValue = "2000",
       documentationCategory = OptionDocumentationCategory.TESTING,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       help =
@@ -554,12 +686,25 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.CHANGES_INPUTS, OptionEffectTag.AFFECTS_OUTPUTS},
       help =
-          "The given features will be enabled or disabled by default for all packages. "
-              + "Specifying -<feature> will disable the feature globally. "
+          "The given features will be enabled or disabled by default for targets "
+              + "built in the target configuration. "
+              + "Specifying -<feature> will disable the feature. "
               + "Negative features always override positive ones. "
-              + "This flag is used to enable rolling out default feature changes without a "
-              + "Bazel release.")
+              + "See also --host_features")
   public List<String> defaultFeatures;
+
+  @Option(
+      name = "host_features",
+      allowMultiple = true,
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.CHANGES_INPUTS, OptionEffectTag.AFFECTS_OUTPUTS},
+      help =
+          "The given features will be enabled or disabled by default for targets "
+              + "built in the exec configuration. "
+              + "Specifying -<feature> will disable the feature. "
+              + "Negative features always override positive ones.")
+  public List<String> hostFeatures;
 
   @Option(
       name = "target_environment",
@@ -575,16 +720,20 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   public List<Label> targetEnvironments;
 
   @Option(
-      name = "auto_cpu_environment_group",
-      converter = EmptyToNullLabelConverter.class,
-      defaultValue = "",
-      documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
-      effectTags = {OptionEffectTag.CHANGES_INPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      name = "allow_unresolved_symlinks",
+      oldName = "experimental_allow_unresolved_symlinks",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {
+        OptionEffectTag.LOSES_INCREMENTAL_STATE,
+        OptionEffectTag.LOADING_AND_ANALYSIS,
+      },
       help =
-          "Declare the environment_group to use for automatically mapping cpu values to "
-              + "target_environment values.")
-  public Label autoCpuEnvironmentGroup;
+          "If enabled, Bazel allows the use of ctx.action.declare_symlink() and the use of "
+              + "ctx.actions.symlink() without a target file, thus allowing the creation of "
+              + "unresolved symlinks. Unresolved symlinks inside tree artifacts are not currently "
+              + "supported.")
+  public boolean allowUnresolvedSymlinks;
 
   /** Values for --experimental_output_paths. */
   public enum OutputPathsMode {
@@ -600,6 +749,13 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
      * <p>Follow the above link for latest details on exact scope.
      */
     CONTENT,
+    /**
+     * Strip the config prefix (i.e. {@code /x86-fastbuild/} from output paths for actions that are
+     * registered to support this feature.
+     *
+     * <p>See {@link com.google.devtools.build.lib.actions.PathStripper} for details.
+     */
+    STRIP,
   }
 
   /** Converter for --experimental_output_paths. */
@@ -610,23 +766,10 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   }
 
   @Option(
-      name = "experimental_allow_unresolved_symlinks",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {
-        OptionEffectTag.LOSES_INCREMENTAL_STATE,
-        OptionEffectTag.LOADING_AND_ANALYSIS,
-      },
-      help =
-          "If enabled, Bazel allows the use of ctx.action.{declare_symlink,symlink}, thus "
-              + "allowing the user to create symlinks (resolved and unresolved)")
-  public boolean allowUnresolvedSymlinks;
-
-  @Option(
       name = "experimental_output_paths",
       converter = OutputPathsConverter.class,
       defaultValue = "off",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {
         OptionEffectTag.LOSES_INCREMENTAL_STATE,
         OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION,
@@ -636,7 +779,9 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       help =
           "Which model to use for where in the output tree rules write their outputs, particularly "
               + "for multi-platform / multi-configuration builds. This is highly experimental. See "
-              + "https://github.com/bazelbuild/bazel/issues/6526 for details.")
+              + "https://github.com/bazelbuild/bazel/issues/6526 for details. Starlark actions can"
+              + "opt into path mapping by adding the key 'supports-path-mapping' to the "
+              + "'execution_requirements' dict.")
   public OutputPathsMode outputPathsMode;
 
   @Option(
@@ -650,14 +795,15 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
 
   @Option(
       name = "modify_execution_info",
+      allowMultiple = true,
       converter = ExecutionInfoModifier.Converter.class,
+      defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
       effectTags = {
         OptionEffectTag.EXECUTION,
         OptionEffectTag.AFFECTS_OUTPUTS,
         OptionEffectTag.LOADING_AND_ANALYSIS,
       },
-      defaultValue = "",
       help =
           "Add or remove keys from an action's execution info based on action mnemonic.  "
               + "Applies only to actions which support execution info. Many common actions "
@@ -672,50 +818,38 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
               + "all Genrule actions.\n"
               + "  '(?!Genrule).*=-requires-x' removes 'requires-x' from the execution info for "
               + "all non-Genrule actions.\n")
-  public ExecutionInfoModifier executionInfoModifier;
+  public List<ExecutionInfoModifier> executionInfoModifier;
 
   @Option(
-      name = "incompatible_genquery_use_graphless_query",
-      defaultValue = "null",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      expansion = {
-        "--experimental_genquery_use_graphless_query=auto",
-      },
+      name = "incompatible_modify_execution_info_additive",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
       effectTags = {
-        OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION,
+        OptionEffectTag.EXECUTION,
         OptionEffectTag.AFFECTS_OUTPUTS,
-        OptionEffectTag.LOADING_AND_ANALYSIS
+        OptionEffectTag.LOADING_AND_ANALYSIS,
       },
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help = "Use graphless query and disable output ordering for genquery.")
-  public Void incompatibleUseGraphlessQuery;
+      help =
+          "When enabled, passing multiple --modify_execution_info flags is additive."
+              + " When disabled, only the last flag is taken into account.")
+  public boolean additiveModifyExecutionInfo;
 
   @Option(
-      name = "noincompatible_genquery_use_graphless_query",
-      defaultValue = "null",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      expansion = {
-        "--experimental_genquery_use_graphless_query=false",
-      },
+      name = "incompatible_bazel_test_exec_run_under",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
       effectTags = {
-        OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION,
         OptionEffectTag.AFFECTS_OUTPUTS,
-        OptionEffectTag.LOADING_AND_ANALYSIS
       },
-      help = "Do not use graphless query for genquery.")
-  public Void noincompatibleUseGraphlessQuery;
-
-  @Option(
-      name = "experimental_genquery_use_graphless_query",
-      defaultValue = "auto",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {
-        OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION,
-        OptionEffectTag.AFFECTS_OUTPUTS,
-        OptionEffectTag.LOADING_AND_ANALYSIS
-      },
-      help = "Whether to use graphless query and disable output ordering.")
-  public TriState useGraphlessQuery;
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "If enabled, \"bazel test --run_under=//:runner\" builds \"//:runner\" in the exec"
+              + " configuration. If disabled, it builds \"//:runner\" in the target configuration."
+              + " Bazel executes tests on exec machines, so the former is more correct. This"
+              + " doesn't affect \"bazel run\", which always builds \"`--run_under=//foo\" in the"
+              + " target configuration.")
+  public boolean bazelTestExecRunUnder;
 
   @Option(
       name = "include_config_fragments_provider",
@@ -741,30 +875,13 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
 
   @Option(
       name = "experimental_inprocess_symlink_creation",
-      defaultValue = "false",
+      defaultValue = "true",
       converter = BooleanConverter.class,
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
       metadataTags = OptionMetadataTag.EXPERIMENTAL,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.EXECUTION},
-      help = "Whether to make direct file system calls to create symlink trees")
-  public boolean inprocessSymlinkCreation;
-
-  @Option(
-      name = "experimental_skip_runfiles_manifests",
-      defaultValue = "false",
-      converter = BooleanConverter.class,
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      metadataTags = OptionMetadataTag.HIDDEN,
-      effectTags = {
-        OptionEffectTag.LOADING_AND_ANALYSIS,
-        OptionEffectTag.EXECUTION,
-        OptionEffectTag.LOSES_INCREMENTAL_STATE,
-        OptionEffectTag.AFFECTS_OUTPUTS
-      },
-      help =
-          "If enabled, Bazel does not create runfiles symlink manifests. This flag is ignored "
-              + "if --experimental_enable_runfiles is set to false.")
-  public boolean skipRunfilesManifests;
+      help = "No-op.")
+  public boolean inProcessSymlinkCreation;
 
   @Option(
       name = "experimental_remotable_source_manifests",
@@ -805,10 +922,32 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help =
           "When set, select functions with no matching clause will return an empty value, instead"
               + " of failing. This is to help use cquery diagnose failures in select.")
   public boolean debugSelectsAlwaysSucceed;
+
+  @Option(
+      name = "experimental_throttle_action_cache_check",
+      defaultValue = "true",
+      converter = BooleanConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      metadataTags = OptionMetadataTag.EXPERIMENTAL,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help = "Whether to throttle the check whether an action is cached.")
+  public boolean throttleActionCacheCheck;
+
+  // This cannot be in TestOptions since the default test toolchain needs to be enabled
+  // conditionally based on its value and test trimming would drop it when evaluating the toolchain
+  // target.
+  @Option(
+      name = "use_target_platform_for_tests",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help = "If true, use the target platform for running tests rather than the test exec group.")
+  public boolean useTargetPlatformForTests;
 
   /** Ways configured targets may provide the {@link Fragment}s they require. */
   public enum IncludeConfigFragmentsEnum {
@@ -831,87 +970,70 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
     }
   }
 
-  @Override
-  public FragmentOptions getHost() {
-    CoreOptions host = (CoreOptions) getDefault();
+  /// Normalizes --define flags, preserving the last one to appear in the event of conflicts.
+  public ImmutableMap<String, String> getNormalizedCommandLineBuildVariables() {
+    return sortEntries(normalizeEntries(commandLineBuildVariables)).stream()
+        .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
+  }
 
-    host.affectedByStarlarkTransition = affectedByStarlarkTransition;
-    host.compilationMode = hostCompilationMode;
-    host.isHost = true;
-    host.isExec = false;
-    host.outputPathsMode = outputPathsMode;
-    host.enableRunfiles = enableRunfiles;
-    host.executionInfoModifier = executionInfoModifier;
-    host.commandLineBuildVariables = commandLineBuildVariables;
-    host.enforceConstraints = enforceConstraints;
-    host.mergeGenfilesDirectory = mergeGenfilesDirectory;
-    host.platformInOutputDir = platformInOutputDir;
-    host.cpu = hostCpu;
-    host.includeRequiredConfigFragmentsProvider = includeRequiredConfigFragmentsProvider;
-    host.debugSelectsAlwaysSucceed = debugSelectsAlwaysSucceed;
+  // Sort the map entries by key.
+  private static List<Map.Entry<String, String>> sortEntries(
+      List<Map.Entry<String, String>> entries) {
+    ImmutableList<Map.Entry<String, String>> sortedEntries =
+        entries.stream().sorted(Comparator.comparing(Map.Entry::getKey)).collect(toImmutableList());
+    // If we made no changes, return the same instance we got to reduce churn.
+    if (sortedEntries.equals(entries)) {
+      return entries;
+    }
+    return sortedEntries;
+  }
 
-    // === Runfiles ===
-    host.buildRunfilesManifests = buildRunfilesManifests;
-    host.buildRunfiles = buildRunfiles;
-    host.legacyExternalRunfiles = legacyExternalRunfiles;
-    host.remotableSourceManifestActions = remotableSourceManifestActions;
-    host.skipRunfilesManifests = skipRunfilesManifests;
-
-    // === Filesets ===
-    host.strictFilesetOutput = strictFilesetOutput;
-    host.strictFilesets = strictFilesets;
-
-    // === Linkstamping ===
-    // Disable all link stamping for the host configuration, to improve action
-    // cache hit rates for tools.
-    host.stampBinaries = false;
-
-    // === Visibility ===
-    host.checkVisibility = checkVisibility;
-
-    // === Licenses ===
-    host.checkLicenses = checkLicenses;
-
-    // === Pass on C++ compiler features.
-    host.defaultFeatures = ImmutableList.copyOf(defaultFeatures);
-
-    // Save host options in case of a further exec->host transition.
-    host.hostCpu = hostCpu;
-    host.hostCompilationMode = hostCompilationMode;
-
-    // Pass host action environment variables
-    host.actionEnvironment = hostActionEnvironment;
-    host.hostActionEnvironment = hostActionEnvironment;
-
-    // Pass archived tree artifacts filter.
-    host.archivedArtifactsMnemonicsFilter = archivedArtifactsMnemonicsFilter;
-
-    host.enableAspectHints = enableAspectHints;
-
-    return host;
+  /// Normalizes --features flags by sorting the values and having disables win over enables.
+  private static List<String> getNormalizedFeatures(List<String> features) {
+    // Parse out the features into a Map<String, boolean>, where the boolean represents whether
+    // the feature is enabled or disabled.
+    Map<String, Boolean> featureToState = new HashMap<>();
+    for (String feature : features) {
+      if (feature.startsWith("-")) {
+        // disable always wins.
+        featureToState.put(feature.substring(1), false);
+      } else if (!featureToState.containsKey(feature)) {
+        // enable feature only if it does not already have a state.
+        // If existing state is enabled, no need to do extra work.
+        // If existing state is disabled, it wins.
+        featureToState.put(feature, true);
+      }
+    }
+    // Partition into enabled/disabled features.
+    TreeSet<String> enabled = new TreeSet<>();
+    TreeSet<String> disabled = new TreeSet<>();
+    for (Map.Entry<String, Boolean> entry : featureToState.entrySet()) {
+      if (entry.getValue()) {
+        enabled.add(entry.getKey());
+      } else {
+        disabled.add(entry.getKey());
+      }
+    }
+    // Rebuild the set of features.
+    // Since we used TreeSet the features come out in a deterministic order.
+    List<String> result = new ArrayList<>(enabled);
+    disabled.stream().map(x -> "-" + x).forEach(result::add);
+    // If we made no changes, return the same instance we got to reduce churn.
+    return result.equals(features) ? features : result;
   }
 
   @Override
   public CoreOptions getNormalized() {
     CoreOptions result = (CoreOptions) clone();
+    result.allowedCpuValues = dedupAndSort(allowedCpuValues);
+    result.commandLineBuildVariables = sortEntries(normalizeEntries(commandLineBuildVariables));
 
-    if (collapseDuplicateDefines) {
-      LinkedHashMap<String, String> flagValueByName = new LinkedHashMap<>();
-      for (Map.Entry<String, String> entry : result.commandLineBuildVariables) {
-        // If the same --define flag is passed multiple times we keep the last value.
-        flagValueByName.put(entry.getKey(), entry.getValue());
-      }
+    // Normalize features.
+    result.defaultFeatures = getNormalizedFeatures(defaultFeatures);
 
-      // This check is an optimization to avoid creating a new list if the normalization was a
-      // no-op.
-      if (flagValueByName.size() != result.commandLineBuildVariables.size()) {
-        result.commandLineBuildVariables =
-            flagValueByName.entrySet().stream()
-                // The entries in the transformed list must be serializable.
-                .map(SimpleEntry::new)
-                .collect(toImmutableList());
-      }
-    }
+    result.actionEnvironment = normalizeEntries(actionEnvironment);
+    result.hostActionEnvironment = normalizeEntries(hostActionEnvironment);
+    result.commandLineFlagAliases = sortEntries(normalizeEntries(commandLineFlagAliases));
 
     return result;
   }

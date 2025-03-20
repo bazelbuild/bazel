@@ -17,7 +17,6 @@
 
 #include <time.h>
 
-#include <cinttypes>
 #include <string>
 #include <vector>
 
@@ -29,34 +28,26 @@ class IPipe;
 
 IPipe* CreatePipe();
 
-// Class to query/manipulate the last modification time (mtime) of files.
-class IFileMtime {
- public:
-  virtual ~IFileMtime() {}
+// Checks if `path` is a file/directory in the embedded tools directory that
+// was not tampered with.
+// Returns true if `path` is a directory or directory symlink, or if `path` is
+// a file with an mtime in the distant future.
+// Returns false otherwise, or if querying the information failed.
+bool IsUntampered(const Path &path);
 
-  // Checks if `path` is a file/directory in the embedded tools directory that
-  // was not tampered with.
-  // Returns true if `path` is a directory or directory symlink, or if `path` is
-  // a file with an mtime in the distant future.
-  // Returns false otherwise, or if querying the information failed.
-  // TODO(laszlocsomor): move this function, and with it the whole IFileMtime
-  // class into blaze_util_<platform>.cc, because it is Bazel-specific logic,
-  // not generic file-handling logic.
-  virtual bool IsUntampered(const Path &path) = 0;
+// Sets the mtime of file under `path` to the current time.
+// Returns true if the mtime was changed successfully.
+bool SetMtimeToNow(const Path &path);
 
-  // Sets the mtime of file under `path` to the current time.
-  // Returns true if the mtime was changed successfully.
-  virtual bool SetToNow(const Path &path) = 0;
+// Attempt to set the mtime of file under `path` to the current time.
+// Returns true if the mtime was changed successfully OR if setting the mtime
+// failed due to permissions errors.
+bool SetMtimeToNowIfPossible(const Path &path);
 
-  // Sets the mtime of file under `path` to the distant future.
-  // "Distant future" should be on the order of some years into the future, like
-  // a decade.
-  // Returns true if the mtime was changed successfully.
-  virtual bool SetToDistantFuture(const Path &path) = 0;
-};
-
-// Creates a platform-specific implementation of `IFileMtime`.
-IFileMtime *CreateFileMtime();
+// Sets the mtime of file under `path` to the distant future, which should be
+// on the order of a decade.
+// Returns true if the mtime was changed successfully.
+bool SetMtimeToDistantFuture(const Path &path);
 
 #if defined(_WIN32) || defined(__CYGWIN__)
 // We cannot include <windows.h> because it #defines many symbols that conflict
@@ -90,7 +81,11 @@ int ReadFromHandle(file_handle_type handle, void *data, size_t size,
 // Replaces 'content' with contents of file 'filename'.
 // If `max_size` is positive, the method reads at most that many bytes;
 // otherwise the method reads the whole file.
+// If fails to read content from the file, `error_message` can provide extra
+// information about the failure.
 // Returns false on error. Can be called from a signal handler.
+bool ReadFile(const std::string &filename, std::string *content,
+              std::string *error_message, int max_size = 0);
 bool ReadFile(const std::string &filename, std::string *content,
               int max_size = 0);
 bool ReadFile(const Path &path, std::string *content, int max_size = 0);
@@ -122,6 +117,11 @@ struct WriteResult {
   };
 };
 
+// Initializes stdout and stderr for writing UTF-8 (best effort).
+//
+// This should be called once during startup.
+void InitializeStdOutErrForUtf8();
+
 // Writes `size` bytes from `data` into stdout/stderr.
 // Writes to stdout if `to_stdout` is true, writes to stderr otherwise.
 // Returns one of `WriteResult::Errors`.
@@ -136,14 +136,15 @@ enum RenameDirectoryResult {
   kRenameDirectoryFailureOtherError = 2,
 };
 
-// Renames the directory at `old_name` to `new_name`.
+// Renames the directory at `old_path` to `new_path`.
 // Returns one of the RenameDirectoryResult enum values.
-int RenameDirectory(const std::string &old_name, const std::string &new_name);
+int RenameDirectory(const Path &old_path, const Path &new_path);
 
 // Reads which directory a symlink points to. Puts the target of the symlink
 // in ``result`` and returns if the operation was successful. Will not work on
 // symlinks that don't point to directories on Windows.
-bool ReadDirectorySymlink(const blaze_util::Path &symlink, std::string *result);
+bool ReadDirectorySymlink(const blaze_util::Path &symlink,
+                          blaze_util::Path *result);
 
 // Unlinks the file given by 'file_path'.
 // Returns true on success. In case of failure sets errno.
@@ -192,14 +193,16 @@ void SyncFile(const Path &path);
 bool MakeDirectories(const std::string &path, unsigned int mode);
 bool MakeDirectories(const Path &path, unsigned int mode);
 
-// Creates a directory starting with prefix for temporary usage. The directory
-// name is guaranteed to be at least unique to this process.
-std::string CreateTempDir(const std::string &prefix);
+// Creates a temporary directory as a sibling of the given path, and returns it.
+// The name of the temporary name matches the given path followed by ".tmp." and
+// a string unique to the current process.
+Path CreateSiblingTempDir(const Path &other_path);
 
-// Removes the specified path or directory, and in the latter case, all of its
-// contents. Returns true iff the path doesn't exists when the method completes
-// (including if the path didn't exist to begin with). Does not follow symlinks.
+// Removes the specified path, recursively for a directory.
+// Returns true iff the path doesn't exist after the call, including if it
+// didn't exist to begin with. Does not follow symlinks.
 bool RemoveRecursively(const std::string &path);
+bool RemoveRecursively(const Path &path);
 
 // Returns the current working directory.
 // The path is platform-specific (e.g. Windows path of Windows) and absolute.
@@ -217,7 +220,7 @@ class DirectoryEntryConsumer {
   // `name` is the full path of the entry.
   // `is_directory` is true if this entry is a directory (but false if this is a
   // symlink pointing to a directory).
-  virtual void Consume(const std::string &name, bool is_directory) = 0;
+  virtual void Consume(const Path &path, bool is_directory) = 0;
 };
 
 // Executes a function for each entry in a directory (except "." and "..").
@@ -226,8 +229,7 @@ class DirectoryEntryConsumer {
 // false otherwise.
 //
 // See DirectoryEntryConsumer for more details.
-void ForEachDirectoryEntry(const std::string &path,
-                           DirectoryEntryConsumer *consume);
+void ForEachDirectoryEntry(const Path &path, DirectoryEntryConsumer *consumer);
 
 #if defined(_WIN32) || defined(__CYGWIN__)
 std::wstring GetCwdW();
@@ -257,15 +259,6 @@ class DirectoryEntryConsumerW {
 // file.
 void GetAllFilesUnderW(const std::wstring &path,
                        std::vector<std::wstring> *result);
-
-// Visible for testing only.
-typedef void (*_ForEachDirectoryEntryW)(const std::wstring &path,
-                                        DirectoryEntryConsumerW *consume);
-
-// Visible for testing only.
-void _GetAllFilesUnderW(const std::wstring &path,
-                        std::vector<std::wstring> *result,
-                        _ForEachDirectoryEntryW walk_entries);
 #endif  // defined(_WIN32) || defined(__CYGWIN__)
 
 }  // namespace blaze_util

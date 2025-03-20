@@ -15,11 +15,14 @@ package com.google.devtools.build.lib.query2.cquery;
 
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RequiredConfigFragmentsProvider;
 import com.google.devtools.build.lib.analysis.config.CoreOptions.IncludeConfigFragmentsEnum;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.query2.common.CqueryNode;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetAccessor;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.util.ClassName;
@@ -28,16 +31,19 @@ import java.io.OutputStream;
 /** Default Output callback for cquery. Prints a label and configuration pair per result. */
 public class LabelAndConfigurationOutputFormatterCallback extends CqueryThreadsafeCallback {
   private final boolean showKind;
+  private final LabelPrinter labelPrinter;
 
   LabelAndConfigurationOutputFormatterCallback(
       ExtendedEventHandler eventHandler,
       CqueryOptions options,
       OutputStream out,
       SkyframeExecutor skyframeExecutor,
-      TargetAccessor<KeyedConfiguredTarget> accessor,
-      boolean showKind) {
-    super(eventHandler, options, out, skyframeExecutor, accessor);
+      TargetAccessor<CqueryNode> accessor,
+      boolean showKind,
+      LabelPrinter labelPrinter) {
+    super(eventHandler, options, out, skyframeExecutor, accessor, /* uniquifyResults= */ false);
     this.showKind = showKind;
+    this.labelPrinter = labelPrinter;
   }
 
   @Override
@@ -46,8 +52,8 @@ public class LabelAndConfigurationOutputFormatterCallback extends CqueryThreadsa
   }
 
   @Override
-  public void processOutput(Iterable<KeyedConfiguredTarget> partialResult) {
-    for (KeyedConfiguredTarget keyedConfiguredTarget : partialResult) {
+  public void processOutput(Iterable<CqueryNode> partialResult) {
+    for (CqueryNode keyedConfiguredTarget : partialResult) {
       StringBuilder output = new StringBuilder();
       if (showKind) {
         Target actualTarget = accessor.getTarget(keyedConfiguredTarget);
@@ -55,7 +61,7 @@ public class LabelAndConfigurationOutputFormatterCallback extends CqueryThreadsa
       }
       output =
           output
-              .append(keyedConfiguredTarget.getLabel())
+              .append(keyedConfiguredTarget.getDescription(labelPrinter))
               .append(" (")
               .append(shortId(getConfiguration(keyedConfiguredTarget.getConfigurationKey())))
               .append(")");
@@ -69,10 +75,13 @@ public class LabelAndConfigurationOutputFormatterCallback extends CqueryThreadsa
   }
 
   private static ImmutableSortedSet<String> requiredFragmentStrings(
-      KeyedConfiguredTarget keyedConfiguredTarget) {
+      CqueryNode keyedConfiguredTarget) {
+    if (!(keyedConfiguredTarget instanceof ConfiguredTarget)) {
+      return ImmutableSortedSet.of();
+    }
+
     RequiredConfigFragmentsProvider requiredFragments =
-        keyedConfiguredTarget
-            .getConfiguredTarget()
+        ((ConfiguredTarget) keyedConfiguredTarget)
             .getProvider(RequiredConfigFragmentsProvider.class);
     if (requiredFragments == null) {
       return ImmutableSortedSet.of();
@@ -81,12 +90,12 @@ public class LabelAndConfigurationOutputFormatterCallback extends CqueryThreadsa
     return ImmutableSortedSet.<String>naturalOrder()
         .addAll(
             Iterables.transform(
-                requiredFragments.getOptionsClasses(), ClassName::getSimpleNameWithOuter))
+                requiredFragments.optionsClasses(), ClassName::getSimpleNameWithOuter))
         .addAll(
             Iterables.transform(
-                requiredFragments.getFragmentClasses(), ClassName::getSimpleNameWithOuter))
-        .addAll(Iterables.transform(requiredFragments.getDefines(), define -> "--define:" + define))
-        .addAll(Iterables.transform(requiredFragments.getStarlarkOptions(), Label::toString))
+                requiredFragments.fragmentClasses(), ClassName::getSimpleNameWithOuter))
+        .addAll(Iterables.transform(requiredFragments.defines(), define -> "--define:" + define))
+        .addAll(Iterables.transform(requiredFragments.starlarkOptions(), Label::toString))
         .build();
   }
 }

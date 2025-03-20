@@ -62,27 +62,27 @@ Java_com_google_devtools_build_lib_windows_WindowsFileOperations_nativeIsSymlink
   return static_cast<jint>(result);
 }
 
-extern "C" JNIEXPORT jboolean JNICALL
-Java_com_google_devtools_build_lib_windows_WindowsFileOperations_nativeGetLongPath(
-    JNIEnv* env, jclass clazz, jstring path, jobjectArray result_holder,
-    jobjectArray error_msg_holder) {
-  std::unique_ptr<WCHAR[]> result;
+extern "C" JNIEXPORT jint JNICALL
+Java_com_google_devtools_build_lib_windows_WindowsFileOperations_nativeGetChangeTime(
+    JNIEnv* env, jclass clazz, jstring path, jboolean follow_reparse_points,
+    jlongArray result_holder, jobjectArray error_msg_holder) {
   std::wstring wpath(bazel::windows::GetJavaWstring(env, path));
-  std::wstring error(bazel::windows::GetLongPath(wpath.c_str(), &result));
-  if (!error.empty()) {
-    if (CanReportError(env, error_msg_holder)) {
+  std::wstring error;
+  jlong ctime = 0;
+  int result =
+      bazel::windows::GetChangeTime(wpath.c_str(), follow_reparse_points,
+                                    reinterpret_cast<int64_t*>(&ctime), &error);
+  if (result == bazel::windows::GetChangeTimeResult::kSuccess) {
+    env->SetLongArrayRegion(result_holder, 0, 1, &ctime);
+  } else {
+    if (!error.empty() && CanReportError(env, error_msg_holder)) {
       ReportLastError(
-          bazel::windows::MakeErrorMessage(WSTR(__FILE__), __LINE__,
-                                           L"nativeGetLongPath", wpath, error),
+          bazel::windows::MakeErrorMessage(
+              WSTR(__FILE__), __LINE__, L"nativeGetChangeTime", wpath, error),
           env, error_msg_holder);
     }
-    return JNI_FALSE;
   }
-  env->SetObjectArrayElement(
-      result_holder, 0,
-      env->NewString(reinterpret_cast<const jchar*>(result.get()),
-                     wcslen(result.get())));
-  return JNI_TRUE;
+  return static_cast<jint>(result);
 }
 
 extern "C" JNIEXPORT jint JNICALL
@@ -158,4 +158,27 @@ Java_com_google_devtools_build_lib_windows_WindowsFileOperations_nativeDeletePat
         env, error_msg_holder);
   }
   return result;
+}
+
+extern "C" JNIEXPORT jboolean JNICALL
+Java_com_google_devtools_build_lib_windows_WindowsPathOperations_nativeGetLongPath(
+    JNIEnv* env, jclass clazz, jstring path, jobjectArray result_holder,
+    jobjectArray error_msg_holder) {
+  std::unique_ptr<WCHAR[]> result;
+  std::wstring wpath(bazel::windows::GetJavaWstring(env, path));
+  std::wstring error(bazel::windows::GetLongPath(wpath.c_str(), &result));
+  if (!error.empty()) {
+    if (CanReportError(env, error_msg_holder)) {
+      ReportLastError(
+          bazel::windows::MakeErrorMessage(WSTR(__FILE__), __LINE__,
+                                           L"nativeGetLongPath", wpath, error),
+          env, error_msg_holder);
+    }
+    return JNI_FALSE;
+  }
+  env->SetObjectArrayElement(
+      result_holder, 0,
+      env->NewString(reinterpret_cast<const jchar*>(result.get()),
+                     wcslen(result.get())));
+  return JNI_TRUE;
 }

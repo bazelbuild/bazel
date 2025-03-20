@@ -45,8 +45,7 @@ final class ExtraActionsVisitor extends ActionGraphVisitor {
   }
 
   void maybeAddExtraAction(ActionAnalysisMetadata original) throws InterruptedException {
-    if (original instanceof Action) {
-      Action action = (Action) original;
+    if (original instanceof Action action) {
       Collection<ExtraActionSpec> extraActions =
           mnemonicToExtraActionMap.get(action.getMnemonic());
       if (extraActions != null) {

@@ -14,7 +14,10 @@
 
 package com.google.devtools.build.lib.rules.python;
 
+import static com.google.devtools.build.lib.testutil.TestConstants.RULES_PYTHON_PACKAGE_ROOT;
+import static org.junit.Assume.assumeTrue;
 
+import com.google.devtools.build.lib.testutil.TestConstants;
 
 /** Helpers for Python tests. */
 public class PythonTestUtils {
@@ -23,16 +26,20 @@ public class PythonTestUtils {
   private PythonTestUtils() {}
 
   /**
+   * Skips the test if the product isn't bazel. This is mostly to skip tests for py2 support that
+   * the Google implementation would otherwise fail on.
+   */
+  public static void assumeIsBazel() {
+    assumeTrue(TestConstants.PRODUCT_NAME.equals("bazel")); // Google has py2 disabled.
+  }
+
+  /**
    * Stub method that is used to annotate that the calling test case assumes the default Python
    * version is PY2.
    *
    * <p>Marking test cases that depend on the default Python version helps to diagnose failures. It
    * also helps guard against accidentally making the test spuriously pass, e.g. if the expected
    * value becomes the same as the default value..
-   *
-   * <p>Although the hard-coded default in {@link PythonOptions} has been flipped to PY3, we
-   * override this back to PY2 in our analysis-time tests and some of our integration tests. These
-   * tests will need to be ported in the future.
    */
   public static void assumesDefaultIsPY2() {
     // No-op.
@@ -41,5 +48,24 @@ public class PythonTestUtils {
   /** Same as {@link #assumesDefaultIsPY2}, but for PY3. */
   public static void assumesDefaultIsPY3() {
     // No-op.
+  }
+
+  public static String getPyLoad(String symbolName) {
+    if (RULES_PYTHON_PACKAGE_ROOT.isEmpty()) {
+      return "";
+    }
+    String bzlFilename;
+    switch (symbolName) {
+      case "PyInfo":
+        bzlFilename = "py_info.bzl";
+        break;
+      case "PyRuntimeInfo":
+        bzlFilename = "py_runtime_info.bzl";
+        break;
+      default:
+        bzlFilename = symbolName + ".bzl";
+    }
+    return String.format(
+        "load('%s/python:%s', '%s')", RULES_PYTHON_PACKAGE_ROOT, bzlFilename, symbolName);
   }
 }

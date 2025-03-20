@@ -24,6 +24,15 @@
 #define __alignof__ __alignof
 #endif  // _MSC_VER && !__alignof__
 
+#if defined(__linux__)
+#include <endian.h>
+#elif defined(__FreeBSD__) || defined(__OpenBSD__)
+#include <sys/endian.h>
+#elif defined(__APPLE__) || defined(_WIN32)
+// Hopefully OSX and Windows will keep running solely on little endian CPUs, so:
+#define htole32(x) (x)
+#endif
+
 namespace blaze_util {
 
 // The <code>Context</code> class performs the actual MD5

@@ -18,8 +18,8 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.skyframe.CollectPackagesUnderDirectoryValue.NoErrorCollectPackagesUnderDirectoryValue;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.FsUtils;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.RoundTripping;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
-import com.google.devtools.build.lib.skyframe.serialization.testutils.TestUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -57,7 +57,7 @@ public final class CollectPackagesUnderDirectoryCodecTest {
 
   @Test
   public void testEmptyDeserializesToSingletonValue() throws Exception {
-    assertThat(TestUtils.roundTrip(NoErrorCollectPackagesUnderDirectoryValue.EMPTY))
+    assertThat(RoundTripping.roundTrip(NoErrorCollectPackagesUnderDirectoryValue.EMPTY))
         .isSameInstanceAs(NoErrorCollectPackagesUnderDirectoryValue.EMPTY);
   }
 

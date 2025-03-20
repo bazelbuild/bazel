@@ -15,15 +15,20 @@
 package com.google.devtools.build.lib.starlarkdebug.module;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.starlarkdebug.server.StarlarkDebugServer;
+import com.google.devtools.build.lib.starlarkdebug.server.StarlarkDebugServer.DebugCallback;
 import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.common.options.OptionsBase;
 import java.io.IOException;
+import java.util.Objects;
+import java.util.concurrent.CountDownLatch;
 import net.starlark.java.eval.Debug;
 
 /** Blaze module for setting up Starlark debugging. */
@@ -36,7 +41,7 @@ public final class StarlarkDebuggerModule extends BlazeModule {
     boolean enabled = buildOptions != null && buildOptions.debugStarlark;
     if (enabled) {
       initializeDebugging(
-          env.getReporter(), buildOptions.debugServerPort, buildOptions.verboseLogs);
+          env, buildOptions.debugServerPort, buildOptions.verboseLogs, buildOptions.resetAnalysis);
     } else {
       disableDebugging();
     }
@@ -64,14 +69,61 @@ public final class StarlarkDebuggerModule extends BlazeModule {
     disableDebugging();
   }
 
-  private static void initializeDebugging(Reporter reporter, int debugPort, boolean verboseLogs) {
+  private static void initializeDebugging(
+      CommandEnvironment env, int debugPort, boolean verboseLogs, boolean resetAnalysis) {
     try {
+      DebugCallback callback =
+          resetAnalysis ? getBreakpointInvalidatingCallback(env) : DebugCallback.noop();
       StarlarkDebugServer server =
-          StarlarkDebugServer.createAndWaitForConnection(reporter, debugPort, verboseLogs);
+          StarlarkDebugServer.createAndWaitForConnection(
+              env.getReporter(), debugPort, verboseLogs, callback);
       Debug.setDebugger(server);
-    } catch (IOException e) {
-      reporter.handle(Event.error("Error while setting up the debug server: " + e.getMessage()));
+      // we need to block otherwise the build (i.e. analysis) may start and the request to set
+      // breakpoints may lose the race to delete skyframe nodes
+      callback.maybeBlockBeforeStart();
+    } catch (IOException | InterruptedException e) {
+      env.getReporter()
+          .handle(Event.error("Error while setting up the debug server: " + e.getMessage()));
     }
+  }
+
+  private static DebugCallback getBreakpointInvalidatingCallback(CommandEnvironment env) {
+    return new DebugCallback() {
+      private final CountDownLatch latch = new CountDownLatch(1);
+
+      @Override
+      public void beforeDebuggingStart(ImmutableSet<String> breakPointPaths) {
+        handle(Event.debug("resetting analysis for: " + breakPointPaths));
+        // we delete the FILE nodes for all paths with breakpoints to force re-analysis. Ideally,
+        // we should perhaps invalidate bzl-compile (for .bzl files) and package(??) (for BUILD
+        // files) but computing the right arguments for those skykeys is a lot harder.
+        env.getSkyframeExecutor()
+            .getEvaluator()
+            .delete(
+                skyKey ->
+                    Objects.equals(skyKey.functionName(), SkyFunctions.FILE)
+                        && breakPointPaths.contains(
+                            ((RootedPath) skyKey.argument()).asPath().toString()));
+        handle(Event.debug("analysis reset complete"));
+        // unblock the build
+        latch.countDown();
+      }
+
+      @Override
+      public void maybeBlockBeforeStart() throws InterruptedException {
+        handle(Event.debug("waiting for breakpoints before executing build"));
+        latch.await();
+      }
+
+      @Override
+      public void onClose() {
+        latch.countDown();
+      }
+
+      private void handle(Event event) {
+        env.getReporter().handle(event);
+      }
+    };
   }
 
   private static void disableDebugging() {

@@ -43,6 +43,10 @@ message RunRequest {
   // the server will return an error immediately.
   bool block_for_lock = 3;
 
+  // Whether the server should restrict itself to emitting only errors on the
+  // console.
+  bool quiet = 9;
+
   // A simple description of the client for reporting purposes. This value is
   // required.
   string client_description = 4;
@@ -92,6 +96,42 @@ message ExecRequest {
   bytes working_directory = 1;
   repeated bytes argv = 2;
   repeated EnvironmentVariable environment_variable = 3;
+  repeated bytes environment_variable_to_clear = 4;
+  bool should_exec = 5;
+  optional ScriptPath script_path = 6;
+  repeated PathToReplace path_to_replace = 7;
+}
+
+// Represents the --script_path value and the run script contents for
+// relevant run builds.
+message ScriptPath {
+  bytes script_path = 1;
+  bytes script_contents = 2;
+}
+
+// Represents paths to replace to allow localization of an ExecRequest and an
+// InfoResponse when the build takes place on a different filesystem from where
+// executing the ExecRequest or running the info command would occur.
+//
+// In addition, the PathToReplace#Type enumeration is also reused to specify the
+// possible base directory for a redirect output. The redirect output will be
+// downloaded under one of the specified base directory in the downstream
+// filesystem.
+// TODO: b/331203854 - Rename this message to reflect both redirect output and
+// ExecRequest use cases.
+message PathToReplace {
+  enum Type {
+    reserved 6;
+    UNSPECIFIED = 0;
+    OUTPUT_BASE = 1;
+    BUILD_WORKING_DIRECTORY = 2;
+    BUILD_WORKSPACE_DIRECTORY = 3;
+    TEST_LOG_SUBDIR = 4;
+    HOME = 5;
+    TEMP_LOGGING_DIRECTORY = 7;
+  }
+  Type type = 1;
+  bytes value = 2;
 }
 
 // Contains metadata and result data for a command execution.
@@ -178,6 +218,27 @@ message ServerInfo {
 
   // Server response cookie.
   string response_cookie = 4;
+}
+
+// Describes a single blaze info command item.
+message InfoItem {
+  string key = 1;
+  bytes value = 2;
+}
+
+// Describes the results of a blaze info command.
+message InfoResponse {
+  // Paths to replace to allow localization of paths in info items when the
+  // build takes place on a different filesystem. This field is always present.
+  repeated PathToReplace path_to_replace = 1;
+
+  // Results of info items requested by the client. This field can be empty if
+  // all requested info keys are invalid.
+  repeated InfoItem info_item = 2;
+
+  // Whether the remote bazel client should print the keys of the info items to
+  // the console.
+  bool print_keys = 3;
 }
 
 service CommandServer {

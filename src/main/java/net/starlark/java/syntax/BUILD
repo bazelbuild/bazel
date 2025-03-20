@@ -2,7 +2,10 @@
 
 load("@rules_java//java:defs.bzl", "java_library")
 
-licenses(["notice"])
+package(
+    default_applicable_licenses = ["//:license"],
+    default_visibility = ["//src:__subpackages__"],
+)
 
 filegroup(
     name = "srcs",
@@ -55,6 +58,7 @@ java_library(
         "StringLiteral.java",
         "SyntaxError.java",
         "TokenKind.java",
+        "TypeApplication.java",
         "UnaryOperatorExpression.java",
     ],
     visibility = ["//src/main/java/net/starlark/java:clients"],

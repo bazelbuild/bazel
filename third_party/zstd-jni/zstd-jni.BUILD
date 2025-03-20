@@ -1,20 +1,42 @@
+genrule(
+    name = "copy_link_jni_md_header",
+    srcs = select({
+        "@bazel_tools//src/conditions:darwin": ["@rules_java//toolchains:jni_md_header-darwin"],
+        "@bazel_tools//src/conditions:freebsd": ["@rules_java//toolchains:jni_md_header-freebsd"],
+        "@bazel_tools//src/conditions:openbsd": ["@rules_java//toolchains:jni_md_header-openbsd"],
+        "@bazel_tools//src/conditions:windows": ["@rules_java//toolchains:jni_md_header-windows"],
+        "//conditions:default": ["@rules_java//toolchains:jni_md_header-linux"],
+    }),
+    outs = ["jni_md.h"],
+    cmd = "cp -f $< $@",
+)
+
+genrule(
+    name = "copy_link_jni_header",
+    srcs = ["@rules_java//toolchains:jni_header"],
+    outs = ["jni.h"],
+    cmd = "cp -f $< $@",
+)
+
 cc_binary(
     name = "libzstd-jni.so",
     srcs = glob([
         "src/main/native/**/*.c",
         "src/main/native/**/*.h",
-    ]) + select({
-        "@io_bazel//src/conditions:windows": [
-            "src/windows/include/jni_md.h",
-            "jni/jni.h",
-        ],
-        "//conditions:default": [
-            "jni/jni_md.h",
-            "jni/jni.h",
-        ]
+    ]) + [
+        ":jni_md.h",
+        ":jni.h",
+    ] + select({
+        "@bazel_tools//src/conditions:windows": [],
+        "//conditions:default": glob(["src/main/native/**/*.S"]),
     }),
     copts = select({
-        "@io_bazel//src/conditions:windows": [],
+        "@bazel_tools//src/conditions:windows": [],
+        "@bazel_tools//src/conditions:darwin": [
+            "-std=c99",
+            "-Wno-unused-variable",
+            "-Wno-sometimes-uninitialized",
+        ],
         "//conditions:default": [
             "-std=c99",
             "-Wno-unused-variable",
@@ -23,11 +45,8 @@ cc_binary(
         ]
     }),
     linkshared = 1,
-    includes = select({
-        "@io_bazel//src/conditions:windows": ["src/windows/include"],
-        "//conditions:default": [],
-    }) + [
-        "jni",
+    includes = [
+        ".",  # For jni headers.
         "src/main/native",
         "src/main/native/common",
     ],
@@ -35,7 +54,7 @@ cc_binary(
         "ZSTD_LEGACY_SUPPORT=4",
         "ZSTD_MULTITHREAD=1",
     ] + select({
-        "@io_bazel//src/conditions:windows": ["_JNI_IMPLEMENTATION_"],
+        "@bazel_tools//src/conditions:windows": ["_JNI_IMPLEMENTATION_"],
         "//conditions:default": [],
     }),
 )

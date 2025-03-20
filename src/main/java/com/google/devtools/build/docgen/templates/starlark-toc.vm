@@ -1,0 +1,27 @@
+toc:
+- title: Build API
+  section:
+  - title: Overview
+    path: /rules/lib/overview
+#foreach ($entry in $allPages.entrySet())
+  - title: "${entry.key.title}"
+    section:
+    - title: Overview
+      path: /rules/lib/${entry.key.path}
+#foreach ($page in $entry.value)
+    - title: ${page.title}
+      path: /rules/lib/${entry.key.path}/${page.name}
+#end
+#end
+  - title: "Repository rules"
+    section:
+    - title: Overview
+      path: /rules/lib/repo/index
+    - title: git
+      path: /rules/lib/repo/git
+    - title: http
+      path: /rules/lib/repo/http
+    - title: local
+      path: /rules/lib/repo/local
+    - title: utils
+      path: /rules/lib/repo/utils

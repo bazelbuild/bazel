@@ -14,23 +14,23 @@
 
 package com.google.devtools.build.lib.bazel.repository.cache;
 
-import com.google.devtools.build.lib.events.ExtendedEventHandler.ProgressLike;
+import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import java.net.URL;
 
 /** Event reporting about cache hits for download requests. */
-public class RepositoryCacheHitEvent implements ProgressLike {
-  private final String repo;
+public final class RepositoryCacheHitEvent implements Postable {
+  private final String context;
   private final String hash;
   private final URL url;
 
-  public RepositoryCacheHitEvent(String repo, String hash, URL url) {
-    this.repo = repo;
+  public RepositoryCacheHitEvent(String context, String hash, URL url) {
+    this.context = context;
     this.hash = hash;
     this.url = url;
   }
 
-  public String getRepo() {
-    return repo;
+  public String getContext() {
+    return context;
   }
 
   public URL getUrl() {

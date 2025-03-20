@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.query2.aquery;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -32,12 +33,10 @@ import com.google.devtools.build.lib.query2.engine.QueryVisibility;
 import com.google.devtools.build.lib.server.FailureDetails.ActionQuery;
 import com.google.devtools.build.lib.server.FailureDetails.ConfigurableQuery;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
-import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.WalkableGraph;
-import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -51,13 +50,12 @@ public class ConfiguredTargetValueAccessor implements TargetAccessor<ConfiguredT
 
   private final WalkableGraph walkableGraph;
   private final TargetLookup targetLookup;
-  private final KeyExtractor<ConfiguredTargetValue, ConfiguredTargetKey>
-      configuredTargetKeyExtractor;
+  private final KeyExtractor<ConfiguredTargetValue, ActionLookupKey> configuredTargetKeyExtractor;
 
   public ConfiguredTargetValueAccessor(
       WalkableGraph walkableGraph,
       TargetLookup targetLookup,
-      KeyExtractor<ConfiguredTargetValue, ConfiguredTargetKey> configuredTargetKeyExtractor) {
+      KeyExtractor<ConfiguredTargetValue, ActionLookupKey> configuredTargetKeyExtractor) {
     this.walkableGraph = walkableGraph;
     this.targetLookup = targetLookup;
     this.configuredTargetKeyExtractor = configuredTargetKeyExtractor;
@@ -145,7 +143,7 @@ public class ConfiguredTargetValueAccessor implements TargetAccessor<ConfiguredT
 
   private Target getTargetFromConfiguredTargetValue(ConfiguredTargetValue configuredTargetValue) {
     // Dereference any aliases that might be present.
-    Label label = configuredTargetValue.getConfiguredObject().getOriginalLabel();
+    Label label = configuredTargetValue.getConfiguredTarget().getOriginalLabel();
     try {
       return targetLookup.getTarget(label);
     } catch (InterruptedException e) {
@@ -156,7 +154,7 @@ public class ConfiguredTargetValueAccessor implements TargetAccessor<ConfiguredT
   }
 
   /** Returns the AspectValues that are attached to the given configuredTarget. */
-  public Collection<AspectValue> getAspectValues(ConfiguredTargetValue configuredTargetValue)
+  public Set<AspectValue> getAspectValues(ConfiguredTargetValue configuredTargetValue)
       throws InterruptedException {
     Set<AspectValue> result = new HashSet<>();
     SkyKey skyKey = configuredTargetKeyExtractor.extractKey(configuredTargetValue);

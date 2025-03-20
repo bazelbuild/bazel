@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.packages.util.MockGenruleSupport;
 import java.io.IOException;
 import java.util.Iterator;
 import org.junit.Before;
@@ -39,11 +38,6 @@ import org.junit.runners.JUnit4;
 /** A test of the semantics of the keepGoing flag: continue as much as possible after an error. */
 @RunWith(JUnit4.class)
 public class KeepGoingTest extends BuildIntegrationTestCase {
-
-  @Before
-  public void stageEmbeddedTools() throws Exception {
-    MockGenruleSupport.setup(mockToolsConfig);
-  }
 
   @Before
   public final void addOptions() {
@@ -242,7 +236,6 @@ public class KeepGoingTest extends BuildIntegrationTestCase {
     write("keepgoing/badsrc.sh", "exit 0");
     buildTarget("//keepgoing:topgen");
     write("keepgoing/badsrc.sh", "exit 42");
-    events.clear();
     BuildFailedException e =
         assertThrows(BuildFailedException.class, () -> buildTarget("//keepgoing:topgen"));
     assertThat(e).hasMessageThat().isNull();
@@ -254,6 +247,7 @@ public class KeepGoingTest extends BuildIntegrationTestCase {
 
   @Test
   public void testConfigurationErrorsAreToleratedWithKeepGoing() throws Exception {
+    runtimeWrapper.addOptions("--experimental_builtins_injection_override=+cc_library");
     write("a/BUILD", "cc_library(name='a', srcs=['missing.foo'])");
     write("b/BUILD", "cc_library(name='b')");
 
@@ -264,8 +258,9 @@ public class KeepGoingTest extends BuildIntegrationTestCase {
     assertBuildFailedExceptionFromBuilding(
         "command succeeded, but not all targets were analyzed", "//a", "//b");
     events.assertContainsError(
-        "in srcs attribute of cc_library rule //a:a: " + "target '//a:missing.foo' does not exist");
-    events.assertContainsInfo("Analysis succeeded for only 1 of 2 top-level targets");
+        "in srcs attribute of cc_library rule @@//a:a: source file '@@//a:missing.foo' is misplaced"
+            + " here");
+    events.assertContainsInfo("Build succeeded for only 1 of 2 top-level targets");
 
     assertSameConfiguredTarget("//b:b");
   }
@@ -298,13 +293,32 @@ public class KeepGoingTest extends BuildIntegrationTestCase {
   }
 
   @Test
-  public void testKeepGoingAfterSchedulingDependencyMiddlemanFailure() throws Exception {
+  public void testKeepGoingAfterSchedulingDependencyFailure() throws Exception {
     write("foo/foo.cc", "int main() { return 0; }");
     write(
         "foo/BUILD",
-        "cc_binary(name='foo', srcs=['foo.cc', 'gen.h'], malloc='system_malloc')",
-        "cc_library(name='system_malloc', linkstatic=1)",
-        "genrule(name='gen', srcs=[], outs=['gen.h'], cmd = 'exit 1')");
+        """
+        cc_binary(
+            name = "foo",
+            srcs = [
+                "foo.cc",
+                "gen.h",
+            ],
+            malloc = "system_malloc",
+        )
+
+        cc_library(
+            name = "system_malloc",
+            linkstatic = 1,
+        )
+
+        genrule(
+            name = "gen",
+            srcs = [],
+            outs = ["gen.h"],
+            cmd = "exit 1",
+        )
+        """);
 
     assertThrows(BuildFailedException.class, () -> buildTarget("//foo:foo"));
   }
@@ -318,17 +332,29 @@ public class KeepGoingTest extends BuildIntegrationTestCase {
   public void testKeepGoingAfterAnalysisFailure() throws Exception {
     write(
         "analysiserror/failer.bzl",
-        "def _failer_impl(ctx):",
-        "  fail('BOOM!')",
-        "",
-        "failer = rule(implementation = _failer_impl)");
+        """
+        def _failer_impl(ctx):
+            fail("BOOM!")
+
+        failer = rule(implementation = _failer_impl)
+        """);
     write(
         "analysiserror/BUILD",
-        "load(':failer.bzl', 'failer')",
-        "genrule(name='gen', srcs=[], outs=['gen.h'], cmd='exit 1')",
-        // The next line has an analysis failure: the xmb_lint rule is devoid of xmb files.
-        "failer(name='foo')",
-        "cc_library(name='bar')");
+        """
+        load(":failer.bzl", "failer")
+
+        genrule(
+            name = "gen",
+            srcs = [],
+            outs = ["gen.h"],
+            cmd = "exit 1",
+        )
+
+        # The next line has an analysis failure: the xmb_lint rule is devoid of xmb files.
+        failer(name = "foo")
+
+        cc_library(name = "bar")
+        """);
 
     assertBuildFailedExceptionFromBuilding(
         "command succeeded, but not all targets were analyzed",

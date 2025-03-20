@@ -42,7 +42,7 @@ public final class JsonWorkerMessageProcessor implements WorkRequestHandler.Work
     reader.setLenient(true);
     this.jsonWriter = jsonWriter;
     jsonPrinter =
-        JsonFormat.printer().omittingInsignificantWhitespace().includingDefaultValueFields();
+        JsonFormat.printer().omittingInsignificantWhitespace().alwaysPrintFieldsWithNoPresence();
   }
 
   private static ImmutableList<String> readArguments(JsonReader reader) throws IOException {
@@ -79,7 +79,7 @@ public final class JsonWorkerMessageProcessor implements WorkRequestHandler.Work
             path = reader.nextString();
             break;
           default:
-            // As per https://docs.bazel.build/versions/main/creating-workers.html#work-responses,
+            // As per https://bazel.build/docs/creating-workers#work-responses,
             // unknown fields are ignored.
             reader.skipValue();
             break;
@@ -105,6 +105,7 @@ public final class JsonWorkerMessageProcessor implements WorkRequestHandler.Work
     List<Input> inputs = null;
     Integer requestId = null;
     Integer verbosity = null;
+    String sandboxDir = null;
     try {
       reader.beginObject();
       while (reader.hasNext()) {
@@ -134,8 +135,14 @@ public final class JsonWorkerMessageProcessor implements WorkRequestHandler.Work
             }
             verbosity = reader.nextInt();
             break;
+          case "sandboxDir":
+            if (sandboxDir != null) {
+              throw new IOException("Work response cannot have more than one sandboxDir");
+            }
+            sandboxDir = reader.nextString();
+            break;
           default:
-            // As per https://docs.bazel.build/versions/main/creating-workers.html#work-responses,
+            // As per https://bazel.build/docs/creating-workers#work-responses,
             // unknown fields are ignored.
             reader.skipValue();
             break;
@@ -158,6 +165,9 @@ public final class JsonWorkerMessageProcessor implements WorkRequestHandler.Work
     }
     if (verbosity != null) {
       requestBuilder.setVerbosity(verbosity);
+    }
+    if (sandboxDir != null) {
+      requestBuilder.setSandboxDir(sandboxDir);
     }
     return requestBuilder.build();
   }

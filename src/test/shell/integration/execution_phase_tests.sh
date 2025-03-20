@@ -18,27 +18,16 @@
 # behaviors that affect the execution phase.
 #
 
-# --- begin runfiles.bash initialization ---
-set -euo pipefail
-if [[ ! -d "${RUNFILES_DIR:-/dev/null}" && ! -f "${RUNFILES_MANIFEST_FILE:-/dev/null}" ]]; then
-  if [[ -f "$TEST_SRCDIR/MANIFEST" ]]; then
-    export RUNFILES_MANIFEST_FILE="$TEST_SRCDIR/MANIFEST"
-  elif [[ -f "$0.runfiles/MANIFEST" ]]; then
-    export RUNFILES_MANIFEST_FILE="$0.runfiles/MANIFEST"
-  elif [[ -f "$TEST_SRCDIR/io_bazel/tools/bash/runfiles/runfiles.bash" ]]; then
-    export RUNFILES_DIR="$TEST_SRCDIR"
-  fi
-fi
-if [[ -f "${RUNFILES_DIR:-/dev/null}/io_bazel/tools/bash/runfiles/runfiles.bash" ]]; then
-  source "${RUNFILES_DIR}/io_bazel/tools/bash/runfiles/runfiles.bash"
-elif [[ -f "${RUNFILES_MANIFEST_FILE:-/dev/null}" ]]; then
-  source "$(grep -m1 "^io_bazel/tools/bash/runfiles/runfiles.bash " \
-            "$RUNFILES_MANIFEST_FILE" | cut -d ' ' -f 2-)"
-else
-  echo >&2 "ERROR: cannot find //third_party/bazel/tools/bash/runfiles:runfiles.bash"
-  exit 1
-fi
-# --- end runfiles.bash initialization ---
+# --- begin runfiles.bash initialization v3 ---
+# Copy-pasted from the Bazel Bash runfiles library v3.
+set -uo pipefail; set +e; f=bazel_tools/tools/bash/runfiles/runfiles.bash
+source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
+  source "$(grep -sm1 "^$f " "${RUNFILES_MANIFEST_FILE:-/dev/null}" | cut -f2- -d' ')" 2>/dev/null || \
+  source "$0.runfiles/$f" 2>/dev/null || \
+  source "$(grep -sm1 "^$f " "$0.runfiles_manifest" | cut -f2- -d' ')" 2>/dev/null || \
+  source "$(grep -sm1 "^$f " "$0.exe.runfiles_manifest" | cut -f2- -d' ')" 2>/dev/null || \
+  { echo>&2 "ERROR: cannot find $f"; exit 1; }; f=; set -e
+# --- end runfiles.bash initialization v3 ---
 
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
@@ -51,11 +40,6 @@ msys*|mingw*|cygwin*)
   declare -r is_windows=false
   ;;
 esac
-
-if "$is_windows"; then
-  export MSYS_NO_PATHCONV=1
-  export MSYS2_ARG_CONV_EXCL="*"
-fi
 
 #### HELPER FUNCTIONS ##################################################
 
@@ -220,7 +204,7 @@ EOF
   [[ "$(cat "${output_file}")" == bar ]] \
       || fail "External change to action cache misdetected"
 
-  # For completeness, make the changes to the same output file visibile and
+  # For completeness, make the changes to the same output file visible and
   # ensure Blaze notices them.  This is to check that we actually modified the
   # right output file above.
   touch "${output_file}"
@@ -252,29 +236,6 @@ function test_cache_computed_file_digests_ui() {
   bazel build $pkg/package:foo >>"${TEST_log}" 2>&1 || fail "Should build"
   assert_last_log "CacheFileDigestsModule" "Cache stats" "${java_log}" \
       "Digests cache not reenabled"
-}
-
-function test_analysis_warning_cached() {
-  mkdir -p "foo" "bar" || fail "Could not create directories"
-  cat > foo/BUILD <<'EOF' || fail "foo/BUILD"
-cc_library(
-    name = 'foo',
-    deprecation = 'foo warning',
-    srcs = ['foo.cc'],
-    visibility = ['//visibility:public']
-)
-EOF
-  cat > bar/BUILD <<'EOF' || fail "bar/BUILD"
-cc_library(name = 'bar', srcs = ['bar.cc'], deps = ['//foo:foo'])
-EOF
-  touch foo/foo.cc bar/bar.cc || fail "Couldn't touch"
-  bazel build --nobuild //bar:bar >& "$TEST_log" || fail "Expected success"
-  expect_log "WARNING: .*: foo warning"
-  bazel build //bar:bar >& "$TEST_log" || fail "Expected success"
-  expect_log "WARNING: .*: foo warning"
-  echo "// comment" >> bar/bar.cc || fail "Couldn't change contents"
-  bazel build //bar:bar >& "$TEST_log" || fail "Expected success"
-  expect_log "WARNING: .*: foo warning"
 }
 
 function test_max_open_file_descriptors() {
@@ -389,46 +350,106 @@ function test_track_directory_crossing_package() {
   touch foo/dir/subdir/BUILD
   echo "filegroup(name = 'foo', srcs = ['dir'])" > foo/BUILD
   bazel --host_jvm_args=-DBAZEL_TRACK_SOURCE_DIRECTORIES=1 build //foo \
-      >& "$TEST_log" || fail "Expected success"
-  expect_log "WARNING: Directory artifact foo/dir crosses package boundary into"
+      >& "$TEST_log" && fail "Expected fail"
+  expect_log "Directory artifact foo/dir crosses package boundary into"
 }
 
-# Regression test for b/174837755.
-# TODO(b/172462551) Clean this up after the experiment
-function test_skyframe_eval_with_ordered_list_incremental_with_error() {
-  export DONT_SANITY_CHECK_SERIALIZATION=1
-  mkdir -p foo
-  cat > foo/BUILD <<EOF
-cc_binary(
-    name = "main",
-    srcs = [
-        "main.cc",
-    ],
-    deps = [":lib"],
+# Regression test for https://github.com/bazelbuild/bazel/issues/14723
+function test_fixed_mtime_move_detected_as_change() {
+  mkdir -p pkg
+  cat > pkg/BUILD <<'EOF'
+load("rules.bzl", "my_expand")
+
+genrule(
+    name = "my_templates",
+    srcs = ["template_archive.tar"],
+    outs = ["template1"],
+    cmd = "tar -C $(RULEDIR) -xf $<",
 )
 
-cc_library(
-    name = "lib",
-    srcs = [
-        "lib.cc",
-        "lib.h",
-    ],
+my_expand(
+    name = "expand1",
+    input = "template1",
+    output = "expanded1",
+    to_sub = {"test":"foo"}
 )
 EOF
-  touch foo/lib.h
-  touch foo/main.cc
-  echo "abc" > foo/lib.cc
+  cat > pkg/rules.bzl <<'EOF'
+def _my_expand_impl(ctx):
+    ctx.actions.expand_template(
+        template = ctx.file.input,
+        output = ctx.outputs.output,
+        substitutions = ctx.attr.to_sub
+    )
 
-  bazel build --experimental_skyframe_eval_with_ordered_list //foo:main \
-    &> "$TEST_log" && fail "Expected failure"
+my_expand = rule(
+    implementation = _my_expand_impl,
+    attrs = {
+        "input": attr.label(allow_single_file=True),
+        "output": attr.output(),
+        "to_sub" : attr.string_dict(),
+    }
+)
+EOF
 
-  bazel build --experimental_skyframe_eval_with_ordered_list //foo:main \
-    &> "$TEST_log" && fail "Expected failure"
+  echo "test : alpha" > template1
+  touch -t 197001010000 template1
+  tar -cf pkg/template_archive_alpha.tar template1
 
-  # The incremental run shouldn't crash bazel.
-  exit_code="$?"
-  [[ "$exit_code" -eq 1 ]] || fail "Unexpected exit code: $exit_code"
+  echo "test : delta" > template1
+  touch -t 197001010000 template1
+  tar -cf pkg/template_archive_delta.tar template1
 
-  true  # reset the last exit code so the test won't be considered failed
+  mv pkg/template_archive_alpha.tar pkg/template_archive.tar
+  bazel build //pkg:expand1 || fail "Expected success"
+  assert_equals "foo : alpha" "$(cat bazel-bin/pkg/expanded1)"
+
+  mv pkg/template_archive_delta.tar pkg/template_archive.tar
+  bazel build //pkg:expand1 || fail "Expected success"
+  assert_equals "foo : delta" "$(cat bazel-bin/pkg/expanded1)"
 }
+
+# Regression test for https://github.com/bazelbuild/bazel/issues/14723
+function test_fixed_mtime_source_file() {
+  mkdir -p pkg
+  cat > pkg/BUILD <<'EOF'
+load("rules.bzl", "my_expand")
+
+my_expand(
+    name = "expand1",
+    input = "template1",
+    output = "expanded1",
+    to_sub = {"test":"foo"}
+)
+EOF
+  cat > pkg/rules.bzl <<'EOF'
+def _my_expand_impl(ctx):
+    ctx.actions.expand_template(
+        template = ctx.file.input,
+        output = ctx.outputs.output,
+        substitutions = ctx.attr.to_sub
+    )
+
+my_expand = rule(
+    implementation = _my_expand_impl,
+    attrs = {
+        "input": attr.label(allow_single_file=True),
+        "output": attr.output(),
+        "to_sub" : attr.string_dict(),
+    }
+)
+EOF
+
+  echo "test : alpha" > pkg/template1
+  touch -t 197001010000 pkg/template1
+  bazel build //pkg:expand1 || fail "Expected success"
+  assert_equals "foo : alpha" "$(cat bazel-bin/pkg/expanded1)"
+
+  echo "test : delta" > pkg/template1
+  touch -t 197001010000 pkg/template1
+  bazel build //pkg:expand1 || fail "Expected success"
+  assert_equals "foo : delta" "$(cat bazel-bin/pkg/expanded1)"
+}
+
 run_suite "Integration tests of ${PRODUCT_NAME} using the execution phase."
+

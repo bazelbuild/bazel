@@ -15,13 +15,19 @@ package com.google.devtools.build.lib.packages;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.docgen.annot.GlobalMethods;
+import com.google.devtools.build.docgen.annot.GlobalMethods.Environment;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
+import javax.annotation.Nullable;
+import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.HasBinary;
@@ -31,7 +37,8 @@ import net.starlark.java.eval.StarlarkValue;
 import net.starlark.java.syntax.TokenKind;
 
 /**
- * An attribute value consisting of a concatenation of native types and selects, e.g:
+ * An attribute value consisting of a concatenation (via the {@code +} operator for lists or the
+ * {@code |} operator for dicts) of native types and selects, e.g:
  *
  * <pre>
  *   rule(
@@ -51,7 +58,6 @@ import net.starlark.java.syntax.TokenKind;
     name = "select",
     doc = "A selector between configuration-dependent entities.",
     documented = false)
-@AutoCodec
 public final class SelectorList implements StarlarkValue, HasBinary {
 
   // TODO(adonovan): combine Selector{List,Value} and BuildType.SelectorList.
@@ -60,8 +66,7 @@ public final class SelectorList implements StarlarkValue, HasBinary {
   private final Class<?> type;
   private final List<Object> elements;
 
-  @AutoCodec.VisibleForSerialization
-  SelectorList(Class<?> type, List<Object> elements) {
+  private SelectorList(Class<?> type, List<Object> elements) {
     this.type = type;
     this.elements = elements;
   }
@@ -79,17 +84,17 @@ public final class SelectorList implements StarlarkValue, HasBinary {
     return type;
   }
 
-  /** Implementation of the Starlark {@code select} function exposed to BUILD and .bzl files. */
-  public static Object select(Dict<?, ?> dict, String noMatchError) throws EvalException {
+  /** Implementation of the Starlark {@code select()} function exposed to BUILD and .bzl files. */
+  private static Object select(Dict<?, ?> dict, String noMatchError) throws EvalException {
     if (dict.isEmpty()) {
       throw Starlark.errorf(
           "select({}) with an empty dictionary can never resolve because it includes no conditions"
               + " to match");
     }
     for (Object key : dict.keySet()) {
-      if (!(key instanceof String)) {
+      if (!(key instanceof String || key instanceof Label)) {
         throw Starlark.errorf(
-            "select: got %s for dict key, want a label string", Starlark.type(key));
+            "select: got %s for dict key, want a Label or label string", Starlark.type(key));
       }
     }
     return SelectorList.of(new SelectorValue(dict, noMatchError));
@@ -98,24 +103,6 @@ public final class SelectorList implements StarlarkValue, HasBinary {
   /** Creates a "wrapper" list that consists of a single select. */
   static SelectorList of(SelectorValue selector) {
     return new SelectorList(selector.getType(), ImmutableList.of(selector));
-  }
-
-  /**
-   * Creates a list that concatenates two values, where each value may be a native type, a select
-   * over that type, or a selector list over that type.
-   *
-   * @throws EvalException if the values don't have the same underlying type
-   */
-  static SelectorList concat(Object x, Object y) throws EvalException {
-    return of(Arrays.asList(x, y));
-  }
-
-  @Override
-  public SelectorList binaryOp(TokenKind op, Object that, boolean thisLeft) throws EvalException {
-    if (op == TokenKind.PLUS) {
-      return thisLeft ? concat(this, that) : concat(that, this);
-    }
-    return null;
   }
 
   /**
@@ -140,12 +127,43 @@ public final class SelectorList implements StarlarkValue, HasBinary {
       }
       if (!canConcatenate(getNativeType(firstValue), getNativeType(value))) {
         throw Starlark.errorf(
-            "'+' operator applied to incompatible types (%s, %s)",
+            "Cannot combine incompatible types (%s, %s)",
             getTypeName(firstValue), getTypeName(value));
       }
     }
 
     return new SelectorList(getNativeType(firstValue), elements.build());
+  }
+
+  /**
+   * Wraps a single value in a {@code select()} where the default condition maps to the given value
+   */
+  public static SelectorList wrapSingleValue(Object obj) {
+    return SelectorList.of(
+        new SelectorValue(ImmutableMap.of(BuildType.Selector.DEFAULT_CONDITION_KEY, obj), ""));
+  }
+
+  /**
+   * Creates a list that concatenates two values, where each value may be a native type, a select
+   * over that type, or a selector list over that type.
+   *
+   * @throws EvalException if the values don't have the same underlying type
+   */
+  static SelectorList concat(Object x, Object y) throws EvalException {
+    return of(Arrays.asList(x, y));
+  }
+
+  private static TokenKind binaryOpToken(Object value) {
+    return getNativeType(value).equals(Dict.class) ? TokenKind.PIPE : TokenKind.PLUS;
+  }
+
+  @Override
+  @Nullable
+  public SelectorList binaryOp(TokenKind op, Object that, boolean thisLeft) throws EvalException {
+    if (op == binaryOpToken(that)) {
+      return thisLeft ? concat(this, that) : concat(that, this);
+    }
+    return null;
   }
 
   private static final Class<?> NATIVE_LIST_TYPE = List.class;
@@ -188,7 +206,7 @@ public final class SelectorList implements StarlarkValue, HasBinary {
 
   @Override
   public void repr(Printer printer) {
-    printer.printList(elements, "", " + ", "");
+    printer.printList(elements, "", String.format(" %s ", binaryOpToken(this)), "");
   }
 
   @Override
@@ -206,5 +224,41 @@ public final class SelectorList implements StarlarkValue, HasBinary {
     }
     SelectorList that = (SelectorList) other;
     return Objects.equals(this.type, that.type) && Objects.equals(this.elements, that.elements);
+  }
+
+  /** The user-facing API to the {@code select()} callable. */
+  @GlobalMethods(environment = {Environment.BUILD, Environment.BZL})
+  public static final class SelectLibrary {
+
+    private SelectLibrary() {}
+
+    public static final SelectLibrary INSTANCE = new SelectLibrary();
+
+    @StarlarkMethod(
+        name = "select",
+        doc =
+            "<code>select()</code> is the helper function that makes a rule attribute "
+                + "<a href=\"${link common-definitions#configurable-attributes}\">"
+                + "configurable</a>. See "
+                + "<a href=\"${link functions#select}\">build encyclopedia</a> for details.",
+        parameters = {
+          @Param(
+              name = "x",
+              positional = true,
+              doc =
+                  "A dict that maps configuration conditions to values. Each key is a "
+                      + "<a href=\"../builtins/Label.html\">Label</a> or a label string"
+                      + " that identifies a config_setting or constraint_value instance. See the"
+                      + " <a href=\"https://bazel.build/rules/macros#label-resolution\">"
+                      + "documentation on macros</a> for when to use a Label instead of a string."),
+          @Param(
+              name = "no_match_error",
+              defaultValue = "''",
+              doc = "Optional custom error to report if no condition matches.",
+              named = true),
+        })
+    public Object select(Dict<?, ?> dict, String noMatchError) throws EvalException {
+      return SelectorList.select(dict, noMatchError);
+    }
   }
 }

@@ -33,7 +33,7 @@ import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
-import com.google.devtools.build.lib.sandbox.LinuxSandboxUtil;
+import com.google.devtools.build.lib.sandbox.LinuxSandboxCommandLineBuilder;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.shell.CommandResult;
@@ -42,16 +42,23 @@ import com.google.devtools.build.lib.util.SingleLineFormatter;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.DigestHashFunction.DigestFunctionConverter;
 import com.google.devtools.build.lib.vfs.FileSystem;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.JavaIoFileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.remote.worker.http.HttpCacheServerInitializer;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
+import io.grpc.Context;
+import io.grpc.Contexts;
+import io.grpc.Metadata;
 import io.grpc.Server;
+import io.grpc.ServerCall;
+import io.grpc.ServerCall.Listener;
+import io.grpc.ServerCallHandler;
 import io.grpc.ServerInterceptor;
 import io.grpc.ServerInterceptors;
+import io.grpc.Status;
 import io.grpc.netty.GrpcSslContexts;
 import io.grpc.netty.NettyServerBuilder;
 import io.netty.bootstrap.ServerBootstrap;
@@ -71,6 +78,9 @@ import java.io.InputStream;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.logging.Level;
@@ -107,6 +117,39 @@ public final class RemoteWorker {
     return new JavaIoFileSystem(hashFunction);
   }
 
+  /** A {@link ServerInterceptor} that rejects requests unless an authorization token is present. */
+  private static class AuthorizationTokenInterceptor implements ServerInterceptor {
+    private static final Metadata.Key<String> AUTHORIZATION_HEADER_KEY =
+        Metadata.Key.of("Authorization", Metadata.ASCII_STRING_MARSHALLER);
+
+    private static final String BEARER_PREFIX = "Bearer ";
+
+    private final String expectedToken;
+
+    AuthorizationTokenInterceptor(String expectedToken) {
+      this.expectedToken = expectedToken;
+    }
+
+    private Optional<String> getTokenFromMetadata(Metadata headers) {
+      String val = headers.get(AUTHORIZATION_HEADER_KEY);
+      if (val != null && val.startsWith(BEARER_PREFIX)) {
+        return Optional.of(val.substring(BEARER_PREFIX.length()));
+      }
+      return Optional.empty();
+    }
+
+    @Override
+    public <ReqT, RespT> Listener<ReqT> interceptCall(
+        ServerCall<ReqT, RespT> call, Metadata headers, ServerCallHandler<ReqT, RespT> next) {
+      Optional<String> actualToken = getTokenFromMetadata(headers);
+      if (!expectedToken.equals(actualToken.get())) {
+        call.close(Status.PERMISSION_DENIED, new Metadata());
+        return new ServerCall.Listener<ReqT>() {};
+      }
+      return Contexts.interceptCall(Context.current(), call, headers, next);
+    }
+  }
+
   public RemoteWorker(
       FileSystem fs,
       RemoteWorkerOptions workerOptions,
@@ -138,31 +181,36 @@ public final class RemoteWorker {
     if (workerOptions.workPath != null) {
       ConcurrentHashMap<String, ListenableFuture<ActionResult>> operationsCache =
           new ConcurrentHashMap<>();
-      FileSystemUtils.createDirectoryAndParents(workPath);
+      workPath.createDirectoryAndParents();
       execServer =
           new ExecutionServer(
               workPath, sandboxPath, workerOptions, cache, operationsCache, digestUtil);
     } else {
       execServer = null;
     }
-    this.capabilitiesServer = new CapabilitiesServer(digestUtil, execServer != null);
+    this.capabilitiesServer = new CapabilitiesServer(digestUtil, execServer != null, workerOptions);
   }
 
   public Server startServer() throws IOException {
-    ServerInterceptor headersInterceptor = new TracingMetadataUtils.ServerHeadersInterceptor();
+    List<ServerInterceptor> interceptors = new ArrayList<>();
+    interceptors.add(new TracingMetadataUtils.ServerHeadersInterceptor());
+    if (workerOptions.expectedAuthorizationToken != null) {
+      interceptors.add(new AuthorizationTokenInterceptor(workerOptions.expectedAuthorizationToken));
+    }
+
     NettyServerBuilder b =
         NettyServerBuilder.forPort(workerOptions.listenPort)
-            .addService(ServerInterceptors.intercept(actionCacheServer, headersInterceptor))
-            .addService(ServerInterceptors.intercept(bsServer, headersInterceptor))
-            .addService(ServerInterceptors.intercept(casServer, headersInterceptor))
-            .addService(ServerInterceptors.intercept(capabilitiesServer, headersInterceptor));
+            .addService(ServerInterceptors.intercept(actionCacheServer, interceptors))
+            .addService(ServerInterceptors.intercept(bsServer, interceptors))
+            .addService(ServerInterceptors.intercept(casServer, interceptors))
+            .addService(ServerInterceptors.intercept(capabilitiesServer, interceptors));
 
     if (workerOptions.tlsCertificate != null) {
       b.sslContext(getSslContextBuilder(workerOptions).build());
     }
 
     if (execServer != null) {
-      b.addService(ServerInterceptors.intercept(execServer, headersInterceptor));
+      b.addService(ServerInterceptors.intercept(execServer, interceptors));
     } else {
       logger.atInfo().log("Execution disabled, only serving cache requests");
     }
@@ -256,7 +304,7 @@ public final class RemoteWorker {
 
     Path casPath =
         remoteWorkerOptions.casPath != null ? fs.getPath(remoteWorkerOptions.casPath) : null;
-    DigestUtil digestUtil = new DigestUtil(fs.getDigestFunction());
+    DigestUtil digestUtil = new DigestUtil(SyscallCache.NO_CACHE, fs.getDigestFunction());
     OnDiskBlobStoreCache cache = new OnDiskBlobStoreCache(remoteOptions, casPath, digestUtil);
     ListeningScheduledExecutorService retryService =
         MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));
@@ -275,7 +323,7 @@ public final class RemoteWorker {
       b.group(bossGroup, workerGroup)
           .channel(NioServerSocketChannel.class)
           .handler(new LoggingHandler(LogLevel.INFO))
-          .childHandler(new HttpCacheServerInitializer());
+          .childHandler(new HttpCacheServerInitializer(new OnDiskHttpCacheServerHandler(cache)));
       ch = b.bind(remoteWorkerOptions.httpListenPort).sync().channel();
       logger.atInfo().log(
           "Started HTTP cache server on port %d", remoteWorkerOptions.httpListenPort);
@@ -335,8 +383,8 @@ public final class RemoteWorker {
     CommandResult cmdResult = null;
     Command cmd =
         new Command(
-            LinuxSandboxUtil.commandLineBuilder(sandboxPath, ImmutableList.of("true"))
-                .build()
+            LinuxSandboxCommandLineBuilder.commandLineBuilder(sandboxPath)
+                .buildForCommand(ImmutableList.of("true"))
                 .toArray(new String[0]),
             ImmutableMap.of(),
             sandboxPath.getParentDirectory().getPathFile());

@@ -13,6 +13,7 @@
 // limitations under the License.
 package net.starlark.java.annot;
 
+import com.google.errorprone.annotations.Keep;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -86,6 +87,7 @@ import java.lang.annotation.Target;
  * through; all other (checked) exceptions are wrapped in an {@code EvalException} and thrown.
  */
 // TODO(adonovan): rename to StarlarkAttribute and factor Starlark{Method,Field} as subinterfaces.
+@Keep
 @Target({ElementType.METHOD})
 @Retention(RetentionPolicy.RUNTIME)
 public @interface StarlarkMethod {

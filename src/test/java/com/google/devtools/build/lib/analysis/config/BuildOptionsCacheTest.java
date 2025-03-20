@@ -30,7 +30,7 @@ public final class BuildOptionsCacheTest {
 
   private final BuildOptionsCache<Context> cache =
       new BuildOptionsCache<>(
-          (options, context) -> {
+          (options, context, unused) -> {
             BuildOptionsView clone = options.clone();
             clone.get(CoreOptions.class).cpu = context.val;
             return clone.underlying();
@@ -39,24 +39,28 @@ public final class BuildOptionsCacheTest {
   @Test
   public void appliesTransitionFunction() throws Exception {
     BuildOptionsView from = createOptions("--cpu=default");
-    BuildOptions to = cache.applyTransition(from, new Context("abc"));
+    BuildOptions to = cache.applyTransition(from, new Context("abc"), null);
     assertCpu(from.underlying(), "default"); // No change.
     assertCpu(to, "abc");
   }
 
   @Test
   public void cachesTransition() throws Exception {
-    BuildOptions to1 = cache.applyTransition(createOptions("--cpu=default"), new Context("abc"));
-    BuildOptions to2 = cache.applyTransition(createOptions("--cpu=default"), new Context("abc"));
+    BuildOptions to1 =
+        cache.applyTransition(createOptions("--cpu=default"), new Context("abc"), null);
+    BuildOptions to2 =
+        cache.applyTransition(createOptions("--cpu=default"), new Context("abc"), null);
     assertThat(to2).isSameInstanceAs(to1);
   }
 
   @Test
   public void cacheKeyRespectsFromOptions() throws Exception {
     BuildOptions to1 =
-        cache.applyTransition(createOptions("--cpu=default", "--host_cpu=one"), new Context("abc"));
+        cache.applyTransition(
+            createOptions("--cpu=default", "--host_cpu=one"), new Context("abc"), null);
     BuildOptions to2 =
-        cache.applyTransition(createOptions("--cpu=default", "--host_cpu=two"), new Context("abc"));
+        cache.applyTransition(
+            createOptions("--cpu=default", "--host_cpu=two"), new Context("abc"), null);
     assertCpu(to1, "abc");
     assertCpu(to2, "abc");
     assertHostCpu(to1, "one");
@@ -65,8 +69,10 @@ public final class BuildOptionsCacheTest {
 
   @Test
   public void cacheKeyRespectsContext() throws Exception {
-    BuildOptions to1 = cache.applyTransition(createOptions("--cpu=default"), new Context("abc"));
-    BuildOptions to2 = cache.applyTransition(createOptions("--cpu=default"), new Context("xyz"));
+    BuildOptions to1 =
+        cache.applyTransition(createOptions("--cpu=default"), new Context("abc"), null);
+    BuildOptions to2 =
+        cache.applyTransition(createOptions("--cpu=default"), new Context("xyz"), null);
     assertCpu(to1, "abc");
     assertCpu(to2, "xyz");
   }
@@ -76,7 +82,7 @@ public final class BuildOptionsCacheTest {
   @Test
   public void doesNotRetainFromOptions() throws Exception {
     BuildOptionsView from = createOptions("--cpu=default");
-    cache.applyTransition(from, new Context("abc"));
+    var unused = cache.applyTransition(from, new Context("abc"), null);
     WeakReference<BuildOptions> fromRef = new WeakReference<>(from.underlying());
     from = null;
     GcFinalization.awaitClear(fromRef);

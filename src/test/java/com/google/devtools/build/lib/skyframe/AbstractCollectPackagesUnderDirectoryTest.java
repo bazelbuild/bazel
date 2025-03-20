@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.clock.BlazeClock;
+import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.EventCollector;
 import com.google.devtools.build.lib.events.Reporter;
@@ -33,8 +34,12 @@ import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
+import com.google.devtools.build.lib.runtime.QuiescingExecutorsImpl;
+import com.google.devtools.build.lib.skyframe.packages.PackageFactoryBuilderWithSkyframeForTesting;
+import com.google.devtools.build.lib.testing.common.FakeOptions;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.Scratch;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestPackageFactoryBuilderFactory;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
@@ -45,15 +50,18 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
-import com.google.devtools.build.skyframe.BuildDriver;
 import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationResult;
+import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.common.options.Options;
-import com.google.devtools.common.options.OptionsProvider;
+import com.google.devtools.common.options.OptionsParser;
+import com.google.devtools.common.options.OptionsParsingException;
+import com.google.errorprone.annotations.ForOverride;
 import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
@@ -74,7 +82,7 @@ public abstract class AbstractCollectPackagesUnderDirectoryTest {
   private EventCollector eventCollector;
   private Reporter reporter;
   protected ConfiguredRuleClassProvider ruleClassProvider;
-  private BuildDriver buildDriver;
+  private MemoizingEvaluator evaluator;
 
   @Before
   public void setUp() throws IOException {
@@ -88,10 +96,13 @@ public abstract class AbstractCollectPackagesUnderDirectoryTest {
             new ServerDirectories(
                 fileSystem.getPath("/install"),
                 fileSystem.getPath("/output"),
-                fileSystem.getPath("/user_root")),
+                fileSystem.getPath("/user_root"),
+                fileSystem.getPath("/execroot"),
+                useVirtualSourceRoot() ? root : null,
+                null),
             workingDir,
-            /*defaultSystemJavabase=*/ null,
-            /*productName=*/ "DummyProductNameForUnitTests");
+            /* defaultSystemJavabase= */ null,
+            /* productName= */ "DummyProductNameForUnitTests");
     eventCollector = new EventCollector();
     reporter = new Reporter(new EventBus());
     reporter.addHandler(eventCollector);
@@ -105,9 +116,12 @@ public abstract class AbstractCollectPackagesUnderDirectoryTest {
 
   protected abstract SkyframeExecutorFactory makeSkyframeExecutorFactory();
 
+  @ForOverride
+  protected abstract boolean useVirtualSourceRoot();
+
   @Test
   public void noPackageErrors() throws Exception {
-    initBuildDriver();
+    initEvaluator();
 
     scratch.file("BUILD");
     scratch.dir("a1/b1/c1");
@@ -159,7 +173,7 @@ public abstract class AbstractCollectPackagesUnderDirectoryTest {
 
   @Test
   public void packageErrors() throws Exception {
-    initBuildDriver();
+    initEvaluator();
 
     scratch.dir("a1/b1");
     scratch.file("a1/b1/BUILD", "xxx");
@@ -186,7 +200,7 @@ public abstract class AbstractCollectPackagesUnderDirectoryTest {
 
   @Test
   public void symlinks() throws Exception {
-    initBuildDriver();
+    initEvaluator();
 
     Path a1DirPath = scratch.dir("a1");
     scratch.dir("a1/b1/c1");
@@ -223,7 +237,7 @@ public abstract class AbstractCollectPackagesUnderDirectoryTest {
 
   @Test
   public void excludedPaths() throws Exception {
-    initBuildDriver();
+    initEvaluator();
 
     scratch.dir("a1/b1/c1");
     scratch.file("a1/b1/c1/BUILD");
@@ -257,17 +271,20 @@ public abstract class AbstractCollectPackagesUnderDirectoryTest {
         .containsExactly(
             rootedPath("tools"), Boolean.TRUE,
             rootedPath("a2"), Boolean.TRUE);
-    MoreAsserts.assertDoesNotContainEvent(eventCollector, "Loading package: a1/b1/c1");
-    MoreAsserts.assertDoesNotContainEvent(eventCollector, "Loading package: a1/b1/c2");
-    MoreAsserts.assertDoesNotContainEvent(eventCollector, "Loading package: a1/b2/c1");
-    MoreAsserts.assertDoesNotContainEvent(eventCollector, "Loading package: a1/b1/c2");
-    MoreAsserts.assertDoesNotContainEvent(eventCollector, "Loading package: a2/b1/c1");
-    MoreAsserts.assertDoesNotContainEvent(eventCollector, "Loading package: a2/b1/c2");
+    MoreAsserts.assertDoesNotContainEvents(
+        eventCollector,
+        "Loading package: a1/b1/c1",
+        "Loading package: a1/b1/c2",
+        "Loading package: a1/b2/c1",
+        "Loading package: a1/b1/c2",
+        "Loading package: a2/b1/c1",
+        "Loading package: a2/b1/c2",
+        "Loading package: a2/b2/c2");
     MoreAsserts.assertContainsEvent(eventCollector, "Loading package: a2/b2/c1");
-    MoreAsserts.assertDoesNotContainEvent(eventCollector, "Loading package: a2/b2/c2");
   }
 
-  private void initBuildDriver() throws AbruptExitException, InterruptedException, IOException {
+  private void initEvaluator()
+      throws AbruptExitException, InterruptedException, IOException, OptionsParsingException {
     PathPackageLocator pathPackageLocator =
         PathPackageLocator.createWithoutExistenceCheck(
             directories.getOutputBase(), ImmutableList.of(root), getBuildFileNamesByPriority());
@@ -284,17 +301,18 @@ public abstract class AbstractCollectPackagesUnderDirectoryTest {
     SkyframeExecutor skyframeExecutor =
         makeSkyframeExecutorFactory()
             .create(
-                TestPackageFactoryBuilderFactory.getInstance()
-                    .builder(directories)
+                ((PackageFactoryBuilderWithSkyframeForTesting)
+                        TestPackageFactoryBuilderFactory.getInstance().builder(directories))
+                    .setExtraSkyFunctions(getExtraSkyFunctions())
                     .build(ruleClassProvider, fileSystem),
                 fileSystem,
                 directories,
                 new ActionKeyContext(),
-                /*workspaceStatusActionFactory=*/ null,
-                /*diffAwarenessFactories=*/ ImmutableList.of(),
+                /* workspaceStatusActionFactory= */ null,
+                /* diffAwarenessFactories= */ ImmutableList.of(),
                 getExtraSkyFunctions(),
-                /*customDirtinessCheckers=*/ ImmutableList.of(),
-                /*managedDirectoriesKnowledge=*/ null,
+                SyscallCache.NO_CACHE,
+                /* repositoryHelpersHolder= */ null,
                 SkyframeExecutor.SkyKeyStateReceiver.NULL_INSTANCE,
                 BugReporter.defaultInstance());
     skyframeExecutor.injectExtraPrecomputedValues(
@@ -302,22 +320,27 @@ public abstract class AbstractCollectPackagesUnderDirectoryTest {
             PrecomputedValue.injected(
                 RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE, Optional.empty()),
             PrecomputedValue.injected(
-                RepositoryDelegatorFunction.REPOSITORY_OVERRIDES, ImmutableMap.of()),
+                RepositoryMappingFunction.REPOSITORY_OVERRIDES, ImmutableMap.of()),
             PrecomputedValue.injected(
-                RepositoryDelegatorFunction.DEPENDENCY_FOR_UNCONDITIONAL_FETCHING,
-                RepositoryDelegatorFunction.DONT_FETCH_UNCONDITIONALLY),
-            PrecomputedValue.injected(RepositoryDelegatorFunction.ENABLE_BZLMOD, false)));
+                RepositoryDelegatorFunction.FORCE_FETCH,
+                RepositoryDelegatorFunction.FORCE_FETCH_DISABLED),
+            PrecomputedValue.injected(
+                RepositoryDelegatorFunction.VENDOR_DIRECTORY, Optional.empty())));
+    OptionsParser parser =
+        OptionsParser.builder().optionsClasses(BuildLanguageOptions.class).build();
+    parser.parse(TestConstants.PRODUCT_SPECIFIC_BUILD_LANG_OPTIONS);
+    BuildLanguageOptions options = parser.getOptions(BuildLanguageOptions.class);
     skyframeExecutor.sync(
         reporter,
-        packageOptions,
         pathPackageLocator,
-        Options.getDefaults(BuildLanguageOptions.class),
         UUID.randomUUID(),
-        /*clientEnv=*/ ImmutableMap.of(),
-        /*repoEnvOption=*/ ImmutableMap.of(),
+        /* clientEnv= */ ImmutableMap.of(),
+        /* repoEnvOption= */ ImmutableMap.of(),
         new TimestampGranularityMonitor(BlazeClock.instance()),
-        OptionsProvider.EMPTY);
-    buildDriver = skyframeExecutor.getDriver();
+        QuiescingExecutorsImpl.forTesting(),
+        FakeOptions.builder().put(packageOptions).put(options).build(),
+        /* commandName= */ "build");
+    evaluator = skyframeExecutor.getEvaluator();
   }
 
   private CollectPackagesUnderDirectoryValue getCollectPackagesUnderDirectoryValue(String directory)
@@ -329,7 +352,7 @@ public abstract class AbstractCollectPackagesUnderDirectoryTest {
       String directory, ImmutableSet<PathFragment> excludedPaths) throws InterruptedException {
     SkyKey key =
         CollectPackagesUnderDirectoryValue.key(
-            RepositoryName.MAIN, rootedPath(directory), excludedPaths);
+            RepositoryName.MAIN, rootedPath(directory), IgnoredSubdirectories.of(excludedPaths));
     return evaluate(key).get(key);
   }
 
@@ -342,9 +365,9 @@ public abstract class AbstractCollectPackagesUnderDirectoryTest {
     EvaluationContext evaluationContext =
         EvaluationContext.newBuilder()
             .setKeepGoing(true)
-            .setNumThreads(1)
+            .setParallelism(1)
             .setEventHandler(new Reporter(new EventBus(), reporter))
             .build();
-    return buildDriver.evaluate(ImmutableList.of(key), evaluationContext);
+    return evaluator.evaluate(ImmutableList.of(key), evaluationContext);
   }
 }

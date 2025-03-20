@@ -21,16 +21,19 @@ import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.remote.merkletree.DirectoryTree.DirectoryNode;
 import com.google.devtools.build.lib.remote.merkletree.DirectoryTree.FileNode;
 import com.google.devtools.build.lib.remote.merkletree.DirectoryTree.Node;
+import com.google.devtools.build.lib.remote.merkletree.DirectoryTree.SymlinkNode;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.SortedSet;
 import java.util.stream.Collectors;
 import org.junit.Before;
 import org.junit.Test;
@@ -50,7 +53,7 @@ public abstract class DirectoryTreeTest {
     FileSystem fs = new InMemoryFileSystem(new JavaClock(), DigestHashFunction.SHA256);
     execRoot = fs.getPath("/exec");
     artifactRoot = ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "srcs");
-    digestUtil = new DigestUtil(fs.getDigestFunction());
+    digestUtil = new DigestUtil(SyscallCache.NO_CACHE, fs.getDigestFunction());
   }
 
   protected abstract DirectoryTree build(Path... paths) throws IOException;
@@ -75,12 +78,9 @@ public abstract class DirectoryTreeTest {
     assertThat(directoriesAtDepth(1, tree)).containsExactly("fizz");
     assertThat(directoriesAtDepth(2, tree)).isEmpty();
 
-    FileNode expectedFooNode =
-        FileNode.createExecutable("foo.cc", foo, digestUtil.computeAsUtf8("foo"));
-    FileNode expectedBarNode =
-        FileNode.createExecutable("bar.cc", bar, digestUtil.computeAsUtf8("bar"));
-    FileNode expectedBuzzNode =
-        FileNode.createExecutable("buzz.cc", buzz, digestUtil.computeAsUtf8("buzz"));
+    FileNode expectedFooNode = FileNode.create("foo.cc", foo, digestUtil.computeAsUtf8("foo"));
+    FileNode expectedBarNode = FileNode.create("bar.cc", bar, digestUtil.computeAsUtf8("bar"));
+    FileNode expectedBuzzNode = FileNode.create("buzz.cc", buzz, digestUtil.computeAsUtf8("buzz"));
     assertThat(fileNodesAtDepth(tree, 0)).isEmpty();
     assertThat(fileNodesAtDepth(tree, 1)).containsExactly(expectedFooNode, expectedBarNode);
     assertThat(fileNodesAtDepth(tree, 2)).containsExactly(expectedBuzzNode);
@@ -118,7 +118,10 @@ public abstract class DirectoryTreeTest {
   static void assertLexicographicalOrder(DirectoryTree tree) {
     // Assert the lexicographical order as defined by the remote execution protocol
     tree.visit(
-        (PathFragment dirname, List<FileNode> files, List<DirectoryNode> dirs) -> {
+        (PathFragment dirname,
+            SortedSet<FileNode> files,
+            SortedSet<SymlinkNode> symlinks,
+            SortedSet<DirectoryNode> dirs) -> {
           assertThat(files).isInStrictOrder();
           assertThat(dirs).isInStrictOrder();
         });
@@ -135,7 +138,10 @@ public abstract class DirectoryTreeTest {
   private static List<DirectoryNode> directoryNodesAtDepth(DirectoryTree tree, int depth) {
     List<DirectoryNode> directoryNodes = new ArrayList<>();
     tree.visit(
-        (PathFragment dirname, List<FileNode> files, List<DirectoryNode> dirs) -> {
+        (PathFragment dirname,
+            SortedSet<FileNode> files,
+            SortedSet<SymlinkNode> symlinks,
+            SortedSet<DirectoryNode> dirs) -> {
           int currDepth = dirname.segmentCount();
           if (currDepth == depth) {
             directoryNodes.addAll(dirs);
@@ -147,7 +153,10 @@ public abstract class DirectoryTreeTest {
   static List<FileNode> fileNodesAtDepth(DirectoryTree tree, int depth) {
     List<FileNode> fileNodes = new ArrayList<>();
     tree.visit(
-        (PathFragment dirname, List<FileNode> files, List<DirectoryNode> dirs) -> {
+        (PathFragment dirname,
+            SortedSet<FileNode> files,
+            SortedSet<SymlinkNode> symlinks,
+            SortedSet<DirectoryNode> dirs) -> {
           int currDepth = dirname.segmentCount();
           if (currDepth == depth) {
             fileNodes.addAll(files);

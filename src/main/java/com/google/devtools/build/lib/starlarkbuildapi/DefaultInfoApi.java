@@ -33,32 +33,27 @@ import net.starlark.java.eval.StarlarkThread;
     name = "DefaultInfo",
     category = DocCategory.PROVIDER,
     doc =
-        "A provider that gives general information about a target's direct and transitive files. "
-            + "Every rule type has this provider, even if it is not returned explicitly by the "
-            + "rule's implementation function. "
-            + "Each <code>DefaultInfo</code> instance has the following fields: "
-            + "<ul>"
-            + "<li><code>files</code>"
-            + "<li><code>files_to_run</code>"
-            + "<li><code>data_runfiles</code>"
-            + "<li><code>default_runfiles</code>"
-            + "</ul>"
-            + "See the <a href='../rules.$DOC_EXT'>rules</a> page for extensive guides on how to "
-            + "use this provider.")
+        "A provider that gives general information about a target's direct and transitive files."
+            + " Every rule type has this provider, even if it is not returned explicitly by the"
+            + " rule's implementation function. Each <code>DefaultInfo</code> instance has the"
+            + " following fields: <ul><li><code>files</code><li><code>files_to_run</code>"
+            + "<li><code>data_runfiles</code><li><code>default_runfiles</code></ul>See the <a"
+            + " href='https://bazel.build/extending/rules'>rules</a> page for extensive guides on"
+            + " how to use this provider.")
 public interface DefaultInfoApi extends StructApi {
 
   static final String DEPRECATED_RUNFILES_PARAMETER_WARNING =
       "<p><b>It is recommended that you avoid using this parameter (see "
-          + "<a href='../rules.$DOC_EXT#runfiles-features-to-avoid'>"
+          + "<a href='https://bazel.build/extending/rules#runfiles_features_to_avoid'>"
           + "\"runfiles features to avoid\"</a>)</b></p> ";
 
   @StarlarkMethod(
       name = "files",
       doc =
-          "A <a href='depset.html'><code>depset</code></a> of "
-              + "<a href='File.html'><code>File</code></a> objects representing the default "
-              + "outputs to build when this target is specified on the blaze command line. By "
-              + "default it is all predeclared outputs.",
+          "A <a href='../builtins/depset.html'><code>depset</code></a> of <a"
+              + " href='../builtins/File.html'><code>File</code></a> objects representing the"
+              + " default outputs to build when this target is specified on the bazel command line."
+              + " By default it is all predeclared outputs.",
       structField = true,
       allowReturnNones = true)
   @Nullable
@@ -67,8 +62,8 @@ public interface DefaultInfoApi extends StructApi {
   @StarlarkMethod(
       name = "files_to_run",
       doc =
-          "A <a href='FilesToRunProvider.html'><code>FilesToRunProvider</code></a> object "
-              + "containing information about the executable and runfiles of the target.",
+          "A <a href='../providers/FilesToRunProvider.html'><code>FilesToRunProvider</code></a>"
+              + " object containing information about the executable and runfiles of the target.",
       structField = true,
       allowReturnNones = true)
   @Nullable
@@ -80,7 +75,7 @@ public interface DefaultInfoApi extends StructApi {
           "runfiles descriptor describing the files that this target needs when run in the "
               + "condition that it is a <code>data</code> dependency attribute. Under most "
               + "circumstances, use the <code>default_runfiles</code> parameter instead. "
-              + "See <a href='../rules.$DOC_EXT#runfiles-features-to-avoid'>"
+              + "See <a href='https://bazel.build/extending/rules#runfiles_features_to_avoid'>"
               + "\"runfiles features to avoid\"</a> for details. ",
       structField = true,
       allowReturnNones = true)
@@ -116,10 +111,10 @@ public interface DefaultInfoApi extends StructApi {
               positional = false,
               defaultValue = "None",
               doc =
-                  "A <a href='depset.html'><code>depset</code></a> of <a"
-                      + " href='File.html'><code>File</code></a> objects representing the default"
-                      + " outputs to build when this target is specified on the blaze command"
-                      + " line. By default it is all predeclared outputs."),
+                  "A <a href='../builtins/depset.html'><code>depset</code></a> of <a"
+                      + " href='../builtins/File.html'><code>File</code></a> objects representing"
+                      + " the default outputs to build when this target is specified on the bazel"
+                      + " command line. By default it is all predeclared outputs."),
           @Param(
               name = "runfiles",
               allowedTypes = {
@@ -170,11 +165,12 @@ public interface DefaultInfoApi extends StructApi {
               defaultValue = "None",
               doc =
                   "If this rule is marked <a"
-                      + " href='globals.html#rule.executable'><code>executable</code></a> or <a"
-                      + " href='globals.html#rule.test'><code>test</code></a>, this is a <a"
-                      + " href='File.html'><code>File</code></a> object representing the file that"
-                      + " should be executed to run the target. By default it is the predeclared"
-                      + " output <code>ctx.outputs.executable</code>.")
+                      + " href='../globals/bzl.html#rule.executable'><code>executable</code></a> or"
+                      + " <a href='../globals/bzl.html#rule.test'><code>test</code></a>, this is a"
+                      + " <a href='../builtins/File.html'><code>File</code></a> object representing"
+                      + " the file that should be executed to run the target. By default it is the"
+                      + " predeclared output <code>ctx.outputs.executable</code> but it is"
+                      + " recommended to pass another file (either predeclared or not) explicitly.")
         },
         selfCall = true,
         useStarlarkThread = true)

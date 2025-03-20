@@ -25,6 +25,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.bazel.repository.downloader.RetryingInputStream.Reconnector;
 import java.io.IOException;
@@ -94,7 +95,8 @@ public class RetryingInputStreamTest {
     when(connection.getHeaderField("Content-Range")).thenReturn("bytes 1-42/42");
     assertThat(stream.read()).isEqualTo(1);
     assertThat(stream.read()).isEqualTo(2);
-    verify(reconnector).connect(any(Throwable.class), eq(ImmutableMap.of("Range", "bytes=1-")));
+    verify(reconnector)
+        .connect(any(Throwable.class), eq(ImmutableMap.of("Range", ImmutableList.of("bytes=1-"))));
     verify(delegate, times(2)).read();
     verify(delegate).close();
     verify(newDelegate).read();
@@ -108,7 +110,7 @@ public class RetryingInputStreamTest {
     when(reconnector.connect(any(Throwable.class), any(ImmutableMap.class))).thenReturn(connection);
     when(connection.getInputStream()).thenReturn(newDelegate);
     assertThat(stream.read()).isEqualTo(1);
-    verify(reconnector).connect(any(Throwable.class), eq(ImmutableMap.<String, String>of()));
+    verify(reconnector).connect(any(Throwable.class), eq(ImmutableMap.of()));
     verify(delegate).read();
     verify(delegate).close();
     verify(newDelegate).read();
@@ -141,8 +143,8 @@ public class RetryingInputStreamTest {
     stream.read();
     SocketTimeoutException e = assertThrows(SocketTimeoutException.class, () -> stream.read());
     assertThat(e.getSuppressed()).hasLength(3);
-      verify(reconnector, times(3))
-          .connect(any(Throwable.class), eq(ImmutableMap.of("Range", "bytes=1-")));
+    verify(reconnector, times(3))
+        .connect(any(Throwable.class), eq(ImmutableMap.of("Range", ImmutableList.of("bytes=1-"))));
       verify(delegate, times(5)).read();
     verify(delegate, times(3)).close();
   }

@@ -46,13 +46,25 @@ public class AspectAwareAttributeMapperTest extends BuildViewTestCase {
         scratchConfiguredTargetAndData(
             "foo",
             "myrule",
-            "cc_binary(",
-            "    name = 'myrule',",
-            "    srcs = [':a.cc'],",
-            "    linkstatic = select({'//conditions:default': 1}))");
+            """
+            # Needed to avoid select() being eliminated as trivial.
+            config_setting(
+                name = "config",
+                values = {"define": "pi=3"},
+            )
+
+            cc_binary(
+                name = "myrule",
+                srcs = [":a.cc"],
+                linkstatic = select({
+                    ":config": 1,
+                    "//conditions:default": 1,
+                }),
+            )
+            """);
 
     RuleConfiguredTarget ct = (RuleConfiguredTarget) ctad.getConfiguredTarget();
-    rule = (Rule) ctad.getTarget();
+    rule = (Rule) ctad.getTargetForTesting();
     Attribute aspectAttr = new Attribute.Builder<Label>("fromaspect", BuildType.LABEL)
         .allowedFileTypes(FileTypeSet.ANY_FILE)
         .build();
@@ -69,7 +81,7 @@ public class AspectAwareAttributeMapperTest extends BuildViewTestCase {
 
   @Test
   public void getName() throws Exception {
-    assertThat(mapper.getName()).isEqualTo(rule.getName());
+    assertThat(mapper.getLabel().getName()).isEqualTo(rule.getName());
   }
 
   @Test
@@ -80,7 +92,7 @@ public class AspectAwareAttributeMapperTest extends BuildViewTestCase {
   @Test
   public void getRuleAttributeValue() throws Exception {
     assertThat(mapper.get("srcs", BuildType.LABEL_LIST))
-        .containsExactly(Label.parseAbsolute("//foo:a.cc", ImmutableMap.of()));
+        .containsExactly(Label.parseCanonical("//foo:a.cc"));
   }
 
   @Test
@@ -105,7 +117,8 @@ public class AspectAwareAttributeMapperTest extends BuildViewTestCase {
         assertThrows(IllegalArgumentException.class, () -> mapper.get("noexist", BuildType.LABEL));
     assertThat(e)
         .hasMessageThat()
-        .isEqualTo("no attribute 'noexist' in either //foo:myrule or its aspects");
+        .matches(
+            "no attribute 'noexist' in either cc_binary //foo:myrule \\([^)]+\\) or its aspects");
   }
 
   @Test

@@ -14,14 +14,11 @@
 
 package com.google.devtools.build.lib.analysis.util;
 
-import static com.google.common.truth.Truth.assertThat;
 
-import com.google.common.collect.Iterables;
 import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.AnalysisFailureEvent;
-import com.google.devtools.build.lib.analysis.AnalysisResult;
 import com.google.devtools.build.lib.analysis.AnalysisRootCauseEvent;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
@@ -42,19 +39,32 @@ import java.util.regex.Pattern;
 public abstract class BuildViewTestBase extends AnalysisTestCase {
 
   protected final void setupDummyRule() throws Exception {
-    scratch.file("pkg/BUILD",
-                "testing_dummy_rule(name='foo', ",
-                "                   srcs=['a.src'],",
-                "                   outs=['a.out'])");
+    scratch.file(
+        "pkg/BUILD",
+        """
+        testing_dummy_rule(
+            name = "foo",
+            srcs = ["a.src"],
+            outs = ["a.out"],
+        )
+        """);
   }
 
   protected void runAnalysisWithOutputFilter(Pattern outputFilter) throws Exception {
     scratch.file("java/a/BUILD",
         "exports_files(['A.java'])");
-    scratch.file("java/b/BUILD",
-        "java_library(name = 'b', srcs = ['//java/a:A.java'])");
-    scratch.file("java/c/BUILD",
-        "java_library(name = 'c', exports = ['//java/b:b'])");
+    scratch.file(
+        "java/b/BUILD",
+        """
+        load("@rules_java//java:defs.bzl", "java_library")
+        java_library(name = 'b', srcs = ['//java/a:A.java'])
+        """);
+    scratch.file(
+        "java/c/BUILD",
+        """
+        load("@rules_java//java:defs.bzl", "java_library")
+        java_library(name = 'c', exports = ['//java/b:b'])
+        """);
     reporter.setOutputFilter(RegexOutputFilter.forPattern(outputFilter));
     update("//java/c:c");
   }
@@ -69,17 +79,42 @@ public abstract class BuildViewTestBase extends AnalysisTestCase {
   protected void runTestDepOnGoodTargetInBadPkgAndTransitiveCycle(boolean incremental)
       throws Exception {
     reporter.removeHandler(failFastHandler);
-    scratch.file("parent/BUILD",
-        "sh_library(name = 'foo',",
-        "           srcs = ['//badpkg:okay-target', '//okaypkg:transitively-a-cycle'])");
-    Path symlinkcycleBuildFile = scratch.file("symlinkcycle/BUILD",
-        "sh_library(name = 'cycle', srcs = glob(['*.sh']))");
+    scratch.file(
+        "parent/BUILD",
+        """
+        load('//test_defs:foo_library.bzl', 'foo_library')
+        foo_library(
+            name = "foo",
+            srcs = [
+                "//badpkg:okay-target",
+                "//okaypkg:transitively-a-cycle",
+            ],
+        )
+        """);
+    Path symlinkcycleBuildFile =
+        scratch.file(
+            "symlinkcycle/BUILD",
+            "load('//test_defs:foo_library.bzl', 'foo_library')",
+            "foo_library(name = 'cycle', srcs = glob(['*.sh']))");
     Path dirPath = symlinkcycleBuildFile.getParentDirectory();
     dirPath.getRelative("foo.sh").createSymbolicLink(PathFragment.create("foo.sh"));
-    scratch.file("okaypkg/BUILD",
-        "sh_library(name = 'transitively-a-cycle',",
-        "           srcs = ['//symlinkcycle:cycle'])");
-    Path badpkgBuildFile = scratch.file("badpkg/BUILD", "exports_files(['okay-target'])", "fail()");
+    scratch.file(
+        "okaypkg/BUILD",
+        """
+        load('//test_defs:foo_library.bzl', 'foo_library')
+        foo_library(
+            name = "transitively-a-cycle",
+            srcs = ["//symlinkcycle:cycle"],
+        )
+        """);
+    Path badpkgBuildFile =
+        scratch.file(
+            "badpkg/BUILD",
+            """
+            exports_files(["okay-target"])
+
+            fail()
+            """);
     if (incremental) {
       update(defaultFlags().with(Flag.KEEP_GOING), "//okaypkg:transitively-a-cycle");
       assertContainsEvent("circular symlinks detected");
@@ -96,35 +131,9 @@ public abstract class BuildViewTestBase extends AnalysisTestCase {
 
   protected void injectGraphListenerForTesting(Listener listener, boolean deterministic) {
     InMemoryMemoizingEvaluator memoizingEvaluator =
-        (InMemoryMemoizingEvaluator) skyframeExecutor.getEvaluatorForTesting();
+        (InMemoryMemoizingEvaluator) skyframeExecutor.getEvaluator();
     memoizingEvaluator.injectGraphTransformerForTesting(
         DeterministicHelper.makeTransformer(listener, deterministic));
-  }
-
-  protected void runTestForMultiCpuAnalysisFailure(String badCpu, String goodCpu) throws Exception {
-    reporter.removeHandler(failFastHandler);
-    useConfiguration("--experimental_multi_cpu=" + badCpu + "," + goodCpu);
-    scratch.file("multi/BUILD",
-        "config_setting(",
-        "    name = 'config',",
-        "    values = {'cpu': '" + badCpu + "'})",
-        "cc_library(",
-        "    name = 'cpu',",
-        "    deps = select({",
-        "        ':config': [':fail'],",
-        "        '//conditions:default': []}))",
-        "genrule(",
-        "    name = 'fail',",
-        "    outs = ['file1', 'file2'],",
-        "    executable = 1,",
-        "    cmd = 'touch $@')");
-    update(defaultFlags().with(Flag.KEEP_GOING), "//multi:cpu");
-    AnalysisResult result = getAnalysisResult();
-    assertThat(result.getTargetsToBuild()).hasSize(1);
-    ConfiguredTarget targetA = Iterables.get(result.getTargetsToBuild(), 0);
-    assertThat(getConfiguration(targetA).getCpu()).isEqualTo(goodCpu);
-    // Unfortunately, we get the same error twice - we can't distinguish the configurations.
-    assertContainsEvent("if genrules produce executables, they are allowed only one output");
   }
 
   /**

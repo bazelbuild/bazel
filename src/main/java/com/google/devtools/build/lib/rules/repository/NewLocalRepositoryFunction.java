@@ -19,8 +19,11 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
-import com.google.devtools.build.lib.events.ExtendedEventHandler.ResolvedEvent;
+import com.google.devtools.build.lib.bazel.ResolvedEvent;
+import com.google.devtools.build.lib.bugreport.BugReport;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.io.InconsistentFilesystemException;
+import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.skyframe.DirectoryListingValue;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -28,17 +31,19 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
+import com.google.devtools.build.lib.vfs.XattrProvider;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.io.IOException;
+import java.util.LinkedHashMap;
 import java.util.Map;
+import javax.annotation.Nullable;
 import net.starlark.java.eval.Starlark;
 
-/**
- * Create a repository from a directory on the local filesystem.
- */
+/** Create a repository from a directory on the local filesystem. */
 public class NewLocalRepositoryFunction extends RepositoryFunction {
 
   @Override
@@ -47,14 +52,16 @@ public class NewLocalRepositoryFunction extends RepositoryFunction {
   }
 
   @Override
-  public RepositoryDirectoryValue.Builder fetch(
-      Rule rule,
-      Path outputDirectory,
-      BlazeDirectories directories,
-      Environment env,
-      Map<String, String> markerData,
-      SkyKey key)
+  @Nullable
+  public FetchResult fetch(
+      Rule rule, Path outputDirectory, BlazeDirectories directories, Environment env, SkyKey key)
       throws InterruptedException, RepositoryFunctionException {
+    ensureNativeRepoRuleEnabled(
+        rule,
+        env,
+        "load(\"@bazel_tools//tools/build_defs/repo:local.bzl\", \"new_local_repository\")");
+    // DO NOT MODIFY THIS! It's being deprecated in favor of Starlark counterparts.
+    // See https://github.com/bazelbuild/bazel/issues/18285
 
     NewRepositoryFileHandler fileHandler = new NewRepositoryFileHandler(directories.getWorkspace());
     if (!fileHandler.prepareFile(rule, env)) {
@@ -115,8 +122,9 @@ public class NewLocalRepositoryFunction extends RepositoryFunction {
     SkyKey dirKey = DirectoryListingValue.key(dirPath);
     DirectoryListingValue directoryValue;
     try {
-      directoryValue = (DirectoryListingValue) env.getValueOrThrow(
-          dirKey, InconsistentFilesystemException.class);
+      directoryValue =
+          (DirectoryListingValue)
+              env.getValueOrThrow(dirKey, InconsistentFilesystemException.class);
     } catch (InconsistentFilesystemException e) {
       throw new RepositoryFunctionException(new IOException(e), Transience.PERSISTENT);
     }
@@ -124,18 +132,29 @@ public class NewLocalRepositoryFunction extends RepositoryFunction {
       return null;
     }
 
-    Map<SkyKey, SkyValue> fileValues =
-        env.getValues(
-            Iterables.transform(
-                directoryValue.getDirents(),
-                e ->
-                    (SkyKey)
-                        FileValue.key(
-                            RootedPath.toRootedPath(
-                                dirPath.getRoot(),
-                                dirPath.getRootRelativePath().getRelative(e.getName())))));
+    Root root = dirPath.getRoot();
+    PathFragment rootRelativePath = dirPath.getRootRelativePath();
+    Iterable<SkyKey> skyKeys =
+        Iterables.transform(
+            directoryValue.getDirents(),
+            e ->
+                FileValue.key(
+                    RootedPath.toRootedPath(root, rootRelativePath.getRelative(e.getName()))));
+    SkyframeLookupResult fileValuesResult = env.getValuesAndExceptions(skyKeys);
     if (env.valuesMissing()) {
       return null;
+    }
+    ImmutableMap.Builder<SkyKey, SkyValue> fileValues =
+        ImmutableMap.builderWithExpectedSize(directoryValue.getDirents().size());
+    for (SkyKey skyKey : skyKeys) {
+      SkyValue value = fileValuesResult.get(skyKey);
+      if (value == null) {
+        BugReport.sendBugReport(
+            new IllegalStateException(
+                "SkyValue " + skyKey + " was missing, this should never happen"));
+        return null;
+      }
+      fileValues.put(skyKey, value);
     }
 
     // Link x/y/z to /some/path/to/y/z.
@@ -143,13 +162,16 @@ public class NewLocalRepositoryFunction extends RepositoryFunction {
       return null;
     }
 
-    fileHandler.finishFile(rule, outputDirectory, markerData);
-    env.getListener().post(resolve(rule, directories));
+    Map<RepoRecordedInput, String> recordedInputValues = new LinkedHashMap<>();
+    fileHandler.finishFile(rule, outputDirectory, recordedInputValues);
+    env.getListener().post(resolve(rule));
 
-    return RepositoryDirectoryValue.builder()
-        .setPath(outputDirectory)
-        .setSourceDir(directoryValue)
-        .setFileValues(fileValues);
+    return new FetchResult(
+        RepositoryDirectoryValue.builder()
+            .setPath(outputDirectory)
+            .setSourceDir(directoryValue)
+            .setFileValues(fileValues.buildOrThrow()),
+        recordedInputValues);
   }
 
   @Override
@@ -157,7 +179,7 @@ public class NewLocalRepositoryFunction extends RepositoryFunction {
     return NewLocalRepositoryRule.class;
   }
 
-  private static ResolvedEvent resolve(Rule rule, BlazeDirectories directories) {
+  private static ResolvedEvent resolve(Rule rule) {
     String name = rule.getName();
     Object pathObj = rule.getAttr("path");
     ImmutableMap.Builder<String, Object> origAttr =
@@ -170,22 +192,10 @@ public class NewLocalRepositoryFunction extends RepositoryFunction {
             .append(", path = ")
             .append(Starlark.repr(pathObj));
 
-    Object buildFileObj = rule.getAttr("build_file");
-    if ((buildFileObj instanceof String) && ((String) buildFileObj).length() > 0) {
-      // Build fiels might refer to an embedded file (as they to for "local_jdk"),
-      // so we have to describe the argument in a portable way.
-      origAttr.put("build_file", buildFileObj);
-      String buildFileArg;
-      PathFragment pathFragment = PathFragment.create((String) buildFileObj);
-      PathFragment embeddedDir = directories.getEmbeddedBinariesRoot().asFragment();
-      if (pathFragment.isAbsolute() && pathFragment.startsWith(embeddedDir)) {
-        buildFileArg =
-            "__embedded_dir__ + \"/\" + "
-                + Starlark.repr(pathFragment.relativeTo(embeddedDir).toString());
-      } else {
-        buildFileArg = Starlark.repr(buildFileObj.toString()).toString();
-      }
-      repr.append(", build_file = ").append(buildFileArg);
+    Label buildFile = (Label) rule.getAttr("build_file", BuildType.NODEP_LABEL);
+    if (buildFile != null) {
+      origAttr.put("build_file", buildFile);
+      repr.append(", build_file = ").append(Starlark.repr(buildFile));
     } else {
       Object buildFileContentObj = rule.getAttr("build_file_content");
       if (buildFileContentObj != null) {
@@ -195,7 +205,7 @@ public class NewLocalRepositoryFunction extends RepositoryFunction {
     }
 
     String nativeCommand = repr.append(")").toString();
-    ImmutableMap<String, Object> orig = origAttr.build();
+    ImmutableMap<String, Object> orig = origAttr.buildOrThrow();
 
     return new ResolvedEvent() {
       @Override
@@ -204,12 +214,12 @@ public class NewLocalRepositoryFunction extends RepositoryFunction {
       }
 
       @Override
-      public Object getResolvedInformation() {
+      public Object getResolvedInformation(XattrProvider xattrProvider) {
         return ImmutableMap.<String, Object>builder()
-            .put(ResolvedHashesFunction.ORIGINAL_RULE_CLASS, "new_local_repository")
-            .put(ResolvedHashesFunction.ORIGINAL_ATTRIBUTES, orig)
-            .put(ResolvedHashesFunction.NATIVE, nativeCommand)
-            .build();
+            .put(ResolvedFileValue.ORIGINAL_RULE_CLASS, "new_local_repository")
+            .put(ResolvedFileValue.ORIGINAL_ATTRIBUTES, orig)
+            .put(ResolvedFileValue.NATIVE, nativeCommand)
+            .buildOrThrow();
       }
     };
   }

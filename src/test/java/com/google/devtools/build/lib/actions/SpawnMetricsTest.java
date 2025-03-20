@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.actions;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import java.time.Duration;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -28,19 +27,31 @@ public final class SpawnMetricsTest {
   public void builder_addDurationsNonDurations() throws Exception {
     SpawnMetrics metrics1 =
         SpawnMetrics.Builder.forRemoteExec()
-            .setTotalTime(Duration.ofSeconds(1))
-            .setExecutionWallTime(Duration.ofSeconds(2))
+            .setTotalTimeInMs(1 * 1000)
+            .setExecutionWallTimeInMs(2 * 1000)
             .setInputBytes(10)
             .setInputFiles(20)
             .setMemoryEstimateBytes(30)
+            .setInputBytesLimit(20)
+            .setInputFilesLimit(40)
+            .setOutputBytesLimit(50)
+            .setOutputFilesLimit(60)
+            .setMemoryBytesLimit(70)
+            .setTimeLimitInMs(80 * 1000)
             .build();
     SpawnMetrics metrics2 =
         SpawnMetrics.Builder.forRemoteExec()
-            .setTotalTime(Duration.ofSeconds(10))
-            .setExecutionWallTime(Duration.ofSeconds(20))
+            .setTotalTimeInMs(10 * 1000)
+            .setExecutionWallTimeInMs(20 * 1000)
             .setInputBytes(100)
             .setInputFiles(200)
             .setMemoryEstimateBytes(300)
+            .setInputBytesLimit(200)
+            .setInputFilesLimit(400)
+            .setOutputBytesLimit(500)
+            .setOutputFilesLimit(600)
+            .setMemoryBytesLimit(700)
+            .setTimeLimitInMs(800 * 1000)
             .build();
 
     SpawnMetrics result =
@@ -51,30 +62,48 @@ public final class SpawnMetricsTest {
             .addNonDurations(metrics2)
             .build();
 
-    assertThat(result.totalTime()).isEqualTo(Duration.ofSeconds(11));
-    assertThat(result.executionWallTime()).isEqualTo(Duration.ofSeconds(22));
+    assertThat(result.totalTimeInMs()).isEqualTo(11 * 1000);
+    assertThat(result.executionWallTimeInMs()).isEqualTo(22 * 1000);
     assertThat(result.inputBytes()).isEqualTo(110);
     assertThat(result.inputFiles()).isEqualTo(220);
     assertThat(result.memoryEstimate()).isEqualTo(330);
+    assertThat(result.inputBytesLimit()).isEqualTo(220);
+    assertThat(result.inputFilesLimit()).isEqualTo(440);
+    assertThat(result.outputBytesLimit()).isEqualTo(550);
+    assertThat(result.outputFilesLimit()).isEqualTo(660);
+    assertThat(result.memoryLimit()).isEqualTo(770);
+    assertThat(result.timeLimitInMs()).isEqualTo(880 * 1000);
   }
 
   @Test
   public void builder_addDurationsMaxNonDurations() throws Exception {
     SpawnMetrics metrics1 =
         SpawnMetrics.Builder.forRemoteExec()
-            .setTotalTime(Duration.ofSeconds(1))
-            .setExecutionWallTime(Duration.ofSeconds(2))
+            .setTotalTimeInMs(1 * 1000)
+            .setExecutionWallTimeInMs(2 * 1000)
             .setInputBytes(10)
             .setInputFiles(20)
             .setMemoryEstimateBytes(30)
+            .setInputBytesLimit(20)
+            .setInputFilesLimit(40)
+            .setOutputBytesLimit(50)
+            .setOutputFilesLimit(60)
+            .setMemoryBytesLimit(70)
+            .setTimeLimitInMs(80 * 1000)
             .build();
     SpawnMetrics metrics2 =
         SpawnMetrics.Builder.forRemoteExec()
-            .setTotalTime(Duration.ofSeconds(10))
-            .setExecutionWallTime(Duration.ofSeconds(20))
+            .setTotalTimeInMs(10 * 1000)
+            .setExecutionWallTimeInMs(20 * 1000)
             .setInputBytes(100)
             .setInputFiles(200)
             .setMemoryEstimateBytes(300)
+            .setInputBytesLimit(200)
+            .setInputFilesLimit(400)
+            .setOutputBytesLimit(500)
+            .setOutputFilesLimit(600)
+            .setMemoryBytesLimit(700)
+            .setTimeLimitInMs(800 * 1000)
             .build();
 
     SpawnMetrics result =
@@ -85,10 +114,16 @@ public final class SpawnMetricsTest {
             .maxNonDurations(metrics2)
             .build();
 
-    assertThat(result.totalTime()).isEqualTo(Duration.ofSeconds(11));
-    assertThat(result.executionWallTime()).isEqualTo(Duration.ofSeconds(22));
+    assertThat(result.totalTimeInMs()).isEqualTo(11 * 1000);
+    assertThat(result.executionWallTimeInMs()).isEqualTo(22 * 1000);
     assertThat(result.inputBytes()).isEqualTo(100);
     assertThat(result.inputFiles()).isEqualTo(200);
     assertThat(result.memoryEstimate()).isEqualTo(300);
+    assertThat(result.inputBytesLimit()).isEqualTo(200);
+    assertThat(result.inputFilesLimit()).isEqualTo(400);
+    assertThat(result.outputBytesLimit()).isEqualTo(500);
+    assertThat(result.outputFilesLimit()).isEqualTo(600);
+    assertThat(result.memoryLimit()).isEqualTo(700);
+    assertThat(result.timeLimitInMs()).isEqualTo(800 * 1000);
   }
 }

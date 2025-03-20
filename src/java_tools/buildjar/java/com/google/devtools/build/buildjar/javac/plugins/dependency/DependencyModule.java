@@ -27,6 +27,7 @@ import com.google.devtools.build.buildjar.javac.plugins.BlazeJavaCompilerPlugin;
 import com.google.devtools.build.lib.view.proto.Deps.Dependencies;
 import com.google.devtools.build.lib.view.proto.Deps.Dependency;
 import com.google.devtools.build.lib.view.proto.Deps.Dependency.Kind;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.sun.tools.javac.code.Symbol.PackageSymbol;
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
@@ -384,6 +385,7 @@ public final class DependencyModule {
      * @param strictJavaDeps level, as specified by {@link StrictJavaDeps}
      * @return this Builder instance
      */
+    @CanIgnoreReturnValue
     public Builder setStrictJavaDeps(String strictJavaDeps) {
       this.strictJavaDeps = StrictJavaDeps.valueOf(strictJavaDeps);
       return this;
@@ -395,6 +397,7 @@ public final class DependencyModule {
      * @param fixDepsTool tool name
      * @return this Builder instance
      */
+    @CanIgnoreReturnValue
     public Builder setFixDepsTool(FixTool fixDepsTool) {
       this.fixDepsTool = fixDepsTool;
       return this;
@@ -406,12 +409,14 @@ public final class DependencyModule {
      * @param targetLabel label, such as the label of a RuleConfiguredTarget.
      * @return this Builder instance.
      */
+    @CanIgnoreReturnValue
     public Builder setTargetLabel(String targetLabel) {
       this.targetLabel = targetLabel;
       return this;
     }
 
     /** Sets the paths to jars that are direct dependencies. */
+    @CanIgnoreReturnValue
     public Builder setDirectJars(ImmutableSet<Path> directJars) {
       this.directJars = directJars;
       return this;
@@ -424,6 +429,7 @@ public final class DependencyModule {
      * @param outputDepsProtoFile output file name for dependency information
      * @return this Builder instance
      */
+    @CanIgnoreReturnValue
     public Builder setOutputDepsProtoFile(Path outputDepsProtoFile) {
       this.outputDepsProtoFile = outputDepsProtoFile;
       return this;
@@ -435,12 +441,14 @@ public final class DependencyModule {
      * @param depsArtifacts dependency artifacts
      * @return this Builder instance
      */
+    @CanIgnoreReturnValue
     public Builder addDepsArtifacts(Collection<Path> depsArtifacts) {
       this.depsArtifacts.addAll(depsArtifacts);
       return this;
     }
 
     /** Sets the platform classpath entries. */
+    @CanIgnoreReturnValue
     public Builder setPlatformJars(ImmutableSet<Path> platformJars) {
       this.platformJars = platformJars;
       return this;
@@ -451,6 +459,7 @@ public final class DependencyModule {
      *
      * @return this Builder instance
      */
+    @CanIgnoreReturnValue
     public Builder setReduceClasspath() {
       this.strictClasspathMode = true;
       return this;
@@ -462,6 +471,7 @@ public final class DependencyModule {
      * @param fixMessage the fix message
      * @return this Builder instance
      */
+    @CanIgnoreReturnValue
     public Builder setFixMessage(FixMessage fixMessage) {
       this.fixMessage = fixMessage;
       return this;
@@ -473,6 +483,7 @@ public final class DependencyModule {
      * @param exemptGenerator the generator class name
      * @return this Builder instance
      */
+    @CanIgnoreReturnValue
     public Builder addExemptGenerator(String exemptGenerator) {
       exemptGenerators.add(exemptGenerator);
       return this;

@@ -24,6 +24,7 @@ public final class DefStatement extends Statement {
   private final Identifier identifier;
   private final ImmutableList<Statement> body; // non-empty if well formed
   private final ImmutableList<Parameter> parameters;
+  @Nullable private final Expression returnType;
 
   // set by resolver
   @Nullable private Resolver.Function resolved;
@@ -33,11 +34,13 @@ public final class DefStatement extends Statement {
       int defOffset,
       Identifier identifier,
       ImmutableList<Parameter> parameters,
+      @Nullable Expression returnType,
       ImmutableList<Statement> body) {
-    super(locs);
+    super(locs, Kind.DEF);
     this.defOffset = defOffset;
     this.identifier = identifier;
     this.parameters = Preconditions.checkNotNull(parameters);
+    this.returnType = returnType;
     this.body = Preconditions.checkNotNull(body);
   }
 
@@ -60,6 +63,11 @@ public final class DefStatement extends Statement {
 
   public ImmutableList<Parameter> getParameters() {
     return parameters;
+  }
+
+  @Nullable
+  public Expression getReturnType() {
+    return returnType;
   }
 
   void setResolvedFunction(Resolver.Function resolved) {
@@ -87,10 +95,5 @@ public final class DefStatement extends Statement {
   @Override
   public void accept(NodeVisitor visitor) {
     visitor.visit(this);
-  }
-
-  @Override
-  public Kind kind() {
-    return Kind.DEF;
   }
 }

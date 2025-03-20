@@ -60,9 +60,11 @@ import javax.annotation.Nullable;
  *
  * <p>If there are no removals, then {@link #iterator iteration} order is the same as insertion
  * order. Any removal invalidates any ordering guarantees.
+ *
+ * <p>NOTE: This is an older version of Guava's {@code
+ * com.google.java.common.collect.CompactHashSet}, but it outperforms the newer version on large
+ * builds significantly, as it uses only 50% of cpu time in comparison.
  */
-// TODO(bazel-team): This was branched of an internal version of guava. If the class is released, we
-// should remove this again.
 public class CompactHashSet<E> extends AbstractSet<E> {
   // TODO(bazel-team): cache all field accesses in local vars
 

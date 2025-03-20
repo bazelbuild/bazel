@@ -69,3 +69,8 @@ java_library(
     name = "StringAnnotation",
     srcs = ["StringAnnotation.java"],
 )
+
+java_library(
+    name = "InvokePolymorphic",
+    srcs = ["InvokePolymorphic.java"],
+)

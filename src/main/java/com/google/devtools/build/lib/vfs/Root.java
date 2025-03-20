@@ -15,8 +15,9 @@ package com.google.devtools.build.lib.vfs;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.AsyncDeserializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.AsyncObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.DynamicCodec;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.protobuf.CodedInputStream;
@@ -143,8 +144,8 @@ public abstract class Root implements Comparable<Root> {
     public int compareTo(Root o) {
       if (o instanceof AbsoluteRoot) {
         return 1;
-      } else if (o instanceof PathRoot) {
-        return path.compareTo(((PathRoot) o).path);
+      } else if (o instanceof PathRoot pathRoot) {
+        return path.compareTo(pathRoot.path);
       } else {
         throw new AssertionError("Unknown Root subclass: " + o.getClass().getName());
       }
@@ -213,6 +214,7 @@ public abstract class Root implements Comparable<Root> {
       return true;
     }
 
+    @Nullable
     @Override
     public Path asPath() {
       return null;
@@ -244,10 +246,9 @@ public abstract class Root implements Comparable<Root> {
       if (this == o) {
         return true;
       }
-      if (!(o instanceof AbsoluteRoot)) {
+      if (!(o instanceof AbsoluteRoot that)) {
         return false;
       }
-      AbsoluteRoot that = (AbsoluteRoot) o;
       return fileSystem.equals(that.fileSystem);
     }
 
@@ -291,7 +292,10 @@ public abstract class Root implements Comparable<Root> {
   }
 
   @SuppressWarnings("unused") // Used at run-time via classpath scanning + reflection.
-  private static class RootCodec implements ObjectCodec<Root> {
+  private static class RootCodec extends AsyncObjectCodec<Root> {
+    private static final DynamicCodec PATH_ROOT_CODEC = new DynamicCodec(PathRoot.class);
+    private static final DynamicCodec ABSOLUTE_ROOT_CODEC = new DynamicCodec(AbsoluteRoot.class);
+
     @Override
     public Class<? extends Root> getEncodedClass() {
       return Root.class;
@@ -311,36 +315,33 @@ public abstract class Root implements Comparable<Root> {
       }
 
       // Everything else.
-      codedOut.writeBoolNoTag(false);
+      codedOut.write((byte) 0);
+
       if (root instanceof PathRoot) {
         codedOut.writeBoolNoTag(true);
-        PathRoot pathRoot = (PathRoot) root;
-        context.serialize(pathRoot.path, codedOut);
+        PATH_ROOT_CODEC.serialize(context, root, codedOut);
       } else if (root instanceof AbsoluteRoot) {
         codedOut.writeBoolNoTag(false);
-        AbsoluteRoot absoluteRoot = (AbsoluteRoot) root;
-        context.serialize(absoluteRoot.fileSystem, codedOut);
+        ABSOLUTE_ROOT_CODEC.serialize(context, root, codedOut);
       } else {
         throw new IllegalStateException("Unexpected Root: " + root);
       }
     }
 
     @Override
-    public Root deserialize(DeserializationContext context, CodedInputStream codedIn)
+    public Root deserializeAsync(AsyncDeserializationContext context, CodedInputStream codedIn)
         throws SerializationException, IOException {
       int likelyIndicator = codedIn.readRawByte();
       if (likelyIndicator != 0) {
         RootCodecDependencies codecDeps = context.getDependency(RootCodecDependencies.class);
-        return codecDeps.likelyPopularRoots.get(likelyIndicator - 1);
+        Root popularRoot = codecDeps.likelyPopularRoots.get(likelyIndicator - 1);
+        context.registerInitialValue(popularRoot);
+        return popularRoot;
       }
 
-      if (codedIn.readBool()) {
-        Path path = context.deserialize(codedIn);
-        return new PathRoot(path);
-      } else {
-        FileSystem fileSystem = context.deserialize(codedIn);
-        return new AbsoluteRoot(fileSystem);
-      }
+      return (Root)
+          (codedIn.readBool() ? PATH_ROOT_CODEC : ABSOLUTE_ROOT_CODEC)
+              .deserializeAsync(context, codedIn);
     }
   }
 }

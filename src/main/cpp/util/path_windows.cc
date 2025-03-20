@@ -16,14 +16,12 @@
 #define WIN32_LEAN_AND_MEAN
 #endif
 
-#include "src/main/cpp/util/path_platform.h"
-
 #include <assert.h>
-#include <wchar.h>  // wcslen
+#include <wchar.h>
 #include <windows.h>
 
 #include <algorithm>
-#include <memory>  // unique_ptr
+#include <memory>
 #include <sstream>
 #include <vector>
 
@@ -31,6 +29,7 @@
 #include "src/main/cpp/util/exit_code.h"
 #include "src/main/cpp/util/file_platform.h"
 #include "src/main/cpp/util/logging.h"
+#include "src/main/cpp/util/path_platform.h"
 #include "src/main/cpp/util/strings.h"
 #include "src/main/native/windows/file.h"
 
@@ -117,8 +116,9 @@ std::string MakeAbsoluteAndResolveEnvvars(const std::string& path) {
   return MakeAbsolute(std::string(resolved.get()));
 }
 
-bool CompareAbsolutePaths(const std::string& a, const std::string& b) {
-  return ConvertPath(a) == ConvertPath(b);
+bool ArePathsEquivalent(const blaze_util::Path& a, const blaze_util::Path& b) {
+  return ConvertPath(WstringToCstring(a.AsNativePath())) ==
+         ConvertPath(WstringToCstring(b.AsNativePath()));
 }
 
 std::string PathAsJvmFlag(const std::string& path) {
@@ -513,6 +513,10 @@ Path Path::Canonicalize() const {
 }
 
 Path Path::GetParent() const { return Path(SplitPathW(path_).first); }
+
+std::string Path::GetBaseName() const {
+  return WstringToCstring(SplitPathW(path_).second);
+}
 
 bool Path::IsNull() const { return path_ == L"NUL"; }
 

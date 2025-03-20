@@ -13,14 +13,20 @@
 // limitations under the License.
 package com.google.devtools.build.lib.buildtool;
 
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.AnalysisResult;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.buildtool.BuildTool.ExitException;
+import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.query2.NamedThreadSafeOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment;
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment.TopLevelConfigurations;
+import com.google.devtools.build.lib.query2.common.CommonQueryOptions;
 import com.google.devtools.build.lib.query2.engine.QueryEvalResult;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
@@ -41,7 +47,9 @@ import com.google.devtools.build.skyframe.WalkableGraph;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.io.IOException;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.Set;
+import java.util.function.Function;
 
 /**
  * Version of {@link BuildTool} that handles all work for queries based on results from the analysis
@@ -50,9 +58,12 @@ import java.util.Set;
 public abstract class PostAnalysisQueryProcessor<T> implements BuildTool.AnalysisPostProcessor {
 
   private final QueryExpression queryExpression;
+  protected final TargetPattern.Parser mainRepoTargetParser;
 
-  PostAnalysisQueryProcessor(QueryExpression queryExpression) {
+  PostAnalysisQueryProcessor(
+      QueryExpression queryExpression, TargetPattern.Parser mainRepoTargetParser) {
     this.queryExpression = queryExpression;
+    this.mainRepoTargetParser = mainRepoTargetParser;
   }
 
   @Override
@@ -78,13 +89,13 @@ public abstract class PostAnalysisQueryProcessor<T> implements BuildTool.Analysi
                     .setQuery(Query.newBuilder().setCode(Query.Code.ANALYSIS_QUERY_PREREQ_UNMET))
                     .build()));
       }
+
       try (QueryRuntimeHelper queryRuntimeHelper =
-          env.getRuntime().getQueryRuntimeHelperFactory().create(env)) {
+          env.getRuntime().getQueryRuntimeHelperFactory().create(env, getQueryOptions(env))) {
         doPostAnalysisQuery(
             request,
             env,
             runtime,
-            analysisResult.getConfigurationCollection().getHostConfiguration(),
             new TopLevelConfigurations(analysisResult.getTopLevelTargetsWithConfigs()),
             env.getSkyframeExecutor().getTransitiveConfigurationKeys(),
             queryRuntimeHelper,
@@ -94,18 +105,18 @@ public abstract class PostAnalysisQueryProcessor<T> implements BuildTool.Analysi
         if (!request.getKeepGoing()) {
           throw new ViewCreationFailedException(errorMessage, e.getFailureDetail(), e);
         }
-        env.getReporter().error(null, errorMessage, e);
+        env.getReporter().error(null, errorMessage + ": " + e.getFailureDetail().getMessage());
       } catch (IOException e) {
         String errorMessage = "I/O error doing post analysis query";
+        FailureDetail failureDetail =
+            FailureDetail.newBuilder()
+                .setMessage(errorMessage + ": " + e.getMessage())
+                .setQuery(Query.newBuilder().setCode(Query.Code.OUTPUT_FORMATTER_IO_EXCEPTION))
+                .build();
         if (!request.getKeepGoing()) {
-          FailureDetail failureDetail =
-              FailureDetail.newBuilder()
-                  .setMessage(errorMessage + ": " + e.getMessage())
-                  .setQuery(Query.newBuilder().setCode(Query.Code.OUTPUT_FORMATTER_IO_EXCEPTION))
-                  .build();
           throw new ViewCreationFailedException(errorMessage, failureDetail, e);
         }
-        env.getReporter().error(null, errorMessage, e);
+        env.getReporter().error(null, failureDetail.getMessage());
       } catch (QueryRuntimeHelperException e) {
         throw new ExitException(DetailedExitCode.of(e.getFailureDetail()));
       } catch (OptionsParsingException e) {
@@ -121,20 +132,31 @@ public abstract class PostAnalysisQueryProcessor<T> implements BuildTool.Analysi
     }
   }
 
+  protected abstract CommonQueryOptions getQueryOptions(CommandEnvironment env);
+
   protected abstract PostAnalysisQueryEnvironment<T> getQueryEnvironment(
       BuildRequest request,
       CommandEnvironment env,
-      BuildConfigurationValue hostConfiguration,
       TopLevelConfigurations topLevelConfigurations,
-      Collection<SkyKey> transitiveConfigurationKeys,
+      ImmutableMap<String, BuildConfigurationValue> transitiveConfigurations,
       WalkableGraph walkableGraph)
       throws InterruptedException;
+
+  private static ImmutableMap<String, BuildConfigurationValue> getTransitiveConfigurations(
+      Collection<SkyKey> transitiveConfigurationKeys, WalkableGraph graph)
+      throws InterruptedException {
+    // BuildConfigurationKey and BuildConfigurationValue should be 1:1
+    // so merge function intentionally omitted
+    return graph.getSuccessfulValues(transitiveConfigurationKeys).values().stream()
+        .map(BuildConfigurationValue.class::cast)
+        .sorted(Comparator.comparing(BuildConfigurationValue::checksum))
+        .collect(toImmutableMap(BuildConfigurationValue::checksum, Function.identity()));
+  }
 
   private void doPostAnalysisQuery(
       BuildRequest request,
       CommandEnvironment env,
       BlazeRuntime runtime,
-      BuildConfigurationValue hostConfiguration,
       TopLevelConfigurations topLevelConfigurations,
       Collection<SkyKey> transitiveConfigurationKeys,
       QueryRuntimeHelper queryRuntimeHelper,
@@ -143,15 +165,12 @@ public abstract class PostAnalysisQueryProcessor<T> implements BuildTool.Analysi
           OptionsParsingException {
     WalkableGraph walkableGraph =
         SkyframeExecutorWrappingWalkableGraph.of(env.getSkyframeExecutor());
+    ImmutableMap<String, BuildConfigurationValue> transitiveConfigurations =
+        getTransitiveConfigurations(transitiveConfigurationKeys, walkableGraph);
 
     PostAnalysisQueryEnvironment<T> postAnalysisQueryEnvironment =
         getQueryEnvironment(
-            request,
-            env,
-            hostConfiguration,
-            topLevelConfigurations,
-            transitiveConfigurationKeys,
-            walkableGraph);
+            request, env, topLevelConfigurations, transitiveConfigurations, walkableGraph);
 
     Iterable<NamedThreadSafeOutputFormatterCallback<T>> callbacks =
         postAnalysisQueryEnvironment.getDefaultOutputFormatters(
@@ -159,9 +178,11 @@ public abstract class PostAnalysisQueryProcessor<T> implements BuildTool.Analysi
             env.getReporter(),
             queryRuntimeHelper.getOutputStreamForQueryOutput(),
             env.getSkyframeExecutor(),
-            hostConfiguration,
-            runtime.getRuleClassProvider().getTrimmingTransitionFactory(),
-            env.getPackageManager());
+            runtime.getRuleClassProvider(),
+            env.getPackageManager(),
+            env.getSkyframeExecutor()
+                .getEffectiveStarlarkSemantics(
+                    env.getOptions().getOptions(BuildLanguageOptions.class)));
     String outputFormat = postAnalysisQueryEnvironment.getOutputFormat();
     NamedThreadSafeOutputFormatterCallback<T> callback =
         NamedThreadSafeOutputFormatterCallback.selectCallback(outputFormat, callbacks);

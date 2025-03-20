@@ -19,6 +19,7 @@ import com.google.common.collect.Range;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.Executor;
+import com.google.devtools.build.lib.actions.OutputChecker;
 import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
@@ -61,12 +62,6 @@ public interface Builder {
    * @param aspects Set of aspects that will be built
    * @param executor an opaque application-specific value that will be passed down to the execute()
    *     method of any Action executed during this call
-   * @param builtTargets (out) set of successfully built subset of targetsToBuild. This set is
-   *     populated immediately upon confirmation that artifact is built so it will be valid even if
-   *     a future action throws ActionExecutionException
-   * @param builtAspects (out) set of successfully built subset of targetsToBuild with the passed
-   *     aspects applied. This set is populated immediately upon confirmation that artifact is built
-   *     so it will be valid even if a future action throws ActionExecutionException
    * @param lastExecutionTimeRange If not null, the start/finish time of the last build that run the
    *     execution phase.
    * @param topLevelArtifactContext contains the options which determine the artifacts to build for
@@ -87,11 +82,9 @@ public interface Builder {
       Set<ConfiguredTarget> targetsToSkip,
       ImmutableSet<AspectKey> aspects,
       Executor executor,
-      Set<ConfiguredTargetKey> builtTargets,
-      Set<AspectKey> builtAspects,
       OptionsProvider options,
       @Nullable Range<Long> lastExecutionTimeRange,
       TopLevelArtifactContext topLevelArtifactContext,
-      boolean trustRemoteArtifacts)
+      OutputChecker outputChecker)
       throws BuildFailedException, AbruptExitException, InterruptedException, TestExecException;
 }

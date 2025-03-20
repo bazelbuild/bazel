@@ -15,11 +15,11 @@
 package com.google.devtools.build.docgen;
 
 import com.google.common.collect.ImmutableSet;
-
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import javax.annotation.Nullable;
 
 /**
  * A utility class to check the generated documentations.
@@ -36,9 +36,8 @@ public class DocCheckerUtils {
       + ">",
       Pattern.CASE_INSENSITIVE);
 
-  private static final Pattern COMMENT_PATTERN = Pattern.compile(
-      "<!--.*?-->",
-      Pattern.CASE_INSENSITIVE);
+  private static final Pattern COMMENT_OR_BACKTICK_PATTERN =
+      Pattern.compile("<!--.*?-->|`.*`", Pattern.CASE_INSENSITIVE);
 
   /**
    * Returns the first unmatched html tag of srcs or null if no such tag exists.
@@ -55,8 +54,9 @@ public class DocCheckerUtils {
   }
 
   // TODO(bazel-team): run this on the Starlark docs too.
+  @Nullable
   private static String getFirstUnclosedTag(String src, boolean printHelp) {
-    Matcher commentMatcher = COMMENT_PATTERN.matcher(src);
+    Matcher commentMatcher = COMMENT_OR_BACKTICK_PATTERN.matcher(src);
     src = commentMatcher.replaceAll("");
     Matcher tagMatcher = TAG_PATTERN.matcher(src);
     Deque<String> tagStack = new ArrayDeque<>();

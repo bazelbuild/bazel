@@ -17,7 +17,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
@@ -46,26 +45,27 @@ public final class TargetPatternPhaseValue implements SkyValue {
 
   private final ImmutableSet<Label> targetLabels;
   @Nullable private final ImmutableSet<Label> testsToRunLabels;
+  private final ImmutableSet<Label> nonExpandedLabels;
   private final boolean hasError;
   private final boolean hasPostExpansionError;
   private final String workspaceName;
-  private final ImmutableSortedSet<String> notSymlinkedInExecrootDirectories;
 
   TargetPatternPhaseValue(
       ImmutableSet<Label> targetLabels,
       ImmutableSet<Label> testsToRunLabels,
+      ImmutableSet<Label> nonExpandedLabels,
       boolean hasError,
       boolean hasPostExpansionError,
-      String workspaceName,
-      ImmutableSortedSet<String> notSymlinkedInExecrootDirectories) {
+      String workspaceName) {
     this.targetLabels = targetLabels;
     this.testsToRunLabels = testsToRunLabels;
+    this.nonExpandedLabels = nonExpandedLabels;
     this.hasError = hasError;
     this.hasPostExpansionError = hasPostExpansionError;
     this.workspaceName = workspaceName;
-    this.notSymlinkedInExecrootDirectories = notSymlinkedInExecrootDirectories;
   }
 
+  /** Expensive. Results in a Skyframe evaluation. */
   private static ImmutableSet<Target> getTargetsFromLabels(
       Collection<Label> labels, ExtendedEventHandler eventHandler, PackageManager packageManager)
       throws InterruptedException {
@@ -88,6 +88,10 @@ public final class TargetPatternPhaseValue implements SkyValue {
       ExtendedEventHandler eventHandler, PackageManager packageManager)
       throws InterruptedException {
     return getTargetsFromLabels(targetLabels, eventHandler, packageManager);
+  }
+
+  public ImmutableSet<Label> getNonExpandedLabels() {
+    return nonExpandedLabels;
   }
 
   public ImmutableSet<Target> getTestsToRun(
@@ -117,24 +121,17 @@ public final class TargetPatternPhaseValue implements SkyValue {
     return workspaceName;
   }
 
-  public ImmutableSortedSet<String> getNotSymlinkedInExecrootDirectories() {
-    return notSymlinkedInExecrootDirectories;
-  }
-
   @Override
   public boolean equals(Object obj) {
     if (this == obj) {
       return true;
     }
-    if (!(obj instanceof TargetPatternPhaseValue)) {
+    if (!(obj instanceof TargetPatternPhaseValue that)) {
       return false;
     }
-    TargetPatternPhaseValue that = (TargetPatternPhaseValue) obj;
     return Objects.equals(this.targetLabels, that.targetLabels)
         && Objects.equals(this.testsToRunLabels, that.testsToRunLabels)
         && Objects.equals(this.workspaceName, that.workspaceName)
-        && Objects.equals(
-            this.notSymlinkedInExecrootDirectories, that.notSymlinkedInExecrootDirectories)
         && this.hasError == that.hasError
         && this.hasPostExpansionError == that.hasPostExpansionError;
   }
@@ -146,8 +143,7 @@ public final class TargetPatternPhaseValue implements SkyValue {
         this.testsToRunLabels,
         this.workspaceName,
         this.hasError,
-        this.hasPostExpansionError,
-        this.notSymlinkedInExecrootDirectories);
+        this.hasPostExpansionError);
   }
 
   /** Create a target pattern phase value key. */
@@ -300,10 +296,9 @@ public final class TargetPatternPhaseValue implements SkyValue {
       if (this == obj) {
         return true;
       }
-      if (!(obj instanceof TargetPatternPhaseKey)) {
+      if (!(obj instanceof TargetPatternPhaseKey other)) {
         return false;
       }
-      TargetPatternPhaseKey other = (TargetPatternPhaseKey) obj;
       return other.targetPatterns.equals(this.targetPatterns)
           && other.offset.equals(this.offset)
           && other.compileOneDependency == compileOneDependency

@@ -13,22 +13,24 @@
 // limitations under the License.
 package com.google.devtools.build.lib.bazel.repository;
 
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
+
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.io.Files;
+import com.google.devtools.build.lib.bazel.ResolvedEvent;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.events.ExtendedEventHandler.ResolvedEvent;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.vfs.XattrProvider;
 import com.google.devtools.common.options.OptionsBase;
 import java.io.File;
 import java.io.IOException;
 import java.io.Writer;
-import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import net.starlark.java.eval.Printer;
@@ -41,26 +43,28 @@ public final class RepositoryResolvedModule extends BlazeModule {
   private Map<String, Object> resolvedValues;
   private String resolvedFile;
   private ImmutableList<String> orderedNames;
+  private XattrProvider xattrProvider;
 
   @Override
   public Iterable<Class<? extends OptionsBase>> getCommandOptions(Command command) {
     return ImmutableSet.of("sync", "fetch", "build", "query").contains(command.name())
-        ? ImmutableList.<Class<? extends OptionsBase>>of(RepositoryResolvedOptions.class)
-        : ImmutableList.<Class<? extends OptionsBase>>of();
+        ? ImmutableList.of(RepositoryResolvedOptions.class)
+        : ImmutableList.of();
   }
 
   @Override
   public void beforeCommand(CommandEnvironment env) {
-    orderedNames = ImmutableList.<String>of();
+    orderedNames = ImmutableList.of();
     RepositoryResolvedOptions options =
         env.getOptions().getOptions(RepositoryResolvedOptions.class);
     if (options != null && !Strings.isNullOrEmpty(options.repositoryResolvedFile)) {
       this.resolvedFile = options.repositoryResolvedFile;
       env.getEventBus().register(this);
-      this.resolvedValues = new LinkedHashMap<String, Object>();
+      this.resolvedValues = new LinkedHashMap<>();
     } else {
       this.resolvedFile = null;
     }
+    this.xattrProvider = env.getXattrProvider();
   }
 
   @Override
@@ -78,9 +82,8 @@ public final class RepositoryResolvedModule extends BlazeModule {
       for (Object resolved : resolvedValues.values()) {
         resultBuilder.add(resolved);
       }
-      try (Writer writer = Files.newWriter(new File(resolvedFile), StandardCharsets.UTF_8)) {
+      try (Writer writer = Files.newWriter(new File(resolvedFile), ISO_8859_1)) {
         writer.write(EXPORTED_NAME + " = " + new ValuePrinter().repr(resultBuilder.build()));
-        writer.close();
       } catch (IOException e) {
         logger.atWarning().withCause(e).log("IO Error writing to file %s", resolvedFile);
       }
@@ -97,7 +100,7 @@ public final class RepositoryResolvedModule extends BlazeModule {
   @Subscribe
   public void resolved(ResolvedEvent event) {
     if (resolvedValues != null) {
-      resolvedValues.put(event.getName(), event.getResolvedInformation());
+      resolvedValues.put(event.getName(), event.getResolvedInformation(xattrProvider));
     }
   }
 
@@ -115,8 +118,8 @@ public final class RepositoryResolvedModule extends BlazeModule {
       // In WORKSPACE files, the Label constructor is not available.
       // Fortunately, in all places where a label is needed,
       // we can pass the canonical string associated with this label.
-      if (o instanceof Label) {
-        return this.repr(((Label) o).getCanonicalForm());
+      if (o instanceof Label label) {
+        return this.repr(label.getCanonicalForm());
       }
       return super.repr(o);
     }

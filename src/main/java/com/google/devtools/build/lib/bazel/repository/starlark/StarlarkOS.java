@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.bazel.repository.starlark;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import java.util.Locale;
 import java.util.Map;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
@@ -41,7 +42,18 @@ final class StarlarkOS implements StarlarkValue {
     return true; // immutable and Starlark-hashable
   }
 
-  @StarlarkMethod(name = "environ", structField = true, doc = "The list of environment variables.")
+  @StarlarkMethod(
+      name = "environ",
+      structField = true,
+      doc =
+          """
+          The dictionary of environment variables. \
+          <p><b>NOTE</b>: Retrieving an environment variable from this dictionary does not \
+          establish a dependency from a repository rule or module extension to the \
+          environment variable. To establish a dependency when looking up an \
+          environment variable, use either <code>repository_ctx.getenv</code> or \
+          <code>module_ctx.getenv</code> instead.
+          """)
   public ImmutableMap<String, String> getEnvironmentVariables() {
     return environ;
   }
@@ -49,8 +61,24 @@ final class StarlarkOS implements StarlarkValue {
   @StarlarkMethod(
       name = "name",
       structField = true,
-      doc = "A string identifying the current system Bazel is running on.")
+      doc =
+          """
+          A string identifying the operating system Bazel is running on (the value of the \
+          <code>"os.name"</code> Java property converted to lower case).
+          """)
   public String getName() {
-    return System.getProperty("os.name").toLowerCase();
+    return System.getProperty("os.name").toLowerCase(Locale.ROOT);
+  }
+
+  @StarlarkMethod(
+      name = "arch",
+      structField = true,
+      doc =
+          """
+          A string identifying the architecture Bazel is running on (the value of the \
+          <code>"os.arch"</code> Java property converted to lower case).
+          """)
+  public String getArch() {
+    return System.getProperty("os.arch").toLowerCase(Locale.ROOT);
   }
 }

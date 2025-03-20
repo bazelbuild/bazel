@@ -21,7 +21,7 @@ public final class DotExpression extends Expression {
   private final Identifier field;
 
   DotExpression(FileLocations locs, Expression object, int dotOffset, Identifier field) {
-    super(locs);
+    super(locs, Kind.DOT);
     this.object = object;
     this.dotOffset = dotOffset;
     this.field = field;
@@ -52,10 +52,5 @@ public final class DotExpression extends Expression {
   @Override
   public void accept(NodeVisitor visitor) {
     visitor.visit(this);
-  }
-
-  @Override
-  public Kind kind() {
-    return Kind.DOT;
   }
 }

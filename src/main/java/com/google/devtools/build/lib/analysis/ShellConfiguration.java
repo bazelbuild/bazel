@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
@@ -24,47 +23,45 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
-import com.google.devtools.common.options.OptionMetadataTag;
+import java.util.Map;
 import java.util.function.Function;
 
 /** A configuration fragment that tells where the shell is. */
 @RequiresOptions(options = {ShellConfiguration.Options.class})
 public class ShellConfiguration extends Fragment {
-  private static final ImmutableMap<OS, PathFragment> OS_SPECIFIC_SHELL =
-      ImmutableMap.<OS, PathFragment>builder()
-          .put(OS.WINDOWS, PathFragment.create("c:/tools/msys64/usr/bin/bash.exe"))
-          .put(OS.FREEBSD, PathFragment.create("/usr/local/bin/bash"))
-          .put(OS.OPENBSD, PathFragment.create("/usr/local/bin/bash"))
-          .build();
 
-  private static Function<BuildOptions, PathFragment> shellExecutableFinder;
+  private static Map<OS, PathFragment> shellExecutables;
+
+  private static Function<Options, PathFragment> optionsBasedDefault;
 
   /**
-   * Injects a function for finding the shell executable path, given the current configuration's
-   * {@link BuildOptions} and whatever system-specific logic the provider wishes to use.
+   * Injects a function for retrieving the default sh path from build options, and a map for
+   * locating the correct sh executable given a set of target constraints.
    */
-  public static void injectShellExecutableFinder(Function<BuildOptions, PathFragment> finder) {
+  public static void injectShellExecutableFinder(
+      Function<Options, PathFragment> shellFromOptionsFinder, Map<OS, PathFragment> osToShellMap) {
     // It'd be nice not to have to set a global static field. But there are so many disparate calls
-    // to getShellExecutable() (in both the build's analysis phase and in the run command) that
+    // to getShellExecutables() (in both the build's analysis phase and in the run command) that
     // feeding this through instance variables is unwieldy. Fortunately this info is a function of
     // the Blaze implementation and not something that might change between builds.
-    shellExecutableFinder = finder;
+    optionsBasedDefault = shellFromOptionsFinder;
+    shellExecutables = osToShellMap;
   }
 
-  private final PathFragment shellExecutable;
-  private final boolean useShBinaryStubScript;
+  private final PathFragment defaultShellExecutableFromOptions;
 
   public ShellConfiguration(BuildOptions buildOptions) {
-    this.shellExecutable = shellExecutableFinder.apply(buildOptions);
-    this.useShBinaryStubScript = buildOptions.get(Options.class).useShBinaryStubScript;
+    this.defaultShellExecutableFromOptions =
+        optionsBasedDefault.apply(buildOptions.get(Options.class));
   }
 
-  public PathFragment getShellExecutable() {
-    return shellExecutable;
+  public static Map<OS, PathFragment> getShellExecutables() {
+    return shellExecutables;
   }
 
-  public boolean useShBinaryStubScript() {
-    return useShBinaryStubScript;
+  /* Returns a function for retrieving the default shell from build options. */
+  public PathFragment getOptionsBasedDefault() {
+    return defaultShellExecutableFromOptions;
   }
 
   /** An option that tells Bazel where the shell is. */
@@ -80,45 +77,9 @@ public class ShellConfiguration extends Fragment {
                 + "BAZEL_SH environment variable is set on the first Bazel invocation (that starts "
                 + "up a Bazel server), Bazel uses that. If neither is set, Bazel uses a hard-coded "
                 + "default path depending on the operating system it runs on (Windows: "
-                + "c:/tools/msys64/usr/bin/bash.exe, FreeBSD: /usr/local/bin/bash, all others: "
+                + "c:/msys64/usr/bin/bash.exe, FreeBSD: /usr/local/bin/bash, all others: "
                 + "/bin/bash). Note that using a shell that is not compatible with bash may lead "
-                + "to build failures or runtime failures of the generated binaries."
-    )
+                + "to build failures or runtime failures of the generated binaries.")
     public PathFragment shellExecutable;
-
-    @Option(
-        name = "experimental_use_sh_binary_stub_script",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-        metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-        defaultValue = "false",
-        help = "If enabled, use a stub script for sh_binary targets.")
-    public boolean useShBinaryStubScript;
-
-    @Override
-    public Options getHost() {
-      Options host = (Options) getDefault();
-      host.shellExecutable = shellExecutable;
-      host.useShBinaryStubScript = useShBinaryStubScript;
-      return host;
-    }
-  }
-
-  public static PathFragment determineShellExecutable(
-      OS os, Options options, PathFragment defaultShell) {
-    if (options.shellExecutable != null) {
-      return options.shellExecutable;
-    }
-
-    // Honor BAZEL_SH env variable for backwards compatibility.
-    String path = System.getenv("BAZEL_SH");
-    if (path != null) {
-      return PathFragment.create(path);
-    }
-    // TODO(ulfjack): instead of using the OS Bazel runs on, we need to use the exec platform,
-    // which may be different for remote execution. For now, this can be overridden with
-    // --shell_executable, so at least there's a workaround.
-    PathFragment result = OS_SPECIFIC_SHELL.get(os);
-    return result != null ? result : defaultShell;
   }
 }

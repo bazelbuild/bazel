@@ -14,6 +14,7 @@
 #ifndef BAZEL_SRC_MAIN_CPP_LOGGING_H_
 #define BAZEL_SRC_MAIN_CPP_LOGGING_H_
 
+#include <iostream>
 #include <memory>
 #include <sstream>
 #include <string>
@@ -145,6 +146,13 @@ inline bool IsOk(bool status) {
 
 #endif  // !NDEBUG
 
+// How much to print on the terminal.
+enum LoggingDetail {
+  LOGGINGDETAIL_QUIET,  // Only errors
+  LOGGINGDETAIL_USER,   // Messages intended for the user (level USER and above)
+  LOGGINGDETAIL_DEBUG   // Debug logging
+};
+
 class LogHandler {
  public:
   virtual ~LogHandler() {}
@@ -152,8 +160,12 @@ class LogHandler {
                              int line, const std::string& message,
                              int exit_code) = 0;
 
-  virtual void SetOutputStream(std::unique_ptr<std::ostream> output_stream) = 0;
-  virtual void SetOutputStreamToStderr() = 0;
+  // See ::SetLoggingDetail()
+  virtual void SetLoggingDetail(LoggingDetail detail,
+                                std::ostream* debug_stream) = 0;
+
+  // See ::CloseLogging()
+  virtual void Close() = 0;
 };
 
 // Sets the log handler that routes all log messages.
@@ -161,9 +173,14 @@ class LogHandler {
 // at initialization time, and probably not from library code.
 void SetLogHandler(std::unique_ptr<LogHandler> new_handler);
 
-// Set the stream to which all log statements will be sent.
-void SetLoggingOutputStream(std::unique_ptr<std::ostream> output_stream);
-void SetLoggingOutputStreamToStderr();
+// Sets the logging detail for the currently set log handler. Prints the log
+// messages to `debug_stream` if not null. It doesn't affect non-debug messages
+// and is only used for testing.
+void SetLoggingDetail(LoggingDetail detail, std::ostream* debug_stream);
+
+// Closes the logging. Buffers are flushed and no more log messages will be
+// printed.
+void CloseLogging();
 
 }  // namespace blaze_util
 

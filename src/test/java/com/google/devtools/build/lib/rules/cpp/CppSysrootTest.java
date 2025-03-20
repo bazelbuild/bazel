@@ -17,7 +17,6 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.ConfigurationMakeVariableContext;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
@@ -25,6 +24,7 @@ import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -43,13 +43,12 @@ public final class CppSysrootTest extends BuildViewTestCase {
       BuildConfigurationValue config, String sysroot, boolean shouldContain) throws Exception {
 
     RuleContext ruleContext =
-        getRuleContext(
-            getConfiguredTarget(Label.parseAbsolute("//dummy:library", ImmutableMap.of()), config));
+        getRuleContext(getConfiguredTarget(Label.parseCanonical("//dummy:library"), config));
     ConfigurationMakeVariableContext context =
         new ConfigurationMakeVariableContext(
-            ruleContext,
-            ruleContext.getTarget().getPackage(),
+            ruleContext.getTarget().getPackageDeclarations(),
             config,
+            ruleContext.getDefaultTemplateVariableProviders(),
             ImmutableList.of(new CcCommon.CcFlagsSupplier(ruleContext)));
     if (shouldContain) {
       assertThat(context.lookupVariable("CC_FLAGS")).contains("--sysroot=" + sysroot);
@@ -60,22 +59,28 @@ public final class CppSysrootTest extends BuildViewTestCase {
 
   CcToolchainProvider getCcToolchainProvider(BuildConfigurationValue configuration)
       throws Exception {
-    CppConfiguration cppConfiguration = configuration.getFragment(CppConfiguration.class);
-    return Preconditions.checkNotNull(
-        getConfiguredTarget(cppConfiguration.getRuleProvidingCcToolchainProvider(), configuration)
-            .get(CcToolchainProvider.PROVIDER));
+    // use dummy library to get C++ toolchain from toolchain resolution
+    RuleContext ruleContext =
+        getRuleContext(getConfiguredTarget(Label.parseCanonical("//dummy:library"), configuration));
+    return Preconditions.checkNotNull(CppHelper.getToolchain(ruleContext));
   }
 
   @Test
   public void testHostGrteTop() throws Exception {
-    scratch.file("a/grte/top/BUILD", "filegroup(name='everything')", "cc_library(name='library')");
+    scratch.file(
+        "a/grte/top/BUILD",
+        """
+        filegroup(name = "everything")
+
+        cc_library(name = "library")
+        """);
     useConfiguration("--host_grte_top=//a/grte/top");
     BuildConfigurationValue target = getTargetConfiguration();
     CcToolchainProvider targetCcProvider = getCcToolchainProvider(target);
-    BuildConfigurationValue host = getHostConfiguration();
-    CcToolchainProvider hostCcProvider = getCcToolchainProvider(host);
+    BuildConfigurationValue exec = getExecConfiguration();
+    CcToolchainProvider hostCcProvider = getCcToolchainProvider(exec);
 
-    testCCFlagsContainsSysroot(host, "a/grte/top", true);
+    testCCFlagsContainsSysroot(exec, "a/grte/top", true);
     assertThat(hostCcProvider.getSysroot().equals(targetCcProvider.getSysroot())).isFalse();
   }
 
@@ -86,16 +91,16 @@ public final class CppSysrootTest extends BuildViewTestCase {
     useConfiguration("--grte_top=//a/grte/top", "--host_grte_top=//b/grte/top");
     BuildConfigurationValue target = getTargetConfiguration();
     CcToolchainProvider targetCcProvider = getCcToolchainProvider(target);
-    BuildConfigurationValue host = getHostConfiguration();
-    CcToolchainProvider hostCcProvider = getCcToolchainProvider(host);
+    BuildConfigurationValue exec = getExecConfiguration();
+    CcToolchainProvider hostCcProvider = getCcToolchainProvider(exec);
 
     assertThat(targetCcProvider.getSysroot()).isEqualTo("a/grte/top");
     assertThat(hostCcProvider.getSysroot()).isEqualTo("b/grte/top");
 
     testCCFlagsContainsSysroot(target, "a/grte/top", true);
     testCCFlagsContainsSysroot(target, "b/grte/top", false);
-    testCCFlagsContainsSysroot(host, "b/grte/top", true);
-    testCCFlagsContainsSysroot(host, "a/grte/top", false);
+    testCCFlagsContainsSysroot(exec, "b/grte/top", true);
+    testCCFlagsContainsSysroot(exec, "a/grte/top", false);
   }
 
   @Test
@@ -115,13 +120,14 @@ public final class CppSysrootTest extends BuildViewTestCase {
   @Test
   public void testSysroot() throws Exception {
     // BuildConfigurationValue shouldn't provide a sysroot option by default.
-    useConfiguration("--cpu=k8");
+    useConfiguration("--platforms=" + TestConstants.PLATFORM_LABEL);
     BuildConfigurationValue config = getTargetConfiguration();
     testCCFlagsContainsSysroot(config, "/usr/grte/v1", true);
 
     scratch.file("a/grte/top/BUILD", "filegroup(name='everything')");
     // BuildConfigurationValue should work with label grte_top options.
-    useConfiguration("--cpu=k8", "--grte_top=//a/grte/top:everything");
+    useConfiguration(
+        "--platforms=" + TestConstants.PLATFORM_LABEL, "--grte_top=//a/grte/top:everything");
     config = getTargetConfiguration();
     testCCFlagsContainsSysroot(config, "a/grte/top", true);
   }
@@ -136,14 +142,12 @@ public final class CppSysrootTest extends BuildViewTestCase {
     scratch.overwriteFile("a/grte/top/BUILD", "filegroup(name='everything')");
     useConfiguration("--grte_top=//a/grte/top:everything");
     RuleContext ruleContext =
-        getRuleContext(
-            getConfiguredTarget(
-                Label.parseAbsolute("//dummy:library", ImmutableMap.of()), targetConfig));
+        getRuleContext(getConfiguredTarget(Label.parseCanonical("//dummy:library"), targetConfig));
     ConfigurationMakeVariableContext context =
         new ConfigurationMakeVariableContext(
-            ruleContext,
-            ruleContext.getTarget().getPackage(),
+            ruleContext.getTarget().getPackageDeclarations(),
             targetConfig,
+            ruleContext.getDefaultTemplateVariableProviders(),
             ImmutableList.of(new CcCommon.CcFlagsSupplier(ruleContext)));
     assertThat(context.lookupVariable("CC_FLAGS"))
         .contains("fc-start --sysroot=a/grte/top-from-feature fc-end");
@@ -151,33 +155,26 @@ public final class CppSysrootTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testSysrootWithHostConfig() throws Exception {
-    // The host BuildConfigurationValue shouldn't provide a sysroot option by default.
-    for (String cpu : new String[] {"piii", "k8"}) {
-      useConfiguration("--cpu=" + cpu);
-      BuildConfigurationValue config = getHostConfiguration();
+  public void testSysrootWithExecConfig() throws Exception {
+    // The exec BuildConfigurationValue shouldn't provide a sysroot option by default.
+    for (String platform :
+        new String[] {TestConstants.PLATFORM_LABEL, TestConstants.PIII_PLATFORM_LABEL}) {
+      useConfiguration("--platforms=" + platform);
+      BuildConfigurationValue config = getExecConfiguration();
       testCCFlagsContainsSysroot(config, "/usr/grte/v1", true);
     }
-    // The host BuildConfigurationValue should work with label grte_top options.
+    // The exec BuildConfigurationValue should work with label grte_top options.
     scratch.file("a/grte/top/BUILD", "filegroup(name='everything')");
-    for (String cpu : new String[] {"piii", "k8"}) {
-      useConfiguration("--cpu=" + cpu, "--host_grte_top=//a/grte/top");
-      BuildConfigurationValue config = getHostConfiguration();
+    for (String platform :
+        new String[] {TestConstants.PLATFORM_LABEL, TestConstants.PIII_PLATFORM_LABEL}) {
+      useConfiguration("--platforms=" + platform, "--host_grte_top=//a/grte/top");
+      BuildConfigurationValue config = getExecConfiguration();
       testCCFlagsContainsSysroot(config, "a/grte/top", true);
 
-      // "--grte_top" does *not* set the host grte_top,
+      // "--grte_top" does *not* set the exec grte_top,
       // so we don't get "a/grte/top" here, but instead the default "/usr/grte/v1"
-      useConfiguration("--cpu=" + cpu, "--grte_top=//a/grte/top");
-      config = getHostConfiguration();
-      testCCFlagsContainsSysroot(config, "/usr/grte/v1", true);
-
-      // If a host_crosstool_top is set, we shouldn't see the grte_top option in the host config.
-      // (Assuming there was not also a --host_grte_top specified)
-      useConfiguration(
-          "--cpu=" + cpu,
-          "--grte_top=//a/grte/top",
-          "--host_crosstool_top=" + analysisMock.ccSupport().getMockCrosstoolLabel());
-      config = getHostConfiguration();
+      useConfiguration("--platforms=" + platform, "--grte_top=//a/grte/top");
+      config = getExecConfiguration();
       testCCFlagsContainsSysroot(config, "/usr/grte/v1", true);
     }
   }
@@ -191,13 +188,17 @@ public final class CppSysrootTest extends BuildViewTestCase {
     scratch.file("b/grte/top/BUILD", "filegroup(name='everything')");
     scratch.file(
         "c/grte/top/BUILD",
-        "alias(",
-        "  name = 'everything',",
-        "  actual=select(",
-        "      {'//test/config_setting:defines' : '//a/grte/top:everything',",
-        "       '//conditions:default' : '//b/grte/top:everything'}",
-        "  )",
-        ")");
+        """
+        alias(
+            name = "everything",
+            actual = select(
+                {
+                    "//test/config_setting:defines": "//a/grte/top:everything",
+                    "//conditions:default": "//b/grte/top:everything",
+                },
+            ),
+        )
+        """);
     useConfiguration("--grte_top=//c/grte/top:everything");
     CcToolchainProvider ccProvider = getCcToolchainProvider(getTargetConfiguration());
     assertThat(ccProvider.getSysroot()).isEqualTo("b/grte/top");

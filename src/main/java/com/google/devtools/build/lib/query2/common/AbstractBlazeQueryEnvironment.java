@@ -13,8 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.common;
 
+import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static com.google.common.base.Throwables.throwIfUnchecked;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.util.concurrent.TimeUnit.MINUTES;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
+import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
@@ -22,16 +27,22 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.common.flogger.GoogleLogger;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.devtools.build.lib.bugreport.BugReport;
+import com.google.devtools.build.lib.cmdline.BazelModuleContext.LoadGraphVisitor;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.events.ErrorSensingEventHandler;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.DependencyFilter;
+import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
-import com.google.devtools.build.lib.query2.engine.AbstractQueryEnvironment;
+import com.google.devtools.build.lib.query2.engine.Callback;
 import com.google.devtools.build.lib.query2.engine.KeyExtractor;
 import com.google.devtools.build.lib.query2.engine.OutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
@@ -39,18 +50,26 @@ import com.google.devtools.build.lib.query2.engine.QueryEvalResult;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.QueryExpressionContext;
+import com.google.devtools.build.lib.query2.engine.QueryUtil;
 import com.google.devtools.build.lib.query2.engine.ThreadSafeOutputFormatterCallback;
+import com.google.devtools.build.lib.query2.engine.Uniquifier;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Query;
 import com.google.devtools.build.lib.server.FailureDetails.Query.Code;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executor;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Predicate;
 import javax.annotation.Nullable;
@@ -59,8 +78,10 @@ import javax.annotation.Nullable;
  * {@link QueryEnvironment} that can evaluate queries to produce a result, and implements as much of
  * QueryEnvironment as possible while remaining mostly agnostic as to the objects being stored.
  */
-public abstract class AbstractBlazeQueryEnvironment<T> extends AbstractQueryEnvironment<T>
-    implements AutoCloseable {
+public abstract class AbstractBlazeQueryEnvironment<T>
+    implements QueryEnvironment<T>, AutoCloseable {
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
+
   protected ErrorSensingEventHandler<DetailedExitCode> eventHandler;
   protected final boolean keepGoing;
   protected final boolean strictScope;
@@ -70,8 +91,7 @@ public abstract class AbstractBlazeQueryEnvironment<T> extends AbstractQueryEnvi
 
   protected final Set<Setting> settings;
   protected final List<QueryFunction> extraFunctions;
-
-  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
+  protected final LabelPrinter labelPrinter;
 
   protected AbstractBlazeQueryEnvironment(
       boolean keepGoing,
@@ -79,7 +99,8 @@ public abstract class AbstractBlazeQueryEnvironment<T> extends AbstractQueryEnvi
       Predicate<Label> labelFilter,
       ExtendedEventHandler eventHandler,
       Set<Setting> settings,
-      Iterable<QueryFunction> extraFunctions) {
+      Iterable<QueryFunction> extraFunctions,
+      LabelPrinter labelPrinter) {
     this.eventHandler = new ErrorSensingEventHandler<>(eventHandler, DetailedExitCode.class);
     this.keepGoing = keepGoing;
     this.strictScope = strictScope;
@@ -87,10 +108,16 @@ public abstract class AbstractBlazeQueryEnvironment<T> extends AbstractQueryEnvi
     this.labelFilter = labelFilter;
     this.settings = Sets.immutableEnumSet(settings);
     this.extraFunctions = ImmutableList.copyOf(extraFunctions);
+    this.labelPrinter = labelPrinter;
   }
 
   @Override
   public abstract void close();
+
+  @Override
+  public LabelPrinter getLabelPrinter() {
+    return labelPrinter;
+  }
 
   private static DependencyFilter constructDependencyFilter(Set<Setting> settings) {
     DependencyFilter specifiedFilter =
@@ -119,6 +146,10 @@ public abstract class AbstractBlazeQueryEnvironment<T> extends AbstractQueryEnvi
     return QueryExpressionContext.empty();
   }
 
+  public abstract QueryEvalResult evaluateQuery(
+      QueryExpression expr, ThreadSafeOutputFormatterCallback<T> callback)
+      throws QueryException, IOException, InterruptedException;
+
   /**
    * Evaluate the specified query expression in this environment, streaming results to the given
    * {@code callback}. {@code callback.start()} will be called before query evaluation and {@code
@@ -131,7 +162,7 @@ public abstract class AbstractBlazeQueryEnvironment<T> extends AbstractQueryEnvi
    * @throws QueryException if the evaluation failed and {@code --nokeep_going} was in effect
    * @throws IOException for output formatter failures from {@code callback}
    */
-  public QueryEvalResult evaluateQuery(
+  protected final QueryEvalResult evaluateQueryInternal(
       QueryExpression expr, ThreadSafeOutputFormatterCallback<T> callback)
       throws QueryException, InterruptedException, IOException {
     EmptinessSensingCallback<T> emptySensingCallback = new EmptinessSensingCallback<>(callback);
@@ -206,6 +237,162 @@ public abstract class AbstractBlazeQueryEnvironment<T> extends AbstractQueryEnvi
     return QueryEvalResult.success(emptySensingCallback.isEmpty());
   }
 
+  @Override
+  public <R> QueryTaskFuture<R> immediateSuccessfulFuture(R value) {
+    return new QueryTaskFutureImpl<>(Futures.immediateFuture(value));
+  }
+
+  @Override
+  public <R> QueryTaskFuture<R> immediateFailedFuture(QueryException e) {
+    return new QueryTaskFutureImpl<>(Futures.immediateFailedFuture(e));
+  }
+
+  @Override
+  public <R> QueryTaskFuture<R> immediateCancelledFuture() {
+    return new QueryTaskFutureImpl<>(Futures.immediateCancelledFuture());
+  }
+
+  @Override
+  public QueryTaskFuture<Void> eval(
+      QueryExpression expr, QueryExpressionContext<T> context, final Callback<T> callback) {
+    // Not all QueryEnvironment implementations embrace the async+streaming evaluation framework. In
+    // particular, the streaming callbacks employed by functions like 'deps' use
+    // QueryEnvironment#buildTransitiveClosure. So if the implementation of that method does some
+    // heavyweight blocking work, then it's best to do this blocking work in a single batch.
+    // Importantly, the callback we pass in needs to maintain order.
+    final QueryUtil.AggregateAllCallback<T, ? extends Set<T>> aggregateAllCallback =
+        QueryUtil.newOrderedAggregateAllOutputFormatterCallback(this);
+    QueryTaskFuture<Void> evalAllFuture = expr.eval(this, context, aggregateAllCallback);
+    return whenSucceedsCall(
+        evalAllFuture,
+        () -> {
+          callback.process(aggregateAllCallback.getResult());
+          return null;
+        });
+  }
+
+  /**
+   * Wrapper for evaluating query expression in a non-streaming blaze query environment.
+   *
+   * <p>In {@link AbstractBlazeQueryEvaluateExpressionImpl}, {@code futureTask} is created only
+   * after {@link #eval(Callback)} provides the callback implementation. So creating an {@link
+   * AbstractBlazeQueryEvaluateExpressionImpl} instance and calling {@link #eval(Callback)} method
+   * should have the same behavior as directly calling {@code
+   * AbstractBlazeQueryEnvironment#eval(QueryExpression, QueryExpressionContext, Callback)} above.
+   */
+  protected class AbstractBlazeQueryEvaluateExpressionImpl implements EvaluateExpression<T> {
+    private final QueryExpression expression;
+    private final QueryExpressionContext<T> context;
+    private QueryTaskFutureImpl<Void> queryTaskFuture;
+
+    private AbstractBlazeQueryEvaluateExpressionImpl(
+        QueryExpression expr, QueryExpressionContext<T> context) {
+      this.expression = expr;
+      this.context = context;
+    }
+
+    @Override
+    public QueryTaskFuture<Void> eval(Callback<T> callback) {
+      queryTaskFuture =
+          (QueryTaskFutureImpl<Void>)
+              AbstractBlazeQueryEnvironment.this.eval(expression, context, callback);
+      return queryTaskFuture;
+    }
+
+    @Override
+    public boolean gracefullyCancel() {
+      // For non-SkyQueryEnvironment-descended environments, there is no need to cancel the future
+      // task, so this should be a no-op implementation.
+      return false;
+    }
+
+    @Override
+    public boolean isUngracefullyCancelled() {
+      if (queryTaskFuture == null) {
+        return false;
+      }
+
+      // Since `#gracefullyCancel` is a no-op for `AbstractBlazeQueryEvaluateExpressionImpl`
+      // instance, any situation causing the `queryTaskFuture` to be cancelled should be regarded as
+      // an ungraceful behavior.
+      return queryTaskFuture.isCancelled();
+    }
+  }
+
+  @Override
+  public EvaluateExpression<T> createEvaluateExpression(
+      QueryExpression expr, QueryExpressionContext<T> context) {
+    return new AbstractBlazeQueryEvaluateExpressionImpl(expr, context);
+  }
+
+  @Override
+  public <R> QueryTaskFuture<R> execute(QueryTaskCallable<R> callable) {
+    try {
+      return immediateSuccessfulFuture(callable.call());
+    } catch (QueryException e) {
+      return immediateFailedFuture(e);
+    } catch (InterruptedException e) {
+      return immediateCancelledFuture();
+    }
+  }
+
+  @Override
+  public <R> QueryTaskFuture<R> executeAsync(QueryTaskAsyncCallable<R> callable) {
+    return callable.call();
+  }
+
+  @Override
+  public <R> QueryTaskFuture<R> whenSucceedsCall(
+      QueryTaskFuture<?> future, QueryTaskCallable<R> callable) {
+    return whenAllSucceedCall(ImmutableList.of(future), callable);
+  }
+
+  @Override
+  public QueryTaskFuture<Void> whenAllSucceed(Iterable<? extends QueryTaskFuture<?>> futures) {
+    return whenAllSucceedCall(futures, Dummy.INSTANCE);
+  }
+
+  @Override
+  public <R> QueryTaskFuture<R> whenAllSucceedCall(
+      Iterable<? extends QueryTaskFuture<?>> futures, QueryTaskCallable<R> callable) {
+    return QueryTaskFutureImpl.ofDelegate(
+        Futures.whenAllSucceed(cast(futures)).call(callable, directExecutor()));
+  }
+
+  @Override
+  public <R> QueryTaskFuture<R> whenSucceedsOrIsCancelledCall(
+      QueryTaskFuture<?> future, QueryTaskCallable<R> callable) {
+    return QueryTaskFutureImpl.whenSucceedsOrIsCancelledCall(
+        (QueryTaskFutureImpl<?>) future, callable, directExecutor());
+  }
+
+  @Override
+  public <T1, T2> QueryTaskFuture<T2> transformAsync(
+      QueryTaskFuture<T1> future, Function<T1, QueryTaskFuture<T2>> function) {
+    QueryTaskFutureImpl<T1> futureImpl = (QueryTaskFutureImpl<T1>) future;
+    if (futureImpl.isDone()) {
+      // Due to how our subclasses use single-threaded query engines, in practice
+      // futureImpl will always already be done. Therefore this is a fast-path to make it harder to
+      // stack overflow on deeply nested expressions whose evaluation involves #transformAsync.
+      //
+      // TODO(b/283225081): Do something more effective and more pervasive.
+      T1 t1;
+      try {
+        t1 = futureImpl.getChecked();
+      } catch (QueryException e) {
+        return immediateFailedFuture(e);
+      } catch (InterruptedException e) {
+        return immediateCancelledFuture();
+      }
+      return function.apply(t1);
+    }
+    return QueryTaskFutureImpl.ofDelegate(
+        Futures.transformAsync(
+            futureImpl,
+            input -> (QueryTaskFutureImpl<T2>) function.apply(input),
+            directExecutor()));
+  }
+
   private static class EmptinessSensingCallback<T> extends OutputFormatterCallback<T> {
     private final OutputFormatterCallback<T> callback;
     private final AtomicBoolean empty = new AtomicBoolean(true);
@@ -220,8 +407,7 @@ public abstract class AbstractBlazeQueryEnvironment<T> extends AbstractQueryEnvi
     }
 
     @Override
-    public void processOutput(Iterable<T> partialResult)
-        throws IOException, InterruptedException {
+    public void processOutput(Iterable<T> partialResult) throws IOException, InterruptedException {
       empty.compareAndSet(true, Iterables.isEmpty(partialResult));
       callback.processOutput(partialResult);
     }
@@ -241,16 +427,17 @@ public abstract class AbstractBlazeQueryEnvironment<T> extends AbstractQueryEnvi
   }
 
   @Override
-  public void handleError(
-      QueryExpression expression, String message, @Nullable DetailedExitCode detailedExitCode)
+  public final void handleError(
+      QueryExpression expression, String message, DetailedExitCode detailedExitCode)
       throws QueryException {
     if (!keepGoing) {
       if (detailedExitCode != null) {
         throw new QueryException(expression, message, detailedExitCode.getFailureDetail());
+      } else {
+        BugReport.sendBugReport(
+            new IllegalStateException("Undetailed failure: " + message + " for " + expression));
+        throw new QueryException(expression, message, Code.NON_DETAILED_ERROR);
       }
-      logger.atWarning().atMostEvery(1, MINUTES).log(
-          "Null detailed exit code for %s %s", message, expression);
-      throw new QueryException(expression, message, Query.Code.BUILD_FILE_ERROR);
     }
     eventHandler.handle(createErrorEvent(expression, message, detailedExitCode));
   }
@@ -268,11 +455,12 @@ public abstract class AbstractBlazeQueryEnvironment<T> extends AbstractQueryEnvi
       try {
         target = getTarget(label);
       } catch (TargetNotFoundException e) {
+        logger.atInfo().withCause(e).atMostEvery(1, SECONDS).log("Failure to load %s", label);
         continue;
       }
       resultBuilder.put(label, target);
     }
-    return resultBuilder.build();
+    return resultBuilder.buildOrThrow();
   }
 
   protected void validateScopeOfTargets(Set<Target> targets) throws QueryException {
@@ -302,6 +490,77 @@ public abstract class AbstractBlazeQueryEnvironment<T> extends AbstractQueryEnvi
     return true;
   }
 
+  /** Abstract base class for {@link TransitiveLoadFilesHelper<Target>}. */
+  protected abstract static class TransitiveLoadFilesHelperForTargets
+      implements TransitiveLoadFilesHelper<Target> {
+    @Override
+    public PackageIdentifier getPkgId(Target target) {
+      return target.getLabel().getPackageIdentifier();
+    }
+
+    @Override
+    public Target getBuildFileTarget(Target originalTarget) {
+      return originalTarget.getPackageDeclarations().getBuildFile();
+    }
+
+    @Override
+    public void visitLoads(
+        Target originalTarget, LoadGraphVisitor<QueryException, InterruptedException> visitor)
+        throws QueryException, InterruptedException {
+      originalTarget.getPackageDeclarations().visitLoadGraph(visitor);
+    }
+  }
+
+  @Override
+  public final void transitiveLoadFiles(
+      Iterable<T> targets,
+      boolean alsoAddBuildFiles,
+      Set<PackageIdentifier> seenPackages,
+      Set<Label> seenBzlLabels,
+      Uniquifier<T> uniquifier,
+      TransitiveLoadFilesHelper<T> helper,
+      Callback<T> callback)
+      throws QueryException, InterruptedException {
+    ArrayList<T> result = new ArrayList<>();
+    for (T target : targets) {
+      PackageIdentifier pkgId = helper.getPkgId(target);
+      if (!seenPackages.add(pkgId)) {
+        continue;
+      }
+
+      if (alsoAddBuildFiles) {
+        T buildFileTarget = helper.getBuildFileTarget(target);
+        if (uniquifier.unique(buildFileTarget)) {
+          result.add(buildFileTarget);
+        }
+      }
+
+      helper.visitLoads(
+          target,
+          bzlLabel -> {
+            if (!seenBzlLabels.add(bzlLabel)) {
+              return false;
+            }
+            T loadFileTarget = helper.getLoadFileTarget(target, bzlLabel);
+            if (uniquifier.unique(loadFileTarget)) {
+              result.add(loadFileTarget);
+            }
+            if (alsoAddBuildFiles) {
+              T buildFileTargetForLoadFileTarget =
+                  helper.maybeGetBuildFileTargetForLoadFileTarget(target, bzlLabel);
+              // Can be null in genquery: see http://b/123795023#comment6.
+              if (buildFileTargetForLoadFileTarget != null) {
+                if (uniquifier.unique(buildFileTargetForLoadFileTarget)) {
+                  result.add(buildFileTargetForLoadFileTarget);
+                }
+              }
+            }
+            return true;
+          });
+    }
+    callback.process(result);
+  }
+
   /**
    * Perform any work that should be done ahead of time to resolve the target patterns in the query.
    * Implementations may choose to cache the results of resolving the patterns, cache intermediate
@@ -327,8 +586,7 @@ public abstract class AbstractBlazeQueryEnvironment<T> extends AbstractQueryEnvi
   protected static class TargetKeyExtractor implements KeyExtractor<Target, Label> {
     public static final TargetKeyExtractor INSTANCE = new TargetKeyExtractor();
 
-    private TargetKeyExtractor() {
-    }
+    private TargetKeyExtractor() {}
 
     @Override
     public Label extractKey(Target element) {
@@ -355,5 +613,109 @@ public abstract class AbstractBlazeQueryEnvironment<T> extends AbstractQueryEnvi
           "Null detailed exit code for %s %s", message, expr);
     }
     return event;
+  }
+
+  /** Concrete implementation of {@link QueryTaskFuture}. */
+  @SuppressWarnings("ShouldNotSubclass")
+  protected static final class QueryTaskFutureImpl<T> extends QueryTaskFutureImplBase<T>
+      implements ListenableFuture<T> {
+    private final ListenableFuture<T> delegate;
+
+    private QueryTaskFutureImpl(ListenableFuture<T> delegate) {
+      this.delegate = delegate;
+    }
+
+    public static <R> QueryTaskFutureImpl<R> ofDelegate(ListenableFuture<R> delegate) {
+      return (delegate instanceof QueryTaskFutureImpl)
+          ? (QueryTaskFutureImpl<R>) delegate
+          : new QueryTaskFutureImpl<>(delegate);
+    }
+
+    public static <R> QueryTaskFutureImpl<R> whenSucceedsOrIsCancelledCall(
+        QueryTaskFutureImpl<?> future, QueryTaskCallable<R> callable, Executor executor) {
+      return QueryTaskFutureImpl.ofDelegate(
+          Futures.whenAllComplete(cast(ImmutableList.of(future)))
+              .call(
+                  () -> {
+                    try {
+                      var unused = future.get();
+                    } catch (CancellationException unused) {
+                      // If the input future is cancelled, we are supposed to swallow the
+                      // `CancellationException` and proceed normally.
+                    }
+                    return callable.call();
+                  },
+                  executor));
+    }
+
+    @Override
+    public boolean cancel(boolean mayInterruptIfRunning) {
+      return delegate.cancel(mayInterruptIfRunning);
+    }
+
+    @Override
+    public boolean isCancelled() {
+      return delegate.isCancelled();
+    }
+
+    @Override
+    public boolean isDone() {
+      return delegate.isDone();
+    }
+
+    @Override
+    public T get() throws InterruptedException, ExecutionException {
+      return delegate.get();
+    }
+
+    @Override
+    public T get(long timeout, TimeUnit unit)
+        throws InterruptedException, ExecutionException, TimeoutException {
+      return delegate.get(timeout, unit);
+    }
+
+    @Override
+    public void addListener(Runnable listener, Executor executor) {
+      delegate.addListener(listener, executor);
+    }
+
+    @Override
+    public T getIfSuccessful() {
+      try {
+        return Futures.getDone(delegate);
+      } catch (CancellationException | ExecutionException e) {
+        throw new IllegalStateException(e);
+      }
+    }
+
+    private T getChecked() throws InterruptedException, QueryException {
+      try {
+        return get();
+      } catch (CancellationException unused) {
+        throw new InterruptedException();
+      } catch (ExecutionException e) {
+        Throwable cause = e.getCause();
+        throwIfInstanceOf(cause, QueryException.class);
+        throwIfInstanceOf(cause, InterruptedException.class);
+        throwIfUnchecked(cause);
+        throw new IllegalStateException(e);
+      }
+    }
+  }
+
+  private static class Dummy implements QueryTaskCallable<Void> {
+    public static final Dummy INSTANCE = new Dummy();
+
+    private Dummy() {}
+
+    @Override
+    public Void call() {
+      return null;
+    }
+  }
+
+  protected static Iterable<QueryTaskFutureImpl<?>> cast(
+      Iterable<? extends QueryTaskFuture<?>> futures) {
+    return Iterables.transform(futures, QueryTaskFutureImpl.class::cast);
   }
 }

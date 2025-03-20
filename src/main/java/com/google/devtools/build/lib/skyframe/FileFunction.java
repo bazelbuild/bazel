@@ -21,6 +21,7 @@ import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.FileStateType;
 import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.FileValue;
+import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.io.FileSymlinkCycleException;
 import com.google.devtools.build.lib.io.FileSymlinkCycleUniquenessFunction;
 import com.google.devtools.build.lib.io.FileSymlinkException;
@@ -30,6 +31,7 @@ import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
@@ -46,12 +48,27 @@ import javax.annotation.Nullable;
  *
  * <p>Most of the complexity in the implementation results from wanting incremental correctness in
  * the presence of symlinks, esp. ancestor directory symlinks.
+ *
+ * <p>For an overview of the problem space and our approach, see the https://youtu.be/EoYdWmMcqDs
+ * talk from BazelCon 2019 (slides:
+ * https://docs.google.com/presentation/d/e/2PACX-1vQWq1DUhl92dDs_okNxM7Qy9zX72tp7hMsGosGxmjhBLZ5e02IJf9dySK_6lEU2j6u_NOEaUCQGxEFh/pub).
+ * [2024] N.B. The general idea of that talk is still right, but as of cl/334982640 aka commit
+ * 7598bc6 on GitHub (Oct 2020), we no longer unconditionally error out when encountering an
+ * unbounded ancestor expansion and instead leave it to consumers to decide what to do. A consumer
+ * that wants to do a recursive directory traversal starting from the path will probably want to
+ * error out, while a consumer that just wants metadata from the path probably doesn't care.
  */
 public class FileFunction implements SkyFunction {
   private final AtomicReference<PathPackageLocator> pkgLocator;
+  private final ImmutableList<Root> immutablePaths;
 
-  public FileFunction(AtomicReference<PathPackageLocator> pkgLocator) {
+  public FileFunction(
+      AtomicReference<PathPackageLocator> pkgLocator, BlazeDirectories directories) {
     this.pkgLocator = pkgLocator;
+    this.immutablePaths =
+        ImmutableList.of(
+            Root.fromPath(directories.getOutputBase()),
+            Root.fromPath(directories.getInstallBase()));
   }
 
   private static class SymlinkResolutionState {
@@ -70,10 +87,10 @@ public class FileFunction implements SkyFunction {
     // In the course of resolving the real path of p, there will be a logical chain of paths we
     // consider. Going with the example from above, the full chain of paths we consider is
     // [a/b, c/b].
-    ArrayList<RootedPath> logicalChain = new ArrayList<>();
-    // Same contents as 'logicalChain', except stored as an sorted TreeSet for efficiency reasons.
+    final ArrayList<RootedPath> logicalChain = new ArrayList<>();
+    // Same contents as 'logicalChain', except stored as a sorted TreeSet for efficiency reasons.
     // See the usage in checkPathSeenDuringPartialResolutionInternal.
-    TreeSet<Path> sortedLogicalChain = Sets.newTreeSet();
+    final TreeSet<Path> sortedLogicalChain = Sets.newTreeSet();
 
     ImmutableList<RootedPath> pathToUnboundedAncestorSymlinkExpansionChain = null;
     ImmutableList<RootedPath> unboundedAncestorSymlinkExpansionChain = null;
@@ -81,6 +98,7 @@ public class FileFunction implements SkyFunction {
     private SymlinkResolutionState() {}
   }
 
+  @Nullable
   @Override
   public FileValue compute(SkyKey skyKey, Environment env)
       throws FileFunctionException, InterruptedException {
@@ -136,13 +154,21 @@ public class FileFunction implements SkyFunction {
         realFileStateValue);
   }
 
-  private static RootedPath getChild(RootedPath parentRootedPath, String baseName) {
+  private static RootedPath getChild(
+      RootedPath parent, String baseName, RootedPath originalParent, RootedPath originalChild) {
+    if (parent.equals(originalParent)) {
+      return originalChild; // Avoid constructing a new instance if we already have the child.
+    }
     return RootedPath.toRootedPath(
-        parentRootedPath.getRoot(), parentRootedPath.getRootRelativePath().getChild(baseName));
+        parent.getRoot(), parent.getRootRelativePath().getChild(baseName));
   }
 
   private RootedPath toRootedPath(Path path) {
-    return RootedPath.toRootedPathMaybeUnderRoot(path, pkgLocator.get().getPathEntries());
+    // We check whether the path to be transformed is under the output base or the install base.
+    // These directories are under the control of Bazel and it therefore does not make much sense
+    // to check for changes in them or in their ancestors in the usual Skyframe way.
+    return RootedPath.toRootedPathMaybeUnderRoot(
+        path, Iterables.concat(pkgLocator.get().getPathEntries(), immutablePaths));
   }
 
   /**
@@ -167,23 +193,31 @@ public class FileFunction implements SkyFunction {
       Environment env)
       throws InterruptedException, FileFunctionException {
     PathFragment relativePath = rootedPath.getRootRelativePath();
-    RootedPath rootedPathFromAncestors;
     String baseName = relativePath.getBaseName();
 
     FileValue parentFileValue = (FileValue) env.getValue(FileValue.key(parentRootedPath));
     if (parentFileValue == null) {
       return null;
     }
-    rootedPathFromAncestors = getChild(parentFileValue.realRootedPath(), baseName);
+
+    RootedPath rootedPathFromAncestors =
+        getChild(
+            parentFileValue.realRootedPath(parentRootedPath),
+            baseName,
+            parentRootedPath,
+            rootedPath);
 
     if (!parentFileValue.exists() || !parentFileValue.isDirectory()) {
       return new PartialResolutionResult(
           rootedPathFromAncestors, FileStateValue.NONEXISTENT_FILE_STATE_NODE);
     }
 
-    for (RootedPath parentPartialRootedPath : parentFileValue.logicalChainDuringResolution()) {
+    for (RootedPath parentPartialRootedPath :
+        parentFileValue.logicalChainDuringResolution(parentRootedPath)) {
       checkAndNotePathSeenDuringPartialResolution(
-          getChild(parentPartialRootedPath, baseName), symlinkResolutionState, env);
+          getChild(parentPartialRootedPath, baseName, parentRootedPath, rootedPath),
+          symlinkResolutionState,
+          env);
       if (env.valuesMissing()) {
         return null;
       }
@@ -282,14 +316,17 @@ public class FileFunction implements SkyFunction {
     // chain of paths we've considered so far, and 'rootedPath' / 'path' is the proposed next path
     // we consider.
     //
-    // Before we proceed with 'rootedPath', we need to ensure there won't be a problem. There are
-    // three sorts of issues, all stemming from symlinks:
+    // There are three interesting cases to consider, all stemming from symlinks:
     //   (i) Symlink cycle:
     //     p -> p1 -> p2 -> p1
+    //     This means `p` has no real path, so we error out.
     //   (ii) Unbounded expansion caused by a symlink to a descendant of a member of the chain:
     //     p -> a/b -> c/d -> a/b/e
+    //     This means `p` has no real path, so we error out.
     //   (iii) Unbounded expansion caused by a symlink to an ancestor of a member of the chain:
     //     p -> a/b -> c/d -> a
+    //     This is not necessarily a problem (the real path of `p` in this example is simply `a`),
+    //     so we just note the unbounded ancestor expansion and let consumers decide what to do.
     //
     // We can detect all three of these symlink issues via inspection of the proposed new element.
     // Here is our incremental algorithm:
@@ -355,12 +392,6 @@ public class FileFunction implements SkyFunction {
 
   private static Predicate<RootedPath> isPathPredicate(Path path) {
     return rootedPath -> rootedPath.asPath().equals(path);
-  }
-
-  @Nullable
-  @Override
-  public String extractTag(SkyKey skyKey) {
-    return null;
   }
 
   /**

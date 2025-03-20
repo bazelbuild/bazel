@@ -32,6 +32,8 @@ public class OptionFilterDescriptions {
     OptionDocumentationCategory.STARLARK_SEMANTICS,
     OptionDocumentationCategory.TESTING,
     OptionDocumentationCategory.QUERY,
+    OptionDocumentationCategory.MOD_COMMAND,
+    OptionDocumentationCategory.BZLMOD,
     OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
     OptionDocumentationCategory.LOGGING,
     OptionDocumentationCategory.GENERIC_INPUTS,
@@ -85,6 +87,10 @@ public class OptionFilterDescriptions {
             OptionDocumentationCategory.TOOLCHAIN,
             "Options that configure the toolchain used for action execution")
         .put(OptionDocumentationCategory.QUERY, "Options relating to query output and semantics")
+        .put(
+            OptionDocumentationCategory.MOD_COMMAND,
+            "Options relating to the output and semantics of the `mod` subcommand")
+        .put(OptionDocumentationCategory.BZLMOD, "Options relating to Bzlmod output and semantics")
         .put(
             OptionDocumentationCategory.GENERIC_INPUTS,
             "Options specifying or altering a generic input to a Bazel command that does not fall "
@@ -182,9 +188,7 @@ public class OptionFilterDescriptions {
         .put(
             OptionMetadataTag.INTERNAL, // Here for completeness, these options are UNDOCUMENTED.
             "This option isn't even a option, and should not be logged.")
-        .put(
-            OptionMetadataTag.EXPLICIT_IN_OUTPUT_PATH,
-            "This option is explicitly mentioned in the output directory.");
+        .put(OptionMetadataTag.IMMUTABLE, "This option cannot be changed in a transition.");
     return effectTagDescriptionBuilder.build();
   }
 }

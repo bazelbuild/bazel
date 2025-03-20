@@ -15,18 +15,18 @@ package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.analysis.config.ConfigAwareAspectBuilder;
 import com.google.devtools.build.lib.analysis.config.Fragment;
-import com.google.devtools.build.lib.analysis.config.HostTransition;
-import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.AdvertisedProviderSet;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.AspectParameters;
+import com.google.devtools.build.lib.packages.AspectPropagationPredicate;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
 import com.google.devtools.build.lib.packages.Attribute.LateBoundDefault;
@@ -35,7 +35,6 @@ import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.Missin
 import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
-import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.eval.StarlarkValue;
@@ -51,25 +50,23 @@ public class AspectDefinitionTest {
 
   private static final class P1 implements TransitiveInfoProvider {}
 
-  private static final class P2 implements TransitiveInfoProvider {}
-
-  private static final class P3 implements TransitiveInfoProvider {}
-
-  private static final class P4 implements TransitiveInfoProvider {}
-
-  private static final Label FAKE_LABEL = Label.parseAbsoluteUnchecked("//fake/label.bzl");
+  private static final Label FAKE_LABEL = Label.parseCanonicalUnchecked("//fake/label.bzl");
 
   private static final StarlarkProviderIdentifier STARLARK_P1 =
-      StarlarkProviderIdentifier.forKey(new StarlarkProvider.Key(FAKE_LABEL, "STARLARK_P1"));
+      StarlarkProviderIdentifier.forKey(
+          new StarlarkProvider.Key(keyForBuild(FAKE_LABEL), "STARLARK_P1"));
 
   private static final StarlarkProviderIdentifier STARLARK_P2 =
-      StarlarkProviderIdentifier.forKey(new StarlarkProvider.Key(FAKE_LABEL, "STARLARK_P2"));
+      StarlarkProviderIdentifier.forKey(
+          new StarlarkProvider.Key(keyForBuild(FAKE_LABEL), "STARLARK_P2"));
 
   private static final StarlarkProviderIdentifier STARLARK_P3 =
-      StarlarkProviderIdentifier.forKey(new StarlarkProvider.Key(FAKE_LABEL, "STARLARK_P3"));
+      StarlarkProviderIdentifier.forKey(
+          new StarlarkProvider.Key(keyForBuild(FAKE_LABEL), "STARLARK_P3"));
 
   private static final StarlarkProviderIdentifier STARLARK_P4 =
-      StarlarkProviderIdentifier.forKey(new StarlarkProvider.Key(FAKE_LABEL, "STARLARK_P4"));
+      StarlarkProviderIdentifier.forKey(
+          new StarlarkProvider.Key(keyForBuild(FAKE_LABEL), "STARLARK_P4"));
 
   /**
    * A dummy aspect factory. Is there to demonstrate how to define aspects and so that we can test
@@ -85,10 +82,11 @@ public class AspectDefinitionTest {
 
     @Override
     public ConfiguredAspect create(
-        ConfiguredTargetAndData ctadBase,
+        Label targetLabel,
+        ConfiguredTarget ct,
         RuleContext context,
         AspectParameters parameters,
-        String toolsRepository) {
+        RepositoryName toolsRepository) {
       throw new IllegalStateException();
     }
 
@@ -102,15 +100,17 @@ public class AspectDefinitionTest {
 
   @Test
   public void testAspectWithImplicitOrLateboundAttribute_addsToAttributeMap() throws Exception {
-    Attribute implicit = attr("$runtime", BuildType.LABEL)
-        .value(Label.parseAbsoluteUnchecked("//run:time"))
-        .build();
+    Attribute implicit =
+        attr("$runtime", BuildType.LABEL)
+            .value(Label.parseCanonicalUnchecked("//run:time"))
+            .build();
     LabelLateBoundDefault<Void> latebound =
-        LateBoundDefault.fromConstantForTesting(Label.parseAbsoluteUnchecked("//run:away"));
-    AspectDefinition simple = new AspectDefinition.Builder(TEST_ASPECT_CLASS)
-        .add(implicit)
-        .add(attr(":latebound", BuildType.LABEL).value(latebound))
-        .build();
+        LateBoundDefault.fromConstantForTesting(Label.parseCanonicalUnchecked("//run:away"));
+    AspectDefinition simple =
+        new AspectDefinition.Builder(TEST_ASPECT_CLASS)
+            .add(implicit)
+            .add(attr(":latebound", BuildType.LABEL).value(latebound))
+            .build();
     assertThat(simple.getAttributes()).containsEntry("$runtime", implicit);
     assertThat(simple.getAttributes()).containsKey(":latebound");
     assertThat(simple.getAttributes().get(":latebound").getLateBoundDefault())
@@ -125,10 +125,10 @@ public class AspectDefinitionTest {
             new AspectDefinition.Builder(TEST_ASPECT_CLASS)
                 .add(
                     attr("$runtime", BuildType.LABEL)
-                        .value(Label.parseAbsoluteUnchecked("//run:time")))
+                        .value(Label.parseCanonicalUnchecked("//run:time")))
                 .add(
                     attr("$runtime", BuildType.LABEL)
-                        .value(Label.parseAbsoluteUnchecked("//oops"))));
+                        .value(Label.parseCanonicalUnchecked("//oops"))));
   }
 
   @Test
@@ -139,84 +139,10 @@ public class AspectDefinitionTest {
             new AspectDefinition.Builder(TEST_ASPECT_CLASS)
                 .add(
                     attr("invalid", BuildType.LABEL)
-                        .value(Label.parseAbsoluteUnchecked("//run:time"))
+                        .value(Label.parseCanonicalUnchecked("//run:time"))
                         .allowedFileTypes(FileTypeSet.NO_FILE))
                 .build());
   }
-
-  @Test
-  public void testAttributeAspect_wrapsAndAddsToMap() throws Exception {
-    AspectDefinition withAspects = new AspectDefinition.Builder(TEST_ASPECT_CLASS)
-        .propagateAlongAttribute("srcs")
-        .propagateAlongAttribute("deps")
-        .build();
-
-    assertThat(withAspects.propagateAlong("srcs")).isTrue();
-    assertThat(withAspects.propagateAlong("deps")).isTrue();
-  }
-
-  @Test
-  public void testAttributeAspect_allAttributes() throws Exception {
-    AspectDefinition withAspects = new AspectDefinition.Builder(TEST_ASPECT_CLASS)
-        .propagateAlongAllAttributes()
-        .build();
-
-    assertThat(withAspects.propagateAlong("srcs")).isTrue();
-    assertThat(withAspects.propagateAlong("deps")).isTrue();
-  }
-
-  @Test
-  public void testRequireBuiltinProviders_addsToSetOfRequiredProvidersAndNames() throws Exception {
-    AspectDefinition requiresProviders =
-        new AspectDefinition.Builder(TEST_ASPECT_CLASS)
-            .requireProviders(P1.class, P2.class)
-            .build();
-    AdvertisedProviderSet expectedOkSet =
-        AdvertisedProviderSet.builder()
-            .addBuiltin(P1.class)
-            .addBuiltin(P2.class)
-            .addBuiltin(P3.class)
-            .build();
-    assertThat(requiresProviders.getRequiredProviders().isSatisfiedBy(expectedOkSet))
-        .isTrue();
-
-    AdvertisedProviderSet expectedFailSet =
-        AdvertisedProviderSet.builder().addBuiltin(P1.class).build();
-    assertThat(requiresProviders.getRequiredProviders().isSatisfiedBy(expectedFailSet))
-        .isFalse();
-
-    assertThat(requiresProviders.getRequiredProviders().isSatisfiedBy(AdvertisedProviderSet.ANY))
-        .isTrue();
-    assertThat(requiresProviders.getRequiredProviders().isSatisfiedBy(AdvertisedProviderSet.EMPTY))
-        .isFalse();
-  }
-
-  @Test
-  public void testRequireBuiltinProviders_addsTwoSetsOfRequiredProvidersAndNames() {
-    AspectDefinition requiresProviders =
-        new AspectDefinition.Builder(TEST_ASPECT_CLASS)
-            .requireProviderSets(
-                ImmutableList.of(ImmutableSet.of(P1.class, P2.class), ImmutableSet.of(P3.class)))
-            .build();
-
-    AdvertisedProviderSet expectedOkSet1 =
-        AdvertisedProviderSet.builder().addBuiltin(P1.class).addBuiltin(P2.class).build();
-
-    AdvertisedProviderSet expectedOkSet2 =
-        AdvertisedProviderSet.builder().addBuiltin(P3.class).build();
-
-    AdvertisedProviderSet expectedFailSet =
-        AdvertisedProviderSet.builder().addBuiltin(P4.class).build();
-
-   assertThat(requiresProviders.getRequiredProviders().isSatisfiedBy(AdvertisedProviderSet.ANY))
-       .isTrue();
-    assertThat(requiresProviders.getRequiredProviders().isSatisfiedBy(expectedOkSet1)).isTrue();
-    assertThat(requiresProviders.getRequiredProviders().isSatisfiedBy(expectedOkSet2)).isTrue();
-    assertThat(requiresProviders.getRequiredProviders().isSatisfiedBy(expectedFailSet)).isFalse();
-   assertThat(requiresProviders.getRequiredProviders().isSatisfiedBy(AdvertisedProviderSet.EMPTY))
-       .isFalse();
-
- }
 
   @Test
   public void testRequireStarlarkProviders_addsFlatSetOfRequiredProviders() throws Exception {
@@ -275,7 +201,7 @@ public class AspectDefinitionTest {
     AspectDefinition noRequiredProviders = new AspectDefinition.Builder(TEST_ASPECT_CLASS).build();
 
     AdvertisedProviderSet expectedOkSet =
-        AdvertisedProviderSet.builder().addBuiltin(P4.class).addStarlark(STARLARK_P4).build();
+        AdvertisedProviderSet.builder().addBuiltin(P1.class).addStarlark(STARLARK_P4).build();
     assertThat(noRequiredProviders.getRequiredProviders().isSatisfiedBy(expectedOkSet)).isTrue();
 
     assertThat(noRequiredProviders.getRequiredProviders().isSatisfiedBy(AdvertisedProviderSet.ANY))
@@ -291,7 +217,7 @@ public class AspectDefinitionTest {
         .build();
 
     AdvertisedProviderSet expectedFailSet =
-        AdvertisedProviderSet.builder().addBuiltin(P4.class).build();
+        AdvertisedProviderSet.builder().addBuiltin(P1.class).build();
 
     assertThat(noAspects.getRequiredProvidersForAspects().isSatisfiedBy(AdvertisedProviderSet.ANY))
         .isFalse();
@@ -342,20 +268,6 @@ public class AspectDefinitionTest {
   }
 
   @Test
-  public void testRequiresHostConfigurationFragments_propagatedToConfigurationFragmentPolicy()
-      throws Exception {
-    AspectDefinition requiresFragments =
-        ConfigAwareAspectBuilder.of(new AspectDefinition.Builder(TEST_ASPECT_CLASS))
-            .requiresHostConfigurationFragments(FooFragment.class, BarFragment.class)
-            .originalBuilder()
-            .build();
-    assertThat(requiresFragments.getConfigurationFragmentPolicy()).isNotNull();
-    assertThat(
-        requiresFragments.getConfigurationFragmentPolicy().getRequiredConfigurationFragments())
-            .containsExactly(FooFragment.class, BarFragment.class);
-  }
-
-  @Test
   public void testRequiresConfigurationFragmentNames_propagatedToConfigurationFragmentPolicy() {
     AspectDefinition requiresFragments =
         new AspectDefinition.Builder(TEST_ASPECT_CLASS)
@@ -363,35 +275,75 @@ public class AspectDefinitionTest {
             .build();
     assertThat(requiresFragments.getConfigurationFragmentPolicy()).isNotNull();
     assertThat(
-        requiresFragments.getConfigurationFragmentPolicy()
-            .isLegalConfigurationFragment(TestFragment.class, NoTransition.INSTANCE))
+            requiresFragments
+                .getConfigurationFragmentPolicy()
+                .isLegalConfigurationFragment(TestFragment.class))
         .isTrue();
   }
 
   @Test
-  public void testRequiresHostConfigurationFragmentNames_propagatedToConfigurationFragmentPolicy() {
-    AspectDefinition requiresFragments =
-        ConfigAwareAspectBuilder.of(new AspectDefinition.Builder(TEST_ASPECT_CLASS))
-            .requiresHostConfigurationFragmentsByStarlarkBuiltinName(
-                ImmutableList.of("test_fragment"))
-            .originalBuilder()
-            .build();
-    assertThat(requiresFragments.getConfigurationFragmentPolicy()).isNotNull();
-    assertThat(
-        requiresFragments.getConfigurationFragmentPolicy()
-            .isLegalConfigurationFragment(TestFragment.class, HostTransition.INSTANCE))
-        .isTrue();
+  public void testAspectWithApplyToFiles_requiresProviders_fails() {
+    var throwable =
+        assertThrows(
+            IllegalStateException.class,
+            () ->
+                new AspectDefinition.Builder(TEST_ASPECT_CLASS)
+                    .applyToFiles(true)
+                    .requireStarlarkProviders(STARLARK_P1, STARLARK_P2)
+                    .build());
+    assertThat(throwable)
+        .hasMessageThat()
+        .contains("An aspect cannot simultaneously have required providers and apply to files.");
   }
 
   @Test
-  public void testEmptyStarlarkConfigurationFragmentPolicySetup_hasNonNullPolicy() {
-    AspectDefinition noPolicy =
-        ConfigAwareAspectBuilder.of(new AspectDefinition.Builder(TEST_ASPECT_CLASS))
-            .requiresHostConfigurationFragmentsByStarlarkBuiltinName(ImmutableList.of())
-            .originalBuilder()
-            .requiresConfigurationFragmentsByStarlarkBuiltinName(ImmutableList.of())
-            .build();
-    assertThat(noPolicy.getConfigurationFragmentPolicy()).isNotNull();
+  public void testAspectWithApplyToGeneratingRules_requiresProviders_fails() {
+    var throwable =
+        assertThrows(
+            IllegalStateException.class,
+            () ->
+                new AspectDefinition.Builder(TEST_ASPECT_CLASS)
+                    .applyToGeneratingRules(true)
+                    .requireStarlarkProviders(STARLARK_P1, STARLARK_P2)
+                    .build());
+    assertThat(throwable)
+        .hasMessageThat()
+        .contains(
+            "An aspect cannot simultaneously have required providers and apply to generating"
+                + " rules.");
+  }
+
+  @Test
+  public void testAspectWithApplyToFiles_hasPropagationPredicate_fails() {
+    var throwable =
+        assertThrows(
+            IllegalStateException.class,
+            () ->
+                new AspectDefinition.Builder(TEST_ASPECT_CLASS)
+                    .applyToFiles(true)
+                    .propagationPredicate(new AspectPropagationPredicate(null, null))
+                    .build());
+    assertThat(throwable)
+        .hasMessageThat()
+        .contains(
+            "An aspect cannot simultaneously have a propagation predicate and apply to files.");
+  }
+
+  @Test
+  public void testAspectWithApplyToGeneratingRules_hasPropagationPredicate_fails() {
+    var throwable =
+        assertThrows(
+            IllegalStateException.class,
+            () ->
+                new AspectDefinition.Builder(TEST_ASPECT_CLASS)
+                    .applyToGeneratingRules(true)
+                    .propagationPredicate(new AspectPropagationPredicate(null, null))
+                    .build());
+    assertThat(throwable)
+        .hasMessageThat()
+        .contains(
+            "An aspect cannot simultaneously have a propagation predicate and apply to generating"
+                + " rules.");
   }
 
   @StarlarkBuiltin(name = "test_fragment", doc = "test fragment")

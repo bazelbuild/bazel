@@ -16,81 +16,102 @@ package com.google.devtools.build.lib.skyframe.serialization;
 
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
-import static org.mockito.Mockito.doReturn;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
-import com.google.common.collect.ClassToInstanceMap;
 import com.google.common.collect.ImmutableClassToInstanceMap;
-import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec.MemoizationStrategy;
 import com.google.protobuf.CodedInputStream;
+import com.google.protobuf.CodedOutputStream;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 /** Tests for {@link DeserializationContext}. */
-@RunWith(JUnit4.class)
+@RunWith(TestParameterInjector.class)
 public final class DeserializationContextTest {
 
   @Test
-  public void nullDeserialize() throws Exception {
+  public void nullDeserialize(@TestParameter boolean useLeaf) throws Exception {
     ObjectCodecRegistry registry = mock(ObjectCodecRegistry.class);
     CodedInputStream codedInputStream = mock(CodedInputStream.class);
     when(codedInputStream.readSInt32()).thenReturn(0);
     DeserializationContext deserializationContext =
-        new DeserializationContext(registry, ImmutableClassToInstanceMap.of());
-    assertThat((Object) deserializationContext.deserialize(codedInputStream)).isNull();
+        new ImmutableDeserializationContext(registry, ImmutableClassToInstanceMap.of());
+    if (useLeaf) {
+      // Deserialization doesn't touch the codec if the value is null.
+      assertThat(
+              deserializationContext.<Object>deserializeLeaf(codedInputStream, /* codec= */ null))
+          .isNull();
+    } else {
+      assertThat((Object) deserializationContext.deserialize(codedInputStream)).isNull();
+    }
     verify(codedInputStream).readSInt32();
     verifyNoInteractions(registry);
   }
 
   @Test
-  public void constantDeserialize() throws Exception {
+  public void constantDeserialize(@TestParameter boolean useLeaf) throws Exception {
     ObjectCodecRegistry registry = mock(ObjectCodecRegistry.class);
-    Object constant = new Object();
+    String constant = "abcdef";
     when(registry.maybeGetConstantByTag(1)).thenReturn(constant);
     CodedInputStream codedInputStream = mock(CodedInputStream.class);
     when(codedInputStream.readSInt32()).thenReturn(1);
     DeserializationContext deserializationContext =
-        new DeserializationContext(registry, ImmutableClassToInstanceMap.of());
-    assertThat((Object) deserializationContext.deserialize(codedInputStream))
-        .isSameInstanceAs(constant);
+        new ImmutableDeserializationContext(registry, ImmutableClassToInstanceMap.of());
+    if (useLeaf) {
+      assertThat(
+              deserializationContext.deserializeLeaf(
+                  codedInputStream, LeafCodecForCastingOnly.INSTANCE))
+          .isSameInstanceAs(constant);
+    } else {
+      assertThat((Object) deserializationContext.deserialize(codedInputStream))
+          .isSameInstanceAs(constant);
+    }
     verify(codedInputStream).readSInt32();
     verify(registry).maybeGetConstantByTag(1);
   }
 
-  @Test
-  public void descriptorDeserialize() throws Exception {
-    ObjectCodecRegistry.CodecDescriptor codecDescriptor =
-        mock(ObjectCodecRegistry.CodecDescriptor.class);
-    ObjectCodecRegistry registry = mock(ObjectCodecRegistry.class);
-    when(registry.getCodecDescriptorByTag(1)).thenReturn(codecDescriptor);
-    CodedInputStream codedInputStream = mock(CodedInputStream.class);
-    when(codedInputStream.readSInt32()).thenReturn(1);
-    DeserializationContext deserializationContext =
-        new DeserializationContext(registry, ImmutableClassToInstanceMap.of());
-    Object returnValue = new Object();
-    when(codecDescriptor.deserialize(deserializationContext, codedInputStream))
-        .thenReturn(returnValue);
-    assertThat((Object) deserializationContext.deserialize(codedInputStream))
-        .isSameInstanceAs(returnValue);
-    verify(codedInputStream).readSInt32();
-    verify(registry).getCodecDescriptorByTag(1);
-    verify(codecDescriptor).deserialize(deserializationContext, codedInputStream);
+  private static final class LeafCodecForCastingOnly extends LeafObjectCodec<String> {
+    private static final LeafCodecForCastingOnly INSTANCE = new LeafCodecForCastingOnly();
+
+    @Override
+    public boolean autoRegister() {
+      return false;
+    }
+
+    @Override
+    public Class<String> getEncodedClass() {
+      return String.class;
+    }
+
+    @Override
+    public void serialize(
+        LeafSerializationContext context, String obj, CodedOutputStream codedOut) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public String deserialize(LeafDeserializationContext context, CodedInputStream codedIn) {
+      throw new UnsupportedOperationException();
+    }
   }
 
   @Test
   public void memoizingDeserialize_null() throws SerializationException, IOException {
     ObjectCodecRegistry registry = mock(ObjectCodecRegistry.class);
     CodedInputStream codedInputStream = mock(CodedInputStream.class);
-    DeserializationContext deserializationContext =
-        new DeserializationContext(registry, ImmutableClassToInstanceMap.of());
+    ObjectCodecs codecs = new ObjectCodecs(registry, ImmutableClassToInstanceMap.of());
     when(codedInputStream.readSInt32()).thenReturn(0);
-    assertThat((Object) deserializationContext.getMemoizingContext().deserialize(codedInputStream))
+    assertThat(
+            (Object)
+                codecs.getMemoizingDeserializationContextForTesting().deserialize(codedInputStream))
         .isEqualTo(null);
     verify(codedInputStream).readSInt32();
     verifyNoInteractions(registry);
@@ -102,10 +123,11 @@ public final class DeserializationContextTest {
     ObjectCodecRegistry registry = mock(ObjectCodecRegistry.class);
     when(registry.maybeGetConstantByTag(1)).thenReturn(constant);
     CodedInputStream codedInputStream = mock(CodedInputStream.class);
-    DeserializationContext deserializationContext =
-        new DeserializationContext(registry, ImmutableClassToInstanceMap.of());
+    ObjectCodecs codecs = new ObjectCodecs(registry, ImmutableClassToInstanceMap.of());
     when(codedInputStream.readSInt32()).thenReturn(1);
-    assertThat((Object) deserializationContext.getMemoizingContext().deserialize(codedInputStream))
+    assertThat(
+            (Object)
+                codecs.getMemoizingDeserializationContextForTesting().deserialize(codedInputStream))
         .isEqualTo(constant);
     verify(codedInputStream).readSInt32();
     verify(registry).maybeGetConstantByTag(1);
@@ -118,30 +140,28 @@ public final class DeserializationContextTest {
     ObjectCodec<Object> codec = mock(ObjectCodec.class);
     when(codec.getStrategy()).thenReturn(MemoizationStrategy.MEMOIZE_AFTER);
     when(codec.getEncodedClass()).thenAnswer(unused -> Object.class);
-    when(codec.additionalEncodedClasses()).thenReturn(ImmutableList.of());
+    when(codec.additionalEncodedClasses()).thenReturn(ImmutableSet.of());
+    when(codec.safeCast(any())).thenAnswer(invocation -> invocation.getArgument(0));
     ObjectCodecRegistry.CodecDescriptor codecDescriptor =
-        mock(ObjectCodecRegistry.CodecDescriptor.class);
-    doReturn(codec).when(codecDescriptor).getCodec();
+        new ObjectCodecRegistry.CodecDescriptor(/* tag= */ 1, codec);
     ObjectCodecRegistry registry = mock(ObjectCodecRegistry.class);
     when(registry.getCodecDescriptorByTag(1)).thenReturn(codecDescriptor);
     CodedInputStream codedInputStream = mock(CodedInputStream.class);
     DeserializationContext deserializationContext =
-        new DeserializationContext(registry, ImmutableClassToInstanceMap.of())
-            .getMemoizingContext();
+        new ObjectCodecs(registry).getMemoizingDeserializationContextForTesting();
     when(codec.deserialize(deserializationContext, codedInputStream)).thenReturn(returned);
     when(codedInputStream.readSInt32()).thenReturn(1);
     assertThat((Object) deserializationContext.deserialize(codedInputStream)).isEqualTo(returned);
     verify(codedInputStream).readSInt32();
     verify(registry).maybeGetConstantByTag(1);
     verify(registry).getCodecDescriptorByTag(1);
-    verify(codecDescriptor).getCodec();
     verify(codec).deserialize(deserializationContext, codedInputStream);
   }
 
   @Test
   public void getDependency() {
     DeserializationContext context =
-        new DeserializationContext(
+        new ImmutableDeserializationContext(
             mock(ObjectCodecRegistry.class), ImmutableClassToInstanceMap.of(String.class, "abc"));
     assertThat(context.getDependency(String.class)).isEqualTo("abc");
   }
@@ -149,7 +169,7 @@ public final class DeserializationContextTest {
   @Test
   public void getDependency_notPresent() {
     DeserializationContext context =
-        new DeserializationContext(
+        new ImmutableDeserializationContext(
             mock(ObjectCodecRegistry.class), ImmutableClassToInstanceMap.of());
     Exception e =
         assertThrows(NullPointerException.class, () -> context.getDependency(String.class));
@@ -158,41 +178,37 @@ public final class DeserializationContextTest {
 
   @Test
   public void dependencyOverrides_alreadyPresent() {
-    DeserializationContext context =
-        new DeserializationContext(
+    ObjectCodecs codecs =
+        new ObjectCodecs(
             mock(ObjectCodecRegistry.class), ImmutableClassToInstanceMap.of(String.class, "abc"));
     DeserializationContext overridden =
-        context.withDependencyOverrides(ImmutableClassToInstanceMap.of(String.class, "xyz"));
+        codecs
+            .withDependencyOverridesForTesting(ImmutableClassToInstanceMap.of(String.class, "xyz"))
+            .getDeserializationContextForTesting();
     assertThat(overridden.getDependency(String.class)).isEqualTo("xyz");
   }
 
   @Test
   public void dependencyOverrides_new() {
-    DeserializationContext context =
-        new DeserializationContext(
+    ObjectCodecs codecs =
+        new ObjectCodecs(
             mock(ObjectCodecRegistry.class), ImmutableClassToInstanceMap.of(String.class, "abc"));
     DeserializationContext overridden =
-        context.withDependencyOverrides(ImmutableClassToInstanceMap.of(Integer.class, 1));
+        codecs
+            .withDependencyOverridesForTesting(ImmutableClassToInstanceMap.of(Integer.class, 1))
+            .getDeserializationContextForTesting();
     assertThat(overridden.getDependency(Integer.class)).isEqualTo(1);
   }
 
   @Test
   public void dependencyOverrides_unchanged() {
-    DeserializationContext context =
-        new DeserializationContext(
+    ObjectCodecs codecs =
+        new ObjectCodecs(
             mock(ObjectCodecRegistry.class), ImmutableClassToInstanceMap.of(String.class, "abc"));
     DeserializationContext overridden =
-        context.withDependencyOverrides(ImmutableClassToInstanceMap.of(Integer.class, 1));
+        codecs
+            .withDependencyOverridesForTesting(ImmutableClassToInstanceMap.of(Integer.class, 1))
+            .getDeserializationContextForTesting();
     assertThat(overridden.getDependency(String.class)).isEqualTo("abc");
-  }
-
-  @Test
-  public void dependencyOverrides_disallowedOnMemoizingContext() {
-    DeserializationContext context =
-        new DeserializationContext(
-            mock(ObjectCodecRegistry.class), ImmutableClassToInstanceMap.of());
-    DeserializationContext memoizing = context.getMemoizingContext();
-    ClassToInstanceMap<?> overrides = ImmutableClassToInstanceMap.of(Integer.class, 1);
-    assertThrows(IllegalStateException.class, () -> memoizing.withDependencyOverrides(overrides));
   }
 }

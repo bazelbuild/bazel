@@ -13,14 +13,14 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetVisitor;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadHostile;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
-import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import java.io.PrintStream;
 import java.util.Map;
+import java.util.function.BiPredicate;
 import java.util.function.Predicate;
 import javax.annotation.Nullable;
 
@@ -31,14 +31,14 @@ import javax.annotation.Nullable;
  * prerequisite {@link SkyValue}s. The {@link MemoizingEvaluator} implementation makes sure that
  * those are created beforehand.
  *
- * <p>The graph caches previously computed value values. Arbitrary values can be invalidated between
- * calls to {@link #evaluate}; they will be recreated the next time they are requested.
+ * <p>The graph caches previously computed values. Arbitrary values can be invalidated between calls
+ * to {@link #evaluate}; they will be recreated the next time they are requested.
  */
 public interface MemoizingEvaluator {
 
   /**
-   * Computes the transitive closure of a given set of values at the given {@link Version}. See
-   * {@link EagerInvalidator#invalidate}.
+   * Computes the transitive closure of a given set of values. See {@link
+   * EagerInvalidator#invalidate}.
    *
    * <p>The returned EvaluationResult is guaranteed to contain a result for at least one root if
    * keepGoing is false. It will contain a result for every root if keepGoing is true, <i>unless</i>
@@ -46,8 +46,13 @@ public interface MemoizingEvaluator {
    * missing.
    */
   <T extends SkyValue> EvaluationResult<T> evaluate(
-      Iterable<? extends SkyKey> roots, Version version, EvaluationContext evaluationContext)
+      Iterable<? extends SkyKey> roots, EvaluationContext evaluationContext)
       throws InterruptedException;
+
+  /** Same as {@link #delete(BiPredicate)}, but takes a predicate that only uses the key. */
+  default void delete(Predicate<SkyKey> pred) {
+    delete((k, v) -> pred.test(k));
+  }
 
   /**
    * Ensures that after the next completed {@link #evaluate} call the current values of any value
@@ -60,7 +65,7 @@ public interface MemoizingEvaluator {
    *
    * <p>To delete all dirty values, you can specify a predicate that's always false.
    */
-  void delete(Predicate<SkyKey> pred);
+  void delete(BiPredicate<SkyKey, SkyValue> pred);
 
   /**
    * Marks dirty values for deletion if they have been dirty for at least as many graph versions
@@ -88,11 +93,12 @@ public interface MemoizingEvaluator {
   Map<SkyKey, SkyValue> getValues();
 
   /**
-   * Returns the node entries in the graph. Should only be called between evaluations. The returned
-   * iterable is mutable, but do not mutate it unless you know what you are doing! Naively deleting
-   * an entry will break graph invariants and cause a crash.
+   * Returns an {@link InMemoryGraph} containing all of the nodes backing this evaluator.
+   *
+   * <p>Throws {@link UnsupportedOperationException} if this evaluator does not store its entire
+   * graph in memory.
    */
-  Iterable<? extends Map.Entry<SkyKey, ? extends NodeEntry>> getGraphEntries();
+  InMemoryGraph getInMemoryGraph();
 
   /**
    * Informs the evaluator that a sequence of evaluations at the same version has finished.
@@ -144,16 +150,19 @@ public interface MemoizingEvaluator {
   ErrorInfo getExistingErrorForTesting(SkyKey key) throws InterruptedException;
 
   /**
-   * Tests that want finer control over the graph being used may provide a {@code transformer} here.
-   * This {@code transformer} will be applied to the graph for each invalidation/evaluation.
+   * Injects a {@link GraphTransformerForTesting} to allow tests to have finer-grained control over
+   * the graph.
+   *
+   * <p>May be called multiple times, in which case the effective graph is the result of
+   * sequentially applying all transformers in the order in which they were passed to this method.
+   *
+   * <p>Must only be called in tests.
    */
   void injectGraphTransformerForTesting(GraphTransformerForTesting transformer);
 
   /** Transforms a graph, possibly injecting other functionality. */
   interface GraphTransformerForTesting {
     InMemoryGraph transform(InMemoryGraph graph);
-
-    QueryableGraph transform(QueryableGraph graph);
 
     ProcessableGraph transform(ProcessableGraph graph);
 
@@ -165,50 +174,118 @@ public interface MemoizingEvaluator {
           }
 
           @Override
-          public QueryableGraph transform(QueryableGraph graph) {
-            return graph;
-          }
-
-          @Override
           public ProcessableGraph transform(ProcessableGraph graph) {
             return graph;
           }
         };
-  }
 
-  /**
-   * Write the graph to the output stream. Not necessarily thread-safe. Use only for debugging
-   * purposes.
-   */
-  @ThreadHostile
-  void dump(boolean summarize, PrintStream out);
+    /**
+     * Returns a composite transformer that applies both of the given transformers in the given
+     * order.
+     */
+    static GraphTransformerForTesting compose(
+        GraphTransformerForTesting before, GraphTransformerForTesting after) {
+      checkNotNull(before);
+      checkNotNull(after);
+      if (before == NO_OP) {
+        return after;
+      }
+      if (after == NO_OP) {
+        return before;
+      }
+      return new GraphTransformerForTesting() {
+        @Override
+        public InMemoryGraph transform(InMemoryGraph graph) {
+          return after.transform(before.transform(graph));
+        }
 
-  /** A supplier for creating instances of a particular evaluator implementation. */
-  interface EvaluatorSupplier {
-    MemoizingEvaluator create(
-        ImmutableMap<SkyFunctionName, SkyFunction> skyFunctions,
-        Differencer differencer,
-        EvaluationProgressReceiver progressReceiver,
-        GraphInconsistencyReceiver graphInconsistencyReceiver,
-        EventFilter eventFilter,
-        EmittedEventState emittedEventState,
-        boolean keepEdges);
-  }
-
-  /**
-   * Keeps track of already-emitted events. Users of the graph should instantiate an
-   * {@code EmittedEventState} first and pass it to the graph during creation. This allows them to
-   * determine whether or not to replay events.
-   */
-  class EmittedEventState {
-    final NestedSetVisitor.VisitedState<TaggedEvents> eventState =
-        new NestedSetVisitor.VisitedState<>();
-    final NestedSetVisitor.VisitedState<Postable> postableState =
-        new NestedSetVisitor.VisitedState<>();
-
-    public void clear() {
-      eventState.clear();
-      postableState.clear();
+        @Override
+        public ProcessableGraph transform(ProcessableGraph graph) {
+          return after.transform(before.transform(graph));
+        }
+      };
     }
   }
+
+  /**
+   * Writes a brief summary about the graph to the given output stream.
+   *
+   * <p>Not necessarily thread-safe. Use only for debugging purposes.
+   */
+  @ThreadHostile
+  void dumpSummary(PrintStream out);
+
+  /**
+   * Writes a list of counts of each node type in the graph to the given output stream.
+   *
+   * <p>Not necessarily thread-safe. Use only for debugging purposes.
+   */
+  @ThreadHostile
+  void dumpCount(PrintStream out);
+
+  /**
+   * Writes a detailed summary of the graph to the given output stream. For each key matching the
+   * given filter, prints the key name and value.
+   *
+   * <p>Not necessarily thread-safe. Use only for debugging purposes.
+   */
+  @ThreadHostile
+  void dumpValues(PrintStream out, Predicate<String> filter) throws InterruptedException;
+
+  /**
+   * Writes a detailed summary of the graph to the given output stream. For each key matching the
+   * given filter, prints the key name and deps. The deps are printed in groups according to the
+   * dependency order registered in Skyframe.
+   *
+   * <p>Not necessarily thread-safe. Use only for debugging purposes.
+   */
+  @ThreadHostile
+  void dumpDeps(PrintStream out, Predicate<String> filter) throws InterruptedException;
+
+  /**
+   * Emits the graph representation in the DOT description format of SkyFunction dependencies of the
+   * keys matching the given filter to the given output stream.
+   *
+   * <p>Useful for understanding the high level dependency edges established by Skyframe lookups.
+   * calls.
+   *
+   * <p>The nodes are {@link SkyFunctionName}s. They do not include individual SkyKey information
+   * since the most basic builds already create way too many nodes to generate a useful graph image.
+   *
+   * <p>Edges are de-duplicated (e.g. all FILE -> FILE_STATE edges show up as a single edge), and
+   * the output may show cycles (e.g. ACTION_EXECUTION -> ARTIFACT -> ACTION_EXECUTION -> ...)
+   *
+   * <p>Not necessarily thread-safe. Use only for debugging purposes.
+   */
+  @ThreadHostile
+  void dumpFunctionGraph(PrintStream out, Predicate<String> filter) throws InterruptedException;
+
+  /**
+   * Writes a detailed summary of the graph to the given output stream. For each key matching the
+   * given filter, prints the key name and its reverse deps.
+   *
+   * <p>Not necessarily thread-safe. Use only for debugging purposes.
+   */
+  @ThreadHostile
+  void dumpRdeps(PrintStream out, Predicate<String> filter) throws InterruptedException;
+
+  /**
+   * Cleans up {@linkplain com.google.devtools.build.lib.concurrent.PooledInterner.Pool interning
+   * pools} by moving objects to weak interners and uninstalling the current pools.
+   *
+   * <p>May destroy this evaluator's {@linkplain #getInMemoryGraph graph}. Only call when the graph
+   * is about to be thrown away.
+   */
+  void cleanupInterningPools();
+
+  boolean skyfocusSupported();
+
+  /**
+   * Enables Skyfocus, a graph optimizer for Skyframe with working sets, by remembering the root
+   * nodes.
+   */
+  void rememberTopLevelEvaluations(boolean remember);
+
+  /** Cleans up the set of evaluated root SkyKeys. Used for Skyfocus. */
+  void cleanupLatestTopLevelEvaluations();
 }

@@ -13,22 +13,23 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.engine;
 
+import static com.google.common.truth.Truth.assertThat;
+
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
-import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.CachingPackageLocator;
-import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
+import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.util.MockToolsConfig;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
-import com.google.devtools.build.lib.pkgcache.QueryTransitivePackagePreloader;
 import com.google.devtools.build.lib.pkgcache.TargetPatternPreloader;
 import com.google.devtools.build.lib.pkgcache.TargetProvider;
 import com.google.devtools.build.lib.query2.QueryEnvironmentFactory;
 import com.google.devtools.build.lib.query2.common.AbstractBlazeQueryEnvironment;
+import com.google.devtools.build.lib.query2.common.QueryTransitivePackagePreloader;
 import com.google.devtools.build.lib.query2.common.UniverseScope;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
@@ -50,35 +51,40 @@ import org.junit.runners.JUnit4;
  */
 @RunWith(JUnit4.class)
 public class GraphlessQueryTest extends AbstractQueryTest<Target> {
+
+  @Override
+  protected boolean includeCppToolchainDependencies() {
+    // These don't exist in graphless mode.
+    return false;
+  }
+
+  @Override
+  public void boundedRdepsWithError() throws Exception {
+    writeFile(
+        "foo/BUILD",
+        """
+        load('//test_defs:foo_library.bzl', 'foo_library')
+        foo_library(
+            name = "foo",
+            deps = [":dep"],
+        )
+
+        foo_library(
+            name = "dep",
+            deps = ["//bar:missing"],
+        )
+        """);
+    assertThat(
+            evalThrows("rdeps(//foo:foo, //foo:dep, 1)", /* unconditionallyThrows= */ false)
+                .getMessage())
+        .contains("preloading transitive closure failed");
+  }
+
   @Override
   @Test
   public void testGraphOrderOfWildcards() {
     // Test assumes that the result is of type DigraphQueryEvalResult, which is not true for the
     // GraphlessBlazeQueryEnvironment.
-  }
-
-  @Override
-  @Test
-  public void testFilesetPackageDeps() {
-    // Fileset doesn't exist in Bazel.
-  }
-
-  @Override
-  @Test
-  public void testRegressionBug1686119() {
-    // Fileset doesn't exist in Bazel.
-  }
-
-  @Override
-  @Test
-  public void testDefaultCopts() {
-    // There's no default_copts attribute in Bazel.
-  }
-
-  @Override
-  @Test
-  public void testHdrsCheck() throws Exception {
-    // There's no hdrs_check attribute in Bazel.
   }
 
   @Override
@@ -102,6 +108,7 @@ public class GraphlessQueryTest extends AbstractQueryTest<Target> {
               TargetProvider targetProvider,
               CachingPackageLocator cachingPackageLocator,
               TargetPatternPreloader targetPatternPreloader,
+              TargetPattern.Parser targetParser,
               PathFragment relativeWorkingDirectory,
               boolean keepGoing,
               boolean strictScope,
@@ -113,21 +120,22 @@ public class GraphlessQueryTest extends AbstractQueryTest<Target> {
               Set<Setting> settings,
               Iterable<QueryFunction> extraFunctions,
               @Nullable PathPackageLocator packagePath,
-              boolean blockUniverseEvaluationErrors,
-              boolean useGraphlessQuery) {
+              boolean useGraphlessQuery,
+              LabelPrinter labelPrinter) {
             return new GraphlessBlazeQueryEnvironment(
                 queryTransitivePackagePreloader,
                 targetProvider,
                 cachingPackageLocator,
                 targetPatternPreloader,
-                relativeWorkingDirectory,
+                targetParser,
                 keepGoing,
                 strictScope,
                 loadingPhaseThreads,
                 labelFilter,
                 eventHandler,
                 settings,
-                extraFunctions);
+                extraFunctions,
+                labelPrinter);
           }
         };
       }
@@ -135,17 +143,6 @@ public class GraphlessQueryTest extends AbstractQueryTest<Target> {
       @Override
       protected Iterable<QueryFunction> getExtraQueryFunctions() {
         return ImmutableList.of();
-      }
-
-      @Override
-      protected Iterable<EnvironmentExtension> getEnvironmentExtensions() {
-        return ImmutableList.of();
-      }
-
-      @Override
-      protected BuildOptions getDefaultBuildOptions(ConfiguredRuleClassProvider ruleClassProvider) {
-        return BuildOptions.getDefaultBuildOptionsForFragments(
-            ruleClassProvider.getFragmentRegistry().getOptionsClasses());
       }
     };
   }

@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.buildtool;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertContainsEvent;
+import static com.google.devtools.build.lib.rules.python.PythonTestUtils.getPyLoad;
 import static org.junit.Assert.assertThrows;
 
 import com.google.devtools.build.lib.actions.BuildFailedException;
@@ -33,24 +33,20 @@ import org.junit.runners.JUnit4;
 public class CompileOneDependencyIntegrationTest extends BuildIntegrationTestCase {
 
   @Test
-  public void testCcBinaryMember() throws Exception {
+  public void testPyBinaryMember() throws Exception {
     EventCollector eventCollector = new EventCollector(EventKind.START);
     events.addHandler(eventCollector);
     addOptions("--compile_one_dependency");
+    // Make build super minimal.
+    addOptions("--nobuild_runfile_links");
+    write(
+        "package/BUILD", //
+        getPyLoad("py_binary"),
+        "py_binary(name='foo', srcs=['foo.py'])");
+    write("package/foo.py");
+    buildTarget("package/foo.py");
 
-    write("package/BUILD",
-          "cc_binary(name='foo', srcs=['foo.cc'], malloc = '//base:system_malloc')");
-    write("package/foo.cc",
-          "#include <stdio.h>",
-          "int main() {",
-          "  printf(\"Hello, world!\\n\");",
-          "  return 0;",
-          "}");
-    buildTarget("package/foo.cc");
-
-    // Check that 'foo' is recompiled and linked.
-    assertContainsEvent(eventCollector, "Compiling package/foo.cc");
-    assertContainsEvent(eventCollector, "Linking package/foo");
+    assertContainsEvent(eventCollector, "Creating source manifest for //package:foo");
   }
 
   /**
@@ -61,15 +57,24 @@ public class CompileOneDependencyIntegrationTest extends BuildIntegrationTestCas
   public void testBadPackage() throws Exception {
     addOptions("--compile_one_dependency", "--keep_going");
 
-    write("package/BUILD",
-          "cc_binary(name='foo', srcs=['foo.cc'], malloc = '//base:system_malloc')",
-          "invalidbuildsyntax");
-    write("package/foo.cc",
-          "#include <stdio.h>",
-          "int main() {",
-          "  printf(\"Hello, world!\\n\");",
-          "  return 0;",
-          "}");
+    write(
+        "package/BUILD",
+        """
+        cc_binary(
+            name = "foo",
+            srcs = ["foo.cc"],
+            malloc = "//base:system_malloc",
+        )
+
+        invalidbuildsyntax
+        """);
+    write(
+        "package/foo.cc",
+        "#include <stdio.h>",
+        "int main() {",
+        "  printf(\"Hello, world!\\n\");",
+        "  return 0;",
+        "}");
     BuildFailedException e =
         assertThrows(BuildFailedException.class, () -> buildTarget("package/foo.cc"));
     assertThat(e)
@@ -84,9 +89,20 @@ public class CompileOneDependencyIntegrationTest extends BuildIntegrationTestCas
 
     write(
         "package/BUILD",
-        "exports_files(['foo.cc'])",
-        "cc_binary(name='foo', srcs=['fg'], malloc = '//base:system_malloc')",
-        "filegroup(name = 'fg', srcs = ['//brokenpackage:fg'])");
+        """
+        exports_files(["foo.cc"])
+
+        cc_binary(
+            name = "foo",
+            srcs = ["fg"],
+            malloc = "//base:system_malloc",
+        )
+
+        filegroup(
+            name = "fg",
+            srcs = ["//brokenpackage:fg"],
+        )
+        """);
     write(
         "package/foo.cc",
         "#include <stdio.h>",
@@ -94,11 +110,42 @@ public class CompileOneDependencyIntegrationTest extends BuildIntegrationTestCas
         "  printf(\"Hello, world!\\n\");",
         "  return 0;",
         "}");
-    write("brokenpackage/BUILD", "filegroup(name = 'fg', srcs = ['//package:foo.cc'])", "nope");
+    write(
+        "brokenpackage/BUILD",
+        """
+        filegroup(
+            name = "fg",
+            srcs = ["//package:foo.cc"],
+        )
+
+        nope
+        """);
     BuildFailedException e =
         assertThrows(BuildFailedException.class, () -> buildTarget("package:foo.cc"));
     assertThat(e)
         .hasMessageThat()
         .contains("command succeeded, but there were errors parsing the target pattern");
+  }
+
+  @Test
+  public void sourcefilePrintsWarning() throws Exception {
+    write(
+        "file/BUILD", "genrule(name = 'x', srcs = ['src'], cmd = 'touch $@', outs =" + " ['out'])");
+    write("file/src");
+
+    buildTarget("file/src");
+
+    events.assertContainsWarning(
+        "//file:src is a source file, nothing will be built for it. If you want to build a target"
+            + " that consumes this file, try --compile_one_dependency");
+  }
+
+  @Test
+  public void nonSourceFileNoWarning() throws Exception {
+    write("file/BUILD", "genrule(name = 'x', cmd = 'touch $@', outs = ['out'])");
+
+    buildTarget("file/out");
+
+    events.assertNoWarningsOrErrors();
   }
 }

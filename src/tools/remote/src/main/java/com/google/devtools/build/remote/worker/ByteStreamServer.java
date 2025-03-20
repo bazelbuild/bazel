@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import io.grpc.Status;
 import io.grpc.protobuf.StatusProto;
 import io.grpc.stub.StreamObserver;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.UUID;
@@ -83,11 +84,12 @@ final class ByteStreamServer extends ByteStreamImplBase {
     try {
       // This still relies on the blob size to be small enough to fit in memory.
       // TODO(olaola): refactor to fix this if the need arises.
-      Chunker c =
-          Chunker.builder().setInput(getFromFuture(cache.downloadBlob(context, digest))).build();
-      while (c.hasNext()) {
-        responseObserver.onNext(
-            ReadResponse.newBuilder().setData(c.next().getData()).build());
+      byte[] bytes = getFromFuture(cache.downloadBlob(context, digest));
+      try (Chunker c =
+          Chunker.builder().setInput(bytes.length, () -> new ByteArrayInputStream(bytes)).build()) {
+        while (c.hasNext()) {
+          responseObserver.onNext(ReadResponse.newBuilder().setData(c.next().getData()).build());
+        }
       }
       responseObserver.onCompleted();
     } catch (CacheNotFoundException e) {
@@ -105,7 +107,7 @@ final class ByteStreamServer extends ByteStreamImplBase {
 
     Path temp = workPath.getRelative("upload").getRelative(UUID.randomUUID().toString());
     try {
-      FileSystemUtils.createDirectoryAndParents(temp.getParentDirectory());
+      temp.getParentDirectory().createDirectoryAndParents();
       FileSystemUtils.createEmptyFile(temp);
     } catch (IOException e) {
       logger.atSevere().withCause(e).log("Failed to create temporary file for upload");
@@ -141,7 +143,15 @@ final class ByteStreamServer extends ByteStreamImplBase {
         }
 
         if (offset == 0) {
-          if (cache.containsKey(digest)) {
+          boolean exists = false;
+          try {
+            exists = cache.refresh(digest);
+          } catch (IOException e) {
+            responseObserver.onError(StatusUtils.internalError(e));
+            closed = true;
+            return;
+          }
+          if (exists) {
             responseObserver.onNext(
                 WriteResponse.newBuilder().setCommittedSize(digest.getSizeBytes()).build());
             responseObserver.onCompleted();

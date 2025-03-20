@@ -13,6 +13,17 @@ filegroup(
 )
 
 filegroup(
+    name = "mock_srcs",
+    srcs = [
+        "cache.bzl",
+        "http.bzl",
+        "local.bzl",
+        "utils.bzl",
+    ],
+    visibility = ["//src/test/py/bazel:__pkg__"],
+)
+
+filegroup(
     name = "embedded_tools",
     srcs = glob(["*.bzl"]) + ["BUILD.repo"],
     visibility = ["//tools/build_defs:__pkg__"],
@@ -29,9 +40,19 @@ genrule(
     cmd = "touch $@",
 )
 
+# This seemingly useless rule is needed to work around some Google-internal linter issues.
+genrule(
+    name = "index_md",
+    srcs = [":index.md.tmpl"],
+    outs = ["index.md"],
+    cmd = "cat $< > $@",
+)
+
 REPO_BZL_FILES = [
+    "cache",
     "git",
     "http",
+    "local",
     "utils",
 ]
 
@@ -44,7 +65,7 @@ REPO_BZL_FILES = [
 
 [genrule(
     name = "preamb_%s_md" % (name,),
-    srcs = [":preamb.md"],
+    srcs = [":preamb.md.tmpl"],
     outs = ["preamb_%s.md" % (name,)],
     cmd = "sed 's/BZL_FILE_BASE_NAME/%s/g' < $< > $@" % (name,),
 ) for name in REPO_BZL_FILES]
@@ -63,5 +84,7 @@ pkg_tar(
     name = "doc",
     srcs = ["%s_md" % (name,) for name in REPO_BZL_FILES] + ["index.md"],
     strip_prefix = "/tools/build_defs/repo",
-    visibility = ["//site:__subpackages__"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib:__pkg__",
+    ],
 )

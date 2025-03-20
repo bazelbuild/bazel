@@ -29,6 +29,9 @@ java_library(
     srcs = [
         "RunfilesUtil.java",
     ],
+    data = [
+        "//src/test/tools/bzlmod:MODULE.bazel.lock",
+    ],
     exports = [
         "//src/test/java/com/google/devtools/build/lib/blackbox:base_deps",
         "//src/test/java/com/google/devtools/build/lib/blackbox/framework",
@@ -36,7 +39,7 @@ java_library(
     deps = [
         "//src/test/java/com/google/devtools/build/lib/blackbox:base_deps",
         "//src/test/java/com/google/devtools/build/lib/blackbox/framework",
-        "@bazel_tools//tools/java/runfiles",
+        "@rules_java//java/runfiles",
     ],
 )
 
@@ -78,27 +81,16 @@ java_library(
         "JavaToolsSetup.java",
     ],
     data = [
-        ":langtools-copy",
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner:Runner_deploy.jar",
         "//src/tools/singlejar",
         "//third_party/ijar",
-        "//third_party/java/jdk/langtools:test-srcs",
-        "@bazel_tools//tools/jdk:current_java_runtime",
+        "@rules_java//toolchains:current_java_runtime",
     ],
     visibility = [":tests"],
     deps = [
         ":common_tools_deps",
         "//third_party:truth",
     ],
-)
-
-# needed by java tools
-genrule(
-    name = "langtools-copy",
-    testonly = 1,
-    srcs = ["//third_party/java/jdk/langtools:javac_jar"],
-    outs = ["langtools.jar"],
-    cmd = "cp $< $@",
 )
 
 java_library(

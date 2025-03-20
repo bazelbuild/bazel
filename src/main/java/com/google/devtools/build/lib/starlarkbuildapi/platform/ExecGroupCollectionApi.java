@@ -20,31 +20,28 @@ import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.StarlarkIndexable;
 import net.starlark.java.eval.StarlarkValue;
 
-/** Stores {@link com.google.devtools.build.lib.packages.ExecGroup}s available to a given rule. */
+/** Stores exec groups available to a given rule. */
 @StarlarkBuiltin(
     name = "ExecGroupCollection",
     category = DocCategory.BUILTIN,
-    // TODO(b/151742236) update this doc when this becomes non-experimental.
-    doc = "<i>experimental</i> Stores exec groups available to a given rule.")
+    doc = "Stores exec groups available to a given rule.")
 public interface ExecGroupCollectionApi extends StarlarkValue, StarlarkIndexable {
 
   /**
-   * Stores information about a single ExecGroup. The StarlarkMethod functions in this module should
-   * be a subset of the StarlarkMethod functions available for the default exec group via {@link
-   * StarlarkRuleContextApi}. This allows a user to pass in a rule ctx to the same places that take
-   * an exec group ctx to have them operate on the default exec group.
+   * Stores information about a single exec group. The StarlarkMethod functions in this module
+   * should be a subset of the StarlarkMethod functions available for the default exec group via
+   * {@link StarlarkRuleContextApi}. This allows a user to pass in a rule ctx to the same places
+   * that take an exec group ctx to have them operate on the default exec group.
    */
   @StarlarkBuiltin(
       name = "ExecGroupContext",
       category = DocCategory.BUILTIN,
-      // TODO(b/151742236) update this doc when this becomes non-experimental.
-      doc = "<i>experimental</i> Stores information about an exec group.")
+      doc = "Stores information about an exec group.")
   interface ExecGroupContextApi extends StarlarkValue {
     @StarlarkMethod(
         name = "toolchains",
         structField = true,
-        // TODO(b/151742236) update this doc when this becomes non-experimental.
-        doc = "<i>experimental</i> Toolchains required for this exec group")
+        doc = "Toolchains required for this exec group")
     ToolchainContextApi toolchains() throws EvalException;
   }
 }

@@ -67,9 +67,12 @@ public class RawAttributeMapper extends AbstractAttributeMapper {
 
     ImmutableSet.Builder<T> mergedValues = ImmutableSet.builder();
     for (Selector<List<T>> selector : getSelectorList(attributeName, type).getSelectors()) {
-      for (List<T> configuredList : selector.getEntries().values()) {
-        mergedValues.addAll(configuredList);
-      }
+      selector.forEach(
+          (label, value) -> {
+            if (value != null) {
+              mergedValues.addAll(value);
+            }
+          });
     }
     return mergedValues.build();
   }
@@ -85,7 +88,7 @@ public class RawAttributeMapper extends AbstractAttributeMapper {
     }
     ImmutableList.Builder<Label> builder = ImmutableList.builder();
     for (Selector<T> selector : selectorList.getSelectors()) {
-      builder.addAll(selector.getEntries().keySet());
+      selector.forEach((label, value) -> builder.add(label));
     }
     return builder.build();
   }
@@ -124,7 +127,7 @@ public class RawAttributeMapper extends AbstractAttributeMapper {
     // with an empty list during package loading if it is public or private in order not to visit
     // the package called 'visibility'.
     if (attr.getName().equals("visibility")) {
-      return rule.getVisibility().getDeclaredLabels();
+      return rule.getVisibilityDeclaredLabels();
     }
 
     // If the attribute value contains one or more select(...) expressions, then return

@@ -17,11 +17,12 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
-import com.google.devtools.build.lib.analysis.actions.DeterministicWriter;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.util.DeterministicWriter;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
@@ -36,7 +37,7 @@ import java.util.List;
 import javax.annotation.Nullable;
 
 /**
- * An action that writes the a parameter file to {@code incremental_install.py} based on the command
+ * An action that writes a parameter file to {@code incremental_install.py} based on the command
  * line arguments to {@code bazel mobile-install}.
  */
 @Immutable // note that it accesses data non-hermetically during the execution phase
@@ -46,15 +47,14 @@ public final class WriteAdbArgsAction extends AbstractFileWriteAction {
   /** Options of the {@code mobile-install} command pertaining to the way {@code adb} is invoked. */
   public static final class Options extends OptionsBase {
     @Option(
-      name = "adb",
-      defaultValue = "",
-      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-      effectTags = {OptionEffectTag.CHANGES_INPUTS},
-      help =
-          "adb binary to use for the 'mobile-install' command. If unspecified, the one in "
-              + "the Android SDK specified by the --android_sdk command line option (or the "
-              + "default SDK if --android_sdk is not specified) is used."
-    )
+        name = "adb",
+        defaultValue = "",
+        documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+        effectTags = {OptionEffectTag.CHANGES_INPUTS},
+        help =
+            "adb binary to use for the 'mobile-install' command. If unspecified, the one in "
+                + "the Android SDK specified by the --android_sdk_channel command line option (or "
+                + " the default SDK if --android_sdk_channel is not specified) is used.")
     public String adb;
 
     @Option(
@@ -118,7 +118,7 @@ public final class WriteAdbArgsAction extends AbstractFileWriteAction {
   }
 
   public WriteAdbArgsAction(ActionOwner owner, Artifact outputFile) {
-    super(owner, NestedSetBuilder.emptySet(Order.STABLE_ORDER), outputFile, false);
+    super(owner, NestedSetBuilder.emptySet(Order.STABLE_ORDER), outputFile);
   }
 
   @Override
@@ -133,7 +133,7 @@ public final class WriteAdbArgsAction extends AbstractFileWriteAction {
 
     return new DeterministicWriter() {
       @Override
-      public void writeOutputFile(OutputStream out) throws IOException {
+      public void writeTo(OutputStream out) throws IOException {
         PrintStream ps = new PrintStream(out, false, "UTF-8");
 
         if (!adb.isEmpty()) {
@@ -181,7 +181,7 @@ public final class WriteAdbArgsAction extends AbstractFileWriteAction {
   @Override
   protected void computeKey(
       ActionKeyContext actionKeyContext,
-      @Nullable Artifact.ArtifactExpander artifactExpander,
+      @Nullable InputMetadataProvider inputMetadataProvider,
       Fingerprint fp) {
     fp.addString(GUID);
   }

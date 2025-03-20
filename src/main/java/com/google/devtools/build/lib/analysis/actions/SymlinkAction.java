@@ -14,31 +14,47 @@
 
 package com.google.devtools.build.lib.analysis.actions;
 
+import static com.google.devtools.build.lib.unix.UnixFileStatus.S_IXUSR;
+
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.AbstractAction;
+import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
+import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.FilesetOutputTree;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
+import com.google.devtools.build.lib.actions.RichArtifactData;
+import com.google.devtools.build.lib.actions.RichDataProducingAction;
+import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.exec.SpawnLogContext;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.SymlinkAction.Code;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
+import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Symlinks;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import java.io.IOException;
 import javax.annotation.Nullable;
 
-/** Action to create a symbolic link. */
-public final class SymlinkAction extends AbstractAction {
+/**
+ * Action to create a symlink to a known-to-exist target with alias semantics similar to a true copy
+ * of the input (if any).
+ */
+public final class SymlinkAction extends AbstractAction implements RichDataProducingAction {
   private static final String GUID = "7f4fab4d-d0a7-4f0f-8649-1d0337a21fee";
 
   /** Null when {@link #getPrimaryInput} is the target of the symlink. */
@@ -70,6 +86,11 @@ public final class SymlinkAction extends AbstractAction {
 
   private final TargetType targetType;
 
+  public static SymlinkAction toArtifact(
+      ActionOwner owner, Artifact input, Artifact output, String progressMessage) {
+    return toArtifact(owner, input, output, progressMessage, /*useExecRootForSource=*/ false);
+  }
+
   /**
    * Creates an action that creates a symlink pointing to an artifact.
    *
@@ -77,10 +98,24 @@ public final class SymlinkAction extends AbstractAction {
    * @param input the {@link Artifact} the symlink will point to
    * @param output the {@link Artifact} that will be created by executing this Action.
    * @param progressMessage the progress message.
+   * @param useExecRootForSource whether to link source artifacts to exec root as opposed to the
+   *     artifact itself. This indirection makes sure that the symlink is always in sync with exec
+   *     root, which could go out of sync with it when re-planting the symlink tree and the header
+   *     was unchanged.
    */
-  public static SymlinkAction toArtifact(ActionOwner owner, Artifact input, Artifact output,
-      String progressMessage) {
-    return new SymlinkAction(owner, null, input, output, progressMessage, TargetType.OTHER);
+  public static SymlinkAction toArtifact(
+      ActionOwner owner,
+      Artifact input,
+      Artifact output,
+      String progressMessage,
+      boolean useExecRootForSource) {
+    return new SymlinkAction(
+        owner,
+        useExecRootForSource && input.isSourceArtifact() ? input.getExecPath() : null,
+        input,
+        output,
+        progressMessage,
+        TargetType.OTHER);
   }
 
   public static SymlinkAction toExecutable(
@@ -134,13 +169,6 @@ public final class SymlinkAction extends AbstractAction {
         owner, execPath, primaryInput, primaryOutput, progressMessage, TargetType.FILESET);
   }
 
-  public static SymlinkAction createUnresolved(
-      ActionOwner owner, Artifact primaryOutput, PathFragment targetPath, String progressMessage) {
-    Preconditions.checkArgument(primaryOutput.isSymlink());
-    return new SymlinkAction(
-        owner, targetPath, null, primaryOutput, progressMessage, TargetType.OTHER);
-  }
-
   /**
    * Creates a new SymlinkAction instance, where an input artifact is not present. This is useful
    * when dealing with special cases where input paths that are outside the exec root directory
@@ -155,9 +183,12 @@ public final class SymlinkAction extends AbstractAction {
    * @param absolutePath where the symlink will point to
    * @param output the Artifact that will be created by executing this Action.
    * @param progressMessage the progress message.
+   * @deprecated This action is not hermetic. To remove it, also the feature using it needs to be
+   *     deprecated.
    */
-  public static SymlinkAction toAbsolutePath(ActionOwner owner, PathFragment absolutePath,
-      Artifact output, String progressMessage) {
+  @Deprecated
+  public static SymlinkAction toAbsolutePath(
+      ActionOwner owner, PathFragment absolutePath, Artifact output, String progressMessage) {
     Preconditions.checkState(absolutePath.isAbsolute());
     return new SymlinkAction(owner, absolutePath, null, output, progressMessage, TargetType.OTHER);
   }
@@ -170,29 +201,74 @@ public final class SymlinkAction extends AbstractAction {
     return actionExecutionContext.getInputPath(getPrimaryOutput());
   }
 
+  @Nullable
+  @Override
+  public RichArtifactData reconstructRichDataOnActionCacheHit(
+      Path execRoot, InputMetadataProvider inputMetadataProvider) {
+    return targetType == TargetType.FILESET
+        ? FilesetOutputTree.forward(inputMetadataProvider.getFileset(getPrimaryInput()))
+        : null;
+  }
+
   @Override
   public ActionResult execute(ActionExecutionContext actionExecutionContext)
-      throws ActionExecutionException {
+      throws ActionExecutionException, InterruptedException {
     maybeVerifyTargetIsExecutable(actionExecutionContext);
 
-    Path srcPath;
+    Path targetPath;
     if (inputPath == null) {
-      srcPath = actionExecutionContext.getInputPath(getPrimaryInput());
+      targetPath = actionExecutionContext.getInputPath(getPrimaryInput());
     } else {
-      srcPath = actionExecutionContext.getExecRoot().getRelative(inputPath);
+      targetPath = actionExecutionContext.getExecRoot().getRelative(inputPath);
     }
+
+    Path outputPath = getOutputPath(actionExecutionContext);
+
     try {
-      getOutputPath(actionExecutionContext).createSymbolicLink(srcPath);
+      // Delete the empty output directory created prior to the action execution when the output is
+      // a tree artifact. All other actions that produce tree artifacts expect it to exist prior to
+      // their execution. It's not worth complicating ActionOutputDirectoryHelper just to avoid this
+      // small amount of overhead.
+      outputPath.delete();
+
+      outputPath.createSymbolicLink(targetPath);
     } catch (IOException e) {
       String message =
           String.format(
               "failed to create symbolic link '%s' to '%s' due to I/O error: %s",
-              Iterables.getOnlyElement(getOutputs()).prettyPrint(), printInputs(), e.getMessage());
+              getPrimaryOutput().getExecPathString(), printInputs(), e.getMessage());
       DetailedExitCode code = createDetailedExitCode(message, Code.LINK_CREATION_IO_EXCEPTION);
       throw new ActionExecutionException(message, e, this, false, code);
     }
 
     updateInputMtimeIfNeeded(actionExecutionContext);
+
+    SpawnLogContext logContext = actionExecutionContext.getContext(SpawnLogContext.class);
+    if (logContext != null) {
+      try {
+        logContext.logSymlinkAction(this);
+      } catch (IOException e) {
+        String message =
+            String.format(
+                "failed to log creation of symlink '%s' to '%s' due to I/O error: %s",
+                getPrimaryOutput().getExecPathString(), printInputs(), e.getMessage());
+        DetailedExitCode code = createDetailedExitCode(message, Code.LINK_LOG_IO_EXCEPTION);
+        throw new ActionExecutionException(message, e, this, false, code);
+      }
+    }
+
+    if (targetType == TargetType.FILESET) {
+      // Forward the Fileset metadata to the output artifact of this symlink: the metadata is
+      // created in an upstream (Google-specific) action, but the output of this action will appear
+      // on the inputs of actions that have the Fileset as an input. The Fileset metadata must be
+      // attached to that artifact so that the execution strategies of actions that take it as an
+      // input can recreate the Fileset.
+      actionExecutionContext.setRichArtifactData(
+          FilesetOutputTree.forward(
+              actionExecutionContext.getInputMetadataProvider().getFileset(getPrimaryInput())));
+    } else {
+      maybeInjectMetadata(this, actionExecutionContext);
+    }
     return ActionResult.EMPTY;
   }
 
@@ -202,21 +278,32 @@ public final class SymlinkAction extends AbstractAction {
       return;
     }
 
-    Path inputPath = actionExecutionContext.getInputPath(getPrimaryInput());
+    Artifact primaryInput = getPrimaryInput();
+    Path inputPath = actionExecutionContext.getInputPath(primaryInput);
+
+    // Source artifacts are probably in the syscall cache. Generated artifacts are probably not.
+    SyscallCache syscallCache =
+        primaryInput.isSourceArtifact()
+            ? actionExecutionContext.getSyscallCache()
+            : SyscallCache.NO_CACHE;
     try {
-      // Validate that input path is a file with the executable bit set.
-      if (!inputPath.isFile()) {
-        String message =
-            String.format("'%s' is not a file", getInputs().getSingleton().prettyPrint());
+      FileStatus stat = syscallCache.statIfFound(inputPath, Symlinks.FOLLOW);
+      if (stat == null || !stat.isFile()) {
+        String message = String.format("'%s' is not a file", primaryInput.getExecPathString());
         throw new ActionExecutionException(
             message, this, false, createDetailedExitCode(message, Code.EXECUTABLE_INPUT_NOT_FILE));
       }
-      if (!inputPath.isExecutable()) {
+      boolean isExecutable;
+      if (stat.getPermissions() != -1) {
+        isExecutable = (stat.getPermissions() & S_IXUSR) != 0;
+      } else {
+        isExecutable = inputPath.isExecutable();
+      }
+      if (!isExecutable) {
         String message =
             String.format(
                 "failed to create symbolic link '%s': file '%s' is not executable",
-                Iterables.getOnlyElement(getOutputs()).prettyPrint(),
-                getInputs().getSingleton().prettyPrint());
+                getPrimaryOutput().getExecPathString(), primaryInput.getExecPathString());
         throw new ActionExecutionException(
             message, this, false, createDetailedExitCode(message, Code.EXECUTABLE_INPUT_IS_NOT));
       }
@@ -224,8 +311,8 @@ public final class SymlinkAction extends AbstractAction {
       String message =
           String.format(
               "failed to create symbolic link '%s' to the '%s' due to I/O error: %s",
-              Iterables.getOnlyElement(getOutputs()).prettyPrint(),
-              getInputs().getSingleton().prettyPrint(),
+              getPrimaryOutput().getExecPathString(),
+              primaryInput.getExecPathString(),
               e.getMessage());
       DetailedExitCode detailedExitCode =
           createDetailedExitCode(message, Code.EXECUTABLE_INPUT_CHECK_IO_EXCEPTION);
@@ -246,21 +333,64 @@ public final class SymlinkAction extends AbstractAction {
       // Note that utime() on a symlink actually changes the mtime of its target.
       Path linkPath = getOutputPath(actionExecutionContext);
       if (linkPath.exists()) {
-        // -1L means "use the current time".
-        linkPath.setLastModifiedTime(-1L);
+        linkPath.setLastModifiedTime(Path.NOW_SENTINEL_TIME);
       } else {
         // Should only happen if the Fileset included no links.
-        actionExecutionContext.getExecRoot().getRelative(getInputPath()).createDirectory();
+        actionExecutionContext
+            .getExecRoot()
+            .getRelative(getInputPath())
+            .createDirectoryAndParents();
       }
     } catch (IOException e) {
       String message =
           String.format(
               "failed to touch symbolic link '%s' to the '%s' due to I/O error: %s",
-              Iterables.getOnlyElement(getOutputs()).prettyPrint(),
-              getInputs().getSingleton().prettyPrint(),
+              getPrimaryOutput().getExecPathString(),
+              getPrimaryInput().getExecPathString(),
               e.getMessage());
       DetailedExitCode code = createDetailedExitCode(message, Code.LINK_TOUCH_IO_EXCEPTION);
       throw new ActionExecutionException(message, e, this, false, code);
+    }
+  }
+
+  /**
+   * Propagates metadata from the input artifact (symlink target) if possible.
+   *
+   * <p>This is an optimization that saves filesystem operations - we know the output is just a
+   * symlink to the input, so we may be able to skip constructing its metadata from the filesystem.
+   *
+   * <p>In addition to reducing filesystem operations, this allows us to provide richer information
+   * for the symlink metadata. For example, if the input metadata is a {@link
+   * com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue}, the output
+   * metadata will be as well.
+   *
+   * <p>In cases where propagating the input metadata is incorrect ({@linkplain Artifact#isDirectory
+   * directory artifacts}) or cases where the input metadata cannot be obtained, this method does
+   * nothing. The output symlink will be read back from the filesystem after this action finishes
+   * executing.
+   */
+  public static void maybeInjectMetadata(Action symlinkAction, ActionExecutionContext ctx) {
+    if (ctx.getActionFileSystem() != null) {
+      return; // Action filesystems are responsible for their own metadata injection.
+    }
+    Artifact primaryInput = symlinkAction.getPrimaryInput();
+    if (primaryInput == null || primaryInput.isDirectory()) {
+      return;
+    }
+    FileArtifactValue metadata;
+    try {
+      metadata = ctx.getInputMetadataProvider().getInputMetadata(primaryInput);
+    } catch (IOException e) {
+      return;
+    }
+    if (metadata != null) {
+      ctx.getOutputMetadataStore()
+          .injectFile(
+              symlinkAction.getPrimaryOutput(),
+              primaryInput instanceof SourceArtifact
+                  ? FileArtifactValue.createFromExistingWithResolvedPath(
+                      metadata, primaryInput.getPath().asFragment())
+                  : metadata);
     }
   }
 
@@ -268,7 +398,7 @@ public final class SymlinkAction extends AbstractAction {
     if (getInputs().isEmpty()) {
       return inputPath.getPathString();
     } else if (getInputs().isSingleton()) {
-      return getInputs().getSingleton().prettyPrint();
+      return getPrimaryInput().getExecPathString();
     } else {
       throw new IllegalStateException(
           "Inputs unexpectedly contains more than 1 element: " + getInputs());
@@ -278,7 +408,7 @@ public final class SymlinkAction extends AbstractAction {
   @Override
   protected void computeKey(
       ActionKeyContext actionKeyContext,
-      @Nullable ArtifactExpander artifactExpander,
+      @Nullable InputMetadataProvider inputMetadataProvider,
       Fingerprint fp) {
     fp.addString(GUID);
     // We don't normally need to add inputs to the key. In this case, however, the inputPath can be
@@ -286,6 +416,11 @@ public final class SymlinkAction extends AbstractAction {
     if (inputPath != null) {
       fp.addPath(inputPath);
     }
+  }
+
+  @Override
+  public String describeKey() {
+    return String.format("GUID: %s\ninputPath: %s\n", GUID, inputPath);
   }
 
   @Override
@@ -323,5 +458,16 @@ public final class SymlinkAction extends AbstractAction {
             .setMessage(message)
             .setSymlinkAction(FailureDetails.SymlinkAction.newBuilder().setCode(detailedCode))
             .build());
+  }
+
+  @Override
+  public PlatformInfo getExecutionPlatform() {
+    return PlatformInfo.EMPTY_PLATFORM_INFO;
+  }
+
+  @Override
+  public ImmutableMap<String, String> getExecProperties() {
+    // SymlinkAction is platform agnostic.
+    return ImmutableMap.of();
   }
 }

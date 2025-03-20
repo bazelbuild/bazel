@@ -32,8 +32,11 @@ public final class MetadataDigestUtils {
    * @param source the byte buffer source.
    * @return the digest from the given buffer.
    */
-  public static byte[] read(ByteBuffer source) {
+  public static byte[] read(ByteBuffer source) throws IOException {
     int size = VarInt.getVarInt(source);
+    if (size < 0) {
+      throw new IOException("Negative digest size: " + size);
+    }
     byte[] bytes = new byte[size];
     source.get(bytes);
     return bytes;
@@ -46,8 +49,9 @@ public final class MetadataDigestUtils {
   }
 
   /**
+   * Computes an order-independent digest from the given (path, metadata) pairs.
+   *
    * @param mdMap A collection of (execPath, FileArtifactValue) pairs. Values may be null.
-   * @return an <b>order-independent</b> digest from the given "set" of (path, metadata) pairs.
    */
   public static byte[] fromMetadata(Map<String, FileArtifactValue> mdMap) {
     byte[] result = new byte[1]; // reserve the empty string
@@ -55,22 +59,8 @@ public final class MetadataDigestUtils {
     // instance for this computation to amortize its cost.
     Fingerprint fp = new Fingerprint();
     for (Map.Entry<String, FileArtifactValue> entry : mdMap.entrySet()) {
-      result = DigestUtils.xor(result, getDigest(fp, entry.getKey(), entry.getValue()));
-    }
-    return result;
-  }
-
-  /**
-   * @param env A collection of (String, String) pairs.
-   * @return an order-independent digest of the given set of pairs.
-   */
-  public static byte[] fromEnv(Map<String, String> env) {
-    byte[] result = new byte[0];
-    Fingerprint fp = new Fingerprint();
-    for (Map.Entry<String, String> entry : env.entrySet()) {
-      fp.addString(entry.getKey());
-      fp.addString(entry.getValue());
-      result = DigestUtils.xor(result, fp.digestAndReset());
+      result =
+          DigestUtils.combineUnordered(result, getDigest(fp, entry.getKey(), entry.getValue()));
     }
     return result;
   }

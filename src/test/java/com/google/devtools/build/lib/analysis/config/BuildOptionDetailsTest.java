@@ -21,13 +21,11 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Option;
-import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsParser;
 import java.util.List;
-import java.util.Map;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -50,7 +48,7 @@ public class BuildOptionDetailsTest {
   }
 
   /** Example converter for working with options with converters. */
-  public static final class Optionalizer implements Converter<Optional<String>> {
+  public static final class Optionalizer extends Converter.Contextless<Optional<String>> {
     @Override
     public Optional<String> convert(String input) {
       if ("".equals(input)) {
@@ -112,9 +110,6 @@ public class BuildOptionDetailsTest {
         metadataTags = {OptionMetadataTag.INTERNAL})
     public String internalOption;
 
-    private static final OptionDefinition INTERNAL_OPTION_DEFINITION =
-        OptionsParser.getOptionDefinitionByName(Options.class, "internal option");
-
     @Option(
         name = "internal multi option",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -123,25 +118,6 @@ public class BuildOptionDetailsTest {
         metadataTags = {OptionMetadataTag.INTERNAL},
         allowMultiple = true)
     public List<String> internalMultiOption;
-
-    @Option(
-        name = "nonselectable_option",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.NO_OP},
-        defaultValue = "true")
-    public boolean nonselectableOption;
-
-    private static final OptionDefinition NONSELECTABLE_OPTION_DEFINITION =
-        OptionsParser.getOptionDefinitionByName(Options.class, "nonselectable_option");
-
-    @Override
-    public Map<OptionDefinition, SelectRestriction> getSelectRestrictions() {
-      return ImmutableMap.of(
-          NONSELECTABLE_OPTION_DEFINITION,
-          new SelectRestriction(/*visibleWithinToolsPackage=*/ false, /*errorMessage=*/ null),
-          INTERNAL_OPTION_DEFINITION,
-          new SelectRestriction(/*visibleWithinToolsPackage=*/ false, /*errorMessage=*/ null));
-    }
   }
 
   /** Additional options class for testing options lookup. */
@@ -322,42 +298,12 @@ public class BuildOptionDetailsTest {
   }
 
   @Test
-  public void getSelectRestrictions_ReturnsNullByDefault() throws Exception {
-    // This is also a test of the default behavior of FragmentOptions#getSelectRestrictions.
-    BuildOptionDetails details =
-        BuildOptionDetails.forOptionsForTesting(
-            parseOptions(ImmutableList.of(MoreOptions.class)));
-    assertThat(details.getSelectRestriction("other_option")).isNull();
-  }
-
-  @Test
-  public void getSelectRestriction_RetrievesRestrictionObject() throws Exception {
-    BuildOptionDetails details =
-        BuildOptionDetails.forOptionsForTesting(parseOptions(ImmutableList.of(Options.class)));
-    assertThat(details.getSelectRestriction("nonselectable_option")).isNotNull();
-  }
-
-  @Test
-  public void getSelectRestriction_ReturnsNullForUndefinedOption() throws Exception {
-    BuildOptionDetails details =
-        BuildOptionDetails.forOptionsForTesting(parseOptions(ImmutableList.of(Options.class)));
-    assertThat(details.getSelectRestriction("undefined_option")).isNull();
-  }
-
-  @Test
-  public void isSelectable_ReturnsNullForInternalOption() throws Exception {
-    BuildOptionDetails details =
-        BuildOptionDetails.forOptionsForTesting(parseOptions(ImmutableList.of(Options.class)));
-    assertThat(details.getSelectRestriction("internal option")).isNull();
-  }
-
-  @Test
   public void starlarkOptions() throws Exception {
     BuildOptionDetails details =
         BuildOptionDetails.forOptions(
             parseOptions(ImmutableList.of(Options.class)),
-            ImmutableMap.of(Label.parseAbsoluteUnchecked("//test:setting"), "value"));
-    assertThat(details.getOptionValue(Label.parseAbsoluteUnchecked("//test:setting")))
+            ImmutableMap.of(Label.parseCanonicalUnchecked("//test:setting"), "value"));
+    assertThat(details.getOptionValue(Label.parseCanonicalUnchecked("//test:setting")))
         .isEqualTo("value");
   }
 }

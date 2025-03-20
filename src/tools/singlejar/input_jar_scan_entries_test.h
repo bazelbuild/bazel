@@ -23,8 +23,8 @@
 #include <string>
 
 #include "src/tools/singlejar/input_jar.h"
+#include "src/tools/singlejar/mapped_file.h"
 #include "src/tools/singlejar/test_util.h"
-
 #include "googletest/include/gtest/gtest.h"
 
 static const char kJar[] = "jar.jar";
@@ -274,7 +274,44 @@ TYPED_TEST_P(InputJarScanEntries, LotsOfEntries) {
   EXPECT_LE(256 * 256, file_count);
 }
 
+TYPED_TEST_P(InputJarScanEntries, BasicInMemory) {
+  ASSERT_EQ(0, chdir(getenv("TEST_TMPDIR")));
+  this->CreateBasicJar();
+  MappedFile mapped_file;
+  ASSERT_TRUE(mapped_file.Open(kJar));
+  ASSERT_TRUE(this->input_jar_->Open(
+      kJar, const_cast<unsigned char *>(mapped_file.start()),
+      mapped_file.size()));
+  const LH *lh;
+  const CDH *cdh;
+  int file_count = 0;
+  bool res1_present = false;
+  bool res2_present = false;
+  while ((cdh = this->input_jar_->NextEntry(&lh))) {
+    this->SmogCheck(cdh, lh);
+    if ('/' != lh->file_name()[lh->file_name_length() - 1]) {
+      ++file_count;
+      if (cdh->file_name_is(kRes1)) {
+        EXPECT_EQ(res1_size, cdh->uncompressed_file_size());
+        res1_present = true;
+      } else if (cdh->file_name_is(kRes2)) {
+        EXPECT_EQ(res2_size, cdh->uncompressed_file_size());
+        res2_present = true;
+      }
+    }
+  }
+
+  this->input_jar_->Close();
+  mapped_file.Close();
+  unlink(kJar);
+  EXPECT_TRUE(res1_present)
+      << "Jar file " << kJar << " lacks expected '" << kRes1 << "' file.";
+  EXPECT_TRUE(res2_present)
+      << "Jar file " << kJar << " lacks expected '" << kRes2 << "' file.";
+}
+
 REGISTER_TYPED_TEST_SUITE_P(InputJarScanEntries, OpenClose, Basic,
-                            HugeUncompressed, TestZip64, LotsOfEntries);
+                            HugeUncompressed, TestZip64, LotsOfEntries,
+                            BasicInMemory);
 
 #endif  // BAZEL_SRC_TOOLS_SINGLEJAR_INPUT_JAR_SCAN_ENTRIES_TEST_H_

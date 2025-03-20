@@ -18,7 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assume.assumeTrue;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.sandbox.LinuxSandboxUtil;
+import com.google.devtools.build.lib.sandbox.LinuxSandboxCommandLineBuilder;
 import com.google.devtools.build.lib.testutil.BlazeTestUtils;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestUtils;
@@ -62,8 +62,8 @@ public final class CommandUsingLinuxSandboxTest {
     Command command = new Command(commandArguments.toArray(new String[0]));
     CommandResult commandResult = command.execute();
 
-    assertThat(commandResult.getTerminationStatus().success()).isTrue();
-    assertThat(commandResult.getStdoutStream().toString()).contains("colorless green ideas");
+    assertThat(commandResult.terminationStatus().success()).isTrue();
+    assertThat(commandResult.stdoutStream().toString()).contains("colorless green ideas");
   }
 
   @Test
@@ -76,13 +76,14 @@ public final class CommandUsingLinuxSandboxTest {
     ImmutableList<String> commandArguments = ImmutableList.of("echo", "sleep furiously");
 
     List<String> fullCommandLine =
-        LinuxSandboxUtil.commandLineBuilder(getLinuxSandboxPath(), commandArguments).build();
+        LinuxSandboxCommandLineBuilder.commandLineBuilder(getLinuxSandboxPath())
+            .buildForCommand(commandArguments);
 
     Command command = new Command(fullCommandLine.toArray(new String[0]));
     CommandResult commandResult = command.execute();
 
-    assertThat(commandResult.getTerminationStatus().success()).isTrue();
-    assertThat(commandResult.getStdoutStream().toString()).contains("sleep furiously");
+    assertThat(commandResult.terminationStatus().success()).isTrue();
+    assertThat(commandResult.stdoutStream().toString()).contains("sleep furiously");
   }
 
   private void checkLinuxSandboxStatistics(Duration userTimeToSpend, Duration systemTimeToSpend)
@@ -90,16 +91,16 @@ public final class CommandUsingLinuxSandboxTest {
     ImmutableList<String> commandArguments =
         ImmutableList.of(
             getCpuTimeSpenderPath().getPathString(),
-            Long.toString(userTimeToSpend.getSeconds()),
-            Long.toString(systemTimeToSpend.getSeconds()));
+            Long.toString(userTimeToSpend.toSeconds()),
+            Long.toString(systemTimeToSpend.toSeconds()));
 
     Path outputDir = TestUtils.createUniqueTmpDir(testFS);
     Path statisticsFilePath = outputDir.getRelative("stats.out");
 
     List<String> fullCommandLine =
-        LinuxSandboxUtil.commandLineBuilder(getLinuxSandboxPath(), commandArguments)
+        LinuxSandboxCommandLineBuilder.commandLineBuilder(getLinuxSandboxPath())
             .setStatisticsPath(statisticsFilePath)
-            .build();
+            .buildForCommand(commandArguments);
 
     ExecutionStatisticsTestUtil.executeCommandAndCheckStatisticsAboutCpuTimeSpent(
         userTimeToSpend, systemTimeToSpend, fullCommandLine, statisticsFilePath);

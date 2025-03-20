@@ -19,7 +19,7 @@
 
 set -u
 ADDITIONAL_BUILD_FLAGS=$1
-WORKER_TYPE_LOG_STRING=$2
+WORKER_TYPE=$2
 WORKER_PROTOCOL=$3
 shift 3
 
@@ -35,10 +35,8 @@ example_worker=$(find $BAZEL_RUNFILES -name ExampleWorker_deploy.jar)
 
 add_to_bazelrc "build -s"
 add_to_bazelrc "build --spawn_strategy=worker,standalone"
-add_to_bazelrc "build --experimental_worker_allow_json_protocol"
 add_to_bazelrc "build --worker_verbose --worker_max_instances=1"
-add_to_bazelrc "build --debug_print_action_contexts"
-add_to_bazelrc "build --noexperimental_worker_multiplex"
+add_to_bazelrc "build --noworker_multiplex"
 add_to_bazelrc "build ${ADDITIONAL_BUILD_FLAGS}"
 
 function set_up() {
@@ -47,6 +45,8 @@ function set_up() {
   cd ${WORKSPACE_SUBDIR}
   BINS=$(bazel info $PRODUCT_NAME-bin)/${WORKSPACE_SUBDIR}
   OUTPUT_BASE="$(bazel info output_base)"
+
+  add_rules_java ${WORKSPACE_DIR}/MODULE.bazel
 
   # Tell Bazel to shut down all running workers. Faster than a full shutdown.
   bazel build --worker_quit_after_build &> $TEST_log \
@@ -61,6 +61,8 @@ function tear_down() {
 function write_hello_library_files() {
   mkdir -p java/main
   cat >java/main/BUILD <<EOF
+load("@rules_java//java:java_binary.bzl", "java_binary")
+load("@rules_java//java:java_library.bzl", "java_library")
 java_binary(name = 'main',
     deps = [':hello_library'],
     srcs = ['Main.java'],
@@ -96,7 +98,7 @@ function test_compiles_hello_library_using_persistent_javac() {
 
   bazel build java/main:main &> "$TEST_log" \
     || fail "build failed"
-  expect_log "Created new ${WORKER_TYPE_LOG_STRING} Javac worker (id [0-9]\+)"
+  expect_log "Created new ${WORKER_TYPE} singleplex Javac worker (id [0-9]\+, key hash -\?[0-9]\+)"
   $BINS/java/main/main | grep -q "Hello, Library!;Hello, World!" \
     || fail "comparison failed"
 }
@@ -108,7 +110,7 @@ function test_compiles_hello_library_using_persistent_javac_sibling_layout() {
     --experimental_sibling_repository_layout java/main:main \
     --worker_max_instances=Javac=1 \
     &> "$TEST_log" || fail "build failed"
-  expect_log "Created new ${WORKER_TYPE_LOG_STRING} Javac worker (id [0-9]\+)"
+  expect_log "Created new ${WORKER_TYPE} singleplex Javac worker (id [0-9]\+, key hash -\?[0-9]\+)"
   $BINS/java/main/main | grep -q "Hello, Library!;Hello, World!" \
     || fail "comparison failed"
 }
@@ -176,6 +178,8 @@ work = rule(
 )
 EOF
   cat >BUILD <<EOF
+load("@rules_java//java:java_binary.bzl", "java_binary")
+load("@rules_java//java:java_import.bzl", "java_import")
 load(":work.bzl", "work")
 
 java_import(
@@ -324,6 +328,30 @@ EOF
   assert_equals "$worker_uuid_1" "$worker_uuid_2"
 }
 
+function test_worker_extra_flag() {
+  prepare_example_worker
+  cat >>BUILD <<EOF
+work(
+  name = "hello_world",
+  worker = ":worker",
+  worker_args = ["--worker_protocol=${WORKER_PROTOCOL}"],
+  action_mnemonic = "Hello",
+  worker_key_mnemonic = "World",
+)
+EOF
+
+  bazel build :hello_world --worker_extra_flag=World=--ignored_argument \
+      &> "$TEST_log" || fail "build failed"
+
+  local -r worker_log=$(egrep -o -- 'logging to .*/b(azel|laze)-workers/worker-[0-9]+-World.log' "$TEST_log" | sed 's/^logging to //')
+
+  if ! [[ -e "$worker_log" ]]; then
+    fail "Worker log was not found"
+  fi
+
+  assert_contains "Worker args: .* --ignored_argument" "$worker_log"
+}
+
 function test_multiple_flagfiles() {
   prepare_example_worker
   cat >>BUILD <<EOF
@@ -383,7 +411,7 @@ EOF
   bazel build --worker_verbose :hello_world_2 &> "$TEST_log" \
     || fail "build failed"
 
-  expect_log "Work worker (id [0-9]\+) has unexpectedly died with exit code 0."
+  expect_log "Work worker (id [0-9]\+, key hash -\?[0-9]\+) has unexpectedly died with exit code 0."
 }
 
 function test_build_fails_if_worker_dies_during_action() {
@@ -573,8 +601,8 @@ EOF
 
   bazel build --worker_quit_after_build :hello_world_1 &> "$TEST_log" \
     || fail "build failed"
-  expect_log "Created new ${WORKER_TYPE_LOG_STRING} Work worker (id [0-9]\+)"
-  expect_log "Destroying Work worker (id [0-9]\+)"
+  expect_log "Created new ${WORKER_TYPE} singleplex Work worker (id [0-9]\+, key hash -\?[0-9]\+)"
+  expect_log "Destroying Work worker (id [0-9]\+, key hash -\?[0-9]\+)"
   expect_log "Build completed, shutting down worker pool..."
 }
 
@@ -592,12 +620,13 @@ EOF
   bazel build --worker_quit_after_build :hello_world_1 &> "$TEST_log" \
     || fail "build failed"
 
-  expect_log "Created new ${WORKER_TYPE_LOG_STRING} Work worker (id [0-9]\+)"
+  expect_log "Created new ${WORKER_TYPE} singleplex Work worker (id [0-9]\+, key hash -\?[0-9]\+)"
 
-  worker_log=$(egrep -o -- 'logging to .*/b(azel|laze)-workers/worker-[0-9]-Work.log' "$TEST_log" | sed 's/^logging to //')
+  local -r worker_log=$(egrep -o -- 'logging to .*/b(azel|laze)-workers/worker-[0-9]+-Work.log' "$TEST_log" | sed 's/^logging to //')
 
-  [ -e "$worker_log" ] \
-    || fail "Worker log was not found"
+  if ! [[ -e "$worker_log" ]]; then
+    fail "Worker log was not found"
+  fi
 
   # Running a build after a server shutdown should trigger the removal of old worker log files.
   bazel shutdown &> $TEST_log
@@ -652,8 +681,8 @@ EOF
   bazel build --worker_quit_after_build :hello_world &> "$TEST_log" \
     || fail "build failed"
 
-  expect_not_log "Created new ${WORKER_TYPE_LOG_STRING} Work worker (id [0-9]\+)"
-  expect_not_log "Destroying Work worker (id [0-9]\+)"
+  expect_not_log "Created new ${WORKER_TYPE} singleplex Work worker (id [0-9]\+, key hash -\?[0-9]\+)"
+  expect_not_log "Destroying Work worker (id [0-9]\+, key hash -\?[0-9]\+)"
 
   # WorkerSpawnStrategy falls back to standalone strategy, so we still expect the output to be generated.
   [ -e "$BINS/hello_world.out" ] \
@@ -694,12 +723,12 @@ EOF
   bazel build :hello_clean &> "$TEST_log" \
     || fail "build failed"
   assert_equals "hello clean" "$(cat $BINS/hello_clean.out)"
-  expect_log "Created new ${WORKER_TYPE_LOG_STRING} Work worker (id [0-9]\+)"
+  expect_log "Created new ${WORKER_TYPE} singleplex Work worker (id [0-9]\+, key hash -\?[0-9]\+)"
 
   bazel clean &> "$TEST_log" \
     || fail "clean failed"
   expect_log "Clean command is running, shutting down worker pool..."
-  expect_log "Destroying Work worker (id [0-9]\+)"
+  expect_log "Destroying Work worker (id [0-9]\+, key hash -\?[0-9]\+)"
 }
 
 function test_crashed_worker_causes_log_dump() {
@@ -727,6 +756,150 @@ EOF
   expect_log "Worker process did not return a WorkResponse:"
   expect_log "I'm a very poisoned worker and will just crash."
   expect_log "^---8<---8<--- End of log ---8<---8<---"
+}
+
+function test_worker_memory_limit() {
+  prepare_example_worker
+  cat >>BUILD <<EOF
+work(
+  name = "hello_world",
+  worker = ":worker",
+  worker_args = [
+    "--worker_protocol=${WORKER_PROTOCOL}",
+  ],
+  args = [
+    "--work_time=3s",
+  ]
+)
+EOF
+
+  bazel build --experimental_worker_memory_limit_mb=1000 \
+    --experimental_worker_metrics_poll_interval=1s :hello_world &> "$TEST_log" \
+    || fail "build failed"
+  bazel clean
+  bazel build --experimental_worker_memory_limit_mb=1 \
+    --experimental_worker_metrics_poll_interval=1s :hello_world &> "$TEST_log" \
+    && fail "expected build to fail" || true
+
+  expect_log "^---8<---8<--- Start of log, file at /"
+  expect_log "Worker process did not return a WorkResponse:"
+  expect_log "Killing [a-zA-Z]\+ worker [0-9]\+ (pid [0-9]\+) because it is using more memory than the limit ([0-9]\+ KB > 1 MB)"
+  expect_log "^---8<---8<--- End of log ---8<---8<---"
+}
+
+function test_total_worker_memory_limit_log_starting() {
+  prepare_example_worker
+  cat >>BUILD <<EOF
+[work(
+  name = "hello_world_%s" % idx,
+  worker = ":worker",
+  worker_args = ["--worker_protocol=${WORKER_PROTOCOL}"],
+  args = ["--write_uuid", "--write_counter", "--work_time=1s"],
+) for idx in range(10)]
+EOF
+
+  bazel build --experimental_total_worker_memory_limit_mb=10000 \
+  --experimental_worker_memory_limit_mb=5000 --noexperimental_shrink_worker_pool :hello_world_1 &> "$TEST_log" \
+  || fail "build failed"
+
+
+  expect_log "Worker Lifecycle Manager starts work with (total limit: 10000 MB, individual limit: 5000 MB, shrinking: disabled)"
+
+  bazel build --experimental_total_worker_memory_limit_mb=15000 \
+  --experimental_worker_memory_limit_mb=7000 --experimental_shrink_worker_pool :hello_world_2 &> "$TEST_log" \
+  || fail "build failed"
+
+  expect_not_log "Destroying Work worker (id [0-9]\+, key hash -\?[0-9]\+)"
+  expect_log "Worker Lifecycle Manager starts work with (total limit: 15000 MB, individual limit: 7000 MB, shrinking: enabled)"
+}
+
+function test_worker_metrics_collection() {
+  prepare_example_worker
+  cat >>BUILD <<EOF
+[work(
+  name = "hello_world_%s" % idx,
+  worker = ":worker",
+  worker_args = ["--worker_protocol=${WORKER_PROTOCOL}"],
+  args = ["--write_uuid", "--write_counter", "--work_time=1s"],
+) for idx in range(10)]
+EOF
+
+  bazel build \
+      --build_event_text_file="${TEST_log}".build.json \
+      --profile="${TEST_log}".profile \
+      --experimental_worker_metrics_poll_interval=400ms \
+      --experimental_collect_worker_data_in_profiler \
+      :hello_world_1 &> "$TEST_log" \
+    || fail "build failed"
+  expect_log "Created new ${WORKER_TYPE} singleplex Work worker (id [0-9]\+, key hash -\?[0-9]\+)"
+  # Now see that we have metrics in the build event log.
+  mv "${TEST_log}".build.json "${TEST_log}"
+  expect_log "mnemonic: \"Work\""
+  expect_log "worker_memory_in_kb: [0-9][0-9]*"
+  # And see that we collected metrics several times
+  mv "${TEST_log}".profile "${TEST_log}"
+  local metric_events=$(grep -sc -- "Total worker memory usage" $TEST_log)
+  (( metric_events >= 2 )) || fail "Expected at least 2 \"Total worker memory usage\"metric collections"
+  local metric_events=$(grep -sc -- "Per-mnemonic worker memory usage" $TEST_log)
+  (( metric_events >= 2 )) || fail "Expected at least 2 \"Per-mnemonic worker memory usage\"metric collections"
+}
+
+function do_test_sandbox_cleanup {
+  # Skip if worker sandboxing isn't enabled.
+  if [[ "${WORKER_TYPE}" != "sandboxed" ]]; then
+    return 0
+  fi
+
+  prepare_example_worker
+
+  mkdir -p a b c
+  touch a/1.txt b/2.txt b/3.txt b/4.txt c/5.txt
+
+  cat >>BUILD <<EOF
+work(
+  name = "first",
+  worker = ":worker",
+  worker_key_mnemonic = "Worker",
+  worker_args = ["--worker_protocol=${WORKER_PROTOCOL}"],
+  args = ["--print_dir_listing=${WORKSPACE_SUBDIR}"],
+  srcs = ["a/1.txt", "b/2.txt", "b/3.txt"],
+)
+work(
+  name = "second",
+  worker = ":worker",
+  worker_key_mnemonic = "Worker",
+  worker_args = ["--worker_protocol=${WORKER_PROTOCOL}"],
+  args = ["--print_dir_listing=${WORKSPACE_SUBDIR}"],
+  srcs = ["b/3.txt", "b/4.txt", "c/5.txt", "first.out"],
+)
+EOF
+
+  bazel build "$@" \
+    :first :second &> "$TEST_log" || fail "Build failed"
+
+  assert_contains "DIRENT a/1.txt" $BINS/first.out
+  assert_contains "DIRENT b/2.txt" $BINS/first.out
+  assert_contains "DIRENT b/3.txt" $BINS/first.out
+  assert_not_contains "DIRENT b/4.txt" $BINS/first.out
+  assert_not_contains "DIRENT c" $BINS/first.out
+
+  assert_not_contains "DIRENT a" $BINS/second.out
+  assert_not_contains "DIRENT b/2.txt" $BINS/second.out
+  assert_contains "DIRENT b/3.txt" $BINS/second.out
+  assert_contains "DIRENT b/4.txt" $BINS/second.out
+  assert_contains "DIRENT c/5.txt" $BINS/second.out
+
+  assert_equals \
+    "$(grep "DIRENT b/3.txt" $BINS/first.out | cut -d' ' -f3)" \
+    "$(grep "DIRENT b/3.txt" $BINS/second.out | cut -d' ' -f3)"
+}
+
+function test_sandbox_cleanup_without_tracking() {
+  do_test_sandbox_cleanup
+}
+
+function test_sandbox_cleanup_with_tracking() {
+  do_test_sandbox_cleanup --experimental_worker_sandbox_inmemory_tracking=Worker
 }
 
 run_suite "Worker integration tests"

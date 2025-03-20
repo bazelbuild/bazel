@@ -195,8 +195,6 @@ public class LcovMergerTestUtils {
 
   static final String SOURCE_FILENAME = "SOURCE_FILENAME";
   static final int NR_FUNCTIONS_FOUND = 3;
-  static final int NR_FUNCTIONS_HIT_TRACEFILE1 = 2;
-  static final int NR_FUNCTIONS_HIT_TRACEFILE2 = 3;
 
   static final String FUNC_1 = "file1-func1";
   static final int FUNC_1_LINE_NR = 10;
@@ -214,8 +212,6 @@ public class LcovMergerTestUtils {
   static final long FUNC_3_NR_EXECUTED_LINES_TRACEFILE2 = 2;
 
   static final int NR_LINES_FOUND = 14;
-  static final int NR_LINES_HIT_TRACEFILE1 = 10;
-  static final int NR_LINES_HIT_TRACEFILE2 = 13;
 
   static final int NR_BRANCHES_FOUND = 6;
   static final int NR_BRANCHES_HIT_TRACEFILE1 = 2;

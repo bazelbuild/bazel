@@ -20,21 +20,32 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests for BzlLoadValue key's autocodec. */
+/** Tests for BzlLoadValue key's serialization. */
 @RunWith(JUnit4.class)
 public final class BzlLoadKeyCodecTest {
 
   @Test
   public void testCodec() throws Exception {
+    // This test uses DynamicCodec.
     SerializationTester serializationTester =
         new SerializationTester(
-            BzlLoadValue.keyForBuild(Label.parseAbsoluteUnchecked("//foo/bar:baz")),
+            BzlLoadValue.keyForBuild(Label.parseCanonicalUnchecked("//foo/bar:baz")),
             BzlLoadValue.keyForWorkspace(
-                Label.parseAbsoluteUnchecked("//foo/bar:baz"),
-                /*workspaceChunk=*/ 4,
-                /*workspacePath=*/ FsUtils.TEST_ROOTED_PATH),
-            BzlLoadValue.keyForBuiltins(Label.parseAbsoluteUnchecked("@_builtins//:foo/bar")));
+                Label.parseCanonicalUnchecked("//foo/bar:baz"),
+                /* workspaceChunk= */ 4,
+                /* workspacePath= */ FsUtils.TEST_ROOTED_PATH),
+            BzlLoadValue.keyForBuiltins(Label.parseCanonicalUnchecked("@_builtins//:foo/bar")));
     FsUtils.addDependencies(serializationTester);
     serializationTester.runTests();
+  }
+
+  @Test
+  public void testLeafCodec() throws Exception {
+    // This test uses the explicit LeafObjectCodec implementation.
+    new SerializationTester(
+            BzlLoadValue.keyForBuild(Label.parseCanonicalUnchecked("//foo/bar:baz")),
+            BzlLoadValue.keyForBuiltins(Label.parseCanonicalUnchecked("@_builtins//:foo/bar")))
+        .addCodec(BzlLoadValue.bzlLoadKeyCodec())
+        .runTests();
   }
 }

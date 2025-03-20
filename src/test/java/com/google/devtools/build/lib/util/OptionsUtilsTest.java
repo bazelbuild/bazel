@@ -193,27 +193,6 @@ public class OptionsUtilsTest {
   }
 
   @Test
-  public void emptyPathFragmentToNull() throws Exception {
-    assertThat(new OptionsUtils.EmptyToNullRelativePathFragmentConverter().convert("")).isNull();
-  }
-
-  @Test
-  public void absolutePathFragmentThrows() throws Exception {
-    OptionsParsingException exception =
-        assertThrows(
-            OptionsParsingException.class,
-            () -> new OptionsUtils.EmptyToNullRelativePathFragmentConverter().convert("/abs"));
-
-    assertThat(exception).hasMessageThat().contains("/abs");
-  }
-
-  @Test
-  public void relativePathFragment() throws Exception {
-    assertThat(new OptionsUtils.EmptyToNullRelativePathFragmentConverter().convert("path/to/me"))
-        .isEqualTo(PathFragment.create("path/to/me"));
-  }
-
-  @Test
   public void absolutePathFragmentConverter_convertsAbsolutePath(
       @TestParameter({"/", "/dir/file"}) String path) throws Exception {
     OptionsUtils.AbsolutePathFragmentConverter converter =

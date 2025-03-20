@@ -17,11 +17,16 @@ import build.bazel.remote.execution.v2.Digest;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
+import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
-import com.google.devtools.build.lib.actions.MetadataProvider;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
+import com.google.devtools.build.lib.remote.Scrubber.SpawnScrubber;
 import com.google.devtools.build.lib.remote.merkletree.DirectoryTree.DirectoryNode;
 import com.google.devtools.build.lib.remote.merkletree.DirectoryTree.FileNode;
+import com.google.devtools.build.lib.remote.merkletree.DirectoryTree.SymlinkNode;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.Path;
@@ -31,8 +36,10 @@ import java.io.IOException;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
+import javax.annotation.Nullable;
 
 /** Builder for directory trees. */
 class DirectoryTreeBuilder {
@@ -54,12 +61,24 @@ class DirectoryTreeBuilder {
 
   static DirectoryTree fromActionInputs(
       SortedMap<PathFragment, ActionInput> inputs,
-      MetadataProvider metadataProvider,
+      Set<PathFragment> toolInputs,
+      InputMetadataProvider inputMetadataProvider,
       Path execRoot,
+      ArtifactPathResolver artifactPathResolver,
+      @Nullable SpawnScrubber spawnScrubber,
       DigestUtil digestUtil)
       throws IOException {
     Map<PathFragment, DirectoryNode> tree = new HashMap<>();
-    int numFiles = buildFromActionInputs(inputs, metadataProvider, execRoot, digestUtil, tree);
+    int numFiles =
+        buildFromActionInputs(
+            inputs,
+            toolInputs,
+            inputMetadataProvider,
+            execRoot,
+            artifactPathResolver,
+            spawnScrubber,
+            digestUtil,
+            tree);
     return new DirectoryTree(tree, numFiles);
   }
 
@@ -82,6 +101,9 @@ class DirectoryTreeBuilder {
   /**
    * Adds the files in {@code inputs} as nodes to {@code tree}.
    *
+   * <p>Prefer {@link #buildFromActionInputs} if this Merkle tree is for an action spawn (as opposed
+   * to repository fetching).
+   *
    * <p>This method mutates {@code tree}.
    *
    * @param inputs map of paths to files. The key determines the path at which the file should be
@@ -96,13 +118,14 @@ class DirectoryTreeBuilder {
     return build(
         inputs,
         tree,
+        /* scrubber= */ null,
         (input, path, currDir) -> {
           if (!input.isFile(Symlinks.NOFOLLOW)) {
             throw new IOException(String.format("Input '%s' is not a file.", input));
           }
           Digest d = digestUtil.compute(input);
-          currDir.addChild(FileNode.createExecutable(path.getBaseName(), input, d));
-          return 1;
+          boolean childAdded = currDir.addChild(FileNode.create(path.getBaseName(), input, d));
+          return childAdded ? 1 : 0;
         });
   }
 
@@ -115,57 +138,77 @@ class DirectoryTreeBuilder {
    */
   private static int buildFromActionInputs(
       SortedMap<PathFragment, ActionInput> inputs,
-      MetadataProvider metadataProvider,
+      Set<PathFragment> toolInputs,
+      InputMetadataProvider inputMetadataProvider,
       Path execRoot,
+      ArtifactPathResolver artifactPathResolver,
+      @Nullable SpawnScrubber spawnScrubber,
       DigestUtil digestUtil,
       Map<PathFragment, DirectoryNode> tree)
       throws IOException {
     return build(
         inputs,
         tree,
+        spawnScrubber,
         (input, path, currDir) -> {
-          if (input instanceof VirtualActionInput) {
-            VirtualActionInput virtualActionInput = (VirtualActionInput) input;
+          if (input instanceof VirtualActionInput virtualActionInput) {
             Digest d = digestUtil.compute(virtualActionInput);
-            currDir.addChild(
-                FileNode.createExecutable(path.getBaseName(), virtualActionInput.getBytes(), d));
-            return 1;
+            boolean childAdded =
+                currDir.addChild(
+                    FileNode.create(
+                        path.getBaseName(), virtualActionInput, d, toolInputs.contains(path)));
+            return childAdded ? 1 : 0;
           }
 
           FileArtifactValue metadata =
               Preconditions.checkNotNull(
-                  metadataProvider.getMetadata(input),
+                  inputMetadataProvider.getInputMetadata(input),
                   "missing metadata for '%s'",
                   input.getExecPathString());
           switch (metadata.getType()) {
-            case REGULAR_FILE:
+            case REGULAR_FILE -> {
               Digest d = DigestUtil.buildDigest(metadata.getDigest(), metadata.getSize());
-              Path inputPath = ActionInputHelper.toInputPath(input, execRoot);
-              currDir.addChild(FileNode.createExecutable(path.getBaseName(), inputPath, d));
-              return 1;
-
-            case DIRECTORY:
+              Path inputPath = artifactPathResolver.toPath(input);
+              boolean childAdded =
+                  currDir.addChild(
+                      FileNode.create(path.getBaseName(), inputPath, d, toolInputs.contains(path)));
+              return childAdded ? 1 : 0;
+            }
+            case DIRECTORY -> {
               SortedMap<PathFragment, ActionInput> directoryInputs =
                   explodeDirectory(input.getExecPath(), execRoot);
               return buildFromActionInputs(
-                  directoryInputs, metadataProvider, execRoot, digestUtil, tree);
-
-            case SYMLINK:
-              throw new IllegalStateException(
-                  String.format(
-                      "Encountered symlink input '%s', but all"
-                          + " symlinks should have been resolved by SkyFrame. This is a bug.",
-                      path));
-
-            case SPECIAL_FILE:
-              throw new IOException(
-                  String.format(
-                      "The '%s' is a special input which is not supported"
-                          + " by remote caching and execution.",
-                      path));
-
-            case NONEXISTENT:
-              throw new IOException(String.format("The file type of '%s' is not supported.", path));
+                  directoryInputs,
+                  toolInputs,
+                  inputMetadataProvider,
+                  execRoot,
+                  artifactPathResolver,
+                  spawnScrubber,
+                  digestUtil,
+                  tree);
+            }
+            case SYMLINK -> {
+              Preconditions.checkState(
+                  input instanceof SpecialArtifact && input.isSymlink(),
+                  "Encountered symlink input '%s', but all source symlinks should have been"
+                      + " resolved by SkyFrame. This is a bug.",
+                  path);
+              Path inputPath = artifactPathResolver.toPath(input);
+              boolean childAdded =
+                  currDir.addChild(
+                      new SymlinkNode(
+                          path.getBaseName(), inputPath.readSymbolicLink().getPathString()));
+              return childAdded ? 1 : 0;
+            }
+            case SPECIAL_FILE ->
+                throw new IOException(
+                    String.format(
+                        "The '%s' is a special input which is not supported"
+                            + " by remote caching and execution.",
+                        path));
+            case NONEXISTENT ->
+                throw new IOException(
+                    String.format("The file type of '%s' is not supported.", path));
           }
 
           return 0;
@@ -175,6 +218,7 @@ class DirectoryTreeBuilder {
   private static <T> int build(
       SortedMap<PathFragment, T> inputs,
       Map<PathFragment, DirectoryNode> tree,
+      @Nullable SpawnScrubber scrubber,
       FileNodeVisitor<T> fileNodeVisitor)
       throws IOException {
     if (inputs.isEmpty()) {
@@ -188,6 +232,23 @@ class DirectoryTreeBuilder {
       // Path relative to the exec root
       PathFragment path = e.getKey();
       T input = e.getValue();
+
+      if (scrubber != null && scrubber.shouldOmitInput(path)) {
+        continue;
+      }
+
+      if (input instanceof Artifact artifact && artifact.isTreeArtifact()) {
+        // SpawnInputExpander has already expanded non-empty tree artifacts into a collection of
+        // TreeFileArtifacts. Thus, at this point, tree artifacts represent empty directories, which
+        // we create together with their parents. Note that this includes both empty input *and*
+        // output tree artifacts (the latter are included so that their root directory is created
+        // before the action executes).
+        DirectoryNode emptyDir = new DirectoryNode(path.getBaseName());
+        tree.put(path, emptyDir);
+        createParentDirectoriesIfNotExist(path, emptyDir, tree);
+        continue;
+      }
+
       if (dirname == null || !path.getParentDirectory().equals(dirname)) {
         dirname = path.getParentDirectory();
         dir = tree.get(dirname);
@@ -219,23 +280,16 @@ class DirectoryTreeBuilder {
       String basename = entry.getName();
       PathFragment path = dirname.getChild(basename);
       switch (entry.getType()) {
-        case FILE:
-          inputs.put(path, ActionInputHelper.fromPath(path));
-          break;
-
-        case DIRECTORY:
-          explodeDirectory(path, inputs, execRoot);
-          break;
-
-        case SYMLINK:
-          throw new IllegalStateException(
-              String.format(
-                  "Encountered symlink input '%s', but all"
-                      + " symlinks should have been resolved by readdir. This is a bug.",
-                  path));
-
-        case UNKNOWN:
-          throw new IOException(String.format("The file type of '%s' is not supported.", path));
+        case FILE -> inputs.put(path, ActionInputHelper.fromPath(path));
+        case DIRECTORY -> explodeDirectory(path, inputs, execRoot);
+        case SYMLINK ->
+            throw new IllegalStateException(
+                String.format(
+                    "Encountered symlink input '%s', but all"
+                        + " symlinks should have been resolved by readdir. This is a bug.",
+                    path));
+        case UNKNOWN ->
+            throw new IOException(String.format("The file type of '%s' is not supported.", path));
       }
     }
   }

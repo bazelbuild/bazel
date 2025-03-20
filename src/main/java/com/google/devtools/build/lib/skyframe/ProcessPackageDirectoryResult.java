@@ -20,7 +20,7 @@ import com.google.devtools.build.skyframe.SkyValue;
 
 /** Result of {@link ProcessPackageDirectory#getPackageExistenceAndSubdirDeps}. */
 public class ProcessPackageDirectoryResult {
-  static final ProcessPackageDirectoryResult EMPTY_RESULT =
+  public static final ProcessPackageDirectoryResult EMPTY_RESULT =
       new ProcessPackageDirectoryResult(false, ImmutableList.<SkyKey>of(), ImmutableMap.of());
   private final boolean packageExists;
   private final Iterable<SkyKey> childDeps;

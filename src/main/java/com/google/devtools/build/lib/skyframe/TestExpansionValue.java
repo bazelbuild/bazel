@@ -92,10 +92,9 @@ final class TestExpansionValue implements SkyValue {
       if (this == obj) {
         return true;
       }
-      if (!(obj instanceof TestExpansionKey)) {
+      if (!(obj instanceof TestExpansionKey other)) {
         return false;
       }
-      TestExpansionKey other = (TestExpansionKey) obj;
       return other.label.equals(label) && other.strict == strict;
     }
   }

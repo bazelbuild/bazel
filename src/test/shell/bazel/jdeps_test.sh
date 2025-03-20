@@ -59,8 +59,8 @@ function test_jdeps() {
   else
     platform="linux"
   fi
-  cp $(rlocation io_bazel/src/allmodules_jdk.tar.gz) .
-  tar xf allmodules_jdk.tar.gz || fail "Failed to extract JDK."
+  cp $(rlocation io_bazel/src/allmodules_jdk.zip) .
+  unzip allmodules_jdk.zip || fail "Failed to extract JDK."
   denylist=$(rlocation io_bazel/src/test/shell/bazel/jdeps_class_denylist.txt)
   deploy_jar=$(rlocation io_bazel/src/main/java/com/google/devtools/build/lib/bazel/BazelServer_deploy.jar)
   cd ../bazeljar
@@ -72,10 +72,18 @@ function test_jdeps() {
   # src/test/shell/bazel/jdeps_class_denylist.txt.
   find . -type f -iname \*class | \
     grep -vFf "$denylist" | \
-    xargs ../jdk/reduced/bin/jdeps --list-reduced-deps | \
+    xargs -n1000 ../jdk/reduced/bin/jdeps --list-reduced-deps --ignore-missing-deps | \
     grep -v "unnamed module" > ../jdeps \
     || fail "Failed to run jdeps on non denylisted class files."
   cd ..
+
+  # Keep java.instrument for allocation_instrumenter, which is supplied by the user.
+  echo "java.instrument" >> jdeps
+  # java.management is needed for JMX Beans, but for some reason ends up missing from
+  # the jdeps output in some cases, see
+  # https://github.com/bazelbuild/bazel/issues/12685
+  # See https://github.com/bazelbuild/bazel/issues/12685
+  echo "java.management" >> jdeps
 
   # Make the list sorted and unique and compare it with expected results.
   cat jdeps | \

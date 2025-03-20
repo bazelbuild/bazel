@@ -28,9 +28,11 @@ import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.TestSize;
 import com.google.devtools.build.lib.packages.TestTimeout;
 import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.TestAction;
 import com.google.devtools.build.lib.server.FailureDetails.TestAction.Code;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -54,12 +56,12 @@ public class TestTargetProperties {
       ResourceSet.createWithLocalTestCount(1);
 
   private static ResourceSet getResourceSetFromSize(TestSize size) {
-    switch (size) {
-      case SMALL: return SMALL_RESOURCES;
-      case MEDIUM: return MEDIUM_RESOURCES;
-      case LARGE: return LARGE_RESOURCES;
-      default: return ENORMOUS_RESOURCES;
-    }
+    return switch (size) {
+      case SMALL -> SMALL_RESOURCES;
+      case MEDIUM -> MEDIUM_RESOURCES;
+      case LARGE -> LARGE_RESOURCES;
+      default -> ENORMOUS_RESOURCES;
+    };
   }
 
   private final TestSize size;
@@ -70,34 +72,30 @@ public class TestTargetProperties {
   private final boolean isExternal;
   private final String language;
   private final ImmutableMap<String, String> executionInfo;
-  private final boolean isPersistentTestRunner;
+  private final TestConfiguration testConfiguration;
 
   /**
    * Creates test target properties instance. Constructor expects that it will be called only for
    * test configured targets.
    */
-  TestTargetProperties(
-      RuleContext ruleContext,
-      ExecutionInfo executionRequirements,
-      boolean isPersistentTestRunner) {
+  TestTargetProperties(RuleContext ruleContext, ExecutionInfo executionRequirements) {
     Rule rule = ruleContext.getRule();
 
     Preconditions.checkState(TargetUtils.isTestRule(rule));
     size = TestSize.getTestSize(rule);
     timeout = TestTimeout.getTestTimeout(rule);
-    tags = ruleContext.attributes().get("tags", Type.STRING_LIST);
+    tags = ruleContext.attributes().get("tags", Types.STRING_LIST);
 
     // We need to use method on ruleConfiguredTarget to perform validation.
     isFlaky = ruleContext.attributes().get("flaky", Type.BOOLEAN);
     isExternal = TargetUtils.isExternalTestRule(rule);
-    this.isPersistentTestRunner = isPersistentTestRunner;
 
     Map<String, String> executionInfo = Maps.newLinkedHashMap();
     executionInfo.putAll(TargetUtils.getExecutionInfo(rule));
 
     boolean incompatibleExclusiveTestSandboxed = false;
 
-    TestConfiguration testConfiguration = ruleContext.getFragment(TestConfiguration.class);
+    testConfiguration = ruleContext.getFragment(TestConfiguration.class);
     if (testConfiguration != null) {
       incompatibleExclusiveTestSandboxed = testConfiguration.incompatibleExclusiveTestSandboxed();
     }
@@ -158,8 +156,45 @@ public class TestTargetProperties {
     return isExternal;
   }
 
-  public boolean isPersistentTestRunner() {
-    return isPersistentTestRunner;
+  private static Map<String, Double> parseTags(Label label, Map<String, String> tags)
+      throws UserExecException {
+    Map<String, Double> resources = new HashMap<>();
+    ExecutionRequirements.ParseableRequirement requirement;
+    for (String tag : tags.keySet()) {
+      String resource;
+      String amount;
+      requirement = ExecutionRequirements.RESOURCES;
+      try {
+        String value = requirement.parseIfMatches(tag);
+        if (value != null) {
+          int splitIndex = value.indexOf(":");
+          resource = value.substring(0, splitIndex);
+          amount = value.substring(splitIndex + 1);
+        } else {
+          requirement = ExecutionRequirements.CPU;
+          value = requirement.parseIfMatches(tag);
+          resource = ResourceSet.CPU;
+          amount = value;
+        }
+        if (value != null) {
+          if (resources.get(resource) != null) {
+            String message =
+                String.format(
+                    "%s has more than one tag for resource '%s', but duplicate tags aren't allowed",
+                    label, resource);
+            throw new UserExecException(createFailureDetail(message, Code.DUPLICATE_CPU_TAGS));
+          }
+          resources.put(resource, Double.parseDouble(amount));
+        }
+      } catch (ValidationException e) {
+        String message =
+            String.format(
+                "%s has a '%s' tag, but its value '%s' didn't pass validation: %s",
+                label, requirement.userFriendlyName(), e.getTagValue(), e.getMessage());
+        throw new UserExecException(createFailureDetail(message, Code.INVALID_CPU_TAG));
+      }
+    }
+    return resources;
   }
 
   public ResourceSet getLocalResourceUsage(Label label, boolean usingLocalTestJobs)
@@ -168,40 +203,21 @@ public class TestTargetProperties {
       return LOCAL_TEST_JOBS_BASED_RESOURCES;
     }
 
-    ResourceSet testResourcesFromSize = TestTargetProperties.getResourceSetFromSize(size);
-
-    // Tests can override their CPU reservation with a "cpu:<n>" tag.
-    ResourceSet testResourcesFromTag = null;
-    for (String tag : executionInfo.keySet()) {
-      try {
-        String cpus = ExecutionRequirements.CPU.parseIfMatches(tag);
-        if (cpus != null) {
-          if (testResourcesFromTag != null) {
-            String message =
-                String.format(
-                    "%s has more than one '%s' tag, but duplicate tags aren't allowed",
-                    label, ExecutionRequirements.CPU.userFriendlyName());
-            throw new UserExecException(createFailureDetail(message, Code.DUPLICATE_CPU_TAGS));
-          }
-          testResourcesFromTag =
-              ResourceSet.create(
-                  testResourcesFromSize.getMemoryMb(),
-                  Float.parseFloat(cpus),
-                  testResourcesFromSize.getLocalTestCount());
-        }
-      } catch (ValidationException e) {
-        String message =
-            String.format(
-                "%s has a '%s' tag, but its value '%s' didn't pass validation: %s",
-                label,
-                ExecutionRequirements.CPU.userFriendlyName(),
-                e.getTagValue(),
-                e.getMessage());
-        throw new UserExecException(createFailureDetail(message, Code.INVALID_CPU_TAG));
-      }
+    ResourceSet defaultResources = getResourceSetFromSize(size);
+    Map<String, Double> resourcesFromTags = parseTags(label, executionInfo);
+    Map<String, Double> configResources =
+        testConfiguration == null ? ImmutableMap.of() : testConfiguration.getTestResources(size);
+    if (resourcesFromTags.isEmpty() && configResources.isEmpty()) {
+      return defaultResources;
     }
 
-    return testResourcesFromTag != null ? testResourcesFromTag : testResourcesFromSize;
+    return ResourceSet.create(
+        ImmutableMap.<String, Double>builder()
+            .putAll(defaultResources.getResources())
+            .putAll(configResources)
+            .putAll(resourcesFromTags)
+            .buildKeepingLast(),
+        defaultResources.getLocalTestCount());
   }
 
   private static FailureDetail createFailureDetail(String message, Code detailedCode) {

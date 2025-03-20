@@ -17,13 +17,14 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.RuleSet;
 import com.google.devtools.build.lib.analysis.constraints.EnvironmentRule;
-import com.google.devtools.build.lib.bazel.rules.common.BazelFilegroupRule;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.rules.Alias.AliasRule;
 import com.google.devtools.build.lib.rules.LabelBuildSettings.LabelBuildFlagRule;
 import com.google.devtools.build.lib.rules.LabelBuildSettings.LabelBuildSettingRule;
 import com.google.devtools.build.lib.rules.core.CoreRules;
+import com.google.devtools.build.lib.rules.filegroup.FilegroupRule;
 import com.google.devtools.build.lib.rules.genquery.GenQueryRule;
+import com.google.devtools.build.lib.rules.starlarkdocextract.StarlarkDocExtractRule;
 import com.google.devtools.build.lib.rules.test.TestSuiteRule;
 import com.google.devtools.build.lib.util.ResourceFileLoader;
 import java.io.IOException;
@@ -44,11 +45,12 @@ public class GenericRules implements RuleSet {
     builder.addRuleDefinition(new EnvironmentRule());
 
     builder.addRuleDefinition(new AliasRule());
-    builder.addRuleDefinition(new BazelFilegroupRule());
+    builder.addRuleDefinition(new FilegroupRule());
     builder.addRuleDefinition(new TestSuiteRule());
     GenQueryRule.register(builder);
     builder.addRuleDefinition(new LabelBuildSettingRule());
     builder.addRuleDefinition(new LabelBuildFlagRule());
+    builder.addRuleDefinition(new StarlarkDocExtractRule());
 
     try {
       builder.addWorkspaceFilePrefix(
@@ -61,7 +63,7 @@ public class GenericRules implements RuleSet {
     // place would be as a static method of InternalModule.java in lib.packages, and that package
     // can't accept a ConfiguredRuleClassProvider.Builder. The alternative is to use a Bootstrap,
     // but that idiom should probably be deprecated.
-    builder.addStarlarkAccessibleTopLevels(
+    builder.addBzlToplevel(
         "_builtins_dummy",
         FlagGuardedValue.onlyWhenExperimentalFlagIsTrue(
             BuildLanguageOptions.EXPERIMENTAL_BUILTINS_DUMMY, "original value"));

@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.rules.platform;
 
 import com.google.common.base.Preconditions;
-import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
+import com.google.devtools.build.lib.actions.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
@@ -80,7 +80,7 @@ public class ConstraintSetting implements RuleConfiguredTargetFactory {
     // because it will cause a cycle.
     SkyFunction.Environment env = ruleContext.getAnalysisEnvironment().getSkyframeEnv();
     PackageValue packageNode =
-        (PackageValue) env.getValue(PackageValue.key(constraintSetting.getPackageIdentifier()));
+        (PackageValue) env.getValue(constraintSetting.getPackageIdentifier());
     Preconditions.checkNotNull(
         packageNode,
         "Package '%s' is the package for the current target, and so must have already been loaded.",

@@ -1,0 +1,67 @@
+// Copyright 2022 The Bazel Authors. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto2";
+
+package blaze.strategy_policy;
+
+option java_multiple_files = true;
+// option java_api_version = 2;
+option java_package = "com.google.devtools.build.lib.runtime.proto";
+
+// Provides control over what strategies (local, remote, etc) may be used.
+//
+// An empty policies (e.g. unset) implies no enforcement, anything is allowed.
+//
+// Policies are enforced against both user-provided values (flags) and
+// application-internal defaults. The latter is useful for guarding against
+// unexpectedly hard-coded defaults.
+//
+// Sample usage to allow everything to execute remotely, while only allowing
+// genrules to execute locally:
+//
+//   strategy_policy {
+//     mnemonic_policy {
+//       default_allowlist: ["remote"]
+//       strategy_allowlist: [
+//         { mnemonic: "Genrule" strategy: ["local"] }
+//       ]
+//     }
+//   }
+message StrategyPolicy {
+  // Controls per-mnemonic policies for regular spawn/action execution. Relevant
+  // command-line flags this controls include --strategy and --genrule_strategy.
+  optional MnemonicPolicy mnemonic_policy = 1;
+
+  // Controls per-mnemonic policies for the remote execution leg of dynamic
+  // execution. Relevant flag is --dynamic_remote_strategy.
+  optional MnemonicPolicy dynamic_remote_policy = 2;
+
+  // Controls per-mnemonic policies for the local execution leg of dynamic
+  // execution. Relevant flag is --dynamic_local_strategy.
+  optional MnemonicPolicy dynamic_local_policy = 3;
+}
+
+message MnemonicPolicy {
+  // Default allowed strategies for mnemonics not present in `strategy` list.
+  repeated string default_allowlist = 1;
+
+  repeated StrategiesForMnemonic strategy_allowlist = 2;
+}
+
+// Per-mnemonic allowlist settings.
+message StrategiesForMnemonic {
+  optional string mnemonic = 1;
+  repeated string strategy = 2;
+}

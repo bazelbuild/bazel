@@ -1,10 +1,9 @@
 load("@rules_java//java:defs.bzl", "java_test")
 
 package(
+    default_applicable_licenses = ["//:license"],
     default_visibility = ["//src:__subpackages__"],
 )
-
-licenses(["notice"])
 
 filegroup(
     name = "srcs",
@@ -16,7 +15,6 @@ java_test(
     name = "SyntheticAttributeHashCalculatorTest",
     srcs = ["SyntheticAttributeHashCalculatorTest.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/query2/query/output",
         "//src/main/java/com/google/devtools/build/lib/vfs",
@@ -25,5 +23,6 @@ java_test(
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
+        "@maven//:com_google_testparameterinjector_test_parameter_injector",
     ],
 )

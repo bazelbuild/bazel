@@ -14,92 +14,68 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
-import com.google.auto.value.AutoValue;
-import com.google.common.base.Preconditions;
+import static java.util.Objects.requireNonNull;
+
+import com.google.auto.value.AutoBuilder;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.packages.StarlarkExportable;
-import javax.annotation.Nullable;
-import net.starlark.java.annot.StarlarkBuiltin;
+import java.util.Optional;
 import net.starlark.java.eval.StarlarkCallable;
+import net.starlark.java.eval.StarlarkValue;
 import net.starlark.java.syntax.Location;
 
 /**
- * A module extension object, which can be used to perform arbitrary logic in order to create repos
- * or register toolchains and execution platforms.
+ * A module extension object, which can be used to perform arbitrary logic in order to create repos.
+ *
+ * @param definingBzlFileLabel The .bzl file where the module extension object was originally
+ *     defined.
+ *     <p>Note that if the extension object was then loaded and re-exported by a different .bzl file
+ *     before being used in a MODULE.bazel file, the output of this function may differ from the
+ *     corresponding ModuleExtensionUsage#getExtensionBzlFile and ModuleExtensionId#getBzlFileLabel.
  */
-@AutoValue
-public abstract class ModuleExtension {
-  public abstract String getName();
-
-  public abstract StarlarkCallable getImplementation();
-
-  public abstract ImmutableMap<String, TagClass> getTagClasses();
-
-  public abstract String getDoc();
-
-  public abstract Label getDefinitionEnvironmentLabel();
-
-  public abstract Location getLocation();
+public record ModuleExtension(
+    StarlarkCallable implementation,
+    ImmutableMap<String, TagClass> tagClasses,
+    Optional<String> doc,
+    Label definingBzlFileLabel,
+    Location location,
+    ImmutableList<String> envVariables,
+    boolean osDependent,
+    boolean archDependent)
+    implements StarlarkValue {
+  public ModuleExtension {
+    requireNonNull(implementation, "implementation");
+    requireNonNull(tagClasses, "tagClasses");
+    requireNonNull(doc, "doc");
+    requireNonNull(definingBzlFileLabel, "definingBzlFileLabel");
+    requireNonNull(location, "location");
+    requireNonNull(envVariables, "envVariables");
+  }
 
   public static Builder builder() {
-    return new AutoValue_ModuleExtension.Builder();
+    return new AutoBuilder_ModuleExtension_Builder();
   }
 
   /** Builder for {@link ModuleExtension}. */
-  @AutoValue.Builder
+  @AutoBuilder
   public abstract static class Builder {
+    public abstract Builder setDoc(Optional<String> value);
 
-    public abstract Builder setDoc(String value);
-
-    public abstract Builder setDefinitionEnvironmentLabel(Label value);
+    public abstract Builder setDefiningBzlFileLabel(Label value);
 
     public abstract Builder setLocation(Location value);
-
-    public abstract Builder setName(String value);
 
     public abstract Builder setImplementation(StarlarkCallable value);
 
     public abstract Builder setTagClasses(ImmutableMap<String, TagClass> value);
 
+    public abstract Builder setEnvVariables(ImmutableList<String> value);
+
+    public abstract Builder setOsDependent(boolean osDependent);
+
+    public abstract Builder setArchDependent(boolean archDependent);
+
     public abstract ModuleExtension build();
-  }
-
-  /**
-   * A {@link ModuleExtension} exposed to Starlark. We can't use {@link ModuleExtension} directly
-   * because the name isn't known until the object is exported, so this class holds a builder until
-   * it's exported, at which point it sets the name and builds the underlying {@link
-   * ModuleExtension}.
-   */
-  @StarlarkBuiltin(name = "module_extension", doc = "A module extension.")
-  public static class InStarlark implements StarlarkExportable {
-    private final Builder builder;
-    @Nullable private ModuleExtension built;
-
-    public InStarlark() {
-      builder = builder();
-      built = null;
-    }
-
-    public Builder getBuilder() {
-      return builder;
-    }
-
-    @Override
-    public boolean isExported() {
-      return built != null;
-    }
-
-    @Override
-    public void export(EventHandler handler, Label extensionLabel, String exportedName) {
-      built = builder.setName(exportedName).build();
-    }
-
-    /** Throws {@link IllegalStateException} if this is not exported yet. */
-    public ModuleExtension get() {
-      Preconditions.checkState(isExported(), "the module extension was never exported");
-      return built;
-    }
   }
 }

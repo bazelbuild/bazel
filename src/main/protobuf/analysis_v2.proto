@@ -80,7 +80,8 @@ message Action {
   repeated KeyValuePair environment_variables = 7;
 
   // The set of input dep sets that the action depends upon. If the action does
-  // input discovery, the contents of this set might change during execution.
+  // input discovery and `--include_pruned_outputs` is disabled, the contents of
+  // this set might differ before and after execution.
   repeated uint32 input_dep_set_ids = 8;
 
   // The list of Artifact IDs that represent the output files that this action
@@ -112,6 +113,20 @@ message Action {
   // the string to be substituted and the value is the string to be substituted
   // to.
   repeated KeyValuePair substitutions = 16;
+
+  // The contents of the file for the ctx.actions.write() action
+  // (guarded by the --include_file_write_contents flag).
+  string file_contents = 17;
+
+  // The target of the symlink created by UnresolvedSymlink actions.
+  // For regular Symlink actions, the target is represented as an input.
+  string unresolved_symlink_target = 18;
+
+  // If FileWrite actions should make their output executable.
+  // (ctx.actions.write(is_executable=True))
+  bool is_executable = 19;
+
+  reserved 20;
 }
 
 // Represents a single target (without configuration information) that is
@@ -179,6 +194,48 @@ message Configuration {
 
   // The checksum representation of the configuration options;
   string checksum = 4;
+
+  // Whether this configuration is used for building tools.
+  bool is_tool = 5;
+
+  // The configuration fragments that are a part of this configuration.
+  repeated Fragment fragments = 6;
+
+  // The union of all the FragmentOptions associated with the Fragments that are
+  // a part of this configuration. These are returned separately from the
+  // fragments field because a set of FragmentOptions can be referenced by more
+  // than one Fragment, and we wish to avoid returning the same FragmentOptions
+  // repeatedly. These are sorted by the FragmentOptions name field.
+  repeated FragmentOptions fragment_options = 7;
+}
+
+// A configuration fragment
+// (http://bazel.build/rules/lib/fragments).
+message Fragment {
+  // The name of the Fragment.
+  string name = 1;
+
+  // The names of the FragmentOptions associated with this fragment in sorted
+  // order.
+  repeated string fragment_option_names = 2;
+}
+
+// A set of fragment options.
+message FragmentOptions {
+  // The name of this set of fragment options.
+  string name = 1;
+
+  // The options themselves, in sorted order by name.
+  repeated Option options = 2;
+}
+
+// A fragment option.
+message Option {
+  // The name of the option.
+  optional string name = 1;
+
+  // The value of the option.
+  optional string value = 2;
 }
 
 message KeyValuePair {
@@ -196,14 +253,22 @@ message ConfiguredTarget {
   // regular blaze query.
   blaze_query.Target target = 1;
 
-  // The configuration
-  Configuration configuration = 2;
+  // DEPRECATED. Use configuration_id instead.
+  Configuration configuration = 2 [deprecated = true];
+
+  // The id of the configuration this target is configured for. The actual
+  // Configuration message can be found in CqueryResults. If the target doesn't
+  // have a configuration, the value will be 0.
+  uint32 configuration_id = 3;
 }
 
 // Container for cquery results
 message CqueryResult {
   // All the configuredtargets returns by cquery
   repeated ConfiguredTarget results = 1;
+
+  // All the Configurations referenced by results.
+  repeated Configuration configurations = 2;
 }
 
 // Content of a param file.

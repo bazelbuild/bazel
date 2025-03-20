@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryTaskCal
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryTaskFuture;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ThreadSafeMutableSet;
 import java.util.List;
+import java.util.OptionalInt;
 
 /**
  * A somepath(x, y) query expression, which computes the set of nodes on some arbitrary path from a
@@ -58,6 +59,16 @@ class SomePathFunction implements QueryFunction {
       final QueryExpression expression,
       List<Argument> args,
       final Callback<T> callback) {
+    if (env instanceof StreamableQueryEnvironment) {
+      return ((StreamableQueryEnvironment<T>) env)
+          .somePath(
+              args.get(0).getExpression(),
+              args.get(1).getExpression(),
+              context,
+              callback,
+              expression);
+    }
+
     final QueryTaskFuture<ThreadSafeMutableSet<T>> fromValueFuture =
         QueryUtil.evalAll(env, context, args.get(0).getExpression());
     final QueryTaskFuture<ThreadSafeMutableSet<T>> toValueFuture =
@@ -90,7 +101,7 @@ class SomePathFunction implements QueryFunction {
             ThreadSafeMutableSet<T> fromValue = fromValueFuture.getIfSuccessful();
             ThreadSafeMutableSet<T> toValue = toValueFuture.getIfSuccessful();
 
-            env.buildTransitiveClosure(expression, fromValue, Integer.MAX_VALUE);
+            env.buildTransitiveClosure(expression, fromValue, OptionalInt.empty());
 
             for (T x : fromValue) {
               // TODO(b/122548314): if x was already seen as part of a previous node's tc, we should

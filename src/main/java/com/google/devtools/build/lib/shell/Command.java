@@ -176,10 +176,10 @@ public final class Command implements DescribableExecutionUnit {
    * </ul>
    *
    * @param commandLineElements elements of raw command line to execute
-   * @param environmentVariables environment variables to replace JVM's environment variables; may
-   *     be null
-   * @param workingDirectory working directory for execution; if null, the VM's current working
-   *     directory is used
+   * @param environmentVariables environment variables for the child process, or null to inherit
+   *     them from the parent
+   * @param workingDirectory working directory for the child process, or null to inherit it from the
+   *     parent
    * @param timeout timeout; a value less than or equal to 0 is treated as no timeout
    * @throws IllegalArgumentException if commandLine is null or empty
    */
@@ -410,7 +410,7 @@ public final class Command implements DescribableExecutionUnit {
   }
 
   private static void processInput(InputStream stdinInput, Subprocess process) {
-    logger.atFiner().log(stdinInput.toString());
+    logger.atFiner().log("%s", stdinInput);
     try (OutputStream out = process.getOutputStream()) {
       ByteStreams.copy(stdinInput, out);
     } catch (IOException ioe) {
@@ -427,5 +427,10 @@ public final class Command implements DescribableExecutionUnit {
 
   private void logCommand() {
     logger.atFine().log("%s", LazyArgs.lazy(this::toDebugString));
+  }
+
+  @Override
+  public String getMnemonic() {
+    return "<shell command>";
   }
 }

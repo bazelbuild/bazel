@@ -14,14 +14,16 @@
 
 package com.google.devtools.build.lib.skyframe;
 
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.HashBiMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.OptionsProvider;
 import java.io.IOException;
 import java.nio.file.ClosedWatchServiceException;
-import java.nio.file.FileSystems;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
@@ -52,14 +54,17 @@ public final class WatchServiceDiffAwareness extends LocalDiffAwareness {
   /** Every directory is registered under this watch service. */
   private WatchService watchService;
 
-  WatchServiceDiffAwareness(String watchRoot) {
+  private final IgnoredSubdirectories ignoredPaths;
+
+  WatchServiceDiffAwareness(Path watchRoot, IgnoredSubdirectories ignoredPaths) {
     super(watchRoot);
+    this.ignoredPaths = ignoredPaths;
   }
 
   private void init() {
     Preconditions.checkState(watchService == null);
     try {
-      watchService = FileSystems.getDefault().newWatchService();
+      watchService = watchRoot.getFileSystem().newWatchService();
     } catch (IOException ignored) {
       // According to the docs, this can never happen with the default file system provider.
     }
@@ -119,7 +124,7 @@ public final class WatchServiceDiffAwareness extends LocalDiffAwareness {
     Set<Path> modifiedAbsolutePaths;
     if (isFirstCall()) {
       try {
-        registerSubDirectories(watchRootPath);
+        registerSubDirectories(watchRoot);
       } catch (IOException e) {
         close();
         throw new BrokenDiffAwarenessException(
@@ -237,7 +242,7 @@ public final class WatchServiceDiffAwareness extends LocalDiffAwareness {
     }
     if (watchKeyToDirBiMap.isEmpty()) {
       // No more directories to watch, something happened the root directory being watched.
-      throw new IOException("Root directory " + watchRootPath + " became inaccessible.");
+      throw new IOException("Root directory " + watchRoot + " became inaccessible.");
     }
 
     Set<Path> changedPaths = new HashSet<>();
@@ -258,7 +263,8 @@ public final class WatchServiceDiffAwareness extends LocalDiffAwareness {
   /** Traverses directory tree to register subdirectories. */
   private void registerSubDirectories(Path rootDir) throws IOException {
     // Note that this does not follow symlinks.
-    Files.walkFileTree(rootDir, new WatcherFileVisitor());
+    WatcherFileVisitor watcherFileVisitor = new WatcherFileVisitor(ignoredPaths);
+    Files.walkFileTree(rootDir, watcherFileVisitor);
   }
 
   /**
@@ -268,7 +274,9 @@ public final class WatchServiceDiffAwareness extends LocalDiffAwareness {
   private Set<Path> registerSubDirectoriesAndReturnContents(Path rootDir) throws IOException {
     Set<Path> visitedAbsolutePaths = new HashSet<>();
     // Note that this does not follow symlinks.
-    Files.walkFileTree(rootDir, new WatcherFileVisitor(visitedAbsolutePaths));
+    WatcherFileVisitor watcherFileVisitor =
+        new WatcherFileVisitor(visitedAbsolutePaths, ignoredPaths);
+    Files.walkFileTree(rootDir, watcherFileVisitor);
     return visitedAbsolutePaths;
   }
 
@@ -276,13 +284,16 @@ public final class WatchServiceDiffAwareness extends LocalDiffAwareness {
   private class WatcherFileVisitor extends SimpleFileVisitor<Path> {
 
     private final Set<Path> visitedAbsolutePaths;
+    private final IgnoredSubdirectories ignoredPaths;
 
-    private WatcherFileVisitor(Set<Path> visitedPaths) {
+    private WatcherFileVisitor(Set<Path> visitedPaths, IgnoredSubdirectories ignoredPaths) {
       this.visitedAbsolutePaths = visitedPaths;
+      this.ignoredPaths = ignoredPaths;
     }
 
-    private WatcherFileVisitor() {
+    private WatcherFileVisitor(IgnoredSubdirectories ignoredPaths) {
       this.visitedAbsolutePaths = new HashSet<>();
+      this.ignoredPaths = ignoredPaths;
     }
 
     @Override
@@ -295,6 +306,12 @@ public final class WatchServiceDiffAwareness extends LocalDiffAwareness {
     @Override
     public FileVisitResult preVisitDirectory(Path path, BasicFileAttributes attrs)
         throws IOException {
+      PathFragment pathFragment =
+          PathFragment.create(path.toAbsolutePath().toString()).toRelative();
+      if (ignoredPaths.matchingEntry(pathFragment) != null) {
+        return FileVisitResult.SKIP_SUBTREE;
+      }
+
       // Do not traverse the bazel-* convenience symlinks. On windows these are created as
       // junctions.
       if (isWindows && attrs.isOther()) {

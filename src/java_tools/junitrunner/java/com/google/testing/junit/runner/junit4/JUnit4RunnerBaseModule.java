@@ -14,23 +14,15 @@
 
 package com.google.testing.junit.runner.junit4;
 
-import static com.google.testing.junit.runner.sharding.ShardingFilters.DEFAULT_SHARDING_STRATEGY;
-
 import com.google.testing.junit.runner.internal.Stdout;
 import com.google.testing.junit.runner.internal.junit4.MemoizingRequest;
-import com.google.testing.junit.runner.model.TestSuiteModel;
-import com.google.testing.junit.runner.sharding.api.ShardingFilterFactory;
-import com.google.testing.junit.runner.util.MemoizingSupplier;
 import java.io.OutputStream;
 import java.io.PrintStream;
 import java.io.UnsupportedEncodingException;
 import java.nio.charset.StandardCharsets;
-import java.util.Set;
-import java.util.function.Supplier;
 import javax.inject.Singleton;
 import org.junit.internal.TextListener;
 import org.junit.runner.Request;
-import org.junit.runner.notification.RunListener;
 
 /**
  * Utility class for creating a {@link JUnit4Runner}. This contains the common bindings used when
@@ -39,21 +31,6 @@ import org.junit.runner.notification.RunListener;
  */
 public abstract class JUnit4RunnerBaseModule {
 
-  abstract Set<JUnit4Runner.Initializer> initializers();
-  
-  static ShardingFilterFactory shardingFilterFactory() {
-    return DEFAULT_SHARDING_STRATEGY;
-  }
-
-  static RunListener textListener(TextListener impl) {
-    return impl;
-  }
-
-  @Singleton
-  static Supplier<TestSuiteModel> provideTestSuiteModelSupplier(JUnit4TestModelBuilder builder) {
-    return new MemoizingSupplier<>(builder);
-  }
-
   @Singleton
   static TextListener provideTextListener(@Stdout PrintStream testRunnerOut) {
     return new TextListener(asUtf8PrintStream(testRunnerOut));
@@ -61,7 +38,7 @@ public abstract class JUnit4RunnerBaseModule {
 
   private static PrintStream asUtf8PrintStream(OutputStream stream) {
     try {
-      return new PrintStream(stream, false /* autoFlush */, StandardCharsets.UTF_8.toString());
+      return new PrintStream(stream, /* autoFlush= */ false, StandardCharsets.UTF_8.toString());
     } catch (UnsupportedEncodingException e) {
       throw new IllegalStateException("UTF-8 must be supported as per the java language spec", e);
     }

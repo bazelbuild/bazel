@@ -16,6 +16,7 @@ This PR needs to be merged.
 ## 2nd pull request
 
 - Update versions in the tools/jdk/BUILD.java_tools
+- Update asm versions in third_party/BUILD
 
 Or anywhere else outside of third_party.
 

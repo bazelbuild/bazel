@@ -15,7 +15,7 @@ package com.google.devtools.build.lib.rules.test;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
+import com.google.devtools.build.lib.actions.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
@@ -26,11 +26,12 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.test.TestTagsProvider;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.TestTargetUtils;
-import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.util.Pair;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import javax.annotation.Nullable;
 
 /**
  * Implementation for the "test_suite" rule.
@@ -38,6 +39,7 @@ import java.util.List;
 public class TestSuite implements RuleConfiguredTargetFactory {
 
   @Override
+  @Nullable
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
     checkTestsAndSuites(ruleContext, "tests");
@@ -50,7 +52,7 @@ public class TestSuite implements RuleConfiguredTargetFactory {
     //
 
     List<String> tagsAttribute =
-        new ArrayList<>(ruleContext.attributes().get("tags", Type.STRING_LIST));
+        new ArrayList<>(ruleContext.attributes().get("tags", Types.STRING_LIST));
     // TODO(ulfjack): This is inconsistent with the other places that do test_suite expansion.
     tagsAttribute.remove("manual");
     Pair<Collection<String>, Collection<String>> requiredExcluded =
@@ -77,10 +79,15 @@ public class TestSuite implements RuleConfiguredTargetFactory {
       directTestsAndSuitesBuilder.add(dep);
     }
 
-    Runfiles runfiles = new Runfiles.Builder(
-        ruleContext.getWorkspaceName(), ruleContext.getConfiguration().legacyExternalRunfiles())
-        .addTargets(directTestsAndSuitesBuilder, RunfilesProvider.DATA_RUNFILES)
-        .build();
+    Runfiles runfiles =
+        new Runfiles.Builder(
+                ruleContext.getWorkspaceName(),
+                ruleContext.getConfiguration().legacyExternalRunfiles())
+            .addTargets(
+                directTestsAndSuitesBuilder,
+                RunfilesProvider.DATA_RUNFILES,
+                ruleContext.getConfiguration().alwaysIncludeFilesToBuildInData())
+            .build();
 
     return new RuleConfiguredTargetBuilder(ruleContext)
         .add(RunfilesProvider.class,

@@ -21,13 +21,13 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <grp.h>
 #include <libgen.h>
 #include <math.h>
 #include <mntent.h>
 #include <net/if.h>
 #include <pwd.h>
 #include <signal.h>
-#include <stdarg.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -42,6 +42,7 @@
 #include <unistd.h>
 
 #include <string>
+#include <unordered_set>
 
 #ifndef MS_REC
 // Some systems do not define MS_REC in sys/mount.h. We might be able to grab it
@@ -67,25 +68,6 @@
 #include "src/main/tools/logging.h"
 #include "src/main/tools/process-tools.h"
 
-static void WriteFile(const std::string &filename, const char *fmt, ...) {
-  FILE *stream = fopen(filename.c_str(), "w");
-  if (stream == nullptr) {
-    DIE("fopen(%s)", filename.c_str());
-  }
-
-  va_list ap;
-  va_start(ap, fmt);
-  int r = vfprintf(stream, fmt, ap);
-  va_end(ap);
-
-  if (r < 0) {
-    DIE("vfprintf");
-  }
-
-  if (fclose(stream) != 0) {
-    DIE("fclose(%s)", filename.c_str());
-  }
-}
 
 static int global_child_pid;
 
@@ -146,13 +128,22 @@ static int CreateTarget(const char *path, bool is_directory) {
   }
 
   // Create the parent directory.
-  if (CreateTarget(dirname(strdupa(path)), true) < 0) {
-    DIE("CreateTarget %s", dirname(strdupa(path)));
+  {
+    char *buf, *dir;
+
+    if (!(buf = strdup(path))) DIE("strdup");
+
+    dir = dirname(buf);
+    if (CreateTarget(dir, true) < 0) {
+      DIE("CreateTarget %s", dir);
+    }
+
+    free(buf);
   }
 
   if (is_directory) {
     if (mkdir(path, 0755) < 0) {
-      DIE("mkdir");
+      DIE("mkdir(%s)", path);
     }
   } else {
     LinkFile(path);
@@ -161,7 +152,7 @@ static int CreateTarget(const char *path, bool is_directory) {
   return 0;
 }
 
-static void SetupSelfDestruction(int *sync_pipe) {
+static void SetupSelfDestruction(int *pipe_to_parent) {
   // We could also poll() on the pipe fd to find out when the parent goes away,
   // and rely on SIGCHLD interrupting that otherwise. That might require us to
   // install some trivial handler for SIGCHLD. Using O_ASYNC to turn the pipe
@@ -179,16 +170,7 @@ static void SetupSelfDestruction(int *sync_pipe) {
   }
 
   // Verify that the parent still lives.
-  char buf = 0;
-  if (close(sync_pipe[0]) < 0) {
-    DIE("close");
-  }
-  if (write(sync_pipe[1], &buf, 1) < 0) {
-    DIE("write");
-  }
-  if (close(sync_pipe[1]) < 0) {
-    DIE("close");
-  }
+  SignalPipe(pipe_to_parent);
 }
 
 static void SetupMountNamespace() {
@@ -212,7 +194,8 @@ static void SetupUserNamespace() {
     }
   }
 
-  int inner_uid, inner_gid;
+  uid_t inner_uid;
+  gid_t inner_gid;
   if (opt.fake_root) {
     // Change our username to 'root'.
     inner_uid = 0;
@@ -231,8 +214,21 @@ static void SetupUserNamespace() {
     inner_uid = global_outer_uid;
     inner_gid = global_outer_gid;
   }
-  WriteFile("/proc/self/uid_map", "%d %d 1\n", inner_uid, global_outer_uid);
-  WriteFile("/proc/self/gid_map", "%d %d 1\n", inner_gid, global_outer_gid);
+  if (opt.enable_pty) {
+    // Change the group to "tty" regardless of what was previously set
+    struct group grp;
+    char buf[256];
+    size_t buflen = sizeof(buf);
+    struct group *result;
+    getgrnam_r("tty", &grp, buf, buflen, &result);
+    if (result == nullptr) {
+      DIE("getgrnam_r");
+    }
+    inner_gid = grp.gr_gid;
+  }
+
+  WriteFile("/proc/self/uid_map", "%u %u 1\n", inner_uid, global_outer_uid);
+  WriteFile("/proc/self/gid_map", "%u %u 1\n", inner_gid, global_outer_gid);
 }
 
 static void SetupUtsNamespace() {
@@ -246,19 +242,6 @@ static void SetupUtsNamespace() {
 }
 
 static void MountFilesystems() {
-  for (const std::string &tmpfs_dir : opt.tmpfs_dirs) {
-    PRINT_DEBUG("tmpfs: %s", tmpfs_dir.c_str());
-    if (mount("tmpfs", tmpfs_dir.c_str(), "tmpfs",
-              MS_NOSUID | MS_NODEV | MS_NOATIME, nullptr) < 0) {
-      DIE("mount(tmpfs, %s, tmpfs, MS_NOSUID | MS_NODEV | MS_NOATIME, nullptr)",
-          tmpfs_dir.c_str());
-    }
-  }
-
-  // Make sure that our working directory is a mount point. The easiest way to
-  // do this is by bind-mounting it upon itself.
-  PRINT_DEBUG("working dir: %s", opt.working_dir.c_str());
-
   // An attempt to mount the sandbox in tmpfs will always fail, so this block is
   // slightly redundant with the next mount() check, but dumping the mount()
   // syscall is incredibly cryptic, so we explicitly check against and warn
@@ -272,29 +255,53 @@ static void MountFilesystems() {
     }
   }
 
-  if (mount(opt.working_dir.c_str(), opt.working_dir.c_str(), nullptr, MS_BIND,
-            nullptr) < 0) {
-    DIE("mount(%s, %s, nullptr, MS_BIND, nullptr)", opt.working_dir.c_str(),
-        opt.working_dir.c_str());
-  }
+  std::unordered_set<std::string> bind_mount_sources;
 
   for (size_t i = 0; i < opt.bind_mount_sources.size(); i++) {
     const std::string &source = opt.bind_mount_sources.at(i);
+    bind_mount_sources.insert(source);
     const std::string &target = opt.bind_mount_targets.at(i);
     PRINT_DEBUG("bind mount: %s -> %s", source.c_str(), target.c_str());
-    if (mount(source.c_str(), target.c_str(), nullptr, MS_BIND, nullptr) < 0) {
-      DIE("mount(%s, %s, nullptr, MS_BIND, nullptr)", source.c_str(),
+    if (mount(source.c_str(), target.c_str(), nullptr, MS_BIND | MS_REC,
+              nullptr) < 0) {
+      DIE("mount(%s, %s, nullptr, MS_BIND | MS_REC, nullptr)", source.c_str(),
           target.c_str());
+    }
+  }
+
+  for (const std::string &tmpfs_dir : opt.tmpfs_dirs) {
+    PRINT_DEBUG("tmpfs: %s", tmpfs_dir.c_str());
+    if (mount("tmpfs", tmpfs_dir.c_str(), "tmpfs",
+              MS_NOSUID | MS_NODEV | MS_NOATIME, nullptr) < 0) {
+      DIE("mount(tmpfs, %s, tmpfs, MS_NOSUID | MS_NODEV | MS_NOATIME, nullptr)",
+          tmpfs_dir.c_str());
     }
   }
 
   for (const std::string &writable_file : opt.writable_files) {
     PRINT_DEBUG("writable: %s", writable_file.c_str());
+    if (bind_mount_sources.find(writable_file) != bind_mount_sources.end()) {
+      // Bind mount sources contained in writable_files will be kept writable in
+      // MakeFileSystemMostlyReadOnly, but have already been mounted at this
+      // point.
+      continue;
+    }
     if (mount(writable_file.c_str(), writable_file.c_str(), nullptr,
               MS_BIND | MS_REC, nullptr) < 0) {
       DIE("mount(%s, %s, nullptr, MS_BIND | MS_REC, nullptr)",
           writable_file.c_str(), writable_file.c_str());
     }
+  }
+
+  // Make sure that the working directory is writable (unlike most of the rest
+  // of the file system, which is read-only by default). The easiest way to do
+  // this is by bind-mounting it upon itself.
+  PRINT_DEBUG("working dir: %s", opt.working_dir.c_str());
+
+  if (mount(opt.working_dir.c_str(), opt.working_dir.c_str(), nullptr, MS_BIND,
+            nullptr) < 0) {
+    DIE("mount(%s, %s, nullptr, MS_BIND, nullptr)", opt.working_dir.c_str(),
+        opt.working_dir.c_str());
   }
 }
 
@@ -302,6 +309,10 @@ static void MountFilesystems() {
 // returns true.
 static bool ShouldBeWritable(const std::string &mnt_dir) {
   if (mnt_dir == opt.working_dir) {
+    return true;
+  }
+
+  if (opt.enable_pty && mnt_dir == "/dev/pts") {
     return true;
   }
 
@@ -372,13 +383,15 @@ static void MakeFilesystemMostlyReadOnly() {
       // /proc/sys/fs/binfmt_misc, because it is hidden. If we get ESTALE, the
       // mount is a broken NFS mount. In the ideal case, the user would either
       // fix or remove that mount, but in cases where that's not possible, we
-      // should just ignore it.
+      // should just ignore it. Similarly, one can get ENODEV in case of
+      // autofs/automount failure.
       switch (errno) {
         case EACCES:
         case EPERM:
         case EINVAL:
         case ENOENT:
         case ESTALE:
+        case ENODEV:
           PRINT_DEBUG(
               "remount(nullptr, %s, nullptr, %d, nullptr) failure (%m) ignored",
               ent->mnt_dir, mountFlags);
@@ -393,19 +406,29 @@ static void MakeFilesystemMostlyReadOnly() {
   endmntent(mounts);
 }
 
-static void MountProc() {
+static void MountProcAndSys() {
   // Mount a new proc on top of the old one, because the old one still refers to
   // our parent PID namespace.
   if (mount("/proc", "/proc", "proc", MS_NODEV | MS_NOEXEC | MS_NOSUID,
             nullptr) < 0) {
-    DIE("mount");
+    DIE("mount /proc");
+  }
+
+  if (opt.create_netns == NO_NETNS) {
+    return;
+  }
+
+  // Same for sys, but only if a separate network namespace was requested.
+  if (mount("none", "/sys", "sysfs",
+            MS_NOEXEC | MS_NOSUID | MS_NODEV | MS_RDONLY, nullptr) < 0) {
+    DIE("mount /sys");
   }
 }
 
 static void SetupNetworking() {
   // When running in a separate network namespace, enable the loopback interface
   // because some application may want to use it.
-  if (opt.create_netns) {
+  if (opt.create_netns == NETNS_WITH_LOOPBACK) {
     int fd;
     fd = socket(AF_INET, SOCK_DGRAM, 0);
     if (fd < 0) {
@@ -429,6 +452,14 @@ static void SetupNetworking() {
     if (close(fd) < 0) {
       DIE("close");
     }
+  }
+
+  if (opt.create_netns != NO_NETNS && opt.fake_root) {
+    // Allow IPPROTO_ICMP sockets when already allowed outside of the namespace.
+    // In a namespace, /proc/sys/net/ipv4/ping_group_range is reset to the
+    // default of 1 0, which does not match any groups. However, it can only be
+    // overridden when the namespace has a fake root. This may be a kernel bug.
+    WriteFile("/proc/sys/net/ipv4/ping_group_range", "0 0");
   }
 }
 
@@ -466,6 +497,13 @@ static void SpawnChild() {
 
     // Unblock all signals, restore default handlers.
     ClearSignalMask();
+
+    // Close the file PRINT_DEBUG writes to.
+    // Must happen late enough so we don't lose any debugging output.
+    if (global_debug) {
+      fclose(global_debug);
+      global_debug = nullptr;
+    }
 
     // Force umask to include read and execute for everyone, to make output
     // permissions predictable.
@@ -563,15 +601,17 @@ static void MountAllMounts() {
     }
   }
 
-  // Make sure that our working directory is a mount point. The easiest way to
-  // do this is by bind-mounting it upon itself.
+  // Make sure that the working directory is writable (unlike most of the rest
+  // of the file system, which is read-only by default). The easiest way to do
+  // this is by bind-mounting it upon itself.
   if (mount(opt.working_dir.c_str(), opt.working_dir.c_str(), nullptr, MS_BIND,
             nullptr) < 0) {
     DIE("mount(%s, %s, nullptr, MS_BIND, nullptr)", opt.working_dir.c_str(),
         opt.working_dir.c_str());
   }
+
   for (int i = 0; i < (signed)opt.bind_mount_sources.size(); i++) {
-    if (opt.debug) {
+    if (global_debug) {
       if (strcmp(opt.bind_mount_sources[i].c_str(),
                  opt.bind_mount_targets[i].c_str()) == 0) {
         // The file is mounted to the same path inside the sandbox, as outside
@@ -637,17 +677,23 @@ static void ChangeRoot() {
   }
 }
 
-int Pid1Main(void *sync_pipe_param) {
+int Pid1Main(void *args) {
   PRINT_DEBUG("Pid1Main started");
+
+  Pid1Args pid1Args = *(static_cast<Pid1Args *>(args));
 
   if (getpid() != 1) {
     DIE("Using PID namespaces, but we are not PID 1");
   }
 
+  // Before pid1 spawns a child pid2, we want to wait for the parent process to
+  // move pid1 to the cgroup so that pid2 will be created in the same cgroup.
+  WaitPipe(pid1Args.pipe_from_parent);
+
   // Start with default signal handlers and an empty signal mask.
   ClearSignalMask();
 
-  SetupSelfDestruction(reinterpret_cast<int *>(sync_pipe_param));
+  SetupSelfDestruction(pid1Args.pipe_to_parent);
 
   // Sandbox ourselves.
   SetupMountNamespace();
@@ -660,13 +706,13 @@ int Pid1Main(void *sync_pipe_param) {
     MountSandboxAndGoThere();
     CreateEmptyFile();
     MountDev();
-    MountProc();
+    MountProcAndSys();
     MountAllMounts();
     ChangeRoot();
   } else {
     MountFilesystems();
     MakeFilesystemMostlyReadOnly();
-    MountProc();
+    MountProcAndSys();
   }
   SetupNetworking();
   EnterWorkingDirectory();

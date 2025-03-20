@@ -14,11 +14,12 @@
 //
 package com.google.devtools.build.lib.vfs;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.nio.channels.ReadableByteChannel;
 import java.nio.channels.SeekableByteChannel;
 import java.util.Collection;
 
@@ -37,6 +38,11 @@ public abstract class PathTransformingDelegateFileSystem extends FileSystem {
     this.delegateFs = delegateFs;
   }
 
+  @VisibleForTesting
+  public FileSystem getDelegateFs() {
+    return delegateFs;
+  }
+
   @Override
   public boolean supportsModifications(PathFragment path) {
     return delegateFs.supportsModifications(toDelegatePath(path));
@@ -48,7 +54,7 @@ public abstract class PathTransformingDelegateFileSystem extends FileSystem {
   }
 
   @Override
-  protected boolean supportsHardLinksNatively(PathFragment path) {
+  public boolean supportsHardLinksNatively(PathFragment path) {
     return delegateFs.supportsHardLinksNatively(toDelegatePath(path));
   }
 
@@ -174,18 +180,8 @@ public abstract class PathTransformingDelegateFileSystem extends FileSystem {
   }
 
   @Override
-  protected ReadableByteChannel createReadableByteChannel(PathFragment path) throws IOException {
-    return delegateFs.createReadableByteChannel(toDelegatePath(path));
-  }
-
-  @Override
   protected SeekableByteChannel createReadWriteByteChannel(PathFragment path) throws IOException {
     return delegateFs.createReadWriteByteChannel(toDelegatePath(path));
-  }
-
-  @Override
-  protected OutputStream getOutputStream(PathFragment path, boolean append) throws IOException {
-    return delegateFs.getOutputStream(toDelegatePath(path), append);
   }
 
   @Override
@@ -287,6 +283,22 @@ public abstract class PathTransformingDelegateFileSystem extends FileSystem {
   @Override
   protected void prefetchPackageAsync(PathFragment path, int maxDirs) {
     delegateFs.prefetchPackageAsync(toDelegatePath(path), maxDirs);
+  }
+
+  @Override
+  protected File getIoFile(PathFragment path) {
+    return delegateFs.getIoFile(toDelegatePath(path));
+  }
+
+  @Override
+  protected java.nio.file.Path getNioPath(PathFragment path) {
+    return delegateFs.getNioPath(toDelegatePath(path));
+  }
+
+  @Override
+  protected PathFragment createTempDirectory(PathFragment parent, String prefix)
+      throws IOException {
+    return delegateFs.createTempDirectory(toDelegatePath(parent), prefix);
   }
 
   /** Transform original path to a different one to be used with the {@code delegateFs}. */

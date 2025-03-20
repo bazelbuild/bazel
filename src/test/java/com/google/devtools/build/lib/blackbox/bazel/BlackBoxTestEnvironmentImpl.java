@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.blackbox.framework.BlackBoxTestContext;
 import com.google.devtools.build.lib.blackbox.framework.BlackBoxTestEnvironment;
 import com.google.devtools.build.lib.blackbox.framework.PathUtils;
 import com.google.devtools.build.lib.blackbox.framework.ToolsSetup;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Collections;
 import java.util.List;
@@ -40,7 +41,9 @@ public class BlackBoxTestEnvironmentImpl extends BlackBoxTestEnvironment {
         new BlackBoxTestContext(
             testName, "bazel", binaryPath, Collections.emptyMap(), executorService);
     // Any Bazel command requires that workspace is already set up.
-    testContext.write("WORKSPACE", "workspace(name = 'main')", getWorkspaceWithDefaultRepos());
+    testContext.write("MODULE.bazel");
+    Path defaultLockfile = RunfilesUtil.find("io_bazel/src/test/tools/bzlmod/MODULE.bazel.lock");
+    Files.copy(defaultLockfile, testContext.getWorkDir().resolve("MODULE.bazel.lock"));
 
     List<ToolsSetup> allTools = Lists.newArrayList(new DefaultToolsSetup());
     allTools.addAll(tools);

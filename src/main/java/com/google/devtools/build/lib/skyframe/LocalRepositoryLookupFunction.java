@@ -24,10 +24,11 @@ import com.google.devtools.build.lib.io.InconsistentFilesystemException;
 import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.packages.ErrorDeterminingRepositoryException;
 import com.google.devtools.build.lib.packages.Package;
-import com.google.devtools.build.lib.packages.Package.NameConflictException;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.TargetRecorder.NameConflictException;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.repository.ExternalPackageHelper;
 import com.google.devtools.build.lib.rules.repository.LocalRepositoryRule;
 import com.google.devtools.build.lib.rules.repository.WorkspaceFileHelper;
@@ -42,6 +43,7 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.StarlarkSemantics;
 
 /** SkyFunction for {@link LocalRepositoryLookupValue}s. */
 public class LocalRepositoryLookupFunction implements SkyFunction {
@@ -52,17 +54,20 @@ public class LocalRepositoryLookupFunction implements SkyFunction {
     this.externalPackageHelper = externalPackageHelper;
   }
 
-  @Override
-  @Nullable
-  public String extractTag(SkyKey skyKey) {
-    return null;
-  }
-
   // Implementation note: Although LocalRepositoryLookupValue.NOT_FOUND exists, it should never be
   // returned from this method.
+  @Nullable
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws SkyFunctionException, InterruptedException {
+    StarlarkSemantics semantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
+    if (semantics == null) {
+      return null;
+    }
+    if (!semantics.getBool(BuildLanguageOptions.ENABLE_WORKSPACE)) {
+      // TODO: #22208, #21515 - Figure out what to do here.
+      return LocalRepositoryLookupValue.mainRepository();
+    }
     RootedPath directory = (RootedPath) skyKey.argument();
 
     // Is this the root directory? If so, we're in the MAIN repository. This assumes that the main
@@ -196,7 +201,7 @@ public class LocalRepositoryLookupFunction implements SkyFunction {
           String path = (String) rule.getAttr("path");
           return Optional.of(
               LocalRepositoryLookupValue.success(
-                  RepositoryName.create("@" + rule.getName()), PathFragment.create(path)));
+                  RepositoryName.create(rule.getName()), PathFragment.create(path)));
         } catch (LabelSyntaxException e) {
           // This shouldn't be possible if the rule name is valid, and it should already have been
           // validated.

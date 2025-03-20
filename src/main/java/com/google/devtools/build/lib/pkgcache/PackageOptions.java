@@ -19,10 +19,8 @@ import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.actions.LocalHostCapacity;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
 import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.util.ResourceConverter;
 import com.google.devtools.common.options.Converter;
@@ -38,20 +36,17 @@ import java.util.List;
 /** Options for configuring Packages -- loading and default behaviors. */
 public class PackageOptions extends OptionsBase {
 
-  /**
-   * Converter for the {@code --default_visibility} option.
-   */
-  public static class DefaultVisibilityConverter implements Converter<RuleVisibility> {
+  /** Converter for the {@code --default_visibility} option. */
+  public static class DefaultVisibilityConverter extends Converter.Contextless<RuleVisibility> {
     @Override
     public RuleVisibility convert(String input) throws OptionsParsingException {
-      if (input.equals("public")) {
-        return ConstantRuleVisibility.PUBLIC;
-      } else if (input.equals("private")) {
-        return ConstantRuleVisibility.PRIVATE;
-      } else {
-        throw new OptionsParsingException("Not a valid default visibility: '" + input
-            + "' (should be 'public' or 'private'");
-      }
+      return switch (input) {
+        case "public" -> RuleVisibility.PUBLIC;
+        case "private" -> RuleVisibility.PRIVATE;
+        default ->
+            throw new OptionsParsingException(
+                "Not a valid default visibility: '" + input + "' (should be 'public' or 'private'");
+      };
     }
 
     @Override
@@ -61,13 +56,9 @@ public class PackageOptions extends OptionsBase {
   }
 
   /** Converter for globbing threads. */
-  public static class ParallelismConverter extends ResourceConverter {
+  public static class ParallelismConverter extends ResourceConverter.IntegerConverter {
     public ParallelismConverter() throws OptionsParsingException {
-      super(
-          /* autoSupplier= */ () ->
-              (int) Math.ceil(LocalHostCapacity.getLocalHostCapacity().getCpuUsage()),
-          /* minValue= */ 1,
-          /* maxValue= */ Integer.MAX_VALUE);
+      super(/* auto= */ HOST_CPUS_SUPPLIER, /* minValue= */ 1, /* maxValue= */ Integer.MAX_VALUE);
     }
   }
 
@@ -93,38 +84,39 @@ public class PackageOptions extends OptionsBase {
   public boolean showLoadingProgress;
 
   @Option(
-    name = "deleted_packages",
-    defaultValue = "",
-    converter = CommaSeparatedPackageNameListConverter.class,
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help =
-        "A comma-separated list of names of packages which the "
-            + "build system will consider non-existent, even if they are "
-            + "visible somewhere on the package path.\n"
-            + "Use this option when deleting a subpackage 'x/y' of an "
-            + "existing package 'x'.  For example, after deleting x/y/BUILD "
-            + "in your client, the build system may complain if it "
-            + "encounters a label '//x:y/z' if that is still provided by another "
-            + "package_path entry.  Specifying --deleted_packages x/y avoids this "
-            + "problem."
-  )
+      name = "deleted_packages",
+      allowMultiple = true,
+      defaultValue = "null",
+      converter = CommaSeparatedPackageNameListConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "A comma-separated list of names of packages which the "
+              + "build system will consider non-existent, even if they are "
+              + "visible somewhere on the package path.\n"
+              + "Use this option when deleting a subpackage 'x/y' of an "
+              + "existing package 'x'.  For example, after deleting x/y/BUILD "
+              + "in your client, the build system may complain if it "
+              + "encounters a label '//x:y/z' if that is still provided by another "
+              + "package_path entry.  Specifying --deleted_packages x/y avoids this "
+              + "problem.")
   public List<PackageIdentifier> deletedPackages;
 
   @Option(
-    name = "default_visibility",
-    defaultValue = "private",
-    converter = DefaultVisibilityConverter.class,
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help =
-        "Default visibility for packages that don't set it explicitly ('public' or " + "'private')."
-  )
+      name = "default_visibility",
+      defaultValue = "private",
+      converter = DefaultVisibilityConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Default visibility for packages that don't set it explicitly ('public' or 'private').")
   public RuleVisibility defaultVisibility;
 
   @Option(
       name = "incompatible_enforce_config_setting_visibility",
-      defaultValue = "false",
+      // TODO(b/179944632): set this and --incompatible_config_setting_private_default_visibility
+      // to true, then make these no-ops, then remove.
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
@@ -174,30 +166,31 @@ public class PackageOptions extends OptionsBase {
   public int maxDirectoriesToEagerlyVisitInGlobbing;
 
   @Option(
-    name = "fetch",
-    defaultValue = "true",
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help = "Allows the command to fetch external dependencies"
-  )
+      name = "fetch",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Allows the command to fetch external dependencies. If set to false, the command will"
+              + " utilize any cached version of the dependency, and if none exists, the command"
+              + " will result in failure.")
   public boolean fetch;
 
   @Option(
-    name = "experimental_check_output_files",
-    defaultValue = "true",
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help =
-        "Check for modifications made to the output files of a build. Consider setting "
-            + "this flag to false to see the effect on incremental build times."
-  )
+      name = "experimental_check_output_files",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Check for modifications made to the output files of a build. Consider setting "
+              + "this flag to false if you don't expect these files to change outside of bazel "
+              + "since it will speed up subsequent runs as they won't have to check a "
+              + "previous run's cache.")
   public boolean checkOutputFiles;
 
-  /**
-   * A converter from strings containing comma-separated names of packages to lists of strings.
-   */
+  /** A converter from strings containing comma-separated names of packages to lists of strings. */
   public static class CommaSeparatedPackageNameListConverter
-      implements Converter<List<PackageIdentifier>> {
+      extends Converter.Contextless<List<PackageIdentifier>> {
 
     private static final Splitter COMMA_SPLITTER = Splitter.on(',');
 
@@ -225,13 +218,9 @@ public class PackageOptions extends OptionsBase {
   }
 
   public ImmutableSet<PackageIdentifier> getDeletedPackages() {
-    if (deletedPackages == null || deletedPackages.isEmpty()) {
+    if (deletedPackages == null) {
       return ImmutableSet.of();
     }
-    ImmutableSet.Builder<PackageIdentifier> newDeletedPackages = ImmutableSet.builder();
-    for (PackageIdentifier pkg : deletedPackages) {
-      newDeletedPackages.add(pkg.makeAbsolute());
-    }
-    return newDeletedPackages.build();
+    return ImmutableSet.copyOf(deletedPackages);
   }
 }

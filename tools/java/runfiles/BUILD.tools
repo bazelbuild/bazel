@@ -1,8 +1,5 @@
-java_library(
+alias(
     name = "runfiles",
-    srcs = [
-        "Runfiles.java",
-        "Util.java",
-    ],
+    actual = "@rules_java//java/runfiles",
     visibility = ["//visibility:public"],
 )

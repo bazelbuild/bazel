@@ -15,6 +15,9 @@
 #ifndef BAZEL_SRC_TOOLS_LAUNCHER_PYTHON_LAUNCHER_H_
 #define BAZEL_SRC_TOOLS_LAUNCHER_PYTHON_LAUNCHER_H_
 
+#include <string>
+#include <utility>
+
 #include "src/tools/launcher/launcher.h"
 
 namespace bazel {
@@ -23,8 +26,9 @@ namespace launcher {
 class PythonBinaryLauncher : public BinaryLauncherBase {
  public:
   PythonBinaryLauncher(const LaunchDataParser::LaunchInfo& launch_info,
-                       int argc, wchar_t* argv[])
-      : BinaryLauncherBase(launch_info, argc, argv) {}
+                       const std::wstring& launcher_path, int argc,
+                       wchar_t* argv[])
+      : BinaryLauncherBase(launch_info, launcher_path, argc, argv) {}
   ~PythonBinaryLauncher() override = default;
   ExitCode Launch() override;
 };

@@ -14,47 +14,67 @@
 
 package com.google.devtools.build.lib.analysis.constraints;
 
-import com.google.auto.value.AutoValue;
+import static java.util.Objects.requireNonNull;
+
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableCollection;
-import com.google.common.collect.ImmutableMultimap;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.EnvironmentLabels;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
 /** Contains a set of {@link Environment} labels and their associated groups. */
 @Immutable
-public class EnvironmentCollection {
-  private final ImmutableMultimap<EnvironmentLabels, Label> map;
+public final class EnvironmentCollection {
 
-  private EnvironmentCollection(ImmutableMultimap<EnvironmentLabels, Label> map) {
+  /** An empty {@link EnvironmentCollection}. */
+  @SerializationConstant
+  static final EnvironmentCollection EMPTY = new EnvironmentCollection(ImmutableListMultimap.of());
+
+  private static final Interner<EnvironmentCollection> interner = BlazeInterners.newWeakInterner();
+
+  private final ImmutableListMultimap<EnvironmentLabels, Label> map;
+
+  private EnvironmentCollection(ImmutableListMultimap<EnvironmentLabels, Label> map) {
     this.map = map;
   }
 
-  /**
-   * Stores an environment's build label along with the group it belongs to.
-   */
-  @AutoValue
-  abstract static class EnvironmentWithGroup {
-    static EnvironmentWithGroup create(Label environment, EnvironmentLabels group) {
-      return new AutoValue_EnvironmentCollection_EnvironmentWithGroup(environment, group);
+  /** Stores an environment's build label along with the group it belongs to. */
+  record EnvironmentWithGroup(Label environment, EnvironmentLabels group) {
+    EnvironmentWithGroup {
+      requireNonNull(environment, "environment");
+      requireNonNull(group, "group");
     }
-    abstract Label environment();
 
-    abstract EnvironmentLabels group();
+    static EnvironmentWithGroup create(Label environment, EnvironmentLabels group) {
+      return new EnvironmentWithGroup(environment, group);
+    }
   }
 
   /**
-   * Returns the build labels of each environment in this collection, ordered by
-   * their insertion order in {@link Builder}.
+   * Returns the build labels of each environment in this collection, ordered by their insertion
+   * order in {@link Builder}.
    */
   public ImmutableCollection<Label> getEnvironments() {
     return map.values();
+  }
+
+  /**
+   * Returns the environments in this collection that belong to the given group, ordered by their
+   * insertion order in {@link Builder}. If no environments belong to the given group, returns an
+   * empty collection.
+   */
+  ImmutableList<Label> getEnvironments(EnvironmentLabels group) {
+    return map.get(group);
   }
 
   /**
@@ -66,29 +86,36 @@ public class EnvironmentCollection {
   }
 
   /**
-   * Returns the build labels of each environment in this collection paired with the
-   * group each environment belongs to, ordered by their insertion order in {@link Builder}.
+   * Returns the build labels of each environment in this collection paired with the group each
+   * environment belongs to, ordered by their insertion order in {@link Builder}.
    */
-  ImmutableCollection<EnvironmentWithGroup> getGroupedEnvironments() {
-    ImmutableSet.Builder<EnvironmentWithGroup> builder = ImmutableSet.builder();
-    for (Map.Entry<EnvironmentLabels, Label> entry : map.entries()) {
-      builder.add(EnvironmentWithGroup.create(entry.getValue(), entry.getKey()));
-    }
+  ImmutableSet<EnvironmentWithGroup> getGroupedEnvironments() {
+    var builder = ImmutableSet.<EnvironmentWithGroup>builderWithExpectedSize(map.asMap().size());
+    map.forEach((group, env) -> builder.add(EnvironmentWithGroup.create(env, group)));
     return builder.build();
   }
 
-  /**
-   * Returns the environments in this collection that belong to the given group, ordered by their
-   * insertion order in {@link Builder}. If no environments belong to the given group, returns an
-   * empty collection.
-   */
-  ImmutableCollection<Label> getEnvironments(EnvironmentLabels group) {
-    return map.get(group);
+  boolean isEmpty() {
+    return map.isEmpty();
   }
 
-  /** An empty collection. */
-  @SerializationConstant
-  static final EnvironmentCollection EMPTY = new EnvironmentCollection(ImmutableMultimap.of());
+  @Override
+  public int hashCode() {
+    return 31 * map.hashCode() + map.keySet().asList().hashCode(); // Consider order of keys.
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) {
+      return true;
+    }
+    if (!(o instanceof EnvironmentCollection that)) {
+      return false;
+    }
+    // ImmutableListMultimap equality considers the order of each value list but not the order of
+    // keys. Additionally check equality of the keys as a list to reflect ordering.
+    return map.equals(that.map) && map.keySet().asList().equals(that.map.keySet().asList());
+  }
 
   @Override
   public String toString() {
@@ -99,16 +126,15 @@ public class EnvironmentCollection {
         .toString();
   }
 
-  /**
-   * Builder for {@link EnvironmentCollection}.
-   */
+  /** Builder for {@link EnvironmentCollection}. */
   public static class Builder {
-    // ImmutableMultiMap.Builder appears to allow duplicate values, which we don't want.
+    // ImmutableListMultimap.Builder allows duplicate values, which we don't want.
     private final Set<Label> addedLabels = new HashSet<>();
-    private final ImmutableMultimap.Builder<EnvironmentLabels, Label> mapBuilder =
-        ImmutableMultimap.builder();
+    private final ImmutableListMultimap.Builder<EnvironmentLabels, Label> mapBuilder =
+        ImmutableListMultimap.builder();
 
     /** Inserts the given environment / owning group pair. */
+    @CanIgnoreReturnValue
     public Builder put(EnvironmentLabels group, Label environment) {
       if (addedLabels.add(environment)) {
         mapBuilder.put(group, environment);
@@ -117,6 +143,7 @@ public class EnvironmentCollection {
     }
 
     /** Inserts the given set of environments, all belonging to the specified group. */
+    @CanIgnoreReturnValue
     public Builder putAll(EnvironmentLabels group, Iterable<Label> environments) {
       for (Label env : environments) {
         if (addedLabels.add(env)) {
@@ -126,9 +153,8 @@ public class EnvironmentCollection {
       return this;
     }
 
-    /**
-     * Inserts the contents of another {@link EnvironmentCollection} into this one.
-     */
+    /** Inserts the contents of another {@link EnvironmentCollection} into this one. */
+    @CanIgnoreReturnValue
     public Builder putAll(EnvironmentCollection other) {
       for (Map.Entry<EnvironmentLabels, Label> entry : other.map.entries()) {
         if (addedLabels.add(entry.getValue())) {
@@ -139,7 +165,8 @@ public class EnvironmentCollection {
     }
 
     public EnvironmentCollection build() {
-      return new EnvironmentCollection(mapBuilder.build());
+      var map = mapBuilder.build();
+      return map.isEmpty() ? EMPTY : interner.intern(new EnvironmentCollection(map));
     }
   }
 }

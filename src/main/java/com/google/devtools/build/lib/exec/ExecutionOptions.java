@@ -33,9 +33,11 @@ import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingException;
+import java.time.Duration;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * Options affecting the execution phase of a build.
@@ -110,7 +112,7 @@ public class ExecutionOptions extends OptionsBase {
           "Override which spawn strategy should be used to execute spawn actions that have "
               + "descriptions matching a certain regex_filter. See --per_file_copt for details on"
               + "regex_filter matching. "
-              + "The first regex_filter that matches the description is used. "
+              + "The last regex_filter that matches the description is used. "
               + "This option overrides other flags for specifying strategy. "
               + "Example: --strategy_regexp=//foo.*\\.cc,-//foo/bar=local means to run actions "
               + "using local strategy if their descriptions match //foo.*.cc but not //foo/bar. "
@@ -160,7 +162,10 @@ public class ExecutionOptions extends OptionsBase {
       converter = ShowSubcommandsConverter.class,
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
-      help = "Display the subcommands executed during a build.")
+      help =
+          "Display the subcommands executed during a build. Related flags:"
+              + " --execution_log_json_file, --execution_log_binary_file (for logging subcommands"
+              + " to a file in a tool-friendly format).")
   public ShowSubcommands showSubcommands;
 
   @Option(
@@ -265,7 +270,7 @@ public class ExecutionOptions extends OptionsBase {
         OptionEffectTag.EXECUTION
       },
       help =
-          "Specifies maximum per-test-log size that can be emitted when --test_summary is 'errors' "
+          "Specifies maximum per-test-log size that can be emitted when --test_output is 'errors' "
               + "or 'all'. Useful for avoiding overwhelming the output with excessively noisy test "
               + "output. The test header is included in the log size. Negative values imply no "
               + "limit. Output is all or nothing.")
@@ -278,65 +283,124 @@ public class ExecutionOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
       help =
-          "Specifies the desired format ot the test summary. Valid values are 'short' to print "
-              + "information only about tests executed, 'terse', to print information only about "
-              + "unsuccessful tests that were run, 'detailed' to print detailed information about "
-              + "failed test cases, and 'none' to omit the summary.")
+          "Specifies the desired format of the test summary. Valid values are 'short' to print"
+              + " information only about tests executed, 'terse', to print information only about"
+              + " unsuccessful tests that were run, 'detailed' to print detailed information about"
+              + " failed test cases, 'testcase' to print summary in test case resolution, do not"
+              + " print detailed information about failed test cases and 'none' to omit the"
+              + " summary.")
   public TestSummaryFormat testSummary;
 
   @Option(
-      name = "resource_autosense",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "This flag has no effect, and is deprecated")
-  public boolean useResourceAutoSense;
-
-  @Option(
       name = "local_cpu_resources",
-      defaultValue = "HOST_CPUS",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
+      defaultValue = ResourceConverter.HOST_CPUS_KEYWORD,
+      deprecationWarning =
+          "--local_cpu_resources is deprecated, please use --local_resources=cpu= instead.",
+      documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
+      effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
       help =
-          "Explicitly set the number of local CPU threads available to Bazel. Takes "
-              + "an integer, or \"HOST_CPUS\", optionally followed by [-|*]<float> "
-              + "(eg. HOST_CPUS*.5 to use half the available CPU cores)."
-              + "By default, (\"HOST_CPUS\"), Bazel will query system configuration to estimate "
-              + "number of CPU cores available for the locally executed build actions. "
-              + "Note: This is a no-op if --local_resources is set.",
+          "Explicitly set the total number of local CPU cores available to Bazel to spend on build"
+              + " actions executed locally. Takes an integer, or \""
+              + ResourceConverter.HOST_CPUS_KEYWORD
+              + "\", optionally followed"
+              + " by [-|*]<float> (eg. "
+              + ResourceConverter.HOST_CPUS_KEYWORD
+              + "*.5"
+              + " to use half the available CPU cores). By default, (\""
+              + ResourceConverter.HOST_CPUS_KEYWORD
+              + "\"), Bazel will query system"
+              + " configuration to estimate the number of CPU cores available.",
       converter = CpuResourceConverter.class)
-  public float localCpuResources;
+  public double localCpuResources;
 
   @Option(
       name = "local_ram_resources",
-      defaultValue = "HOST_RAM*.67",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
+      defaultValue = ResourceConverter.HOST_RAM_KEYWORD + "*.67",
+      deprecationWarning =
+          "--local_ram_resources is deprecated, please use --local_resources=memory= instead.",
+      documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
+      effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
       help =
-          "Explicitly set the amount of local host RAM (in MB) available to Bazel. Takes "
-              + "an integer, or \"HOST_RAM\", optionally followed by [-|*]<float> "
-              + "(eg. HOST_RAM*.5 to use half the available RAM)."
-              + "By default, (\"HOST_RAM*.67\"), Bazel will query system configuration to estimate "
-              + "amount of RAM available for the locally executed build actions and will use 67% "
-              + "of available RAM. "
-              + "Note: This is a no-op if --local_resources is set.",
+          "Explicitly set the total amount of local host RAM (in MB) available to Bazel to spend on"
+              + " build actions executed locally. Takes an integer, or \""
+              + ResourceConverter.HOST_RAM_KEYWORD
+              + "\", optionally followed by [-|*]<float>"
+              + " (eg. "
+              + ResourceConverter.HOST_RAM_KEYWORD
+              + "*.5 to use half the available"
+              + " RAM). By default, (\""
+              + ResourceConverter.HOST_RAM_KEYWORD
+              + "*.67\"),"
+              + " Bazel will query system configuration to estimate the amount of RAM available"
+              + " and will use 67% of it.",
       converter = RamResourceConverter.class)
-  public float localRamResources;
+  public double localRamResources;
 
   @Option(
-    name = "experimental_local_memory_estimate",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help =
-        "Estimate the actual memory available online. "
-            + "By default, Blaze assumes most actions use a fixed amount of memory, and counts "
-            + "that against the total available system memory, regardless of how much memory is "
-            + "actually available.  This option enables online estimation of how much memory is "
-            + "available at any given time, and thus does not require accurate estimation of how "
-            + "much memory a given action will take."
-  )
-  public boolean localMemoryEstimate;
+      name = "local_extra_resources",
+      defaultValue = "null",
+      deprecationWarning =
+          "--local_extra_resources is deprecated, please use --local_resources instead.",
+      documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
+      effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
+      allowMultiple = true,
+      help =
+          "Set the number of extra resources available to Bazel. "
+              + "Takes in a string-float pair. Can be used multiple times to specify multiple "
+              + "types of extra resources. Bazel will limit concurrently running actions "
+              + "based on the available extra resources and the extra resources required. "
+              + "Tests can declare the amount of extra resources they need "
+              + "by using a tag of the \"resources:<resoucename>:<amount>\" format. "
+              + "Available CPU, RAM and resources cannot be set with this flag.",
+      converter = Converters.StringToDoubleAssignmentConverter.class)
+  public List<Map.Entry<String, Double>> localExtraResources;
+
+  @Option(
+      name = "local_resources",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
+      effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
+      allowMultiple = true,
+      help =
+          "Set the number of resources available to Bazel. "
+              + "Takes in an assignment to a float or "
+              + ResourceConverter.HOST_RAM_KEYWORD
+              + "/"
+              + ResourceConverter.HOST_CPUS_KEYWORD
+              + ", optionally "
+              + "followed by [-|*]<float> (eg. memory="
+              + ResourceConverter.HOST_RAM_KEYWORD
+              + "*.5 to use half the available RAM). "
+              + "Can be used multiple times to specify multiple "
+              + "types of resources. Bazel will limit concurrently running actions "
+              + "based on the available resources and the resources required. "
+              + "Tests can declare the amount of resources they need "
+              + "by using a tag of the \"resources:<resource name>:<amount>\" format. "
+              + "Overrides resources specified by --local_{cpu|ram|extra}_resources.",
+      converter = ResourceConverter.AssignmentConverter.class)
+  public List<Map.Entry<String, Double>> localResources;
+
+  @Option(
+      name = "experimental_cpu_load_scheduling",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help =
+          "Enables the experimental local execution scheduling based on CPU load, not estimation of"
+              + " actions one by one.  Experimental scheduling have showed the large benefit on a"
+              + " large local builds on a powerful machines with the large number of cores."
+              + " Reccommended to use with --local_resources=cpu=HOST_CPUS")
+  public boolean experimentalCpuLoadScheduling;
+
+  @Option(
+      name = "experimental_cpu_load_scheduling_window_size",
+      defaultValue = "5000ms",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help =
+          "The size of window during experimental scheduling of action based on CPU load. Make"
+              + " sense to define only when flag --experimental_cpu_load_scheduling is enabled.")
+  public Duration experimentalCpuLoadSchedulingWindowSize;
 
   @Option(
       name = "local_test_jobs",
@@ -358,28 +422,9 @@ public class ExecutionOptions extends OptionsBase {
   }
 
   @Option(
-      name = "experimental_prioritize_local_actions",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.EXECUTION},
-      help =
-          "If set, actions that can only run locally are given first chance at acquiring resources,"
-              + " dynamically run workers get second chance, and dynamically-run standalone actions"
-              + " come last.")
-  public boolean prioritizeLocalActions;
-
-  @Option(
-      name = "debug_print_action_contexts",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "Print the contents of the SpawnActionContext and ContextProviders maps.")
-  public boolean debugPrintActionContexts;
-
-  @Option(
       name = "cache_computed_file_digests",
       defaultValue = "50000",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "If greater than 0, configures Bazel to cache file digests in memory based on their "
@@ -411,23 +456,20 @@ public class ExecutionOptions extends OptionsBase {
   public boolean statsSummary;
 
   @Option(
-      name = "experimental_execution_log_file",
-      defaultValue = "null",
-      category = "verbosity",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      converter = OptionsUtils.PathFragmentConverter.class,
-      help = "Log the executed spawns into this file as delimited Spawn protos.")
-  public PathFragment executionLogFile;
-
-  @Option(
       name = "execution_log_binary_file",
       defaultValue = "null",
       category = "verbosity",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
-      converter = OptionsUtils.PathFragmentConverter.class,
-      help = "Log the executed spawns into this file as delimited Spawn protos.")
+      converter = OptionsUtils.EmptyToNullPathFragmentConverter.class,
+      help =
+          "Log the executed spawns into this file as length-delimited SpawnExec protos, according"
+              + " to src/main/protobuf/spawn.proto. Prefer --execution_log_compact_file, which is"
+              + " significantly smaller and cheaper to produce. Related flags:"
+              + " --execution_log_compact_file (compact format; mutually exclusive),"
+              + " --execution_log_json_file (text JSON format; mutually exclusive),"
+              + " --execution_log_sort (whether to sort the execution log),"
+              + " --subcommands (for displaying subcommands in terminal output).")
   public PathFragment executionLogBinaryFile;
 
   @Option(
@@ -436,11 +478,47 @@ public class ExecutionOptions extends OptionsBase {
       category = "verbosity",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
-      converter = OptionsUtils.PathFragmentConverter.class,
+      converter = OptionsUtils.EmptyToNullPathFragmentConverter.class,
       help =
-          "Log the executed spawns into this file as json representation of the delimited Spawn"
-              + " protos.")
+          "Log the executed spawns into this file as newline-delimited JSON representations of"
+              + " SpawnExec protos, according to src/main/protobuf/spawn.proto. Prefer"
+              + " --execution_log_compact_file, which is significantly smaller and cheaper to"
+              + " produce. Related flags:"
+              + " --execution_log_compact_file (compact format; mutually exclusive),"
+              + " --execution_log_binary_file (binary protobuf format; mutually exclusive),"
+              + " --execution_log_sort (whether to sort the execution log),"
+              + " --subcommands (for displaying subcommands in terminal output).")
   public PathFragment executionLogJsonFile;
+
+  @Option(
+      name = "execution_log_compact_file",
+      oldName = "experimental_execution_log_compact_file",
+      defaultValue = "null",
+      category = "verbosity",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      converter = OptionsUtils.EmptyToNullPathFragmentConverter.class,
+      help =
+          "Log the executed spawns into this file as length-delimited ExecLogEntry protos,"
+              + " according to src/main/protobuf/spawn.proto. The entire file is zstd compressed."
+              + " Related flags:"
+              + " --execution_log_binary_file (binary protobuf format; mutually exclusive),"
+              + " --execution_log_json_file (text JSON format; mutually exclusive),"
+              + " --subcommands (for displaying subcommands in terminal output).")
+  public PathFragment executionLogCompactFile;
+
+  @Option(
+      name = "execution_log_sort",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Whether to sort the execution log, making it easier to compare logs across invocations."
+              + " Set to false to avoid potentially significant CPU and memory usage at the end of"
+              + " the invocation, at the cost of producing the log in nondeterministic execution"
+              + " order. Only applies to the binary and JSON formats; the compact format is never"
+              + " sorted.")
+  public boolean executionLogSort;
 
   @Option(
       name = "experimental_split_xml_generation",
@@ -454,22 +532,18 @@ public class ExecutionOptions extends OptionsBase {
   public boolean splitXmlGeneration;
 
   @Option(
-      name = "experimental_path_agnostic_action",
-      allowMultiple = true,
-      defaultValue = "null",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      // TODO: when this flag is moved to non-experimental, rename it to a more general name
+      // to reflect the new logic - it's not only about cache evictions.
+      name = "experimental_remote_cache_eviction_retries",
+      defaultValue = "5",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.EXECUTION},
       help =
-          "Setting this to an action's mnemonic declares that the action's output doesn't "
-              + "depend on its input or output paths. For example, "
-              + "\"mytool blaze-out/x86-fastbuild/input -o  bar/output\" produces the same output "
-              + "as \"mytool blaze-out/input -o baz/output\". The action executor may strip "
-              + "configuration prefixes from paths before running these actions to improve cache "
-              + "efficiency. For for example, \"blaze-out/k8-fastbuild/foo\" -> \"blaze-out/foo\". "
-              + "Be especially careful with actions that process debug symbol paths or manifest "
-              + "files.")
-  // TODO(bazel-team): merge this and --experimental_output_paths into a coherent final API.
-  public List<String> pathAgnosticActions;
+          "The maximum number of attempts to retry if the build encountered a transient remote"
+              + " cache error that would otherwise fail the build. Applies for example when"
+              + " artifacts are evicted from the remote cache, or in certain cache failure"
+              + " conditions. A new invocation id will be generated for each attempt.")
+  public int remoteRetryOnTransientCacheError;
 
   /** An enum for specifying different formats of test output. */
   public enum TestOutputFormat {
@@ -509,16 +583,13 @@ public class ExecutionOptions extends OptionsBase {
     private static final int MAX_VALUE = 10;
 
     private void validateInput(String input) throws OptionsParsingException {
-      if ("default".equals(input)) {
-        return;
-      } else {
-        Integer value = Integer.parseInt(input);
+      if (!Objects.equals(input, "default")) {
+        int value = Integer.parseInt(input);
         if (value < MIN_VALUE) {
           throw new OptionsParsingException("'" + input + "' should be >= " + MIN_VALUE);
-        } else if (value < MIN_VALUE || value > MAX_VALUE) {
+        } else if (value > MAX_VALUE) {
           throw new OptionsParsingException("'" + input + "' should be <= " + MAX_VALUE);
         }
-        return;
       }
     }
 
@@ -562,9 +633,9 @@ public class ExecutionOptions extends OptionsBase {
   }
 
   /** Converter for --local_test_jobs, which takes {@value FLAG_SYNTAX} */
-  public static class LocalTestJobsConverter extends ResourceConverter {
+  public static class LocalTestJobsConverter extends ResourceConverter.IntegerConverter {
     public LocalTestJobsConverter() throws OptionsParsingException {
-      super(/* autoSupplier= */ () -> 0, /* minValue= */ 0, /* maxValue= */ Integer.MAX_VALUE);
+      super(/* auto= */ () -> 0, /* minValue= */ 0, /* maxValue= */ Integer.MAX_VALUE);
     }
   }
 

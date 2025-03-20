@@ -97,12 +97,6 @@ public class IncludeHintsFunction implements SkyFunction {
     }
   }
 
-  @Nullable
-  @Override
-  public String extractTag(SkyKey skyKey) {
-    return null;
-  }
-
   private static FailureDetail createFailureDetail(String message, Code detailedCode) {
     return FailureDetail.newBuilder()
         .setMessage(message)

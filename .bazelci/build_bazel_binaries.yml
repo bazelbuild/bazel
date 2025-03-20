@@ -1,13 +1,6 @@
 ---
 platforms:
-  centos7_java11_devtoolset10:
-    build_targets:
-      - "//src:bazel"
-      - "//src:bazel_nojdk"
-    build_flags:
-      - "-c"
-      - "opt"
-  ubuntu1804:
+  centos7:
     build_targets:
       - "//src:bazel"
       - "//src:bazel_nojdk"
@@ -21,8 +14,24 @@ platforms:
     build_flags:
       - "-c"
       - "opt"
+  ubuntu2004_arm64:
+    shell_commands:
+      # Our Arm64 machine keeps state between builds, so we need to clean it.
+      - "bazel clean --expunge"
+    build_targets:
+      - "//src:bazel"
+      - "//src:bazel_nojdk"
+    build_flags:
+      - "-c"
+      - "opt"
+  ubuntu2204:
+    build_targets:
+      - "//src:bazel"
+      - "//src:bazel_nojdk"
+    build_flags:
+      - "-c"
+      - "opt"
   macos:
-    xcode_version: "13.0"
     build_targets:
       - "//src:bazel"
       - "//src:bazel_nojdk"
@@ -30,22 +39,28 @@ platforms:
       - "-c"
       - "opt"
   macos_arm64:
-    xcode_version: "13.0"
     build_targets:
       - "//src:bazel"
       - "//src:bazel_nojdk"
     build_flags:
       - "-c"
       - "opt"
-      # TODO(pcloudy): Remove the following flag when we actually use Apple
-      # Silicon machines for macos_arm64 platform
-      - "--cpu=darwin_arm64"
   windows:
     build_flags:
       - "--copt=-w"
       - "--host_copt=-w"
       - "-c"
       - "opt"
+    build_targets:
+      - "//src:bazel.exe"
+      - "//src:bazel_nojdk.exe"
+  windows_arm64:
+    build_flags:
+      - "--copt=-w"
+      - "--host_copt=-w"
+      - "-c"
+      - "opt"
+      - "--config=windows_arm64"
     build_targets:
       - "//src:bazel.exe"
       - "//src:bazel_nojdk.exe"

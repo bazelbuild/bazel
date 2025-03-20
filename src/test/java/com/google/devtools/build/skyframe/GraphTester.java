@@ -19,20 +19,21 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Interner;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.Pair;
-import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
+import com.google.devtools.build.skyframe.SkyframeLookupResult.QueryDepCallback;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 
 /**
@@ -50,6 +51,10 @@ import javax.annotation.Nullable;
 public class GraphTester {
 
   public static final SkyFunctionName NODE_TYPE = SkyFunctionName.FOR_TESTING;
+
+  /** If true, uses the {@link SkyframeLookupResult#queryDep} interface to retrieve values. */
+  private boolean useQueryDep = false;
+
   private final Map<SkyFunctionName, SkyFunction> functionMap = new HashMap<>();
 
   private final Map<SkyKey, TestFunction> values = new HashMap<>();
@@ -58,6 +63,10 @@ public class GraphTester {
   public GraphTester() {
     functionMap.put(NODE_TYPE, new DelegatingFunction());
     functionMap.put(FOR_TESTING_NONHERMETIC, new DelegatingFunction());
+  }
+
+  public void setUseQueryDep(boolean useQueryDep) {
+    this.useQueryDep = useQueryDep;
   }
 
   public TestFunction getOrCreate(String name) {
@@ -111,22 +120,16 @@ public class GraphTester {
         if (builder.progress != null) {
           env.getListener().handle(Event.progress(builder.progress));
         }
+        if (builder.errorEvent != null) {
+          env.getListener().handle(Event.error(builder.errorEvent));
+        }
         if (builder.postable != null) {
           env.getListener().post(builder.postable);
         }
         Map<SkyKey, SkyValue> deps = new LinkedHashMap<>();
         boolean oneMissing = false;
         for (Pair<SkyKey, SkyValue> dep : builder.deps) {
-          SkyValue value;
-          if (dep.second == null) {
-            value = env.getValue(dep.first);
-          } else {
-            try {
-              value = env.getValueOrThrow(dep.first, SomeErrorException.class);
-            } catch (SomeErrorException e) {
-              value = dep.second;
-            }
-          }
+          SkyValue value = useQueryDep ? getValueUsingQueryDep(dep, env) : getValue(dep, env);
           if (value == null) {
             oneMissing = true;
           } else {
@@ -140,12 +143,12 @@ public class GraphTester {
         }
 
         if (builder.hasTransientError) {
-          throw new GenericFunctionException(new SomeErrorException(key.toString()),
-              Transience.TRANSIENT);
+          throw new GenericFunctionException(
+              new SomeErrorException(key.toString()), Transience.TRANSIENT);
         }
         if (builder.hasError) {
-          throw new GenericFunctionException(new SomeErrorException(key.toString()),
-              Transience.PERSISTENT);
+          throw new GenericFunctionException(
+              new SomeErrorException(key.toString()), Transience.PERSISTENT);
         }
 
         if (builder.value != null) {
@@ -162,9 +165,81 @@ public class GraphTester {
       @Nullable
       @Override
       public String extractTag(SkyKey skyKey) {
-        return values.get(skyKey).tag;
+        TestFunction builder = values.get(skyKey);
+        if (builder.builder != null) {
+          return builder.builder.extractTag(skyKey);
+        }
+        return builder.tag;
       }
     };
+  }
+
+  private static SkyValue getValue(Pair<SkyKey, SkyValue> dep, SkyFunction.Environment env)
+      throws InterruptedException {
+    SkyValue value;
+    if (dep.second == null) {
+      value = env.getValue(dep.first);
+    } else {
+      try {
+        value = env.getValueOrThrow(dep.first, SomeErrorException.class);
+      } catch (SomeErrorException e) {
+        value = dep.second;
+      }
+    }
+    return value;
+  }
+
+  private static SkyValue getValueUsingQueryDep(
+      Pair<SkyKey, SkyValue> dep, SkyFunction.Environment env) throws InterruptedException {
+    SkyValue value;
+    var lookupResult = env.getValuesAndExceptions(ImmutableList.of(dep.first));
+    if (dep.second == null) {
+      var valueRef = new AtomicReference<SkyValue>();
+      var gotValue =
+          lookupResult.queryDep(
+              dep.first,
+              (k, v) -> {
+                assertThat(k).isEqualTo(dep.first);
+                valueRef.set(v);
+              });
+      if ((value = valueRef.get()) != null) {
+        assertThat(gotValue).isTrue();
+      } else {
+        assertThat(gotValue).isFalse();
+      }
+    } else {
+      var valueRef = new AtomicReference<SkyValue>();
+      var exceptionRef = new AtomicReference<SomeErrorException>();
+      var gotValue =
+          lookupResult.queryDep(
+              dep.first,
+              new QueryDepCallback() {
+                @Override
+                public void acceptValue(SkyKey key, SkyValue value) {
+                  assertThat(key).isEqualTo(dep.first);
+                  valueRef.set(value);
+                }
+
+                @Override
+                public boolean tryHandleException(SkyKey key, Exception e) {
+                  assertThat(key).isEqualTo(dep.first);
+                  if (e instanceof SomeErrorException someErrorException) {
+                    exceptionRef.set(someErrorException);
+                    return true;
+                  }
+                  return false;
+                }
+              });
+      if ((value = valueRef.get()) != null) {
+        assertThat(gotValue).isTrue();
+      } else if (exceptionRef.get() != null) {
+        value = dep.second;
+        assertThat(gotValue).isTrue();
+      } else {
+        assertThat(gotValue).isFalse();
+      }
+    }
+    return value;
   }
 
   public static SkyKey skyKey(String key) {
@@ -173,6 +248,10 @@ public class GraphTester {
 
   public static NonHermeticKey nonHermeticKey(String key) {
     return NonHermeticKey.create(key);
+  }
+
+  public static SkipBatchPrefetchKey skipBatchPrefetchKey(String key) {
+    return SkipBatchPrefetchKey.create(key);
   }
 
   /** A value in the testing graph that is constructed in the tester. */
@@ -188,59 +267,66 @@ public class GraphTester {
 
     private String warning;
     private String progress;
+    private String errorEvent;
     private Postable postable;
 
     private String tag;
 
+    @CanIgnoreReturnValue
     public TestFunction addDependency(String name) {
       return addDependency(skyKey(name));
     }
 
+    @CanIgnoreReturnValue
     public TestFunction addDependency(SkyKey key) {
-      deps.add(Pair.<SkyKey, SkyValue>of(key, null));
+      deps.add(Pair.of(key, null));
       return this;
     }
 
+    @CanIgnoreReturnValue
     public TestFunction removeDependency(String name) {
       return removeDependency(skyKey(name));
     }
 
+    @CanIgnoreReturnValue
     public TestFunction removeDependency(SkyKey key) {
       deps.remove(Pair.<SkyKey, SkyValue>of(key, null));
       return this;
     }
 
-    public TestFunction addErrorDependency(String name, SkyValue altValue) {
-      return addErrorDependency(skyKey(name), altValue);
-    }
-
+    @CanIgnoreReturnValue
     public TestFunction addErrorDependency(SkyKey key, SkyValue altValue) {
       deps.add(Pair.of(key, altValue));
       return this;
     }
 
+    @CanIgnoreReturnValue
     public TestFunction setConstantValue(SkyValue value) {
       Preconditions.checkState(this.computer == null);
       this.value = value;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public TestFunction unsetConstantValue() {
       this.value = null;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public TestFunction setComputedValue(ValueComputer computer) {
       Preconditions.checkState(this.value == null);
       this.computer = computer;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public TestFunction unsetComputedValue() {
       this.computer = null;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public TestFunction setBuilder(SkyFunction builder) {
       Preconditions.checkState(this.value == null);
       Preconditions.checkState(this.computer == null);
@@ -249,41 +335,61 @@ public class GraphTester {
       Preconditions.checkState(!hasError);
       Preconditions.checkState(warning == null);
       Preconditions.checkState(progress == null);
+      Preconditions.checkState(errorEvent == null);
+      Preconditions.checkState(tag == null);
       this.builder = builder;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public TestFunction setBuilderUnconditionally(SkyFunction builder) {
       this.builder = builder;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public TestFunction setHasTransientError(boolean hasError) {
       this.hasTransientError = hasError;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public TestFunction setHasError(boolean hasError) {
       // TODO(bazel-team): switch to an enum for hasError.
       this.hasError = hasError;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public TestFunction setWarning(String warning) {
       this.warning = warning;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public TestFunction setProgress(String info) {
       this.progress = info;
       return this;
     }
 
+    /**
+     * Sets an error message to emit as an {@link Event}. Does not imply that the function throws an
+     * error.
+     */
+    @CanIgnoreReturnValue
+    public TestFunction setErrorEvent(String error) {
+      this.errorEvent = error;
+      return this;
+    }
+
+    @CanIgnoreReturnValue
     public TestFunction setTag(String tag) {
+      Preconditions.checkState(builder == null);
       this.tag = tag;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public TestFunction setPostable(Postable postable) {
       this.postable = postable;
       return this;
@@ -291,15 +397,16 @@ public class GraphTester {
   }
 
   public static ImmutableList<SkyKey> toSkyKeys(String... names) {
-    ImmutableList.Builder<SkyKey> result = ImmutableList.builder();
-    for (String element : names) {
-      result.add(Key.create(element));
-    }
-    return result.build();
+    return toSkyKeys(/* useSkipBatchPrefetchKey= */ false, names);
   }
 
-  public static SkyKey toSkyKey(String name) {
-    return toSkyKeys(name).get(0);
+  public static ImmutableList<SkyKey> toSkyKeys(boolean useSkipBatchPrefetchKey, String... names) {
+    ImmutableList.Builder<SkyKey> result = ImmutableList.builder();
+    for (String element : names) {
+      result.add(
+          useSkipBatchPrefetchKey ? SkipBatchPrefetchKey.create(element) : Key.create(element));
+    }
+    return result.build();
   }
 
   private class DelegatingFunction implements SkyFunction {
@@ -320,13 +427,15 @@ public class GraphTester {
     return ImmutableMap.copyOf(functionMap);
   }
 
+  public void putDelegateFunction(SkyFunctionName functionName) {
+    putSkyFunction(functionName, new DelegatingFunction());
+  }
+
   public void putSkyFunction(SkyFunctionName functionName, SkyFunction function) {
     functionMap.put(functionName, function);
   }
 
-  /**
-   * Simple value class that stores strings.
-   */
+  /** Simple value class that stores strings. */
   public static class StringValue implements SkyValue {
     protected final String value;
 
@@ -340,6 +449,9 @@ public class GraphTester {
 
     @Override
     public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
       if (!(o instanceof StringValue)) {
         return false;
       }
@@ -353,7 +465,7 @@ public class GraphTester {
 
     @Override
     public String toString() {
-      return "StringValue: " + getValue();
+      return "StringValue: " + value;
     }
 
     public static StringValue of(String string) {
@@ -384,18 +496,6 @@ public class GraphTester {
     }
   }
 
-  /** An unshareable version of {@link StringValue}. */
-  public static final class UnshareableStringValue extends StringValue {
-    public UnshareableStringValue(String value) {
-      super(value);
-    }
-
-    @Override
-    public boolean dataIsShareable() {
-      return false;
-    }
-  }
-
   /**
    * A callback interface to provide the value computation.
    */
@@ -405,76 +505,118 @@ public class GraphTester {
         throws InterruptedException;
   }
 
-  public static final ValueComputer COPY = new ValueComputer() {
-    @Override
-    public SkyValue compute(Map<SkyKey, SkyValue> deps, SkyFunction.Environment env) {
-      return Iterables.getOnlyElement(deps.values());
-    }
-  };
+  public static final ValueComputer COPY = (deps, env) -> Iterables.getOnlyElement(deps.values());
 
-  public static final ValueComputer CONCATENATE = new ValueComputer() {
-    @Override
-    public SkyValue compute(Map<SkyKey, SkyValue> deps, SkyFunction.Environment env) {
-      StringBuilder result = new StringBuilder();
-      for (SkyValue value : deps.values()) {
-        result.append(((StringValue) value).value);
-      }
-      return new StringValue(result.toString());
-    }
-  };
+  public static final ValueComputer CONCATENATE =
+      (deps, env) -> {
+        StringBuilder result = new StringBuilder();
+        for (SkyValue value : deps.values()) {
+          result.append(((StringValue) value).value);
+        }
+        return new StringValue(result.toString());
+      };
 
-  public static ValueComputer formatter(final SkyKey key, final String format) {
-    return new ValueComputer() {
-      @Override
-      public SkyValue compute(Map<SkyKey, SkyValue> deps, Environment env)
-          throws InterruptedException {
-        return StringValue.of(String.format(format, StringValue.from(deps.get(key)).getValue()));
-      }
-    };
+  public static ValueComputer formatter(SkyKey key, String format) {
+    return (deps, env) ->
+        StringValue.of(String.format(format, StringValue.from(deps.get(key)).getValue()));
   }
 
-  @AutoCodec.VisibleForSerialization
+  @VisibleForSerialization
   @AutoCodec
   static class Key extends AbstractSkyKey<String> {
-    private static final Interner<Key> interner = BlazeInterners.newWeakInterner();
+    private static final SkyKeyInterner<Key> interner = SkyKey.newInterner();
 
     private Key(String arg) {
       super(arg);
     }
 
-    @AutoCodec.VisibleForSerialization
-    @AutoCodec.Instantiator
-    static Key create(String arg) {
+    private static Key create(String arg) {
       return interner.intern(new Key(arg));
+    }
+
+    @VisibleForSerialization
+    @AutoCodec.Interner
+    static Key intern(Key key) {
+      return interner.intern(key);
     }
 
     @Override
     public SkyFunctionName functionName() {
       return SkyFunctionName.FOR_TESTING;
     }
+
+    @Override
+    public SkyKeyInterner<Key> getSkyKeyInterner() {
+      return interner;
+    }
   }
 
-  @AutoCodec.VisibleForSerialization
+  @VisibleForSerialization
   @AutoCodec
   static class NonHermeticKey extends AbstractSkyKey<String> {
-    private static final Interner<NonHermeticKey> interner = BlazeInterners.newWeakInterner();
+    private static final SkyKeyInterner<NonHermeticKey> interner = SkyKey.newInterner();
 
     private NonHermeticKey(String arg) {
       super(arg);
     }
 
-    @AutoCodec.VisibleForSerialization
-    @AutoCodec.Instantiator
-    static NonHermeticKey create(String arg) {
+    private static NonHermeticKey create(String arg) {
       return interner.intern(new NonHermeticKey(arg));
+    }
+
+    @VisibleForSerialization
+    @AutoCodec.Interner
+    static NonHermeticKey intern(NonHermeticKey nonHermeticKey) {
+      return interner.intern(nonHermeticKey);
     }
 
     @Override
     public SkyFunctionName functionName() {
       return FOR_TESTING_NONHERMETIC;
     }
+
+    @Override
+    public SkyKeyInterner<NonHermeticKey> getSkyKeyInterner() {
+      return interner;
+    }
   }
 
   private static final SkyFunctionName FOR_TESTING_NONHERMETIC =
       SkyFunctionName.createNonHermetic("FOR_TESTING_NONHERMETIC");
+
+  // TODO: b/324948927 - Remove this class along with `SkyKey#skipBatchPrefetch()` method.
+  @VisibleForSerialization
+  @AutoCodec
+  static final class SkipBatchPrefetchKey extends AbstractSkyKey<String> implements SkyKey {
+    private static final SkyKeyInterner<SkipBatchPrefetchKey> interner = SkyKey.newInterner();
+
+    SkipBatchPrefetchKey(String arg) {
+      super(arg);
+    }
+
+    private static SkipBatchPrefetchKey create(String arg) {
+      return interner.intern(new SkipBatchPrefetchKey(arg));
+    }
+
+    @VisibleForSerialization
+    @AutoCodec.Interner
+    static SkipBatchPrefetchKey intern(SkipBatchPrefetchKey key) {
+      return interner.intern(key);
+    }
+
+    @Override
+    public boolean skipsBatchPrefetch() {
+      return true;
+    }
+
+    @Override
+    public SkyFunctionName functionName() {
+      return SkyFunctionName.FOR_TESTING;
+    }
+
+    @Override
+    public SkyKeyInterner<SkipBatchPrefetchKey> getSkyKeyInterner() {
+      return interner;
+    }
+  }
 }

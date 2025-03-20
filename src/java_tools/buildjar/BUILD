@@ -2,17 +2,18 @@ load("@rules_java//java:defs.bzl", "java_binary")
 
 # Description:
 # JavaBuilder and java tools used by Bazel
-package(default_visibility = [":buildjar_package_group"])
+package(
+    default_applicable_licenses = ["//:license"],
+    default_visibility = [":buildjar_package_group"],
+)
 
 filegroup(
     name = "srcs",
     srcs = [
         "BUILD",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar:srcs",
-        "//src/java_tools/buildjar/java/com/google/devtools/build/java/bazel:srcs",
         "//src/java_tools/buildjar/java/com/google/devtools/build/java/turbine:srcs",
         "//src/java_tools/buildjar/javatests/com/google/devtools/build/buildjar:srcs",
-        "//src/java_tools/buildjar/javatests/com/google/devtools/build/java/turbine:srcs",
     ],
     visibility = ["//src:__subpackages__"],
 )

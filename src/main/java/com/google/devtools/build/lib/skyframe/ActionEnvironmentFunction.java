@@ -14,18 +14,21 @@
 
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Interner;
-import com.google.devtools.build.lib.concurrent.BlazeInterners;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+
+import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.bugreport.BugReport;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.AbstractSkyKey;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import java.util.Collections;
-import java.util.LinkedHashMap;
+import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
@@ -34,13 +37,6 @@ import javax.annotation.Nullable;
  * --action_env flag, if the variable's value is explicitly set.
  */
 public final class ActionEnvironmentFunction implements SkyFunction {
-
-  @Nullable
-  @Override
-  public String extractTag(SkyKey skyKey) {
-    return null;
-  }
-
   @Nullable
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
@@ -52,29 +48,38 @@ public final class ActionEnvironmentFunction implements SkyFunction {
     return env.getValue(ClientEnvironmentFunction.key(key));
   }
 
-  /** @return the SkyKey to invoke this function for the environment variable {@code variable}. */
+  /** Returns the SkyKey to invoke this function for the environment variable {@code variable}. */
   public static Key key(String variable) {
     return Key.create(variable);
   }
 
-  @AutoCodec.VisibleForSerialization
+  @VisibleForSerialization
   @AutoCodec
   static class Key extends AbstractSkyKey<String> {
-    private static final Interner<Key> interner = BlazeInterners.newWeakInterner();
+    private static final SkyKeyInterner<Key> interner = SkyKey.newInterner();
 
     private Key(String arg) {
       super(arg);
     }
 
-    @AutoCodec.VisibleForSerialization
-    @AutoCodec.Instantiator
-    static Key create(String arg) {
+    private static Key create(String arg) {
       return interner.intern(new Key(arg));
+    }
+
+    @VisibleForSerialization
+    @AutoCodec.Interner
+    static Key intern(Key key) {
+      return interner.intern(key);
     }
 
     @Override
     public SkyFunctionName functionName() {
       return SkyFunctions.ACTION_ENVIRONMENT_VARIABLE;
+    }
+
+    @Override
+    public SkyKeyInterner<Key> getSkyKeyInterner() {
+      return interner;
     }
   }
 
@@ -82,23 +87,27 @@ public final class ActionEnvironmentFunction implements SkyFunction {
    * Returns a map of environment variable key => values, getting them from Skyframe. Returns null
    * if and only if some dependencies from Skyframe still need to be resolved.
    */
-  public static Map<String, String> getEnvironmentView(Environment env, Iterable<String> keys)
-      throws InterruptedException {
-    ImmutableList.Builder<SkyKey> skyframeKeysBuilder = ImmutableList.builder();
-    for (String key : keys) {
-      skyframeKeysBuilder.add(key(key));
-    }
-    ImmutableList<SkyKey> skyframeKeys = skyframeKeysBuilder.build();
-    Map<SkyKey, SkyValue> values = env.getValues(skyframeKeys);
+  @Nullable
+  public static ImmutableMap<String, Optional<String>> getEnvironmentView(
+      Environment env, Set<String> keys) throws InterruptedException {
+    var skyframeKeys = keys.stream().map(ActionEnvironmentFunction::key).collect(toImmutableSet());
+    SkyframeLookupResult values = env.getValuesAndExceptions(skyframeKeys);
     if (env.valuesMissing()) {
       return null;
     }
-    // To return the initial order and support null values, we use a LinkedHashMap.
-    LinkedHashMap<String, String> result = new LinkedHashMap<>();
+
+    ImmutableMap.Builder<String, Optional<String>> result =
+        ImmutableMap.builderWithExpectedSize(skyframeKeys.size());
     for (SkyKey key : skyframeKeys) {
       ClientEnvironmentValue value = (ClientEnvironmentValue) values.get(key);
-      result.put(key.argument().toString(), value.getValue());
+      if (value == null) {
+        BugReport.sendBugReport(
+            new IllegalStateException(
+                "ClientEnvironmentValue " + key + " was missing, this should never happen"));
+        return null;
+      }
+      result.put(key.argument().toString(), Optional.ofNullable(value.getValue()));
     }
-    return Collections.unmodifiableMap(result);
+    return result.buildOrThrow();
   }
 }

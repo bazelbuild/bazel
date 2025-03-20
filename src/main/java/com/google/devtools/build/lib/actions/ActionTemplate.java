@@ -20,6 +20,8 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.StarlarkValue;
 
 /**
  * A placeholder action that, at execution time, expands into a list of {@link Action}s to be
@@ -54,20 +56,7 @@ import javax.annotation.Nullable;
  *       not have artifact or artifact path prefix conflicts.
  * </ol>
  */
-public interface ActionTemplate<T extends Action> extends ActionAnalysisMetadata {
-
-  /** An exception signalling that the template expansion failed during execution phase */
-  class ActionTemplateExpansionException extends Exception {
-
-    public ActionTemplateExpansionException(String cause) {
-      super(cause);
-    }
-
-    public ActionTemplateExpansionException(Throwable cause) {
-      super(cause);
-    }
-  }
-
+public interface ActionTemplate<T extends Action> extends ActionAnalysisMetadata, StarlarkValue {
   /**
    * Given a set of input TreeFileArtifacts resolved at execution time, returns a list of expanded
    * actions to be executed.
@@ -84,7 +73,7 @@ public interface ActionTemplate<T extends Action> extends ActionAnalysisMetadata
    */
   ImmutableList<T> generateActionsForInputArtifacts(
       ImmutableSet<TreeFileArtifact> inputTreeFileArtifacts, ActionLookupKey artifactOwner)
-      throws ActionTemplateExpansionException;
+      throws ActionExecutionException;
 
   /** Returns the input TreeArtifact. */
   SpecialArtifact getInputTreeArtifact();
@@ -120,5 +109,15 @@ public interface ActionTemplate<T extends Action> extends ActionAnalysisMetadata
   @Nullable
   default PlatformInfo getExecutionPlatform() {
     return null;
+  }
+
+  @Override
+  default void repr(Printer printer) {
+    printer.append(prettyPrint());
+  }
+
+  @Override
+  default boolean isImmutable() {
+    return true;
   }
 }

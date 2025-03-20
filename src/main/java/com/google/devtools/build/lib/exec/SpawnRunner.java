@@ -13,26 +13,33 @@
 // limitations under the License.
 package com.google.devtools.build.lib.exec;
 
+import static com.google.common.base.Throwables.throwIfInstanceOf;
+
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
+import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
-import com.google.devtools.build.lib.actions.FutureSpawn;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.LostInputsExecException;
-import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
-import com.google.devtools.build.lib.actions.cache.MetadataInjector;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.exec.Protos.Digest;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.ProfilerTask;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.util.io.FileOutErr;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.SortedMap;
+import java.util.concurrent.ExecutionException;
 import javax.annotation.Nullable;
 
 /**
@@ -122,11 +129,32 @@ public interface SpawnRunner {
    */
   interface SpawnExecutionContext {
     /**
-     * Returns a unique id for this spawn, to be used for logging. Note that a single spawn may be
-     * passed to multiple {@link SpawnRunner} implementations, so any log entries should also
-     * contain the identity of the spawn runner implementation.
+     * Returns an id for this spawn, unique within the context of this Bazel server instance, to be
+     * used for logging. Note that a single spawn may be passed to multiple {@link SpawnRunner}
+     * implementations, so any log entries should also contain the identity of the spawn runner
+     * implementation.
      */
     int getId();
+
+    /**
+     * Sets the remote or disk cache digest for this spawn.
+     *
+     * <p>This is the digest that identifies a spawn result stored in a remote or disk cache. It
+     * should be set whenever the spawn is looked up in the cache, and later retrieved via {@link
+     * #getDigest} to be incorporated in the {@link SpawnResult} for a spawn that was executed due
+     * to a cache miss.
+     *
+     * @throws IllegalStateException if called multiple times with different digests.
+     */
+    void setDigest(Digest digest);
+
+    /**
+     * Returns the remote or disk cache digest for this spawn.
+     *
+     * <p>Only available if {@link #setDigest} has been previously called.
+     */
+    @Nullable
+    Digest getDigest();
 
     /**
      * Prefetches the Spawns input files to the local machine. There are cases where Bazel runs on a
@@ -146,13 +174,39 @@ public interface SpawnRunner {
      * again. I suppose we could require implementations to memoize getInputMapping (but not compute
      * it eagerly), and that may change in the future.
      */
-    void prefetchInputs() throws IOException, InterruptedException, ForbiddenActionInputException;
+    ListenableFuture<Void> prefetchInputs() throws ForbiddenActionInputException;
+
+    /**
+     * Prefetches the Spawns input files to the local machine and wait to finish.
+     *
+     * @see #prefetchInputs()
+     */
+    default void prefetchInputsAndWait()
+        throws IOException, ExecException, InterruptedException, ForbiddenActionInputException {
+      ListenableFuture<Void> future = prefetchInputs();
+      try (SilentCloseable s =
+          Profiler.instance().profile(ProfilerTask.REMOTE_DOWNLOAD, "stage remote inputs")) {
+        future.get();
+      } catch (ExecutionException e) {
+        Throwable cause = e.getCause();
+        if (cause != null) {
+          throwIfInstanceOf(cause, IOException.class);
+          throwIfInstanceOf(cause, ExecException.class);
+          throwIfInstanceOf(cause, ForbiddenActionInputException.class);
+          throwIfInstanceOf(cause, RuntimeException.class);
+        }
+        throw new IOException(e);
+      } catch (InterruptedException e) {
+        future.cancel(/*mayInterruptIfRunning=*/ true);
+        throw e;
+      }
+    }
 
     /**
      * The input file metadata cache for this specific spawn, which can be used to efficiently
      * obtain file digests and sizes.
      */
-    MetadataProvider getMetadataProvider();
+    InputMetadataProvider getInputMetadataProvider();
 
     /** An artifact expander. */
     // TODO(ulfjack): This is only used for the sandbox runners to compute a set of empty
@@ -176,8 +230,24 @@ public interface SpawnRunner {
      * All implementations must call this method before writing to the provided stdout / stderr or
      * to any of the output file locations. This method is used to coordinate - implementations must
      * throw an {@link InterruptedException} for all but one caller.
+     *
+     * <p>This method may look at various outputs from the finished action to decide whether to grab
+     * the lock. It may decide that the failure is of a character where the other branch should be
+     * allowed to finish this action. In that case, this method will throw {@link
+     * InterruptedException} to stop itself.
+     *
+     * @param exitCode The exit code from running the command. This and the other parameters are
+     *     used only to determine whether to ignore failures, so pass 0 if you know the command was
+     *     successful or you don't yet have success information. The exit code may be from a single
+     *     action process or from a worker that died.
+     * @param errorMessage The error messages returned from the command, possibly in other ways than
+     *     through stdout/err.
+     * @param outErr The location of the stdout and stderr files from the command. May be null.
+     * @throws InterruptedException if the error info indicates an error we can ignore or if we got
+     *     interrupted before we finished.
      */
-    void lockOutputFiles() throws InterruptedException;
+    void lockOutputFiles(int exitCode, String errorMessage, FileOutErr outErr)
+        throws InterruptedException;
 
     /**
      * Returns whether this spawn may be executing concurrently under multiple spawn runners. If so,
@@ -202,17 +272,12 @@ public interface SpawnRunner {
      * mapping is used in a context where the directory relative to which the keys are interpreted
      * is not the same as the execroot.
      */
-    SortedMap<PathFragment, ActionInput> getInputMapping(PathFragment baseDirectory)
-        throws IOException, ForbiddenActionInputException;
+    SortedMap<PathFragment, ActionInput> getInputMapping(
+        PathFragment baseDirectory, boolean willAccessRepeatedly)
+        throws ForbiddenActionInputException;
 
     /** Reports a progress update to the Spawn strategy. */
     void report(ProgressStatus progress);
-
-    /**
-     * Returns a {@link MetadataInjector} that allows a caller to inject metadata about spawn
-     * outputs that are stored remotely.
-     */
-    MetadataInjector getMetadataInjector();
 
     /**
      * Returns the context registered for the given identifying type or {@code null} if none was
@@ -226,23 +291,10 @@ public interface SpawnRunner {
 
     /** Throws if rewinding is enabled and lost inputs have been detected. */
     void checkForLostInputs() throws LostInputsExecException;
-  }
 
-  /**
-   * Run the given spawn asynchronously. The default implementation is synchronous for migration.
-   *
-   * @param spawn the spawn to run
-   * @param context the spawn execution context
-   * @return the result from running the spawn
-   * @throws InterruptedException if the calling thread was interrupted, or if the runner could not
-   *     lock the output files (see {@link SpawnExecutionContext#lockOutputFiles()})
-   * @throws IOException if something went wrong reading or writing to the local file system
-   * @throws ExecException if the request is malformed
-   */
-  default FutureSpawn execAsync(Spawn spawn, SpawnExecutionContext context)
-      throws InterruptedException, IOException, ExecException, ForbiddenActionInputException {
-    // TODO(ulfjack): Remove this default implementation. [exec-async]
-    return FutureSpawn.immediate(exec(spawn, context));
+    /** Returns action-scoped file system or {@code null} if it doesn't exist. */
+    @Nullable
+    FileSystem getActionFileSystem();
   }
 
   /**
@@ -252,7 +304,8 @@ public interface SpawnRunner {
    * @param context the spawn execution context
    * @return the result from running the spawn
    * @throws InterruptedException if the calling thread was interrupted, or if the runner could not
-   *     lock the output files (see {@link SpawnExecutionContext#lockOutputFiles()})
+   *     lock the output files (see {@link SpawnExecutionContext#lockOutputFiles(int, String,
+   *     FileOutErr)})
    * @throws IOException if something went wrong reading or writing to the local file system
    * @throws ExecException if the request is malformed
    */
@@ -285,4 +338,11 @@ public interface SpawnRunner {
    * @throws IOException if there are problems deleting the entries
    */
   default void cleanupSandboxBase(Path sandboxBase, TreeDeleter treeDeleter) throws IOException {}
+
+  /**
+   * Returns a {@link SpawnResult.Builder} prepopulated with the runner name and the spawn digest.
+   */
+  default SpawnResult.Builder getSpawnResultBuilder(SpawnExecutionContext context) {
+    return new SpawnResult.Builder().setRunnerName(getName()).setDigest(context.getDigest());
+  }
 }

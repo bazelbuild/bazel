@@ -15,8 +15,8 @@
 package com.google.devtools.build.lib.rules.platform;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.platform.ConstraintCollection;
 import com.google.devtools.build.lib.analysis.platform.ConstraintSettingInfo;
@@ -49,7 +49,7 @@ public class ConstraintCollectionApiTest extends PlatformTestCase {
 
     assertThat(collectLabels(constraintCollection.constraintSettings()))
         .containsExactly(
-            Label.parseAbsoluteUnchecked("//foo:s1"), Label.parseAbsoluteUnchecked("//foo:s2"));
+            Label.parseCanonicalUnchecked("//foo:s1"), Label.parseCanonicalUnchecked("//foo:s2"));
   }
 
   @Test
@@ -63,14 +63,14 @@ public class ConstraintCollectionApiTest extends PlatformTestCase {
     assertThat(constraintCollection).isNotNull();
 
     ConstraintSettingInfo setting =
-        ConstraintSettingInfo.create(Label.parseAbsoluteUnchecked("//foo:s1"));
+        ConstraintSettingInfo.create(Label.parseCanonicalUnchecked("//foo:s1"));
     assertThat(constraintCollection.has(setting)).isTrue();
     ConstraintValueInfo value = constraintCollection.get(setting);
     assertThat(value).isNotNull();
-    assertThat(value.label()).isEqualTo(Label.parseAbsoluteUnchecked("//foo:value1"));
+    assertThat(value.label()).isEqualTo(Label.parseCanonicalUnchecked("//foo:value1"));
     assertThat(
             constraintCollection.has(
-                ConstraintSettingInfo.create(Label.parseAbsoluteUnchecked("//foo:unused"))))
+                ConstraintSettingInfo.create(Label.parseCanonicalUnchecked("//foo:unused"))))
         .isFalse();
   }
 
@@ -87,23 +87,23 @@ public class ConstraintCollectionApiTest extends PlatformTestCase {
     assertThat(constraintCollection).isNotNull();
 
     ConstraintSettingInfo setting =
-        ConstraintSettingInfo.create(Label.parseAbsoluteUnchecked("//foo:s1"));
+        ConstraintSettingInfo.create(Label.parseCanonicalUnchecked("//foo:s1"));
     assertThat(constraintCollection.has(setting)).isTrue();
     ConstraintValueInfo value = constraintCollection.get(setting);
     assertThat(value).isNotNull();
-    assertThat(value.label()).isEqualTo(Label.parseAbsoluteUnchecked("//foo:value1"));
+    assertThat(value.label()).isEqualTo(Label.parseCanonicalUnchecked("//foo:value1"));
 
-    setting = ConstraintSettingInfo.create(Label.parseAbsoluteUnchecked("//foo:s2"));
+    setting = ConstraintSettingInfo.create(Label.parseCanonicalUnchecked("//foo:s2"));
     assertThat(constraintCollection.has(setting)).isTrue();
     value = constraintCollection.get(setting);
     assertThat(value).isNotNull();
-    assertThat(value.label()).isEqualTo(Label.parseAbsoluteUnchecked("//foo:value2"));
+    assertThat(value.label()).isEqualTo(Label.parseCanonicalUnchecked("//foo:value2"));
 
-    setting = ConstraintSettingInfo.create(Label.parseAbsoluteUnchecked("//foo:s3"));
+    setting = ConstraintSettingInfo.create(Label.parseCanonicalUnchecked("//foo:s3"));
     assertThat(constraintCollection.has(setting)).isTrue();
     value = constraintCollection.get(setting);
     assertThat(value).isNotNull();
-    assertThat(value.label()).isEqualTo(Label.parseAbsoluteUnchecked("//foo:value3"));
+    assertThat(value.label()).isEqualTo(Label.parseCanonicalUnchecked("//foo:value3"));
   }
 
   @Test
@@ -115,59 +115,66 @@ public class ConstraintCollectionApiTest extends PlatformTestCase {
 
     scratch.file(
         "verify/verify.bzl",
-        "result = provider()",
-        "def _impl(ctx):",
-        "  platform = ctx.attr.platform[platform_common.PlatformInfo]",
-        "  constraint_setting = ctx.attr.constraint_setting[platform_common.ConstraintSettingInfo]",
-        "  constraint_collection = platform.constraints",
-        "  value_from_index = constraint_collection[constraint_setting]",
-        "  value_from_get = constraint_collection.get(constraint_setting)",
-        "  used_constraints = constraint_collection.constraint_settings",
-        "  has_constraint = constraint_collection.has(constraint_setting)",
-        "  has_constraint_value = constraint_collection.has_constraint_value(value_from_get)",
-        "  return [result(",
-        "    value_from_index = value_from_index,",
-        "    value_from_get = value_from_get,",
-        "    used_constraints = used_constraints,",
-        "    has_constraint = has_constraint,",
-        "    has_constraint_value = has_constraint_value,",
-        "  )]",
-        "verify = rule(",
-        "  implementation = _impl,",
-        "  attrs = {",
-        "    'platform': attr.label(providers = [platform_common.PlatformInfo]),",
-        "    'constraint_setting': attr.label(",
-        "        providers = [platform_common.ConstraintSettingInfo]),",
-        "  },",
-        ")");
+        """
+        result = provider()
+
+        def _impl(ctx):
+            platform = ctx.attr.platform[platform_common.PlatformInfo]
+            constraint_setting = ctx.attr.constraint_setting[platform_common.ConstraintSettingInfo]
+            constraint_collection = platform.constraints
+            value_from_index = constraint_collection[constraint_setting]
+            value_from_get = constraint_collection.get(constraint_setting)
+            used_constraints = constraint_collection.constraint_settings
+            has_constraint = constraint_collection.has(constraint_setting)
+            has_constraint_value = constraint_collection.has_constraint_value(value_from_get)
+            return [result(
+                value_from_index = value_from_index,
+                value_from_get = value_from_get,
+                used_constraints = used_constraints,
+                has_constraint = has_constraint,
+                has_constraint_value = has_constraint_value,
+            )]
+
+        verify = rule(
+            implementation = _impl,
+            attrs = {
+                "platform": attr.label(providers = [platform_common.PlatformInfo]),
+                "constraint_setting": attr.label(
+                    providers = [platform_common.ConstraintSettingInfo],
+                ),
+            },
+        )
+        """);
     scratch.file(
         "verify/BUILD",
-        "load(':verify.bzl', 'verify')",
-        "verify(name = 'verify',",
-        "  platform = '//foo:my_platform',",
-        "  constraint_setting = '//foo:s1',",
-        ")");
+        """
+        load(":verify.bzl", "verify")
+
+        verify(
+            name = "verify",
+            constraint_setting = "//foo:s1",
+            platform = "//foo:my_platform",
+        )
+        """);
 
     ConfiguredTarget myRuleTarget = getConfiguredTarget("//verify:verify");
     StructImpl info =
         (StructImpl)
             myRuleTarget.get(
                 new StarlarkProvider.Key(
-                    Label.parseAbsolute("//verify:verify.bzl", ImmutableMap.of()), "result"));
+                    keyForBuild(Label.parseCanonical("//verify:verify.bzl")), "result"));
 
-    @SuppressWarnings("unchecked")
     ConstraintValueInfo constraintValueFromIndex =
         (ConstraintValueInfo) info.getValue("value_from_index");
     assertThat(constraintValueFromIndex).isNotNull();
     assertThat(constraintValueFromIndex.label())
-        .isEqualTo(Label.parseAbsoluteUnchecked("//foo:value1"));
+        .isEqualTo(Label.parseCanonicalUnchecked("//foo:value1"));
 
-    @SuppressWarnings("unchecked")
     ConstraintValueInfo constraintValueFromGet =
         (ConstraintValueInfo) info.getValue("value_from_get");
     assertThat(constraintValueFromGet).isNotNull();
     assertThat(constraintValueFromGet.label())
-        .isEqualTo(Label.parseAbsoluteUnchecked("//foo:value1"));
+        .isEqualTo(Label.parseCanonicalUnchecked("//foo:value1"));
 
     @SuppressWarnings("unchecked")
     Sequence<ConstraintSettingInfo> usedConstraints =
@@ -175,8 +182,8 @@ public class ConstraintCollectionApiTest extends PlatformTestCase {
     assertThat(usedConstraints).isNotNull();
     assertThat(usedConstraints)
         .containsExactly(
-            ConstraintSettingInfo.create(Label.parseAbsoluteUnchecked("//foo:s1")),
-            ConstraintSettingInfo.create(Label.parseAbsoluteUnchecked("//foo:s2")));
+            ConstraintSettingInfo.create(Label.parseCanonicalUnchecked("//foo:s1")),
+            ConstraintSettingInfo.create(Label.parseCanonicalUnchecked("//foo:s2")));
 
     boolean hasConstraint = (boolean) info.getValue("has_constraint");
     assertThat(hasConstraint).isTrue();
@@ -207,7 +214,7 @@ public class ConstraintCollectionApiTest extends PlatformTestCase {
     assertThat(constraintCollectionWithDefault.has(basicConstraintSetting)).isTrue();
     assertThat(constraintCollectionWithDefault.get(basicConstraintSetting)).isNotNull();
     assertThat(constraintCollectionWithDefault.get(basicConstraintSetting).label())
-        .isEqualTo(Label.parseAbsoluteUnchecked("//constraint/default:foo"));
+        .isEqualTo(Label.parseCanonicalUnchecked("//constraint/default:foo"));
     assertThat(constraintCollectionWithDefault.has(otherConstraintSetting)).isFalse();
     assertThat(constraintCollectionWithDefault.get(otherConstraintSetting)).isNull();
 
@@ -217,7 +224,7 @@ public class ConstraintCollectionApiTest extends PlatformTestCase {
     assertThat(constraintCollectionWithDefault.has(basicConstraintSetting)).isTrue();
     assertThat(constraintCollectionWithoutDefault.get(basicConstraintSetting)).isNotNull();
     assertThat(constraintCollectionWithoutDefault.get(basicConstraintSetting).label())
-        .isEqualTo(Label.parseAbsoluteUnchecked("//constraint/default:bar"));
+        .isEqualTo(Label.parseCanonicalUnchecked("//constraint/default:bar"));
   }
 
   private Set<Label> collectLabels(Collection<? extends ConstraintSettingInfo> settings) {

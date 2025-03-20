@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.runtime;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.exec.ExecutionOptions.TestOutputFormat;
 import com.google.devtools.build.lib.exec.TestLogHelper;
 import com.google.devtools.build.lib.util.LoggingUtil;
@@ -117,18 +118,20 @@ public class TestSummaryPrinter {
       AnsiTerminalPrinter terminalPrinter,
       TestLogPathFormatter testLogPathFormatter,
       boolean verboseSummary,
-      boolean printFailedTestCases) {
+      boolean showAllTestCases) {
     print(
         summary,
         terminalPrinter,
         testLogPathFormatter,
         verboseSummary,
-        printFailedTestCases,
-        false);
+        showAllTestCases,
+        false,
+        RepositoryMapping.ALWAYS_FALLBACK);
   }
 
   /**
    * Prints summary status for a single test.
+   *
    * @param terminalPrinter The printer to print to
    */
   public static void print(
@@ -136,8 +139,9 @@ public class TestSummaryPrinter {
       AnsiTerminalPrinter terminalPrinter,
       TestLogPathFormatter testLogPathFormatter,
       boolean verboseSummary,
-      boolean printFailedTestCases,
-      boolean withConfigurationName) {
+      boolean showAllTestCases,
+      boolean withConfigurationName,
+      RepositoryMapping mainRepoMapping) {
     BlazeTestStatus status = summary.getStatus();
     // Skip output for tests that failed to build.
     if ((!verboseSummary && status == BlazeTestStatus.FAILED_TO_BUILD)
@@ -145,7 +149,7 @@ public class TestSummaryPrinter {
       return;
     }
     String message = getCacheMessage(summary) + statusString(summary);
-    String targetName = summary.getLabel().toString();
+    String targetName = summary.getLabel().getDisplayForm(mainRepoMapping);
     if (withConfigurationName) {
       targetName += " (" + summary.getConfiguration().getMnemonic() + ")";
     }
@@ -158,29 +162,38 @@ public class TestSummaryPrinter {
             + (verboseSummary ? getAttemptSummary(summary) + getTimeSummary(summary) : "")
             + "\n");
 
-    if (printFailedTestCases && summary.getStatus() == BlazeTestStatus.FAILED) {
-      if (summary.getFailedTestCasesStatus() == FailedTestCasesStatus.NOT_AVAILABLE) {
-        terminalPrinter.print(
-            Mode.WARNING + "    (individual test case information not available) "
-            + Mode.DEFAULT + "\n");
-      } else {
-        for (TestCase testCase : summary.getFailedTestCases()) {
-          if (testCase.getStatus() != TestCase.Status.PASSED) {
-            TestSummaryPrinter.printTestCase(terminalPrinter, testCase);
-          }
-        }
+    if (showAllTestCases) {
+      for (TestCase testCase : summary.getPassedTestCases()) {
+        TestSummaryPrinter.printTestCase(terminalPrinter, testCase);
+      }
+      for (TestCase testCase : summary.getSkippedTestCases()) {
+        TestSummaryPrinter.printTestCase(terminalPrinter, testCase);
+      }
 
-        if (summary.getFailedTestCasesStatus() != FailedTestCasesStatus.FULL) {
+      if (summary.getStatus() == BlazeTestStatus.FAILED) {
+        if (summary.getFailedTestCasesStatus() == FailedTestCasesStatus.NOT_AVAILABLE) {
           terminalPrinter.print(
               Mode.WARNING
-              + "    (some shards did not report details, list of failed test"
-              + " cases incomplete)\n"
-              + Mode.DEFAULT);
+                  + "    (individual test case information not available) "
+                  + Mode.DEFAULT
+                  + "\n");
+        } else {
+          for (TestCase testCase : summary.getFailedTestCases()) {
+            if (testCase.getStatus() != TestCase.Status.PASSED) {
+              TestSummaryPrinter.printTestCase(terminalPrinter, testCase);
+            }
+          }
+
+          if (summary.getFailedTestCasesStatus() != FailedTestCasesStatus.FULL) {
+            terminalPrinter.print(
+                Mode.WARNING
+                    + "    (some shards did not report details, list of failed test"
+                    + " cases incomplete)\n"
+                    + Mode.DEFAULT);
+          }
         }
       }
-    }
-
-    if (!printFailedTestCases) {
+    } else {
       for (String warning : summary.getWarnings()) {
         terminalPrinter.print("  " + AnsiTerminalPrinter.Mode.WARNING + "WARNING: "
             + AnsiTerminalPrinter.Mode.DEFAULT + warning + "\n");
@@ -205,12 +218,8 @@ public class TestSummaryPrinter {
     }
   }
 
-  /**
-   * Prints the result of an individual test case. It is assumed not to have
-   * passed, since passed test cases are not reported.
-   */
-  static void printTestCase(
-      AnsiTerminalPrinter terminalPrinter, TestCase testCase) {
+  /** Prints the result of an individual test case. */
+  static void printTestCase(AnsiTerminalPrinter terminalPrinter, TestCase testCase) {
     String timeSummary;
     if (testCase.hasRunDurationMillis()) {
       timeSummary = " ("
@@ -220,16 +229,22 @@ public class TestSummaryPrinter {
       timeSummary = "";
     }
 
+    Mode mode =
+        switch (testCase.getStatus()) {
+          case PASSED -> Mode.INFO;
+          case SKIPPED -> Mode.WARNING;
+          default -> Mode.ERROR;
+        };
     terminalPrinter.print(
         "    "
-        + Mode.ERROR
-        + Strings.padEnd(testCase.getStatus().toString(), 8, ' ')
-        + Mode.DEFAULT
-        + testCase.getClassName()
-        + "."
-        + testCase.getName()
-        + timeSummary
-        + "\n");
+            + mode
+            + Strings.padEnd(testCase.getStatus().toString(), 8, ' ')
+            + Mode.DEFAULT
+            + testCase.getClassName()
+            + "."
+            + testCase.getName()
+            + timeSummary
+            + "\n");
   }
 
   /**

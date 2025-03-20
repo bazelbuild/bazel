@@ -21,6 +21,10 @@ CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${CURRENT_DIR}/../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
+# should match the java_runtime in `_BASE_TOOLCHAIN_CONFIGURATION` in
+# `@rules_java//toolchains/default_java_toolchain.bzl`
+DEFAULT_JAVA_RUNTIME_VERSION="remotejdk21"
+
 function test_server_javabase() {
   mkdir -p test_server_javabase/bin
   MAGIC="the cake is a lie"
@@ -47,13 +51,26 @@ EOF
 # Javabuilder shall be executed using JDK defined in java_toolchain's java_runtime attribute.
 # Java targets shall be executed using JDK matching --java_runtime_version version.
 function test_java_runtime() {
-  cat << EOF >> WORKSPACE
-load("@bazel_tools//tools/jdk:local_java_repository.bzl", "local_java_repository")
-local_java_repository(
-    name = "host_javabase",
-    java_home = "$PWD/foobar",
-    version = "11",
+  add_rules_java "MODULE.bazel"
+  add_platforms "MODULE.bazel"
+  touch BUILD
+  cat << EOF > extensions.bzl
+load("@rules_java//toolchains:local_java_repository.bzl", "local_java_repository")
+
+local_java_repo_ext = module_extension(
+    implementation =
+    lambda ctx: local_java_repository(
+        name = "host_javabase",
+        java_home = "$PWD/foobar",
+        version = "11",
+    ),
 )
+EOF
+  cat << EOF >> MODULE.bazel
+local_java_repo_ext = use_extension("//:extensions.bzl", "local_java_repo_ext")
+use_repo(local_java_repo_ext, "host_javabase")
+register_toolchains("@host_javabase//:runtime_toolchain_definition")
+register_toolchains("@host_javabase//:bootstrap_runtime_toolchain_definition")
 EOF
 
   mkdir java
@@ -71,16 +88,16 @@ EOF
   # We expect the given host_javabase does not appear in the command line of
   # java_library actions.
   bazel aquery --output=text --tool_java_runtime_version='host_javabase' //java:javalib >& $TEST_log
-  expect_log "exec external/remotejdk11_.*/bin/java"
+  expect_log "exec external/rules_java+.*+toolchains+${DEFAULT_JAVA_RUNTIME_VERSION}_.*/bin/java"
   expect_not_log "exec external/host_javabase/bin/java"
 
   # If we don't specify anything, we expect the remote JDK to be used.
   bazel aquery --output=text //java:javalib >& $TEST_log
   expect_not_log "exec external/embedded_jdk/bin/java"
-  expect_log "exec external/remotejdk11_.*/bin/java"
+  expect_log "exec external/rules_java+.*+toolchains+${DEFAULT_JAVA_RUNTIME_VERSION}_.*/bin/java"
 
   bazel aquery --output=text --java_runtime_version='host_javabase' //java:javalib >& $TEST_log
-  expect_log "exec external/remotejdk11_.*/bin/java"
+  expect_log "exec external/rules_java+.*+toolchains+${DEFAULT_JAVA_RUNTIME_VERSION}_.*/bin/java"
   expect_not_log "exec external/host_javabase/bin/java"
 }
 
@@ -102,25 +119,38 @@ EOF
   touch foobar/bin/java
 
   bazel aquery --output=text --java_language_version=8  //java:javalib >& $TEST_log
-  expect_log "exec external/remotejdk11_.*/bin/java"
+  expect_log "exec external/rules_java+.*+toolchains+${DEFAULT_JAVA_RUNTIME_VERSION}_.*/bin/java"
 
   bazel aquery --output=text --java_language_version=11  //java:javalib >& $TEST_log
-  expect_log "exec external/remotejdk11_.*/bin/java"
+  expect_log "exec external/rules_java+.*+toolchains+${DEFAULT_JAVA_RUNTIME_VERSION}_.*/bin/java"
 
-  bazel aquery --output=text  --java_language_version=15 //java:javalib >& $TEST_log
-  expect_log "exec external/remotejdk15_.*/bin/java"
+  bazel aquery --output=text  --java_language_version=17 //java:javalib >& $TEST_log
+  expect_log "exec external/rules_java+.*+toolchains+${DEFAULT_JAVA_RUNTIME_VERSION}_.*/bin/java"
 }
 
 # Javabuilder shall be executed using JDK defined in java_toolchain's java_runtime attribute, not tool_java_runtime.
 # Testing: Javabuilder in exec configuration.
 function test_exec_toolchain_java_runtime_not_set_from_tool_java_runtime_version() {
-  cat << EOF >> WORKSPACE
-load("@bazel_tools//tools/jdk:local_java_repository.bzl", "local_java_repository")
-local_java_repository(
-    name = "host_javabase",
-    java_home = "$PWD/foobar",
-    version = "11",
+  add_rules_java "MODULE.bazel"
+  add_platforms "MODULE.bazel"
+  touch BUILD
+  cat << EOF > extensions.bzl
+load("@rules_java//toolchains:local_java_repository.bzl", "local_java_repository")
+
+local_java_repo_ext = module_extension(
+    implementation =
+    lambda ctx: local_java_repository(
+        name = "host_javabase",
+        java_home = "$PWD/foobar",
+        version = "11",
+    ),
 )
+EOF
+  cat << EOF >> MODULE.bazel
+local_java_repo_ext = use_extension("//:extensions.bzl", "local_java_repo_ext")
+use_repo(local_java_repo_ext, "host_javabase")
+register_toolchains("@host_javabase//:runtime_toolchain_definition")
+register_toolchains("@host_javabase//:bootstrap_runtime_toolchain_definition")
 EOF
   mkdir -p java
   cat >> java/rule.bzl <<EOF
@@ -155,34 +185,50 @@ EOF
   # We expect the given host_javabase does not appear in the command line of
   # java_library actions.
   bazel aquery --output=text --tool_java_runtime_version='host_javabase' 'deps(//java:sample,1)' >& $TEST_log
-  expect_log "exec external/remotejdk11_.*/bin/java"
+  expect_log "exec external/rules_java+.*+toolchains+${DEFAULT_JAVA_RUNTIME_VERSION}_.*/bin/java"
   expect_not_log "exec external/host_javabase/bin/java"
 
   # If we don't specify anything, we expect the remote JDK to be used.
   # Note that this will change in the future but is the current state.
   bazel aquery --output=text 'deps(//java:sample,1)' >& $TEST_log
   expect_not_log "exec external/embedded_jdk/bin/java"
-  expect_log "exec external/remotejdk11_.*/bin/java"
+  expect_log "exec external/rules_java+.*+toolchains+${DEFAULT_JAVA_RUNTIME_VERSION}_.*/bin/java"
 
   bazel aquery --output=text --tool_java_runtime_version='host_javabase' 'deps(//java:sample,1)' >& $TEST_log
-  expect_log "exec external/remotejdk11_.*/bin/java"
+  expect_log "exec external/rules_java+.*+toolchains+${DEFAULT_JAVA_RUNTIME_VERSION}_.*/bin/java"
   expect_not_log "exec external/host_javabase/bin/java"
 
-  bazel aquery --output=text --tool_java_language_version=15 --tool_java_runtime_version='host_javabase' 'deps(//java:sample,1)' >& $TEST_log
-  expect_log "exec external/remotejdk15_.*/bin/java"
+  bazel aquery --output=text --tool_java_language_version=17 --tool_java_runtime_version='host_javabase' 'deps(//java:sample,1)' >& $TEST_log
+  expect_log "exec external/rules_java+.*+toolchains+${DEFAULT_JAVA_RUNTIME_VERSION}_.*/bin/java"
   expect_not_log "exec external/host_javabase/bin/java"
 }
 
 
 
 function test_javabase() {
-   cat << EOF >> WORKSPACE
-load("@bazel_tools//tools/jdk:local_java_repository.bzl", "local_java_repository")
-local_java_repository(
-    name = "javabase",
-    java_home = "$PWD/zoo",
-    version = "11",
+  add_rules_java "MODULE.bazel"
+  add_platforms "MODULE.bazel"
+  touch BUILD
+  cat << EOF > extensions.bzl
+load("@rules_java//toolchains:local_java_repository.bzl", "local_java_repository")
+
+local_java_repo_ext = module_extension(
+    implementation =
+    lambda ctx: local_java_repository(
+        name = "javabase",
+        java_home = "$PWD/zoo",
+        version = "11",
+    ),
 )
+EOF
+  cat << EOF >> MODULE.bazel
+local_java_repo_ext = use_extension("//:extensions.bzl", "local_java_repo_ext")
+use_repo(local_java_repo_ext, "javabase")
+register_toolchains("@javabase//:runtime_toolchain_definition")
+register_toolchains("@javabase//:bootstrap_runtime_toolchain_definition")
+
+java_toolchains = use_extension("@rules_java//java:extensions.bzl", "toolchains")
+use_repo(java_toolchains, "local_jdk")
 EOF
 
   mkdir -p zoo/bin
@@ -214,14 +260,14 @@ public class HelloWorld {}
 EOF
 
   # Check that the RHS javabase appears in the launcher.
-  bazel build --extra_toolchains=//:toolchain_definition --java_runtime_version=javabase //java:javabin
+  bazel build --extra_toolchains=//:all --java_runtime_version=javabase //java:javabin
   cat bazel-bin/java/javabin >& $TEST_log
   expect_log "JAVABIN=.*/zoo/bin/java"
 
   # Check that we use local_jdk when it's not specified.
   bazel build //java:javabin
   cat bazel-bin/java/javabin >& $TEST_log
-  expect_log "JAVABIN=.*/local_jdk/bin/java"
+  expect_log "JAVABIN=.*/rules_java+.*+toolchains+local_jdk/bin/java"
 }
 
 function write_javabase_files() {
@@ -267,14 +313,56 @@ function test_no_javabase() {
   expect_log "bazel-bin/javabase_test/a.runfiles/local_jdk/bin/java: No such file or directory"
 }
 
-function test_genrule() {
-  cat << EOF > WORKSPACE
-load("@bazel_tools//tools/jdk:local_java_repository.bzl", "local_java_repository")
-local_java_repository(
-    name = "foo_javabase",
-    java_home = "$PWD/foo",
-    version = "11",
+# Tests non-existent java_home path.
+function test_no_java_home_path() {
+  add_rules_java "MODULE.bazel"
+  add_platforms "MODULE.bazel"
+  touch BUILD
+  cat << EOF > extensions.bzl
+load("@rules_java//toolchains:local_java_repository.bzl", "local_java_repository")
+
+local_java_repo_ext = module_extension(
+    implementation =
+    lambda ctx: local_java_repository(
+        name = "host_javabase",
+        java_home = "$PWD/idontexist",
+        version = "11",
+    ),
 )
+EOF
+  cat << EOF >> MODULE.bazel
+local_java_repo_ext = use_extension("//:extensions.bzl", "local_java_repo_ext")
+use_repo(local_java_repo_ext, "host_javabase")
+register_toolchains("@host_javabase//:runtime_toolchain_definition")
+register_toolchains("@host_javabase//:bootstrap_runtime_toolchain_definition")
+EOF
+
+  bazel build @host_javabase//... >& $TEST_log && fail "Build with missing java_home should fail."
+  expect_log "The path indicated by the \"java_home\" attribute .* does not exist."
+}
+
+
+function test_genrule() {
+  add_rules_java "MODULE.bazel"
+  add_platforms "MODULE.bazel"
+  touch BUILD
+  cat << EOF > extensions.bzl
+load("@rules_java//toolchains:local_java_repository.bzl", "local_java_repository")
+
+local_java_repo_ext = module_extension(
+    implementation =
+    lambda ctx: local_java_repository(
+        name = "foo_javabase",
+        java_home = "$PWD/foo",
+        version = "11",
+    ),
+)
+EOF
+  cat << EOF >> MODULE.bazel
+local_java_repo_ext = use_extension("//:extensions.bzl", "local_java_repo_ext")
+use_repo(local_java_repo_ext, "foo_javabase")
+register_toolchains("@foo_javabase//:runtime_toolchain_definition")
+register_toolchains("@foo_javabase//:bootstrap_runtime_toolchain_definition")
 EOF
 
   mkdir -p foo/bin bar/bin
@@ -308,16 +396,16 @@ EOF
 
   # Test the genrule with no java dependencies.
   bazel cquery --max_config_changes_to_show=0 --implicit_deps 'deps(//:without_java)' >& $TEST_log
-  expect_not_log "foo"
-  expect_not_log "bar"
+  expect_not_log ":foo"
+  expect_not_log ":bar"
   expect_not_log "embedded_jdk"
   expect_not_log "remotejdk_"
   expect_not_log "remotejdk11_"
 
   # Test the genrule that specifically depends on :bar_runtime.
   bazel cquery --max_config_changes_to_show=0 --implicit_deps 'deps(//:with_java)' >& $TEST_log
-  expect_not_log "foo"
-  expect_log "bar"
+  expect_not_log ":foo"
+  expect_log ":bar"
   expect_not_log "embedded_jdk"
   expect_not_log "remotejdk_"
   expect_not_log "remotejdk11_"
@@ -326,8 +414,8 @@ EOF
   # roolchains attribute.
   bazel cquery --max_config_changes_to_show=0 --implicit_deps 'deps(//:with_java)' \
      --tool_java_runtime_version=foo_javabase >& $TEST_log
-  expect_not_log "foo"
-  expect_log "bar"
+  expect_not_log ":foo"
+  expect_log ":bar"
   expect_not_log "embedded_jdk"
   expect_not_log "remotejdk_"
   expect_not_log "remotejdk11_"

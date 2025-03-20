@@ -16,9 +16,11 @@ package com.google.devtools.build.lib.buildeventstream;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.protobuf.util.Timestamps;
 import java.util.Collection;
+import javax.annotation.Nullable;
 
 /**
  * Class all events completing a build inherit from.
@@ -27,6 +29,7 @@ import java.util.Collection;
  * However, subclasses do not have to implement anything.
  */
 public abstract class BuildCompletingEvent implements BuildEvent {
+  @Nullable private final DetailedExitCode detailedExitCode;
   private final ExitCode exitCode;
   private final long finishTimeMillis;
 
@@ -34,7 +37,16 @@ public abstract class BuildCompletingEvent implements BuildEvent {
 
   public BuildCompletingEvent(
       ExitCode exitCode, long finishTimeMillis, Collection<BuildEventId> children) {
+    this.detailedExitCode = null;
     this.exitCode = exitCode;
+    this.finishTimeMillis = finishTimeMillis;
+    this.children = children;
+  }
+
+  public BuildCompletingEvent(
+      DetailedExitCode detailedExitCode, long finishTimeMillis, Collection<BuildEventId> children) {
+    this.detailedExitCode = detailedExitCode;
+    this.exitCode = detailedExitCode.getExitCode();
     this.finishTimeMillis = finishTimeMillis;
     this.children = children;
   }
@@ -65,13 +77,17 @@ public abstract class BuildCompletingEvent implements BuildEvent {
             .setCode(exitCode.getNumericExitCode())
             .build();
 
-    BuildEventStreamProtos.BuildFinished finished =
+    BuildEventStreamProtos.BuildFinished.Builder finished =
         BuildEventStreamProtos.BuildFinished.newBuilder()
             .setOverallSuccess(ExitCode.SUCCESS.equals(exitCode))
             .setExitCode(protoExitCode)
             .setFinishTime(Timestamps.fromMillis(finishTimeMillis))
-            .setFinishTimeMillis(finishTimeMillis)
-            .build();
-    return GenericBuildEvent.protoChaining(this).setFinished(finished).build();
+            .setFinishTimeMillis(finishTimeMillis);
+
+    if (detailedExitCode != null && detailedExitCode.getFailureDetail() != null) {
+      finished.setFailureDetail(detailedExitCode.getFailureDetail());
+    }
+
+    return GenericBuildEvent.protoChaining(this).setFinished(finished.build()).build();
   }
 }

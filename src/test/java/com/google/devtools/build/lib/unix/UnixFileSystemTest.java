@@ -17,6 +17,8 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
+import com.google.devtools.build.lib.vfs.Dirent;
+import com.google.devtools.build.lib.vfs.FileAccessException;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -38,12 +40,17 @@ public class UnixFileSystemTest extends SymlinkAwareFileSystemTest {
     // Nothing.
   }
 
-  @Override
-  protected void expectNotFound(Path path) throws IOException {
-    assertThat(path.statIfFound()).isNull();
-  }
-
   // Most tests are just inherited from FileSystemTest.
+
+  @Test
+  public void testPermissions() throws Exception {
+    Path file = absolutize("file");
+    FileSystemUtils.createEmptyFile(file);
+    for (int mask = 0; mask <= 0777; mask++) {
+      file.chmod(mask);
+      assertThat(file.stat().getPermissions()).isEqualTo(mask);
+    }
+  }
 
   @Test
   public void testCircularSymlinkFound() throws Exception {
@@ -61,6 +68,7 @@ public class UnixFileSystemTest extends SymlinkAwareFileSystemTest {
     Path fifo = absolutize("fifo");
     FileSystemUtils.createEmptyFile(regular);
     NativePosixFiles.mkfifo(fifo.toString(), 0777);
+
     assertThat(regular.isFile()).isTrue();
     assertThat(regular.isSpecialFile()).isFalse();
     assertThat(regular.stat().isFile()).isTrue();
@@ -69,5 +77,35 @@ public class UnixFileSystemTest extends SymlinkAwareFileSystemTest {
     assertThat(fifo.isSpecialFile()).isTrue();
     assertThat(fifo.stat().isFile()).isTrue();
     assertThat(fifo.stat().isSpecialFile()).isTrue();
+  }
+
+  @Test
+  public void testReaddirSpecialFile() throws Exception {
+    Path dir = absolutize("dir");
+    Path symlink = dir.getChild("symlink");
+    Path fifo = dir.getChild("fifo");
+    dir.createDirectoryAndParents();
+    symlink.createSymbolicLink(fifo.asFragment());
+    NativePosixFiles.mkfifo(fifo.toString(), 0777);
+
+    assertThat(dir.getDirectoryEntries()).containsExactly(symlink, fifo);
+
+    assertThat(dir.readdir(Symlinks.NOFOLLOW))
+        .containsExactly(
+            new Dirent("symlink", Dirent.Type.SYMLINK), new Dirent("fifo", Dirent.Type.UNKNOWN));
+
+    assertThat(dir.readdir(Symlinks.FOLLOW))
+        .containsExactly(
+            new Dirent("symlink", Dirent.Type.UNKNOWN), new Dirent("fifo", Dirent.Type.UNKNOWN));
+  }
+
+  @Test
+  public void testReaddirPermissionError() throws Exception {
+    Path dir = absolutize("dir");
+    dir.createDirectoryAndParents();
+    dir.chmod(0333); // unreadable
+
+    assertThrows(FileAccessException.class, dir::getDirectoryEntries);
+    assertThrows(FileAccessException.class, () -> dir.readdir(Symlinks.NOFOLLOW));
   }
 }

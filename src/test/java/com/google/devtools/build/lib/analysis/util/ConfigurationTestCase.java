@@ -18,36 +18,34 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ImmutableSortedSet;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
-import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
-import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
+import com.google.devtools.build.lib.analysis.config.FragmentFactory;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.clock.BlazeClock;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.packages.util.MockToolsConfig;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
-import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
+import com.google.devtools.build.lib.runtime.QuiescingExecutorsImpl;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
-import com.google.devtools.build.lib.skyframe.BuildInfoCollectionFunction;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.SkyframeExecutorTestHelper;
 import com.google.devtools.build.lib.testutil.TestConstants;
+import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -55,18 +53,13 @@ import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.Optional;
 import java.util.UUID;
 import org.junit.Before;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Testing framework for tests which create configuration collections.
- */
+/** Testing framework for tests which create configuration collections. */
 @RunWith(JUnit4.class)
 public abstract class ConfigurationTestCase extends FoundationTestCase {
 
@@ -88,6 +81,7 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
   protected SequencedSkyframeExecutor skyframeExecutor;
   protected ImmutableSet<Class<? extends FragmentOptions>> buildOptionClasses;
   protected final ActionKeyContext actionKeyContext = new ActionKeyContext();
+  private FragmentFactory fragmentFactory;
 
   @Before
   public final void initializeSkyframeExecutor() throws Exception {
@@ -95,12 +89,12 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
     analysisMock = AnalysisMock.get();
 
     ConfiguredRuleClassProvider ruleClassProvider = analysisMock.createRuleClassProvider();
+    buildOptionClasses = ruleClassProvider.getFragmentRegistry().getOptionsClasses();
     PathPackageLocator pkgLocator =
         new PathPackageLocator(
             outputBase,
             ImmutableList.of(Root.fromPath(rootDirectory)),
             BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY);
-    final PackageFactory pkgFactory;
     BlazeDirectories directories =
         new BlazeDirectories(
             new ServerDirectories(rootDirectory, outputBase, outputBase),
@@ -111,9 +105,8 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
     mockToolsConfig = new MockToolsConfig(rootDirectory);
     analysisMock.setupMockToolsRepository(mockToolsConfig);
     analysisMock.setupMockClient(mockToolsConfig);
-    analysisMock.setupMockWorkspaceFiles(directories.getEmbeddedBinariesRoot());
 
-    pkgFactory =
+    PackageFactory pkgFactory =
         analysisMock
             .getPackageFactoryBuilderForTesting(directories)
             .build(ruleClassProvider, fileSystem);
@@ -127,37 +120,45 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
             .setActionKeyContext(actionKeyContext)
             .setWorkspaceStatusActionFactory(workspaceStatusActionFactory)
             .setExtraSkyFunctions(analysisMock.getSkyFunctions(directories))
+            .setSyscallCache(SyscallCache.NO_CACHE)
             .build();
     SkyframeExecutorTestHelper.process(skyframeExecutor);
+    BuildOptions defaultBuildOptions =
+        BuildOptions.getDefaultBuildOptionsForFragments(buildOptionClasses).clone();
+    defaultBuildOptions.get(CoreOptions.class).starlarkExecConfig =
+        TestConstants.STARLARK_EXEC_TRANSITION;
     skyframeExecutor.injectExtraPrecomputedValues(
-        ImmutableList.of(
-            PrecomputedValue.injected(
-                RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE, Optional.empty()),
-            PrecomputedValue.injected(
-                RepositoryDelegatorFunction.REPOSITORY_OVERRIDES, ImmutableMap.of()),
-            PrecomputedValue.injected(
-                RepositoryDelegatorFunction.DEPENDENCY_FOR_UNCONDITIONAL_FETCHING,
-                RepositoryDelegatorFunction.DONT_FETCH_UNCONDITIONALLY),
-            PrecomputedValue.injected(RepositoryDelegatorFunction.ENABLE_BZLMOD, false),
-            PrecomputedValue.injected(
-                BuildInfoCollectionFunction.BUILD_INFO_FACTORIES,
-                ruleClassProvider.getBuildInfoFactoriesAsMap())));
+        new ImmutableList.Builder<PrecomputedValue.Injected>()
+            .add(
+                PrecomputedValue.injected(
+                    PrecomputedValue.BASELINE_CONFIGURATION, defaultBuildOptions))
+            .add(
+                PrecomputedValue.injected(
+                    // Reuse the build options as the baseline exec. This is technically wrong but
+                    // will only impact the exec configuration output path.
+                    PrecomputedValue.BASELINE_EXEC_CONFIGURATION, defaultBuildOptions))
+            .addAll(analysisMock.getPrecomputedValues())
+            .build());
     PackageOptions packageOptions = Options.getDefaults(PackageOptions.class);
     packageOptions.showLoadingProgress = true;
     packageOptions.globbingThreads = 7;
+    OptionsParser parser =
+        OptionsParser.builder().optionsClasses(BuildLanguageOptions.class).build();
+    parser.parse(TestConstants.PRODUCT_SPECIFIC_BUILD_LANG_OPTIONS);
+    BuildLanguageOptions options = parser.getOptions(BuildLanguageOptions.class);
     skyframeExecutor.preparePackageLoading(
         pkgLocator,
         packageOptions,
-        Options.getDefaults(BuildLanguageOptions.class),
+        options,
         UUID.randomUUID(),
         ImmutableMap.of(),
+        QuiescingExecutorsImpl.forTesting(),
         new TimestampGranularityMonitor(BlazeClock.instance()));
     skyframeExecutor.setActionEnv(ImmutableMap.of());
 
     mockToolsConfig = new MockToolsConfig(rootDirectory);
     analysisMock.setupMockClient(mockToolsConfig);
-    analysisMock.setupMockWorkspaceFiles(directories.getEmbeddedBinariesRoot());
-    buildOptionClasses = ruleClassProvider.getFragmentRegistry().getOptionsClasses();
+    fragmentFactory = new FragmentFactory();
   }
 
   protected void checkError(String expectedMessage, String... options) {
@@ -167,22 +168,34 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
   }
 
   /**
-   * Returns a {@link BuildConfigurationCollection} with the given non-default options.
+   * Returns a {@link BuildConfigurationValue} with the given non-default options.
    *
    * @param args native option name/pair descriptions in command line form (e.g. "--cpu=k8")
    */
-  protected BuildConfigurationCollection createCollection(String... args) throws Exception {
-    return createCollection(ImmutableMap.of(), args);
+  protected BuildConfigurationValue createConfiguration(String... args) throws Exception {
+    return createConfiguration(ImmutableMap.of(), args);
   }
 
   /**
-   * Variation of {@link #createCollection(String...)} that also supports Starlark-defined options.
+   * Variation of {@link #createConfiguration(String...)} that also supports Starlark-defined
+   * options.
    *
    * @param starlarkOptions map of Starlark-defined options where the keys are option names (in the
    *     form of label-like strings) and the values are option values
    * @param args native option name/pair descriptions in command line form (e.g. "--cpu=k8")
    */
-  protected BuildConfigurationCollection createCollection(
+  protected BuildConfigurationValue createConfiguration(
+      ImmutableMap<String, Object> starlarkOptions, String... args) throws Exception {
+
+    BuildOptions targetOptions = parseBuildOptions(starlarkOptions, args);
+
+    skyframeExecutor.handleDiffsForTesting(reporter);
+    skyframeExecutor.setBaselineConfiguration(targetOptions, reporter);
+    return skyframeExecutor.createConfiguration(reporter, targetOptions, false);
+  }
+
+  /** Parses purported commandline options into a BuildOptions (assumes default parsing context.) */
+  private Pair<BuildOptions, TestOptions> parseBuildOptionsWithTestOptions(
       ImmutableMap<String, Object> starlarkOptions, String... args) throws Exception {
     OptionsParser parser =
         OptionsParser.builder()
@@ -196,12 +209,36 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
     parser.parse(TestConstants.PRODUCT_SPECIFIC_FLAGS);
     parser.parse(args);
 
-    ImmutableSortedSet<String> multiCpu = ImmutableSortedSet.copyOf(
-        parser.getOptions(TestOptions.class).multiCpus);
+    return Pair.of(
+        BuildOptions.of(buildOptionClasses, parser), parser.getOptions(TestOptions.class));
+  }
 
-    skyframeExecutor.handleDiffsForTesting(reporter);
-    return skyframeExecutor.createConfigurations(
-        reporter, BuildOptions.of(buildOptionClasses, parser), multiCpu, false);
+  /** Parses purported commandline options into a BuildOptions (assumes default parsing context.) */
+  protected BuildOptions parseBuildOptions(
+      ImmutableMap<String, Object> starlarkOptions, String... args) throws Exception {
+    return parseBuildOptionsWithTestOptions(starlarkOptions, args).getFirst();
+  }
+
+  /** Parses purported commandline options into a BuildOptions (assumes default parsing context.) */
+  protected BuildOptions parseBuildOptions(String... args) throws Exception {
+    return parseBuildOptions(ImmutableMap.of(), args);
+  }
+
+  /** Returns a raw {@link BuildConfigurationValue} with the given parameters. */
+  protected BuildConfigurationValue createRaw(
+      BuildOptions buildOptions,
+      String mnemonic,
+      String workspaceName,
+      boolean siblingRepositoryLayout)
+      throws Exception {
+    return BuildConfigurationValue.createForTesting(
+        buildOptions,
+        mnemonic,
+        workspaceName,
+        siblingRepositoryLayout,
+        skyframeExecutor.getBlazeDirectoriesForTesting(),
+        skyframeExecutor.getRuleClassProviderForTesting(),
+        fragmentFactory);
   }
 
   /**
@@ -210,7 +247,7 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
    * @param args native option name/pair descriptions in command line form (e.g. "--cpu=k8")
    */
   protected BuildConfigurationValue create(String... args) throws Exception {
-    return Iterables.getOnlyElement(createCollection(args).getTargetConfigurations());
+    return createConfiguration(args);
   }
 
   /**
@@ -222,38 +259,33 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
    */
   protected BuildConfigurationValue create(
       ImmutableMap<String, Object> starlarkOptions, String... args) throws Exception {
-    return Iterables.getOnlyElement(
-        createCollection(starlarkOptions, args).getTargetConfigurations());
+    return createConfiguration(starlarkOptions, args);
   }
 
   /**
-   * Returns a host {@link BuildConfigurationValue} derived from a target configuration with the
-   * given non-default options.
+   * Returns an exec {@link BuildConfigurationValue} derived from a target configuration with the
+   * given non-default options. Supports Starlark Options.
+   *
+   * @param starlarkOptions map of Starlark-defined options where the keys are option names (in the
+   *     form of label-like strings) and the values are option values
+   * @param args native option name/pair descriptions in command line form (e.g. "--cpu=k8")
+   */
+  protected BuildConfigurationValue createExec(
+      ImmutableMap<String, Object> starlarkOptions, String... args) throws Exception {
+    return skyframeExecutor.getConfiguration(
+        reporter,
+        AnalysisTestUtil.execOptions(
+            parseBuildOptions(starlarkOptions, args), skyframeExecutor, reporter),
+        /* keepGoing= */ false);
+  }
+
+  /**
+   * Returns an exec {@link BuildConfigurationValue} derived from a target configuration with the
+   * given non-default options. Does not support Starlark Options
    *
    * @param args native option name/pair descriptions in command line form (e.g. "--cpu=k8")
    */
-  protected BuildConfigurationValue createHost(String... args) throws Exception {
-    return createCollection(args).getHostConfiguration();
-  }
-
-  public static void assertConfigurationsHaveUniqueOutputDirectories(
-      BuildConfigurationCollection configCollection) {
-    Map<ArtifactRoot, BuildConfigurationValue> outputPaths = new HashMap<>();
-    for (BuildConfigurationValue config : configCollection.getTargetConfigurations()) {
-      BuildConfigurationValue otherConfig =
-          outputPaths.get(config.getOutputDirectory(RepositoryName.MAIN));
-      if (otherConfig != null) {
-        throw new IllegalStateException(
-            "The output path '"
-                + config.getOutputDirectory(RepositoryName.MAIN)
-                + "' is the same for configurations '"
-                + config
-                + "' and '"
-                + otherConfig
-                + "'");
-      } else {
-        outputPaths.put(config.getOutputDirectory(RepositoryName.MAIN), config);
-      }
-    }
+  protected BuildConfigurationValue createExec(String... args) throws Exception {
+    return createExec(ImmutableMap.of(), args);
   }
 }

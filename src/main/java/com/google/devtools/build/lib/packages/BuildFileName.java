@@ -30,6 +30,18 @@ public enum BuildFileName {
       return getFilenameFragment();
     }
   },
+  WORKSPACE_DOT_BZLMOD("WORKSPACE.bzlmod") {
+    @Override
+    public PathFragment getBuildFileFragment(PackageIdentifier packageIdentifier) {
+      return getFilenameFragment();
+    }
+  },
+  MODULE_DOT_BAZEL("MODULE.bazel") {
+    @Override
+    public PathFragment getBuildFileFragment(PackageIdentifier packageIdentifier) {
+      return getFilenameFragment();
+    }
+  },
   BUILD("BUILD") {
     @Override
     public PathFragment getBuildFileFragment(PackageIdentifier packageIdentifier) {

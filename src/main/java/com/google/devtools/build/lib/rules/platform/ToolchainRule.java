@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.ToolchainResolutionMode;
 import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.util.FileTypeSet;
 
 /** Rule definition for {@link Toolchain}. */
@@ -37,20 +38,21 @@ public class ToolchainRule implements RuleDefinition {
   public static final String TARGET_COMPATIBLE_WITH_ATTR = "target_compatible_with";
   public static final String TARGET_SETTING_ATTR = "target_settings";
   public static final String TOOLCHAIN_ATTR = "toolchain";
+  public static final String USE_TARGET_PLATFORM_CONSTRAINTS_ATTR =
+      "use_target_platform_constraints";
 
   @Override
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
     return builder
         .advertiseProvider(DeclaredToolchainInfo.class)
         .override(
-            attr("tags", Type.STRING_LIST)
+            attr("tags", Types.STRING_LIST)
                 // No need to show up in ":all", etc. target patterns.
                 .value(ImmutableList.of("manual"))
                 .nonconfigurable("low-level attribute, used in platform configuration"))
-        .removeAttribute("deps")
-        .removeAttribute("data")
+        .removeAttribute(":action_listener")
         .exemptFromConstraintChecking("this rule *defines* a constraint")
-        .useToolchainResolution(ToolchainResolutionMode.DISABLED)
+        .toolchainResolutionMode(ToolchainResolutionMode.DISABLED)
 
         /* <!-- #BLAZE_RULE(toolchain).ATTRIBUTE(toolchain_type) -->
         The label of a <code>toolchain_type</code> target that represents the role that this
@@ -67,7 +69,7 @@ public class ToolchainRule implements RuleDefinition {
         A list of <code>constraint_value</code>s that must be satisfied by an execution platform in
         order for this toolchain to be selected for a target building on that platform.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .override(
+        .add(
             attr(EXEC_COMPATIBLE_WITH_ATTR, BuildType.LABEL_LIST)
                 .mandatoryProviders(ConstraintValueInfo.PROVIDER.id())
                 .allowedFileTypes(FileTypeSet.NO_FILE)
@@ -80,6 +82,16 @@ public class ToolchainRule implements RuleDefinition {
             attr(TARGET_COMPATIBLE_WITH_ATTR, BuildType.LABEL_LIST)
                 .mandatoryProviders(ConstraintValueInfo.PROVIDER.id())
                 .allowedFileTypes(FileTypeSet.NO_FILE)
+                .nonconfigurable("part of toolchain configuration"))
+        /* <!-- #BLAZE_RULE(toolchain).ATTRIBUTE(use_target_platform_constraints) -->
+        If <code>True</code>, this toolchain behaves as if its <code>exec_compatible_with</code> and
+        <code>target_compatible_with</code> constraints are set to those of the current target
+        platform. <code>exec_compatible_with</code> and <code>target_compatible_with</code> must not
+        be set in that case.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(
+            attr(USE_TARGET_PLATFORM_CONSTRAINTS_ATTR, Type.BOOLEAN)
+                .value(false)
                 .nonconfigurable("part of toolchain configuration"))
         /* <!-- #BLAZE_RULE(toolchain).ATTRIBUTE(target_settings) -->
         A list of <code>config_setting</code>s that must be satisfied by the target configuration
@@ -103,16 +115,16 @@ public class ToolchainRule implements RuleDefinition {
   public RuleDefinition.Metadata getMetadata() {
     return RuleDefinition.Metadata.builder()
         .name(RULE_NAME)
-        .ancestors(BaseRuleClasses.NativeActionCreatingRule.class)
+        .ancestors(BaseRuleClasses.NativeBuildRule.class)
         .factoryClass(Toolchain.class)
         .build();
   }
 }
-/*<!-- #BLAZE_RULE (NAME = toolchain, FAMILY = Platform)[GENERIC_RULE] -->
+/*<!-- #BLAZE_RULE (NAME = toolchain, FAMILY = Platforms and Toolchains)[GENERIC_RULE] -->
 
 <p>This rule declares a specific toolchain's type and constraints so that it can be selected
 during toolchain resolution. See the
-<a href="https://docs.bazel.build/versions/main/toolchains.html">Toolchains</a> page for more
+<a href="https://bazel.build/docs/toolchains">Toolchains</a> page for more
 details.
 
 <!-- #END_BLAZE_RULE -->*/

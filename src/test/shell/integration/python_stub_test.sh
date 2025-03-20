@@ -50,8 +50,6 @@ msys*|mingw*|cygwin*)
 esac
 
 if "$is_windows"; then
-  export MSYS_NO_PATHCONV=1
-  export MSYS2_ARG_CONV_EXCL="*"
   declare -r EXE_EXT=".exe"
 else
   declare -r EXE_EXT=""
@@ -70,112 +68,85 @@ use_fake_python_runtimes_for_testsuite
 
 # Tests that Python 2 or Python 3 is actually invoked.
 function test_python_version() {
+  add_rules_python "MODULE.bazel"
   mkdir -p test
-  touch test/main2.py test/main3.py
+  touch test/main3.py
   cat > test/BUILD << EOF
-py_binary(name = "main2",
-    python_version = "PY2",
-    srcs = ['main2.py'],
-)
+load("@rules_python//python:py_binary.bzl", "py_binary")
+
 py_binary(name = "main3",
     python_version = "PY3",
     srcs = ["main3.py"],
 )
 EOF
 
-  bazel run //test:main2 \
-      &> $TEST_log || fail "bazel run failed"
-  expect_log "I am Python 2"
-  bazel run //test:main3 \
+  # Stamping is disabled so that the invocation doesn't time out. What
+  # happens is Google has stamping enabled by default, which causes the
+  # Starlark rule implementation to run an action, which then tries to run
+  # remotely, but network access is disabled by default, so it times out.
+  bazel run --nostamp //test:main3 \
       &> $TEST_log || fail "bazel run failed"
   expect_log "I am Python 3"
 }
 
 function test_can_build_py_library_at_top_level_regardless_of_version() {
+  add_rules_python "MODULE.bazel"
   mkdir -p test
   cat > test/BUILD << EOF
-py_library(
-    name = "lib2",
-    srcs = ["lib2.py"],
-    srcs_version = "PY2ONLY",
-)
+load("@rules_python//python:py_library.bzl", "py_library")
+
 py_library(
     name = "lib3",
     srcs = ["lib3.py"],
     srcs_version = "PY3ONLY",
 )
 EOF
-  touch test/lib2.py test/lib3.py
+  touch test/lib3.py
 
-  bazel build --python_version=PY2 //test:* \
-      &> $TEST_log || fail "bazel build failed"
   bazel build --python_version=PY3 //test:* \
       &> $TEST_log || fail "bazel build failed"
 }
 
-# Regression test for #7808. We want to ensure that changing the Python version
-# to a value different from the top-level configuration, and then changing it
-# back again, is able to reuse the top-level configuration.
-function test_no_action_conflicts_from_version_transition() {
-  mkdir -p test
+# When invoking a Python binary using the runfiles manifest, the stub
+# script's argv[0] will point to a location in the execroot; not the
+# runfiles directory of the caller. The stub script should still be
+# capable of finding its runfiles directory by considering RUNFILES_DIR
+# and RUNFILES_MANIFEST_FILE set by the caller.
+function test_python_through_bash_without_runfile_links() {
+  add_rules_python "MODULE.bazel"
+  mkdir -p python_through_bash
 
-  # To repro, we need to build a C++ target in two different ways in the same
-  # build:
-  #
-  #   1) At the top-level, and without any explicit flags passed to control the
-  #      Python version, because the behavior under test involves the internal
-  #      null default value of said flags.
-  #
-  #   2) As a dependency of a target that transitions the Python version to the
-  #      same value as in the top-level configuration.
-  #
-  # We need to use two different Python targets, to transition the version
-  # *away* from the top-level default and then *back* again. Furthermore,
-  # because (as of the writing of this test) the default Python version is in
-  # the process of being migrated from PY2 to PY3, we'll future-proof this test
-  # by using two separate paths that have the versions inverted.
-  #
-  # We use C++ for the repro because it has unshareable actions, so we'll know
-  # if the top-level config isn't being reused.
-
-  cat > test/BUILD << EOF
-cc_binary(
-    name = "cc",
-    srcs = ["cc.cc"],
-)
+  cat > python_through_bash/BUILD << EOF
+load("@rules_python//python:py_binary.bzl", "py_binary")
 
 py_binary(
-    name = "path_A_inner",
-    srcs = ["path_A_inner.py"],
-    data = [":cc"],
-    python_version = "PY2",
+    name = "inner",
+    srcs = ["inner.py"],
 )
 
-py_binary(
-    name = "path_A_outer",
-    srcs = [":path_A_outer.py"],
-    data = [":path_A_inner"],
-    python_version = "PY3",
-)
-
-py_binary(
-    name = "path_B_inner",
-    srcs = [":path_B_inner.py"],
-    data = [":cc"],
-    python_version = "PY3",
-)
-
-py_binary(
-    name = "path_B_outer",
-    srcs = [":path_B_outer.py"],
-    data = [":path_B_inner"],
-    python_version = "PY2",
+sh_binary(
+    name = "outer",
+    srcs = ["outer.sh"],
+    data = [":inner"],
 )
 EOF
 
-  # Build cc at the top level, along with the outer halves of both paths to cc.
-  bazel build --nobuild //test:cc //test:path_A_outer //test:path_B_outer \
-      &> $TEST_log || fail "bazel run failed"
+  cat > python_through_bash/outer.sh << EOF
+#!/bin/bash
+# * Bazel run guarantees that our CWD is the runfiles directory itself, so a
+#   relative path will work.
+# * We can't use the usual shell runfiles library because it doesn't work in the
+#   Google environment nested within a generated shell test.
+find . -name inner$EXE_EXT | xargs env
+EOF
+  chmod +x python_through_bash/outer.sh
+
+  touch python_through_bash/inner.py
+
+  # The inner Python script requires runfiles, so force them on Windows.
+  bazel run --nobuild_runfile_links --enable_runfiles \
+    //python_through_bash:outer &> $TEST_log || fail "bazel run failed"
+  expect_log "I am Python"
 }
 
 run_suite "Tests for the Python rules without Python execution"

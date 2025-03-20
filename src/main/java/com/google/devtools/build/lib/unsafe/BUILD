@@ -1,6 +1,7 @@
 load("@rules_java//java:defs.bzl", "java_library")
 
 package(
+    default_applicable_licenses = ["//:license"],
     default_visibility = ["//src:__subpackages__"],
 )
 
@@ -18,5 +19,8 @@ java_library(
 java_library(
     name = "string",
     srcs = ["StringUnsafe.java"],
-    deps = [":unsafe-provider"],
+    add_opens = [
+        "java.base/java.lang",
+    ],
+    deps = ["//third_party:guava"],
 )

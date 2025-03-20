@@ -11,29 +11,33 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static org.junit.Assert.assertThrows;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ObjectArrays;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
+import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.RequiresOptions;
+import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.analysis.util.AnalysisCachingTestBase;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.packages.RuleTransitionData;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestConstants.InternalTestExecutionMode;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.common.options.Option;
@@ -41,11 +45,13 @@ import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsParser;
+import java.io.IOException;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.eval.StarlarkValue;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -53,10 +59,31 @@ import org.junit.runners.JUnit4;
 /** Analysis caching tests. */
 @RunWith(JUnit4.class)
 public class AnalysisCachingTest extends AnalysisCachingTestBase {
+  private static final String CACHE_DISCARD_WARNING =
+      "discarding analysis cache (this can be expensive, see"
+          + " https://bazel.build/advanced/performance/iteration-speed).";
+
+  @Before
+  public void setup() throws Exception {
+    useConfiguration();
+  }
+
+  @Override
+  public void useConfiguration(String... args) throws Exception {
+    super.useConfiguration(ObjectArrays.concat(args, "--experimental_google_legacy_api"));
+  }
 
   @Test
   public void testSimpleCleanAnalysis() throws Exception {
-    scratch.file("java/a/BUILD", "java_test(name = 'A',", "          srcs = ['A.java'])");
+    scratch.file(
+        "java/a/BUILD",
+        """
+        load("@rules_java//java:defs.bzl", "java_test")
+        java_test(
+            name = "A",
+            srcs = ["A.java"],
+        )
+        """);
     update("//java/a:A");
     ConfiguredTarget javaTest = getConfiguredTarget("//java/a:A");
     assertThat(javaTest).isNotNull();
@@ -67,10 +94,18 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
   public void testTickTock() throws Exception {
     scratch.file(
         "java/a/BUILD",
-        "java_test(name = 'A',",
-        "          srcs = ['A.java'])",
-        "java_test(name = 'B',",
-        "          srcs = ['B.java'])");
+        """
+        load("@rules_java//java:defs.bzl", "java_test")
+        java_test(
+            name = "A",
+            srcs = ["A.java"],
+        )
+
+        java_test(
+            name = "B",
+            srcs = ["B.java"],
+        )
+        """);
     update("//java/a:A");
     update("//java/a:B");
     update("//java/a:A");
@@ -78,7 +113,15 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
 
   @Test
   public void testFullyCached() throws Exception {
-    scratch.file("java/a/BUILD", "java_test(name = 'A',", "          srcs = ['A.java'])");
+    scratch.file(
+        "java/a/BUILD",
+        """
+        load("@rules_java//java:defs.bzl", "java_test")
+        java_test(
+            name = "A",
+            srcs = ["A.java"],
+        )
+        """);
     update("//java/a:A");
     ConfiguredTarget old = getConfiguredTarget("//java/a:A");
     update("//java/a:A");
@@ -90,10 +133,18 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
   public void testSubsetCached() throws Exception {
     scratch.file(
         "java/a/BUILD",
-        "java_test(name = 'A',",
-        "          srcs = ['A.java'])",
-        "java_test(name = 'B',",
-        "          srcs = ['B.java'])");
+        """
+        load("@rules_java//java:defs.bzl", "java_test")
+        java_test(
+            name = "A",
+            srcs = ["A.java"],
+        )
+
+        java_test(
+            name = "B",
+            srcs = ["B.java"],
+        )
+        """);
     update("//java/a:A", "//java/a:B");
     ConfiguredTarget old = getConfiguredTarget("//java/a:A");
     update("//java/a:A");
@@ -105,14 +156,34 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
   public void testDependencyChanged() throws Exception {
     scratch.file(
         "java/a/BUILD",
-        "java_test(name = 'A',",
-        "          srcs = ['A.java'],",
-        "          deps = ['//java/b'])");
-    scratch.file("java/b/BUILD", "java_library(name = 'b',", "             srcs = ['B.java'])");
+        """
+        load("@rules_java//java:defs.bzl", "java_test")
+        java_test(
+            name = "A",
+            srcs = ["A.java"],
+            deps = ["//java/b"],
+        )
+        """);
+    scratch.file(
+        "java/b/BUILD",
+        """
+        load("@rules_java//java:defs.bzl", "java_library")
+        java_library(
+            name = "b",
+            srcs = ["B.java"],
+        )
+        """);
     update("//java/a:A");
     ConfiguredTarget old = getConfiguredTarget("//java/a:A");
     scratch.overwriteFile(
-        "java/b/BUILD", "java_library(name = 'b',", "             srcs = ['C.java'])");
+        "java/b/BUILD",
+        """
+        load("@rules_java//java:defs.bzl", "java_library")
+        java_library(
+            name = "b",
+            srcs = ["C.java"],
+        )
+        """);
     update("//java/a:A");
     ConfiguredTarget current = getConfiguredTarget("//java/a:A");
     assertThat(current).isNotSameInstanceAs(old);
@@ -120,34 +191,58 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
 
   @Test
   public void testAspectHintsChanged() throws Exception {
-    useConfiguration("--experimental_enable_aspect_hints");
     scratch.file(
         "foo/rule.bzl",
-        "def _rule_impl(ctx):",
-        "    return []",
-        "my_rule = rule(",
-        "    implementation = _rule_impl,",
-        "    attrs = {",
-        "        'deps': attr.label_list(),",
-        "        'srcs': attr.label_list(allow_files = True)",
-        "    },",
-        ")");
+        """
+        def _rule_impl(ctx):
+            return []
+
+        my_rule = rule(
+            implementation = _rule_impl,
+            attrs = {
+                "deps": attr.label_list(),
+                "srcs": attr.label_list(allow_files = True),
+            },
+        )
+        """);
     scratch.file(
         "foo/BUILD",
-        "load('//foo:rule.bzl', 'my_rule')",
-        "my_rule(name = 'foo', deps = [':bar'])",
-        "my_rule(name = 'bar', aspect_hints = ['//aspect_hint:hint'])");
+        """
+        load("//foo:rule.bzl", "my_rule")
+
+        my_rule(
+            name = "foo",
+            deps = [":bar"],
+        )
+
+        my_rule(
+            name = "bar",
+            aspect_hints = ["//aspect_hint:hint"],
+        )
+        """);
     scratch.file(
         "aspect_hint/BUILD",
-        "load('//foo:rule.bzl', 'my_rule')",
-        "my_rule(name = 'hint', srcs = ['baz.h'])");
+        """
+        load("//foo:rule.bzl", "my_rule")
+
+        my_rule(
+            name = "hint",
+            srcs = ["baz.h"],
+        )
+        """);
 
     update("//foo:foo");
     ConfiguredTarget old = getConfiguredTarget("//foo:foo");
     scratch.overwriteFile(
         "aspect_hint/BUILD",
-        "load('//foo:rule.bzl', 'my_rule')",
-        "my_rule(name = 'hint', srcs = ['qux.h'])");
+        """
+        load("//foo:rule.bzl", "my_rule")
+
+        my_rule(
+            name = "hint",
+            srcs = ["qux.h"],
+        )
+        """);
     update("//foo:foo");
     ConfiguredTarget current = getConfiguredTarget("//foo:foo");
 
@@ -158,13 +253,34 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
   public void testTopLevelChanged() throws Exception {
     scratch.file(
         "java/a/BUILD",
-        "java_test(name = 'A',",
-        "          srcs = ['A.java'],",
-        "          deps = ['//java/b'])");
-    scratch.file("java/b/BUILD", "java_library(name = 'b',", "             srcs = ['B.java'])");
+        """
+        load("@rules_java//java:defs.bzl", "java_test")
+        java_test(
+            name = "A",
+            srcs = ["A.java"],
+            deps = ["//java/b"],
+        )
+        """);
+    scratch.file(
+        "java/b/BUILD",
+        """
+        load("@rules_java//java:defs.bzl", "java_library")
+        java_library(
+            name = "b",
+            srcs = ["B.java"],
+        )
+        """);
     update("//java/a:A");
     ConfiguredTarget old = getConfiguredTarget("//java/a:A");
-    scratch.overwriteFile("java/a/BUILD", "java_test(name = 'A',", "          srcs = ['A.java'])");
+    scratch.overwriteFile(
+        "java/a/BUILD",
+        """
+        load("@rules_java//java:defs.bzl", "java_test")
+        java_test(
+            name = "A",
+            srcs = ["A.java"],
+        )
+        """);
     update("//java/a:A");
     ConfiguredTarget current = getConfiguredTarget("//java/a:A");
     assertThat(current).isNotSameInstanceAs(old);
@@ -178,15 +294,29 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
       // TODO(b/67529176): conflicts not detected.
       return;
     }
-    useConfiguration("--cpu=k8");
+    useConfiguration("--platforms=" + TestConstants.PLATFORM_LABEL);
     scratch.file(
-        "conflict/BUILD",
-        "cc_library(name='x', srcs=['foo.cc'])",
-        "cc_binary(name='_objs/x/foo.o', srcs=['bar.cc'])",
-        "cc_binary(name='foo', deps=['x'], data=['_objs/x/foo.o'])");
+        "conflict_non_top_level/BUILD",
+        """
+        cc_library(
+            name = "x",
+            srcs = ["foo.cc"],
+        )
+
+        cc_binary(
+            name = "_objs/x/foo.o",
+            srcs = ["bar.cc"],
+        )
+
+        cc_binary(
+            name = "foo",
+            data = ["_objs/x/foo.o"],
+            deps = ["x"],
+        )
+        """);
     reporter.removeHandler(failFastHandler); // expect errors
-    update(defaultFlags().with(Flag.KEEP_GOING), "//conflict:foo");
-    assertContainsEvent("file 'conflict/_objs/x/foo.o' " + CONFLICT_MSG);
+    update(defaultFlags().with(Flag.KEEP_GOING), "//conflict_non_top_level:foo");
+    assertContainsEvent("file 'conflict_non_top_level/_objs/x/foo.o' " + CONFLICT_MSG);
     assertThat(getAnalysisResult().getTargetsToBuild()).isEmpty();
   }
 
@@ -201,19 +331,38 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
    */
   @Test
   public void testNoActionConflictWithInvalidatedTarget() throws Exception {
-    useConfiguration("--cpu=k8");
+    useConfiguration("--platforms=" + TestConstants.PLATFORM_LABEL);
     scratch.file(
         "conflict/BUILD",
-        "cc_library(name='x', srcs=['foo.cc'])",
-        "cc_binary(name='_objs/x/foo.o', srcs=['bar.cc'])");
+        """
+        cc_library(
+            name = "x",
+            srcs = ["foo.cc"],
+        )
+
+        cc_binary(
+            name = "_objs/x/foo.o",
+            srcs = ["bar.cc"],
+        )
+        """);
     update("//conflict:x");
     ConfiguredTarget conflict = getConfiguredTarget("//conflict:x");
     Action oldAction = getGeneratingAction(getBinArtifact("_objs/x/foo.o", conflict));
     assertThat(oldAction.getOwner().getLabel().toString()).isEqualTo("//conflict:x");
     scratch.overwriteFile(
         "conflict/BUILD",
-        "cc_library(name='newx', srcs=['foo.cc'])", // Rename target.
-        "cc_binary(name='_objs/x/foo.o', srcs=['bar.cc'])");
+        """
+        # Rename target.
+        cc_library(
+            name = "newx",
+            srcs = ["foo.cc"],
+        )
+
+        cc_binary(
+            name = "_objs/x/foo.o",
+            srcs = ["bar.cc"],
+        )
+        """);
     update(defaultFlags(), "//conflict:_objs/x/foo.o");
     ConfiguredTarget objsConflict = getConfiguredTarget("//conflict:_objs/x/foo.o");
     Action newAction = getGeneratingAction(getBinArtifact("_objs/x/foo.o", objsConflict));
@@ -227,11 +376,20 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
       // TODO(b/67529176): conflicts not detected.
       return;
     }
-    useConfiguration("--cpu=k8");
+    useConfiguration("--platforms=" + TestConstants.PLATFORM_LABEL);
     scratch.file(
         "conflict/BUILD",
-        "cc_library(name='x', srcs=['foo.cc'])",
-        "cc_binary(name='_objs/x/foo.o', srcs=['bar.cc'])");
+        """
+        cc_library(
+            name = "x",
+            srcs = ["foo.cc"],
+        )
+
+        cc_binary(
+            name = "_objs/x/foo.o",
+            srcs = ["bar.cc"],
+        )
+        """);
     reporter.removeHandler(failFastHandler); // expect errors
     update(defaultFlags().with(Flag.KEEP_GOING), "//conflict:x", "//conflict:_objs/x/foo.o");
     assertContainsEvent("file 'conflict/_objs/x/foo.o' " + CONFLICT_MSG);
@@ -243,22 +401,40 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
       // TODO(b/67529176): conflicts not detected.
       return;
     }
-    useConfiguration("--cpu=k8");
+    useConfiguration("--platforms=" + TestConstants.PLATFORM_LABEL);
     scratch.file(
         "conflict/BUILD",
-        "cc_library(name='x', srcs=['foo.cc'])",
-        "cc_binary(name='_objs/x/foo.o', srcs=['bar.cc'])");
+        """
+        cc_library(
+            name = "x",
+            srcs = ["foo.cc"],
+        )
+
+        cc_binary(
+            name = "_objs/x/foo.o",
+            srcs = ["bar.cc"],
+        )
+        """);
     reporter.removeHandler(failFastHandler); // expect errors
     update(defaultFlags().with(Flag.KEEP_GOING), "//conflict:x", "//conflict:_objs/x/foo.o");
     // We want to force a "dropConfiguredTargetsNow" operation, which won't inform the
     // invalidation receiver about the dropped configured targets.
-    skyframeExecutor.clearAnalysisCache(ImmutableList.of(), ImmutableSet.of());
+    skyframeExecutor.clearAnalysisCache(ImmutableSet.of(), ImmutableSet.of());
     assertContainsEvent("file 'conflict/_objs/x/foo.o' " + CONFLICT_MSG);
     eventCollector.clear();
     scratch.overwriteFile(
         "conflict/BUILD",
-        "cc_library(name='x', srcs=['baz.cc'])",
-        "cc_binary(name='_objs/x/foo.o', srcs=['bar.cc'])");
+        """
+        cc_library(
+            name = "x",
+            srcs = ["baz.cc"],
+        )
+
+        cc_binary(
+            name = "_objs/x/foo.o",
+            srcs = ["bar.cc"],
+        )
+        """);
     update(defaultFlags().with(Flag.KEEP_GOING), "//conflict:x", "//conflict:_objs/x/foo.o");
     assertNoEvents();
   }
@@ -273,11 +449,20 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
       // TODO(b/67529176): conflicts not detected.
       return;
     }
-    useConfiguration("--cpu=k8");
+    useConfiguration("--platforms=" + TestConstants.PLATFORM_LABEL);
     scratch.file(
         "conflict/BUILD",
-        "cc_library(name='x', srcs=['foo.cc'])",
-        "cc_binary(name='_objs/x/foo.o', srcs=['bar.cc'])");
+        """
+        cc_library(
+            name = "x",
+            srcs = ["foo.cc"],
+        )
+
+        cc_binary(
+            name = "_objs/x/foo.o",
+            srcs = ["bar.cc"],
+        )
+        """);
     reporter.removeHandler(failFastHandler); // expect errors
     update(defaultFlags().with(Flag.KEEP_GOING), "//conflict:x", "//conflict:_objs/x/foo.o");
 
@@ -296,7 +481,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
       // TODO(b/67529176): conflicts not detected.
       return;
     }
-    useConfiguration("--cpu=k8");
+    useConfiguration("--platforms=" + TestConstants.PLATFORM_LABEL);
     scratch.file(
         "conflict/BUILD",
         "cc_library(name='x', srcs=['foo1.cc'])",
@@ -333,11 +518,20 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
       // TODO(b/67529176): conflicts not detected.
       return;
     }
-    useConfiguration("--cpu=k8");
+    useConfiguration("--platforms=" + TestConstants.PLATFORM_LABEL);
     scratch.file(
         "conflict/BUILD",
-        "cc_library(name='x', srcs=['foo.cc'])",
-        "cc_binary(name='_objs/x/foo.o', srcs=['bar.cc'])");
+        """
+        cc_library(
+            name = "x",
+            srcs = ["foo.cc"],
+        )
+
+        cc_binary(
+            name = "_objs/x/foo.o",
+            srcs = ["bar.cc"],
+        )
+        """);
     reporter.removeHandler(failFastHandler); // expect errors
     int successfulAnalyses =
         update(defaultFlags().with(Flag.KEEP_GOING), "//conflict:x", "//conflict:_objs/x/foo.pic.o")
@@ -350,21 +544,100 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
   public void aliasConflict() throws Exception {
     scratch.file(
         "conflict/conflict.bzl",
-        "def _conflict(ctx):",
-        "    file = ctx.actions.declare_file('single_file')",
-        "    ctx.actions.write(output = file, content = ctx.attr.name)",
-        "    return [DefaultInfo(files = depset([file]))]",
-        "my_rule = rule(implementation = _conflict)");
+        """
+        def _conflict(ctx):
+            file = ctx.actions.declare_file("single_file")
+            ctx.actions.write(output = file, content = ctx.attr.name)
+            return [DefaultInfo(files = depset([file]))]
+
+        my_rule = rule(implementation = _conflict)
+        """);
     scratch.file(
         "conflict/BUILD",
-        "load(':conflict.bzl', 'my_rule')",
-        "my_rule(name = 'conflict1')",
-        "my_rule(name = 'conflict2')",
-        "alias(name = 'aliased', actual = ':conflict2')");
+        """
+        load(":conflict.bzl", "my_rule")
+
+        my_rule(name = "conflict1")
+
+        my_rule(name = "conflict2")
+
+        alias(
+            name = "aliased",
+            actual = ":conflict2",
+        )
+        """);
     reporter.removeHandler(failFastHandler);
     assertThrows(
         ViewCreationFailedException.class,
         () -> update("//conflict:conflict1", "//conflict:aliased"));
+  }
+
+  @Test
+  public void actionConflictFromSameTarget() throws Exception {
+    scratch.file(
+        "conflict/conflict.bzl",
+        """
+        def _conflict(ctx):
+            file = ctx.actions.declare_file("single_file")
+            ctx.actions.write(output = file, content = "a")
+            ctx.actions.write(output = file, content = "b")
+            return [DefaultInfo(files = depset([file]))]
+
+        my_rule = rule(implementation = _conflict)
+        """);
+    scratch.file(
+        "conflict/BUILD",
+        """
+        load(":conflict.bzl", "my_rule")
+
+        my_rule(name = "conflict")
+        """);
+    reporter.removeHandler(failFastHandler);
+    assertThrows(ViewCreationFailedException.class, () -> update("//conflict"));
+    assertContainsEvent("file 'conflict/single_file' is generated by these conflicting actions:");
+  }
+
+  @Test
+  public void actionConflictWithDependentRule() throws IOException {
+    scratch.file(
+        "conflict/conflict.bzl",
+        """
+        def _dep(ctx):
+            file = ctx.actions.declare_file("file")
+            ctx.actions.write(output = file, content = "")
+            return [DefaultInfo(files = depset([file]))]
+
+        dep_rule = rule(implementation = _dep)
+
+        def _top(ctx):
+            file = ctx.file.src
+            ctx.actions.write(output = file, content = "")
+            return [DefaultInfo(files = depset([file]))]
+
+        top_rule = rule(
+            implementation = _top,
+            attrs = {"src": attr.label(mandatory = True, allow_single_file = True)},
+        )
+        """);
+    scratch.file(
+        "conflict/BUILD",
+        """
+        load(":conflict.bzl", "dep_rule", "top_rule")
+
+        top_rule(
+            name = "top",
+            src = ":dep",
+        )
+
+        dep_rule(name = "dep")
+        """);
+    reporter.removeHandler(failFastHandler);
+
+    assertThrows(ViewCreationFailedException.class, () -> update("//conflict:top"));
+
+    assertContainsEvent(
+        "in top_rule rule //conflict:top: File 'conflict/file' is produced by action 'Writing file"
+            + " conflict/file' but is already generated by rule //conflict:dep");
   }
 
   /** BUILD file involved in BUILD-file cycle is changed */
@@ -376,26 +649,48 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     }
     scratch.file(
         "java/a/BUILD",
-        "java_test(name = 'A',",
-        "          srcs = ['A.java'],",
-        "          deps = ['//java/b'])");
+        """
+        load("@rules_java//java:defs.bzl", "java_test")
+        java_test(
+            name = "A",
+            srcs = ["A.java"],
+            deps = ["//java/b"],
+        )
+        """);
     scratch.file(
         "java/b/BUILD",
-        "java_library(name = 'b',",
-        "          srcs = ['B.java'],",
-        "          deps = ['//java/c'])");
+        """
+        load("@rules_java//java:defs.bzl", "java_library")
+        java_library(
+            name = "b",
+            srcs = ["B.java"],
+            deps = ["//java/c"],
+        )
+        """);
     scratch.file(
         "java/c/BUILD",
-        "java_library(name = 'c',",
-        "          srcs = ['C.java'],",
-        "          deps = ['//java/b'])");
+        """
+        load("@rules_java//java:defs.bzl", "java_library")
+        java_library(
+            name = "c",
+            srcs = ["C.java"],
+            deps = ["//java/b"],
+        )
+        """);
     // expect error
     reporter.removeHandler(failFastHandler);
     update(defaultFlags().with(Flag.KEEP_GOING), "//java/a:A");
     ConfiguredTarget old = getConfiguredTarget("//java/a:A");
     // drop dependency on from b to c
     scratch.overwriteFile(
-        "java/b/BUILD", "java_library(name = 'b',", "             srcs = ['B.java'])");
+        "java/b/BUILD",
+        """
+        load("@rules_java//java:defs.bzl", "java_library")
+        java_library(
+            name = "b",
+            srcs = ["B.java"],
+        )
+        """);
     eventCollector.clear();
     reporter.addHandler(failFastHandler);
     update("//java/a:A");
@@ -410,7 +705,15 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
 
   @Test
   public void testSecondRunAllCacheHits() throws Exception {
-    scratch.file("java/a/BUILD", "java_test(name = 'A',", "          srcs = ['A.java'])");
+    scratch.file(
+        "java/a/BUILD",
+        """
+        load("@rules_java//java:defs.bzl", "java_test")
+        java_test(
+            name = "A",
+            srcs = ["A.java"],
+        )
+        """);
     update("//java/a:A");
     update("//java/a:A");
     assertNoTargetsVisited();
@@ -420,26 +723,54 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
   public void testDependencyAllCacheHits() throws Exception {
     scratch.file(
         "java/a/BUILD",
-        "java_library(name = 'x', srcs = ['A.java'], deps = ['y'])",
-        "java_library(name = 'y', srcs = ['B.java'])");
+        """
+        load("@rules_java//java:defs.bzl", "java_library")
+        java_library(
+            name = "x",
+            srcs = ["A.java"],
+            deps = ["y"],
+        )
+
+        java_library(
+            name = "y",
+            srcs = ["B.java"],
+        )
+        """);
     update("//java/a:x");
     Set<?> oldAnalyzedTargets = getSkyframeEvaluatedTargetKeys();
     assertThat(oldAnalyzedTargets.size()).isAtLeast(2); // could be greater due to implicit deps
     assertThat(countObjectsPartiallyMatchingRegex(oldAnalyzedTargets, "//java/a:x")).isEqualTo(1);
     assertThat(countObjectsPartiallyMatchingRegex(oldAnalyzedTargets, "//java/a:y")).isEqualTo(1);
+
     update("//java/a:y");
-    assertNoTargetsVisited();
+    assertThat(getSkyframeEvaluatedTargetKeys()).isEmpty();
   }
 
   @Test
   public void testSupersetNotAllCacheHits() throws Exception {
     scratch.file(
         "java/a/BUILD",
-        // It's important that all targets are of the same rule class, otherwise the second update
-        // call might analyze more than one extra target because of potential implicit dependencies.
-        "java_library(name = 'x', srcs = ['A.java'], deps = ['y'])",
-        "java_library(name = 'y', srcs = ['B.java'], deps = ['z'])",
-        "java_library(name = 'z', srcs = ['C.java'])");
+        """
+        load("@rules_java//java:defs.bzl", "java_library")
+        # It's important that all targets are of the same rule class, otherwise the second update
+        # call might analyze more than one extra target because of potential implicit dependencies.
+        java_library(
+            name = "x",
+            srcs = ["A.java"],
+            deps = ["y"],
+        )
+
+        java_library(
+            name = "y",
+            srcs = ["B.java"],
+            deps = ["z"],
+        )
+
+        java_library(
+            name = "z",
+            srcs = ["C.java"],
+        )
+        """);
     update("//java/a:y");
     Set<?> oldAnalyzedTargets = getSkyframeEvaluatedTargetKeys();
     assertThat(oldAnalyzedTargets.size()).isAtLeast(3); // could be greater due to implicit deps
@@ -447,7 +778,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     assertThat(countObjectsPartiallyMatchingRegex(oldAnalyzedTargets, "//java/a:y")).isEqualTo(1);
     update("//java/a:x");
     Set<?> newAnalyzedTargets = getSkyframeEvaluatedTargetKeys();
-    // Source target and rule target.
+    // Source target and x.
     assertThat(newAnalyzedTargets).hasSize(2);
     assertThat(countObjectsPartiallyMatchingRegex(newAnalyzedTargets, "//java/a:x")).isEqualTo(1);
     assertThat(countObjectsPartiallyMatchingRegex(newAnalyzedTargets, "//java/a:y")).isEqualTo(0);
@@ -455,16 +786,33 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
 
   @Test
   public void testExtraActions() throws Exception {
-    scratch.file("java/com/google/a/BUILD", "java_library(name='a', srcs=['A.java'])");
-    scratch.file("java/com/google/b/BUILD", "java_library(name='b', srcs=['B.java'])");
+    scratch.file(
+        "java/com/google/a/BUILD",
+        """
+        load("@rules_java//java:defs.bzl", "java_library")
+        java_library(name='a', srcs=['A.java'])
+        """);
+    scratch.file(
+        "java/com/google/b/BUILD",
+        """
+        load("@rules_java//java:defs.bzl", "java_library")
+        java_library(name='b', srcs=['B.java'])
+        """);
     scratch.file(
         "extra/BUILD",
-        "extra_action(name = 'extra',",
-        "             out_templates = ['$(OWNER_LABEL_DIGEST)_$(ACTION_ID).tst'],",
-        "             cmd = '')",
-        "action_listener(name = 'listener',",
-        "                mnemonics = ['Javac'],",
-        "                extra_actions = [':extra'])");
+        """
+        extra_action(
+            name = "extra",
+            cmd = "",
+            out_templates = ["$(OWNER_LABEL_DIGEST)_$(ACTION_ID).tst"],
+        )
+
+        action_listener(
+            name = "listener",
+            extra_actions = [":extra"],
+            mnemonics = ["Javac"],
+        )
+        """);
 
     useConfiguration("--experimental_action_listener=//extra:listener");
     update("//java/com/google/a:a");
@@ -473,15 +821,27 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
 
   @Test
   public void testExtraActionsCaching() throws Exception {
-    scratch.file("java/a/BUILD", "java_library(name='a', srcs=['A.java'])");
+    scratch.file(
+        "java/a/BUILD",
+        """
+        load("@rules_java//java:defs.bzl", "java_library")
+        java_library(name='a', srcs=['A.java'])
+        """);
     scratch.file(
         "extra/BUILD",
-        "extra_action(name = 'extra',",
-        "             out_templates = ['$(OWNER_LABEL_DIGEST)_$(ACTION_ID).tst'],",
-        "             cmd = 'echo $(EXTRA_ACTION_FILE)')",
-        "action_listener(name = 'listener',",
-        "                mnemonics = ['Javac'],",
-        "                extra_actions = [':extra'])");
+        """
+        extra_action(
+            name = "extra",
+            cmd = "echo $(EXTRA_ACTION_FILE)",
+            out_templates = ["$(OWNER_LABEL_DIGEST)_$(ACTION_ID).tst"],
+        )
+
+        action_listener(
+            name = "listener",
+            extra_actions = [":extra"],
+            mnemonics = ["Javac"],
+        )
+        """);
     useConfiguration("--experimental_action_listener=//extra:listener");
 
     update("//java/a:a");
@@ -489,12 +849,20 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
 
     scratch.overwriteFile(
         "extra/BUILD",
-        "extra_action(name = 'extra',",
-        "             out_templates = ['$(OWNER_LABEL_DIGEST)_$(ACTION_ID).tst'],",
-        "             cmd = 'echo $(BUG)')", // <-- change here
-        "action_listener(name = 'listener',",
-        "                mnemonics = ['Javac'],",
-        "                extra_actions = [':extra'])");
+        """
+        extra_action(
+            name = "extra",
+            # <-- change here
+            cmd = "echo $(BUG)",
+            out_templates = ["$(OWNER_LABEL_DIGEST)_$(ACTION_ID).tst"],
+        )
+
+        action_listener(
+            name = "listener",
+            extra_actions = [":extra"],
+            mnemonics = ["Javac"],
+        )
+        """);
     reporter.removeHandler(failFastHandler);
     ViewCreationFailedException e =
         assertThrows(ViewCreationFailedException.class, () -> update("//java/a:a"));
@@ -514,12 +882,28 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
 
   @Test
   public void testSkyframeCacheInvalidationBuildFileChange() throws Exception {
-    scratch.file("java/a/BUILD", "java_test(name = 'A',", "          srcs = ['A.java'])");
+    scratch.file(
+        "java/a/BUILD",
+        """
+        load("@rules_java//java:defs.bzl", "java_test")
+        java_test(
+            name = "A",
+            srcs = ["A.java"],
+        )
+        """);
     String aTarget = "//java/a:A";
     update(aTarget);
     ConfiguredTarget firstCT = getConfiguredTarget(aTarget);
 
-    scratch.overwriteFile("java/a/BUILD", "java_test(name = 'A',", "          srcs = ['B.java'])");
+    scratch.overwriteFile(
+        "java/a/BUILD",
+        """
+        load("@rules_java//java:defs.bzl", "java_test")
+        java_test(
+            name = "A",
+            srcs = ["B.java"],
+        )
+        """);
 
     update(aTarget);
     ConfiguredTarget updatedCT = getConfiguredTarget(aTarget);
@@ -532,9 +916,25 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
 
   @Test
   public void testSkyframeDifferentPackagesInvalidation() throws Exception {
-    scratch.file("java/a/BUILD", "java_test(name = 'A',", "          srcs = ['A.java'])");
+    scratch.file(
+        "java/a/BUILD",
+        """
+        load("@rules_java//java:defs.bzl", "java_test")
+        java_test(
+            name = "A",
+            srcs = ["A.java"],
+        )
+        """);
 
-    scratch.file("java/b/BUILD", "java_test(name = 'B',", "          srcs = ['B.java'])");
+    scratch.file(
+        "java/b/BUILD",
+        """
+        load("@rules_java//java:defs.bzl", "java_test")
+        java_test(
+            name = "B",
+            srcs = ["B.java"],
+        )
+        """);
 
     String aTarget = "//java/a:A";
     update(aTarget);
@@ -543,7 +943,15 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     update(bTarget);
     ConfiguredTarget oldBConfTarget = getConfiguredTarget(bTarget);
 
-    scratch.overwriteFile("java/b/BUILD", "java_test(name = 'B',", "          srcs = ['C.java'])");
+    scratch.overwriteFile(
+        "java/b/BUILD",
+        """
+        load("@rules_java//java:defs.bzl", "java_test")
+        java_test(
+            name = "B",
+            srcs = ["C.java"],
+        )
+        """);
 
     update(aTarget);
     // Check that 'A' was not invalidated because 'B' was modified and invalidated.
@@ -570,10 +978,36 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
   public void testGetSkyframeEvaluatedTargetKeysOmitsCachedTargets() throws Exception {
     scratch.file(
         "java/a/BUILD",
-        "java_library(name = 'x', srcs = ['A.java'], deps = ['z', 'w'])",
-        "java_library(name = 'y', srcs = ['B.java'], deps = ['z', 'w'])",
-        "java_library(name = 'z', srcs = ['C.java'])",
-        "java_library(name = 'w', srcs = ['D.java'])");
+        """
+        load("@rules_java//java:defs.bzl", "java_library")
+        java_library(
+            name = "x",
+            srcs = ["A.java"],
+            deps = [
+                "w",
+                "z",
+            ],
+        )
+
+        java_library(
+            name = "y",
+            srcs = ["B.java"],
+            deps = [
+                "w",
+                "z",
+            ],
+        )
+
+        java_library(
+            name = "z",
+            srcs = ["C.java"],
+        )
+
+        java_library(
+            name = "w",
+            srcs = ["D.java"],
+        )
+        """);
 
     update("//java/a:x");
     Set<?> oldAnalyzedTargets = getSkyframeEvaluatedTargetKeys();
@@ -587,11 +1021,12 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     // as cached top-level targets. For the two tests above to work correctly, we need to ensure
     // that getSkyframeEvaluatedTargetKeys() doesn't return these.
     update("//java/a:x", "//java/a:y", "//java/a:z");
-    Set<?> newAnalyzedTargets = getSkyframeEvaluatedTargetKeys();
-    assertThat(newAnalyzedTargets).hasSize(2);
-    assertThat(countObjectsPartiallyMatchingRegex(newAnalyzedTargets, "//java/a:B.java"))
-        .isEqualTo(1);
-    assertThat(countObjectsPartiallyMatchingRegex(newAnalyzedTargets, "//java/a:y")).isEqualTo(1);
+    assertNumberOfAnalyzedConfigurationsOfTargets(
+        ImmutableMap.<String, Integer>builder()
+            .put("//java/a:y", 1) // Newly requested.
+            .put("//java/a:B.java", 1)
+            .put("//java/a:z", 0) // Fully cached.
+            .buildOrThrow());
   }
 
   /** Test options class for testing diff-based analysis cache resetting. */
@@ -609,6 +1044,9 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
 
           @Override
           public BuildOptions patch(BuildOptionsView options, EventHandler eventHandler) {
+            if (options.underlying().hasNoConfig()) {
+              return options.underlying();
+            }
             BuildOptionsView cloned = options.clone();
             cloned.get(DiffResetOptions.class).probablyIrrelevantOption = "(cleared)";
             cloned.get(DiffResetOptions.class).alsoIrrelevantOption = "(cleared)";
@@ -655,13 +1093,6 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
         effectTags = {OptionEffectTag.UNKNOWN},
         help = "This option is not trimmed and is used by all host targets.")
     public String hostRelevantOption;
-
-    @Override
-    public DiffResetOptions getHost() {
-      DiffResetOptions host = ((DiffResetOptions) super.getHost());
-      host.definitelyRelevantOption = hostRelevantOption;
-      return host;
-    }
   }
 
   /** Test fragment. */
@@ -683,33 +1114,44 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
           return !optionsThatCanChange.contains(changedOption);
         });
     builder.overrideTrimmingTransitionFactoryForTesting(
-        (ruleData) -> {
-          if (ruleData.rule().getRuleClassObject().getName().equals("uses_irrelevant")) {
-            return NoTransition.INSTANCE;
+        new TransitionFactory<>() {
+          @Override
+          public ConfigurationTransition create(RuleTransitionData ruleData) {
+            if (ruleData.rule().getRuleClassObject().getName().equals("uses_irrelevant")) {
+              return NoTransition.INSTANCE;
+            }
+            return DiffResetOptions.CLEAR_IRRELEVANT;
           }
-          return DiffResetOptions.CLEAR_IRRELEVANT;
+
+          @Override
+          public TransitionType transitionType() {
+            return TransitionType.RULE;
+          }
         });
     useRuleClassProvider(builder.build());
     scratch.file(
         "test/lib.bzl",
-        "def _empty_impl(ctx):",
-        "  pass",
-        "normal_lib = rule(",
-        "    implementation = _empty_impl,",
-        "    fragments = ['test_diff_fragment'],",
-        "    attrs = {",
-        "        'deps': attr.label_list(),",
-        "        'host_deps': attr.label_list(cfg='host'),",
-        "    },",
-        ")",
-        "uses_irrelevant = rule(",
-        "    implementation = _empty_impl,",
-        "    fragments = ['test_diff_fragment'],",
-        "    attrs = {",
-        "        'deps': attr.label_list(),",
-        "        'host_deps': attr.label_list(cfg='host'),",
-        "    },",
-        ")");
+        """
+        def _empty_impl(ctx):
+            pass
+
+        normal_lib = rule(
+            implementation = _empty_impl,
+            fragments = ["test_diff_fragment"],
+            attrs = {
+                "deps": attr.label_list(),
+                "host_deps": attr.label_list(cfg = "exec"),
+            },
+        )
+        uses_irrelevant = rule(
+            implementation = _empty_impl,
+            fragments = ["test_diff_fragment"],
+            attrs = {
+                "deps": attr.label_list(),
+                "host_deps": attr.label_list(cfg = "exec"),
+            },
+        )
+        """);
     update();
   }
 
@@ -718,27 +1160,19 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     setupDiffResetTesting();
     scratch.file(
         "test/BUILD",
-        "load(':lib.bzl', 'normal_lib', 'uses_irrelevant')",
-        "uses_irrelevant(name='top', deps=[':shared'])",
-        "normal_lib(name='shared')");
+        """
+        load(":lib.bzl", "normal_lib", "uses_irrelevant")
+
+        uses_irrelevant(
+            name = "top",
+            deps = [":shared"],
+        )
+
+        normal_lib(name = "shared")
+        """);
     useConfiguration("--definitely_relevant=Testing");
     update("//test:top");
     update("//test:top");
-    assertNoTargetsVisited();
-  }
-
-  @Test
-  public void cacheNotClearedWhenOptionsStaySameWithMultiCpu() throws Exception {
-    setupDiffResetTesting();
-    scratch.file(
-        "test/BUILD",
-        "load(':lib.bzl', 'normal_lib', 'uses_irrelevant')",
-        "uses_irrelevant(name='top', deps=[':shared'])",
-        "normal_lib(name='shared')");
-    useConfiguration("--experimental_multi_cpu=k8,ppc", "--definitely_relevant=Testing");
-    update("//test:top");
-    update("//test:top");
-    // these targets were cached and did not need to be reanalyzed
     assertNoTargetsVisited();
   }
 
@@ -747,9 +1181,16 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     setupDiffResetTesting();
     scratch.file(
         "test/BUILD",
-        "load(':lib.bzl', 'normal_lib', 'uses_irrelevant')",
-        "uses_irrelevant(name='top', deps=[':shared'])",
-        "normal_lib(name='shared')");
+        """
+        load(":lib.bzl", "normal_lib", "uses_irrelevant")
+
+        uses_irrelevant(
+            name = "top",
+            deps = [":shared"],
+        )
+
+        normal_lib(name = "shared")
+        """);
     useConfiguration("--definitely_relevant=Test 1");
     update("//test:top");
     useConfiguration("--definitely_relevant=Test 2");
@@ -762,22 +1203,68 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
         ImmutableMap.<String, Integer>builder()
             .put("//test:top", 1)
             .put("//test:shared", 1)
-            .build());
+            .buildOrThrow());
   }
 
   @Test
-  public void cacheClearedWhenNonAllowedHostOptionsChange() throws Exception {
+  public void cacheNotClearedForExecWhenNonExecOptionsChange() throws Exception {
     setupDiffResetTesting();
     scratch.file(
         "test/BUILD",
-        "load(':lib.bzl', 'normal_lib', 'uses_irrelevant')",
-        "uses_irrelevant(name='top', host_deps=[':shared'])",
-        "normal_lib(name='shared')");
+        """
+        load(":lib.bzl", "normal_lib", "uses_irrelevant")
+
+        uses_irrelevant(
+            name = "top",
+            host_deps = [":shared"],
+        )
+
+        normal_lib(name = "shared")
+        """);
     useConfiguration("--host_relevant=Test 1");
     update("//test:top");
     useConfiguration("--host_relevant=Test 2");
     update("//test:top");
-    useConfiguration("--host_relevant=Test 1");
+    // //test:shared is in the exec configuration, and --host_relevant is not part of the exec
+    // configuration. Therefore, //test:shared is not reanalyzed, even though //test:top is.
+    assertNumberOfAnalyzedConfigurationsOfTargets(
+        ImmutableMap.<String, Integer>builder()
+            .put("//test:top", 1)
+            .put("//test:shared", 0)
+            .buildOrThrow());
+  }
+
+  @Test
+  public void cacheClearedForExecWhenExecOptionsChange() throws Exception {
+    setupDiffResetTesting();
+    scratch.file(
+        "test/BUILD",
+        """
+        load(":lib.bzl", "normal_lib", "uses_irrelevant")
+
+        uses_irrelevant(
+            name = "top",
+            host_deps = [":shared"],
+        )
+
+        normal_lib(name = "shared")
+        """);
+    // --host_compilation_mode is part of the exec configuration.
+    useConfiguration("--host_compilation_mode=opt");
+    update("//test:top");
+    useConfiguration("--host_compilation_mode=dbg");
+    update("//test:top");
+
+    // Now, //test:shared is reanalyzed, because --host_compilation_mode is part of the exec
+    // configuration.
+    assertNumberOfAnalyzedConfigurationsOfTargets(
+        ImmutableMap.<String, Integer>builder()
+            .put("//test:top", 1)
+            .put("//test:shared", 1)
+            .buildOrThrow());
+
+    // Return to the original configuration and check that the cache is not cleared.
+    useConfiguration("--host_compilation_mode=opt");
     update("//test:top");
     // these targets needed to be reanalyzed even though we built them in this configuration
     // just a moment ago
@@ -785,70 +1272,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
         ImmutableMap.<String, Integer>builder()
             .put("//test:top", 1)
             .put("//test:shared", 1)
-            .build());
-  }
-
-  @Test
-  public void cacheClearedWhenMultiCpuChanges() throws Exception {
-    setupDiffResetTesting();
-    scratch.file(
-        "test/BUILD",
-        "load(':lib.bzl', 'normal_lib', 'uses_irrelevant')",
-        "uses_irrelevant(name='top', deps=[':shared'])",
-        "normal_lib(name='shared')");
-    useConfiguration("--experimental_multi_cpu=k8,ppc");
-    update("//test:top");
-    useConfiguration("--experimental_multi_cpu=k8,armeabi-v7a");
-    update("//test:top");
-    // we needed to reanalyze these in both k8 and armeabi-v7a even though we did the k8 analysis
-    // just a moment ago as part of the previous build
-    assertNumberOfAnalyzedConfigurationsOfTargets(
-        ImmutableMap.<String, Integer>builder()
-            .put("//test:top", 2)
-            .put("//test:shared", 2)
-            .build());
-  }
-
-  @Test
-  public void cacheClearedWhenMultiCpuGetsBigger() throws Exception {
-    setupDiffResetTesting();
-    scratch.file(
-        "test/BUILD",
-        "load(':lib.bzl', 'normal_lib', 'uses_irrelevant')",
-        "uses_irrelevant(name='top', deps=[':shared'])",
-        "normal_lib(name='shared')");
-    useConfiguration("--experimental_multi_cpu=k8,ppc");
-    update("//test:top");
-    useConfiguration("--experimental_multi_cpu=k8,ppc,armeabi-v7a");
-    update("//test:top");
-    // we needed to reanalyze these in all of {k8,ppc,armeabi-v7a} even though we did the k8 and ppc
-    // analysis just a moment ago as part of the previous build
-    assertNumberOfAnalyzedConfigurationsOfTargets(
-        ImmutableMap.<String, Integer>builder()
-            .put("//test:top", 3)
-            .put("//test:shared", 3)
-            .build());
-  }
-
-  @Test
-  public void cacheClearedWhenMultiCpuGetsSmaller() throws Exception {
-    setupDiffResetTesting();
-    scratch.file(
-        "test/BUILD",
-        "load(':lib.bzl', 'normal_lib', 'uses_irrelevant')",
-        "uses_irrelevant(name='top', deps=[':shared'])",
-        "normal_lib(name='shared')");
-    useConfiguration("--experimental_multi_cpu=k8,ppc,armeabi-v7a");
-    update("//test:top");
-    useConfiguration("--experimental_multi_cpu=k8,ppc");
-    update("//test:top");
-    // we needed to reanalyze these in both k8 and ppc even though we did the k8 and ppc
-    // analysis just a moment ago as part of the previous build
-    assertNumberOfAnalyzedConfigurationsOfTargets(
-        ImmutableMap.<String, Integer>builder()
-            .put("//test:top", 2)
-            .put("//test:shared", 2)
-            .build());
+            .buildOrThrow());
   }
 
   @Test
@@ -856,9 +1280,16 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     setupDiffResetTesting();
     scratch.file(
         "test/BUILD",
-        "load(':lib.bzl', 'normal_lib', 'uses_irrelevant')",
-        "uses_irrelevant(name='top', deps=[':shared'])",
-        "normal_lib(name='shared')");
+        """
+        load(":lib.bzl", "normal_lib", "uses_irrelevant")
+
+        uses_irrelevant(
+            name = "top",
+            deps = [":shared"],
+        )
+
+        normal_lib(name = "shared")
+        """);
     useConfiguration("--definitely_relevant=Testing", "--probably_irrelevant=Test 1");
     update("//test:top");
     useConfiguration("--definitely_relevant=Testing", "--probably_irrelevant=Test 2");
@@ -869,7 +1300,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
         ImmutableMap.<String, Integer>builder()
             .put("//test:top", 1)
             .put("//test:shared", 0)
-            .build());
+            .buildOrThrow());
     useConfiguration("--definitely_relevant=Testing", "--probably_irrelevant=Test 1");
     update("//test:top");
     // now we're back to the old configuration with no cache clears, so no work needed to be done
@@ -877,66 +1308,22 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
         ImmutableMap.<String, Integer>builder()
             .put("//test:top", 0)
             .put("//test:shared", 0)
-            .build());
-  }
-
-  @Test
-  public void cacheNotClearedWhenAllowedOptionsChangeWithMultiCpu() throws Exception {
-    setupDiffResetTesting();
-    scratch.file(
-        "test/BUILD",
-        "load(':lib.bzl', 'normal_lib', 'uses_irrelevant')",
-        "uses_irrelevant(name='top', deps=[':shared'])",
-        "normal_lib(name='shared')");
-    useConfiguration(
-        "--experimental_multi_cpu=k8,ppc",
-        "--definitely_relevant=Testing",
-        "--probably_irrelevant=Test 1");
-    update("//test:top");
-    useConfiguration(
-        "--experimental_multi_cpu=k8,ppc",
-        "--definitely_relevant=Testing",
-        "--probably_irrelevant=Test 2");
-    update("//test:top");
-    // the shared library got to reuse the cached value, while the entry point had to be rebuilt in
-    // the new configurations
-    assertNumberOfAnalyzedConfigurationsOfTargets(
-        ImmutableMap.<String, Integer>builder()
-            .put("//test:top", 2)
-            .put("//test:shared", 0)
-            .build());
-    useConfiguration(
-        "--experimental_multi_cpu=k8,ppc",
-        "--definitely_relevant=Testing",
-        "--probably_irrelevant=Test 1");
-    update("//test:top");
-    // now we're back to the old configurations with no cache clears, so no work needed to be done
-    assertNumberOfAnalyzedConfigurationsOfTargets(
-        ImmutableMap.<String, Integer>builder()
-            .put("//test:top", 0)
-            .put("//test:shared", 0)
-            .build());
-  }
-
-  @Test
-  public void cacheClearedWhenRedundantDefinesChange_collapseDuplicateDefinesDisabled()
-      throws Exception {
-    setupDiffResetTesting();
-    scratch.file("test/BUILD", "load(':lib.bzl', 'normal_lib')", "normal_lib(name='top')");
-    useConfiguration("--nocollapse_duplicate_defines", "--define=a=1", "--define=a=2");
-    update("//test:top");
-    useConfiguration("--nocollapse_duplicate_defines", "--define=a=2");
-    update("//test:top");
-    assertNumberOfAnalyzedConfigurationsOfTargets(ImmutableMap.of("//test:top", 1));
+            .buildOrThrow());
   }
 
   @Test
   public void cacheNotClearedWhenRedundantDefinesChange() throws Exception {
     setupDiffResetTesting();
-    scratch.file("test/BUILD", "load(':lib.bzl', 'normal_lib')", "normal_lib(name='top')");
-    useConfiguration("--collapse_duplicate_defines", "--define=a=1", "--define=a=2");
+    scratch.file(
+        "test/BUILD",
+        """
+        load(":lib.bzl", "normal_lib")
+
+        normal_lib(name = "top")
+        """);
+    useConfiguration("--define=a=1", "--define=a=2");
     update("//test:top");
-    useConfiguration("--collapse_duplicate_defines", "--define=a=2");
+    useConfiguration("--define=a=2");
     update("//test:top");
     assertNumberOfAnalyzedConfigurationsOfTargets(ImmutableMap.of("//test:top", 0));
   }
@@ -944,7 +1331,13 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
   @Test
   public void noCacheClearMessageAfterCleanWithSameOptions() throws Exception {
     setupDiffResetTesting();
-    scratch.file("test/BUILD", "load(':lib.bzl', 'normal_lib')", "normal_lib(name='top')");
+    scratch.file(
+        "test/BUILD",
+        """
+        load(":lib.bzl", "normal_lib")
+
+        normal_lib(name = "top")
+        """);
     useConfiguration();
     update("//test:top");
     cleanSkyframe();
@@ -956,7 +1349,13 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
   @Test
   public void noCacheClearMessageAfterCleanWithDifferentOptions() throws Exception {
     setupDiffResetTesting();
-    scratch.file("test/BUILD", "load(':lib.bzl', 'normal_lib')", "normal_lib(name='top')");
+    scratch.file(
+        "test/BUILD",
+        """
+        load(":lib.bzl", "normal_lib")
+
+        normal_lib(name = "top")
+        """);
     useConfiguration("--definitely_relevant=before");
     update("//test:top");
     cleanSkyframe();
@@ -970,7 +1369,13 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
   public void noCacheClearMessageAfterDiscardAnalysisCacheThenCleanWithSameOptions()
       throws Exception {
     setupDiffResetTesting();
-    scratch.file("test/BUILD", "load(':lib.bzl', 'normal_lib')", "normal_lib(name='top')");
+    scratch.file(
+        "test/BUILD",
+        """
+        load(":lib.bzl", "normal_lib")
+
+        normal_lib(name = "top")
+        """);
     useConfiguration("--discard_analysis_cache");
     update("//test:top");
     cleanSkyframe();
@@ -983,7 +1388,13 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
   public void noCacheClearMessageAfterDiscardAnalysisCacheThenCleanWithChangedOptions()
       throws Exception {
     setupDiffResetTesting();
-    scratch.file("test/BUILD", "load(':lib.bzl', 'normal_lib')", "normal_lib(name='top')");
+    scratch.file(
+        "test/BUILD",
+        """
+        load(":lib.bzl", "normal_lib")
+
+        normal_lib(name = "top")
+        """);
     useConfiguration("--definitely_relevant=before", "--discard_analysis_cache");
     update("//test:top");
     cleanSkyframe();
@@ -996,7 +1407,13 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
   @Test
   public void cacheClearMessageAfterDiscardAnalysisCacheBuild() throws Exception {
     setupDiffResetTesting();
-    scratch.file("test/BUILD", "load(':lib.bzl', 'normal_lib')", "normal_lib(name='top')");
+    scratch.file(
+        "test/BUILD",
+        """
+        load(":lib.bzl", "normal_lib")
+
+        normal_lib(name = "top")
+        """);
     useConfiguration(
         "--max_config_changes_to_show=-1",
         "--probably_irrelevant=yeah",
@@ -1012,7 +1429,13 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
   @Test
   public void noCacheClearMessageAfterNonDiscardAnalysisCacheBuild() throws Exception {
     setupDiffResetTesting();
-    scratch.file("test/BUILD", "load(':lib.bzl', 'normal_lib')", "normal_lib(name='top')");
+    scratch.file(
+        "test/BUILD",
+        """
+        load(":lib.bzl", "normal_lib")
+
+        normal_lib(name = "top")
+        """);
     useConfiguration("--max_config_changes_to_show=-1", "--discard_analysis_cache");
     update("//test:top");
     useConfiguration("--max_config_changes_to_show=-1");
@@ -1025,7 +1448,13 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
   @Test
   public void noCacheClearMessageAfterIrrelevantOptionChanges() throws Exception {
     setupDiffResetTesting();
-    scratch.file("test/BUILD", "load(':lib.bzl', 'normal_lib')", "normal_lib(name='top')");
+    scratch.file(
+        "test/BUILD",
+        """
+        load(":lib.bzl", "normal_lib")
+
+        normal_lib(name = "top")
+        """);
     useConfiguration("--max_config_changes_to_show=-1", "--probably_irrelevant=old");
     update("//test:top");
     useConfiguration("--max_config_changes_to_show=-1", "--probably_irrelevant=new");
@@ -1037,7 +1466,13 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
   @Test
   public void noCacheClearMessageAfterIrrelevantOptionChangesWithDiffDisabled() throws Exception {
     setupDiffResetTesting();
-    scratch.file("test/BUILD", "load(':lib.bzl', 'normal_lib')", "normal_lib(name='top')");
+    scratch.file(
+        "test/BUILD",
+        """
+        load(":lib.bzl", "normal_lib")
+
+        normal_lib(name = "top")
+        """);
     useConfiguration("--max_config_changes_to_show=0", "--probably_irrelevant=old");
     update("//test:top");
     useConfiguration("--max_config_changes_to_show=0", "--probably_irrelevant=new");
@@ -1047,179 +1482,55 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
   }
 
   @Test
-  public void cacheClearMessageAfterNumberOfConfigurationsIncreases() throws Exception {
+  public void cacheClearMessageAfterChangingPlatform() throws Exception {
     setupDiffResetTesting();
-    scratch.file("test/BUILD", "load(':lib.bzl', 'normal_lib')", "normal_lib(name='top')");
-    useConfiguration("--max_config_changes_to_show=-1", "--experimental_multi_cpu=armeabi-v7a,ppc");
+    scratch.file(
+        "test/BUILD",
+        """
+        load(":lib.bzl", "normal_lib")
+
+        normal_lib(name = "top")
+        """);
+    useConfiguration(
+        "--max_config_changes_to_show=-1", "--platforms=" + TestConstants.PLATFORM_LABEL);
     update("//test:top");
     useConfiguration(
-        "--max_config_changes_to_show=-1", "--experimental_multi_cpu=armeabi-v7a,k8,ppc");
+        "--max_config_changes_to_show=-1", "--platforms=" + TestConstants.PIII_PLATFORM_LABEL);
     eventCollector.clear();
     update("//test:top");
     assertDoesNotContainEvent("--discard_analysis_cache");
-    assertContainsEvent(
-        "Build option --experimental_multi_cpu has changed, discarding analysis cache");
-  }
-
-  @Test
-  public void cacheClearMessageAfterNumberOfConfigurationsDecreases() throws Exception {
-    setupDiffResetTesting();
-    scratch.file("test/BUILD", "load(':lib.bzl', 'normal_lib')", "normal_lib(name='top')");
-    useConfiguration(
-        "--max_config_changes_to_show=-1", "--experimental_multi_cpu=armeabi-v7a,k8,ppc");
-    update("//test:top");
-    useConfiguration("--max_config_changes_to_show=-1", "--experimental_multi_cpu=armeabi-v7a,ppc");
-    eventCollector.clear();
-    update("//test:top");
-    assertDoesNotContainEvent("--discard_analysis_cache");
-    assertContainsEvent(
-        "Build option --experimental_multi_cpu has changed, discarding analysis cache");
-  }
-
-  @Test
-  public void cacheClearMessageAfterChangingExperimentalMultiCpu() throws Exception {
-    setupDiffResetTesting();
-    scratch.file("test/BUILD", "load(':lib.bzl', 'normal_lib')", "normal_lib(name='top')");
-    useConfiguration("--max_config_changes_to_show=-1", "--experimental_multi_cpu=armeabi-v7a,k8");
-    update("//test:top");
-    useConfiguration("--max_config_changes_to_show=-1", "--experimental_multi_cpu=armeabi-v7a,ppc");
-    eventCollector.clear();
-    update("//test:top");
-    assertDoesNotContainEvent("--discard_analysis_cache");
-    assertContainsEvent(
-        "Build option --experimental_multi_cpu has changed, discarding analysis cache");
-  }
-
-  @Test
-  public void noCacheClearMessageAfterOnlyChangingExperimentalMultiCpuOrder() throws Exception {
-    setupDiffResetTesting();
-    scratch.file("test/BUILD", "load(':lib.bzl', 'normal_lib')", "normal_lib(name='top')");
-    useConfiguration("--max_config_changes_to_show=-1", "--experimental_multi_cpu=k8,armeabi-v7a");
-    update("//test:top");
-    useConfiguration("--max_config_changes_to_show=-1", "--experimental_multi_cpu=armeabi-v7a,k8");
-    eventCollector.clear();
-    update("//test:top");
-    assertNoEvents();
-  }
-
-  @Test
-  public void cacheClearMessageAfterChangingFirstCpuOnMultiCpu() throws Exception {
-    setupDiffResetTesting();
-    scratch.file("test/BUILD", "load(':lib.bzl', 'normal_lib')", "normal_lib(name='top')");
-    useConfiguration("--max_config_changes_to_show=-1", "--experimental_multi_cpu=k8,piii");
-    update("//test:top");
-    useConfiguration("--max_config_changes_to_show=-1", "--experimental_multi_cpu=armeabi-v7a,ppc");
-    eventCollector.clear();
-    update("//test:top");
-    assertDoesNotContainEvent("--discard_analysis_cache");
-    assertContainsEvent(
-        "Build option --experimental_multi_cpu has changed, discarding analysis cache");
-  }
-
-  @Test
-  public void cacheClearMessageAfterChangingCpu() throws Exception {
-    setupDiffResetTesting();
-    scratch.file("test/BUILD", "load(':lib.bzl', 'normal_lib')", "normal_lib(name='top')");
-    useConfiguration("--max_config_changes_to_show=-1", "--cpu=k8");
-    update("//test:top");
-    useConfiguration("--max_config_changes_to_show=-1", "--cpu=armeabi-v7a");
-    eventCollector.clear();
-    update("//test:top");
-    assertDoesNotContainEvent("--discard_analysis_cache");
-    assertContainsEvent("Build option --cpu has changed, discarding analysis cache");
-  }
-
-  @Test
-  public void cacheClearMessageAfterTurningOnExperimentalMultiCpu() throws Exception {
-    setupDiffResetTesting();
-    scratch.file("test/BUILD", "load(':lib.bzl', 'normal_lib')", "normal_lib(name='top')");
-    useConfiguration("--max_config_changes_to_show=-1", "--cpu=armeabi-v7a");
-    update("//test:top");
-    useConfiguration(
-        "--max_config_changes_to_show=-1", "--experimental_multi_cpu=armeabi-v7a,k8,ppc");
-    eventCollector.clear();
-    update("//test:top");
-    assertDoesNotContainEvent("--discard_analysis_cache");
-    assertContainsEvent(
-        "Build option --experimental_multi_cpu has changed, discarding analysis cache");
-  }
-
-  @Test
-  public void cacheClearMessageAfterTurningOffExperimentalMultiCpu() throws Exception {
-    setupDiffResetTesting();
-    scratch.file("test/BUILD", "load(':lib.bzl', 'normal_lib')", "normal_lib(name='top')");
-    useConfiguration(
-        "--max_config_changes_to_show=-1", "--experimental_multi_cpu=armeabi-v7a,k8,ppc");
-    update("//test:top");
-    useConfiguration("--max_config_changes_to_show=-1", "--cpu=armeabi-v7a");
-    eventCollector.clear();
-    update("//test:top");
-    assertDoesNotContainEvent("--discard_analysis_cache");
-    assertContainsEvent(
-        "Build option --experimental_multi_cpu has changed, discarding analysis cache");
-  }
-
-  @Test
-  public void cacheClearMessageAfterChangingExperimentalMultiCpuAndOtherRelevantOption()
-      throws Exception {
-    setupDiffResetTesting();
-    scratch.file("test/BUILD", "load(':lib.bzl', 'normal_lib')", "normal_lib(name='top')");
-    useConfiguration(
-        "--max_config_changes_to_show=-1",
-        "--experimental_multi_cpu=armeabi-v7a,k8,ppc",
-        "--definitely_relevant=old");
-    update("//test:top");
-    useConfiguration(
-        "--max_config_changes_to_show=-1",
-        "--experimental_multi_cpu=armeabi-v7a,k8",
-        "--definitely_relevant=new");
-    eventCollector.clear();
-    update("//test:top");
-    assertDoesNotContainEvent("--discard_analysis_cache");
-    assertContainsEvent(
-        "Build options --definitely_relevant and --experimental_multi_cpu have changed, "
-            + "discarding analysis cache");
-  }
-
-  @Test
-  public void cacheClearMessageAfterChangingExperimentalMultiCpuOrderAndOtherRelevantOption()
-      throws Exception {
-    setupDiffResetTesting();
-    scratch.file("test/BUILD", "load(':lib.bzl', 'normal_lib')", "normal_lib(name='top')");
-    useConfiguration(
-        "--max_config_changes_to_show=-1",
-        "--experimental_multi_cpu=k8,armeabi-v7a",
-        "--definitely_relevant=old");
-    update("//test:top");
-    useConfiguration(
-        "--max_config_changes_to_show=-1",
-        "--experimental_multi_cpu=armeabi-v7a,k8",
-        "--definitely_relevant=new");
-    eventCollector.clear();
-    update("//test:top");
-    assertDoesNotContainEvent("--discard_analysis_cache");
-    assertContainsEvent(
-        "Build option --definitely_relevant has changed, discarding analysis cache");
+    assertContainsEvent("Build option --platforms has changed, " + CACHE_DISCARD_WARNING);
   }
 
   @Test
   public void cacheClearMessageAfterSingleRelevantOptionChanges() throws Exception {
     setupDiffResetTesting();
-    scratch.file("test/BUILD", "load(':lib.bzl', 'normal_lib')", "normal_lib(name='top')");
+    scratch.file(
+        "test/BUILD",
+        """
+        load(":lib.bzl", "normal_lib")
+
+        normal_lib(name = "top")
+        """);
     useConfiguration("--max_config_changes_to_show=-1", "--definitely_relevant=old");
     update("//test:top");
     useConfiguration("--max_config_changes_to_show=-1", "--definitely_relevant=new");
     eventCollector.clear();
     update("//test:top");
     assertDoesNotContainEvent("--discard_analysis_cache");
-    assertContainsEvent(
-        "Build option --definitely_relevant has changed, discarding analysis cache");
+    assertContainsEvent("Build option --definitely_relevant has changed, " + CACHE_DISCARD_WARNING);
   }
 
   @Test
   public void cacheClearMessageDoesNotIncludeIrrelevantOptions() throws Exception {
     setupDiffResetTesting();
-    scratch.file("test/BUILD", "load(':lib.bzl', 'normal_lib')", "normal_lib(name='top')");
+    scratch.file(
+        "test/BUILD",
+        """
+        load(":lib.bzl", "normal_lib")
+
+        normal_lib(name = "top")
+        """);
     useConfiguration(
         "--max_config_changes_to_show=-1",
         "--definitely_relevant=old",
@@ -1234,14 +1545,19 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     eventCollector.clear();
     update("//test:top");
     assertDoesNotContainEvent("--discard_analysis_cache");
-    assertContainsEvent(
-        "Build option --definitely_relevant has changed, discarding analysis cache");
+    assertContainsEvent("Build option --definitely_relevant has changed, " + CACHE_DISCARD_WARNING);
   }
 
   @Test
   public void cacheClearMessageDoesNotIncludeUnchangedOptions() throws Exception {
     setupDiffResetTesting();
-    scratch.file("test/BUILD", "load(':lib.bzl', 'normal_lib')", "normal_lib(name='top')");
+    scratch.file(
+        "test/BUILD",
+        """
+        load(":lib.bzl", "normal_lib")
+
+        normal_lib(name = "top")
+        """);
     useConfiguration(
         "--max_config_changes_to_show=-1", "--definitely_relevant=old", "--also_relevant=fixed");
     update("//test:top");
@@ -1250,27 +1566,38 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     eventCollector.clear();
     update("//test:top");
     assertDoesNotContainEvent("--discard_analysis_cache");
-    assertContainsEvent(
-        "Build option --definitely_relevant has changed, discarding analysis cache");
+    assertContainsEvent("Build option --definitely_relevant has changed, " + CACHE_DISCARD_WARNING);
   }
 
   @Test
   public void cacheClearMessageAfterRelevantOptionChangeWithDiffDisabled() throws Exception {
     setupDiffResetTesting();
-    scratch.file("test/BUILD", "load(':lib.bzl', 'normal_lib')", "normal_lib(name='top')");
+    scratch.file(
+        "test/BUILD",
+        """
+        load(":lib.bzl", "normal_lib")
+
+        normal_lib(name = "top")
+        """);
     useConfiguration("--max_config_changes_to_show=0", "--definitely_relevant=old");
     update("//test:top");
     useConfiguration("--max_config_changes_to_show=0", "--definitely_relevant=new");
     eventCollector.clear();
     update("//test:top");
     assertDoesNotContainEvent("--discard_analysis_cache");
-    assertContainsEvent("Build options have changed, discarding analysis cache");
+    assertContainsEvent("Build options have changed, " + CACHE_DISCARD_WARNING);
   }
 
   @Test
   public void cacheClearMessageAfterTwoRelevantOptionsChange() throws Exception {
     setupDiffResetTesting();
-    scratch.file("test/BUILD", "load(':lib.bzl', 'normal_lib')", "normal_lib(name='top')");
+    scratch.file(
+        "test/BUILD",
+        """
+        load(":lib.bzl", "normal_lib")
+
+        normal_lib(name = "top")
+        """);
     useConfiguration(
         "--max_config_changes_to_show=-1", "--definitely_relevant=old", "--also_relevant=old");
     update("//test:top");
@@ -1281,13 +1608,19 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     assertDoesNotContainEvent("--discard_analysis_cache");
     assertContainsEvent(
         "Build options --also_relevant and --definitely_relevant have changed, "
-            + "discarding analysis cache");
+            + CACHE_DISCARD_WARNING);
   }
 
   @Test
   public void cacheClearMessageAfterMultipleRelevantOptionsChange() throws Exception {
     setupDiffResetTesting();
-    scratch.file("test/BUILD", "load(':lib.bzl', 'normal_lib')", "normal_lib(name='top')");
+    scratch.file(
+        "test/BUILD",
+        """
+        load(":lib.bzl", "normal_lib")
+
+        normal_lib(name = "top")
+        """);
     useConfiguration(
         "--max_config_changes_to_show=-1",
         "--definitely_relevant=old",
@@ -1304,13 +1637,19 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     assertDoesNotContainEvent("--discard_analysis_cache");
     assertContainsEvent(
         "Build options --also_relevant, --definitely_relevant, and --host_relevant have changed, "
-            + "discarding analysis cache");
+            + CACHE_DISCARD_WARNING);
   }
 
   @Test
   public void cacheClearMessageAfterMultipleRelevantOptionsChangeWithDiffLimit() throws Exception {
     setupDiffResetTesting();
-    scratch.file("test/BUILD", "load(':lib.bzl', 'normal_lib')", "normal_lib(name='top')");
+    scratch.file(
+        "test/BUILD",
+        """
+        load(":lib.bzl", "normal_lib")
+
+        normal_lib(name = "top")
+        """);
     useConfiguration(
         "--max_config_changes_to_show=2",
         "--definitely_relevant=old",
@@ -1327,14 +1666,20 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     assertDoesNotContainEvent("--discard_analysis_cache");
     assertContainsEvent(
         "Build options --also_relevant, --definitely_relevant, and 1 more have changed, "
-            + "discarding analysis cache");
+            + CACHE_DISCARD_WARNING);
   }
 
   @Test
   public void cacheClearMessageAfterMultipleRelevantOptionsChangeWithSingleDiffLimit()
       throws Exception {
     setupDiffResetTesting();
-    scratch.file("test/BUILD", "load(':lib.bzl', 'normal_lib')", "normal_lib(name='top')");
+    scratch.file(
+        "test/BUILD",
+        """
+        load(":lib.bzl", "normal_lib")
+
+        normal_lib(name = "top")
+        """);
     useConfiguration(
         "--max_config_changes_to_show=1",
         "--definitely_relevant=old",
@@ -1350,14 +1695,20 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     update("//test:top");
     assertDoesNotContainEvent("--discard_analysis_cache");
     assertContainsEvent(
-        "Build options --also_relevant and 2 more have changed, discarding analysis cache");
+        "Build options --also_relevant and 2 more have changed, " + CACHE_DISCARD_WARNING);
   }
 
   @Test
   public void cacheClearMessageAfterDiscardAnalysisCacheBuildWithRelevantOptionChanges()
       throws Exception {
     setupDiffResetTesting();
-    scratch.file("test/BUILD", "load(':lib.bzl', 'normal_lib')", "normal_lib(name='top')");
+    scratch.file(
+        "test/BUILD",
+        """
+        load(":lib.bzl", "normal_lib")
+
+        normal_lib(name = "top")
+        """);
     useConfiguration(
         "--max_config_changes_to_show=-1", "--discard_analysis_cache", "--definitely_relevant=old");
     update("//test:top");
@@ -1368,5 +1719,43 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     assertContainsEvent("--discard_analysis_cache");
     assertDoesNotContainEvent("Build option");
     assertContainsEvent("discarding analysis cache");
+  }
+
+  @Test
+  public void throwsIfAnalysisCacheIsDiscardedWhenOptionSet() throws Exception {
+    setupDiffResetTesting();
+    scratch.file(
+        "test/BUILD",
+        """
+        load(":lib.bzl", "normal_lib")
+
+        normal_lib(name = "top")
+        """);
+    useConfiguration("--definitely_relevant=old");
+
+    // Set up the analysis cache
+    update("//test:top");
+
+    // Check if things work if the build options are not changed
+    useConfiguration("--noallow_analysis_cache_discard", "--definitely_relevant=old");
+    update("//test:top");
+
+    // Check if an error is raised when the build options are changed. Do it twice because
+    // had already had a bug that the second invocation erroneously worked. See
+    // https://github.com/bazelbuild/bazel/issues/23491 .
+    useConfiguration("--noallow_analysis_cache_discard", "--definitely_relevant=new");
+    Throwable t = assertThrows(InvalidConfigurationException.class, () -> update("//test:top"));
+    assertThat(t.getMessage().contains("analysis cache would have been discarded")).isTrue();
+
+    t = assertThrows(InvalidConfigurationException.class, () -> update("//test:top"));
+    assertThat(t.getMessage()).contains("analysis cache would have been discarded");
+
+    // Check if going back to the original configuration works.
+    useConfiguration("--noallow_analysis_cache_discard", "--definitely_relevant=old");
+    update("//test:top");
+
+    // Now check if removing --noallow_analysis_cache_discard in fact allows discarding the cache.
+    useConfiguration("--definitely_relevant=new");
+    update("//test:top");
   }
 }

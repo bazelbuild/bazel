@@ -15,43 +15,51 @@
 package com.google.devtools.build.lib.starlarkbuildapi.java;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.core.Bootstrap;
-import com.google.devtools.build.lib.starlarkbuildapi.java.JavaInfoApi.JavaInfoProviderApi;
-import net.starlark.java.eval.FlagGuardedValue;
+import com.google.devtools.build.lib.starlarkbuildapi.core.ContextAndFlagGuardedValue;
+import net.starlark.java.eval.Starlark;
 
 /** {@link Bootstrap} for Starlark objects related to the java language. */
 public class JavaBootstrap implements Bootstrap {
 
-  private final JavaCommonApi<?, ?, ?, ?, ?, ?> javaCommonApi;
-  private final JavaInfoProviderApi javaInfoProviderApi;
-  private final JavaPluginInfoApi.Provider<?> javaPluginInfoProviderApi;
-  private final JavaProtoCommonApi<?, ?, ?, ?> javaProtoCommonApi;
   private final ProguardSpecProviderApi.Provider<?> proguardSpecProvider;
+  private static final ImmutableSet<PackageIdentifier> allowedRepositories =
+      ImmutableSet.of(
+          PackageIdentifier.createUnchecked("_builtins", ""),
+          PackageIdentifier.createUnchecked("bazel_tools", ""),
+          PackageIdentifier.createUnchecked("rules_java", ""),
+          PackageIdentifier.createUnchecked("rules_java_builtin", ""),
+          PackageIdentifier.createUnchecked("", "tools/build_defs/java"));
 
   public JavaBootstrap(
-      JavaCommonApi<?, ?, ?, ?, ?, ?> javaCommonApi,
-      JavaInfoProviderApi javaInfoProviderApi,
-      JavaPluginInfoApi.Provider<?> javaPluginInfoProviderApi,
-      JavaProtoCommonApi<?, ?, ?, ?> javaProtoCommonApi,
       ProguardSpecProviderApi.Provider<?> proguardSpecProvider) {
-    this.javaCommonApi = javaCommonApi;
-    this.javaInfoProviderApi = javaInfoProviderApi;
-    this.javaPluginInfoProviderApi = javaPluginInfoProviderApi;
-    this.javaProtoCommonApi = javaProtoCommonApi;
     this.proguardSpecProvider = proguardSpecProvider;
   }
 
   @Override
   public void addBindingsToBuilder(ImmutableMap.Builder<String, Object> builder) {
-    builder.put("java_common", javaCommonApi);
-    builder.put("JavaInfo", javaInfoProviderApi);
-    builder.put("JavaPluginInfo", javaPluginInfoProviderApi);
-    builder.put("java_proto_common", javaProtoCommonApi);
-
     builder.put(
-        ProguardSpecProviderApi.NAME,
-        FlagGuardedValue.onlyWhenExperimentalFlagIsTrue(
-            BuildLanguageOptions.EXPERIMENTAL_GOOGLE_LEGACY_API, proguardSpecProvider));
+        "java_common",
+        ContextAndFlagGuardedValue.onlyInAllowedReposOrWhenIncompatibleFlagIsFalse(
+            BuildLanguageOptions.INCOMPATIBLE_STOP_EXPORTING_LANGUAGE_MODULES,
+            Starlark.NONE,
+            allowedRepositories));
+    builder.put(
+        "JavaInfo",
+        ContextAndFlagGuardedValue.onlyInAllowedReposOrWhenIncompatibleFlagIsFalse(
+            BuildLanguageOptions.INCOMPATIBLE_STOP_EXPORTING_LANGUAGE_MODULES,
+            Starlark.NONE,
+            allowedRepositories));
+    builder.put(
+        "JavaPluginInfo",
+        ContextAndFlagGuardedValue.onlyInAllowedReposOrWhenIncompatibleFlagIsFalse(
+            BuildLanguageOptions.INCOMPATIBLE_STOP_EXPORTING_LANGUAGE_MODULES,
+            Starlark.NONE,
+            allowedRepositories));
+
+    builder.put(ProguardSpecProviderApi.NAME, proguardSpecProvider);
   }
 }

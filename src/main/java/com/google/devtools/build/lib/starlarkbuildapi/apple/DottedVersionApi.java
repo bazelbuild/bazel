@@ -36,7 +36,7 @@ public interface DottedVersionApi<SelfT extends DottedVersionApi<?>>
   @StarlarkMethod(
       name = "compare_to",
       doc =
-          "Compares based on most signifigant (first) not-matching version component. "
+          "Compares based on most significant (first) not-matching version component. "
               + "So, for example, 1.2.3 < 1.2.4",
       parameters = {
         @Param(name = "other", positional = true, named = false, doc = "The other dotted version.")

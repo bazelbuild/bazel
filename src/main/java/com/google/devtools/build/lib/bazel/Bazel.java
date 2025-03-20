@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.bazel;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
-import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryDebugModule;
+import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialModule;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import java.io.IOException;
@@ -36,28 +36,36 @@ public final class Bazel {
    * <p>Example: To make the "standalone" execution strategy the default for spawns, put it after
    * all the other modules that provider spawn strategies (e.g. WorkerModule and SandboxModule).
    */
+  @SuppressWarnings("UnnecessarilyFullyQualified") // Class names fully qualified for clarity.
   public static final ImmutableList<Class<? extends BlazeModule>> BAZEL_MODULES =
       ImmutableList.of(
           BazelStartupOptionsModule.class,
+          // This module is registered early so that profiles are as complete as possible.
+          com.google.devtools.build.lib.profiler.CommandProfilerModule.class,
           // This module needs to be registered before any module providing a SpawnCache
           // implementation.
           com.google.devtools.build.lib.runtime.NoSpawnCacheModule.class,
+          // This module needs to be registered before any module that uses the credential cache.
+          CredentialModule.class,
           com.google.devtools.build.lib.runtime.CommandLogModule.class,
+          com.google.devtools.build.lib.runtime.MemoryPressureModule.class,
           com.google.devtools.build.lib.platform.SleepPreventionModule.class,
           com.google.devtools.build.lib.platform.SystemSuspensionModule.class,
-          com.google.devtools.build.lib.runtime.BazelFileSystemModule.class,
+          BazelFileSystemModule.class,
           com.google.devtools.build.lib.runtime.mobileinstall.MobileInstallModule.class,
           com.google.devtools.build.lib.bazel.BazelWorkspaceStatusModule.class,
           com.google.devtools.build.lib.bazel.BazelDiffAwarenessModule.class,
           com.google.devtools.build.lib.remote.RemoteModule.class,
           com.google.devtools.build.lib.bazel.BazelRepositoryModule.class,
-          StarlarkRepositoryDebugModule.class,
+          com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryDebugModule
+              .class,
           com.google.devtools.build.lib.bazel.debug.WorkspaceRuleModule.class,
           com.google.devtools.build.lib.bazel.coverage.BazelCoverageReportModule.class,
           com.google.devtools.build.lib.starlarkdebug.module.StarlarkDebuggerModule.class,
           com.google.devtools.build.lib.bazel.repository.RepositoryResolvedModule.class,
           com.google.devtools.build.lib.bazel.repository.CacheHitReportingModule.class,
           com.google.devtools.build.lib.bazel.SpawnLogModule.class,
+          com.google.devtools.build.lib.bazel.bzlmod.BazelLockFileModule.class,
           com.google.devtools.build.lib.outputfilter.OutputFilteringModule.class,
           com.google.devtools.build.lib.worker.WorkerModule.class,
           com.google.devtools.build.lib.runtime.CacheFileDigestsModule.class,
@@ -65,19 +73,31 @@ public final class Bazel {
           com.google.devtools.build.lib.sandbox.SandboxModule.class,
           com.google.devtools.build.lib.runtime.BuildSummaryStatsModule.class,
           com.google.devtools.build.lib.dynamic.DynamicExecutionModule.class,
-          com.google.devtools.build.lib.bazel.rules.ninja.actions.NinjaRulesModule.class,
           com.google.devtools.build.lib.bazel.rules.BazelRulesModule.class,
           com.google.devtools.build.lib.bazel.rules.BazelStrategyModule.class,
           com.google.devtools.build.lib.network.NoOpConnectivityModule.class,
           com.google.devtools.build.lib.buildeventservice.BazelBuildEventServiceModule.class,
-          com.google.devtools.build.lib.profiler.callcounts.CallcountsModule.class,
           com.google.devtools.build.lib.profiler.memory.AllocationTrackerModule.class,
+          com.google.devtools.build.lib.packages.metrics.PackageMetricsModule.class,
+          com.google.devtools.build.lib.runtime.ExecutionGraphModule.class,
+          BazelBuiltinCommandModule.class,
+          com.google.devtools.build.lib.includescanning.IncludeScanningModule.class,
+          com.google.devtools.build.lib.skyframe.SkymeldModule.class,
+          com.google.devtools.build.lib.skyframe.serialization.SerializationModule.class,
+          // This module needs to be registered after any module submitting tasks with its {@code
+          // submit} method.
+          com.google.devtools.build.lib.runtime.BlockWaitingModule.class,
+          // Modules that are involved in the collection of heap-related metrics of a build. They
+          // need to be
+          // last in the modules order, so when the GCs happen at the end of the build, we mitigate
+          // the risk
+          // that objects are still held onto by the other modules. This is a quick fix for
+          // b/247613138.
+          // TODO(b/253394502): remove this when we have a better solution.
           com.google.devtools.build.lib.metrics.PostGCMemoryUseRecorder
               .PostGCMemoryUseRecorderModule.class,
           com.google.devtools.build.lib.metrics.PostGCMemoryUseRecorder.GcAfterBuildModule.class,
-          com.google.devtools.build.lib.packages.metrics.PackageMetricsModule.class,
-          com.google.devtools.build.lib.metrics.MetricsModule.class,
-          BazelBuiltinCommandModule.class);
+          com.google.devtools.build.lib.metrics.MetricsModule.class);
 
   public static void main(String[] args) {
     BlazeVersionInfo.setBuildInfo(tryGetBuildInfo());
@@ -106,7 +126,7 @@ public final class Bazel {
           buildData.put(buildDataKey, props.getProperty(stringKey, ""));
         }
       }
-      return buildData.build();
+      return buildData.buildOrThrow();
     } catch (IOException ignored) {
       return ImmutableMap.of();
     }

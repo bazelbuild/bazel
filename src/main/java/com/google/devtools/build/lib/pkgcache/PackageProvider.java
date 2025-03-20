@@ -16,8 +16,10 @@ package com.google.devtools.build.lib.pkgcache;
 
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.io.InconsistentFilesystemException;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.packages.Packageoid;
 
 /**
  * API for retrieving packages. Implementations generally load packages to fulfill requests.
@@ -44,6 +46,26 @@ public interface PackageProvider extends TargetProvider {
       throws NoSuchPackageException, InterruptedException;
 
   /**
+   * If a {@link Packageoid} is a {@link Package}, returns it; otherwise, loads and returns the full
+   * package containing it.
+   *
+   * @throws InterruptedException if the package loading was interrupted.
+   */
+  default Package getPackage(ExtendedEventHandler eventHandler, Packageoid packageoid)
+      throws InterruptedException {
+    if (packageoid instanceof Package pkg) {
+      return pkg;
+    }
+    try {
+      return getPackage(eventHandler, packageoid.getPackageIdentifier());
+    } catch (NoSuchPackageException e) {
+      // Cannot happen: for a packageoid to exists, its package's BUILD file must also exist and be
+      // parseable.
+      throw new AssertionError("Failed to load package " + packageoid.getPackageIdentifier(), e);
+    }
+  }
+
+  /**
    * Returns whether a package with the given name exists. That is, returns whether all the
    * following hold
    *
@@ -61,5 +83,5 @@ public interface PackageProvider extends TargetProvider {
    * @param packageName the name of the package.
    */
   boolean isPackage(ExtendedEventHandler eventHandler, PackageIdentifier packageName)
-      throws InterruptedException;
+      throws InconsistentFilesystemException, InterruptedException;
 }

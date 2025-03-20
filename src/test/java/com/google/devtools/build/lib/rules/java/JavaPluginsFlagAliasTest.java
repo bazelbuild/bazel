@@ -45,20 +45,22 @@ public class JavaPluginsFlagAliasTest extends BuildViewTestCase {
     ConfiguredTarget target =
         getConfiguredTarget(TestConstants.TOOLS_REPOSITORY + "//tools/jdk:java_plugins_flag_alias");
 
-    assertThat(target.get(JavaPluginInfo.PROVIDER)).isEqualTo(JavaPluginInfo.empty());
+    assertThat(JavaPluginInfo.get(target)).isEqualTo(JavaPluginInfo.empty(JavaPluginInfo.PROVIDER));
   }
 
   /** Tests that a single plugin passed by a flag is returned by java_plugins_flag_alias. */
   @Test
   public void javaPluginFlagAlias_flagWithSinglePlugin() throws Exception {
-    scratch.file("java/BUILD", "java_plugin(name = 'plugin', srcs = ['A.java'])");
+    scratch.file(
+        "java/BUILD",
+        "load('@rules_java//java:defs.bzl', 'java_plugin')",
+        "java_plugin(name = 'plugin', srcs = ['A.java'])");
     useConfiguration("--plugin=//java:plugin");
 
     ConfiguredTarget target =
         getConfiguredTarget(TestConstants.TOOLS_REPOSITORY + "//tools/jdk:java_plugins_flag_alias");
 
-    assertThat(target.get(JavaPluginInfo.PROVIDER).plugins().processorClasspath().toList())
-        .hasSize(1);
+    assertThat(JavaPluginInfo.get(target).plugins().processorClasspath().toList()).hasSize(1);
   }
 
   /** Tests that two plugins passed by flag are returned by java_plugins_flag_alias. */
@@ -66,21 +68,33 @@ public class JavaPluginsFlagAliasTest extends BuildViewTestCase {
   public void javaPluginFlagAlias_flagWithTwoPlugins() throws Exception {
     scratch.file(
         "java/BUILD",
-        "java_plugin(name = 'plugin1', srcs = ['A.java'])",
-        "java_plugin(name = 'plugin2', srcs = ['B.java'])");
+        """
+        load("@rules_java//java:defs.bzl", "java_plugin")
+        java_plugin(
+            name = "plugin1",
+            srcs = ["A.java"],
+        )
+
+        java_plugin(
+            name = "plugin2",
+            srcs = ["B.java"],
+        )
+        """);
     useConfiguration("--plugin=//java:plugin1", "--plugin=//java:plugin2");
 
     ConfiguredTarget target =
         getConfiguredTarget(TestConstants.TOOLS_REPOSITORY + "//tools/jdk:java_plugins_flag_alias");
 
-    assertThat(target.get(JavaPluginInfo.PROVIDER).plugins().processorClasspath().toList())
-        .hasSize(2);
+    assertThat(JavaPluginInfo.get(target).plugins().processorClasspath().toList()).hasSize(2);
   }
 
   /** Tests that passing a java_library to --plugin flag fails. */
   @Test
   public void javaPluginFlagAlias_flagWithJavaLibraryFails() throws Exception {
-    scratch.file("java/BUILD", "java_library(name = 'lib', srcs = ['A.java'])");
+    scratch.file(
+        "java/BUILD",
+        "load('@rules_java//java:defs.bzl', 'java_library')",
+        "java_library(name = 'lib', srcs = ['A.java'])");
     useConfiguration("--plugin=//java:lib");
 
     checkError(

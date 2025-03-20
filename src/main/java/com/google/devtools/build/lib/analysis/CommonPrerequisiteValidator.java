@@ -13,22 +13,28 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper.attributeOrNull;
+
 import com.google.devtools.build.lib.analysis.AliasProvider.TargetMode;
 import com.google.devtools.build.lib.analysis.RuleContext.PrerequisiteValidator;
+import com.google.devtools.build.lib.analysis.configuredtargets.PackageGroupConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.FunctionSplitTransitionAllowlist;
 import com.google.devtools.build.lib.packages.InputFile;
+import com.google.devtools.build.lib.packages.MacroInstance;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
-import com.google.devtools.build.lib.packages.OutputFile;
-import com.google.devtools.build.lib.packages.PackageGroup;
+import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.packages.RuleClass;
+import com.google.devtools.build.lib.packages.StarlarkAspectClass;
 import com.google.devtools.build.lib.packages.Type;
-import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
+import javax.annotation.Nullable;
 
 /**
  * A base implementation of {@link PrerequisiteValidator} that performs common checks based on
@@ -53,6 +59,7 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
    * Dependencies within the same package do not print deprecation warnings; a package in the
    * javatests directory may also depend on its corresponding java package without a warning.
    */
+  // TODO: #19922 - Rename this method to not imply that it is symmetric across its arguments.
   public abstract boolean isSameLogicalPackage(
       PackageIdentifier thisPackage, PackageIdentifier prerequisitePackage);
 
@@ -64,47 +71,203 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
 
   protected abstract boolean checkVisibilityForExperimental(RuleContext.Builder context);
 
+  protected abstract boolean checkVisibilityForToolchains(
+      RuleContext.Builder context, Label prerequisite);
+
   protected abstract boolean allowExperimentalDeps(RuleContext.Builder context);
 
   private void validateDirectPrerequisiteVisibility(
       RuleContext.Builder context, ConfiguredTargetAndData prerequisite, Attribute attribute) {
     String attrName = attribute.getName();
     Rule rule = context.getRule();
-    Target prerequisiteTarget = prerequisite.getTarget();
+
+    checkForMisplacedPackageGroups(context, prerequisite, attribute, attrName, rule);
 
     // We don't check the visibility of late-bound attributes, because it would break some
     // features.
-    if (!isSameLogicalPackage(
-            rule.getLabel().getPackageIdentifier(),
-            AliasProvider.getDependencyLabel(prerequisite.getConfiguredTarget())
-                .getPackageIdentifier())
-        && !Attribute.isLateBound(attrName)) {
+    if (Attribute.isAnalysisDependent(attrName)) {
+      return;
+    }
 
-      // Determine if we should use the new visibility rules for tools.
-      boolean toolCheckAtDefinition =
-          context
-              .getStarlarkSemantics()
-              .getBool(
-                  BuildLanguageOptions.INCOMPATIBLE_VISIBILITY_PRIVATE_ATTRIBUTES_AT_DEFINITION);
+    // Determine whether we should check toolchain target visibility.
+    if (attrName.equals(RuleContext.TOOLCHAIN_ATTR_NAME)
+        && !checkVisibilityForToolchains(context, prerequisite.getTargetLabel())) {
+      return;
+    }
 
-      if (!toolCheckAtDefinition
-          || !attribute.isImplicit()
-          || rule.getRuleClassObject().getRuleDefinitionEnvironmentLabel() == null) {
-        // Default check: The attribute must be visible from the target.
-        if (!context.isVisible(prerequisite.getConfiguredTarget())) {
-          handleVisibilityConflict(context, prerequisite, rule.getLabel());
-        }
+    // Only verify visibility of implicit dependencies of the current aspect.
+    // Dependencies of other aspects as well as the rule itself are checked when they are
+    // evaluated.
+    Aspect mainAspect = context.getMainAspect();
+    if (mainAspect != null) {
+      if (!attribute.isImplicit()
+          || !mainAspect.getDefinition().getAttributes().containsKey(attrName)) {
+        return;
+      }
+    }
+
+    // Normally visibility is validated with respect to the location of the consuming target. But
+    // implicit attributes of Starlark-defined rules and aspects get validated primarily with
+    // respect to the .bzl where the rule or aspect is exported, with the location of the target
+    // serving only as a fallback for backwards compatibility purposes.
+    //
+    // (We don't do the same for default values of non-implicit attributes. That would introduce a
+    // semantic difference between omitting the attribute (allowing it to be populated by default),
+    // vs. explicitly passing in a value that happens to be the same as its default.)
+    boolean validateWithRespectToAttributeDefinition =
+        attribute.isImplicit() && context.isStarlarkRuleOrAspect();
+    // Also, the special $config_dependencies attribute is always validated as a normal dependency
+    // even though it's technically implicit.
+    validateWithRespectToAttributeDefinition &=
+        !attribute.getName().equals(RuleClass.CONFIG_SETTING_DEPS_ATTRIBUTE);
+
+    if (!validateWithRespectToAttributeDefinition) {
+      // Normal case: The attribute must be visible from the target.
+      if (!isVisibleToDeclaration(prerequisite, rule)) {
+        handleVisibilityConflict(context, prerequisite, rule.getLabel());
+      }
+    } else {
+      // Determine the label of the .bzl where the rule or (main) aspect was exported.
+      Label implicitDefinition;
+      if (mainAspect != null) {
+        StarlarkAspectClass aspectClass = (StarlarkAspectClass) mainAspect.getAspectClass();
+        // Never null since we already checked that the aspect is Starlark-defined.
+        implicitDefinition = checkNotNull(aspectClass.getExtensionLabel());
       } else {
-        // For implicit attributes, check if the prerequisite is visible from the location of the
-        // rule definition
-        Label implicitDefinition = rule.getRuleClassObject().getRuleDefinitionEnvironmentLabel();
-        if (!RuleContext.isVisible(implicitDefinition, prerequisite.getConfiguredTarget())) {
+        // Never null since we already checked that the rule is a Starlark rule.
+        implicitDefinition =
+            checkNotNull(rule.getRuleClassObject().getRuleDefinitionEnvironmentLabel());
+      }
+      // Validate with respect to the defining .bzl.
+      if (!isVisibleToLocation(prerequisite, implicitDefinition.getPackageIdentifier())) {
+        // Failed. Validate with respect to the target anyway, for backwards compatibility.
+        // TODO(bazel-team): When can this fallback be removed?
+        if (!isVisibleToDeclaration(prerequisite, rule)) {
+          // True failure. In the error message, always suggest making the prerequisite visible from
+          // the definition, not the target.
           handleVisibilityConflict(context, prerequisite, implicitDefinition);
         }
       }
     }
+  }
 
-    if (prerequisiteTarget instanceof PackageGroup) {
+  /**
+   * Returns whether {@code prerequisite} is visible to {@code consumingDeclaration}, which can be
+   * either a {@link Rule} target or a {@link MacroInstance}.
+   *
+   * <p>In general, this passes if {@code consumingDeclaration}'s location is allowed by {@code
+   * prerequisite}'s visibility provider or the same-logical-package condition.
+   *
+   * <p>In this context, the "location" of a target means the package containing the defining bzl
+   * (i.e. export label) of the symbolic macro that directly declares the target; or the target's
+   * package if it was not declared within any symbolic macro.
+   *
+   * <p>As a special case, if {@code consumingDeclaration} was directly created by a symbolic macro
+   * that takes in the {@code prerequisite}'s label (not following {@code alias}es), then before
+   * running the above logic we first substitute the symbolic macro for {@code
+   * consumingDeclaration}. This reflects how the usage of the prerequisite was not really by the
+   * given declaration but rather its parent.
+   */
+  // TODO: #19922 - Consider replacing use of Object with a new interface abstracting Rule and
+  // MacroInstance.
+  private boolean isVisibleToDeclaration(
+      ConfiguredTargetAndData prerequisite, Object consumingDeclaration) {
+    PackageIdentifier consumingDeclarationPkg;
+    @Nullable MacroInstance declaringMacro;
+    if (consumingDeclaration instanceof Rule target) {
+      consumingDeclarationPkg = target.getPackageMetadata().packageIdentifier();
+      declaringMacro = target.getDeclaringMacro();
+    } else if (consumingDeclaration instanceof MacroInstance macroInstance) {
+      consumingDeclarationPkg = macroInstance.getPackageMetadata().packageIdentifier();
+      declaringMacro = macroInstance.getParent();
+    } else {
+      throw new IllegalArgumentException(
+          "Expected a Rule or MacroInstance, got " + consumingDeclaration.getClass().getName());
+    }
+
+    // Visibility delegation: If we're directly declared by a macro that took this prereq as an
+    // argument from its own caller, then our location is moot, and it's the macro's usage that we
+    // have to validate instead.
+    if (declaringMacro != null) {
+      // Don't conflate an alias with its target.
+      Label prereqLabel = AliasProvider.getDependencyLabel(prerequisite.getConfiguredTarget());
+      boolean[] declaringMacroWasGivenPrereqByCaller = {false};
+      declaringMacro.visitExplicitAttributeLabels(
+          label -> declaringMacroWasGivenPrereqByCaller[0] |= label.equals(prereqLabel));
+      if (declaringMacroWasGivenPrereqByCaller[0]) {
+        return isVisibleToDeclaration(prerequisite, declaringMacro);
+      }
+    }
+
+    PackageIdentifier ruleTargetLocation =
+        declaringMacro != null
+            // Macro's location.
+            ? declaringMacro.getMacroClass().getDefiningBzlLabel().getPackageIdentifier()
+            // BUILD file's location.
+            : consumingDeclarationPkg;
+
+    return isVisibleToLocation(prerequisite, ruleTargetLocation);
+  }
+
+  /**
+   * Returns whether {@code prerequisite} is visible to {@code location}, based on {@code
+   * prerequisite}'s visibility provider and the same-logical-package condition.
+   */
+  private boolean isVisibleToLocation(
+      ConfiguredTargetAndData prerequisite, PackageIdentifier location) {
+    VisibilityProvider visibility =
+        prerequisite.getConfiguredTarget().getProvider(VisibilityProvider.class);
+
+    // For prerequisite targets that are created in symbolic macros, the visibility provider is
+    // authoritative and we can move on to checking its package specifications one by one.
+    //
+    // For prerequisite targets that are *not* created in symbolic macros, the visibility provider
+    // does not necessarily list the target's own declaration location (which is the same as the
+    // package it lives in). In addition, the target should be visible to other packages that are
+    // same-logical-package as this location, a property that doesn't apply to targets created in
+    // symbolic macros. Calling isSameLogicalPackage() takes care of both of these checks. Note that
+    // we don't need to worry about the package's default_visibility at this stage because
+    // it is already accounted for at loading time by the target's getVisibility() accessor.
+    //
+    // TODO: #19922 - The same-logical-package logic should also be applied in the loading phase, to
+    // the propagated visibility attribute inside symbolic macros, so that it applies to targets
+    // exported from symbolic macros (i.e. targets that pass `visibility = visibility`).
+    if (!visibility.isCreatedInSymbolicMacro()) {
+      if (isSameLogicalPackage(
+          location,
+          // In the case of a prerequisite that is an alias rule, we check whether we can see the
+          // alias itself, not the actual target it points to. In other words, alias re-exports
+          // targets under its own visibility.
+          AliasProvider.getDependencyLabel(prerequisite.getConfiguredTarget())
+              .getPackageIdentifier())) {
+        return true;
+      }
+    }
+
+    // Not same-package / same-logical-package. Check the actual visibility contents.
+    for (PackageGroupContents specification : visibility.getVisibility().toList()) {
+      if (specification.containsPackage(location)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Registers an attribute error if a {@code package_group} target is detected in a context where
+   * it is not allowed.
+   */
+  private void checkForMisplacedPackageGroups(
+      RuleContext.Builder context,
+      ConfiguredTargetAndData prerequisite,
+      Attribute attribute,
+      String attrName,
+      Rule rule) {
+    // TODO(bazel-team): The instanceof check seems pretty suspect, and should maybe be phrased in
+    // terms of a provider check that would work with the `alias` rule. Then again, the string
+    // matching on PackageSpecification[Provider|Info] is probably more suspect.
+    if (prerequisite.getConfiguredTarget().unwrapIfMerged()
+        instanceof PackageGroupConfiguredTarget) {
       Attribute configuredAttribute = RawAttributeMapper.of(rule).getAttributeDefinition(attrName);
       if (configuredAttribute == null) { // handles aspects
         configuredAttribute = attribute;
@@ -116,7 +279,6 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
       // TODO(plf): Add the PackageSpecificationProvider to the 'visibility' attribute.
       if (!attrName.equals("visibility")
           && !attrName.equals(FunctionSplitTransitionAllowlist.ATTRIBUTE_NAME)
-          && !attrName.equals(FunctionSplitTransitionAllowlist.LEGACY_ATTRIBUTE_NAME)
           && !containsPackageSpecificationProvider) {
         context.attributeError(
             attrName,
@@ -148,14 +310,20 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
               rule, AliasProvider.describeTargetWithAliases(prerequisite, TargetMode.WITHOUT_KIND));
       context.ruleWarning(errorMessage);
     } else {
+      // Visibility error:
+      //   target '//land:land' is not visible from
+      //   target '//red_delicious:apple'
+      // Recommendation: ...
       String errorMessage =
           String.format(
-              "%s is not visible from target '%s'. Check "
-                  + "the visibility declaration of the former target if you think "
-                  + "the dependency is legitimate",
+              "Visibility error:\n"
+                  + "%s is not visible from\n"
+                  + "target '%s'\n"
+                  + "Recommendation: modify the visibility declaration if you think the dependency"
+                  + " is legitimate. For more info see https://bazel.build/concepts/visibility",
               AliasProvider.describeTargetWithAliases(prerequisite, TargetMode.WITHOUT_KIND), rule);
 
-      if (prerequisite.getTarget().getTargetKind().equals(InputFile.targetKind())) {
+      if (prerequisite.getTargetKind().equals(InputFile.targetKind())) {
         errorMessage +=
             ". To set the visibility of that source file target, use the exports_files() function";
       }
@@ -166,8 +334,7 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
   private void validateDirectPrerequisiteLocation(
       RuleContext.Builder context, ConfiguredTargetAndData prerequisite) {
     Rule rule = context.getRule();
-    Target prerequisiteTarget = prerequisite.getTarget();
-    Label prerequisiteLabel = prerequisiteTarget.getLabel();
+    Label prerequisiteLabel = prerequisite.getTargetLabel();
 
     if (packageUnderExperimental(prerequisiteLabel.getPackageIdentifier())
         && !packageUnderExperimental(rule.getLabel().getPackageIdentifier())) {
@@ -190,75 +357,50 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
     }
   }
 
-  /** Returns whether a deprecation warning should be printed for the prerequisite described. */
-  private boolean shouldEmitDeprecationWarningFor(
-      String thisDeprecation,
-      PackageIdentifier thisPackage,
-      String prerequisiteDeprecation,
-      PackageIdentifier prerequisitePackage,
-      boolean forAspect) {
-    // Don't report deprecation edges from javatests to java or within a package;
-    // otherwise tests of deprecated code generate nuisance warnings.
-    // Don't report deprecation if the current target is also deprecated,
-    // or if the current context is evaluating an aspect,
-    // as the base target would have already printed the deprecation warnings.
-    return (!forAspect
-        && prerequisiteDeprecation != null
-        && !isSameLogicalPackage(thisPackage, prerequisitePackage)
-        && thisDeprecation == null);
-  }
-
   /** Checks if the given prerequisite is deprecated and prints a warning if so. */
   private void validateDirectPrerequisiteForDeprecation(
       RuleErrorConsumer errors,
       Rule rule,
       ConfiguredTargetAndData prerequisite,
       boolean forAspect) {
-    Target prerequisiteTarget = prerequisite.getTarget();
-    Label prerequisiteLabel = prerequisiteTarget.getLabel();
-    PackageIdentifier thatPackage = prerequisiteLabel.getPackageIdentifier();
-    PackageIdentifier thisPackage = rule.getLabel().getPackageIdentifier();
-
-    if (prerequisiteTarget instanceof Rule) {
-      Rule prerequisiteRule = (Rule) prerequisiteTarget;
-      String thisDeprecation =
-          NonconfigurableAttributeMapper.of(rule).has("deprecation", Type.STRING)
-              ? NonconfigurableAttributeMapper.of(rule).get("deprecation", Type.STRING)
-              : null;
-      String thatDeprecation =
-          NonconfigurableAttributeMapper.of(prerequisiteRule).has("deprecation", Type.STRING)
-              ? NonconfigurableAttributeMapper.of(prerequisiteRule).get("deprecation", Type.STRING)
-              : null;
-      if (shouldEmitDeprecationWarningFor(
-          thisDeprecation, thisPackage, thatDeprecation, thatPackage, forAspect)) {
-        errors.ruleWarning(
-            "target '"
-                + rule.getLabel()
-                + "' depends on deprecated target '"
-                + prerequisiteLabel
-                + "': "
-                + thatDeprecation);
-      }
+    if (forAspect || attributeOrNull(rule, "deprecation", Type.STRING) != null) {
+      // No warning for aspects because the base target would already have the warning.
+      // No warning if the current target is already deprecated.
+      return;
     }
 
-    if (prerequisiteTarget instanceof OutputFile) {
-      Rule generatingRule = ((OutputFile) prerequisiteTarget).getGeneratingRule();
-      String thisDeprecation =
-          NonconfigurableAttributeMapper.of(rule).get("deprecation", Type.STRING);
-      String thatDeprecation =
-          NonconfigurableAttributeMapper.of(generatingRule).get("deprecation", Type.STRING);
-      if (shouldEmitDeprecationWarningFor(
-          thisDeprecation, thisPackage, thatDeprecation, thatPackage, forAspect)) {
-        errors.ruleWarning(
-            "target '"
-                + rule.getLabel()
-                + "' depends on the output file "
-                + prerequisiteLabel
-                + " of a deprecated rule "
-                + generatingRule.getLabel()
-                + "': "
-                + thatDeprecation);
-      }
+    String warning = prerequisite.getDeprecationWarning();
+    if (warning == null) {
+      return; // No warning if it's not deprecated.
+    }
+
+    PackageIdentifier thisPackage = rule.getLabel().getPackageIdentifier();
+    Label prerequisiteLabel = prerequisite.getTargetLabel();
+    PackageIdentifier thatPackage = prerequisiteLabel.getPackageIdentifier();
+    // TODO: #19922 - What to do about this check, when one or both targets are in a macro?
+    if (isSameLogicalPackage(thisPackage, thatPackage)) {
+      return; // Doesn't report deprecation edges within a package.
+    }
+
+    Label generatingRuleLabel = prerequisite.getGeneratingRuleLabel();
+    if (generatingRuleLabel != null) {
+      errors.ruleWarning(
+          "target '"
+              + rule.getLabel()
+              + "' depends on the output file "
+              + prerequisiteLabel
+              + " of a deprecated rule "
+              + generatingRuleLabel
+              + "': "
+              + warning);
+    } else {
+      errors.ruleWarning(
+          "target '"
+              + rule.getLabel()
+              + "' depends on deprecated target '"
+              + prerequisiteLabel
+              + "': "
+              + warning);
     }
   }
 
@@ -272,28 +414,42 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
       // getTarget() called by the depender will not return the alias rule, but its actual target
       return;
     }
+    if (!prerequisite.isTestOnly() || isTestOnlyRule(rule)) {
+      return;
+    }
 
-    Target prerequisiteTarget = prerequisite.getTarget();
-    PackageIdentifier thisPackage = rule.getLabel().getPackageIdentifier();
-
-    if (isTestOnlyRule(prerequisiteTarget) && !isTestOnlyRule(rule)) {
-      String message =
+    String message;
+    Label generatingRuleLabel = prerequisite.getGeneratingRuleLabel();
+    if (generatingRuleLabel == null) {
+      message =
           "non-test target '"
               + rule.getLabel()
               + "' depends on testonly "
               + AliasProvider.describeTargetWithAliases(prerequisite, TargetMode.WITHOUT_KIND)
               + " and doesn't have testonly attribute set";
-      if (packageUnderExperimental(thisPackage)) {
-        context.ruleWarning(message);
-      } else {
-        context.ruleError(message);
-      }
+    } else if (context.getConfiguration().checkTestonlyForOutputFiles()) {
+      message =
+          "non-test target '"
+              + rule.getLabel()
+              + "' depends on the output file "
+              + AliasProvider.describeTargetWithAliases(prerequisite, TargetMode.WITHOUT_KIND)
+              + " of a testonly rule "
+              + generatingRuleLabel
+              + " and doesn't have testonly attribute set";
+    } else {
+      return;
+    }
+
+    PackageIdentifier thisPackage = rule.getLabel().getPackageIdentifier();
+    if (packageUnderExperimental(thisPackage)) {
+      context.ruleWarning(message);
+    } else {
+      context.ruleError(message);
     }
   }
 
-  private static boolean isTestOnlyRule(Target target) {
-    return (target instanceof Rule)
-        && NonconfigurableAttributeMapper.of((Rule) target).has("testonly", Type.BOOLEAN)
-        && NonconfigurableAttributeMapper.of((Rule) target).get("testonly", Type.BOOLEAN);
+  private static boolean isTestOnlyRule(Rule rule) {
+    NonconfigurableAttributeMapper mapper = NonconfigurableAttributeMapper.of(rule);
+    return mapper.has("testonly", Type.BOOLEAN) && mapper.get("testonly", Type.BOOLEAN);
   }
 }

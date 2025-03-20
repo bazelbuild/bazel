@@ -25,12 +25,14 @@ import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.ExecuteResponse;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
-import com.google.devtools.build.lib.remote.common.RemoteCacheClient.CachedActionResult;
+import com.google.devtools.build.lib.remote.CombinedCache.CachedActionResult;
 import com.google.devtools.build.lib.remote.common.RemoteExecutionClient;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor.ExecutionResult;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.protobuf.ByteString;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -45,8 +47,8 @@ import org.mockito.MockitoAnnotations;
 /** Tests for {@link com.google.devtools.build.lib.remote.RemoteRepositoryRemoteExecutor}. */
 @RunWith(JUnit4.class)
 public class RemoteRepositoryRemoteExecutorTest {
-
-  public static final DigestUtil DIGEST_UTIL = new DigestUtil(DigestHashFunction.SHA256);
+  public static final DigestUtil DIGEST_UTIL =
+      new DigestUtil(SyscallCache.NO_CACHE, DigestHashFunction.SHA256);
 
   @Mock public RemoteExecutionCache remoteCache;
 
@@ -72,12 +74,14 @@ public class RemoteRepositoryRemoteExecutorTest {
   public void testZeroExitCodeFromCache() throws IOException, InterruptedException {
     // Test that an ActionResult with exit code zero is accepted as cached.
 
-    // Arrange
     ActionResult cachedResult = ActionResult.newBuilder().setExitCode(0).build();
-    when(remoteCache.downloadActionResult(any(), any(), /* inlineOutErr= */ eq(true)))
+    when(remoteCache.downloadActionResult(
+            any(),
+            any(),
+            /* inlineOutErr= */ eq(true),
+            /* inlineOutputFiles= */ eq(ImmutableSet.of())))
         .thenReturn(CachedActionResult.remote(cachedResult));
 
-    // Act
     ExecutionResult executionResult =
         repoExecutor.execute(
             ImmutableList.of("/bin/bash", "-c", "exit 0"),
@@ -87,8 +91,9 @@ public class RemoteRepositoryRemoteExecutorTest {
             /* workingDirectory= */ null,
             /* timeout= */ Duration.ZERO);
 
-    // Assert
-    verify(remoteCache).downloadActionResult(any(), any(), anyBoolean());
+    verify(remoteCache)
+        .downloadActionResult(
+            any(), any(), anyBoolean(), /* inlineOutputFiles= */ eq(ImmutableSet.of()));
     // Don't fallback to execution
     verify(remoteExecutor, never()).executeRemotely(any(), any(), any());
 
@@ -99,15 +104,17 @@ public class RemoteRepositoryRemoteExecutorTest {
   public void testNoneZeroExitCodeFromCache() throws IOException, InterruptedException {
     // Test that an ActionResult with a none-zero exit code is not accepted as cached.
 
-    // Arrange
     ActionResult cachedResult = ActionResult.newBuilder().setExitCode(1).build();
-    when(remoteCache.downloadActionResult(any(), any(), /* inlineOutErr= */ eq(true)))
+    when(remoteCache.downloadActionResult(
+            any(),
+            any(),
+            /* inlineOutErr= */ eq(true),
+            /* inlineOutputFiles= */ eq(ImmutableSet.of())))
         .thenReturn(CachedActionResult.remote(cachedResult));
 
     ExecuteResponse response = ExecuteResponse.newBuilder().setResult(cachedResult).build();
     when(remoteExecutor.executeRemotely(any(), any(), any())).thenReturn(response);
 
-    // Act
     ExecutionResult executionResult =
         repoExecutor.execute(
             ImmutableList.of("/bin/bash", "-c", "exit 1"),
@@ -117,8 +124,9 @@ public class RemoteRepositoryRemoteExecutorTest {
             /* workingDirectory= */ null,
             /* timeout= */ Duration.ZERO);
 
-    // Assert
-    verify(remoteCache).downloadActionResult(any(), any(), anyBoolean());
+    verify(remoteCache)
+        .downloadActionResult(
+            any(), any(), anyBoolean(), /* inlineOutputFiles= */ eq(ImmutableSet.of()));
     // Fallback to execution
     verify(remoteExecutor).executeRemotely(any(), any(), any());
 
@@ -127,9 +135,8 @@ public class RemoteRepositoryRemoteExecutorTest {
 
   @Test
   public void testInlineStdoutStderr() throws IOException, InterruptedException {
-    // Test that
+    // Test that inline stdout/stderr responses are returned in execution results.
 
-    // Arrange
     byte[] stdout = "hello".getBytes(StandardCharsets.UTF_8);
     byte[] stderr = "world".getBytes(StandardCharsets.UTF_8);
     ActionResult cachedResult =
@@ -138,13 +145,16 @@ public class RemoteRepositoryRemoteExecutorTest {
             .setStdoutRaw(ByteString.copyFrom(stdout))
             .setStderrRaw(ByteString.copyFrom(stderr))
             .build();
-    when(remoteCache.downloadActionResult(any(), any(), /* inlineOutErr= */ eq(true)))
+    when(remoteCache.downloadActionResult(
+            any(),
+            any(),
+            /* inlineOutErr= */ eq(true),
+            /* inlineOutputFiles= */ eq(ImmutableSet.of())))
         .thenReturn(CachedActionResult.remote(cachedResult));
 
     ExecuteResponse response = ExecuteResponse.newBuilder().setResult(cachedResult).build();
     when(remoteExecutor.executeRemotely(any(), any(), any())).thenReturn(response);
 
-    // Act
     ExecutionResult executionResult =
         repoExecutor.execute(
             ImmutableList.of("/bin/bash", "-c", "echo hello"),
@@ -154,8 +164,12 @@ public class RemoteRepositoryRemoteExecutorTest {
             /* workingDirectory= */ null,
             /* timeout= */ Duration.ZERO);
 
-    // Assert
-    verify(remoteCache).downloadActionResult(any(), any(), /* inlineOutErr= */ eq(true));
+    verify(remoteCache)
+        .downloadActionResult(
+            any(),
+            any(),
+            /* inlineOutErr= */ eq(true),
+            /* inlineOutputFiles= */ eq(ImmutableSet.of()));
 
     assertThat(executionResult.exitCode()).isEqualTo(0);
     assertThat(executionResult.stdout()).isEqualTo(stdout);

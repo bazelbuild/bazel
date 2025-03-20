@@ -13,7 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.auto.value.AutoValue;
+import static java.util.Objects.requireNonNull;
+
+import com.google.auto.value.AutoBuilder;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.ArtifactMetrics;
 import java.time.Duration;
 
@@ -21,13 +24,33 @@ import java.time.Duration;
  * Event signaling the end of the execution phase. Contains statistics about the action cache, the
  * metadata cache and about last file save times.
  */
-@AutoValue
-public abstract class ExecutionFinishedEvent {
+public record ExecutionFinishedEvent(
+    int outputDirtyFiles,
+    ImmutableList<String> outputDirtyFileExecPathSample,
+    int outputModifiedFilesDuringPreviousBuild,
+    Duration sourceDiffCheckingDuration,
+    int numSourceFilesCheckedBecauseOfMissingDiffs,
+    Duration outputTreeDiffCheckingDuration,
+    ArtifactMetrics.FilesMetric sourceArtifactsRead,
+    ArtifactMetrics.FilesMetric outputArtifactsSeen,
+    ArtifactMetrics.FilesMetric outputArtifactsFromActionCache,
+    ArtifactMetrics.FilesMetric topLevelArtifacts) {
+  public ExecutionFinishedEvent {
+    requireNonNull(outputDirtyFileExecPathSample, "outputDirtyFileExecPathSample");
+    requireNonNull(sourceDiffCheckingDuration, "sourceDiffCheckingDuration");
+    requireNonNull(outputTreeDiffCheckingDuration, "outputTreeDiffCheckingDuration");
+    requireNonNull(sourceArtifactsRead, "sourceArtifactsRead");
+    requireNonNull(outputArtifactsSeen, "outputArtifactsSeen");
+    requireNonNull(outputArtifactsFromActionCache, "outputArtifactsFromActionCache");
+    requireNonNull(topLevelArtifacts, "topLevelArtifacts");
+  }
+
   // AutoValue Builders require that all fields are populated, so we provide a default.
   public static ExecutionFinishedEvent.Builder builderWithDefaults() {
     ArtifactMetrics.FilesMetric emptyFilesMetric = ArtifactMetrics.FilesMetric.getDefaultInstance();
     return builder()
         .setOutputDirtyFiles(0)
+        .setOutputDirtyFileExecPathSample(ImmutableList.of())
         .setOutputModifiedFilesDuringPreviousBuild(0)
         .setSourceDiffCheckingDuration(Duration.ZERO)
         .setNumSourceFilesCheckedBecauseOfMissingDiffs(0)
@@ -38,31 +61,16 @@ public abstract class ExecutionFinishedEvent {
         .setTopLevelArtifacts(emptyFilesMetric);
   }
 
-  public abstract int outputDirtyFiles();
-
-  public abstract int outputModifiedFilesDuringPreviousBuild();
-
-  public abstract Duration sourceDiffCheckingDuration();
-
-  public abstract int numSourceFilesCheckedBecauseOfMissingDiffs();
-
-  public abstract Duration outputTreeDiffCheckingDuration();
-
-  public abstract ArtifactMetrics.FilesMetric sourceArtifactsRead();
-
-  public abstract ArtifactMetrics.FilesMetric outputArtifactsSeen();
-
-  public abstract ArtifactMetrics.FilesMetric outputArtifactsFromActionCache();
-
-  public abstract ArtifactMetrics.FilesMetric topLevelArtifacts();
-
   static Builder builder() {
-    return new AutoValue_ExecutionFinishedEvent.Builder();
+    return new AutoBuilder_ExecutionFinishedEvent_Builder();
   }
 
-  @AutoValue.Builder
+  @AutoBuilder
   abstract static class Builder {
     abstract Builder setOutputDirtyFiles(int outputDirtyFiles);
+
+    abstract Builder setOutputDirtyFileExecPathSample(
+        ImmutableList<String> outputDirtyFileExecPathSample);
 
     abstract Builder setOutputModifiedFilesDuringPreviousBuild(
         int outputModifiedFilesDuringPreviousBuild);

@@ -49,7 +49,7 @@ public class CommandUtilsTest {
     assertThat(message)
         .isEqualTo(
             "this_command_will_not_be_found failed: "
-                + "error executing command this_command_will_not_be_found arg1 "
+                + "error executing <shell command> command this_command_will_not_be_found arg1 "
                 + "arg2 arg3 arg4 arg5 arg6 arg7 arg8 arg9 arg10 "
                 + "arg11 arg12 arg13 arg14 arg15 arg16 arg17 arg18 "
                 + "arg19 arg20 arg21 arg22 arg23 arg24 arg25 arg26 "
@@ -64,7 +64,7 @@ public class CommandUtilsTest {
         CommandFailureUtils.describeCommandFailure(true, CommandUtils.cwd(command), command);
     assertThat(verboseMessage)
         .isEqualTo(
-            "this_command_will_not_be_found failed: error executing command \n"
+            "this_command_will_not_be_found failed: error executing <shell command> command \n"
                 + "  (cd /tmp && \\\n"
                 + "  exec env - \\\n"
                 + "    FOO=foo \\\n"
@@ -90,16 +90,16 @@ public class CommandUtilsTest {
         assertThrows(CommandException.class, () -> new Command(args, env, null).execute());
     String message = CommandUtils.describeCommandFailure(false, exception);
       String verboseMessage = CommandUtils.describeCommandFailure(true, exception);
-      assertThat(message)
-          .isEqualTo(
-              "sh failed: error executing command "
-                  + "/bin/sh -c 'echo Some errors 1>&2; echo Some output; exit 42': "
-                  + "Process exited with status 42\n"
-                  + "Some output\n"
-                  + "Some errors\n");
+    assertThat(message)
+        .isEqualTo(
+            "sh failed: error executing <shell command> command "
+                + "/bin/sh -c 'echo Some errors 1>&2; echo Some output; exit 42': "
+                + "Process exited with status 42\n"
+                + "Some output\n"
+                + "Some errors\n");
     assertThat(verboseMessage)
         .isEqualTo(
-            "sh failed: error executing command \n"
+            "sh failed: error executing <shell command> command \n"
                 + "  (exec env - \\\n"
                 + "    FOO=foo \\\n"
                 + "    PATH=/usr/bin:/bin:/sbin \\\n"

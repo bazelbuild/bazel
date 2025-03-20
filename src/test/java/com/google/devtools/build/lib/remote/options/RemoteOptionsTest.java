@@ -79,7 +79,7 @@ public class RemoteOptionsTest {
     try {
       int seconds = 60;
       Duration convert =
-          new RemoteOptions.RemoteTimeoutConverter().convert(String.valueOf(seconds));
+          new CommonRemoteOptions.RemoteDurationConverter().convert(String.valueOf(seconds));
       assertThat(Duration.ofSeconds(seconds)).isEqualTo(convert);
     } catch (OptionsParsingException e) {
       fail(e.getMessage());
@@ -90,10 +90,18 @@ public class RemoteOptionsTest {
   public void testRemoteTimeoutOptionsConverterWithUnit() {
     try {
       int milliseconds = 60;
-      Duration convert = new RemoteOptions.RemoteTimeoutConverter().convert(milliseconds + "ms");
+      Duration convert =
+          new CommonRemoteOptions.RemoteDurationConverter().convert(milliseconds + "ms");
       assertThat(Duration.ofMillis(milliseconds)).isEqualTo(convert);
     } catch (OptionsParsingException e) {
       fail(e.getMessage());
     }
+  }
+
+  @Test
+  public void testRemoteMaximumOpenFilesDefault() {
+    RemoteOptions options = Options.getDefaults(RemoteOptions.class);
+    int defaultMax = options.maximumOpenFiles;
+    assertThat(defaultMax).isEqualTo(-1);
   }
 }

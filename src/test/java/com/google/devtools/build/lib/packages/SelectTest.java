@@ -17,6 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkGlobalsImpl;
 import java.util.List;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Module;
@@ -32,7 +33,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests of @{code select} function and data type. */
+/** Tests of {@code select} function and data type. */
 @RunWith(JUnit4.class)
 public class SelectTest {
 
@@ -40,9 +41,10 @@ public class SelectTest {
       throws SyntaxError.Exception, EvalException, InterruptedException {
     ParserInput input = ParserInput.fromLines(expr);
     Module module =
-        Module.withPredeclared(StarlarkSemantics.DEFAULT, /*predeclared=*/ StarlarkLibrary.COMMON);
+        Module.withPredeclared(
+            StarlarkSemantics.DEFAULT, StarlarkGlobalsImpl.INSTANCE.getUtilToplevels());
     try (Mutability mu = Mutability.create()) {
-      StarlarkThread thread = new StarlarkThread(mu, StarlarkSemantics.DEFAULT);
+      StarlarkThread thread = StarlarkThread.createTransient(mu, StarlarkSemantics.DEFAULT);
       return Starlark.eval(input, FileOptions.DEFAULT, module, thread);
     }
   }
@@ -70,11 +72,70 @@ public class SelectTest {
 
   @Test
   public void testPlusIncompatibleType() throws Exception {
+
     assertFails(
         "select({'foo': ['FOO'], 'bar': ['BAR']}) + 1",
-        "'+' operator applied to incompatible types (select of list, int)");
+        "Cannot combine incompatible types (select of list, int)");
     assertFails(
         "select({'foo': ['FOO']}) + select({'bar': 2})",
-        "'+' operator applied to incompatible types (select of list, select of int)");
+        "Cannot combine incompatible types (select of list, select of int)");
+
+    assertFails(
+        "select({'foo': ['FOO']}) + select({'bar': {'a': 'a'}})",
+        "Cannot combine incompatible types (select of list, select of dict)");
+    assertFails(
+        "select({'bar': {'a': 'a'}}) + select({'foo': ['FOO']})",
+        "Cannot combine incompatible types (select of dict, select of list)");
+    assertFails(
+        "['FOO'] + select({'bar': {'a': 'a'}})",
+        "Cannot combine incompatible types (list, select of dict)");
+    assertFails(
+        "select({'bar': {'a': 'a'}}) + ['FOO']",
+        "Cannot combine incompatible types (select of dict, list)");
+    assertFails(
+        "select({'foo': ['FOO']}) + {'a': 'a'}", "unsupported binary operation: select + dict");
+    assertFails(
+        "{'a': 'a'} + select({'foo': ['FOO']})", "unsupported binary operation: dict + select");
+  }
+
+  @Test
+  public void testUnionIncompatibleType() throws Exception {
+    assertFails(
+        "select({'foo': ['FOO']}) | select({'bar': {'a': 'a'}})",
+        "Cannot combine incompatible types (select of list, select of dict)");
+    assertFails(
+        "select({'bar': {'a': 'a'}}) | select({'foo': ['FOO']})",
+        "Cannot combine incompatible types (select of dict, select of list)");
+    assertFails(
+        "['FOO'] | select({'bar': {'a': 'a'}})", "unsupported binary operation: list | select");
+    assertFails(
+        "select({'bar': {'a': 'a'}}) | ['FOO']", "unsupported binary operation: select | list");
+    assertFails(
+        "select({'foo': ['FOO']}) | {'a': 'a'}",
+        "Cannot combine incompatible types (select of list, dict)");
+    assertFails(
+        "{'a': 'a'} | select({'foo': ['FOO']})",
+        "Cannot combine incompatible types (dict, select of list)");
+  }
+
+  @Test
+  public void testRepr() throws Exception {
+    assertThat(eval("repr(select({'foo': ['FOO']})+['BAR'])"))
+        .isEqualTo("select({\"foo\": [\"FOO\"]}) + [\"BAR\"]");
+
+    assertThat(eval("repr(['FOO']+select({'bar': ['BAR']}))"))
+        .isEqualTo("[\"FOO\"] + select({\"bar\": [\"BAR\"]})");
+
+    assertThat(eval("repr(select({'foo': ['FOO']})+select({'bar': ['BAR']}))"))
+        .isEqualTo("select({\"foo\": [\"FOO\"]}) + select({\"bar\": [\"BAR\"]})");
+
+    assertThat(eval("repr(select({'foo': {'FOO': 123}})|{'BAR': 456})"))
+        .isEqualTo("select({\"foo\": {\"FOO\": 123}}) | {\"BAR\": 456}");
+
+    assertThat(eval("repr({'FOO': 123}|select({'bar': {'BAR': 456}}))"))
+        .isEqualTo("{\"FOO\": 123} | select({\"bar\": {\"BAR\": 456}})");
+
+    assertThat(eval("repr(select({'foo': {'FOO': 123}})|select({'bar': {'BAR': 456}}))"))
+        .isEqualTo("select({\"foo\": {\"FOO\": 123}}) | select({\"bar\": {\"BAR\": 456}})");
   }
 }

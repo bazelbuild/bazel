@@ -21,21 +21,19 @@ import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Tables;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
-import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleResolutionFunction;
-import com.google.devtools.build.lib.bazel.bzlmod.FakeRegistry;
-import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction;
-import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDirectDepsMode;
 import com.google.devtools.build.lib.clock.BlazeClock;
+import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.packages.BazelModuleContext;
-import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
-import com.google.devtools.build.lib.skyframe.BzlLoadFunction.BzlLoadFailedException;
-import com.google.devtools.build.lib.skyframe.PrecomputedValue.Injected;
+import com.google.devtools.build.lib.runtime.QuiescingExecutorsImpl;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileStatus;
@@ -43,12 +41,12 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
-import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.skyframe.ErrorInfo;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.common.options.Options;
+import com.google.devtools.common.options.OptionsParser;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.UUID;
@@ -62,8 +60,6 @@ import org.junit.runners.JUnit4;
 /** Tests for BzlLoadFunction. */
 @RunWith(JUnit4.class)
 public class BzlLoadFunctionTest extends BuildViewTestCase {
-  private Path moduleRoot;
-  private FakeRegistry registry;
 
   @Override
   protected FileSystem createFileSystem() {
@@ -74,9 +70,13 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
   public final void preparePackageLoading() throws Exception {
     Path alternativeRoot = scratch.dir("/root_2");
     PackageOptions packageOptions = Options.getDefaults(PackageOptions.class);
-    packageOptions.defaultVisibility = ConstantRuleVisibility.PUBLIC;
+    packageOptions.defaultVisibility = RuleVisibility.PUBLIC;
     packageOptions.showLoadingProgress = true;
     packageOptions.globbingThreads = 7;
+    OptionsParser parser =
+        OptionsParser.builder().optionsClasses(BuildLanguageOptions.class).build();
+    parser.parse(TestConstants.PRODUCT_SPECIFIC_BUILD_LANG_OPTIONS);
+    BuildLanguageOptions options = parser.getOptions(BuildLanguageOptions.class);
     getSkyframeExecutor()
         .preparePackageLoading(
             new PathPackageLocator(
@@ -84,37 +84,12 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
                 ImmutableList.of(Root.fromPath(rootDirectory), Root.fromPath(alternativeRoot)),
                 BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY),
             packageOptions,
-            Options.getDefaults(BuildLanguageOptions.class),
+            options,
             UUID.randomUUID(),
-            ImmutableMap.<String, String>of(),
+            ImmutableMap.of(),
+            QuiescingExecutorsImpl.forTesting(),
             new TimestampGranularityMonitor(BlazeClock.instance()));
-    skyframeExecutor.setActionEnv(ImmutableMap.<String, String>of());
-  }
-
-  @Override
-  protected boolean enableBzlmod() {
-    return true;
-  }
-
-  @Override
-  protected ImmutableList<Injected> extraPrecomputedValues() {
-    try {
-      moduleRoot = scratch.dir("modules");
-    } catch (IOException e) {
-      throw new IllegalStateException(e);
-    }
-    registry = FakeRegistry.DEFAULT_FACTORY.newFakeRegistry(moduleRoot.getPathString());
-    return ImmutableList.of(
-        PrecomputedValue.injected(
-            ModuleFileFunction.REGISTRIES, ImmutableList.of(registry.getUrl())),
-        PrecomputedValue.injected(ModuleFileFunction.IGNORE_DEV_DEPS, false),
-        PrecomputedValue.injected(
-            BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES, CheckDirectDepsMode.WARNING));
-  }
-
-  @Before
-  public void setUpForBzlmod() throws Exception {
-    scratch.file("MODULE.bazel");
+    skyframeExecutor.setActionEnv(ImmutableMap.of());
   }
 
   @Test
@@ -150,16 +125,14 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
   @Test
   public void testLoadFromStarlarkFileInRemoteRepo() throws Exception {
     scratch.overwriteFile(
-        "WORKSPACE",
-        "local_repository(",
-        "    name = 'a_remote_repo',",
-        "    path = '/a_remote_repo'",
-        ")");
-    scratch.file("/a_remote_repo/WORKSPACE");
+        "MODULE.bazel",
+        "bazel_dep(name = 'a_remote_repo')",
+        "local_path_override(module_name = 'a_remote_repo', path = '/a_remote_repo')");
+    scratch.file("/a_remote_repo/MODULE.bazel", "module(name = 'a_remote_repo')");
     scratch.file("/a_remote_repo/remote_pkg/BUILD");
     scratch.file("/a_remote_repo/remote_pkg/ext1.bzl", "load(':ext2.bzl', 'CONST')");
     scratch.file("/a_remote_repo/remote_pkg/ext2.bzl", "CONST = 17");
-    checkSuccessfulLookup("@a_remote_repo//remote_pkg:ext1.bzl");
+    checkSuccessfulLookup("@@a_remote_repo+//remote_pkg:ext1.bzl");
   }
 
   @Test
@@ -183,16 +156,34 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
   public void testLoadFromSameAbsoluteLabelTwice() throws Exception {
     scratch.file("pkg1/BUILD");
     scratch.file("pkg2/BUILD");
-    scratch.file("pkg1/ext.bzl", "a = 1", "b = 2");
-    scratch.file("pkg2/ext.bzl", "load('//pkg1:ext.bzl', 'a')", "load('//pkg1:ext.bzl', 'b')");
+    scratch.file(
+        "pkg1/ext.bzl",
+        """
+        a = 1
+        b = 2
+        """);
+    scratch.file(
+        "pkg2/ext.bzl",
+        """
+        load("//pkg1:ext.bzl", "a", "b")
+        """);
     checkSuccessfulLookup("//pkg2:ext.bzl");
   }
 
   @Test
   public void testLoadFromSameRelativeLabelTwice() throws Exception {
     scratch.file("pkg/BUILD");
-    scratch.file("pkg/ext1.bzl", "a = 1", "b = 2");
-    scratch.file("pkg/ext2.bzl", "load(':ext1.bzl', 'a')", "load(':ext1.bzl', 'b')");
+    scratch.file(
+        "pkg/ext1.bzl",
+        """
+        a = 1
+        b = 2
+        """);
+    scratch.file(
+        "pkg/ext2.bzl",
+        """
+        load(":ext1.bzl", "a", "b")
+        """);
     checkSuccessfulLookup("//pkg:ext2.bzl");
   }
 
@@ -202,6 +193,156 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
     scratch.file("pkg/subdir/ext1.bzl", "a = 1");
     scratch.file("pkg/subdir/ext2.bzl", "load(':subdir/ext1.bzl', 'a')");
     checkSuccessfulLookup("//pkg:subdir/ext2.bzl");
+  }
+
+  @Test
+  public void testLoadBadExtension_sclDisabled() throws Exception {
+    setBuildLanguageOptions("--experimental_enable_scl_dialect=false");
+
+    scratch.file("pkg/BUILD");
+    scratch.file("pkg/ext.bzl", "load(':foo.garbage', 'a')");
+    reporter.removeHandler(failFastHandler);
+    checkFailingLookup("//pkg:ext.bzl", "has invalid load statements");
+    assertContainsEvent("The label must reference a file with extension \".bzl\"");
+    assertDoesNotContainEvent(".scl");
+  }
+
+  @Test
+  public void testLoadBadExtension_sclEnabled() throws Exception {
+    setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
+
+    scratch.file("pkg/BUILD");
+    scratch.file("pkg/ext.bzl", "load(':foo.garbage', 'a')");
+    reporter.removeHandler(failFastHandler);
+    checkFailingLookup("//pkg:ext.bzl", "has invalid load statements");
+    assertContainsEvent("The label must reference a file with extension \".bzl\" or \".scl\"");
+  }
+
+  @Test
+  public void testLoadingSclRequiresExperimentalFlag() throws Exception {
+    setBuildLanguageOptions("--experimental_enable_scl_dialect=false");
+
+    scratch.file("pkg/BUILD");
+    scratch.file("pkg/ext.scl");
+    reporter.removeHandler(failFastHandler);
+    checkFailingLookup(
+        "//pkg:ext.scl", "loading .scl files requires setting --experimental_enable_scl_dialect");
+  }
+
+  @Test
+  public void testCanLoadScl() throws Exception {
+    setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
+
+    scratch.file("pkg/BUILD");
+    scratch.file("pkg/ext.scl");
+    checkSuccessfulLookup("//pkg:ext.scl");
+  }
+
+  @Test
+  public void testCanLoadSclFromBzlAndScl() throws Exception {
+    setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
+
+    scratch.file("pkg/BUILD");
+    scratch.file("pkg/ext1.scl", "a = 1");
+    // Can use relative load label syntax from ext2a.bzl, but not from ext2b.scl.
+    scratch.file("pkg/ext2a.bzl", "load(':ext1.scl', 'a')");
+    scratch.file("pkg/ext2b.scl", "load('//pkg:ext1.scl', 'a')");
+
+    checkSuccessfulLookup("//pkg:ext2a.bzl");
+    checkSuccessfulLookup("//pkg:ext2b.scl");
+  }
+
+  @Test
+  public void testSclCannotLoadNonSclFiles() throws Exception {
+    setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
+
+    scratch.file("pkg/BUILD");
+    scratch.file("pkg/ext1a.bzl", "a = 1");
+    scratch.file("pkg/ext1a.garbage", "a = 1");
+    // Cannot use relative label.
+    scratch.file("pkg/ext2a.scl", "load('//pkg:ext1a.bzl', 'a')");
+    scratch.file("pkg/ext2b.scl", "load('//pkg:ext1b.garbage', 'a')");
+
+    reporter.removeHandler(failFastHandler);
+    checkFailingLookup("//pkg:ext2a.scl", "has invalid load statements");
+    assertContainsEvent(
+        "The label must reference a file with extension \".scl\" (.scl files cannot load .bzl"
+            + " files)");
+    eventCollector.clear();
+    checkFailingLookup("//pkg:ext2b.scl", "has invalid load statements");
+    assertContainsEvent("The label must reference a file with extension \".scl\"");
+    assertDoesNotContainEvent(".bzl");
+  }
+
+  @Test
+  public void testSclCanOnlyLoadLabelsRelativeToDefaultRepoRoot() throws Exception {
+    setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
+
+    scratch.file("pkg/BUILD");
+    scratch.file("pkg/ext1.scl", "load(':foo.scl', 'a')");
+    scratch.file("pkg/ext2.scl", "load('@repo//:foo.scl', 'a')");
+
+    reporter.removeHandler(failFastHandler);
+    checkFailingLookup("//pkg:ext1.scl", "has invalid load statements");
+    assertContainsEvent("in .scl files, load labels must begin with \"//\"");
+    eventCollector.clear();
+    checkFailingLookup("//pkg:ext2.scl", "has invalid load statements");
+    assertContainsEvent("in .scl files, load labels must begin with \"//\"");
+  }
+
+  @Test
+  public void testSclSupportsStructAndVisibility() throws Exception {
+    setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
+
+    scratch.file("pkg/BUILD");
+    scratch.file(
+        "pkg/ext1.scl", //
+        "visibility('private')",
+        "a = struct()");
+    scratch.file(
+        "pkg/ext2.scl", //
+        "load('//pkg:ext1.scl', 'a')");
+    scratch.file("pkg2/BUILD");
+    scratch.file(
+        "pkg2/ext3.scl", //
+        "load('//pkg:ext1.scl', 'a')");
+
+    checkSuccessfulLookup("//pkg:ext2.scl");
+    reporter.removeHandler(failFastHandler);
+    checkFailingLookup(
+        "//pkg2:ext3.scl", "module //pkg2:ext3.scl contains .bzl load visibility violations");
+  }
+
+  @Test
+  public void testSclDoesNotSupportOtherBazelSymbols() throws Exception {
+    setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
+
+    scratch.file("pkg/BUILD");
+    scratch.file(
+        "pkg/ext.scl", //
+        "a = depset([])");
+
+    reporter.removeHandler(failFastHandler);
+    checkFailingLookup("//pkg:ext.scl", "compilation of module 'pkg/ext.scl' failed");
+    assertContainsEvent("name 'depset' is not defined");
+  }
+
+  @Test
+  public void testSclDisallowsNonAsciiStringLiterals() throws Exception {
+    setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
+
+    scratch.file("pkg/BUILD");
+    scratch.file(
+        "pkg/ext1.bzl", //
+        "'x\377z'"); // xÿz
+    scratch.file(
+        "pkg/ext2.scl", //
+        "'x\377z'");
+
+    checkSuccessfulLookup("//pkg:ext1.bzl");
+    reporter.removeHandler(failFastHandler);
+    checkFailingLookup("//pkg:ext2.scl", "compilation of module 'pkg/ext2.scl' failed");
+    assertContainsEvent("string literal contains non-ASCII character");
   }
 
   private EvaluationResult<BzlLoadValue> get(SkyKey skyKey) throws Exception {
@@ -215,16 +356,35 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
   }
 
   private static SkyKey key(String label) {
-    return BzlLoadValue.keyForBuild(Label.parseAbsoluteUnchecked(label));
+    return BzlLoadValue.keyForBuild(Label.parseCanonicalUnchecked(label));
   }
 
-  // Ensures that a Starlark file has been successfully processed by checking that the
-  // the label in its dependency set corresponds to the requested label.
+  /** Loads a .bzl with the given label and asserts success. */
   private void checkSuccessfulLookup(String label) throws Exception {
     SkyKey skyKey = key(label);
     EvaluationResult<BzlLoadValue> result = get(skyKey);
-    assertThat(label)
-        .isEqualTo(BazelModuleContext.of(result.get(skyKey).getModule()).label().toString());
+    // Ensure that the file has been processed by checking its Module for the label field.
+    assertThat(Label.parseCanonicalUnchecked(label))
+        .isEqualTo(BazelModuleContext.of(result.get(skyKey).getModule()).label());
+  }
+
+  /* Loads a .bzl with the given label and asserts BzlLoadFailedException with the given message. */
+  private void checkFailingLookup(String label, String expectedMessage)
+      throws InterruptedException {
+    SkyKey skyKey = key(label);
+    EvaluationResult<BzlLoadValue> result =
+        SkyframeExecutorTestUtils.evaluate(
+            getSkyframeExecutor(), skyKey, /*keepGoing=*/ false, reporter);
+    assertThat(result.hasError()).isTrue();
+    assertThatEvaluationResult(result)
+        .hasErrorEntryForKeyThat(skyKey)
+        .hasExceptionThat()
+        .isInstanceOf(BzlLoadFailedException.class);
+    assertThatEvaluationResult(result)
+        .hasErrorEntryForKeyThat(skyKey)
+        .hasExceptionThat()
+        .hasMessageThat()
+        .contains(expectedMessage);
   }
 
   @Test
@@ -276,36 +436,6 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testLoadFromExternalRepoInWorkspaceFileAllowed() throws Exception {
-    Path p =
-        scratch.overwriteFile(
-            "WORKSPACE",
-            "local_repository(",
-            "    name = 'a_remote_repo',",
-            "    path = '/a_remote_repo'",
-            ")");
-    scratch.file("/a_remote_repo/WORKSPACE");
-    scratch.file("/a_remote_repo/remote_pkg/BUILD");
-    scratch.file("/a_remote_repo/remote_pkg/ext.bzl", "CONST = 17");
-
-    RootedPath rootedPath =
-        RootedPath.toRootedPath(
-            Root.fromPath(p.getParentDirectory()), PathFragment.create("WORKSPACE"));
-
-    SkyKey skyKey =
-        BzlLoadValue.keyForWorkspace(
-            Label.parseAbsoluteUnchecked("@a_remote_repo//remote_pkg:ext.bzl"),
-            /* inWorkspace= */
-            /* workspaceChunk= */ 0,
-            rootedPath);
-    EvaluationResult<BzlLoadValue> result =
-        SkyframeExecutorTestUtils.evaluate(
-            getSkyframeExecutor(), skyKey, /*keepGoing=*/ false, reporter);
-
-    assertThat(result.hasError()).isFalse();
-  }
-
-  @Test
   public void testLoadFromSubdirInSamePackageIsOk() throws Exception {
     scratch.file("a/BUILD");
     scratch.file("a/a.bzl", "load('//a:b/b.bzl', 'b')");
@@ -320,7 +450,7 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
     scratch.file("a/a.bzl", "load('//a:b/b.bzl', 'b')");
     scratch.file("a/b/BUILD", "");
     scratch.file("a/b/b.bzl", "b = 42");
-    checkStrayLabel(
+    checkFailingLookup(
         "//a:a.bzl",
         "Label '//a:b/b.bzl' is invalid because 'a/b' is a subpackage; perhaps you meant to"
             + " put the colon here: '//a/b:b.bzl'?");
@@ -332,7 +462,7 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
     scratch.file("a/a.bzl", "load('b/b.bzl', 'b')");
     scratch.file("a/b/BUILD", "");
     scratch.file("a/b/b.bzl", "b = 42");
-    checkStrayLabel(
+    checkFailingLookup(
         "//a:a.bzl",
         "Label '//a:b/b.bzl' is invalid because 'a/b' is a subpackage; perhaps you meant to"
             + " put the colon here: '//a/b:b.bzl'?");
@@ -345,7 +475,7 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
     scratch.file("a/b/BUILD", "");
     scratch.file("a/b/c/BUILD", "");
     scratch.file("a/b/c/c.bzl", "c = 42");
-    checkStrayLabel(
+    checkFailingLookup(
         "//a:a.bzl",
         "Label '//a/b:c/c.bzl' is invalid because 'a/b/c' is a subpackage; perhaps you meant"
             + " to put the colon here: '//a/b/c:c.bzl'?");
@@ -357,29 +487,538 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
     scratch.file("a/b/b.bzl", "load('//a/c:c/c.bzl', 'c')");
     scratch.file("a/BUILD");
     scratch.file("a/c/c/c.bzl", "c = 42");
-    checkStrayLabel(
+    checkFailingLookup(
         "//a/b:b.bzl",
         "Label '//a/c:c/c.bzl' is invalid because 'a/c' is not a package; perhaps you meant to "
             + "put the colon here: '//a:c/c/c.bzl'?");
   }
 
-  // checkStrayLabel checks that execution of target fails because
-  // the label of its load statement strays into a subpackage.
-  private void checkStrayLabel(String target, String expectedMessage) throws InterruptedException {
-    SkyKey skyKey = key(target);
-    EvaluationResult<BzlLoadValue> result =
-        SkyframeExecutorTestUtils.evaluate(
-            getSkyframeExecutor(), skyKey, /*keepGoing=*/ false, reporter);
-    assertThat(result.hasError()).isTrue();
-    assertThatEvaluationResult(result)
-        .hasErrorEntryForKeyThat(skyKey)
-        .hasExceptionThat()
-        .isInstanceOf(BzlLoadFailedException.class);
-    assertThatEvaluationResult(result)
-        .hasErrorEntryForKeyThat(skyKey)
-        .hasExceptionThat()
-        .hasMessageThat()
-        .contains(expectedMessage);
+  @Test
+  public void testBzlVisibility_disabledWithoutFlag() throws Exception {
+    setBuildLanguageOptions("--experimental_bzl_visibility=false");
+
+    scratch.file("a/BUILD");
+    scratch.file(
+        "a/foo.bzl", //
+        "load(\"//b:bar.bzl\", \"x\")");
+    scratch.file("b/BUILD");
+    scratch.file(
+        "b/bar.bzl",
+        """
+        visibility("private")
+        x = 1
+        """);
+
+    reporter.removeHandler(failFastHandler);
+    checkFailingLookup("//a:foo.bzl", "initialization of module 'b/bar.bzl' failed");
+    assertContainsEvent("Use of `visibility()` requires --experimental_bzl_visibility");
+  }
+
+  @Test
+  public void testBzlVisibility_publicExplicit() throws Exception {
+    setBuildLanguageOptions("--experimental_bzl_visibility=true");
+
+    scratch.file("a/BUILD");
+    scratch.file(
+        "a/foo.bzl", //
+        "load(\"//b:bar.bzl\", \"x\")");
+    scratch.file("b/BUILD");
+    scratch.file(
+        "b/bar.bzl",
+        """
+        visibility("public")
+        x = 1
+        """);
+
+    checkSuccessfulLookup("//a:foo.bzl");
+    assertNoEvents();
+  }
+
+  @Test
+  public void testBzlVisibility_publicImplicit() throws Exception {
+    setBuildLanguageOptions("--experimental_bzl_visibility=true");
+
+    scratch.file("a/BUILD");
+    scratch.file(
+        "a/foo.bzl", //
+        "load(\"//b:bar.bzl\", \"x\")");
+    scratch.file("b/BUILD");
+    scratch.file(
+        "b/bar.bzl",
+        // No visibility() declaration, defaults to public.
+        "x = 1");
+
+    checkSuccessfulLookup("//a:foo.bzl");
+    assertNoEvents();
+  }
+
+  @Test
+  public void testBzlVisibility_privateSamePackage() throws Exception {
+    setBuildLanguageOptions("--experimental_bzl_visibility=true");
+
+    scratch.file("a/BUILD");
+    scratch.file(
+        "a/foo.bzl", //
+        "load(\"//a:bar.bzl\", \"x\")");
+    scratch.file(
+        "a/bar.bzl",
+        """
+        visibility("private")
+        x = 1
+        """);
+
+    checkSuccessfulLookup("//a:foo.bzl");
+    assertNoEvents();
+  }
+
+  @Test
+  public void testBzlVisibility_privateDifferentPackage() throws Exception {
+    setBuildLanguageOptions("--experimental_bzl_visibility=true");
+
+    scratch.file("a/BUILD");
+    scratch.file(
+        "a/foo.bzl", //
+        "load(\"//b:bar.bzl\", \"x\")");
+    scratch.file("b/BUILD");
+    scratch.file(
+        "b/bar.bzl",
+        """
+        visibility("private")
+        x = 1
+        """);
+
+    reporter.removeHandler(failFastHandler);
+    checkFailingLookup(
+        "//a:foo.bzl", "module //a:foo.bzl contains .bzl load visibility violations");
+    assertContainsEvent("Starlark file //b:bar.bzl is not visible for loading from package //a.");
+  }
+
+  @Test
+  public void testBzlVisibility_emptyListMeansPrivate() throws Exception {
+    setBuildLanguageOptions("--experimental_bzl_visibility=true");
+
+    scratch.file("a/BUILD");
+    scratch.file(
+        "a/foo.bzl", //
+        "load(\"//b:bar.bzl\", \"x\")");
+    scratch.file("b/BUILD");
+    scratch.file(
+        "b/bar.bzl",
+        """
+        visibility([])
+        x = 1
+        """);
+
+    reporter.removeHandler(failFastHandler);
+    checkFailingLookup(
+        "//a:foo.bzl", "module //a:foo.bzl contains .bzl load visibility violations");
+    assertContainsEvent("Starlark file //b:bar.bzl is not visible for loading from package //a.");
+  }
+
+  @Test
+  public void testBzlVisibility_publicListElement() throws Exception {
+    setBuildLanguageOptions("--experimental_bzl_visibility=true");
+
+    scratch.file("a/BUILD");
+    scratch.file(
+        "a/foo.bzl", //
+        "load(\"//b:bar.bzl\", \"x\")");
+    scratch.file("b/BUILD");
+    scratch.file(
+        "b/bar.bzl",
+        """
+        # Tests "public" as a list item, and alongside other list items.
+        visibility(["public", "//c"])
+        x = 1
+        """);
+
+    checkSuccessfulLookup("//a:foo.bzl");
+    assertNoEvents();
+  }
+
+  @Test
+  public void testBzlVisibility_privateListElement() throws Exception {
+    setBuildLanguageOptions("--experimental_bzl_visibility=true");
+
+    scratch.file("a1/BUILD");
+    scratch.file(
+        "a1/foo.bzl", //
+        "load(\"//b:bar.bzl\", \"x\")");
+    scratch.file("a2/BUILD");
+    scratch.file(
+        "a2/foo.bzl", //
+        "load(\"//b:bar.bzl\", \"x\")");
+    scratch.file("b/BUILD");
+    scratch.file(
+        "b/bar.bzl",
+        """
+        # Tests "private" as a list item, and alongside other list items.
+        visibility(["private", "//a1"])
+        x = 1
+        """);
+
+    checkSuccessfulLookup("//a1:foo.bzl");
+    assertNoEvents();
+    reporter.removeHandler(failFastHandler);
+    checkFailingLookup(
+        "//a2:foo.bzl", "module //a2:foo.bzl contains .bzl load visibility violations");
+    assertContainsEvent("Starlark file //b:bar.bzl is not visible for loading from package //a2.");
+  }
+
+  @Test
+  public void testBzlVisibility_failureInDependency() throws Exception {
+    setBuildLanguageOptions("--experimental_bzl_visibility=true");
+
+    scratch.file("a/BUILD");
+    scratch.file(
+        "a/foo.bzl", //
+        "load(\"//b:bar.bzl\", \"x\")");
+    scratch.file("b/BUILD");
+    scratch.file(
+        "b/bar.bzl",
+        """
+        load("//c:baz.bzl", "y")
+
+        visibility("public")
+        x = y
+        """);
+    scratch.file("c/BUILD");
+    scratch.file(
+        "c/baz.bzl",
+        """
+        visibility("private")
+        y = 1
+        """);
+
+    reporter.removeHandler(failFastHandler);
+    checkFailingLookup(
+        "//a:foo.bzl",
+        "at /workspace/a/foo.bzl:1:6: module //b:bar.bzl contains .bzl load visibility violations");
+    assertContainsEvent("Starlark file //c:baz.bzl is not visible for loading from package //b.");
+  }
+
+  @Test
+  public void testBzlVisibility_cannotBeSetInFunction() throws Exception {
+    setBuildLanguageOptions("--experimental_bzl_visibility=true");
+
+    scratch.file("a/BUILD");
+    scratch.file(
+        "a/foo.bzl",
+        """
+        def helper():
+            visibility("public")
+
+        helper()
+        """);
+
+    reporter.removeHandler(failFastHandler);
+    checkFailingLookup("//a:foo.bzl", "initialization of module 'a/foo.bzl' failed");
+    assertContainsEvent("load visibility may only be set at the top level");
+  }
+
+  @Test
+  public void testBzlVisibility_cannotBeSetTwice() throws Exception {
+    setBuildLanguageOptions("--experimental_bzl_visibility=true");
+
+    scratch.file("a/BUILD");
+    scratch.file(
+        "a/foo.bzl",
+        """
+        visibility("public")
+        visibility("public")
+        """);
+
+    reporter.removeHandler(failFastHandler);
+    checkFailingLookup("//a:foo.bzl", "initialization of module 'a/foo.bzl' failed");
+    assertContainsEvent("load visibility may not be set more than once");
+  }
+
+  @Test
+  public void testBzlVisibility_enumeratedPackages() throws Exception {
+    setBuildLanguageOptions("--experimental_bzl_visibility=true");
+
+    scratch.file("a1/BUILD");
+    scratch.file(
+        "a1/foo1.bzl", //
+        "load(\"//b:bar.bzl\", \"x\")");
+    scratch.file("a2/BUILD");
+    scratch.file(
+        "a2/foo2.bzl", //
+        "load(\"//b:bar.bzl\", \"x\")");
+    scratch.file("b/BUILD");
+    scratch.file(
+        "b/bar.bzl",
+        """
+        visibility(["//a1"])
+        x = 1
+        """);
+
+    checkSuccessfulLookup("//a1:foo1.bzl");
+    assertNoEvents();
+
+    reporter.removeHandler(failFastHandler);
+    checkFailingLookup(
+        "//a2:foo2.bzl", "module //a2:foo2.bzl contains .bzl load visibility violations");
+    assertContainsEvent("Starlark file //b:bar.bzl is not visible for loading from package //a2.");
+  }
+
+  @Test
+  public void testBzlVisibility_singleEnumeratedPackageAsString() throws Exception {
+    setBuildLanguageOptions("--experimental_bzl_visibility=true");
+
+    scratch.file("a1/BUILD");
+    scratch.file(
+        "a1/foo1.bzl", //
+        "load(\"//b:bar.bzl\", \"x\")");
+    scratch.file("a2/BUILD");
+    scratch.file(
+        "a2/foo2.bzl", //
+        "load(\"//b:bar.bzl\", \"x\")");
+    scratch.file("b/BUILD");
+    scratch.file(
+        "b/bar.bzl",
+        """
+        # Note: "//a1", not ["//a1"]
+        visibility("//a1")
+        x = 1
+        """);
+
+    checkSuccessfulLookup("//a1:foo1.bzl");
+    assertNoEvents();
+
+    reporter.removeHandler(failFastHandler);
+    checkFailingLookup(
+        "//a2:foo2.bzl", "module //a2:foo2.bzl contains .bzl load visibility violations");
+    assertContainsEvent("Starlark file //b:bar.bzl is not visible for loading from package //a2.");
+  }
+
+  @Test
+  public void testBzlVisibility_enumeratedPackagesMultipleRepos() throws Exception {
+    setBuildLanguageOptions("--experimental_bzl_visibility=true");
+
+    // @repo//pkg:foo1.bzl and @//pkg:foo2.bzl both try to access @repo//lib:bar.bzl. Test that when
+    // bar.bzl declares a visibility allowing "//pkg", it means @repo//pkg and *not* @//pkg.
+    scratch.overwriteFile(
+        "MODULE.bazel", //
+        "bazel_dep(name = 'repo')",
+        "local_path_override(module_name = 'repo', path = 'repo')");
+    scratch.file("repo/MODULE.bazel", "module(name = 'repo')");
+    scratch.file("repo/pkg/BUILD");
+    scratch.file(
+        "repo/pkg/foo1.bzl", //
+        "load(\"//lib:bar.bzl\", \"x\")");
+    scratch.file("repo/lib/BUILD");
+    scratch.file(
+        "repo/lib/bar.bzl",
+        """
+        visibility(["//pkg"])
+        x = 1
+        """);
+    scratch.file("pkg/BUILD");
+    scratch.file(
+        "pkg/foo2.bzl", //
+        "load(\"@repo//lib:bar.bzl\", \"x\")");
+
+    checkSuccessfulLookup("@@repo+//pkg:foo1.bzl");
+    assertNoEvents();
+
+    reporter.removeHandler(failFastHandler);
+    checkFailingLookup(
+        "//pkg:foo2.bzl", "module //pkg:foo2.bzl contains .bzl load visibility violations");
+    assertContainsEvent(
+        "Starlark file @@repo+//lib:bar.bzl is not visible for loading from package //pkg.");
+  }
+
+  // TODO(#16365): This test case can be deleted once --incompatible_package_group_has_public_syntax
+  // is deleted (not just flipped).
+  @Test
+  public void testBzlVisibility_canUsePublicPrivate_regardlessOfFlag() throws Exception {
+    setBuildLanguageOptions(
+        "--experimental_bzl_visibility=true",
+        // Test that we can use "public" and "private" visibility for .bzl files even when the
+        // incompatible flag is disabled.
+        "--incompatible_package_group_has_public_syntax=false");
+
+    scratch.file("a/BUILD");
+    scratch.file(
+        "a/foo1.bzl", //
+        "visibility(\"public\")");
+    scratch.file(
+        "a/foo2.bzl", //
+        "visibility(\"private\")");
+
+    checkSuccessfulLookup("//a:foo1.bzl");
+    checkSuccessfulLookup("//a:foo2.bzl");
+    assertNoEvents();
+  }
+
+  // TODO(#16324): Once --incompatible_fix_package_group_reporoot_syntax is deleted (not just
+  // flipped), this test case will be redundant with tests for //... in PackageGroupTest. At that
+  // point we'll just delete this test case.
+  @Test
+  public void testBzlVisibility_repoRootSubpackagesIsNotPublic_regardlessOfFlag() throws Exception {
+    setBuildLanguageOptions(
+        "--experimental_bzl_visibility=true",
+        // Test that we get the fixed behavior even when the incompatible flag is disabled.
+        "--incompatible_fix_package_group_reporoot_syntax=false");
+
+    scratch.overwriteFile(
+        "MODULE.bazel", //
+        "bazel_dep(name = 'repo')",
+        "local_path_override(module_name = 'repo', path = 'repo')");
+    scratch.file("repo/MODULE.bazel", "module(name = 'repo')");
+    scratch.file("repo/a/BUILD");
+    scratch.file(
+        "repo/a/foo.bzl", //
+        "load(\"@@//b:bar.bzl\", \"x\")");
+    scratch.file("b/BUILD");
+    scratch.file(
+        "b/bar.bzl",
+        """
+        visibility(["//..."])
+        x = 1
+        """);
+
+    reporter.removeHandler(failFastHandler);
+    checkFailingLookup(
+        "@@repo+//a:foo.bzl", "module @@repo+//a:foo.bzl contains .bzl load visibility violations");
+    assertContainsEvent(
+        "Starlark file //b:bar.bzl is not visible for loading from package @@repo+//a.");
+  }
+
+  @Test
+  public void testBzlVisibility_disallowsSubpackagesWithoutWildcard() throws Exception {
+    setBuildLanguageOptions("--experimental_bzl_visibility=true");
+
+    scratch.file("a/BUILD");
+    scratch.file(
+        "a/foo1.bzl", //
+        "load(\"//b:bar.bzl\", \"x\")");
+    scratch.file("a/subpkg/BUILD");
+    scratch.file(
+        "a/subpkg/foo2.bzl", //
+        "load(\"//b:bar.bzl\", \"x\")");
+    scratch.file("b/BUILD");
+    scratch.file(
+        "b/bar.bzl",
+        """
+        visibility(["//a"])
+        x = 1
+        """);
+
+    checkSuccessfulLookup("//a:foo1.bzl");
+    assertNoEvents();
+
+    reporter.removeHandler(failFastHandler);
+    checkFailingLookup(
+        "//a/subpkg:foo2.bzl",
+        "module //a/subpkg:foo2.bzl contains .bzl load visibility violations");
+    assertContainsEvent(
+        "Starlark file //b:bar.bzl is not visible for loading from package //a/subpkg.");
+  }
+
+  @Test
+  public void testBzlVisibility_allowsSubpackagesWithWildcard() throws Exception {
+    setBuildLanguageOptions("--experimental_bzl_visibility=true");
+
+    scratch.file("a/BUILD");
+    scratch.file(
+        "a/foo1.bzl", //
+        "load(\"//b:bar.bzl\", \"x\")");
+    scratch.file("a/subpkg/BUILD");
+    scratch.file(
+        "a/subpkg/foo2.bzl", //
+        "load(\"//b:bar.bzl\", \"x\")");
+    scratch.file("b/BUILD");
+    scratch.file(
+        "b/bar.bzl",
+        """
+        visibility(["//a/..."])
+        x = 1
+        """);
+
+    checkSuccessfulLookup("//a:foo1.bzl");
+    assertNoEvents();
+
+    checkSuccessfulLookup("//a/subpkg:foo2.bzl");
+    assertNoEvents();
+  }
+
+  @Test
+  public void testBzlVisibility_invalid_badType() throws Exception {
+    setBuildLanguageOptions("--experimental_bzl_visibility=true");
+
+    scratch.file("a/BUILD");
+    scratch.file(
+        "a/foo.bzl", //
+        "visibility(123)");
+
+    reporter.removeHandler(failFastHandler);
+    checkFailingLookup("//a:foo.bzl", "initialization of module 'a/foo.bzl' failed");
+    assertContainsEvent("Invalid visibility: got 'int', want string or list of strings");
+  }
+
+  @Test
+  public void testBzlVisibility_invalid_badElementType() throws Exception {
+    setBuildLanguageOptions("--experimental_bzl_visibility=true");
+
+    scratch.file("a/BUILD");
+    scratch.file(
+        "a/foo.bzl", //
+        "visibility([\"//a\", 123])");
+
+    reporter.removeHandler(failFastHandler);
+    checkFailingLookup("//a:foo.bzl", "initialization of module 'a/foo.bzl' failed");
+    assertContainsEvent("at index 1 of visibility list, got element of type int, want string");
+  }
+
+  @Test
+  public void testBzlVisibility_invalid_packageOutsideRepo() throws Exception {
+    setBuildLanguageOptions("--experimental_bzl_visibility=true");
+
+    scratch.file("a/BUILD");
+    scratch.file(
+        "a/foo.bzl", //
+        "visibility([\"@repo//b\"])");
+
+    reporter.removeHandler(failFastHandler);
+    checkFailingLookup("//a:foo.bzl", "initialization of module 'a/foo.bzl' failed");
+    assertContainsEvent("invalid package name '@repo//b': must start with '//'");
+  }
+
+  @Test
+  public void testBzlVisibility_invalid_negationNotSupported() throws Exception {
+    setBuildLanguageOptions("--experimental_bzl_visibility=true");
+
+    scratch.file("a/BUILD");
+    scratch.file(
+        "a/foo.bzl", //
+        "visibility([\"-//a\"])");
+
+    reporter.removeHandler(failFastHandler);
+    checkFailingLookup("//a:foo.bzl", "initialization of module 'a/foo.bzl' failed");
+    assertContainsEvent("Cannot use negative package patterns here");
+  }
+
+  @Test
+  public void testBzlVisibility_errorsDemotedToWarningWhenBreakGlassFlagIsSet() throws Exception {
+    setBuildLanguageOptions("--experimental_bzl_visibility=true", "--check_bzl_visibility=false");
+
+    scratch.file("a/BUILD");
+    scratch.file(
+        "a/foo.bzl", //
+        "load(\"//b:bar.bzl\", \"x\")");
+    scratch.file("b/BUILD");
+    scratch.file(
+        "b/bar.bzl",
+        """
+        visibility("private")
+        x = 1
+        """);
+
+    checkSuccessfulLookup("//a:foo.bzl");
+    assertContainsEvent("Starlark file //b:bar.bzl is not visible for loading from package //a.");
+    assertContainsEvent("Continuing because --nocheck_bzl_visibility is active");
   }
 
   @Test
@@ -400,50 +1039,13 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
         .hasExceptionThat()
         .hasMessageThat()
         .contains(
-            "Unable to find package for @repository//dir:file.bzl: The repository '@repository' "
-                + "could not be resolved: Repository '@repository' is not defined.");
-  }
-
-  @Test
-  public void testLoadBzlFileFromWorkspaceWithRemapping() throws Exception {
-    Path p =
-        scratch.overwriteFile(
-            "WORKSPACE",
-            "local_repository(",
-            "    name = 'y',",
-            "    path = '/y'",
-            ")",
-            "local_repository(",
-            "    name = 'a',",
-            "    path = '/a',",
-            "    repo_mapping = {'@x' : '@y'}",
-            ")",
-            "load('@a//:a.bzl', 'a_symbol')");
-
-    scratch.file("/y/WORKSPACE");
-    scratch.file("/y/BUILD");
-    scratch.file("/y/y.bzl", "y_symbol = 5");
-
-    scratch.file("/a/WORKSPACE");
-    scratch.file("/a/BUILD");
-    scratch.file("/a/a.bzl", "load('@x//:y.bzl', 'y_symbol')", "a_symbol = y_symbol");
-
-    Root root = Root.fromPath(p.getParentDirectory());
-    RootedPath rootedPath = RootedPath.toRootedPath(root, PathFragment.create("WORKSPACE"));
-
-    SkyKey skyKey =
-        BzlLoadValue.keyForWorkspace(Label.parseAbsoluteUnchecked("@a//:a.bzl"), 1, rootedPath);
-
-    EvaluationResult<BzlLoadValue> result =
-        SkyframeExecutorTestUtils.evaluate(
-            getSkyframeExecutor(), skyKey, /*keepGoing=*/ false, reporter);
-
-    assertThat(result.get(skyKey).getModule().getGlobals())
-        .containsEntry("a_symbol", StarlarkInt.of(5));
+            "Unable to find package for @@repository//dir:file.bzl: The repository '@@repository' "
+                + "could not be resolved: Repository '@@repository' is not defined.");
   }
 
   @Test
   public void testLoadBzlFileFromBzlmod() throws Exception {
+    setBuildLanguageOptions("--experimental_enable_scl_dialect");
     scratch.overwriteFile("MODULE.bazel", "bazel_dep(name='foo',version='1.0')");
     registry
         .addModule(
@@ -451,26 +1053,35 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
             "module(name='foo',version='1.0')",
             "bazel_dep(name='bar',version='2.0',repo_name='bar_alias')")
         .addModule(createModuleKey("bar", "2.0"), "module(name='bar',version='2.0')");
-    Path fooDir = moduleRoot.getRelative("foo.1.0");
-    scratch.file(fooDir.getRelative("WORKSPACE").getPathString());
+    Path fooDir = moduleRoot.getRelative("foo+1.0");
+    scratch.file(fooDir.getRelative("REPO.bazel").getPathString());
     scratch.file(fooDir.getRelative("BUILD").getPathString());
     scratch.file(
         fooDir.getRelative("test.bzl").getPathString(),
-        "load('@bar_alias//:test.bzl', 'haha')",
+        // Also test that bzlmod .bzl files can load .scl files.
+        "load('@bar_alias//:test.scl', 'haha')",
+        "l = Label('@foo//:whatever')",
         "hoho = haha");
-    Path barDir = moduleRoot.getRelative("bar.2.0");
-    scratch.file(barDir.getRelative("WORKSPACE").getPathString());
+    Path barDir = moduleRoot.getRelative("bar+2.0");
+    scratch.file(barDir.getRelative("REPO.bazel").getPathString());
     scratch.file(barDir.getRelative("BUILD").getPathString());
-    scratch.file(barDir.getRelative("test.bzl").getPathString(), "haha = 5");
+    scratch.file(barDir.getRelative("test.scl").getPathString(), "haha = 5");
 
-    SkyKey skyKey = BzlLoadValue.keyForBzlmod(Label.parseAbsoluteUnchecked("@foo.1.0//:test.bzl"));
+    SkyKey skyKey = BzlLoadValue.keyForBzlmod(Label.parseCanonical("@@foo+//:test.bzl"));
     EvaluationResult<BzlLoadValue> result =
         SkyframeExecutorTestUtils.evaluate(
             getSkyframeExecutor(), skyKey, /*keepGoing=*/ false, reporter);
 
     assertThatEvaluationResult(result).hasNoError();
-    assertThat(result.get(skyKey).getModule().getGlobals())
-        .containsEntry("hoho", StarlarkInt.of(5));
+    var bzlLoadValue = result.get(skyKey);
+    assertThat(bzlLoadValue.getModule().getGlobals()).containsEntry("hoho", StarlarkInt.of(5));
+    assertThat(bzlLoadValue.getRecordedRepoMappings().cellSet())
+        .containsExactly(
+            Tables.immutableCell(
+                RepositoryName.create("foo+"), "bar_alias", RepositoryName.create("bar+")),
+            Tables.immutableCell(
+                RepositoryName.create("foo+"), "foo", RepositoryName.create("foo+")))
+        .inOrder();
     // Note that we're not testing the case of a non-registry override using @bazel_tools here, but
     // that is incredibly hard to set up in a unit test. So we should just rely on integration tests
     // for that.
@@ -481,10 +1092,12 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
     setBuildLanguageOptions("--experimental_builtins_bzl_path=tools/builtins_staging");
     scratch.file(
         "tools/builtins_staging/exports.bzl",
-        "1 // 0  # <-- dynamic error",
-        "exported_toplevels = {}",
-        "exported_rules = {}",
-        "exported_to_java = {}");
+        """
+        1 // 0  # <-- dynamic error
+        exported_toplevels = {}
+        exported_rules = {}
+        exported_to_java = {}
+        """);
     scratch.file("pkg/BUILD");
     scratch.file("pkg/foo.bzl");
     reporter.removeHandler(failFastHandler);
@@ -562,7 +1175,7 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
     }
 
     @Override
-    protected InputStream getInputStream(PathFragment path) throws IOException {
+    protected synchronized InputStream getInputStream(PathFragment path) throws IOException {
       if (badPathForRead != null && badPathForRead.asFragment().equals(path)) {
         throw new IOException("bad");
       }

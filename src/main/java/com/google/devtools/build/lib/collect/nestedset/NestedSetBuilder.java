@@ -24,23 +24,32 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet.InterruptStrategy;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import com.google.errorprone.annotations.ForOverride;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Set;
 
 /**
  * A builder for nested sets.
  *
  * <p>The builder supports the standard builder interface (that is, {@code #add}, {@code #addAll}
- * and {@code #addTransitive} followed by {@code build}), in addition to shortcut method
- * {@code #wrap}. Any duplicate elements will be inserted as-is, and pruned later on during the
- * traversal of the actual NestedSet.
+ * and {@code #addTransitive} followed by {@code build}), in addition to shortcut method {@code
+ * #wrap}. Any duplicate elements will be inserted as-is, and pruned later on during the traversal
+ * of the actual NestedSet.
  */
-public final class NestedSetBuilder<E> {
-
+public abstract sealed class NestedSetBuilder<E> {
   private final Order order;
   private CompactHashSet<E> items;
-  private CompactHashSet<NestedSet<E>> transitiveSets;
 
-  public NestedSetBuilder(Order order) {
+  public static <E> NestedSetBuilder<E> newBuilder(Order order) {
+    return switch (order) {
+      case LINK_ORDER -> new LinkOrderNestedSetBuilder<>(order);
+      default -> new DefaultNestedSetBuilder<>(order);
+    };
+  }
+
+  private NestedSetBuilder(Order order) {
     this.order = order;
   }
 
@@ -50,13 +59,13 @@ public final class NestedSetBuilder<E> {
    * <p>This is useful for testing for incompatibilities (via {@link Order#isCompatible}) without
    * catching an unchecked exception from {@link #addTransitive}.
    */
-  public Order getOrder() {
+  public final Order getOrder() {
     return order;
   }
 
   /** Returns whether the set to be built is empty. */
   public boolean isEmpty() {
-    return items == null && transitiveSets == null;
+    return items == null;
   }
 
   /**
@@ -64,13 +73,14 @@ public final class NestedSetBuilder<E> {
    *
    * <p>The relative left-to-right order of direct members is preserved from the sequence of calls
    * to {@link #add} and {@link #addAll}. Since the traversal {@link Order} controls whether direct
-   * members appear before or after transitive ones, the interleaving of
-   * {@link #add}/{@link #addAll} with {@link #addTransitive} does not matter.
+   * members appear before or after transitive ones, the interleaving of {@link #add}/{@link
+   * #addAll} with {@link #addTransitive} does not matter.
    *
    * @param element item to add; must not be null
    * @return the builder
    */
-  public NestedSetBuilder<E> add(E element) {
+  @CanIgnoreReturnValue
+  public final NestedSetBuilder<E> add(E element) {
     Preconditions.checkNotNull(element);
     if (items == null) {
       items = CompactHashSet.create();
@@ -85,13 +95,14 @@ public final class NestedSetBuilder<E> {
    *
    * <p>The relative left-to-right order of direct members is preserved from the sequence of calls
    * to {@link #add} and {@link #addAll}. Since the traversal {@link Order} controls whether direct
-   * members appear before or after transitive ones, the interleaving of
-   * {@link #add}/{@link #addAll} with {@link #addTransitive} does not matter.
+   * members appear before or after transitive ones, the interleaving of {@link #add}/{@link
+   * #addAll} with {@link #addTransitive} does not matter.
    *
    * @param elements the sequence of items to add; must not be null
    * @return the builder
    */
-  public NestedSetBuilder<E> addAll(Iterable<? extends E> elements) {
+  @CanIgnoreReturnValue
+  public final NestedSetBuilder<E> addAll(Iterable<? extends E> elements) {
     Preconditions.checkNotNull(elements);
     if (items == null) {
       int n = Iterables.size(elements);
@@ -128,22 +139,22 @@ public final class NestedSetBuilder<E> {
    * @throws IllegalArgumentException if the order of {@code subset} is not compatible with the
    *     order of this builder
    */
-  @SuppressWarnings("unchecked") // Cast to NestedSet<E> is safe because NestedSet is immutable.
-  public NestedSetBuilder<E> addTransitive(NestedSet<? extends E> subset) {
+  @CanIgnoreReturnValue
+  public final NestedSetBuilder<E> addTransitive(NestedSet<? extends E> subset) {
     Preconditions.checkNotNull(subset);
     Preconditions.checkArgument(
-        order.isCompatible(subset.getOrder()),
+        getOrder().isCompatible(subset.getOrder()),
         "Order mismatch: %s != %s",
         subset.getOrder().getStarlarkName(),
-        order.getStarlarkName());
+        getOrder().getStarlarkName());
     if (!subset.isEmpty()) {
-      if (transitiveSets == null) {
-        transitiveSets = CompactHashSet.create();
-      }
-      transitiveSets.add((NestedSet<E>) subset);
+      addTransitiveImpl(subset);
     }
     return this;
   }
+
+  @ForOverride
+  abstract void addTransitiveImpl(NestedSet<? extends E> subset);
 
   /**
    * Builds the actual nested set.
@@ -151,7 +162,7 @@ public final class NestedSetBuilder<E> {
    * <p>This method may be called multiple times with interleaved {@link #add}, {@link #addAll} and
    * {@link #addTransitive} calls.
    */
-  public NestedSet<E> build() {
+  public final NestedSet<E> build() {
     try {
       return buildInternal(InterruptStrategy.CRASH);
     } catch (InterruptedException e) {
@@ -163,38 +174,41 @@ public final class NestedSetBuilder<E> {
    * Similar to {@link #build} except that if any subset is based on a deserialization future and an
    * interrupt is observed, {@link InterruptedException} is propagated.
    */
-  public NestedSet<E> buildInterruptibly() throws InterruptedException {
+  public final NestedSet<E> buildInterruptibly() throws InterruptedException {
     return buildInternal(InterruptStrategy.PROPAGATE);
   }
 
   private NestedSet<E> buildInternal(InterruptStrategy interruptStrategy)
       throws InterruptedException {
     if (isEmpty()) {
-      return order.emptySet();
+      return getOrder().emptySet();
     }
 
     Set<E> direct = firstNonNull(items, ImmutableSet.of());
-    Set<NestedSet<E>> transitive = firstNonNull(transitiveSets, ImmutableSet.of());
+    Collection<NestedSet<E>> transitive = getTransitive();
 
     // When there is exactly one transitive set, we can reuse it if its order matches and either
     // there are no direct members, or the only direct member equals the transitive set's singleton.
     if (transitive.size() == 1 && direct.size() <= 1) {
-      NestedSet<E> candidate = getOnlyElement(transitiveSets);
-      if (candidate.getOrder() == order
+      NestedSet<E> candidate = getOnlyElement(transitive);
+      if (candidate.getOrder() == getOrder()
           && (direct.isEmpty()
               || getOnlyElement(direct).equals(candidate.getChildrenInterruptibly()))) {
         return candidate;
       }
     }
 
-    return new NestedSet<>(order, direct, transitive, interruptStrategy);
+    return new NestedSet<>(getOrder(), direct, transitive, interruptStrategy);
   }
+
+  @ForOverride
+  abstract Collection<NestedSet<E>> getTransitive();
 
   private static final LoadingCache<ImmutableList<?>, NestedSet<?>> stableOrderImmutableListCache =
       Caffeine.newBuilder()
           .initialCapacity(16)
           .weakKeys()
-          .build(list -> new NestedSetBuilder<>(Order.STABLE_ORDER).addAll(list).build());
+          .build(list -> NestedSetBuilder.newBuilder(Order.STABLE_ORDER).addAll(list).build());
 
   /** Creates a nested set from a given list of items. */
   @SuppressWarnings("unchecked")
@@ -207,7 +221,7 @@ public final class NestedSetBuilder<E> {
         return (NestedSet<E>) stableOrderImmutableListCache.get(wrappedList);
       }
     }
-    return new NestedSetBuilder<E>(order).addAll(wrappedItems).build();
+    return NestedSetBuilder.<E>newBuilder(order).addAll(wrappedItems).build();
   }
 
   /**
@@ -228,32 +242,32 @@ public final class NestedSetBuilder<E> {
    * Creates a builder for stable order nested sets.
    */
   public static <E> NestedSetBuilder<E> stableOrder() {
-    return new NestedSetBuilder<>(Order.STABLE_ORDER);
+    return NestedSetBuilder.newBuilder(Order.STABLE_ORDER);
   }
 
   /**
    * Creates a builder for compile order nested sets.
    */
   public static <E> NestedSetBuilder<E> compileOrder() {
-    return new NestedSetBuilder<>(Order.COMPILE_ORDER);
+    return NestedSetBuilder.newBuilder(Order.COMPILE_ORDER);
   }
 
   /**
    * Creates a builder for link order nested sets.
    */
   public static <E> NestedSetBuilder<E> linkOrder() {
-    return new NestedSetBuilder<>(Order.LINK_ORDER);
+    return NestedSetBuilder.newBuilder(Order.LINK_ORDER);
   }
 
   /**
    * Creates a builder for naive link order nested sets.
    */
   public static <E> NestedSetBuilder<E> naiveLinkOrder() {
-    return new NestedSetBuilder<>(Order.NAIVE_LINK_ORDER);
+    return NestedSetBuilder.newBuilder(Order.NAIVE_LINK_ORDER);
   }
 
   public static <E> NestedSetBuilder<E> fromNestedSet(NestedSet<? extends E> set) {
-    return new NestedSetBuilder<E>(set.getOrder()).addTransitive(set);
+    return NestedSetBuilder.<E>newBuilder(set.getOrder()).addTransitive(set);
   }
 
   /**
@@ -266,8 +280,112 @@ public final class NestedSetBuilder<E> {
     if (firstSet == null) {
       return stableOrder();
     }
-    NestedSetBuilder<E> result = new NestedSetBuilder<>(firstSet.getOrder());
+    NestedSetBuilder<E> result = NestedSetBuilder.newBuilder(firstSet.getOrder());
     sets.forEach(result::addTransitive);
     return result;
+  }
+
+  private static final class DefaultNestedSetBuilder<E> extends NestedSetBuilder<E> {
+    private CompactHashSet<NestedSet<E>> transitiveSets;
+
+    private DefaultNestedSetBuilder(Order order) {
+      super(order);
+    }
+
+    @Override
+    @SuppressWarnings("unchecked") // Cast to NestedSet<E> is safe because NestedSet is immutable.
+    void addTransitiveImpl(NestedSet<? extends E> subset) {
+      if (transitiveSets == null) {
+        transitiveSets = CompactHashSet.create();
+      }
+      transitiveSets.add((NestedSet<E>) subset);
+    }
+
+    @Override
+    Collection<NestedSet<E>> getTransitive() {
+      return firstNonNull(transitiveSets, ImmutableList.of());
+    }
+
+    @Override
+    public boolean isEmpty() {
+      return super.isEmpty() && transitiveSets == null;
+    }
+  }
+
+  /**
+   * A specialized {@link NestedSetBuilder} for {@link Order#LINK_ORDER} that reverses the order of
+   * transitive inputs *before* deduplication.
+   *
+   * <p>{@link DefaultNestedSetBuilder} deduplicates transitive sets as they are added. This class,
+   * however, delays deduplication until {@link #build()} is called. Furthermore, for {@link
+   * Order#LINK_ORDER}, the input order of transitive sets is reversed to implement a right-to-left
+   * traversal. The order of these operations (reversal and deduplication) affects the final result.
+   *
+   * <p>Consider the transitive inputs {@code <A, B, A>}, where {@code A} and {@code B} are {@link
+   * NestedSet}s with no common elements.
+   *
+   * <ul>
+   *   <li><b>Deduplicate-then-reverse:</b> If we deduplicate first and then reverse, the
+   *       intermediate result is {@code <B, A>}. When this is passed to {@link NestedSet#toList},
+   *       the final output is {@code <toList(A), toList(B)>} (because {@code toList} also reverses
+   *       {@link Order#LINK_ORDER} sets).
+   *   <li><b>Reverse-then-deduplicate:</b> If we reverse first and then deduplicate, the
+   *       intermediate result is {@code <A, B>}. When passed to {@link NestedSet#toList}, the final
+   *       output is {@code <toList(B), toList(A)>}.
+   * </ul>
+   *
+   * <p>This class implements the <b>reverse-then-deduplicate</b> strategy. This choice is important
+   * for consistency when deeply equivalent, but distinct, {@link NestedSet} instances are used as
+   * transitive inputs.
+   *
+   * <p>Consider transitive inputs {@code <A, B, A*>}, where {@code A*} is deeply equivalent to
+   * {@code A} (i.e., {@code A.deepEquals(A*) == true}) but is a different instance (i.e., {@code A
+   * != A*}). With both reverse-then-deduplicate and deduplicate-then-reverse, the intermediate
+   * result is {@code <A*, B, A>}. {@link NestedSet#toList}, which deduplicates {@code A}
+   * element-wise, then produces {@code <toList(B), toList(A*))>}. By deep-equality of {@code A} and
+   * {@code A*}, this result is equivalent to {@code <toList(B), toList(A)>} which is only
+   * consistent with <b>reverse-then-deduplicate</b>.
+   *
+   * <p>In summary, this builder ensures that {@link NestedSet#toList}, when used with a {@link
+   * NestedSet} built by this builder, behaves consistently, regardless of whether transitive inputs
+   * are the same instance or are deeply equivalent (but distinct) instances.
+   */
+  private static final class LinkOrderNestedSetBuilder<E> extends NestedSetBuilder<E> {
+    private ArrayList<NestedSet<E>> transitiveSets;
+
+    private LinkOrderNestedSetBuilder(Order order) {
+      super(order);
+    }
+
+    @Override
+    @SuppressWarnings("unchecked") // Cast to NestedSet<E> is safe because NestedSet is immutable.
+    void addTransitiveImpl(NestedSet<? extends E> subset) {
+      if (transitiveSets == null) {
+        transitiveSets = new ArrayList<>();
+      }
+      transitiveSets.add((NestedSet<E>) subset);
+    }
+
+    @Override
+    @SuppressWarnings("MixedMutabilityReturnType") // caller does not mutate
+    Collection<NestedSet<E>> getTransitive() {
+      if (transitiveSets == null) {
+        return ImmutableList.of();
+      }
+      int size = transitiveSets.size();
+      if (size == 1) {
+        return transitiveSets;
+      }
+      var reversedAndDeduped = CompactHashSet.<NestedSet<E>>createWithExpectedSize(size);
+      for (int i = size - 1; i >= 0; i--) {
+        reversedAndDeduped.add(transitiveSets.get(i));
+      }
+      return reversedAndDeduped;
+    }
+
+    @Override
+    public boolean isEmpty() {
+      return super.isEmpty() && transitiveSets == null;
+    }
   }
 }

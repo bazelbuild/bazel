@@ -28,7 +28,7 @@ import java.util.Map;
 
 /** This event is fired once build info data is available. */
 public final class BuildInfoEvent
-    implements BuildEventWithOrderConstraint, ExtendedEventHandler.ProgressLike {
+    implements BuildEventWithOrderConstraint, ExtendedEventHandler.Postable {
   private final Map<String, String> buildInfoMap;
 
   /**

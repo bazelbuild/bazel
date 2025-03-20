@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.RequiresOptions;
 import com.google.devtools.build.lib.analysis.util.MockRule;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
@@ -41,9 +40,8 @@ public class LateBoundSplitUtil {
   }
 
   /** The {@link Fragment} that contains the options. */
-  @AutoCodec
   @RequiresOptions(options = {TestOptions.class})
-  public static class TestFragment extends Fragment {
+  public static final class TestFragment extends Fragment {
     private final BuildOptions buildOptions;
 
     public TestFragment(BuildOptions buildOptions) {

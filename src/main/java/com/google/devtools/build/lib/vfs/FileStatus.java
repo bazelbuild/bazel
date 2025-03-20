@@ -72,8 +72,11 @@ public interface FileStatus {
   long getLastModifiedTime() throws IOException;
 
   /**
-   * Returns the last change time of this file, where change means any change
-   * to the file, including metadata changes (milliseconds since UNIX epoch).
+   * Returns the last change time of this file, where change means any change to the file, including
+   * metadata changes (milliseconds since UNIX epoch).
+   *
+   * <p>On systems where the last change time is not supported, the last modified time will be
+   * returned instead.
    */
   long getLastChangeTime() throws IOException;
 
@@ -85,4 +88,16 @@ public interface FileStatus {
    * ought to cause the node ID of b to change, but appending / modifying b should not.
    */
   long getNodeId() throws IOException;
+
+  /**
+   * Returns the file's permissions in POSIX format (e.g. 0755) if possible without performing
+   * additional IO, otherwise (or if unsupported by the file system) returns -1.
+   *
+   * <p>If accurate group and other permissions aren't available, the returned value should attempt
+   * to mimic a umask of 022 (i.e. read and execute permissions extend to group and other, write
+   * does not).
+   */
+  default int getPermissions() {
+    return -1;
+  }
 }

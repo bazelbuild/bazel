@@ -17,11 +17,12 @@ package com.google.devtools.build.lib.analysis.platform;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
+import com.google.devtools.build.lib.analysis.ResolvedToolchainData;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.starlarkbuildapi.platform.ToolchainInfoApi;
 import java.util.Map;
 import net.starlark.java.eval.Dict;
@@ -38,7 +39,8 @@ import net.starlark.java.syntax.Location;
  * additional fields to Starlark code. Also, these are not disjoint.
  */
 @Immutable
-public final class ToolchainInfo extends NativeInfo implements ToolchainInfoApi {
+public final class ToolchainInfo extends NativeInfo
+    implements ToolchainInfoApi, ResolvedToolchainData {
 
   /** Name used in Starlark for accessing this provider. */
   public static final String STARLARK_NAME = "ToolchainInfo";
@@ -59,7 +61,7 @@ public final class ToolchainInfo extends NativeInfo implements ToolchainInfoApi 
     }
   }
 
-  @AutoCodec.VisibleForSerialization final ImmutableSortedMap<String, Object> values;
+  @VisibleForSerialization final ImmutableSortedMap<String, Object> values;
   private ImmutableSet<String> fieldNames; // initialized lazily (with monitor synchronization)
 
   /** Constructs a ToolchainInfo. The {@code values} map itself is not retained. */
@@ -88,7 +90,7 @@ public final class ToolchainInfo extends NativeInfo implements ToolchainInfoApi 
     for (Map.Entry<String, Object> e : values.entrySet()) {
       builder.put(Attribute.getStarlarkName(e.getKey()), Starlark.fromJava(e.getValue(), null));
     }
-    return builder.build();
+    return builder.buildOrThrow();
   }
 
   @Override

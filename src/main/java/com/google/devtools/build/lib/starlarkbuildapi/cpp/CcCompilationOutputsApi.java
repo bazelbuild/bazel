@@ -74,6 +74,9 @@ public interface CcCompilationOutputsApi<FileT extends FileApi> extends Starlark
   @StarlarkMethod(name = "header_tokens", documented = false, useStarlarkThread = true)
   Sequence<FileT> getStarlarkHeaderTokens(StarlarkThread thread) throws EvalException;
 
+  @StarlarkMethod(name = "module_files", documented = false, useStarlarkThread = true)
+  Sequence<FileT> getStarlarkModuleFiles(StarlarkThread thread) throws EvalException;
+
   @StarlarkMethod(name = "lto_compilation_context", documented = false, useStarlarkThread = true)
   Object getLtoCompilationContextForStarlark(StarlarkThread thread) throws EvalException;
 
@@ -82,4 +85,10 @@ public interface CcCompilationOutputsApi<FileT extends FileApi> extends Starlark
 
   @StarlarkMethod(name = "pic_dwo_files", documented = false, useStarlarkThread = true)
   Sequence<FileT> getStarlarkPicDwoFiles(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(name = "gcno_files", documented = false, useStarlarkThread = true)
+  Sequence<FileT> getStarlarkGcnoFiles(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(name = "pic_gcno_files", documented = false, useStarlarkThread = true)
+  Sequence<FileT> getStarlarkPicGcnoFiles(StarlarkThread thread) throws EvalException;
 }

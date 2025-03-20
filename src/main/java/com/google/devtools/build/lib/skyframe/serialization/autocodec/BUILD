@@ -1,7 +1,9 @@
 load("@rules_java//java:defs.bzl", "java_library", "java_plugin")
-load("@rules_pkg//:pkg.bzl", "pkg_tar")
 
-package(default_visibility = ["//src:__subpackages__"])
+package(
+    default_applicable_licenses = ["//:license"],
+    default_visibility = ["//src:__subpackages__"],
+)
 
 filegroup(
     name = "srcs",
@@ -20,10 +22,16 @@ java_library(
         ":autocodec-annotation",
         # Generated classes have the following dependencies.
         ":registered-singleton",
-        "//third_party/protobuf:protobuf_java",
+        ":runtime-helpers",
+        "@com_google_protobuf//:protobuf_java",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/lib/unsafe:unsafe-provider",
     ],
+)
+
+java_library(
+    name = "runtime-helpers",
+    srcs = ["RuntimeHelpers.java"],
 )
 
 java_library(
@@ -54,11 +62,18 @@ java_plugin(
 )
 
 java_library(
-    name = "serialization-processor-util",
-    srcs = ["SerializationProcessorUtil.java"],
+    name = "serialization-processing-exception",
+    srcs = ["SerializationProcessingException.java"],
+    deps = ["//third_party:error_prone_annotations"],
+)
+
+java_library(
+    name = "type-operations",
+    srcs = ["TypeOperations.java"],
     deps = [
-        "//third_party:error_prone_annotations",
+        ":serialization-processing-exception",
         "//third_party:guava",
+        "//third_party:jsr305",
         "//third_party/java/javapoet",
     ],
 )
@@ -69,7 +84,8 @@ java_library(
     deps = [
         ":registered-singleton",
         ":serialization-constant-annotation",
-        ":serialization-processor-util",
+        ":serialization-processing-exception",
+        ":type-operations",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:codec-scanning-constants",
         "//third_party:auto_service",
         "//third_party:guava",
@@ -97,40 +113,29 @@ java_library(
     name = "autocodec-processor",
     srcs = [
         "AutoCodecProcessor.java",
-        "AutoCodecUtil.java",
-        "Marshallers.java",
+        "CodecGenerator.java",
+        "DeferredObjectCodecConstants.java",
+        "DeferredObjectCodecFieldGenerators.java",
+        "DeferredObjectCodecGenerator.java",
+        "FieldGenerator.java",
+        "Initializers.java",
+        "InterningObjectCodecFieldGenerators.java",
+        "InterningObjectCodecGenerator.java",
         "SerializationCodeGenerator.java",
     ],
     deps = [
         ":autocodec-annotation",
-        ":serialization-constant-processor",
-        ":serialization-processor-util",
+        ":runtime-helpers",
+        ":serialization-processing-exception",
+        ":type-operations",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/lib/unsafe:unsafe-provider",
+        "//src/main/java/com/google/devtools/build/lib/util:string",
         "//third_party:auto_service",
         "//third_party:auto_value",
         "//third_party:guava",
+        "//third_party:jsr305",
         "//third_party/java/javapoet",
-        "//third_party/protobuf:protobuf_java",
+        "@com_google_protobuf//:protobuf_java",
     ],
-)
-
-# .tar archive of dependencies used for bootstrapping.
-pkg_tar(
-    name = "bootstrap_autocodec",
-    # The .jar files are created within the .tar file under third_party/bazel_bootstrap so that
-    # they will appear there in bazel-distfile, which in turn makes them visible for bootstrapping
-    # from the LIBRARY_JARS rule of bazel/scripts/bootstrap/compile.sh.
-    srcs = [
-        ":autocodec-annotation",
-        ":autocodec-processor",
-        ":registered-singleton",
-        ":serialization-constant-annotation",
-        ":serialization-constant-processor",
-        ":serialization-processor-util",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
-        "//src/main/java/com/google/devtools/build/lib/unsafe:unsafe-provider",
-    ],
-    package_dir = "third_party/bazel_bootstrap",
-    visibility = ["//visibility:public"],
 )

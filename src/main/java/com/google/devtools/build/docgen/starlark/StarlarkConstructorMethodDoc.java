@@ -13,9 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.docgen.starlark;
 
-import com.google.common.collect.ImmutableList;
 import java.lang.reflect.Method;
-import java.util.List;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Starlark;
 
@@ -25,31 +23,14 @@ import net.starlark.java.eval.Starlark;
  */
 public final class StarlarkConstructorMethodDoc extends StarlarkMethodDoc {
   private final String fullyQualifiedName;
-  private final Method method;
-  private final StarlarkMethod callable;
-  private final ImmutableList<StarlarkParamDoc> params;
 
   public StarlarkConstructorMethodDoc(
-      String fullyQualifiedName, Method method, StarlarkMethod callable) {
+      String fullyQualifiedName,
+      Method javaMethod,
+      StarlarkMethod annotation,
+      StarlarkDocExpander expander) {
+    super(javaMethod, annotation, expander);
     this.fullyQualifiedName = fullyQualifiedName;
-    this.method = method;
-    this.callable = callable;
-    this.params =
-        StarlarkDocUtils.determineParams(
-            this,
-            withoutSelfParam(callable, method),
-            callable.extraPositionals(),
-            callable.extraKeywords());
-  }
-
-  @Override
-  public Method getMethod() {
-    return method;
-  }
-
-  @Override
-  public boolean documented() {
-    return callable.documented();
   }
 
   @Override
@@ -58,30 +39,30 @@ public final class StarlarkConstructorMethodDoc extends StarlarkMethodDoc {
   }
 
   @Override
-  public String getDocumentation() {
-    return StarlarkDocUtils.substituteVariables(callable.doc());
+  public String getRawDocumentation() {
+    return annotation.doc();
   }
 
   @Override
   public String getSignature() {
-    return getSignature(fullyQualifiedName, method);
-  }
-
-  @Override
-  public String getReturnTypeExtraMessage() {
-    if (callable.allowReturnNones()) {
-      return " May return <code>None</code>.\n";
-    }
-    return "";
+    return getSignature(fullyQualifiedName);
   }
 
   @Override
   public String getReturnType() {
-    return Starlark.classType(method.getReturnType());
+    return Starlark.classType(javaMethod.getReturnType());
   }
 
   @Override
-  public List<StarlarkParamDoc> getParams() {
-    return params;
+  public String toString() {
+    return String.format(
+        "StarlarkConstructorMethodDoc{fullyQualifiedName=%s method=%s callable=%s}",
+        fullyQualifiedName, javaMethod, formatCallable());
+  }
+
+  private String formatCallable() {
+    return String.format(
+        "StarlarkMethod{name=%s selfCall=%s structField=%s doc=%s}",
+        annotation.name(), annotation.selfCall(), annotation.structField(), annotation.doc());
   }
 }

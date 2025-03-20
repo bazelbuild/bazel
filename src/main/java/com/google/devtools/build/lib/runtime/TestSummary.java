@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
 import com.google.devtools.build.lib.view.test.TestStatus.FailedTestCasesStatus;
 import com.google.devtools.build.lib.view.test.TestStatus.TestCase;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.util.Durations;
 import com.google.protobuf.util.Timestamps;
 import java.util.ArrayList;
@@ -122,54 +123,63 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
       checkMutation();
     }
 
+    @CanIgnoreReturnValue
     public Builder setConfiguration(BuildConfigurationValue configuration) {
       checkMutation(configuration);
       summary.configuration = checkNotNull(configuration, summary);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setStatus(BlazeTestStatus status) {
       checkMutation(status);
       summary.status = status;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setSkipped(boolean skipped) {
       checkMutation(skipped);
       summary.skipped = skipped;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addCoverageFiles(List<Path> coverageFiles) {
       checkMutation(coverageFiles);
       summary.coverageFiles.addAll(coverageFiles);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addPassedLogs(List<Path> passedLogs) {
       checkMutation(passedLogs);
       summary.passedLogs.addAll(passedLogs);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addPassedLog(Path passedLog) {
       checkMutation(passedLog);
       summary.passedLogs.add(passedLog);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addFailedLogs(List<Path> failedLogs) {
       checkMutation(failedLogs);
       summary.failedLogs.addAll(failedLogs);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addFailedLog(Path failedLog) {
       checkMutation(failedLog);
       summary.failedLogs.add(failedLog);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder collectTestCases(@Nullable TestCase testCase) {
       // Maintain the invariant: failedTestCases + totalUnknownTestCases <= totalTestCases
       if (testCase == null) {
@@ -205,12 +215,22 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
         // Don't count test cases that were not run.
         return 0;
       }
-      if (testCase.getStatus() != TestCase.Status.PASSED) {
-        this.summary.failedTestCases.add(testCase);
+      switch (testCase.getStatus()) {
+        case PASSED -> this.summary.passedTestCases.add(testCase);
+        case SKIPPED -> this.summary.skippedTestCases.add(testCase);
+        default -> this.summary.failedTestCases.add(testCase);
       }
+
       return 1;
     }
 
+    public Builder addPassedTestCases(List<TestCase> testCases) {
+      checkMutation(testCases);
+      summary.passedTestCases.addAll(testCases);
+      return this;
+    }
+
+    @CanIgnoreReturnValue
     public Builder addFailedTestCases(List<TestCase> testCases, FailedTestCasesStatus status) {
       checkMutation(status);
       checkMutation(testCases);
@@ -240,12 +260,14 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addTestTimes(List<Long> testTimes) {
       checkMutation(testTimes);
       summary.testTimes.addAll(testTimes);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder mergeTiming(long startTimeMillis, long runDurationMillis) {
       checkMutation();
       summary.firstStartTimeMillis = Math.min(summary.firstStartTimeMillis, startTimeMillis);
@@ -255,12 +277,14 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder addWarnings(List<String> warnings) {
       checkMutation(warnings);
       summary.warnings.addAll(warnings);
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setActionRan(boolean actionRan) {
       checkMutation();
       summary.actionRan = actionRan;
@@ -273,30 +297,35 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
      * @param numCached number of results cached locally or remotely
      * @return this Builder
      */
+    @CanIgnoreReturnValue
     public Builder setNumCached(int numCached) {
       checkMutation();
       summary.numCached = numCached;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setNumLocalActionCached(int numLocalActionCached) {
       checkMutation();
       summary.numLocalActionCached = numLocalActionCached;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setRanRemotely(boolean ranRemotely) {
       checkMutation();
       summary.ranRemotely = ranRemotely;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder setWasUnreportedWrongSize(boolean wasUnreportedWrongSize) {
       checkMutation();
       summary.wasUnreportedWrongSize = wasUnreportedWrongSize;
       return this;
     }
 
+    @CanIgnoreReturnValue
     public Builder mergeSystemFailure(@Nullable DetailedExitCode systemFailure) {
       checkMutation();
       summary.systemFailure =
@@ -317,6 +346,7 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
     }
 
     /** Records new attempts for the given shard of the target. */
+    @CanIgnoreReturnValue
     public Builder addShardAttempts(int shardNumber, int newAtttempts) {
       checkMutation();
       summary.shardAttempts[shardNumber] += newAtttempts;
@@ -375,6 +405,8 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
   private boolean ranRemotely;
   private boolean wasUnreportedWrongSize;
   private List<TestCase> failedTestCases = new ArrayList<>();
+  private final List<TestCase> passedTestCases = new ArrayList<>();
+  private final List<TestCase> skippedTestCases = new ArrayList<>();
   private List<Path> passedLogs = new ArrayList<>();
   private List<Path> failedLogs = new ArrayList<>();
   private List<String> warnings = new ArrayList<>();
@@ -484,6 +516,14 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
 
   public List<TestCase> getFailedTestCases() {
     return failedTestCases;
+  }
+
+  public List<TestCase> getSkippedTestCases() {
+    return skippedTestCases;
+  }
+
+  public List<TestCase> getPassedTestCases() {
+    return passedTestCases;
   }
 
   public List<Path> getCoverageFiles() {
@@ -605,11 +645,14 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
   @Override
   public ImmutableList<LocalFile> referencedLocalFiles() {
     ImmutableList.Builder<LocalFile> localFiles = ImmutableList.builder();
+    // TODO(b/199940216): Can we populate metadata for these files?
     for (Path path : getFailedLogs()) {
-      localFiles.add(new LocalFile(path, LocalFileType.FAILED_TEST_OUTPUT));
+      localFiles.add(
+          new LocalFile(path, LocalFileType.FAILED_TEST_OUTPUT, /* artifactMetadata= */ null));
     }
     for (Path path : getPassedLogs()) {
-      localFiles.add(new LocalFile(path, LocalFileType.SUCCESSFUL_TEST_OUTPUT));
+      localFiles.add(
+          new LocalFile(path, LocalFileType.SUCCESSFUL_TEST_OUTPUT, /* artifactMetadata= */ null));
     }
     return localFiles.build();
   }

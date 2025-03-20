@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.remote;
 
+import static java.lang.Math.max;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
@@ -35,8 +37,8 @@ public class RemoteRetrier extends Retrier {
   @Nullable
   private static Status fromException(Exception e) {
     for (Throwable cause = e; cause != null; cause = cause.getCause()) {
-      if (cause instanceof StatusRuntimeException) {
-        return ((StatusRuntimeException) cause).getStatus();
+      if (cause instanceof StatusRuntimeException statusRuntimeException) {
+        return statusRuntimeException.getStatus();
       }
     }
     return null;
@@ -49,19 +51,12 @@ public class RemoteRetrier extends Retrier {
           // It's not a gRPC error.
           return false;
         }
-        switch (s.getCode()) {
-          case CANCELLED:
-            return !Thread.currentThread().isInterrupted();
-          case UNKNOWN:
-          case DEADLINE_EXCEEDED:
-          case ABORTED:
-          case INTERNAL:
-          case UNAVAILABLE:
-          case RESOURCE_EXHAUSTED:
-            return true;
-          default:
-            return false;
-        }
+        return switch (s.getCode()) {
+          case CANCELLED -> !Thread.currentThread().isInterrupted();
+          case UNKNOWN, DEADLINE_EXCEEDED, ABORTED, INTERNAL, UNAVAILABLE, RESOURCE_EXHAUSTED ->
+              true;
+          default -> false;
+        };
       };
 
   public static final Predicate<? super Exception> RETRIABLE_GRPC_EXEC_ERRORS =
@@ -158,7 +153,7 @@ public class RemoteRetrier extends Retrier {
       Preconditions.checkArgument(jitter >= 0 && jitter <= 1, "jitter must be in the range (0, 1)");
       Preconditions.checkArgument(maxAttempts >= 0, "maxAttempts must be >= 0");
       nextDelayMillis = initial.toMillis();
-      maxMillis = max.toMillis();
+      maxMillis = max(max.toMillis(), nextDelayMillis);
       this.multiplier = multiplier;
       this.jitter = jitter;
       this.maxAttempts = maxAttempts;
@@ -166,8 +161,8 @@ public class RemoteRetrier extends Retrier {
 
     public ExponentialBackoff(RemoteOptions options) {
       this(
-          /* initial = */ Duration.ofMillis(100),
-          /* max = */ Duration.ofSeconds(5),
+          /* initial= */ Duration.ofMillis(100),
+          /* max= */ options.remoteRetryMaxDelay,
           /* multiplier= */ 2,
           /* jitter= */ 0.1,
           options.remoteMaxRetryAttempts);

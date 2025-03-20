@@ -3,7 +3,10 @@
 
 load("@rules_java//java:defs.bzl", "java_binary")
 
-licenses(["notice"])
+package(
+    default_applicable_licenses = ["//:license"],
+    default_visibility = ["//src:__subpackages__"],
+)
 
 filegroup(
     name = "srcs",
@@ -28,5 +31,6 @@ java_binary(
     deps = [
         "//src/main/java/net/starlark/java/eval",
         "//src/main/java/net/starlark/java/syntax",
+        "//third_party:jsr305",
     ],
 )

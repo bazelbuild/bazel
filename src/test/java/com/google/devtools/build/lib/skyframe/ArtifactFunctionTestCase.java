@@ -13,39 +13,39 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.FileStateValue;
-import com.google.devtools.build.lib.actions.FileValue;
-import com.google.devtools.build.lib.actions.ThreadStateReceiver;
 import com.google.devtools.build.lib.actions.util.InjectedActionLookupKey;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
+import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingDependenciesProvider.DisabledDependenciesProvider;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestPackageFactoryBuilderFactory;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
+import com.google.devtools.build.lib.vfs.FileStateKey;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
-import com.google.devtools.build.lib.vfs.UnixGlob;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.RecordingDifferencer;
 import com.google.devtools.build.skyframe.SequencedRecordingDifferencer;
-import com.google.devtools.build.skyframe.SequentialBuildDriver;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -63,10 +63,8 @@ abstract class ArtifactFunctionTestCase {
   protected LinkedHashSet<ActionAnalysisMetadata> actions;
   protected boolean fastDigest = false;
   protected RecordingDifferencer differencer = new SequencedRecordingDifferencer();
-  protected SequentialBuildDriver driver;
   protected MemoizingEvaluator evaluator;
   protected Path root;
-  protected Path middlemanPath;
   protected final ActionKeyContext actionKeyContext = new ActionKeyContext();
 
   /**
@@ -101,31 +99,22 @@ abstract class ArtifactFunctionTestCase {
         new InMemoryMemoizingEvaluator(
             ImmutableMap.<SkyFunctionName, SkyFunction>builder()
                 .put(
-                    FileStateValue.FILE_STATE,
+                    FileStateKey.FILE_STATE,
                     new FileStateFunction(
-                        new AtomicReference<TimestampGranularityMonitor>(),
-                        new AtomicReference<>(UnixGlob.DEFAULT_SYSCALLS),
+                        Suppliers.ofInstance(
+                            new TimestampGranularityMonitor(BlazeClock.instance())),
+                        SyscallCache.NO_CACHE,
                         externalFilesHelper))
-                .put(FileValue.FILE, new FileFunction(pkgLocator))
+                .put(SkyFunctions.FILE, new FileFunction(pkgLocator, directories))
                 .put(
                     Artifact.ARTIFACT,
-                    new ArtifactFunction(() -> true, MetadataConsumerForMetrics.NO_OP))
+                    new ArtifactFunction(
+                        () -> true,
+                        MetadataConsumerForMetrics.NO_OP,
+                        SyscallCache.NO_CACHE,
+                        () -> DisabledDependenciesProvider.INSTANCE))
                 .put(SkyFunctions.ACTION_EXECUTION, new SimpleActionExecutionFunction())
-                .put(
-                    SkyFunctions.PACKAGE,
-                    new PackageFunction(
-                        null,
-                        null,
-                        null,
-                        null,
-                        null,
-                        null,
-                        null,
-                        /*packageProgress=*/ null,
-                        PackageFunction.ActionOnIOExceptionReadingBuildFile.UseOriginalIOException
-                            .INSTANCE,
-                        PackageFunction.IncrementalityIntent.INCREMENTAL,
-                        k -> ThreadStateReceiver.NULL_INSTANCE))
+                .put(SkyFunctions.PACKAGE, PackageFunction.newBuilder().build())
                 .put(
                     SkyFunctions.PACKAGE_LOOKUP,
                     new PackageLookupFunction(
@@ -141,7 +130,7 @@ abstract class ArtifactFunctionTestCase {
                             .builder(directories)
                             .build(TestRuleClassProvider.getRuleClassProvider(), fs),
                         directories,
-                        /*bzlLoadFunctionForInlining=*/ null))
+                        /* bzlLoadFunctionForInlining= */ null))
                 .put(
                     SkyFunctions.EXTERNAL_PACKAGE,
                     new ExternalPackageFunction(
@@ -151,7 +140,6 @@ abstract class ArtifactFunctionTestCase {
                     new ActionTemplateExpansionFunction(actionKeyContext))
                 .build(),
             differencer);
-    driver = new SequentialBuildDriver(evaluator);
     PrecomputedValue.BUILD_ID.set(differencer, UUID.randomUUID());
     PrecomputedValue.PATH_PACKAGE_LOCATOR.set(differencer, pkgLocator.get());
     actions = new LinkedHashSet<>();
@@ -160,14 +148,12 @@ abstract class ArtifactFunctionTestCase {
   protected void setupRoot(CustomInMemoryFs fs) throws IOException {
     Path tmpDir = fs.getPath(TestUtils.tmpDir());
     root = tmpDir.getChild("root");
-    FileSystemUtils.createDirectoryAndParents(root);
+    root.createDirectoryAndParents();
     FileSystemUtils.createEmptyFile(root.getRelative("WORKSPACE"));
-    middlemanPath = tmpDir.getChild("middlemanRoot");
-    FileSystemUtils.createDirectoryAndParents(middlemanPath);
   }
 
   protected static void writeFile(Path path, String contents) throws IOException {
-    FileSystemUtils.createDirectoryAndParents(path.getParentDirectory());
+    path.getParentDirectory().createDirectoryAndParents();
     FileSystemUtils.writeContentAsLatin1(path, contents);
   }
 
@@ -192,6 +178,7 @@ abstract class ArtifactFunctionTestCase {
     }
 
     @Override
+    @SuppressWarnings("UnsynchronizedOverridesSynchronized")
     protected byte[] getFastDigest(PathFragment path) throws IOException {
       return fastDigest ? getDigest(path) : null;
     }

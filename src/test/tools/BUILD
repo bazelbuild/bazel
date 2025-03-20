@@ -1,6 +1,7 @@
 load("@rules_cc//cc:defs.bzl", "cc_test")
 
 package(
+    default_applicable_licenses = ["//:license"],
     default_visibility = ["//src:__subpackages__"],
 )
 
@@ -19,5 +20,15 @@ cc_test(
     deps = [
         "//src/main/tools:process-tools",
         "@com_google_googletest//:gtest_main",
+    ],
+)
+
+sh_test(
+    name = "daemonize_test",
+    srcs = ["daemonize_test.sh"],
+    data = ["//src/main/tools:daemonize"],
+    deps = [
+        "//src/test/shell:bashunit",
+        "@bazel_tools//tools/bash/runfiles",
     ],
 )

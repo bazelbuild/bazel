@@ -34,9 +34,9 @@ import com.google.devtools.build.lib.concurrent.BlazeInterners;
 public abstract class KeyToConsolidate {
   enum Op {
     /**
-     * Assert that the reverse dep is already present in the set of reverse deps. If the entry is
-     * re-evaluating, add this reverse dep to the set of reverse deps to signal when this entry is
-     * done.
+     * If the entry is re-evaluating, assert that the reverse dep is already present in the set of
+     * reverse deps and add this reverse dep to the set of reverse deps to signal when this entry is
+     * done. If the entry is already done, do nothing.
      */
     CHECK,
     /**
@@ -48,26 +48,9 @@ public abstract class KeyToConsolidate {
     /**
      * Remove the reverse dep from the set of reverse deps and assert it was present. If the entry
      * is re-evaluating, also remove the reverse dep from the set of reverse deps to signal when
-     * this entry is done, and assert that it was present.
+     * this entry is done.
      */
-    REMOVE,
-    /**
-     * The same as {@link #REMOVE}, except that if the entry is re-evaluating, we assert that the
-     * set of reverse deps to signal did <i>not</i> contain this reverse dep.
-     */
-    REMOVE_OLD
-  }
-
-  /** The operation {@link ReverseDepsUtility} should store bare in pending reverse dep ops. */
-  public enum OpToStoreBare {
-    ADD(Op.ADD),
-    CHECK(Op.CHECK);
-
-    private final Op op;
-
-    OpToStoreBare(Op op) {
-      this.op = op;
-    }
+    REMOVE
   }
 
   private static final Interner<KeyToConsolidate> consolidateInterner =
@@ -89,9 +72,9 @@ public abstract class KeyToConsolidate {
    * Gets which operation was delayed for the given object, created using {@link #create}. The same
    * {@code opToStoreBare} passed in to {@link #create} should be passed in here.
    */
-  static Op op(Object obj, OpToStoreBare opToStoreBare) {
+  static Op op(Object obj, Op opToStoreBare) {
     if (obj instanceof SkyKey) {
-      return opToStoreBare.op;
+      return opToStoreBare;
     }
     if (obj instanceof KeyToAdd) {
       return Op.ADD;
@@ -102,17 +85,14 @@ public abstract class KeyToConsolidate {
     if (obj instanceof KeyToRemove) {
       return Op.REMOVE;
     }
-    if (obj instanceof KeyToRemoveOld) {
-      return Op.REMOVE_OLD;
-    }
     throw new IllegalStateException(
         "Unknown object type: " + obj + ", " + opToStoreBare + ", " + obj.getClass());
   }
 
   /** Gets the key whose operation was delayed for the given object. */
   static SkyKey key(Object obj) {
-    if (obj instanceof SkyKey) {
-      return (SkyKey) obj;
+    if (obj instanceof SkyKey skyKey) {
+      return skyKey;
     }
     Preconditions.checkState(obj instanceof KeyToConsolidate, obj);
     return ((KeyToConsolidate) obj).key;
@@ -125,8 +105,9 @@ public abstract class KeyToConsolidate {
    * object wrapper. Whatever {@code opToStoreBare} is set to here, the same value must be passed in
    * to {@link #op} when decoding an operation emitted by this method.
    */
-  static Object create(SkyKey key, Op op, OpToStoreBare opToStoreBare) {
-    if (op == opToStoreBare.op) {
+  static Object create(SkyKey key, Op op, IncrementalInMemoryNodeEntry entry) {
+    Preconditions.checkNotNull(key);
+    if (op == ReverseDepsUtility.getOpToStoreBare(entry)) {
       return key;
     }
     switch (op) {
@@ -134,8 +115,6 @@ public abstract class KeyToConsolidate {
         return consolidateInterner.intern(new KeyToCheck(key));
       case REMOVE:
         return consolidateInterner.intern(new KeyToRemove(key));
-      case REMOVE_OLD:
-        return consolidateInterner.intern(new KeyToRemoveOld(key));
       case ADD:
         return consolidateInterner.intern(new KeyToAdd(key));
       default:
@@ -151,7 +130,7 @@ public abstract class KeyToConsolidate {
     return this.getClass() == obj.getClass() && this.key.equals(((KeyToConsolidate) obj).key);
   }
 
-  protected int keyHashCode() {
+  int keyHashCode() {
     return key.hashCode();
   }
 
@@ -191,17 +170,6 @@ public abstract class KeyToConsolidate {
     @Override
     public int hashCode() {
       return 42 + 37 * keyHashCode();
-    }
-  }
-
-  private static final class KeyToRemoveOld extends KeyToConsolidate {
-    KeyToRemoveOld(SkyKey key) {
-      super(key);
-    }
-
-    @Override
-    public int hashCode() {
-      return 93 + 37 * keyHashCode();
     }
   }
 }

@@ -49,25 +49,14 @@ public class LocalExecutionOptions extends OptionsBase {
   public RegexPatternOption allowedLocalAction;
 
   @Option(
-    name = "experimental_collect_local_action_metrics",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.EXECUTION},
-    help =
-        "When enabled, execution statistics (such as user and system time) are recorded for "
-            + "locally executed actions which don't use sandboxing"
-  )
-  public boolean collectLocalExecutionStatistics;
-
-  @Option(
       name = "experimental_local_lockfree_output",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.EXECUTION},
       help =
-          "When true, the local spawn runner does lock the output tree during dynamic execution. "
-              + "Instead, spawns are allowed to execute until they are explicitly interrupted by a "
-              + "faster remote action.")
+          "When true, the local spawn runner doesn't lock the output tree during dynamic "
+              + "execution. Instead, spawns are allowed to execute until they are explicitly "
+              + "interrupted by a faster remote action.")
   public boolean localLockfreeOutput;
 
   @Option(

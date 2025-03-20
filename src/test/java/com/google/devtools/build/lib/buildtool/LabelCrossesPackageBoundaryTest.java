@@ -29,11 +29,16 @@ public class LabelCrossesPackageBoundaryTest extends BuildIntegrationTestCase {
 
   @Test
   public void testLabelCrossesPackageBoundary_target() throws Exception {
-    write("x/BUILD",
-        "genrule(name = 'x',",
-        "        srcs = ['//x:y/z'],",
-        "        cmd = 'true',",
-        "        outs = ['out'])");
+    write(
+        "x/BUILD",
+        """
+        genrule(
+            name = "x",
+            srcs = ["//x:y/z"],
+            outs = ["out"],
+            cmd = "true",
+        )
+        """);
     write("x/y/BUILD",
           "exports_files(['z'])");
 

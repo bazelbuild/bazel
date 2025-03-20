@@ -13,7 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages;
 
+import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.util.FileTypeSet;
 import javax.annotation.Nullable;
 
 /**
@@ -22,6 +24,16 @@ import javax.annotation.Nullable;
  * include aspect-entailed deps.
  */
 public final class LabelVisitationUtils {
+
+  // An attribute which symbolizes the "toolchains" parameter of rule class definitions
+  // (user-specified via the `toolchains` parameter of the starlark rule() function). This is so
+  // that labels specified in this `toolchains` parameter may be treated the same as dependencies
+  // defined on an implicit rule attribute. This "fake" attribute uses an obscure placeholder name
+  // to prevent dependencies on this implementation detail.
+  private static final Attribute TOOLCHAIN_TYPE_ATTR_FOR_FILTERING =
+      Attribute.attr("_hidden_toolchain_types", BuildType.LABEL_LIST)
+          .allowedFileTypes(FileTypeSet.NO_FILE)
+          .build();
 
   private LabelVisitationUtils() {}
 
@@ -55,10 +67,10 @@ public final class LabelVisitationUtils {
       return;
     }
 
-    if (target instanceof Rule) {
-      Rule rule = (Rule) target;
+    if (target instanceof Rule rule) {
       visitRuleVisibility(rule, edgeFilter, labelProcessor);
       visitRule(rule, edgeFilter, labelProcessor);
+      visitRuleToolchains(rule, edgeFilter, labelProcessor);
       return;
     }
 
@@ -69,7 +81,7 @@ public final class LabelVisitationUtils {
 
   private static void visitTargetVisibility(
       Target target, @Nullable Attribute attribute, LabelProcessor labelProcessor) {
-    for (Label label : target.getVisibility().getDependencyLabels()) {
+    for (Label label : target.getVisibilityDependencyLabels()) {
       labelProcessor.process(target, attribute, label);
     }
   }
@@ -77,12 +89,26 @@ public final class LabelVisitationUtils {
   private static void visitRuleVisibility(
       Rule rule, DependencyFilter edgeFilter, LabelProcessor labelProcessor) {
     RuleClass ruleClass = rule.getRuleClassObject();
-    if (!ruleClass.hasAttr("visibility", BuildType.NODEP_LABEL_LIST)) {
+    Integer index = ruleClass.getAttributeIndex("visibility");
+    if (index == null) {
       return;
     }
-    Attribute visibilityAttribute = ruleClass.getAttributeByName("visibility");
+    Attribute visibilityAttribute = ruleClass.getAttribute(index);
+    if (visibilityAttribute.getType() != BuildType.NODEP_LABEL_LIST) {
+      return;
+    }
     if (edgeFilter.test(rule, visibilityAttribute)) {
       visitTargetVisibility(rule, visibilityAttribute, labelProcessor);
+    }
+  }
+
+  private static void visitRuleToolchains(
+      Rule rule, DependencyFilter edgeFilter, LabelProcessor labelProcessor) {
+    RuleClass ruleClass = rule.getRuleClassObject();
+    if (edgeFilter.test(rule, TOOLCHAIN_TYPE_ATTR_FOR_FILTERING)) {
+      for (ToolchainTypeRequirement t : ruleClass.getToolchainTypes()) {
+        labelProcessor.process(rule, TOOLCHAIN_TYPE_ATTR_FOR_FILTERING, t.toolchainType());
+      }
     }
   }
 
@@ -90,7 +116,13 @@ public final class LabelVisitationUtils {
       Rule rule, DependencyFilter edgeFilter, LabelProcessor labelProcessor) {
     AggregatingAttributeMapper.of(rule)
         .visitLabels(
-            edgeFilter, (attribute, label) -> labelProcessor.process(rule, attribute, label));
+            edgeFilter,
+            (Label label, Attribute attribute) -> {
+              if (label == null) {
+                return;
+              }
+              labelProcessor.process(rule, attribute, label);
+            });
   }
 
   private static void visitPackageGroup(PackageGroup packageGroup, LabelProcessor labelProcessor) {

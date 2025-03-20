@@ -21,10 +21,12 @@ CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${CURRENT_DIR}/../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-function test_execroot_structure() {
-  ws_name="dooby_dooby_doo"
+function test_execroot_structure_with_bzlmod() {
   cat > WORKSPACE <<EOF
-workspace(name = "$ws_name")
+workspace(name = "whatever_doesnt_matter")
+EOF
+  cat > MODULE.bazel <<EOF
+module(name="this_also_doesnt_matter")
 EOF
 
   mkdir dir
@@ -37,16 +39,15 @@ genrule(
 )
 EOF
 
-  bazel build -s //dir:use-srcs &> $TEST_log || fail "expected success"
-  execroot="$(bazel info execution_root)"
-  test -e "$execroot/../${ws_name}"
+  bazel build --enable_bzlmod -s //dir:use-srcs &> $TEST_log \
+      || fail "expected success"
+  execroot="$(bazel info --enable_bzlmod execution_root)"
+  test -e "$execroot/../_main"
   ls -l bazel-out | tee out
-  assert_contains "$(dirname $execroot)/${ws_name}/bazel-out" out
+  assert_contains "$(dirname $execroot)/_main/bazel-out" out
 }
 
 function test_sibling_repository_layout() {
-    touch WORKSPACE
-
     mkdir -p external/foo
     cat > external/foo/BUILD <<'EOF'
 genrule(
@@ -70,8 +71,6 @@ EOF
 
 # Regression test for b/149771751
 function test_sibling_repository_layout_indirect_dependency() {
-    touch WORKSPACE
-
     mkdir external
     mkdir -p foo
     cat > BUILD <<'EOF'
@@ -95,8 +94,6 @@ EOF
 
 # Regression test for b/149771751
 function test_subdirectory_repository_layout_indirect_dependency() {
-    touch WORKSPACE
-
     mkdir external
     mkdir -p foo
     cat > BUILD <<'EOF'
@@ -119,8 +116,6 @@ EOF
 }
 
 function test_no_sibling_repository_layout() {
-    touch WORKSPACE
-
     mkdir -p external/foo
     cat > external/foo/BUILD <<'EOF'
 genrule(
@@ -145,8 +140,6 @@ EOF
 }
 
 function test_external_directory_globs() {
-  touch WORKSPACE
-
   mkdir -p external/a external/c
   echo file_ab > external/a/b
   echo file_cd > external/c/d
@@ -168,7 +161,6 @@ EOF
 }
 
 function test_cc_smoke_with_new_layouts() {
-  touch WORKSPACE
   mkdir -p external/a
   cat > external/a/BUILD <<EOF
 cc_binary(name='a', srcs=['a.cc'])
@@ -187,7 +179,6 @@ EOF
 }
 
 function test_java_smoke_with_new_layouts() {
-  touch WORKSPACE
   mkdir -p external/java/a
   cat > external/java/a/BUILD <<EOF
 java_binary(name='a', srcs=['A.java'])

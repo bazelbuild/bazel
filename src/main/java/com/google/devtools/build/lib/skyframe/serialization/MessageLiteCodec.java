@@ -22,22 +22,24 @@ import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.MessageLite;
 import com.google.protobuf.UnknownFieldSet;
 import java.io.IOException;
-import java.util.function.Supplier;
+import java.lang.reflect.Method;
 
 /** Codec for protos. */
-public final class MessageLiteCodec implements ObjectCodec<MessageLite> {
+public final class MessageLiteCodec extends LeafObjectCodec<MessageLite> {
 
-  private final Supplier<MessageLite.Builder> builderSupplier;
   private final Class<? extends MessageLite> type;
 
-  /**
-   * Constructor.
-   *
-   * @param builderSupplier reference to a proto's newBuilder method
-   */
-  public MessageLiteCodec(Supplier<MessageLite.Builder> builderSupplier) {
-    this.builderSupplier = builderSupplier;
-    this.type = builderSupplier.get().buildPartial().getClass();
+  /** Instantiates {@link MessageLite.Builder} via {@link MessageLite#newBuilderForType}. */
+  private final MessageLite defaultInstance;
+
+  public MessageLiteCodec(Class<? extends MessageLite> type) {
+    this.type = type;
+    try {
+      Method m = type.getMethod("getDefaultInstance");
+      this.defaultInstance = (MessageLite) m.invoke(null);
+    } catch (ReflectiveOperationException e) {
+      throw new IllegalArgumentException("Invalid proto class " + type.getCanonicalName(), e);
+    }
   }
 
   @Override
@@ -47,18 +49,18 @@ public final class MessageLiteCodec implements ObjectCodec<MessageLite> {
 
   @Override
   public void serialize(
-      SerializationContext unusedContext, MessageLite message, CodedOutputStream codedOut)
-      throws IOException, SerializationException {
+      LeafSerializationContext context, MessageLite message, CodedOutputStream codedOut)
+      throws IOException {
     codedOut.writeMessageNoTag(message);
   }
 
   @Override
-  public MessageLite deserialize(DeserializationContext unusedContext, CodedInputStream codedIn)
+  public MessageLite deserialize(LeafDeserializationContext context, CodedInputStream codedIn)
       throws IOException, SerializationException {
     // Don't hold on to full byte array when constructing this proto.
     codedIn.enableAliasing(false);
     try {
-      MessageLite.Builder builder = builderSupplier.get();
+      MessageLite.Builder builder = defaultInstance.newBuilderForType();
       codedIn.readMessage(builder, ExtensionRegistryLite.getEmptyRegistry());
       return builder.build();
     } catch (InvalidProtocolBufferException e) {
@@ -72,7 +74,7 @@ public final class MessageLiteCodec implements ObjectCodec<MessageLite> {
   private static class MessageLiteCodecRegisterer implements CodecRegisterer {
     @Override
     public ImmutableList<ObjectCodec<?>> getCodecsToRegister() {
-      return ImmutableList.of(new MessageLiteCodec(UnknownFieldSet::newBuilder));
+      return ImmutableList.of(new MessageLiteCodec(UnknownFieldSet.class));
     }
   }
 }

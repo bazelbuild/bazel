@@ -16,7 +16,7 @@
 package com.google.devtools.build.lib.bazel.bzlmod;
 
 import com.google.auto.value.AutoValue;
-import net.starlark.java.eval.Dict;
+import com.ryanharter.auto.value.gson.GenerateTypeAdapter;
 import net.starlark.java.syntax.Location;
 
 /**
@@ -26,18 +26,39 @@ import net.starlark.java.syntax.Location;
  * <em>not</em> when the tag is created, which is during module discovery).
  */
 @AutoValue
+@GenerateTypeAdapter
 public abstract class Tag {
 
   public abstract String getTagName();
 
   /** All keyword arguments supplied to the tag instance. */
-  public abstract Dict<String, Object> getAttributeValues();
+  public abstract AttributeValues getAttributeValues();
+
+  /** Whether this tag was created using a proxy created with dev_dependency = True. */
+  public abstract boolean isDevDependency();
 
   /** The source location in the module file where this tag was created. */
   public abstract Location getLocation();
 
+  public abstract Builder toBuilder();
+
   public static Builder builder() {
     return new AutoValue_Tag.Builder();
+  }
+
+  /**
+   * Returns a new tag with all information removed that does not influence the evaluation of the
+   * extension defining the tag.
+   */
+  Tag trimForEvaluation() {
+    // We start with the full usage and selectively remove information that does not influence the
+    // evaluation of the extension. Compared to explicitly copying over the parts that do, this
+    // preserves correctness in case new fields are added without updating this code.
+    return toBuilder()
+        // Locations are only used for error reporting and thus don't influence whether the
+        // evaluation of the extension is successful and what its result is in case of success.
+        .setLocation(Location.BUILTIN)
+        .build();
   }
 
   /** Builder for {@link Tag}. */
@@ -46,7 +67,9 @@ public abstract class Tag {
 
     public abstract Builder setTagName(String value);
 
-    public abstract Builder setAttributeValues(Dict<String, Object> value);
+    public abstract Builder setAttributeValues(AttributeValues value);
+
+    public abstract Builder setDevDependency(boolean value);
 
     public abstract Builder setLocation(Location value);
 

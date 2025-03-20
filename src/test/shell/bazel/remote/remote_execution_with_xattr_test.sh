@@ -86,6 +86,7 @@ EOF
   bazel \
       --unix_digest_hash_attribute_name=user.checksum.sha256 \
       build \
+      --incompatible_autoload_externally= \
       --remote_cache=grpc://localhost:${worker_port} \
       --profile=profile_log \
       --record_full_profiler_data \

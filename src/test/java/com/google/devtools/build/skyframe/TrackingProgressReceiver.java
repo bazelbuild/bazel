@@ -15,17 +15,18 @@ package com.google.devtools.build.skyframe;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Sets;
+import com.google.devtools.build.skyframe.NodeEntry.DirtyType;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /** A testing utility to keep track of evaluation. */
 public class TrackingProgressReceiver implements EvaluationProgressReceiver {
   private final boolean checkEvaluationResults;
+
   /**
-   * Callback to be executed on a next {@link #invalidated} call. It will be run once and is
-   * expected to be run if set.
+   * Callback to be executed on a next {@link #dirtied} or {@link #deleted(SkyKey)} call. It will be
+   * run once and is expected to be run if set.
    */
   private final AtomicReference<Runnable> nextInvalidationCallback = new AtomicReference<>();
 
@@ -39,23 +40,23 @@ public class TrackingProgressReceiver implements EvaluationProgressReceiver {
   }
 
   @Override
-  public void invalidated(SkyKey skyKey, InvalidationState state) {
-    final Runnable invalidateCallback = nextInvalidationCallback.getAndSet(null);
-    if (invalidateCallback != null) {
-      invalidateCallback.run();
-    }
+  public void dirtied(SkyKey skyKey, DirtyType dirtyType) {
+    runInvalidationCallbackIfPresent();
+    dirty.add(skyKey);
+    Preconditions.checkState(!deleted.contains(skyKey), skyKey);
+  }
 
-    switch (state) {
-      case DELETED:
-        dirty.remove(skyKey);
-        deleted.add(skyKey);
-        break;
-      case DIRTY:
-        dirty.add(skyKey);
-        Preconditions.checkState(!deleted.contains(skyKey));
-        break;
-      default:
-        throw new IllegalStateException();
+  @Override
+  public void deleted(SkyKey skyKey) {
+    runInvalidationCallbackIfPresent();
+    dirty.remove(skyKey);
+    deleted.add(skyKey);
+  }
+
+  private void runInvalidationCallbackIfPresent() {
+    Runnable callback = nextInvalidationCallback.getAndSet(null);
+    if (callback != null) {
+      callback.run();
     }
   }
 
@@ -67,14 +68,14 @@ public class TrackingProgressReceiver implements EvaluationProgressReceiver {
   @Override
   public void evaluated(
       SkyKey skyKey,
+      EvaluationState state,
       @Nullable SkyValue value,
       @Nullable ErrorInfo error,
-      Supplier<EvaluationSuccessState> evaluationSuccessState,
-      EvaluationState state) {
+      @Nullable GroupedDeps directDeps) {
     evaluated.add(skyKey);
-    if (checkEvaluationResults && evaluationSuccessState.get().succeeded()) {
+    if (checkEvaluationResults && state.succeeded()) {
       deleted.remove(skyKey);
-      if (state.equals(EvaluationState.CLEAN)) {
+      if (!state.versionChanged()) {
         dirty.remove(skyKey);
       }
     }
@@ -88,7 +89,7 @@ public class TrackingProgressReceiver implements EvaluationProgressReceiver {
   }
 
   void setNextInvalidationCallback(Runnable runnable) {
-    final Runnable oldCallback = nextInvalidationCallback.getAndSet(runnable);
+    Runnable oldCallback = nextInvalidationCallback.getAndSet(runnable);
     Preconditions.checkState(
         oldCallback == null, "Overwriting a left-over callback: %s", oldCallback);
   }

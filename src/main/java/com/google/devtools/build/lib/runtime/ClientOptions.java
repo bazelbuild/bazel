@@ -55,7 +55,7 @@ public class ClientOptions extends OptionsBase {
   }
 
   /** Converter for --default_override. The format is: --default_override=blazerc:command=option. */
-  public static class OptionOverrideConverter implements Converter<OptionOverride> {
+  public static class OptionOverrideConverter extends Converter.Contextless<OptionOverride> {
     static final String ERROR_MESSAGE =
         "option overrides must be in form rcfile:command=option, where rcfile is a nonzero integer";
 

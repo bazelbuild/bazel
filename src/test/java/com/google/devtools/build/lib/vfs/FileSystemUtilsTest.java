@@ -29,26 +29,31 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.devtools.build.lib.testutil.BlazeTestUtils;
 import com.google.devtools.build.lib.testutil.ManualClock;
+import com.google.devtools.build.lib.vfs.FileSystem.NotASymlinkException;
 import com.google.devtools.build.lib.vfs.FileSystemUtils.MoveResult;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Collection;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
-/**
- * This class tests the file system utilities.
- */
-@RunWith(JUnit4.class)
+/** This class tests the file system utilities. */
+@RunWith(TestParameterInjector.class)
 public class FileSystemUtilsTest {
   private ManualClock clock;
   private FileSystem fileSystem;
   private Path workingDir;
+
+  enum FileType {
+    FILE,
+    DIRECTORY,
+    SYMLINK
+  }
 
   @Before
   public final void initializeFileSystem() throws Exception  {
@@ -108,7 +113,7 @@ public class FileSystemUtilsTest {
     FileSystemUtils.createEmptyFile(file5);
   }
 
-  private Path checkTestDirectoryTreesBelowExceptSymlinks(Path toPath) throws IOException {
+  private void checkTestDirectoryTreesBelow(Path toPath) throws IOException {
     Path copiedFile1 = toPath.getChild("file-1");
     assertThat(copiedFile1.exists()).isTrue();
     assertThat(copiedFile1.isFile()).isTrue();
@@ -130,19 +135,14 @@ public class FileSystemUtilsTest {
     Path copiedInnerDir = copiedADir.getChild("inner-dir");
     assertThat(copiedInnerDir.exists()).isTrue();
     assertThat(copiedInnerDir.isDirectory()).isTrue();
-    return copiedInnerDir;
-  }
 
-  private void checkTestDirectoryTreesBelow(Path toPath) throws IOException {
-    Path copiedInnerDir = checkTestDirectoryTreesBelowExceptSymlinks(toPath);
     Path copiedLink1 = copiedInnerDir.getChild("link-1");
     assertThat(copiedLink1.exists()).isTrue();
-    assertThat(copiedLink1.isSymbolicLink()).isFalse();
+    assertThat(copiedLink1.isSymbolicLink()).isTrue();
 
     Path copiedDirLink = copiedInnerDir.getChild("dir-link");
     assertThat(copiedDirLink.exists()).isTrue();
-    assertThat(copiedDirLink.isDirectory()).isTrue();
-    assertThat(copiedDirLink.getChild("file-5").exists()).isTrue();
+    assertThat(copiedDirLink.isSymbolicLink()).isTrue();
   }
 
   // tests
@@ -347,13 +347,14 @@ public class FileSystemUtilsTest {
   }
 
   @Test
-  public void testMoveFile() throws IOException {
+  public void testMoveFile(@TestParameter boolean targetIsWritable) throws IOException {
     createTestDirectoryTree();
     Path originalFile = file1;
     byte[] content = new byte[] { 'a', 'b', 'c', 23, 42 };
     FileSystemUtils.writeContent(originalFile, content);
 
     Path moveTarget = file2;
+    moveTarget.setWritable(targetIsWritable);
 
     assertThat(moveFile(originalFile, moveTarget)).isEqualTo(MoveResult.FILE_MOVED);
 
@@ -387,6 +388,24 @@ public class FileSystemUtilsTest {
   }
 
   @Test
+  public void testMoveFileAcrossDevicesToResolvedSymlink() throws Exception {
+    FileSystem fs = new MultipleDeviceFS();
+    Path source = fs.getPath("/fs1/source");
+    source.getParentDirectory().createDirectoryAndParents();
+    Path target = fs.getPath("/fs2/target");
+    target.getParentDirectory().createDirectoryAndParents();
+    FileSystemUtils.writeContent(source, UTF_8, "hello, world");
+    Path symlinkTarget = target.getParentDirectory().getChild("symlinkTarget");
+    FileSystemUtils.touchFile(symlinkTarget);
+    target.createSymbolicLink(PathFragment.create(symlinkTarget.getBaseName()));
+
+    assertThat(FileSystemUtils.moveFile(source, target)).isEqualTo(MoveResult.FILE_COPIED);
+    assertThat(source.exists(Symlinks.NOFOLLOW)).isFalse();
+    assertThat(target.isFile(Symlinks.NOFOLLOW)).isTrue();
+    assertThat(FileSystemUtils.readContent(target, UTF_8)).isEqualTo("hello, world");
+  }
+
+  @Test
   public void testMoveFileFixPermissions() throws Exception {
     FileSystem fs = new MultipleDeviceFS();
     Path source = fs.getPath("/fs1/source");
@@ -407,18 +426,19 @@ public class FileSystemUtilsTest {
   }
 
   @Test
-  public void testReadContentWithLimit() throws IOException {
+  public void testReadWithKnownFileSize() throws IOException {
     createTestDirectoryTree();
     String str = "this is a test of readContentWithLimit method";
-    FileSystemUtils.writeContent(file1, StandardCharsets.ISO_8859_1, str);
-    assertThat(readStringFromFile(file1, 0)).isEmpty();
-    assertThat(str.substring(0, 10)).isEqualTo(readStringFromFile(file1, 10));
-    assertThat(str).isEqualTo(readStringFromFile(file1, 1000000));
-  }
+    FileSystemUtils.writeContent(file1, ISO_8859_1, str);
 
-  private String readStringFromFile(Path file, int limit) throws IOException {
-    byte[] bytes = FileSystemUtils.readContentWithLimit(file, limit);
-    return new String(bytes, StandardCharsets.ISO_8859_1);
+    assertThat(FileSystemUtils.readWithKnownFileSize(file1, str.length()))
+        .isEqualTo(str.getBytes(ISO_8859_1));
+    assertThrows(
+        FileSystemUtils.LongReadIOException.class,
+        () -> FileSystemUtils.readWithKnownFileSize(file1, str.length() - 1));
+    assertThrows(
+        FileSystemUtils.ShortReadIOException.class,
+        () -> FileSystemUtils.readWithKnownFileSize(file1, str.length() + 1));
   }
 
   @Test
@@ -493,18 +513,7 @@ public class FileSystemUtilsTest {
     Path toPath = fileSystem.getPath("/copy-here");
     toPath.createDirectory();
 
-    FileSystemUtils.copyTreesBelow(topDir, toPath, Symlinks.FOLLOW);
-    checkTestDirectoryTreesBelow(toPath);
-  }
-
-  @Test
-  public void testCopyTreesBelowWithOverriding() throws IOException {
-    createTestDirectoryTree();
-    Path toPath = fileSystem.getPath("/copy-here");
-    toPath.createDirectory();
-    toPath.getChild("file-2");
-
-    FileSystemUtils.copyTreesBelow(topDir, toPath, Symlinks.FOLLOW);
+    FileSystemUtils.copyTreesBelow(topDir, toPath);
     checkTestDirectoryTreesBelow(toPath);
   }
 
@@ -513,8 +522,7 @@ public class FileSystemUtilsTest {
     createTestDirectoryTree();
     IllegalArgumentException expected =
         assertThrows(
-            IllegalArgumentException.class,
-            () -> FileSystemUtils.copyTreesBelow(topDir, aDir, Symlinks.FOLLOW));
+            IllegalArgumentException.class, () -> FileSystemUtils.copyTreesBelow(topDir, aDir));
     assertThat(expected).hasMessageThat().isEqualTo("/top-dir/a-dir is a subdirectory of /top-dir");
   }
 
@@ -522,8 +530,7 @@ public class FileSystemUtilsTest {
   public void testCopyFileAsDirectoryTree() throws IOException {
     createTestDirectoryTree();
     IOException expected =
-        assertThrows(
-            IOException.class, () -> FileSystemUtils.copyTreesBelow(file1, aDir, Symlinks.FOLLOW));
+        assertThrows(IOException.class, () -> FileSystemUtils.copyTreesBelow(file1, aDir));
     assertThat(expected).hasMessageThat().isEqualTo("/top-dir/file-1 (Not a directory)");
   }
 
@@ -532,11 +539,9 @@ public class FileSystemUtilsTest {
     createTestDirectoryTree();
     Path copyDir = fileSystem.getPath("/my-dir");
     Path copySubDir = fileSystem.getPath("/my-dir/subdir");
-    FileSystemUtils.createDirectoryAndParents(copySubDir);
+    copySubDir.createDirectoryAndParents();
     IOException expected =
-        assertThrows(
-            IOException.class,
-            () -> FileSystemUtils.copyTreesBelow(copyDir, file4, Symlinks.FOLLOW));
+        assertThrows(IOException.class, () -> FileSystemUtils.copyTreesBelow(copyDir, file4));
     assertThat(expected).hasMessageThat().isEqualTo("/file-4 (Not a directory)");
   }
 
@@ -547,43 +552,8 @@ public class FileSystemUtilsTest {
     Path unexistingDir = fileSystem.getPath("/unexisting-dir");
     FileNotFoundException expected =
         assertThrows(
-            FileNotFoundException.class,
-            () -> FileSystemUtils.copyTreesBelow(unexistingDir, aDir, Symlinks.FOLLOW));
+            FileNotFoundException.class, () -> FileSystemUtils.copyTreesBelow(unexistingDir, aDir));
     assertThat(expected).hasMessageThat().isEqualTo("/unexisting-dir (No such file or directory)");
-  }
-
-  @Test
-  public void testCopyTreesBelowNoFollowSymlinks() throws IOException {
-    createTestDirectoryTree();
-    PathFragment relative1 = file1.relativeTo(topDir);
-    topDir.getRelative("relative-link").createSymbolicLink(relative1);
-    PathFragment relativeInner = PathFragment.create("..").getRelative(relative1);
-    bDir.getRelative("relative-inner-link").createSymbolicLink(relativeInner);
-    PathFragment rootDirectory = PathFragment.create("/");
-    topDir.getRelative("absolute-link").createSymbolicLink(rootDirectory);
-    Path toPath = fileSystem.getPath("/copy-here");
-    toPath.createDirectory();
-
-    FileSystemUtils.copyTreesBelow(topDir, toPath, Symlinks.NOFOLLOW);
-    Path copiedInnerDir = checkTestDirectoryTreesBelowExceptSymlinks(toPath);
-    Path copiedLink1 = copiedInnerDir.getChild("link-1");
-    assertThat(copiedLink1.exists()).isTrue();
-    assertThat(copiedLink1.isSymbolicLink()).isTrue();
-    assertThat(copiedLink1.readSymbolicLink()).isEqualTo(file4.asFragment());
-
-    Path copiedDirLink = copiedInnerDir.getChild("dir-link");
-    assertThat(copiedDirLink.exists()).isTrue();
-    assertThat(copiedDirLink.isDirectory()).isTrue();
-    assertThat(copiedDirLink.readSymbolicLink()).isEqualTo(bDir.asFragment());
-
-    assertThat(toPath.getRelative("relative-link").readSymbolicLink()).isEqualTo(relative1);
-    assertThat(
-            toPath
-                .getRelative(bDir.relativeTo(topDir))
-                .getRelative("relative-inner-link")
-                .readSymbolicLink())
-        .isEqualTo(relativeInner);
-    assertThat(toPath.getRelative("absolute-link").readSymbolicLink()).isEqualTo(rootDirectory);
   }
 
   @Test
@@ -702,28 +672,28 @@ public class FileSystemUtilsTest {
         "/dev/foobar /foobar dummy_foobar blah 0 0",
         "proc proc proc rw,noexec,nosuid,nodev 0 0");
     Path path = fileSystem.getPath("/usr/local/google/_blaze");
-    FileSystemUtils.createDirectoryAndParents(path);
+    path.createDirectoryAndParents();
     assertThat(FileSystemUtils.getFileSystem(path)).isEqualTo("ext3");
 
     // Should match the root "/"
     path = fileSystem.getPath("/usr/local/tmp");
-    FileSystemUtils.createDirectoryAndParents(path);
+    path.createDirectoryAndParents();
     assertThat(FileSystemUtils.getFileSystem(path)).isEqualTo("ext2");
 
     // Make sure we don't consider /foobar matches /foo
     path = fileSystem.getPath("/foo");
-    FileSystemUtils.createDirectoryAndParents(path);
+    path.createDirectoryAndParents();
     assertThat(FileSystemUtils.getFileSystem(path)).isEqualTo("dummy_foo");
     path = fileSystem.getPath("/foobar");
-    FileSystemUtils.createDirectoryAndParents(path);
+    path.createDirectoryAndParents();
     assertThat(FileSystemUtils.getFileSystem(path)).isEqualTo("dummy_foobar");
 
     path = fileSystem.getPath("/dev/shm/blaze");
-    FileSystemUtils.createDirectoryAndParents(path);
+    path.createDirectoryAndParents();
     assertThat(FileSystemUtils.getFileSystem(path)).isEqualTo("tmpfs");
 
     Path fusePath = fileSystem.getPath("/fuse/mnt/tmp");
-    FileSystemUtils.createDirectoryAndParents(fusePath);
+    fusePath.createDirectoryAndParents();
     assertThat(FileSystemUtils.getFileSystem(fusePath)).isEqualTo("fuse");
 
     // Create a symlink and make sure it gives the file system of the symlink target.
@@ -768,15 +738,59 @@ public class FileSystemUtilsTest {
   }
 
   @Test
-  public void testEnsureSymbolicLinkDoesNotMakeUnnecessaryChanges() throws Exception {
+  public void testEnsureSymbolicLinkCreatesNewLink() throws Exception {
     PathFragment target = PathFragment.create("/b");
-    Path file = fileSystem.getPath("/a");
-    file.createSymbolicLink(target);
-    long prevTimeMillis = clock.currentTimeMillis();
-    clock.advanceMillis(1000);
-    FileSystemUtils.ensureSymbolicLink(file, target);
-    long timestamp = file.getLastModifiedTime(Symlinks.NOFOLLOW);
-    assertThat(timestamp).isEqualTo(prevTimeMillis);
+    Path link = fileSystem.getPath("/a");
+    FileSystemUtils.ensureSymbolicLink(link, target);
+    assertThat(link.isSymbolicLink()).isTrue();
+    assertThat(link.readSymbolicLink()).isEqualTo(target);
+  }
+
+  @Test
+  public void testEnsureSymbolicLinkReplacesExistingLink() throws Exception {
+    PathFragment target = PathFragment.create("/b");
+    Path link = fileSystem.getPath("/a");
+    link.createSymbolicLink(PathFragment.create("/c"));
+    FileSystemUtils.ensureSymbolicLink(link, target);
+    assertThat(link.isSymbolicLink()).isTrue();
+    assertThat(link.readSymbolicLink()).isEqualTo(target);
+  }
+
+  @Test
+  public void testEnsureSymbolicLinkKeepsUpToDateLink() throws Exception {
+    PathFragment target = PathFragment.create("/b");
+    Path link = fileSystem.getPath("/a");
+    link.createSymbolicLink(target);
+    FileSystemUtils.ensureSymbolicLink(link, target);
+    assertThat(link.isSymbolicLink()).isTrue();
+    assertThat(link.readSymbolicLink()).isEqualTo(target);
+  }
+
+  @Test
+  public void testEnsureSymbolicLinkCreatesParentDirectories() throws Exception {
+    PathFragment target = PathFragment.create("/b");
+    Path link = fileSystem.getPath("/a/b/c");
+    FileSystemUtils.ensureSymbolicLink(link, target);
+    assertThat(link.isSymbolicLink()).isTrue();
+    assertThat(link.readSymbolicLink()).isEqualTo(target);
+  }
+
+  @Test
+  public void testEnsureSymbolicLinkFailsForExistingDirectory() throws Exception {
+    PathFragment target = PathFragment.create("/b");
+    Path link = fileSystem.getPath("/a");
+    link.createDirectory();
+    assertThrows(
+        NotASymlinkException.class, () -> FileSystemUtils.ensureSymbolicLink(link, target));
+  }
+
+  @Test
+  public void testEnsureSymbolicLinkFailsForExistingFile() throws Exception {
+    PathFragment target = PathFragment.create("/b");
+    Path link = fileSystem.getPath("/a");
+    FileSystemUtils.createEmptyFile(link);
+    assertThrows(
+        NotASymlinkException.class, () -> FileSystemUtils.ensureSymbolicLink(link, target));
   }
 
   @Test
@@ -799,7 +813,7 @@ public class FileSystemUtilsTest {
     Path originalDir = workingDir.getRelative("originalDir");
     Path linkPath = workingDir.getRelative("link");
 
-    FileSystemUtils.createDirectoryAndParents(originalDir);
+    originalDir.createDirectoryAndParents();
 
     /* Original directory is empty, no link to be created. */
     FileSystemUtils.createHardLink(linkPath, originalDir);
@@ -819,7 +833,7 @@ public class FileSystemUtilsTest {
     Path linkPath2 = linkPath.getRelative("original2");
     Path linkPath3 = linkPath.getRelative("original3");
 
-    FileSystemUtils.createDirectoryAndParents(originalDir);
+    originalDir.createDirectoryAndParents();
     FileSystemUtils.createEmptyFile(originalPath1);
     FileSystemUtils.createEmptyFile(originalPath2);
     FileSystemUtils.createEmptyFile(originalPath3);

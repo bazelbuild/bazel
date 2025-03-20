@@ -170,7 +170,7 @@ public final class OptionsTesterTest {
   }
 
   /** Test converter class for testing testAllDefaultValuesTestedBy. */
-  public static final class TestConverter implements Converter<String> {
+  public static final class TestConverter extends Converter.Contextless<String> {
     @Override
     public String convert(String input) {
       return input;
@@ -188,7 +188,7 @@ public final class OptionsTesterTest {
         .testAllDefaultValuesTestedBy(
             new ConverterTesterMap.Builder()
                 .add(
-                    new ConverterTester(TestConverter.class)
+                    new ConverterTester(TestConverter.class, /*conversionContext=*/ null)
                         .addEqualityGroup("testedDefault", "otherTestedDefault"))
                 .build());
   }
@@ -242,7 +242,9 @@ public final class OptionsTesterTest {
       new OptionsTester(DefaultTestCheckUntestedField.class)
           .testAllDefaultValuesTestedBy(
               new ConverterTesterMap.Builder()
-                  .add(new ConverterTester(TestConverter.class).addEqualityGroup("testedDefault"))
+                  .add(
+                      new ConverterTester(TestConverter.class, /*conversionContext=*/ null)
+                          .addEqualityGroup("testedDefault"))
                   .build());
     } catch (AssertionError expected) {
       assertThat(expected).hasMessageThat().contains("untestedField");

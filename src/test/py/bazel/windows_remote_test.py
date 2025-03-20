@@ -15,7 +15,7 @@
 # limitations under the License.
 
 import os
-import unittest
+from absl.testing import absltest
 from src.test.py.bazel import test_base
 
 
@@ -42,6 +42,9 @@ class WindowsRemoteTest(test_base.TestBase):
 
   def setUp(self):
     test_base.TestBase.setUp(self)
+    self.ScratchFile(
+        'MODULE.bazel', ["bazel_dep(name = 'rules_shell', version = '0.1.1')"]
+    )
     self._worker_port = self.StartRemoteWorker()
 
   def tearDown(self):
@@ -52,14 +55,17 @@ class WindowsRemoteTest(test_base.TestBase):
   # this means the runfiles manifest, which is not present remotely, must exist
   # locally.
   def testBinaryRunsLocally(self):
-    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
-    self.ScratchFile('foo/BUILD', [
-        'sh_binary(',
-        '  name = "foo",',
-        '  srcs = ["foo.sh"],',
-        '  data = ["//bar:bar.txt"],',
-        ')',
-    ])
+    self.ScratchFile(
+        'foo/BUILD',
+        [
+            'load("@rules_shell//shell:sh_binary.bzl", "sh_binary")',
+            'sh_binary(',
+            '  name = "foo",',
+            '  srcs = ["foo.sh"],',
+            '  data = ["//bar:bar.txt"],',
+            ')',
+        ],
+    )
     self.ScratchFile(
         'foo/foo.sh', [
             '#!/bin/sh',
@@ -68,60 +74,59 @@ class WindowsRemoteTest(test_base.TestBase):
     self.ScratchFile('bar/BUILD', ['exports_files(["bar.txt"])'])
     self.ScratchFile('bar/bar.txt', ['hello'])
 
-    exit_code, stdout, stderr = self.RunBazel(['info', 'bazel-bin'])
-    self.AssertExitCode(exit_code, 0, stderr)
+    _, stdout, _ = self.RunBazel(['info', 'bazel-bin'])
     bazel_bin = stdout[0]
 
     # Build.
-    exit_code, stdout, stderr = self._RunRemoteBazel(['build', '//foo:foo'])
-    self.AssertExitCode(exit_code, 0, stderr, stdout)
+    self._RunRemoteBazel(['build', '//foo:foo'])
 
     # Run.
     foo_bin = os.path.join(bazel_bin, 'foo', 'foo.exe')
     self.assertTrue(os.path.exists(foo_bin))
-    exit_code, stdout, stderr = self.RunProgram([foo_bin])
-    self.AssertExitCode(exit_code, 0, stderr, stdout)
+    _, stdout, _ = self.RunProgram([foo_bin])
     self.assertEqual(stdout, ['hello shell'])
 
   def testShTestRunsLocally(self):
-    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
-    self.ScratchFile('foo/BUILD', [
-        'sh_test(',
-        '  name = "foo_test",',
-        '  srcs = ["foo_test.sh"],',
-        '  data = ["//bar:bar.txt"],',
-        ')',
-    ])
+    self.ScratchFile(
+        'foo/BUILD',
+        [
+            'load("@rules_shell//shell:sh_test.bzl", "sh_test")',
+            'sh_test(',
+            '  name = "foo_test",',
+            '  srcs = ["foo_test.sh"],',
+            '  data = ["//bar:bar.txt"],',
+            ')',
+        ],
+    )
     self.ScratchFile(
         'foo/foo_test.sh', ['#!/bin/sh', 'echo hello test'], executable=True)
     self.ScratchFile('bar/BUILD', ['exports_files(["bar.txt"])'])
     self.ScratchFile('bar/bar.txt', ['hello'])
 
-    exit_code, stdout, stderr = self.RunBazel(['info', 'bazel-bin'])
-    self.AssertExitCode(exit_code, 0, stderr)
+    _, stdout, _ = self.RunBazel(['info', 'bazel-bin'])
     bazel_bin = stdout[0]
 
     # Build.
-    exit_code, stdout, stderr = self._RunRemoteBazel(
-        ['build', '--test_output=all', '//foo:foo_test'])
-    self.AssertExitCode(exit_code, 0, stderr, stdout)
+    self._RunRemoteBazel(['build', '--test_output=all', '//foo:foo_test'])
 
     # Test.
     foo_test_bin = os.path.join(bazel_bin, 'foo', 'foo_test.exe')
     self.assertTrue(os.path.exists(foo_test_bin))
-    exit_code, stdout, stderr = self.RunProgram([foo_test_bin])
-    self.AssertExitCode(exit_code, 0, stderr, stdout)
+    self.RunProgram([foo_test_bin])
 
   # Remotely, the runfiles manifest does not exist.
   def testShTestRunsRemotely(self):
-    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
-    self.ScratchFile('foo/BUILD', [
-        'sh_test(',
-        '  name = "foo_test",',
-        '  srcs = ["foo_test.sh"],',
-        '  data = ["//bar:bar.txt"],',
-        ')',
-    ])
+    self.ScratchFile(
+        'foo/BUILD',
+        [
+            'load("@rules_shell//shell:sh_test.bzl", "sh_test")',
+            'sh_test(',
+            '  name = "foo_test",',
+            '  srcs = ["foo_test.sh"],',
+            '  data = ["//bar:bar.txt"],',
+            ')',
+        ],
+    )
     self.ScratchFile(
         'foo/foo_test.sh', [
             '#!/bin/sh',
@@ -133,15 +138,14 @@ class WindowsRemoteTest(test_base.TestBase):
     self.ScratchFile('bar/bar.txt', ['hello'])
 
     # Test.
-    exit_code, stdout, stderr = self._RunRemoteBazel(
-        ['test', '--test_output=all', '//foo:foo_test'])
-    self.AssertExitCode(exit_code, 0, stderr, stdout)
+    _, stdout, _ = self._RunRemoteBazel(
+        ['test', '--test_output=all', '//foo:foo_test']
+    )
     self.assertIn('RUNFILES_MANIFEST_FILE: ""', stdout)
 
   # The Java launcher uses Rlocation which has differing behavior for local and
   # remote.
   def testJavaTestRunsRemotely(self):
-    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
     self.ScratchFile('foo/BUILD', [
         'java_test(',
         '  name = "foo_test",',
@@ -164,16 +168,13 @@ class WindowsRemoteTest(test_base.TestBase):
     self.ScratchFile('bar/bar.txt', ['hello'])
 
     # Test.
-    exit_code, stdout, stderr = self._RunRemoteBazel(
-        ['test', '--test_output=all', '//foo:foo_test'])
-    self.AssertExitCode(exit_code, 0, stderr, stdout)
+    self._RunRemoteBazel(['test', '--test_output=all', '//foo:foo_test'])
 
   # Exercises absolute path handling in Rlocation.
   # This depends on there being a Java installation to c:\openjdk. If you have
   # it elsewhere, add --test_env=JAVA_HOME to your Bazel invocation to fix this
   # test.
   def testJavaTestWithRuntimeRunsRemotely(self):
-    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
     self.ScratchFile('foo/BUILD', [
         'package(default_visibility = ["//visibility:public"])',
         'java_test(',
@@ -197,36 +198,37 @@ class WindowsRemoteTest(test_base.TestBase):
     self.ScratchFile('bar/bar.txt', ['hello'])
 
     # Test.
-    exit_code, stdout, stderr = self._RunRemoteBazel(
-        ['test', '--test_output=all', '//foo:foo_test'])
-    self.AssertExitCode(exit_code, 0, stderr, stdout)
+    self._RunRemoteBazel(['test', '--test_output=all', '//foo:foo_test'])
 
   # Genrules are notably different than tests because RUNFILES_DIR is not set
   # for genrule tool launchers, so the runfiles directory is discovered based on
   # the executable path.
   def testGenruleWithToolRunsRemotely(self):
-    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
     # TODO(jsharpe): Replace sh_binary with py_binary once
     # https://github.com/bazelbuild/bazel/issues/5087 resolved.
-    self.ScratchFile('foo/BUILD', [
-        'sh_binary(',
-        '  name = "data_tool",',
-        '  srcs = ["data_tool.sh"],',
-        '  data = ["//bar:bar.txt"],',
-        ')',
-        'sh_binary(',
-        '  name = "tool",',
-        '  srcs = ["tool.sh"],',
-        '  data = [":data_tool"],',
-        ')',
-        'genrule(',
-        '  name = "genrule",',
-        '  srcs = [],',
-        '  outs = ["out.txt"],',
-        '  cmd  = "$(location :tool) > \\"$@\\"",',
-        '  tools = [":tool"],',
-        ')',
-    ])
+    self.ScratchFile(
+        'foo/BUILD',
+        [
+            'load("@rules_shell//shell:sh_binary.bzl", "sh_binary")',
+            'sh_binary(',
+            '  name = "data_tool",',
+            '  srcs = ["data_tool.sh"],',
+            '  data = ["//bar:bar.txt"],',
+            ')',
+            'sh_binary(',
+            '  name = "tool",',
+            '  srcs = ["tool.sh"],',
+            '  data = [":data_tool"],',
+            ')',
+            'genrule(',
+            '  name = "genrule",',
+            '  srcs = [],',
+            '  outs = ["out.txt"],',
+            '  cmd  = "$(location :tool) > \\"$@\\"",',
+            '  tools = [":tool"],',
+            ')',
+        ],
+    )
     self.ScratchFile(
         'foo/tool.sh', [
             '#!/bin/sh',
@@ -234,7 +236,7 @@ class WindowsRemoteTest(test_base.TestBase):
             # TODO(jsharpe): This is kind of an ugly way to call the data
             # dependency, but the best I can find. Instead, use py_binary +
             # Python runfiles library here once that's possible.
-            '$RUNFILES_DIR/__main__/foo/data_tool',
+            '$RUNFILES_DIR/_main/foo/data_tool',
         ],
         executable=True)
     self.ScratchFile(
@@ -247,13 +249,11 @@ class WindowsRemoteTest(test_base.TestBase):
     self.ScratchFile('bar/bar.txt', ['hello'])
 
     # Build.
-    exit_code, stdout, stderr = self._RunRemoteBazel(
-        ['build', '//foo:genrule'])
-    self.AssertExitCode(exit_code, 0, stderr, stdout)
+    self._RunRemoteBazel(['build', '//foo:genrule'])
 
   # TODO(jsharpe): Add a py_test example here. Blocked on
   # https://github.com/bazelbuild/bazel/issues/5087
 
 
 if __name__ == '__main__':
-  unittest.main()
+  absltest.main()
