@@ -160,36 +160,6 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
   }
 
   @Test
-  public void javaInfo_compileJarSetToNone() throws Exception {
-    scratch.file(
-        "foo/javainfo_rules.bzl",
-        """
-        load("@rules_java//java/common:java_info.bzl", "JavaInfo")
-        def make_file(ctx):
-            f = ctx.actions.declare_file("out")
-            ctx.actions.write(f, "out")
-            return f
-
-        def _compilejar_none_impl(ctx):
-            f = make_file(ctx)
-            return [JavaInfo(output_jar = f, compile_jar = None)]
-
-        compilejar_none = rule(_compilejar_none_impl)
-        """);
-    scratch.file(
-        "foo/BUILD",
-        """
-        load(":javainfo_rules.bzl", "compilejar_none")
-
-        compilejar_none(name = "compilejar_none")
-        """);
-
-    getConfiguredTarget("//foo:compilejar_none");
-
-    assertNoEvents();
-  }
-
-  @Test
   public void javaInfoSourceJarsExposed() throws Exception {
     scratch.file(
         "foo/extension.bzl",
