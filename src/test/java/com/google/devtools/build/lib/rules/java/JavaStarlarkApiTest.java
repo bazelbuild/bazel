@@ -160,35 +160,6 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
   }
 
   @Test
-  public void javaInfo_compileJarSet() throws Exception {
-    scratch.file(
-        "foo/javainfo_rules.bzl",
-        """
-        load("@rules_java//java/common:java_info.bzl", "JavaInfo")
-        def make_file(ctx):
-            f = ctx.actions.declare_file("out")
-            ctx.actions.write(f, "out")
-            return f
-
-        def _bothset_impl(ctx):
-            f = make_file(ctx)
-            return [JavaInfo(output_jar = f, compile_jar = f)]
-
-        bothset = rule(_bothset_impl)
-        """);
-    scratch.file(
-        "foo/BUILD",
-        """
-        load(":javainfo_rules.bzl", "bothset")
-
-        bothset(name = "bothset")
-        """);
-
-    getConfiguredTarget("//foo:bothset");
-    assertNoEvents();
-  }
-
-  @Test
   public void javaInfo_compileJarNotSet() throws Exception {
     scratch.file(
         "foo/javainfo_rules.bzl",
