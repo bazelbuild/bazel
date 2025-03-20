@@ -1373,7 +1373,13 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     }
     SubscriberExceptionHandler subscriberExceptionHandler = currentHandlerValue;
     Thread.setDefaultUncaughtExceptionHandler(
-        (thread, throwable) -> subscriberExceptionHandler.handleException(throwable, null));
+        new Thread.UncaughtExceptionHandler() {
+          @SuppressWarnings("NullArgumentForNonNullParameter")
+          @Override
+          public void uncaughtException(Thread thread, Throwable throwable) {
+            subscriberExceptionHandler.handleException(throwable, null);
+          }
+        });
 
     // Set the hook used to display Starlark source lines in a stack trace.
     EvalException.setSourceReaderSupplier(
