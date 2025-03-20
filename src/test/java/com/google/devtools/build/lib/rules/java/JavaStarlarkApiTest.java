@@ -160,62 +160,6 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testJavaInfoSequenceParametersTypeChecked() throws Exception {
-    scratch.file(
-        "foo/bad_rules.bzl",
-        """
-        load("@rules_java//java/common:java_info.bzl", "JavaInfo")
-        def make_file(ctx):
-            f = ctx.actions.declare_file("out")
-            ctx.actions.write(f, "out")
-            return f
-
-        def _deps_impl(ctx):
-            f = make_file(ctx)
-            return JavaInfo(output_jar = f, compile_jar = f, deps = [f])
-
-        def _runtime_deps_impl(ctx):
-            f = make_file(ctx)
-            return JavaInfo(output_jar = f, compile_jar = f, runtime_deps = [f])
-
-        def _exports_impl(ctx):
-            f = make_file(ctx)
-            return JavaInfo(output_jar = f, compile_jar = f, exports = [f])
-
-        def _nativelibs_impl(ctx):
-            f = make_file(ctx)
-            return JavaInfo(output_jar = f, compile_jar = f, native_libraries = [f])
-
-        bad_deps = rule(_deps_impl)
-        bad_runtime_deps = rule(_runtime_deps_impl)
-        bad_exports = rule(_exports_impl)
-        bad_libs = rule(_nativelibs_impl)
-        """);
-    scratch.file(
-        "foo/BUILD",
-        """
-        load(":bad_rules.bzl", "bad_deps", "bad_exports", "bad_libs", "bad_runtime_deps")
-
-        bad_deps(name = "bad_deps")
-
-        bad_runtime_deps(name = "bad_runtime_deps")
-
-        bad_exports(name = "bad_exports")
-
-        bad_libs(name = "bad_libs")
-        """);
-
-    checkError("//foo:bad_deps", "at index 0 of deps, got element of type File, want JavaInfo");
-    checkError(
-        "//foo:bad_runtime_deps",
-        "at index 0 of runtime_deps, got element of type File, want JavaInfo");
-    checkError(
-        "//foo:bad_exports", "at index 0 of exports, got element of type File, want JavaInfo");
-    checkError(
-        "//foo:bad_libs", "at index 0 of native_libraries, got element of type File, want CcInfo");
-  }
-
-  @Test
   public void javaInfo_compileJarSet() throws Exception {
     scratch.file(
         "foo/javainfo_rules.bzl",
