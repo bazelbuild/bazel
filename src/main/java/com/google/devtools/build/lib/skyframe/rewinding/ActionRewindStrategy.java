@@ -111,6 +111,8 @@ public final class ActionRewindStrategy {
    *
    * <p>Also prepares {@link SkyframeActionExecutor} for the rewind plan.
    *
+   * @param builtArtifacts the mutable set of artifacts that were built, which will have lost
+   *     outputs and their owners removed
    * @throws ActionRewindException if rewinding is disabled, or if any lost outputs have been seen
    *     by {@code failedKey} as lost before too many times
    */
@@ -119,16 +121,27 @@ public final class ActionRewindStrategy {
       Set<SkyKey> failedKeyDeps,
       ImmutableMap<String, ActionInput> lostOutputsByDigest,
       Optional<LostInputOwners> maybeOwners,
+      Set<Artifact> builtArtifacts,
       InputMetadataProvider metadataProvider,
       Environment env)
       throws ActionRewindException, InterruptedException {
     checkRewindingEnabled(lostOutputsByDigest, LostType.OUTPUT, env.getListener());
 
-    ImmutableList<LostInputRecord> lostOutputRecords =
-        checkIfTopLevelOutputLostTooManyTimes(failedKey, lostOutputsByDigest);
+    // Always calculate lost input owners if they are not provided so that the built artifacts can
+    // be updated, even if rewinding is ultimately not performed because an output has been lost too
+    // many times.
     LostInputOwners owners =
         maybeOwners.orElseGet(
             () -> calculateLostInputOwners(lostOutputsByDigest.values(), metadataProvider));
+
+    // Filter out lost outputs from the set of built artifacts so that they are not reported. If
+    // rewinding is successful, we'll report them later on.
+    for (ActionInput lostOutput : lostOutputsByDigest.values()) {
+      builtArtifacts.remove(lostOutput);
+      builtArtifacts.removeAll(owners.getOwners(lostOutput));
+    }
+    ImmutableList<LostInputRecord> lostOutputRecords =
+        checkIfTopLevelOutputLostTooManyTimes(failedKey, lostOutputsByDigest);
 
     ImmutableList.Builder<Action> depsToRewind = ImmutableList.builder();
     Reset rewindPlan;

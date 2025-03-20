@@ -469,20 +469,12 @@ public final class CompletionFunction<
                 artifactsRelevantForRewinding, hiddenTopLevelArtifacts.getArtifacts().toList());
       }
 
-      // Filter out lost outputs from the set of built artifacts so that they are not reported. If
-      // rewinding is successful, we'll report them later on.
-      for (ActionInput lostOutput : lostOutputs.byDigest().values()) {
-        builtArtifacts.remove(lostOutput);
-        lostOutputs
-            .owners()
-            .ifPresent(owners -> builtArtifacts.removeAll(owners.getOwners(lostOutput)));
-      }
-
       return actionRewindStrategy.prepareRewindPlanForLostTopLevelOutputs(
           key,
           ImmutableSet.copyOf(Artifact.keys(artifactsRelevantForRewinding)),
           lostOutputs.byDigest(),
           lostOutputs.owners(),
+          builtArtifacts,
           metadataProvider,
           env);
     } catch (ActionRewindException | ImportantOutputException e) {
