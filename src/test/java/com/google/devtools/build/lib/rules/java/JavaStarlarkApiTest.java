@@ -160,55 +160,6 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
   }
 
   @Test
-  public void javaInfoSourceJarsExposed() throws Exception {
-    scratch.file(
-        "foo/extension.bzl",
-        """
-        load("@rules_java//java/common:java_info.bzl", "JavaInfo")
-        result = provider()
-
-        def _impl(ctx):
-            return [result(source_jars = ctx.attr.dep[JavaInfo].source_jars)]
-
-        my_rule = rule(_impl, attrs = {"dep": attr.label()})
-        """);
-    scratch.file(
-        "foo/BUILD",
-        """
-        load("@rules_java//java:defs.bzl", "java_library")
-        load(":extension.bzl", "my_rule")
-
-        java_library(
-            name = "my_java_lib_b",
-            srcs = ["java/B.java"],
-        )
-
-        java_library(
-            name = "my_java_lib_a",
-            srcs = ["java/A.java"],
-            deps = [":my_java_lib_b"],
-        )
-
-        my_rule(
-            name = "my_starlark_rule",
-            dep = ":my_java_lib_a",
-        )
-        """);
-    assertNoEvents();
-    ConfiguredTarget myRuleTarget = getConfiguredTarget("//foo:my_starlark_rule");
-    StructImpl info =
-        (StructImpl)
-            myRuleTarget.get(
-                new StarlarkProvider.Key(
-                    keyForBuild(Label.parseCanonical("//foo:extension.bzl")), "result"));
-    @SuppressWarnings("unchecked")
-    Sequence<Artifact> sourceJars = (Sequence<Artifact>) info.getValue("source_jars");
-    assertThat(prettyArtifactNames(sourceJars)).containsExactly("foo/libmy_java_lib_a-src.jar");
-
-    assertThat(prettyArtifactNames(sourceJars)).doesNotContain("foo/libmy_java_lib_b-src.jar");
-  }
-
-  @Test
   public void testJavaInfoGetTransitiveSourceJars() throws Exception {
     scratch.file(
         "foo/extension.bzl",
