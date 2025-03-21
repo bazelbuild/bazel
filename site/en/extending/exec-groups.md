@@ -111,7 +111,8 @@ problem.
 
 The following execution groups are predefined:
 
-* `test`: Test runner actions, available on all test rules.
+* `test`: Test runner actions (for more details, see
+  the [execution platform section of the Test Encylopedia](/reference/test-encyclopedia#execution-platform)).
 * `cpp_link`: C++ linking actions.
 
 ## Using execution groups to set execution properties {:#using-exec-groups-for-exec-properties}
@@ -169,12 +170,12 @@ platform(
 )
 
 my_test(
-    name = "my_test",
-    exec_compatible_with = ["//constraints:high_cpu"],
-    exec_group_compatible_with = {
-        "test": ["@platforms//os:linux"],
-    },
-    ...
+  name = "my_test",
+  exec_compatible_with = ["//constraints:high_cpu"],
+  exec_group_compatible_with = {
+    "test": ["@platforms//os:linux"],
+  },
+  ...
 )
 ```
 
