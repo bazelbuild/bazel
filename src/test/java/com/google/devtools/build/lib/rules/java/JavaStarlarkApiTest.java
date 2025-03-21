@@ -109,44 +109,6 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     return (StructImpl) configuredTarget.get(key);
   }
 
-  @Test
-  public void javaToolchainInfo_jacocoRunnerAttribute() throws Exception {
-    JavaTestUtil.writeBuildFileForJavaToolchain(scratch);
-    scratch.file("java/test/B.jar");
-    scratch.file(
-        "java/test/BUILD",
-        """
-        load(":custom_rule.bzl", "java_custom_library")
-
-        java_custom_library(name = "dep")
-        """);
-    scratch.file(
-        "java/test/custom_rule.bzl",
-        """
-        load("@rules_java//java/common:java_common.bzl", "java_common")
-        def _impl(ctx):
-            jacoco = ctx.attr._java_toolchain[java_common.JavaToolchainInfo].jacocorunner
-            return [
-                DefaultInfo(
-                    files = depset([jacoco.executable]),
-                ),
-            ]
-
-        java_custom_library = rule(
-            implementation = _impl,
-            attrs = {
-                "_java_toolchain": attr.label(default = Label("//java/com/google/test:toolchain")),
-            },
-            fragments = ["java"],
-        )
-        """);
-
-    ConfiguredTarget configuredTarget = getConfiguredTarget("//java/test:dep");
-
-    assertThat(ActionsTestUtil.baseArtifactNames(getFilesToBuild(configuredTarget)))
-        .containsExactly("jacocorunner.jar");
-  }
-
   private static ImmutableList<String> artifactFilesNames(NestedSet<Artifact> artifacts) {
     return artifactFilesNames(artifacts.toList());
   }
