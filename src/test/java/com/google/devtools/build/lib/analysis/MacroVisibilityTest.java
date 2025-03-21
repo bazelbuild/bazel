@@ -596,25 +596,27 @@ public final class MacroVisibilityTest extends BuildViewTestCase {
    * Defines a macro {@code name} whose body calls symbol {@code wraps} to instantiate its main
    * target or submacro, passing along {@code attrExpr}.
    *
-   * <p>The new macro is declared in {@code //<name>:macro.bzl}. It takes an optional {@code dep}
+   * <p>The new macro is declared in {@code //${pkg}:macro.bzl}. It takes an optional {@code dep}
    * attribute.
    *
+   * @param pkg the package where the macro is defined
    * @param name the macro being introduced, e.g. "my_macro", which would be loaded from {@code
-   *     //my_macro:macro.bzl}
+   *     //${pkg}:macro.bzl}
    * @param wraps the rule or macro to be called by this macro, in {@code bzlLabel%symbol} form,
    *     e.g. "//some_pkg:defs.bzl%my_rule"
    * @param attrExpr an attribute argument expression for the call site of {@code wraps}, e.g.
    *     "some_attr = dep"
    */
-  private void defineWrappingMacro(String name, String wraps, String attrExpr) throws Exception {
+  private void defineWrappingMacro(String pkg, String name, String wraps, String attrExpr)
+      throws Exception {
     int i = wraps.indexOf("%");
     Preconditions.checkArgument(i != -1);
     String bzlToLoad = wraps.substring(0, i);
     String symbolName = wraps.substring(i + 1);
 
-    scratch.file(String.format("%s/BUILD", name));
+    scratch.file(String.format("%s/BUILD", pkg));
     scratch.file(
-        String.format("%s/macro.bzl", name),
+        String.format("%s/macro.bzl", pkg),
         String.format(
             """
             load("%2$s", "%3$s")
@@ -645,7 +647,7 @@ public final class MacroVisibilityTest extends BuildViewTestCase {
    *     e.g. "//some_pkg:defs.bzl%my_rule"
    */
   private void defineWrappingMacroWithSameDep(String name, String wraps) throws Exception {
-    defineWrappingMacro(name, wraps, "dep = dep");
+    defineWrappingMacro(name, name, wraps, "dep = dep");
   }
 
   /**
@@ -664,7 +666,7 @@ public final class MacroVisibilityTest extends BuildViewTestCase {
    */
   private void defineWrappingMacroWithHardcodedDep(String name, String wraps, String hardcodedDep)
       throws Exception {
-    defineWrappingMacro(name, wraps, String.format("dep = \"%s\"", hardcodedDep));
+    defineWrappingMacro(name, name, wraps, String.format("dep = \"%s\"", hardcodedDep));
   }
 
   @Test
@@ -980,6 +982,79 @@ public final class MacroVisibilityTest extends BuildViewTestCase {
     assertVisibilityDisallows("//pkg:consumes_bar", "//lib:bar");
     // In more than one macro, default_visibility still does not propagate.
     assertVisibilityDisallows("//pkg:consumes_baz", "//lib:baz");
+  }
+
+  @Test
+  public void finalizerTargetsCanSeeTargetsVisibleToBuildFileOrFinalizerMacroClassDefinition()
+      throws Exception {
+    defineSimpleRule();
+    // A finalizer which instantiates a simple_rule per each existing rule target in the current
+    // package.
+    scratch.file(
+        "finalizer/finalizer.bzl",
+        """
+        load("//rules:simple_rule.bzl", "simple_rule")
+
+        def _impl(name, visibility):
+            for r in native.existing_rules():
+                simple_rule(
+                    name = name + "_" + r,
+                    dep = r,
+                )
+        finalizer = macro(implementation = _impl, finalizer = True)
+        """);
+    // A non-finalizer macro defined in the same package as the finalizer, which instantiates a
+    // simple_rule.
+    defineWrappingMacro(
+        "finalizer", "finalizer_pkg_macro", "//rules:simple_rule.bzl%simple_rule", "#");
+    scratch.file("other/BUILD");
+    // A non-finalizer macro defined in a different package, which instantiates 3 simple_rule
+    // targets: a public one (visibility = visibility), an internal one (macro-private visibility),
+    // and one explicitly marked visible to the finalizer definition package.
+    scratch.file(
+        "other/macro.bzl",
+        """
+        load("//rules:simple_rule.bzl", "simple_rule")
+
+        def _impl(name, visibility):
+            simple_rule(
+                name = name + "_public",
+                visibility = visibility,
+            )
+            simple_rule(
+                name = name + "_visible_to_finalizer_pkg",
+                visibility = ["//finalizer:__pkg__"],
+            )
+            simple_rule(
+                name = name + "_internal",
+            )
+
+        other_macro = macro(implementation = _impl)
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load("//finalizer:finalizer.bzl", "finalizer")
+        load("//finalizer:macro.bzl", "finalizer_pkg_macro")
+        load("//other:macro.bzl", "other_macro")
+        load("//rules:simple_rule.bzl", "simple_rule")
+
+        simple_rule(name = "build_file_target")
+        finalizer_pkg_macro(name = "finalizer_pkg_macro_target")
+        other_macro(name = "other_macro_target")
+
+        finalizer(name = "f")
+        """);
+
+    assertVisibilityPermits("//pkg:f_build_file_target", "//pkg:build_file_target");
+    assertVisibilityPermits(
+        "//pkg:f_finalizer_pkg_macro_target", "//pkg:finalizer_pkg_macro_target");
+    assertVisibilityPermits("//pkg:f_other_macro_target_public", "//pkg:other_macro_target_public");
+    assertVisibilityPermits(
+        "//pkg:f_other_macro_target_visible_to_finalizer_pkg",
+        "//pkg:other_macro_target_visible_to_finalizer_pkg");
+    assertVisibilityDisallows(
+        "//pkg:f_other_macro_target_internal", "//pkg:other_macro_target_internal");
   }
 
   /*
