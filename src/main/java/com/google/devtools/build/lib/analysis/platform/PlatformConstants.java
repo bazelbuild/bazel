@@ -22,4 +22,8 @@ public final class PlatformConstants {
 
   public static final Label INTERNAL_PLATFORM =
       Label.parseCanonicalUnchecked("@bazel_tools//tools:internal_platform");
+
+  // The label of the toolchain type to add to the default "test" exec group.
+  public static final Label DEFAULT_TEST_TOOLCHAIN_TYPE =
+      Label.parseCanonicalUnchecked("@bazel_tools//tools/test:default_test_toolchain_type");
 }
