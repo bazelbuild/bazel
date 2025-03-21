@@ -88,6 +88,7 @@ public enum ProfilerTask {
   DYNAMIC_LOCK("Acquiring dynamic execution output lock", Threshold.FIFTY_MILLIS),
   REPOSITORY_FETCH("Fetching repository"),
   REPOSITORY_VENDOR("Vendoring repository"),
+  SPAWN_LOG("logging spawn", Threshold.TEN_MILLIS),
 
   UNKNOWN("Unknown event");
 

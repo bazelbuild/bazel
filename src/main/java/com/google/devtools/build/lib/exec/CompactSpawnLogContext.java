@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.exec;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.devtools.build.lib.profiler.ProfilerTask.SPAWN_LOG;
 
 import com.github.luben.zstd.ZstdOutputStream;
 import com.google.common.base.Preconditions;
@@ -216,7 +217,7 @@ public class CompactSpawnLogContext extends SpawnLogContext {
       Duration timeout,
       SpawnResult result)
       throws IOException, InterruptedException, ExecException {
-    try (SilentCloseable c = Profiler.instance().profile("logSpawn")) {
+    try (SilentCloseable c = Profiler.instance().profile(SPAWN_LOG, "logSpawn")) {
       ExecLogEntry.Spawn.Builder builder = ExecLogEntry.Spawn.newBuilder();
 
       builder.addAllArgs(spawn.getArguments());
@@ -276,7 +277,7 @@ public class CompactSpawnLogContext extends SpawnLogContext {
 
   @Override
   public void logSymlinkAction(AbstractAction action) throws IOException, InterruptedException {
-    try (SilentCloseable c = Profiler.instance().profile("logSymlinkAction")) {
+    try (SilentCloseable c = Profiler.instance().profile(SPAWN_LOG, "logSymlinkAction")) {
       ExecLogEntry.SymlinkAction.Builder builder = ExecLogEntry.SymlinkAction.newBuilder();
 
       Artifact input = action.getPrimaryInput();
@@ -666,14 +667,15 @@ public class CompactSpawnLogContext extends SpawnLogContext {
    */
   private void logEntryWithoutId(ExecLogEntrySupplier supplier)
       throws IOException, InterruptedException {
-    try (SilentCloseable c = Profiler.instance().profile("logEntryWithoutId")) {
+    try (SilentCloseable c = Profiler.instance().profile(SPAWN_LOG, "logEntryWithoutId")) {
       logEntryWithoutIdSynchronized(supplier);
     }
   }
 
   private synchronized void logEntryWithoutIdSynchronized(ExecLogEntrySupplier supplier)
       throws IOException, InterruptedException {
-    try (SilentCloseable c = Profiler.instance().profile("logEntryWithoutId/synchronized")) {
+    try (SilentCloseable c =
+        Profiler.instance().profile(SPAWN_LOG, "logEntryWithoutId/synchronized")) {
       outputStream.write(supplier.get().build());
     }
   }
@@ -691,14 +693,14 @@ public class CompactSpawnLogContext extends SpawnLogContext {
   @CheckReturnValue
   private int logEntry(@Nullable Object key, ExecLogEntrySupplier supplier)
       throws IOException, InterruptedException {
-    try (SilentCloseable c = Profiler.instance().profile("logEntry")) {
+    try (SilentCloseable c = Profiler.instance().profile(SPAWN_LOG, "logEntry")) {
       return logEntrySynchronized(key, supplier);
     }
   }
 
   private synchronized int logEntrySynchronized(@Nullable Object key, ExecLogEntrySupplier supplier)
       throws IOException, InterruptedException {
-    try (SilentCloseable c = Profiler.instance().profile("logEntry/synchronized")) {
+    try (SilentCloseable c = Profiler.instance().profile(SPAWN_LOG, "logEntry/synchronized")) {
       if (key == null) {
         // No need to check for a previously added entry.
         ExecLogEntry.Builder entry = supplier.get();
