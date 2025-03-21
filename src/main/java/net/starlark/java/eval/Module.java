@@ -298,9 +298,14 @@ public final class Module implements Resolver.Module {
     return i;
   }
 
+  private static final int[] EMPTY_INDICES = new int[0];
+
   /** Returns a list of indices of a list of globals; {@see getIndexOfGlobal}. */
   int[] getIndicesOfGlobals(List<String> globals) {
     int n = globals.size();
+    if (n == 0) {
+      return EMPTY_INDICES;
+    }
     int[] array = new int[n];
     for (int i = 0; i < n; i++) {
       array[i] = getIndexOfGlobal(globals.get(i));
