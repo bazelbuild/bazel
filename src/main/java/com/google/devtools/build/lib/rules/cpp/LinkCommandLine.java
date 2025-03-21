@@ -20,11 +20,9 @@ import static com.google.devtools.build.lib.rules.cpp.LinkBuildVariables.LINKER_
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.AbstractCommandLine;
-import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.CommandLines;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
-import com.google.devtools.build.lib.actions.InputMetadataProviderArtifactExpander;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.PathMapper;
@@ -95,8 +93,6 @@ public final class LinkCommandLine extends AbstractCommandLine {
       @Nullable InputMetadataProvider inputMetadataProvider, PathMapper pathMapper)
       throws CommandLineExpansionException {
     ImmutableList.Builder<String> argv = ImmutableList.builder();
-    ArtifactExpander expander =
-        InputMetadataProviderArtifactExpander.maybeFrom(inputMetadataProvider);
     try {
       if (variables.isAvailable(LINKER_PARAM_FILE.getVariableName())) {
         // Filter out linker_param_file
@@ -106,13 +102,14 @@ public final class LinkCommandLine extends AbstractCommandLine {
                 .getStringValue(LINKER_PARAM_FILE.getVariableName(), pathMapper);
         argv.addAll(
             featureConfiguration
-                .getCommandLine(actionName, variables, expander, pathMapper)
+                .getCommandLine(actionName, variables, inputMetadataProvider, pathMapper)
                 .stream()
                 .filter(s -> !s.contains(linkerParamFile))
                 .collect(toImmutableList()));
       } else {
         argv.addAll(
-            featureConfiguration.getCommandLine(actionName, variables, expander, pathMapper));
+            featureConfiguration.getCommandLine(
+                actionName, variables, inputMetadataProvider, pathMapper));
       }
     } catch (ExpansionException e) {
       throw new CommandLineExpansionException(e.getMessage());
