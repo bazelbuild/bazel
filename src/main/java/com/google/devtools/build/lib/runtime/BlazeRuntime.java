@@ -86,7 +86,6 @@ import com.google.devtools.build.lib.server.GrpcServerImpl;
 import com.google.devtools.build.lib.server.IdleTask;
 import com.google.devtools.build.lib.server.InstallBaseGarbageCollectorIdleTask;
 import com.google.devtools.build.lib.server.PidFileWatcher;
-import com.google.devtools.build.lib.server.RPCServer;
 import com.google.devtools.build.lib.server.ShutdownHooks;
 import com.google.devtools.build.lib.server.signal.InterruptSignalHandler;
 import com.google.devtools.build.lib.util.AbruptExitException;
@@ -1141,7 +1140,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
   private static int serverMain(Iterable<BlazeModule> modules, OutErr outErr, String[] args) {
     InterruptSignalHandler sigintHandler = null;
     try {
-      AtomicReference<RPCServer> rpcServerRef = new AtomicReference<>();
+      AtomicReference<GrpcServerImpl> rpcServerRef = new AtomicReference<>();
       Runnable prepareForAbruptShutdown = () -> rpcServerRef.get().prepareForAbruptShutdown();
       BlazeRuntime runtime = newRuntime(modules, Arrays.asList(args), prepareForAbruptShutdown);
 
@@ -1159,7 +1158,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       BlazeCommandDispatcher dispatcher = new BlazeCommandDispatcher(runtime, serverPid);
       BlazeServerStartupOptions startupOptions =
           runtime.startupOptionsProvider.getOptions(BlazeServerStartupOptions.class);
-      RPCServer rpcServer =
+      GrpcServerImpl rpcServer =
           GrpcServerImpl.create(
               dispatcher,
               shutdownHooks,
