@@ -38,14 +38,21 @@ public final class OptionsUsageTest {
   private String getHtmlUsageWithoutTags(String fieldName) {
     StringBuilder builder = new StringBuilder();
     OptionsUsage.getUsageHtml(
-        data.getOptionDefinitionFromName(fieldName), builder, HTML_ESCAPER, data, false);
+        data.getOptionDefinitionFromName(fieldName), builder, HTML_ESCAPER, data, false, null);
     return builder.toString();
   }
 
   private String getHtmlUsageWithTags(String fieldName) {
     StringBuilder builder = new StringBuilder();
     OptionsUsage.getUsageHtml(
-        data.getOptionDefinitionFromName(fieldName), builder, HTML_ESCAPER, data, true);
+        data.getOptionDefinitionFromName(fieldName), builder, HTML_ESCAPER, data, true, null);
+    return builder.toString();
+  }
+
+  private String getHtmlUsageWithCommandName(String fieldName, String commandName) {
+    StringBuilder builder = new StringBuilder();
+    OptionsUsage.getUsageHtml(
+        data.getOptionDefinitionFromName(fieldName), builder, HTML_ESCAPER, data, false, commandName);
     return builder.toString();
   }
 
@@ -65,6 +72,19 @@ public final class OptionsUsageTest {
     OptionsUsage.getUsage(
         data.getOptionDefinitionFromName(fieldName), builder, verbosity, data, true);
     return builder.toString();
+  }
+
+  @Test
+  public void commandNameAnchorId_htmlOutput() {
+    assertThat(getHtmlUsageWithCommandName("test_string", "command_name"))
+        .isEqualTo(
+            "<dt id=\"command_name-flag--test_string\">"
+                + "<code id=\"test_string\"><a href=\"#command_name-flag--test_string\">--test_string</a>"
+                + "=&lt;a string&gt</code> "
+                + "default: \"test string default\"</dt>\n"
+                + "<dd>\n"
+                + "a string-valued option to test simple option operations\n"
+                + "</dd>\n");
   }
 
   @Test
