@@ -9,6 +9,13 @@ Execution groups allow for multiple execution platforms within a single target.
 Each execution group has its own [toolchain](/extending/toolchains) dependencies and
 performs its own [toolchain resolution](/extending/toolchains#toolchain-resolution).
 
+## Current status {:#current-status}
+
+Execution groups for certain natively declared actions, like `CppLink`, can be
+used inside `exec_properties` to set per-action, per-target execution
+requirements. For more details, see the
+[Default execution groups](#exec-groups-for-native-rules) section.
+
 ## Background {:#background}
 
 Execution groups allow the rule author to define sets of actions, each with a
@@ -36,11 +43,11 @@ namely any constraints via `exec_compatible_with` and toolchain types via
 my_rule = rule(
     _impl,
     exec_groups = {
-        “link”: exec_group(
-            exec_compatible_with = [ "@platforms//os:linux" ]
+        "link": exec_group(
+            exec_compatible_with = ["@platforms//os:linux"],
             toolchains = ["//foo:toolchain_type"],
         ),
-        “test”: exec_group(
+        "test": exec_group(
             toolchains = ["//foo_tools:toolchain_type"],
         ),
     },
@@ -100,6 +107,14 @@ that execution group in the action declaration, that may potentially cause
 issues. A mismatch like this may not immediately cause failures, but is a latent
 problem.
 
+### Default execution groups {:#exec-groups-for-native-rules}
+
+The following execution groups are predefined:
+
+* `test`: Test runner actions (for more details, see
+  the [execution platform section of the Test Encylopedia](/reference/test-encyclopedia#execution-platform)).
+* `cpp_link`: C++ linking actions.
+
 ## Using execution groups to set execution properties {:#using-exec-groups-for-exec-properties}
 
 Execution groups are integrated with the
@@ -126,9 +141,39 @@ All actions with `exec_group = "link"` would see the exec properties
 dictionary as `{"mem": "16g"}`. As you see here, execution-group-level
 settings override target-level settings.
 
-### Execution groups for native rules {:#exec-groups-for-native-rules}
+For example, if the rule `my_test` defines the `link` execution group in
+addition to the default and the `test` execution group, then the following
+usage of these attributes would run actions in the default execution group on
+a platform with a high number of CPUs, the test action on Linux, and the link
+action on the default execution platform:
 
-The following execution groups are available for actions defined by native rules:
+```python
+# BUILD
+constraint_setting(name = "cpu")
+constraint_value(name = "high_cpu", constraint_setting = ":cpu")
+
+platform(
+  name = "high_cpu_platform",
+  constraint_values = [":high_cpu"],
+  exec_properties = {
+    "cpu": "256",
+  },
+)
+
+my_test(
+  name = "my_test",
+  exec_compatible_with = ["//constraints:high_cpu"],
+  exec_group_compatible_with = {
+    "test": ["@platforms//os:linux"],
+  },
+  ...
+)
+```
+
+### Execution groups for native rules {:#execution-groups-for-native-rules}
+
+The following execution groups are available for actions defined by native
+rules:
 
 * `test`: Test runner actions.
 * `cpp_link`: C++ linking actions.

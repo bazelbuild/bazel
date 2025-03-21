@@ -63,6 +63,7 @@ java_test(
 java_test(
     name = "JavaInfoStarlarkApiTest",
     srcs = ["JavaInfoStarlarkApiTest.java"],
+    shard_count = 5,
     deps = [
         ":java_test_util",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
@@ -125,6 +126,7 @@ java_test(
 java_test(
     name = "JavaRuntimeTest",
     srcs = ["JavaRuntimeTest.java"],
+    shard_count = 5,
     deps = [
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/invalid_configuration_exception",
@@ -146,8 +148,8 @@ java_test(
 
 java_test(
     name = "JavaStarlarkApiTest",
-    timeout = "long",
     srcs = ["JavaStarlarkApiTest.java"],
+    shard_count = 15,
     deps = [
         ":java_compile_action_test_helper",
         ":java_test_util",

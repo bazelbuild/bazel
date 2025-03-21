@@ -184,13 +184,16 @@ public class SingleToolchainResolutionFunction implements SkyFunction {
         targetPlatform.label());
 
     for (DeclaredToolchainInfo toolchain : filteredToolchains) {
-      // Make sure the target platform matches.
-      if (!checkConstraints(
-          resolutionTrace,
-          toolchain.targetConstraints(),
-          /* isTargetPlatform= */ true,
-          targetPlatform,
-          toolchain.toolchainLabel())) {
+      // Make sure the target platform matches. A toolchain with use_target_platform_constraints
+      // matches
+      // any target platform.
+      if (!toolchain.hasTargetToExecConstraints()
+          && !checkConstraints(
+              resolutionTrace,
+              toolchain.targetConstraints(),
+              /* isTargetPlatform= */ true,
+              targetPlatform,
+              toolchain.toolchainLabel())) {
         continue;
       }
 
@@ -235,7 +238,9 @@ public class SingleToolchainResolutionFunction implements SkyFunction {
         // Check if the execution constraints match.
         if (!checkConstraints(
             resolutionTrace,
-            toolchain.execConstraints(),
+            toolchain.hasTargetToExecConstraints()
+                ? targetPlatform.constraints()
+                : toolchain.execConstraints(),
             /* isTargetPlatform= */ false,
             executionPlatform,
             toolchain.toolchainLabel())) {

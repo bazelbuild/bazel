@@ -11,6 +11,14 @@ filegroup(
     visibility = ["//src:__subpackages__"],
 )
 
+java_library(
+    name = "constants",
+    srcs = ["PlatformConstants.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+    ],
+)
+
 # Description:
 #   Providers defined for platforms, constraints, and toolchains.
 java_library(
