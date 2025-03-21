@@ -60,7 +60,6 @@ function setup_llvm_coverage_tools_for_lcov() {
   add_to_bazelrc "common --repo_env=BAZEL_LLVM_PROFDATA=${llvm_profdata}"
   add_to_bazelrc "common --repo_env=BAZEL_USE_LLVM_NATIVE_COVERAGE=1"
   add_to_bazelrc "common --repo_env=CC=${clang}"
-  add_to_bazelrc "common --repo_env=GCOV=${llvm_profdata}"
   add_to_bazelrc "common --experimental_generate_llvm_lcov"
 }
 
@@ -124,7 +123,7 @@ function test_cc_test_llvm_coverage_doesnt_fail() {
 
   # Only test that bazel coverage doesn't crash when invoked for llvm native
   # coverage.
-  BAZEL_USE_LLVM_NATIVE_COVERAGE=1 GCOV=$llvmprofdata CC=$clang_tool \
+  BAZEL_USE_LLVM_NATIVE_COVERAGE=1 BAZEL_LLVM_PROFDATA=$llvmprofdata CC=$clang_tool \
       bazel coverage --test_output=all //:t &>$TEST_log \
       || fail "Coverage for //:t failed"
 
