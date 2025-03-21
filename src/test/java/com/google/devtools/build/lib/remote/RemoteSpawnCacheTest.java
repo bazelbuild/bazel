@@ -19,6 +19,7 @@ import static com.google.common.truth.extensions.proto.ProtoTruth.assertThat;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.eq;
@@ -58,6 +59,7 @@ import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
+import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialHelperException;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -1077,5 +1079,90 @@ public class RemoteSpawnCacheTest {
     // assert
     assertThat(secondCacheHandle.hasResult()).isFalse();
     assertThat(secondCacheHandle.willStore()).isTrue();
+  }
+
+  @Test
+  public void pathMappedActionWithCacheHitRemovesInFlightExecution() throws Exception {
+    // arrange
+    RemoteSpawnCache cache = createRemoteSpawnCache();
+
+    SimpleSpawn spawn = simplePathMappedSpawn("k8-fastbuild");
+    FakeActionInputFileCache fakeFileCache = new FakeActionInputFileCache(execRoot);
+    fakeFileCache.createScratchInput(spawn.getInputFiles().getSingleton(), "xyz");
+    SpawnExecutionContext policy =
+        createSpawnExecutionContext(spawn, execRoot, fakeFileCache, outErr);
+
+    RemoteExecutionService remoteExecutionService = cache.getRemoteExecutionService();
+    Mockito.doReturn(
+            RemoteActionResult.createFromCache(
+                CachedActionResult.remote(ActionResult.getDefaultInstance())))
+        .when(remoteExecutionService)
+        .lookupCache(any());
+    Mockito.doReturn(null).when(remoteExecutionService).downloadOutputs(any(), any());
+
+    // act
+    try (CacheHandle cacheHandle = cache.lookup(spawn, policy)) {
+      checkState(cacheHandle.hasResult());
+    }
+
+    // assert
+    assertThat(cache.getInFlightExecutionsSize()).isEqualTo(0);
+  }
+
+  @Test
+  public void pathMappedActionWithCacheIoExceptionRemovesInFlightExecution() throws Exception {
+    // arrange
+    RemoteSpawnCache cache = createRemoteSpawnCache();
+
+    SimpleSpawn spawn = simplePathMappedSpawn("k8-fastbuild");
+    FakeActionInputFileCache fakeFileCache = new FakeActionInputFileCache(execRoot);
+    fakeFileCache.createScratchInput(spawn.getInputFiles().getSingleton(), "xyz");
+    SpawnExecutionContext policy =
+        createSpawnExecutionContext(spawn, execRoot, fakeFileCache, outErr);
+
+    RemoteExecutionService remoteExecutionService = cache.getRemoteExecutionService();
+    Mockito.doReturn(
+            RemoteActionResult.createFromCache(
+                CachedActionResult.remote(ActionResult.getDefaultInstance())))
+        .when(remoteExecutionService)
+        .lookupCache(any());
+    Mockito.doThrow(new IOException()).when(remoteExecutionService).downloadOutputs(any(), any());
+
+    // act
+    try (CacheHandle cacheHandle = cache.lookup(spawn, policy)) {
+      checkState(!cacheHandle.hasResult());
+    }
+
+    // assert
+    assertThat(cache.getInFlightExecutionsSize()).isEqualTo(0);
+  }
+
+  @Test
+  public void pathMappedActionWithCacheCredentialHelperExceptionRemovesInFlightExecution()
+      throws Exception {
+    // arrange
+    RemoteSpawnCache cache = createRemoteSpawnCache();
+
+    SimpleSpawn spawn = simplePathMappedSpawn("k8-fastbuild");
+    FakeActionInputFileCache fakeFileCache = new FakeActionInputFileCache(execRoot);
+    fakeFileCache.createScratchInput(spawn.getInputFiles().getSingleton(), "xyz");
+    SpawnExecutionContext policy =
+        createSpawnExecutionContext(spawn, execRoot, fakeFileCache, outErr);
+
+    RemoteExecutionService remoteExecutionService = cache.getRemoteExecutionService();
+    Mockito.doReturn(
+            RemoteActionResult.createFromCache(
+                CachedActionResult.remote(ActionResult.getDefaultInstance())))
+        .when(remoteExecutionService)
+        .lookupCache(any());
+    Mockito.doThrow(new CredentialHelperException("credential helper failed"))
+        .when(remoteExecutionService)
+        .downloadOutputs(any(), any());
+
+    // act
+    assertThrows(ExecException.class, () -> cache.lookup(spawn, policy).close());
+
+    // assert
+    assertThat(cache.getInFlightExecutionsSize()).isEqualTo(0);
   }
 }

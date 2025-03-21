@@ -82,6 +82,11 @@ final class RemoteSpawnCache implements SpawnCache {
     return remoteExecutionService;
   }
 
+  @VisibleForTesting
+  int getInFlightExecutionsSize() {
+    return inFlightExecutions.size();
+  }
+
   @Override
   public CacheHandle lookup(Spawn spawn, SpawnExecutionContext context)
       throws InterruptedException, IOException, ExecException, ForbiddenActionInputException {
