@@ -383,7 +383,6 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
         inputMapping =
             spawnInputExpander.getInputMapping(
                 spawn,
-                actionExecutionContext.getArtifactExpander(),
                 actionExecutionContext.getInputMetadataProvider(),
                 baseDirectory);
       }
