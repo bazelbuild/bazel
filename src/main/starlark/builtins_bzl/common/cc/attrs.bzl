@@ -198,7 +198,13 @@ Subject to <a href="${link make-variables}">"Make variable"</a> substitution and
         allow_files = True,
         flags = ["ORDER_INDEPENDENT", "DIRECT_COMPILE_TIME_INPUT"],
         doc = """
-Pass these files to the C++ linker command.
+Dependencies that are only made available to the C++ linker command.
+<p>
+  Unlike <code>deps</code>, which is conceptually made for both compilation and
+  linking dependencies, <code>additional_linker_inputs</code> is specifically
+  made for only the latter, and signals a dependency that is required only for
+  linking (for example, files that are referenced in <code>linkopts</code>).
+</p>
 <p>
   For example, compiled Windows .res files can be provided here to be embedded in
   the binary target.
@@ -299,7 +305,10 @@ targets.</p>
 
 It is also allowed to
 put linker scripts (.lds) into deps, and reference them in
-<a href="#cc_binary.linkopts">linkopts</a>.
+<a href="#cc_binary.linkopts"><code>linkopts</code></a>,
+but please consider
+<a href="#cc_binary.additional_linker_inputs"><code>additional_linker_inputs</code></a>
+for that use case.
 """,
     ),
     "reexport_deps": attr.label_list(
