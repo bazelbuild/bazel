@@ -86,10 +86,11 @@ public final class XcodeLocalEnvProvider implements LocalEnvProvider {
       return newEnvBuilder.buildOrThrow();
     }
 
-    // Empty developer dir indicates to use the system default.
+    // When DEVELOPER_DIR is set, it should be used in lookups for SDKROOT,
+    // otherwise an empty developer dir indicates to use the system default.
     // TODO(bazel-team): Bazel's view of the Xcode version and developer dir should be explicitly
     // set for build hermeticity.
-    String developerDir = "";
+    String developerDir = env.getOrDefault(AppleConfiguration.DEVELOPER_DIR_ENV_NAME, "");
     if (containsXcodeVersion && !containsDeveloperDir) {
       String version = env.get(AppleConfiguration.XCODE_VERSION_ENV_NAME);
       developerDir = getDeveloperDir(binTools, DottedVersion.fromStringUnchecked(version));
