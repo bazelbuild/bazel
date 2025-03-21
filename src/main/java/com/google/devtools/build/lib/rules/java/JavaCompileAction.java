@@ -16,9 +16,7 @@ package com.google.devtools.build.lib.rules.java;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.google.common.flogger.LazyArgs.lazy;
 import static com.google.devtools.build.lib.actions.ActionAnalysisMetadata.mergeMaps;
-import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.joining;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -31,7 +29,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
-import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -41,7 +38,6 @@ import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.BaseSpawn;
 import com.google.devtools.build.lib.actions.CommandAction;
 import com.google.devtools.build.lib.actions.CommandLine;
@@ -51,6 +47,7 @@ import com.google.devtools.build.lib.actions.CommandLines.CommandLineAndParamFil
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile;
 import com.google.devtools.build.lib.actions.PathMapper;
@@ -100,7 +97,6 @@ import net.starlark.java.eval.StarlarkList;
 @ThreadCompatible
 @Immutable
 public final class JavaCompileAction extends AbstractAction implements CommandAction {
-  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
   private static final ResourceSet LOCAL_RESOURCES =
       ResourceSet.createWithRamCpu(/* memoryMb= */ 750, /* cpu= */ 1);
   private static final UUID GUID = UUID.fromString("e423747c-2827-49e6-b961-f6c08c10bb51");
@@ -222,7 +218,7 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
   @Override
   protected void computeKey(
       ActionKeyContext actionKeyContext,
-      @Nullable ArtifactExpander artifactExpander,
+      @Nullable InputMetadataProvider inputMetadataProvider,
       Fingerprint fp)
       throws CommandLineExpansionException, InterruptedException {
     fp.addUUID(GUID);
@@ -231,8 +227,9 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
     CoreOptions.OutputPathsMode effectiveOutputPathsMode =
         PathMappers.getEffectiveOutputPathsMode(outputPathsMode, getMnemonic(), getExecutionInfo());
     executableLine.addToFingerprint(
-        actionKeyContext, artifactExpander, effectiveOutputPathsMode, fp);
-    flagLine.addToFingerprint(actionKeyContext, artifactExpander, effectiveOutputPathsMode, fp);
+        actionKeyContext, inputMetadataProvider, effectiveOutputPathsMode, fp);
+    flagLine.addToFingerprint(
+        actionKeyContext, inputMetadataProvider, effectiveOutputPathsMode, fp);
     // As the classpath is no longer part of commandLines implicitly, we need to explicitly add
     // the transitive inputs to the key here.
     actionKeyContext.addNestedSetToFingerprint(fp, transitiveInputs);
@@ -328,7 +325,7 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
             .build();
     CommandLines.ExpandedCommandLines expandedCommandLines =
         reducedCommandLine.expand(
-            actionExecutionContext.getArtifactExpander(),
+            actionExecutionContext.getInputMetadataProvider(),
             getPrimaryOutput().getExecPath(),
             pathMapper,
             configuration.getCommandLineLimits());
@@ -354,7 +351,7 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
     CommandLines.ExpandedCommandLines expandedCommandLines =
         getCommandLines()
             .expand(
-                actionExecutionContext.getArtifactExpander(),
+                actionExecutionContext.getInputMetadataProvider(),
                 getPrimaryOutput().getExecPath(),
                 pathMapper,
                 configuration.getCommandLineLimits());
@@ -444,8 +441,6 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
       return ActionResult.create(primaryResults);
     }
 
-    logger.atInfo().atMostEvery(1, SECONDS).log(
-        "Failed reduced classpath compilation for %s", lazy(JavaCompileAction.this::prettyPrint));
     // Fall back to running with the full classpath. This requires first deleting potential
     // artifacts generated by the reduced action and clearing the metadata caches.
     try {

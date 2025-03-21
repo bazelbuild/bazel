@@ -646,7 +646,9 @@ function test_succeeding_action_with_ioexception_while_copying_outputs_throws_co
 genrule(
   name = "test",
   outs = ["readonlydir/output.txt"],
-  cmd = "touch $(location readonlydir/output.txt); chmod 0 $(location readonlydir/output.txt); chmod 0500 `dirname $(location readonlydir/output.txt)`",
+  cmd = """touch $(location readonlydir/output.txt) && \
+           chmod 0 $(location readonlydir/output.txt) && \
+           chmod 0 `dirname $(location readonlydir/output.txt)`""",
 )
 EOF
   bazel build :test &> $TEST_log \
@@ -674,7 +676,10 @@ function test_failing_action_with_ioexception_while_copying_outputs_throws_corre
 genrule(
   name = "test",
   outs = ["readonlydir/output.txt"],
-  cmd = "touch $(location readonlydir/output.txt); chmod 0 $(location readonlydir/output.txt); chmod 0500 `dirname $(location readonlydir/output.txt)`; exit 1",
+  cmd = """touch $(location readonlydir/output.txt) && \
+           chmod 0 $(location readonlydir/output.txt) && \
+           chmod 0 `dirname $(location readonlydir/output.txt)` && \
+           exit 1""",
 )
 EOF
   bazel build :test &> $TEST_log \

@@ -102,6 +102,7 @@ public final class WorkerKey {
     hash = calculateHashCode();
   }
 
+
   public ImmutableList<String> getArgs() {
     return args;
   }

@@ -175,6 +175,7 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
       }
     }
   }
+
   /** Override this method if you need to run a post condition after the action has executed */
   public void verifyPostCondition(
       Spawn originalSpawn, SandboxedSpawn sandbox, SpawnExecutionContext context)
@@ -202,8 +203,8 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
 
     SubprocessBuilder subprocessBuilder = new SubprocessBuilder();
     subprocessBuilder.setWorkingDirectory(sandbox.getSandboxExecRoot().getPathFile());
-    subprocessBuilder.setStdout(outErr.getOutputPath().getPathFile());
-    subprocessBuilder.setStderr(outErr.getErrorPath().getPathFile());
+    subprocessBuilder.setStdout(outErr.getOutputPath().devirtualize().getPathFile());
+    subprocessBuilder.setStderr(outErr.getErrorPath().devirtualize().getPathFile());
     subprocessBuilder.setEnv(sandbox.getEnvironment());
     subprocessBuilder.setArgv(ImmutableList.copyOf(sandbox.getArguments()));
     boolean useSubprocessTimeout = sandbox.useSubprocessTimeout();
@@ -447,5 +448,4 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
       }
     }
   }
-
 }

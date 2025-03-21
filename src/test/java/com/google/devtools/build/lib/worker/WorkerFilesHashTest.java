@@ -25,22 +25,26 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.FilesetOutputTree;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.RunfilesArtifactValue;
 import com.google.devtools.build.lib.actions.RunfilesTree;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.exec.util.SpawnBuilder;
+import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.worker.WorkerFilesHash.MissingInputException;
 import java.io.IOException;
+import java.util.Map;
 import java.util.SortedMap;
 import javax.annotation.Nullable;
 import org.junit.Test;
@@ -169,6 +173,23 @@ public final class WorkerFilesHashTest {
           return fileArtifactValue;
         }
         throw new AssertionError("Unexpected value: " + metadataOrException);
+      }
+
+      @Nullable
+      @Override
+      public TreeArtifactValue getTreeMetadata(ActionInput actionInput) {
+        return null;
+      }
+
+      @Override
+      @Nullable
+      public FilesetOutputTree getFileset(ActionInput input) {
+        throw new UnsupportedOperationException();
+      }
+
+      @Override
+      public Map<Artifact, FilesetOutputTree> getFilesets() {
+        throw new UnsupportedOperationException();
       }
 
       @Override

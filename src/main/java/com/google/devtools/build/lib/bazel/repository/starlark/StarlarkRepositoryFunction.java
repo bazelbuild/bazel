@@ -213,7 +213,7 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
       }
       mainRepoMapping = mainRepoMappingValue.repositoryMapping();
     } else {
-      mainRepoMapping = rule.getPackage().getRepositoryMapping();
+      mainRepoMapping = rule.getPackageMetadata().repositoryMapping();
     }
 
     IgnoredSubdirectoriesValue ignoredSubdirectories =

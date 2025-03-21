@@ -29,8 +29,26 @@ import javax.annotation.Nullable;
  */
 public interface Target extends TargetData {
 
-  /** Returns the Package to which this target belongs. */
-  Package getPackage();
+  /** Returns the {@link Packageoid} to which this target belongs. */
+  Packageoid getPackageoid();
+
+  /**
+   * If this target is a direct member of a full {@link Package}, returns it; otherwise, returns
+   * null.
+   *
+   * <p>Avoid adding new uses of this method; it is incompatible with lazy symbolic macro
+   * evaluation.
+   */
+  @Nullable
+  default Package getPackage() {
+    return getPackageoid() instanceof Package ? (Package) getPackageoid() : null;
+  }
+
+  /** Returns the Package.Metadata of the package to which this target belongs. */
+  Package.Metadata getPackageMetadata();
+
+  /** Returns the Package.Declarations of the package to which this target belongs. */
+  Package.Declarations getPackageDeclarations();
 
   /**
    * Returns the innermost symbolic macro that declared this target, or null if it was declared
@@ -44,6 +62,7 @@ public interface Target extends TargetData {
     // TODO: #19922 - We might replace Package#getDeclaringMacroForTarget by storing a reference to
     // the declaring macro in implementations of this interface (sharing memory with the field for
     // the package).
+    // TODO(https://github.com/bazelbuild/bazel/issues/23852): support package pieces.
     return getPackage().getDeclaringMacroForTarget(getName());
   }
 
@@ -55,8 +74,9 @@ public interface Target extends TargetData {
    * as the package the target lives in.
    */
   default PackageIdentifier getDeclaringPackage() {
+    // TODO(https://github.com/bazelbuild/bazel/issues/23852): support package pieces.
     PackageIdentifier pkgId = getPackage().getDeclaringPackageForTargetIfInMacro(getName());
-    return pkgId != null ? pkgId : getPackage().getPackageIdentifier();
+    return pkgId != null ? pkgId : getPackageMetadata().packageIdentifier();
   }
 
   /**
@@ -64,6 +84,7 @@ public interface Target extends TargetData {
    * the product of running only a BUILD file and the legacy macros it called.
    */
   default boolean isCreatedInSymbolicMacro() {
+    // TODO(https://github.com/bazelbuild/bazel/issues/23852): support package pieces.
     return getPackage().getDeclaringPackageForTargetIfInMacro(getName()) != null;
   }
 
@@ -118,7 +139,7 @@ public interface Target extends TargetData {
   default RuleVisibility getDefaultVisibility() {
     return isCreatedInSymbolicMacro()
         ? RuleVisibility.PRIVATE
-        : getPackage().getPackageArgs().defaultVisibility();
+        : getPackageDeclarations().getPackageArgs().defaultVisibility();
   }
 
   /**
@@ -178,7 +199,7 @@ public interface Target extends TargetData {
     MacroInstance declaringMacro = getDeclaringMacro();
     PackageIdentifier instantiatingLoc =
         declaringMacro == null
-            ? getPackage().getPackageIdentifier()
+            ? getPackageMetadata().packageIdentifier()
             : declaringMacro.getDefinitionPackage();
     return visibility.concatWithPackage(instantiatingLoc);
   }
@@ -195,6 +216,6 @@ public interface Target extends TargetData {
   default String getDisplayFormLabel() {
     return getLabel()
         .getDisplayForm(
-            getLabel().getRepository().isMain() ? getPackage().getRepositoryMapping() : null);
+            getLabel().getRepository().isMain() ? getPackageMetadata().repositoryMapping() : null);
   }
 }

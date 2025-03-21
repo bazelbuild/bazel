@@ -651,6 +651,7 @@ public class DormantDependencyTest extends AnalysisTestCase {
 
         marked = rule(
           implementation = _impl,
+          dependency_resolution_rule = True,
           parent = p,
           attrs = {})
         """);

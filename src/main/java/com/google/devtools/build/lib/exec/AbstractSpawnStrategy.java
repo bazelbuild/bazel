@@ -22,6 +22,7 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionContext;
@@ -59,7 +60,6 @@ import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
 import com.google.devtools.build.lib.util.CommandFailureUtils;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystem;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.io.InterruptedIOException;
@@ -80,13 +80,11 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
    */
   private static final AtomicInteger execCount = new AtomicInteger();
 
-  private final SpawnInputExpander spawnInputExpander;
+  private final SpawnInputExpander spawnInputExpander = new SpawnInputExpander();
   private final SpawnRunner spawnRunner;
   private final ExecutionOptions executionOptions;
 
-  protected AbstractSpawnStrategy(
-      Path execRoot, SpawnRunner spawnRunner, ExecutionOptions executionOptions) {
-    this.spawnInputExpander = new SpawnInputExpander(execRoot);
+  protected AbstractSpawnStrategy(SpawnRunner spawnRunner, ExecutionOptions executionOptions) {
     this.spawnRunner = spawnRunner;
     this.executionOptions = executionOptions;
   }
@@ -302,29 +300,18 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
                     Reason.INPUTS),
             BulkTransferException.class,
             (BulkTransferException e) -> {
-              if (executionOptions.useNewExitCodeForLostInputs
-                  || executionOptions.remoteRetryOnTransientCacheError > 0) {
-                var message =
-                    BulkTransferException.allCausedByCacheNotFoundException(e)
-                        ? "Failed to fetch blobs because they do not exist remotely."
-                        : "Failed to fetch blobs because of a remote cache error.";
+              ImmutableMap<String, ActionInput> lostInputs =
+                  e.getLostInputs(actionExecutionContext.getInputMetadataProvider()::getInput);
+              if (!lostInputs.isEmpty()) {
+                throw new LostInputsExecException(lostInputs);
+              } else {
                 throw new EnvironmentalExecException(
                     e,
                     FailureDetail.newBuilder()
-                        .setMessage(message)
+                        .setMessage("Failed to fetch blobs because of a remote cache error.")
                         .setSpawn(
                             FailureDetails.Spawn.newBuilder().setCode(Code.REMOTE_CACHE_EVICTED))
                         .build());
-              } else if (BulkTransferException.allCausedByCacheNotFoundException(e)) {
-                throw new EnvironmentalExecException(
-                    e,
-                    FailureDetail.newBuilder()
-                        .setMessage("Failed to fetch blobs because they do not exist remotely.")
-                        .setSpawn(
-                            FailureDetails.Spawn.newBuilder().setCode(Code.REMOTE_CACHE_FAILED))
-                        .build());
-              } else {
-                throw e;
               }
             },
             directExecutor());
@@ -396,7 +383,6 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
         inputMapping =
             spawnInputExpander.getInputMapping(
                 spawn,
-                actionExecutionContext.getArtifactExpander(),
                 actionExecutionContext.getInputMetadataProvider(),
                 baseDirectory);
       }

@@ -93,8 +93,6 @@ public abstract class TargetDefinitionContext extends StarlarkThreadContext {
   // file.
   protected String workspaceName;
 
-  protected final Label buildFileLabel;
-
   private final boolean simplifyUnconditionalSelectsInRuleAttrs;
 
   /** Converts label literals to Label objects within this package. */
@@ -183,18 +181,6 @@ public abstract class TargetDefinitionContext extends StarlarkThreadContext {
     this.pkg = pkg;
     this.symbolGenerator = symbolGenerator;
     this.workspaceName = Preconditions.checkNotNull(workspaceName);
-
-    try {
-      this.buildFileLabel =
-          Label.create(
-              metadata.packageIdentifier(),
-              metadata.buildFilename().getRootRelativePath().getBaseName());
-    } catch (LabelSyntaxException e) {
-      // This can't actually happen.
-      throw new AssertionError(
-          "Package BUILD file has an illegal name: " + metadata.buildFilename(), e);
-    }
-
     this.simplifyUnconditionalSelectsInRuleAttrs = simplifyUnconditionalSelectsInRuleAttrs;
     this.labelConverter =
         new LabelConverter(metadata.packageIdentifier(), metadata.repositoryMapping());
@@ -213,7 +199,13 @@ public abstract class TargetDefinitionContext extends StarlarkThreadContext {
     // base class for both Package construction and PackagePiece construction.
     recorder.addInputFileUnchecked(
         new InputFile(
-            pkg, buildFileLabel, Location.fromFile(metadata.buildFilename().asPath().toString())));
+            pkg,
+            metadata.buildFileLabel(),
+            Location.fromFile(metadata.buildFilename().asPath().toString())));
+  }
+
+  public Metadata getMetadata() {
+    return metadata;
   }
 
   SymbolGenerator<?> getSymbolGenerator() {
@@ -266,10 +258,6 @@ public abstract class TargetDefinitionContext extends StarlarkThreadContext {
 
   Interner<ImmutableList<?>> getListInterner() {
     return listInterner;
-  }
-
-  public Label getBuildFileLabel() {
-    return buildFileLabel;
   }
 
   RootedPath getFilename() {
@@ -389,7 +377,7 @@ public abstract class TargetDefinitionContext extends StarlarkThreadContext {
       MacroClass macroClass, Map<String, Object> attrValues, int sameNameDepth)
       throws EvalException {
     MacroInstance parent = currentMacro();
-    return new MacroInstance(pkg, parent, macroClass, attrValues, sameNameDepth);
+    return new MacroInstance(pkg.getMetadata(), parent, macroClass, attrValues, sameNameDepth);
   }
 
   @Nullable
@@ -622,7 +610,7 @@ public abstract class TargetDefinitionContext extends StarlarkThreadContext {
   }
 
   public void addRule(Rule rule) throws NameConflictException {
-    Preconditions.checkArgument(rule.getPackage() == pkg);
+    Preconditions.checkArgument(rule.getPackageoid() == pkg);
     recorder.addRule(rule);
   }
 

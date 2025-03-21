@@ -124,7 +124,8 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
   @Test
   public void testFeatureConfigurationCodec() throws Exception {
     FeatureConfiguration emptyConfiguration =
-        buildEmptyFeatures("").getFeatureConfiguration(ImmutableSet.of());
+        FeatureConfiguration.intern(
+            buildEmptyFeatures("").getFeatureConfiguration(ImmutableSet.of()));
     FeatureConfiguration emptyFeatures =
         CcToolchainTestHelper.buildFeatures("feature {name: 'a'}", "feature {name: 'b'}")
             .getFeatureConfiguration(ImmutableSet.of("a", "b"));

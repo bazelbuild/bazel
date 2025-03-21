@@ -352,17 +352,10 @@ public class CompactPersistentActionCache implements ActionCache {
       return null;
     }
     byte[] data = map.get(index);
-    return get(data);
-  }
-
-  @Nullable
-  private ActionCache.Entry get(byte[] data) {
-    try {
-      return data != null ? decode(data) : null;
-    } catch (IOException e) {
-      // return entry marked as corrupted.
-      return ActionCache.Entry.CORRUPTED;
+    if (data == null) {
+      return null;
     }
+    return decode(data);
   }
 
   @Override
@@ -402,7 +395,7 @@ public class CompactPersistentActionCache implements ActionCache {
   @Override
   public void removeIf(Predicate<Entry> predicate) {
     for (Map.Entry<Integer, byte[]> entry : map.entrySet()) {
-      if (predicate.test(get(entry.getValue()))) {
+      if (predicate.test(decode(entry.getValue()))) {
         // Although this is racy (the key might be concurrently set to a different value), we don't
         // care because it's a very small window and it only impacts performance, not correctness.
         map.remove(entry.getKey());
@@ -444,12 +437,7 @@ public class CompactPersistentActionCache implements ActionCache {
       if (entry.getKey() == VALIDATION_KEY) {
         continue;
       }
-      String content;
-      try {
-        content = decode(entry.getValue()).toString();
-      } catch (IOException e) {
-        content = e + "\n";
-      }
+      String content = decode(entry.getValue()).toString();
       builder
           .append("-> ")
           .append(indexer.getStringForIndex(entry.getKey()))
@@ -476,12 +464,7 @@ public class CompactPersistentActionCache implements ActionCache {
       if (entry.getKey() == VALIDATION_KEY) {
         continue;
       }
-      String content;
-      try {
-        content = decode(entry.getValue()).toString();
-      } catch (IOException e) {
-        content = e + "\n";
-      }
+      String content = decode(entry.getValue()).toString();
       out.println(
           entry.getKey()
               + ", "
@@ -684,10 +667,11 @@ public class CompactPersistentActionCache implements ActionCache {
   }
 
   /**
-   * Creates new action cache entry using given compressed entry data. Data will stay in the
-   * compressed format until entry is actually used by the dependency checker.
+   * Creates a {@link ActionCache.Entry} from the given compressed data.
+   *
+   * @throws IOException if the compressed data is corrupted.
    */
-  private ActionCache.Entry decode(byte[] data) throws IOException {
+  private ActionCache.Entry decodeInternal(byte[] data) throws IOException {
     try {
       ByteBuffer source = ByteBuffer.wrap(data);
 
@@ -773,6 +757,18 @@ public class CompactPersistentActionCache implements ActionCache {
           actionKey, usedClientEnvDigest, files, digest, outputFiles, outputTrees);
     } catch (BufferUnderflowException e) {
       throw new IOException("encoded entry data is incomplete", e);
+    }
+  }
+
+  /**
+   * Creates an {@link ActionCache.Entry} from the given compressed data, returning the special
+   * value {@link ActionCache.Entry#CORRUPTED} if the compressed data is corrupted.
+   */
+  private ActionCache.Entry decode(byte[] data) {
+    try {
+      return decodeInternal(data);
+    } catch (IOException e) {
+      return ActionCache.Entry.CORRUPTED;
     }
   }
 

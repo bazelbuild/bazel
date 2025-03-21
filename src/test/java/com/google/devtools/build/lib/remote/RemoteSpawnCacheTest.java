@@ -40,7 +40,6 @@ import build.bazel.remote.execution.v2.RequestMetadata;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Sets;
 import com.google.common.eventbus.EventBus;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -194,7 +193,7 @@ public class RemoteSpawnCacheTest {
 
       @Override
       public SpawnInputExpander getSpawnInputExpander() {
-        return new SpawnInputExpander(execRoot);
+        return new SpawnInputExpander();
       }
 
       @Override
@@ -211,9 +210,7 @@ public class RemoteSpawnCacheTest {
       public SortedMap<PathFragment, ActionInput> getInputMapping(
           PathFragment baseDirectory, boolean willAccessRepeatedly)
           throws ForbiddenActionInputException {
-        return getSpawnInputExpander()
-            .getInputMapping(
-                spawn, treeArtifact -> ImmutableSortedSet.of(), fakeFileCache, baseDirectory);
+        return getSpawnInputExpander().getInputMapping(spawn, fakeFileCache, baseDirectory);
       }
 
       @Override
@@ -267,7 +264,6 @@ public class RemoteSpawnCacheTest {
         ImmutableList.of("cp", inputPath.formatted("cfg"), outputPath.formatted("cfg")),
         ImmutableMap.of("VARIABLE", "value"),
         ImmutableMap.of(ExecutionRequirements.SUPPORTS_PATH_MAPPING, ""),
-        /* filesetMappings= */ ImmutableMap.of(),
         /* inputs= */ NestedSetBuilder.create(
             Order.STABLE_ORDER, ActionInputHelper.fromPath(inputPath.formatted(configSegment))),
         /* tools= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),

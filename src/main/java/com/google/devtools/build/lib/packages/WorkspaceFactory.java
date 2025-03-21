@@ -197,9 +197,6 @@ public class WorkspaceFactory {
                 rule.getInteriorCallStack());
         newRule.copyAttributesFrom(rule);
         newRule.populateOutputFiles(NullEventHandler.INSTANCE, builder.getPackageIdentifier());
-        if (rule.containsErrors()) {
-          newRule.setContainsErrors();
-        }
         builder.addRule(newRule);
       } catch (LabelSyntaxException e) {
         // This rule has already been created once, so it should have worked the second time, too

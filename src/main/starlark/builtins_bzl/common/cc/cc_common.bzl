@@ -21,6 +21,7 @@ load(
 )
 load(":common/cc/cc_info.bzl", "CcInfo")
 load(":common/cc/cc_shared_library_hint_info.bzl", "CcSharedLibraryHintInfo")
+load(":common/cc/compile/compile.bzl", "compile")
 load(":common/cc/link/create_linking_context_from_compilation_outputs.bzl", "create_linking_context_from_compilation_outputs")
 load(":common/cc/link/link.bzl", "link")
 load(":common/cc/link/link_build_variables.bzl", "create_link_variables")
@@ -617,6 +618,10 @@ def _incompatible_disable_objc_library_transition():
     cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
     return cc_common_internal.incompatible_disable_objc_library_transition()
 
+def _add_go_exec_groups_to_binary_rules():
+    cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
+    return cc_common_internal.add_go_exec_groups_to_binary_rules()
+
 def _create_module_map(*, file, name, umbrella_header = None):
     cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
     return cc_common_internal.create_module_map(
@@ -752,7 +757,11 @@ def _compile(
     if has_tuple:
         cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
 
-    return cc_common_internal.compile(
+    if cc_toolchain._cpp_configuration.experimental_starlark_compiling():
+        compile_func = compile
+    else:
+        compile_func = cc_common_internal.compile
+    return compile_func(
         actions = actions,
         feature_configuration = feature_configuration,
         cc_toolchain = cc_toolchain,
@@ -891,6 +900,7 @@ cc_common = struct(
     create_compilation_context = _create_compilation_context,
     legacy_cc_flags_make_variable_do_not_use = _legacy_cc_flags_make_variable_do_not_use,
     incompatible_disable_objc_library_transition = _incompatible_disable_objc_library_transition,
+    add_go_exec_groups_to_binary_rules = _add_go_exec_groups_to_binary_rules,
     is_cc_toolchain_resolution_enabled_do_not_use = _is_cc_toolchain_resolution_enabled_do_not_use,
     create_cc_toolchain_config_info = _create_cc_toolchain_config_info,
     create_linking_context_from_compilation_outputs = _create_linking_context_from_compilation_outputs,

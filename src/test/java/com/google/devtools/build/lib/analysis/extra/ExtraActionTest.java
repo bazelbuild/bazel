@@ -15,6 +15,9 @@ package com.google.devtools.build.lib.analysis.extra;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.NULL_ACTION_OWNER;
+import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.NULL_LABEL;
+import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.ensureMemoizedIsInitializedIsSet;
+import static com.google.devtools.build.lib.skyframe.serialization.testutils.Dumper.dumpStructureWithEquivalenceReduction;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -29,10 +32,12 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext.LostInputsCheck;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
+import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
+import com.google.devtools.build.lib.actions.BuildConfigurationEvent;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.DiscoveredModulesPruner;
 import com.google.devtools.build.lib.actions.Spawn;
@@ -42,18 +47,25 @@ import com.google.devtools.build.lib.actions.ThreadStateReceiver;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.actions.extra.JavaCompileInfo;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
+import com.google.devtools.build.lib.actions.util.ActionsTestUtil.InputDiscoveringNullAction;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil.NullAction;
+import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.exec.BlazeExecutor;
 import com.google.devtools.build.lib.exec.util.FakeActionInputFileCache;
 import com.google.devtools.build.lib.exec.util.TestExecutorBuilder;
+import com.google.devtools.build.lib.skyframe.serialization.ArrayCodec;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationDepsUtils;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import java.util.HashMap;
 import java.util.Map;
+import net.starlark.java.syntax.Location;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -149,7 +161,7 @@ public class ExtraActionTest extends FoundationTestCase {
         };
 
     BlazeExecutor testExecutor =
-        new TestExecutorBuilder(fileSystem, execRoot, null)
+        new TestExecutorBuilder(fileSystem, execRoot)
             .addStrategy(fakeSpawnStrategy, "fake")
             .setDefaultStrategies("fake")
             .build();
@@ -167,10 +179,8 @@ public class ExtraActionTest extends FoundationTestCase {
                 /* fileOutErr= */ null,
                 /* eventHandler= */ null,
                 /* clientEnv= */ ImmutableMap.of(),
-                /* topLevelFilesets= */ ImmutableMap.of(),
                 /* artifactExpander= */ null,
                 /* actionFileSystem= */ null,
-                /* skyframeDepsResult= */ null,
                 DiscoveredModulesPruner.DEFAULT,
                 SyscallCache.NO_CACHE,
                 ThreadStateReceiver.NULL_INSTANCE));
@@ -206,5 +216,63 @@ public class ExtraActionTest extends FoundationTestCase {
             "bla bla");
     extraAction.updateInputs(NestedSetBuilder.create(Order.STABLE_ORDER, extraIn, discoveredIn));
     verify(shadowedAction, Mockito.never()).updateInputs(ArgumentMatchers.any());
+  }
+
+  @Test
+  public void testSerializationRoundTrip_resetsInputs() throws Exception {
+    Path execRoot = scratch.getFileSystem().getPath("/");
+    ArtifactRoot out = ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "out");
+    ArtifactRoot src = ArtifactRoot.asSourceRoot(Root.fromPath(scratch.dir("/src")));
+    Artifact extraInput = ActionsTestUtil.createArtifact(src, scratch.file("/src/extra.in"));
+    Artifact discoveredInput =
+        ActionsTestUtil.createArtifact(src, scratch.file("/src/discovered.in"));
+    var output =
+        (Artifact.DerivedArtifact)
+            ActionsTestUtil.createArtifact(out, scratch.file("/out/test.out"));
+    output.setGeneratingActionKey(ActionsTestUtil.NULL_ACTION_LOOKUP_DATA);
+    // Note that this differs from NULL_ACTION_OWNER in that it has non-empty execProperties, which
+    // are important for testing.
+    var dummyActionOwner =
+        ActionOwner.createDummy(
+            NULL_LABEL,
+            new Location("dummy-file", 0, 0),
+            /* targetKind= */ "dummy-kind",
+            /* buildConfigurationMnemonic= */ "dummy-configuration-mnemonic",
+            /* configurationChecksum= */ "dummy-configuration",
+            new BuildConfigurationEvent(
+                BuildEventStreamProtos.BuildEventId.getDefaultInstance(),
+                BuildEventStreamProtos.BuildEvent.getDefaultInstance()),
+            /* isToolConfiguration= */ false,
+            /* executionPlatform= */ PlatformInfo.EMPTY_PLATFORM_INFO,
+            /* aspectDescriptors= */ ImmutableList.of(),
+            /* execProperties= */ ImmutableMap.of("property1", "value1", "property2", "value2"));
+    ExtraAction extraAction =
+        new ExtraAction(
+            dummyActionOwner,
+            NestedSetBuilder.create(Order.STABLE_ORDER, extraInput),
+            ImmutableSet.of(output),
+            /* shadowedAction= */ new InputDiscoveringNullAction(),
+            /* createDummyOutput= */ false,
+            CommandLine.of(ImmutableList.of()),
+            ActionEnvironment.EMPTY,
+            /* executionInfo= */ ImmutableMap.of("xyz", "2", "abc", "1"),
+            "Executing extra action bla bla",
+            "bla bla");
+    ensureMemoizedIsInitializedIsSet(extraAction);
+    String originalStructure = dumpStructureWithEquivalenceReduction(extraAction);
+
+    extraAction.updateInputs(
+        NestedSetBuilder.create(Order.STABLE_ORDER, extraInput, discoveredInput));
+
+    new SerializationTester(extraAction)
+        .makeMemoizingAndAllowFutureBlocking(/* allowFutureBlocking= */ true)
+        .addCodec(ArrayCodec.forComponentType(Artifact.class))
+        .setVerificationFunction(
+            (unusedInput, deserialized) ->
+                assertThat(dumpStructureWithEquivalenceReduction(deserialized))
+                    .isEqualTo(originalStructure))
+        .addDependencies(getCommonSerializationDependencies())
+        .addDependencies(SerializationDepsUtils.SERIALIZATION_DEPS_FOR_TEST)
+        .runTests();
   }
 }

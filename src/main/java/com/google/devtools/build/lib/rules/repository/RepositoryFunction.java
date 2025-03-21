@@ -142,7 +142,7 @@ public abstract class RepositoryFunction {
 
   public static boolean isWorkspaceRepo(Rule rule) {
     // All workspace repos are under //external, while bzlmod repo rules are not
-    return rule.getPackage().getPackageIdentifier().equals(EXTERNAL_PACKAGE_IDENTIFIER);
+    return rule.getPackageMetadata().packageIdentifier().equals(EXTERNAL_PACKAGE_IDENTIFIER);
   }
 
   protected void setupRepoRootBeforeFetching(Path repoRoot) throws RepositoryFunctionException {

@@ -137,7 +137,7 @@ class SyntheticAttributeHashCalculator {
 
     try {
       // Rules can be considered changed when the containing package goes in/out of error.
-      codedOut.writeBoolNoTag(rule.getPackage().containsErrors());
+      codedOut.writeBoolNoTag(rule.getPackageoid().containsErrors());
     } catch (IOException e) {
       throw new IllegalStateException("Unexpected IO failure writing to digest stream", e);
     }

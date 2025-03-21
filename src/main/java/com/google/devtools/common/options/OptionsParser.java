@@ -886,6 +886,16 @@ public class OptionsParser implements OptionsParsingResult {
     return impl.asCanonicalizedList();
   }
 
+  private static String getFinalExpansion(ParsedOptionDescription option) {
+    if (option.getExpandedFrom() == null) {
+      return "";
+    }
+    while (option.getExpandedFrom() != null) {
+      option = option.getExpandedFrom();
+    }
+    return option.getCanonicalForm();
+  }
+
   @Override
   public ImmutableMap<String, String> getUserOptions() {
     if (ignoreUserOptions) {
@@ -898,13 +908,7 @@ public class OptionsParser implements OptionsParsingResult {
     asCompleteListOfParsedOptions().stream()
         .filter(GlobalRcUtils.IS_GLOBAL_RC_OPTION.negate())
         .filter(option -> !option.getCanonicalForm().contains("default_override"))
-        .forEach(
-            option ->
-                userOptions.put(
-                    option.getCanonicalForm(),
-                    option.getExpandedFrom() == null
-                        ? ""
-                        : option.getExpandedFrom().getCanonicalForm()));
+        .forEach(option -> userOptions.put(option.getCanonicalForm(), getFinalExpansion(option)));
     impl.getSkippedOptions().stream()
         .filter(GlobalRcUtils.IS_GLOBAL_RC_OPTION.negate())
         .map(option -> option.getUnconvertedValue())

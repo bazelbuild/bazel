@@ -26,6 +26,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Maps;
+import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
@@ -38,9 +41,12 @@ import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileStatusWithMetadata;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
+import com.google.devtools.build.lib.actions.LostInputsActionExecutionException;
+import com.google.devtools.build.lib.actions.LostInputsExecException;
 import com.google.devtools.build.lib.clock.Clock;
+import com.google.devtools.build.lib.remote.common.BulkTransferException;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
-import com.google.devtools.build.lib.vfs.AbstractFileSystemWithCustomStat;
+import com.google.devtools.build.lib.vfs.AbstractFileSystem;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
@@ -60,8 +66,10 @@ import java.io.OutputStream;
 import java.nio.channels.SeekableByteChannel;
 import java.time.Instant;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
 import javax.annotation.Nullable;
@@ -97,7 +105,7 @@ import javax.annotation.Nullable;
  * sources, such as the same path existing in multiple underlying sources with different type or
  * contents.
  */
-public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat
+public class RemoteActionFileSystem extends AbstractFileSystem
     implements PathCanonicalizer.Resolver {
   private final PathFragment execRoot;
   private final PathFragment outputBase;
@@ -109,6 +117,10 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat
   private final RemoteActionInputFetcher inputFetcher;
   private final FileSystem localFs;
   private final RemoteInMemoryFileSystem remoteOutputTree;
+  // Concurrent access is rare and most builds don't have lost inputs, so use a map implementation
+  // with a very low footprint.
+  private final Map<String, ActionInput> lostInputs =
+      Collections.synchronizedMap(Maps.newLinkedHashMapWithExpectedSize(0));
 
   @Nullable private ActionExecutionMetadata action = null;
 
@@ -120,7 +132,7 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat
     FOLLOW_PARENT,
     /** Do not canonicalize. This is only used internally to resolve symlinks efficiently. */
     FOLLOW_NONE
-  };
+  }
 
   /** Describes which sources to consider when calling {@link #statInternal}. */
   private enum StatSources {
@@ -369,7 +381,16 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat
 
   @Override
   protected InputStream getInputStream(PathFragment path) throws IOException {
-    downloadFileIfRemote(path);
+    try {
+      downloadFileIfRemote(path);
+    } catch (BulkTransferException e) {
+      ImmutableMap<String, ActionInput> newlyLostInputs =
+          e.getLostInputs(inputArtifactData::getInput);
+      if (!newlyLostInputs.isEmpty()) {
+        lostInputs.putAll(newlyLostInputs);
+      }
+      throw e;
+    }
     // TODO(tjgq): Consider only falling back to the local filesystem for source (non-output) files.
     // See getMetadata() for why this isn't currently possible.
     return localFs.getPath(path).getInputStream();
@@ -700,12 +721,17 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat
 
       @Override
       public long getLastModifiedTime() {
-        return m.getModifiedTime();
+        try {
+          return m.getModifiedTime();
+        } catch (UnsupportedOperationException e) {
+          // Not every FileArtifactValue supports getModifiedTime.
+          return 0;
+        }
       }
 
       @Override
       public long getLastChangeTime() {
-        return m.getModifiedTime();
+        return getLastModifiedTime();
       }
 
       @Override
@@ -916,9 +942,18 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat
     localFs.getPath(linkPath).createHardLink(getPath(originalPath));
   }
 
+  public void checkForLostInputs(Action action) throws LostInputsActionExecutionException {
+    if (lostInputs.isEmpty()) {
+      return;
+    }
+    throw (LostInputsActionExecutionException)
+        ActionExecutionException.fromExecException(
+            new LostInputsExecException(ImmutableMap.copyOf(lostInputs)), action);
+  }
+
   static class RemoteInMemoryFileSystem extends InMemoryFileSystem {
 
-    public RemoteInMemoryFileSystem(DigestHashFunction hashFunction) {
+    RemoteInMemoryFileSystem(DigestHashFunction hashFunction) {
       super(hashFunction);
     }
 

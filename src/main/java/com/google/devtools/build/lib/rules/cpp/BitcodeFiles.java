@@ -31,7 +31,7 @@ import javax.annotation.Nullable;
 final class BitcodeFiles {
 
   private final NestedSet<Artifact> files;
-  @Nullable private volatile byte[] fingerprint = null;
+  @Nullable private transient volatile byte[] fingerprint = null;
 
   private volatile WeakReference<Map<PathFragment, Artifact>> filesArtifactPathMapReference =
       new WeakReference<>(null);

@@ -260,7 +260,7 @@ public abstract class AbstractBlazeQueryEnvironment<T>
     // QueryEnvironment#buildTransitiveClosure. So if the implementation of that method does some
     // heavyweight blocking work, then it's best to do this blocking work in a single batch.
     // Importantly, the callback we pass in needs to maintain order.
-    final QueryUtil.AggregateAllCallback<T, ?> aggregateAllCallback =
+    final QueryUtil.AggregateAllCallback<T, ? extends Set<T>> aggregateAllCallback =
         QueryUtil.newOrderedAggregateAllOutputFormatterCallback(this);
     QueryTaskFuture<Void> evalAllFuture = expr.eval(this, context, aggregateAllCallback);
     return whenSucceedsCall(
@@ -500,14 +500,14 @@ public abstract class AbstractBlazeQueryEnvironment<T>
 
     @Override
     public Target getBuildFileTarget(Target originalTarget) {
-      return originalTarget.getPackage().getBuildFile();
+      return originalTarget.getPackageDeclarations().getBuildFile();
     }
 
     @Override
     public void visitLoads(
         Target originalTarget, LoadGraphVisitor<QueryException, InterruptedException> visitor)
         throws QueryException, InterruptedException {
-      originalTarget.getPackage().visitLoadGraph(visitor);
+      originalTarget.getPackageDeclarations().visitLoadGraph(visitor);
     }
   }
 

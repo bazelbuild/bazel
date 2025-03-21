@@ -392,7 +392,7 @@ public final class MacroClass {
               /* contextDescription= */ "",
               SymbolGenerator.create(
                   MacroInstance.UniqueId.create(
-                      macro.getPackage().getPackageIdentifier(), macro.getId())));
+                      macro.getPackageMetadata().packageIdentifier(), macro.getId())));
       thread.setPrintHandler(Event.makeDebugPrintHandler(builder.getLocalEventHandler()));
 
       // TODO: #19922 - Technically the embedded SymbolGenerator field should use a different key
@@ -477,7 +477,7 @@ public final class MacroClass {
       ancestor = ancestor.getParent();
     }
     for (MacroInstance item : Lists.reverse(allAncestors)) {
-      String pkg = item.getPackage().getPackageIdentifier().getCanonicalForm();
+      String pkg = item.getPackageMetadata().packageIdentifier().getCanonicalForm();
       String type =
           item.getMacroClass().getDefiningBzlLabel().getCanonicalForm()
               + "%"

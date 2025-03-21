@@ -30,8 +30,9 @@ public abstract class FileTarget implements Target, FileType.HasFileType {
   final Label label;
 
   /** Constructs a file with the given label, which must be in the given package. */
-  FileTarget(Package pkg, Label label) {
-    Preconditions.checkArgument(label.getPackageFragment().equals(pkg.getNameFragment()));
+  FileTarget(Packageoid pkg, Label label) {
+    Preconditions.checkArgument(
+        label.getPackageFragment().equals(pkg.getPackageIdentifier().getPackageFragment()));
     this.label = label;
   }
 
@@ -78,6 +79,6 @@ public abstract class FileTarget implements Target, FileType.HasFileType {
    */
   @Override
   public License getLicense() {
-    return getPackage().getPackageArgs().license();
+    return getPackageDeclarations().getPackageArgs().license();
   }
 }

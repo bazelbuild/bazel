@@ -531,7 +531,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
             ruleContext.getFragment(CppConfiguration.class));
     assertThat(commandLine)
         .containsExactlyElementsIn(
-            featureConfiguration.getCommandLine("c++-link-executable", CcToolchainVariables.EMPTY));
+            featureConfiguration.getCommandLine(
+                "c++-link-executable", CcToolchainVariables.empty()));
   }
 
   @Test
@@ -588,7 +589,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     assertThat(environmentVariables)
         .containsExactlyEntriesIn(
             featureConfiguration.getEnvironmentVariables(
-                CppActionNames.CPP_COMPILE, CcToolchainVariables.EMPTY, PathMapper.NOOP));
+                CppActionNames.CPP_COMPILE, CcToolchainVariables.empty(), PathMapper.NOOP));
   }
 
   @Test

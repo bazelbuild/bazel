@@ -231,7 +231,7 @@ public class BlazeServerStartupOptions extends OptionsBase {
       effectTags = {OptionEffectTag.EAGERNESS_TO_EXIT, OptionEffectTag.LOSES_INCREMENTAL_STATE},
       help =
           "If max_idle_secs is set and the build server has been idle for a while, shut down the "
-              + "server when the system is low on free RAM. Linux only.")
+              + "server when the system is low on free RAM. Linux and MacOS only.")
   public boolean shutdownOnLowSysMem;
 
   @Option(

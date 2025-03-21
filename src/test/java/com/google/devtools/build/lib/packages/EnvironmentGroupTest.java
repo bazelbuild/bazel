@@ -107,7 +107,7 @@ public class EnvironmentGroupTest extends PackageLoadingTestCase {
     scratch.file(
         "a/BUILD", "environment_group(name = 'empty_group', environments = [], defaults = [])");
     reporter.removeHandler(failFastHandler);
-    Package pkg = getTarget("//a:BUILD").getPackage();
+    Packageoid pkg = getTarget("//a:BUILD").getPackageoid();
     assertThat(pkg.containsErrors()).isTrue();
     assertContainsEvent(
         "environment group empty_group must contain at least one environment");

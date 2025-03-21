@@ -96,7 +96,7 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
 
   public static final String IS_EXECUTABLE_ATTRIBUTE_NAME = "$is_executable";
 
-  private final Package pkg;
+  private final Packageoid pkg;
   private final Label label;
   private final RuleClass ruleClass;
   private final Location location;
@@ -174,7 +174,7 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
   private Object outputFiles;
 
   Rule(
-      Package pkg,
+      Packageoid pkg,
       Label label,
       RuleClass ruleClass,
       Location location,
@@ -188,18 +188,24 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
     this.attrBytes = new byte[bitSetSize()];
   }
 
-  void setContainsErrors() {
-    pkg.setContainsErrors();
-  }
-
   @Override
   public Label getLabel() {
     return label;
   }
 
   @Override
-  public Package getPackage() {
+  public Packageoid getPackageoid() {
     return pkg;
+  }
+
+  @Override
+  public Package.Metadata getPackageMetadata() {
+    return pkg.getMetadata();
+  }
+
+  @Override
+  public Package.Declarations getPackageDeclarations() {
+    return pkg.getDeclarations();
   }
 
   public RuleClass getRuleClassObject() {
@@ -1002,7 +1008,7 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
                       "Label for attribute %s should refer to '%s' but instead refers to '%s'"
                           + " (label '%s')",
                       attribute,
-                      pkg.getName(),
+                      pkg.getMetadata().getName(),
                       outputLabel.getPackageFragment(),
                       outputLabel.getName()));
             }
@@ -1051,9 +1057,17 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
     }
   }
 
+  /**
+   * Marks the rule's package or package piece as in error, and propagates the error message to the
+   * reporter.
+   *
+   * <p>This method may only be called while the rule's package or package piece is being
+   * constructed.
+   */
   void reportError(String message, EventHandler eventHandler) {
     eventHandler.handle(Package.error(location, message, PackageLoading.Code.STARLARK_EVAL_ERROR));
-    setContainsErrors();
+    // TODO(https://github.com/bazelbuild/bazel/issues/23852): support package pieces.
+    getPackage().setContainsErrors();
   }
 
   private void reportWarning(String message, EventHandler eventHandler) {
@@ -1101,7 +1115,8 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
     // enforced). See https://github.com/bazelbuild/bazel/issues/12669. Ultimately this entire
     // conditional should be removed.
     if (ruleClass.getName().equals("config_setting")
-        && pkg.getConfigSettingVisibilityPolicy() == ConfigSettingVisibilityPolicy.DEFAULT_PUBLIC) {
+        && pkg.getMetadata().configSettingVisibilityPolicy()
+            == ConfigSettingVisibilityPolicy.DEFAULT_PUBLIC) {
       return RuleVisibility.PUBLIC; // Default: //visibility:public.
     }
 
@@ -1157,7 +1172,7 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
     } else if (ruleClass.ignoreLicenses()) {
       return License.NO_LICENSE;
     } else {
-      return pkg.getPackageArgs().license();
+      return getPackageDeclarations().getPackageArgs().license();
     }
   }
 
@@ -1190,6 +1205,16 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
       }
     }
     return ruleTags;
+  }
+
+  /** Returns only the `tags` attribute value. */
+  public ImmutableList<String> getOnlyTagsAttribute() {
+    Attribute tagsAttribute = ruleClass.getAttributeByName("tags");
+    Type<?> attrType = tagsAttribute.getType();
+    String name = tagsAttribute.getName();
+    // This enforces the expectation that taggable attributes are non-configurable.
+    Object value = NonconfigurableAttributeMapper.of(this).get(name, attrType);
+    return ImmutableList.copyOf(attrType.toTagSet(value, name));
   }
 
   @Override

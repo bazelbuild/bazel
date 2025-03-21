@@ -23,12 +23,11 @@ import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.FilesetOutputTree;
-import com.google.devtools.build.lib.actions.FilesetOutputTree.RelativeSymlinkBehaviorWithoutError;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.RunfilesArtifactValue;
 import com.google.devtools.build.lib.actions.RunfilesTree;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.HashMap;
@@ -43,7 +42,6 @@ import javax.annotation.Nullable;
  * once the action finishes executing.
  */
 final class ActionInputMetadataProvider implements InputMetadataProvider {
-  private final PathFragment execRoot;
 
   private final ActionInputMap inputArtifactData;
 
@@ -57,26 +55,19 @@ final class ActionInputMetadataProvider implements InputMetadataProvider {
    */
   private final Supplier<ImmutableMap<String, FileArtifactValue>> filesetMapping;
 
-  ActionInputMetadataProvider(
-      PathFragment execRoot,
-      ActionInputMap inputArtifactData,
-      Map<Artifact, FilesetOutputTree> filesets) {
-    this.execRoot = execRoot;
+  ActionInputMetadataProvider(ActionInputMap inputArtifactData) {
     this.inputArtifactData = inputArtifactData;
-    this.filesetMapping = Suppliers.memoize(() -> createFilesetMapping(filesets));
+    this.filesetMapping =
+        Suppliers.memoize(() -> createFilesetMapping(inputArtifactData.getFilesets()));
   }
 
   private static ImmutableMap<String, FileArtifactValue> createFilesetMapping(
       Map<Artifact, FilesetOutputTree> filesets) {
     Map<String, FileArtifactValue> filesetMap = new HashMap<>();
     for (FilesetOutputTree filesetOutput : filesets.values()) {
-      filesetOutput.visitSymlinks(
-          RelativeSymlinkBehaviorWithoutError.RESOLVE,
-          (name, target, metadata) -> {
-            if (metadata != null && metadata.getDigest() != null) {
-              filesetMap.put(target.getPathString(), metadata);
-            }
-          });
+      for (FilesetOutputSymlink link : filesetOutput.symlinks()) {
+        filesetMap.put(link.targetPath().getPathString(), link.metadata());
+      }
     }
     return ImmutableMap.copyOf(filesetMap);
   }
@@ -85,10 +76,7 @@ final class ActionInputMetadataProvider implements InputMetadataProvider {
   @Override
   public FileArtifactValue getInputMetadataChecked(ActionInput actionInput) throws IOException {
     if (!(actionInput instanceof Artifact artifact)) {
-      PathFragment inputPath = actionInput.getExecPath();
-      PathFragment filesetKeyPath =
-          inputPath.startsWith(execRoot) ? inputPath.relativeTo(execRoot) : inputPath;
-      return filesetMapping.get().get(filesetKeyPath.getPathString());
+      return filesetMapping.get().get(actionInput.getExecPathString());
     }
 
     FileArtifactValue value = inputArtifactData.getInputMetadataChecked(artifact);
@@ -97,6 +85,23 @@ final class ActionInputMetadataProvider implements InputMetadataProvider {
     }
 
     return null;
+  }
+
+  @Nullable
+  @Override
+  public TreeArtifactValue getTreeMetadata(ActionInput actionInput) {
+    return inputArtifactData.getTreeMetadata(actionInput);
+  }
+
+  @Nullable
+  @Override
+  public FilesetOutputTree getFileset(ActionInput input) {
+    return inputArtifactData.getFileset(input);
+  }
+
+  @Override
+  public Map<Artifact, FilesetOutputTree> getFilesets() {
+    return inputArtifactData.getFilesets();
   }
 
   @Nullable

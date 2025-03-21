@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.actions;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -21,9 +22,11 @@ import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.BulkDeleter;
 import com.google.devtools.build.lib.vfs.Path;
+import java.io.IOException;
 import javax.annotation.Nullable;
 
 /**
@@ -32,7 +35,7 @@ import javax.annotation.Nullable;
  * the action graph; for example generated header files.
  */
 @Immutable
-public final class RunfilesTreeAction extends AbstractAction {
+public final class RunfilesTreeAction extends AbstractAction implements RichDataProducingAction {
   public static final String MNEMONIC = "RunfilesTree";
 
   /** The runfiles tree created by this action. */
@@ -53,8 +56,65 @@ public final class RunfilesTreeAction extends AbstractAction {
     return runfilesTree;
   }
 
+  private RunfilesArtifactValue createRunfilesArtifactValue(
+      InputMetadataProvider inputMetadataProvider)
+      throws IOException {
+    ImmutableList<Artifact> inputs = getInputs().toList();
+    ImmutableList.Builder<Artifact> files = ImmutableList.builder();
+    ImmutableList.Builder<FileArtifactValue> fileValues = ImmutableList.builder();
+    ImmutableList.Builder<Artifact> trees = ImmutableList.builder();
+    ImmutableList.Builder<TreeArtifactValue> treeValues = ImmutableList.builder();
+    ImmutableList.Builder<Artifact> filesets = ImmutableList.builder();
+    ImmutableList.Builder<FilesetOutputTree> filesetValues = ImmutableList.builder();
+
+    // Sort for better equality in RunfilesArtifactValue.
+    ImmutableList<Artifact> sortedInputs =
+        ImmutableList.sortedCopyOf(Artifact.EXEC_PATH_COMPARATOR, inputs);
+    for (Artifact input : sortedInputs) {
+      if (input.isFileset()) {
+        filesets.add(input);
+        filesetValues.add(inputMetadataProvider.getFileset(input));
+      } else if (input.isTreeArtifact()) {
+        trees.add(input);
+        treeValues.add(inputMetadataProvider.getTreeMetadata(input));
+      } else {
+        files.add(input);
+        fileValues.add(inputMetadataProvider.getInputMetadata(input));
+      }
+    }
+
+    return new RunfilesArtifactValue(
+        runfilesTree,
+        files.build(),
+        fileValues.build(),
+        trees.build(),
+        treeValues.build(),
+        filesets.build(),
+        filesetValues.build());
+  }
+
+  @Override
+  public RichArtifactData reconstructRichDataOnActionCacheHit(
+      Path execRoot, InputMetadataProvider inputMetadataProvider) {
+    try {
+      return createRunfilesArtifactValue(inputMetadataProvider);
+    } catch (IOException e) {
+      // On action cache hits, all input metadata should already be in RAM
+      throw new IllegalStateException(e);
+    }
+  }
+
   @Override
   public ActionResult execute(ActionExecutionContext actionExecutionContext) {
+    try {
+      RunfilesArtifactValue runfilesArtifactValue =
+          createRunfilesArtifactValue(
+              actionExecutionContext.getInputMetadataProvider());
+      actionExecutionContext.setRichArtifactData(runfilesArtifactValue);
+    } catch (IOException e) {
+      throw new IllegalStateException(e);
+    }
+
     return ActionResult.EMPTY;
   }
 
@@ -72,7 +132,7 @@ public final class RunfilesTreeAction extends AbstractAction {
   @Override
   protected void computeKey(
       ActionKeyContext actionKeyContext,
-      @Nullable ArtifactExpander artifactExpander,
+      @Nullable InputMetadataProvider inputMetadataProvider,
       Fingerprint fp) {
     // Only the set of inputs matters, and the dependency checker is
     // responsible for considering those.

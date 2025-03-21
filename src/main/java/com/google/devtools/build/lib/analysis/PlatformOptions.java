@@ -20,7 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters;
-import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.EmptyToNullLabelConverter;
+import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelConverter;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelListConverter;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -46,6 +46,8 @@ public class PlatformOptions extends FragmentOptions {
   private static final ImmutableSet<String> DEFAULT_PLATFORM_NAMES =
       ImmutableSet.of("host", "host_platform", "target_platform", "default_host", "default_target");
 
+  public static final String DEFAULT_HOST_PLATFORM = "@bazel_tools//tools:host_platform";
+
   public static boolean platformIsDefault(Label platform) {
     return DEFAULT_PLATFORM_NAMES.contains(platform.getName());
   }
@@ -53,8 +55,8 @@ public class PlatformOptions extends FragmentOptions {
   @Option(
       name = "host_platform",
       oldName = "experimental_host_platform",
-      converter = EmptyToNullLabelConverter.class,
-      defaultValue = "@bazel_tools//tools:host_platform",
+      converter = HostPlatformConverter.class,
+      defaultValue = DEFAULT_HOST_PLATFORM,
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
       effectTags = {
         OptionEffectTag.AFFECTS_OUTPUTS,
@@ -220,6 +222,21 @@ public class PlatformOptions extends FragmentOptions {
     } else {
       // Default to the host platform, whatever it is.
       return hostPlatform;
+    }
+  }
+
+  /**
+   * Converter for {@code --host_platform} that returns the default host platform if the flag is set
+   * to empty string.
+   */
+  private static final class HostPlatformConverter extends LabelConverter {
+    @Override
+    @Nullable
+    public Label convert(String input, Object conversionContext) throws OptionsParsingException {
+      if (input.isEmpty()) {
+        return super.convert(DEFAULT_HOST_PLATFORM, conversionContext);
+      }
+      return super.convert(input, conversionContext);
     }
   }
 

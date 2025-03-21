@@ -693,9 +693,9 @@ function test_graphless_query_matches_graphless_genquery_output() {
   rm -rf foo
   mkdir -p foo
   cat > foo/BUILD <<EOF
-sh_library(name = "b", deps = [":c"])
-sh_library(name = "c", deps = [":a"])
-sh_library(name = "a")
+filegroup(name = "b", srcs = [":c"])
+filegroup(name = "c", srcs = [":a"])
+filegroup(name = "a")
 genquery(
     name = "q",
     expression = "deps(//foo:b)",

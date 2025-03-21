@@ -26,7 +26,7 @@ import javax.annotation.Nullable;
  * list of generating actions.
  */
 public class BasicActionLookupValue implements ActionLookupValue {
-  @Nullable protected final transient ImmutableList<ActionAnalysisMetadata> actions;
+  @Nullable protected final ImmutableList<ActionAnalysisMetadata> actions;
 
   @VisibleForTesting
   public BasicActionLookupValue(ImmutableList<ActionAnalysisMetadata> actions) {

@@ -19,8 +19,8 @@ import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 
 /**
- * Partial implementation of {@link ActionAnalysisMetadata} to ensure consistent {@linkplain #getKey
- * action key} computation.
+ * Partial implementation of {@link ActionAnalysisMetadata} to ensure consistent {@linkplain
+ * ActionAnalysisMetadata#getKey action key} computation.
  */
 public abstract class ActionKeyComputer implements ActionAnalysisMetadata {
 
@@ -35,12 +35,12 @@ public abstract class ActionKeyComputer implements ActionAnalysisMetadata {
 
   @Override
   public final String getKey(
-      ActionKeyContext actionKeyContext, @Nullable ArtifactExpander artifactExpander)
+      ActionKeyContext actionKeyContext, @Nullable InputMetadataProvider inputMetadataProvider)
       throws InterruptedException {
     Fingerprint fp = new Fingerprint();
 
     try {
-      computeKey(actionKeyContext, artifactExpander, fp);
+      computeKey(actionKeyContext, inputMetadataProvider, fp);
     } catch (CommandLineExpansionException | EvalException e) {
       return KEY_ERROR;
     }
@@ -62,7 +62,7 @@ public abstract class ActionKeyComputer implements ActionAnalysisMetadata {
    */
   protected abstract void computeKey(
       ActionKeyContext actionKeyContext,
-      @Nullable ArtifactExpander artifactExpander,
+      @Nullable InputMetadataProvider inputMetadataProvider,
       Fingerprint fp)
       throws CommandLineExpansionException, EvalException, InterruptedException;
 }

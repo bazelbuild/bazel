@@ -47,8 +47,6 @@ import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
-import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
-import com.google.devtools.build.lib.remote.common.LostInputsEvent;
 import com.google.devtools.build.lib.remote.util.AsyncTaskCache;
 import com.google.devtools.build.lib.util.TempPathGenerator;
 import com.google.devtools.build.lib.vfs.FileSymlinkLoopException;
@@ -378,8 +376,10 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
 
       PathFragment execPath = input.getExecPath();
 
-      FileArtifactValue metadata = metadataSupplier.getMetadata(input);
-      if (metadata == null || !canDownloadFile(execRoot.getRelative(execPath), metadata)) {
+      // input is known to be a non-source artifact and thus must have metadata.
+      FileArtifactValue metadata =
+          checkNotNull(metadataSupplier.getMetadata(input), "no metadata for %s", input);
+      if (!canDownloadFile(execRoot.getRelative(execPath), metadata)) {
         return immediateVoidFuture();
       }
 
@@ -581,13 +581,6 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
                           finalizeDownload(
                               metadata, tempPath, finalPath, dirsWithOutputPermissions);
                           alreadyDeleted.set(true);
-                        })
-                    .doOnError(
-                        error -> {
-                          if (error instanceof CacheNotFoundException cacheNotFoundException) {
-                            reporter.post(
-                                new LostInputsEvent(cacheNotFoundException.getMissingDigest()));
-                          }
                         }));
 
     return downloadCache.executeIfNot(
@@ -724,15 +717,17 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       }
 
       if (output.isTreeArtifact()) {
-        var children =
-            outputMetadataStore.getTreeArtifactValue((SpecialArtifact) output).getChildren();
-        for (var file : children) {
-          if (remoteOutputChecker.shouldDownloadOutput(file)) {
-            outputsToDownload.add(file);
-          }
-        }
+        outputMetadataStore
+            .getTreeArtifactValue((SpecialArtifact) output)
+            .getChildValues()
+            .forEach(
+                (child, childMetadata) -> {
+                  if (remoteOutputChecker.shouldDownloadOutput(child, childMetadata)) {
+                    outputsToDownload.add(child);
+                  }
+                });
       } else {
-        if (remoteOutputChecker.shouldDownloadOutput(output)) {
+        if (remoteOutputChecker.shouldDownloadOutput(output, metadata)) {
           outputsToDownload.add(output);
         }
       }

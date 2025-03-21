@@ -601,9 +601,9 @@ EOF
 }
 
 function test_download_toplevel_test_rule() {
-  # Test that when using --remote_download_toplevel with bazel test only
-  # the test.log and test.xml file are downloaded but not the test binary.
-  # However when building a test then the test binary should be downloaded.
+  # Test that using --remote_download_toplevel downloads test.log and test.xml
+  # for a test or coverage command, but the test binary is only downloaded for
+  # a build command.
 
   mkdir -p a
   cat > a/BUILD <<EOF
@@ -618,29 +618,34 @@ EOF
 int main() { std::cout << "Hello test!" << std::endl; return 0; }
 EOF
 
-  # When invoking bazel test only test.log and test.xml should be downloaded.
   bazel test \
     --remote_executor=grpc://localhost:${worker_port} \
     --remote_download_toplevel \
-    //a:test >& $TEST_log || fail "Failed to test //a:test with remote execution"
+    //a:test >& $TEST_log || fail "Expected success"
 
-  (! [[ -f bazel-bin/a/test ]]) \
-  || fail "Expected test binary bazel-bin/a/test to not be downloaded"
+  assert_exists bazel-testlogs/a/test/test.log
+  assert_exists bazel-testlogs/a/test/test.xml
+  assert_not_exists bazel-bin/a/test
 
-  [[ -f bazel-testlogs/a/test/test.log ]] \
-  || fail "Expected toplevel output bazel-testlogs/a/test/test.log to be downloaded"
+  rm -rf bazel-out
 
-  [[ -f bazel-testlogs/a/test/test.xml ]] \
-  || fail "Expected toplevel output bazel-testlogs/a/test/test.log to be downloaded"
+  bazel coverage \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --remote_download_toplevel \
+    //a:test >& $TEST_log || fail "Expected success"
 
-  # When invoking bazel build the test binary should be downloaded.
+  assert_exists bazel-testlogs/a/test/test.log
+  assert_exists bazel-testlogs/a/test/test.xml
+  assert_not_exists bazel-bin/a/test
+
+  rm -rf bazel-out
+
   bazel build \
     --remote_executor=grpc://localhost:${worker_port} \
     --remote_download_toplevel \
-    //a:test >& $TEST_log || fail "Failed to build //a:test with remote execution"
+    //a:test >& $TEST_log || fail "Expected success"
 
-  ([[ -f bazel-bin/a/test ]]) \
-  || fail "Expected test binary bazel-bin/a/test to be downloaded"
+  assert_exists bazel-bin/a/test
 }
 
 function do_test_non_test_toplevel_targets() {
@@ -2010,7 +2015,90 @@ EOF
       --experimental_remote_cache_eviction_retries=1 \
       //a:bar >& $TEST_log || fail "Failed to build"
 
-  expect_log 'Failed to fetch blobs because they do not exist remotely.'
+  expect_log 'lost inputs with digests:'
+  expect_log "Found transient remote cache error, retrying the build..."
+
+  local invocation_ids=$(grep "Invocation ID:" $TEST_log)
+  local first_id=$(echo "$invocation_ids" | head -n 1)
+  local second_id=$(echo "$invocation_ids" | tail -n 1)
+  if [ "$first_id" == "$second_id" ]; then
+    fail "Invocation IDs are the same"
+  fi
+}
+
+function test_remote_cache_eviction_retries_jdeps() {
+  mkdir -p a
+
+  cat > a/BUILD <<'EOF'
+java_library(
+  name = "lib",
+  srcs = ["Library.java"],
+)
+
+java_binary(
+  name = "bin",
+  srcs = ["Binary.java"],
+  main_class = "Binary",
+  deps = [":lib"],
+  tags = ['no-remote-exec'],
+)
+EOF
+  cat > a/Library.java <<'EOF'
+public class Library {
+  public static boolean TEST = true;
+}
+EOF
+  cat > a/Binary.java <<'EOF'
+public class Binary {
+  public static void main(String[] args) {
+    System.out.println(Library.TEST);
+  }
+}
+EOF
+
+  # Populate remote cache
+  bazel build \
+      --remote_executor=grpc://localhost:${worker_port} \
+      --remote_download_minimal \
+      --experimental_java_classpath=bazel \
+      //a:bin >& $TEST_log || fail "Failed to build"
+
+  bazel clean
+
+  # Clean build, the jdeps file for lib isn't downloaded
+  bazel build \
+      --remote_executor=grpc://localhost:${worker_port} \
+      --remote_download_minimal \
+      --experimental_java_classpath=bazel \
+      //a:bin >& $TEST_log || fail "Failed to build"
+
+  if [[ -f bazel-bin/a/liblib-hjar.jdeps ]]; then
+    fail "Expected intermediate output bazel-bin/a/liblib-hjar.jdeps to not be downloaded"
+  fi
+
+  # Evict blobs from remote cache
+  stop_worker
+  start_worker
+
+  cat > a/Binary.java <<'EOF'
+public class Binary {
+  public static void main(String[] args) {
+    System.out.println(!Library.TEST);
+  }
+}
+EOF
+
+  # Incremental build triggers remote cache eviction error but Bazel
+  # automatically retries the build and reruns the generating actions for
+  # missing blobs
+  bazel build \
+      --remote_executor=grpc://localhost:${worker_port} \
+      --remote_download_minimal \
+      --experimental_remote_cache_eviction_retries=1 \
+      --experimental_java_classpath=bazel \
+      //a:bin >& $TEST_log || fail "Failed to build"
+
+  expect_log 'lost inputs with digests:'
   expect_log "Found transient remote cache error, retrying the build..."
 
   local invocation_ids=$(grep "Invocation ID:" $TEST_log)
@@ -2078,7 +2166,7 @@ EOF
       --build_event_text_file=bes.txt \
       //a:bar >& $TEST_log || fail "Failed to build"
 
-  expect_log 'Failed to fetch blobs because they do not exist remotely.'
+  expect_log 'lost inputs with digests:'
   expect_log "Found transient remote cache error, retrying the build..."
 
   local invocation_ids=$(grep "Invocation ID:" $TEST_log)

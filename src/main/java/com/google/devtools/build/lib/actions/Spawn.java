@@ -62,12 +62,6 @@ public interface Spawn extends DescribableExecutionUnit {
   ImmutableMap<String, String> getEnvironment();
 
   /**
-   * Map of the execpath at which we expect the Fileset symlink trees, to a list of
-   * FilesetOutputSymlinks which contains the details of the Symlink trees.
-   */
-  ImmutableMap<Artifact, FilesetOutputTree> getFilesetMappings();
-
-  /**
    * Returns the list of files that are required to execute this spawn (e.g. the compiler binary),
    * in contrast to files necessary for the tool to do its work (e.g. source code to be compiled).
    *

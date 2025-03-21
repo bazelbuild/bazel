@@ -64,6 +64,6 @@ public class ConservativeAspectResolver implements AspectResolver {
   @Override
   public ImmutableList<Label> computeBuildFileDependencies(Package pkg) {
     // We do a conservative estimate precisely so that we don't depend on any other BUILD files.
-    return pkg.getOrComputeTransitivelyLoadedStarlarkFiles();
+    return pkg.getDeclarations().getOrComputeTransitivelyLoadedStarlarkFiles();
   }
 }

@@ -66,21 +66,21 @@ import net.starlark.java.syntax.Location;
 public class EnvironmentGroup implements Target {
   private final EnvironmentLabels environmentLabels;
   private final Location location;
-  private final Package containingPackage;
+  private final Packageoid containingPackageoid;
 
   /**
    * Predicate that matches labels from a different package than the initialized package.
    */
   private static final class DifferentPackage implements Predicate<Label> {
-    private final Package containingPackage;
+    private final Packageoid containingPackageoid;
 
-    private DifferentPackage(Package containingPackage) {
-      this.containingPackage = containingPackage;
+    private DifferentPackage(Packageoid containingPackageoid) {
+      this.containingPackageoid = containingPackageoid;
     }
 
     @Override
     public boolean apply(Label environment) {
-      return !environment.getPackageName().equals(containingPackage.getName());
+      return !environment.getPackageName().equals(containingPackageoid.getMetadata().getName());
     }
   }
 
@@ -96,13 +96,14 @@ public class EnvironmentGroup implements Target {
    */
   EnvironmentGroup(
       Label label,
-      Package pkg,
+      Packageoid packageoid,
       final List<Label> environments,
       List<Label> defaults,
       Location location) {
     this.environmentLabels = new EnvironmentLabels(label, environments, defaults);
     this.location = location;
-    this.containingPackage = pkg;
+    // TODO(https://github.com/bazelbuild/bazel/issues/23852): verify that packageoid is top-level.
+    this.containingPackageoid = packageoid;
   }
 
   public EnvironmentLabels getEnvironmentLabels() {
@@ -125,7 +126,8 @@ public class EnvironmentGroup implements Target {
 
     // All environments should belong to the same package as this group.
     for (Label environment :
-        Iterables.filter(environmentLabels.environments, new DifferentPackage(containingPackage))) {
+        Iterables.filter(
+            environmentLabels.environments, new DifferentPackage(containingPackageoid))) {
       events.add(
           Package.error(
               location,
@@ -262,8 +264,18 @@ public class EnvironmentGroup implements Target {
   }
 
   @Override
-  public Package getPackage() {
-    return containingPackage;
+  public Packageoid getPackageoid() {
+    return containingPackageoid;
+  }
+
+  @Override
+  public Package.Metadata getPackageMetadata() {
+    return containingPackageoid.getMetadata();
+  }
+
+  @Override
+  public Package.Declarations getPackageDeclarations() {
+    return containingPackageoid.getDeclarations();
   }
 
   @Override

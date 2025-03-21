@@ -20,9 +20,9 @@ import static com.google.devtools.build.lib.rules.cpp.LinkBuildVariables.LINKER_
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.AbstractCommandLine;
-import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.CommandLines;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.PathMapper;
@@ -90,7 +90,7 @@ public final class LinkCommandLine extends AbstractCommandLine {
   }
 
   public ImmutableList<String> getParamCommandLine(
-      @Nullable ArtifactExpander expander, PathMapper pathMapper)
+      @Nullable InputMetadataProvider inputMetadataProvider, PathMapper pathMapper)
       throws CommandLineExpansionException {
     ImmutableList.Builder<String> argv = ImmutableList.builder();
     try {
@@ -102,13 +102,14 @@ public final class LinkCommandLine extends AbstractCommandLine {
                 .getStringValue(LINKER_PARAM_FILE.getVariableName(), pathMapper);
         argv.addAll(
             featureConfiguration
-                .getCommandLine(actionName, variables, expander, pathMapper)
+                .getCommandLine(actionName, variables, inputMetadataProvider, pathMapper)
                 .stream()
                 .filter(s -> !s.contains(linkerParamFile))
                 .collect(toImmutableList()));
       } else {
         argv.addAll(
-            featureConfiguration.getCommandLine(actionName, variables, expander, pathMapper));
+            featureConfiguration.getCommandLine(
+                actionName, variables, inputMetadataProvider, pathMapper));
       }
     } catch (ExpansionException e) {
       throw new CommandLineExpansionException(e.getMessage());
@@ -158,9 +159,9 @@ public final class LinkCommandLine extends AbstractCommandLine {
   }
 
   @Override
-  public List<String> arguments(ArtifactExpander artifactExpander, PathMapper pathMapper)
+  public List<String> arguments(InputMetadataProvider inputMetadataProvider, PathMapper pathMapper)
       throws CommandLineExpansionException {
-    return getParamCommandLine(artifactExpander, pathMapper);
+    return getParamCommandLine(inputMetadataProvider, pathMapper);
   }
 
   /** A builder for a {@link LinkCommandLine}. */
@@ -175,7 +176,7 @@ public final class LinkCommandLine extends AbstractCommandLine {
 
     public LinkCommandLine build() {
       if (variables == null) {
-        variables = CcToolchainVariables.EMPTY;
+        variables = CcToolchainVariables.empty();
       }
 
       return new LinkCommandLine(

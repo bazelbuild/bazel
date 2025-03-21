@@ -79,7 +79,7 @@ import javax.annotation.Nullable;
 @Immutable
 public final class RunfilesSupport {
   private static final String RUNFILES_DIR_EXT = ".runfiles";
-  private static final String INPUT_MANIFEST_EXT = ".runfiles_manifest";
+  public static final String INPUT_MANIFEST_EXT = ".runfiles_manifest";
   private static final String OUTPUT_MANIFEST_BASENAME = "MANIFEST";
   private static final String REPO_MAPPING_MANIFEST_EXT = ".repo_mapping";
 
@@ -136,7 +136,7 @@ public final class RunfilesSupport {
           /* repoMappingManifest= */ null,
           /* buildRunfileLinks= */ false,
           /* cacheMapping= */ false,
-          RunfileSymlinksMode.EXTERNAL);
+          RunfileSymlinksMode.CREATE);
     }
 
     @Override

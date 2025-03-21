@@ -136,7 +136,12 @@ function test_scl_config_plus_external_target_in_test_suite_fails(){
   # This failure kicks in as soon as there's a valid project file, even if it
   # doesn't contain any configs.
   cat > test/PROJECT.scl <<EOF
-project = {}
+project = {
+  "configs": {
+    "test_config": ["--define=foo=bar"],
+  },
+  "default_config" : "test_config"
+}
 EOF
   cat >> test/BUILD <<EOF
 test_suite(name='test_suite', tests=['//other:other'])
@@ -153,10 +158,178 @@ EOF
 echo hi
 EOF
 
-  bazel build --nobuild //test:test_suite //other:other &> "$TEST_log" && \
-    fail "expected build to fail"
+  bazel build --nobuild //test:test_suite //other:other --scl_config=test_config \
+    &> "$TEST_log" && fail "expected build to fail"
 
-  expect_log "This build doesn't support automatic project resolution"
+  expect_log "Can't set --scl_config for a build where only some targets have projects."
+}
+
+function test_multi_project_builds_fail_with_scl_config(){
+  mkdir -p test1
+  cat > test1/PROJECT.scl <<EOF
+project = {
+  "configs": {
+    "test_config": ["--define=foo=bar"],
+  },
+  "default_config" : "test_config"
+}
+EOF
+  cat > test1/BUILD <<EOF
+genrule(name='g', outs=['g.txt'], cmd='echo hi > \$@')
+EOF
+
+  mkdir -p test2
+  cat > test2/PROJECT.scl <<EOF
+project = {
+  "configs": {
+    "test_config": ["--define=foo=bar"],
+  },
+  "default_config" : "test_config"
+}
+EOF
+  cat > test2/BUILD <<EOF
+genrule(name='h', outs=['h.txt'], cmd='echo hi > \$@')
+EOF
+
+  bazel build --nobuild //test1:g //test2:h --scl_config=test_config \
+    &> "$TEST_log" && fail "expected build to fail"
+
+  expect_log "Can't set --scl_config for a multi-project build."
+}
+
+function test_multi_project_builds_succeed_with_consistent_default_config(){
+  mkdir -p test1
+  cat > test1/PROJECT.scl <<EOF
+project = {
+  "configs": {
+    "test_config": ["--define=foo=bar"],
+  },
+  "default_config" : "test_config"
+}
+EOF
+  cat > test1/BUILD <<EOF
+genrule(name='g', outs=['g.txt'], cmd='echo hi > \$@')
+EOF
+
+  mkdir -p test2
+  cat > test2/PROJECT.scl <<EOF
+project = {
+  "configs": {
+    "test_config": ["--define=foo=bar"],
+  },
+  "default_config" : "test_config"
+}
+EOF
+  cat > test2/BUILD <<EOF
+genrule(name='h', outs=['h.txt'], cmd='echo hi > \$@')
+EOF
+
+  bazel build --nobuild //test1:g //test2:h  \
+    &> "$TEST_log" || fail "expected success"
+}
+
+function test_multi_project_builds_succeed_with_no_defined_configs(){
+  mkdir -p test1
+  cat > test1/PROJECT.scl <<EOF
+project = {
+}
+EOF
+  cat > test1/BUILD <<EOF
+genrule(name='g', outs=['g.txt'], cmd='echo hi > \$@')
+EOF
+
+  mkdir -p test2
+  cat > test2/PROJECT.scl <<EOF
+project = {
+}
+EOF
+  cat > test2/BUILD <<EOF
+genrule(name='h', outs=['h.txt'], cmd='echo hi > \$@')
+EOF
+
+  bazel build --nobuild //test1:g //test2:h  \
+    &> "$TEST_log" || fail "expected success"
+}
+
+function test_multi_project_builds_fail_with_inconsistent_default_configs(){
+  mkdir -p test1
+  cat > test1/PROJECT.scl <<EOF
+project = {
+  "configs": {
+    "test_config": ["--define=foo=bar"],
+  },
+  "default_config" : "test_config"
+}
+EOF
+  cat > test1/BUILD <<EOF
+genrule(name='g', outs=['g.txt'], cmd='echo hi > \$@')
+EOF
+
+  mkdir -p test2
+  cat > test2/PROJECT.scl <<EOF
+project = {
+  "configs": {
+    "test_config": ["--define=foo=baz"],
+  },
+  "default_config" : "test_config"
+}
+EOF
+  cat > test2/BUILD <<EOF
+genrule(name='h', outs=['h.txt'], cmd='echo hi > \$@')
+EOF
+
+  bazel build --nobuild //test1:g //test2:h \
+    &> "$TEST_log" && fail "expected build to fail"
+
+  expect_log "Mismatching default configs for a multi-project build."
+}
+
+function test_partial_project_builds_fail_with_non_noop_default_config(){
+  mkdir -p test1
+  cat > test1/PROJECT.scl <<EOF
+project = {
+  "configs": {
+    "test_config": ["--define=foo=bar"],
+  },
+  "default_config" : "test_config"
+}
+EOF
+  cat > test1/BUILD <<EOF
+genrule(name='g', outs=['g.txt'], cmd='echo hi > \$@')
+EOF
+
+  mkdir -p noproject
+  cat > noproject/BUILD <<EOF
+genrule(name='h', outs=['h.txt'], cmd='echo hi > \$@')
+EOF
+
+  bazel build --nobuild //test1:g //noproject:h \
+    &> "$TEST_log" && fail "expected build to fail"
+
+  expect_log "Mismatching default configs for a build where only some targets have projects."
+}
+
+function test_partial_project_builds_succeed_with_noop_default_config(){
+  mkdir -p test1
+  cat > test1/PROJECT.scl <<EOF
+project = {
+  "configs": {
+    "test_config": [],
+  },
+  "default_config" : "test_config"
+}
+EOF
+  cat > test1/BUILD <<EOF
+genrule(name='g', outs=['g.txt'], cmd='echo hi > \$@')
+EOF
+
+  mkdir -p noproject
+  cat > noproject/BUILD <<EOF
+genrule(name='h', outs=['h.txt'], cmd='echo hi > \$@')
+EOF
+
+  bazel build --nobuild //test1:g //noproject:h \
+    &> "$TEST_log" || fail "expected success"
 }
 
 run_suite "Integration tests for flagsets/scl_config"

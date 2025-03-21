@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.analysis.config.DependencyEvaluationExcepti
 import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget.MergingException;
 import com.google.devtools.build.lib.analysis.configuredtargets.PackageGroupConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.skyframe.AspectCreationException;
@@ -43,6 +44,7 @@ import com.google.devtools.build.skyframe.state.StateMachine;
 import java.util.HashSet;
 import java.util.Map;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
 
 /**
  * Computes requested prerequisite(s), applying any requested aspects.
@@ -193,7 +195,7 @@ final class PrerequisitesProducer
     sink.acceptPrerequisitesCreationError(error);
   }
 
-  private StateMachine computeConfiguredAspects(Tasks tasks) {
+  private StateMachine computeConfiguredAspects(Tasks tasks) throws InterruptedException {
     if (hasError) {
       return DONE;
     }
@@ -223,7 +225,10 @@ final class PrerequisitesProducer
                   filteredAspects,
                   configuredTargets[0].getTargetAdvertisedProviders(),
                   configuredTargets[0].getTargetLabel(),
-                  configuredTargets[0].getLocation());
+                  configuredTargets[0].getRuleClassObject(),
+                  configuredTargets[0].getOnlyTagsAttribute(),
+                  configuredTargets[0].getLocation(),
+                  parameters.eventHandler());
         } else {
           aspects =
               computeAspectCollectionNoAspectsFiltering(
@@ -234,6 +239,11 @@ final class PrerequisitesProducer
       }
     } catch (InconsistentAspectOrderException e) {
       sink.acceptPrerequisitesAspectError(new DependencyEvaluationException(e));
+      return DONE;
+    } catch (EvalException e) {
+      parameters.eventHandler().handle(Event.error(parameters.location(), e.getMessageWithStack()));
+      sink.acceptPrerequisitesAspectError(
+          new DependencyEvaluationException(e, parameters.location()));
       return DONE;
     }
 

@@ -164,7 +164,7 @@ public class AutoOutputFilterTest {
     String extraRegex =
         (autoFilter == AutoOutputFilter.NONE)
             ? ""
-            : "(unknown)|" + PlatformConstants.INTERNAL_PLATFORM + "|";
+            : "(unknown)|" + PlatformConstants.INTERNAL_PLATFORM.getCanonicalForm() + "|";
     assertWithMessage("output filter " + autoFilter + " returned wrong filter:")
         .that(filter.toString())
         .isEqualTo(extraRegex + extractedRegex);

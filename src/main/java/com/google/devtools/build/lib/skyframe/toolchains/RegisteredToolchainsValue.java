@@ -54,7 +54,7 @@ public record RegisteredToolchainsValue(
 
   /** A {@link SkyKey} for {@code RegisteredToolchainsValue}. */
   @AutoCodec
-  static class Key implements SkyKey {
+  public static class Key implements SkyKey {
     private static final SkyKeyInterner<Key> interner = SkyKey.newInterner();
 
     private final BuildConfigurationKey configurationKey;

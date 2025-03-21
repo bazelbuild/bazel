@@ -18,6 +18,7 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Dirent;
+import com.google.devtools.build.lib.vfs.FileAccessException;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -40,6 +41,16 @@ public class UnixFileSystemTest extends SymlinkAwareFileSystemTest {
   }
 
   // Most tests are just inherited from FileSystemTest.
+
+  @Test
+  public void testPermissions() throws Exception {
+    Path file = absolutize("file");
+    FileSystemUtils.createEmptyFile(file);
+    for (int mask = 0; mask <= 0777; mask++) {
+      file.chmod(mask);
+      assertThat(file.stat().getPermissions()).isEqualTo(mask);
+    }
+  }
 
   @Test
   public void testCircularSymlinkFound() throws Exception {
@@ -70,7 +81,7 @@ public class UnixFileSystemTest extends SymlinkAwareFileSystemTest {
 
   @Test
   public void testReaddirSpecialFile() throws Exception {
-    Path dir = absolutize("readdir");
+    Path dir = absolutize("dir");
     Path symlink = dir.getChild("symlink");
     Path fifo = dir.getChild("fifo");
     dir.createDirectoryAndParents();
@@ -86,5 +97,15 @@ public class UnixFileSystemTest extends SymlinkAwareFileSystemTest {
     assertThat(dir.readdir(Symlinks.FOLLOW))
         .containsExactly(
             new Dirent("symlink", Dirent.Type.UNKNOWN), new Dirent("fifo", Dirent.Type.UNKNOWN));
+  }
+
+  @Test
+  public void testReaddirPermissionError() throws Exception {
+    Path dir = absolutize("dir");
+    dir.createDirectoryAndParents();
+    dir.chmod(0333); // unreadable
+
+    assertThrows(FileAccessException.class, dir::getDirectoryEntries);
+    assertThrows(FileAccessException.class, () -> dir.readdir(Symlinks.NOFOLLOW));
   }
 }

@@ -29,7 +29,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.analysis.platform.PlatformUtils;
-import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
@@ -62,7 +61,6 @@ public class RemoteRepositoryRemoteExecutor implements RepositoryRemoteExecutor 
 
   private final String remoteInstanceName;
   private final boolean acceptCached;
-  private final Reporter reporter;
 
   public RemoteRepositoryRemoteExecutor(
       RemoteExecutionCache remoteCache,
@@ -71,8 +69,7 @@ public class RemoteRepositoryRemoteExecutor implements RepositoryRemoteExecutor 
       String buildRequestId,
       String commandId,
       String remoteInstanceName,
-      boolean acceptCached,
-      Reporter reporter) {
+      boolean acceptCached) {
     this.remoteCache = remoteCache;
     this.remoteExecutor = remoteExecutor;
     this.digestUtil = digestUtil;
@@ -80,7 +77,6 @@ public class RemoteRepositoryRemoteExecutor implements RepositoryRemoteExecutor 
     this.commandId = commandId;
     this.remoteInstanceName = remoteInstanceName;
     this.acceptCached = acceptCached;
-    this.reporter = reporter;
   }
 
   private ExecutionResult downloadOutErr(RemoteActionExecutionContext context, ActionResult result)
@@ -93,7 +89,8 @@ public class RemoteRepositoryRemoteExecutor implements RepositoryRemoteExecutor 
       } else if (result.hasStdoutDigest()) {
         stdout =
             Utils.getFromFuture(
-                remoteCache.downloadBlob(context, "<stdout>", result.getStdoutDigest()));
+                remoteCache.downloadBlob(
+                    context, "<stdout>", /* execPath= */ null, result.getStdoutDigest()));
       }
 
       byte[] stderr = new byte[0];
@@ -102,7 +99,8 @@ public class RemoteRepositoryRemoteExecutor implements RepositoryRemoteExecutor 
       } else if (result.hasStderrDigest()) {
         stderr =
             Utils.getFromFuture(
-                remoteCache.downloadBlob(context, "<stderr>", result.getStderrDigest()));
+                remoteCache.downloadBlob(
+                    context, "<stderr>", /* execPath= */ null, result.getStderrDigest()));
       }
 
       return new ExecutionResult(result.getExitCode(), stdout, stderr);
@@ -172,7 +170,11 @@ public class RemoteRepositoryRemoteExecutor implements RepositoryRemoteExecutor 
         additionalInputs.put(commandHash, command);
 
         remoteCache.ensureInputsPresent(
-            context, merkleTree, additionalInputs, /* force= */ true, reporter);
+            context,
+            merkleTree,
+            additionalInputs,
+            /* force= */ true,
+            /* remotePathResolver= */ null);
       }
 
       try (SilentCloseable c =

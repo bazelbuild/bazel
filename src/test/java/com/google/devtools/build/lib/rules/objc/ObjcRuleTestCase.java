@@ -266,7 +266,14 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
   }
 
   protected static void addAppleBinaryStarlarkRule(Scratch scratch) throws Exception {
-    scratch.file("test_starlark/BUILD");
+    scratch.file(
+        "test_starlark/BUILD",
+        """
+        load(":cc_toolchain_forwarder.bzl", "cc_toolchain_forwarder")
+        cc_toolchain_forwarder(
+            name = "default_cc_toolchain_forwarder",
+        )
+        """);
     RepositoryName toolsRepo = TestConstants.TOOLS_REPOSITORY;
 
     scratch.file(
@@ -300,6 +307,9 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         "    '//command_line_option:grte_top',",
         "    '//command_line_option:platforms',",
         "]",
+        "ApplePlatformInfo = provider(",
+        "    fields = ['target_os', 'target_arch', 'target_environment'],)",
+        "",
         "AppleDynamicFrameworkInfo = provider(",
         "    fields = ['framework_dirs', 'framework_files', 'binary', 'cc_info'],)",
         "",
@@ -351,7 +361,6 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         "    inputs = _apple_platform_transition_inputs,",
         "    outputs = _apple_rule_base_transition_outputs,",
         ")",
-        "TargetTripletInfo = provider(fields = ['architecture', 'platform', 'environment'],)",
         "def _build_avoid_library_set(avoid_dep_linking_contexts):",
         "    avoid_library_set = dict()",
         "    for linking_context in avoid_dep_linking_contexts:",
@@ -391,30 +400,11 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         "        owner = owner,",
         "    )",
         "",
-        "def _get_target_triplet(config):",
-        "    cpu_platform ="
-            + " apple_common.apple_platform.for_target_cpu(apple_common.get_cpu(config))",
-        "    apple_config = apple_common.get_apple_config(config)",
-        "",
-        "    return TargetTripletInfo(",
-        "        architecture = apple_config.single_arch_cpu,",
-        "        platform = apple_common.apple_platform.get_target_platform(cpu_platform),",
-        "        environment = apple_common.apple_platform.get_target_environment(cpu_platform),",
-        "    )",
-        "",
-        "def get_split_target_triplet(ctx):",
-        "    result = dict()",
-        "    ctads = apple_common.get_split_prerequisites(ctx)",
-        "    for split_transition_key, config in ctads.items():",
-        "        if split_transition_key == None:",
-        "            fail('unexpected empty key in split transition')",
-        "        result[split_transition_key] = _get_target_triplet(config)",
-        "    return result",
-        "",
         "def _link_multi_arch_binary(",
         "        *,",
         "        ctx,",
         "        avoid_deps = [],",
+        "        cc_toolchains = {},",
         "        extra_linkopts = [],",
         "        extra_link_inputs = [],",
         "        extra_requested_features = [],",
@@ -422,16 +412,14 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         "        stamp = -1,",
         "        variables_extension = {}):",
         "",
-        "    split_target_triplets = get_split_target_triplet(ctx)",
         "    split_build_configs = apple_common.get_split_build_configs(ctx)",
         "    split_deps = ctx.split_attr.deps",
-        "    child_configs_and_toolchains = ctx.split_attr._child_configuration_dummy",
         "",
-        "    if split_deps and split_deps.keys() != child_configs_and_toolchains.keys():",
+        "    if split_deps and split_deps.keys() != cc_toolchains.keys():",
         "        fail(('Split transition keys are different between deps [%s] and ' +",
-        "              '_child_configuration_dummy [%s]') % (",
+        "              '_cc_toolchain_forwarder [%s]') % (",
         "            split_deps.keys(),",
-        "            child_configs_and_toolchains.keys(),",
+        "            cc_toolchains.keys(),",
         "        ))",
         "",
         "    avoid_cc_infos = [",
@@ -460,10 +448,10 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         "    ]",
         "    attr_linkopts = [token for opt in attr_linkopts for token in ctx.tokenize(opt)]",
         "",
-        "    for split_transition_key, child_toolchain in child_configs_and_toolchains.items():",
+        "    for split_transition_key, child_toolchain in cc_toolchains.items():",
         "        cc_toolchain = child_toolchain[cc_common.CcToolchainInfo]",
         "        deps = split_deps.get(split_transition_key, [])",
-        "        target_triplet = split_target_triplets.get(split_transition_key)",
+        "        platform_info = child_toolchain[ApplePlatformInfo]",
         "",
         "        common_variables = apple_common.compilation_support.build_common_variables(",
         "            ctx = ctx,",
@@ -510,7 +498,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         "            )",
         "            extensions['dsym_path'] = dsym_binary.path  # dsym symbol file",
         "            additional_outputs.append(dsym_binary)",
-        "            legacy_debug_outputs.setdefault(target_triplet.architecture,"
+        "            legacy_debug_outputs.setdefault(platform_info.target_arch,"
             + " {})['dsym_binary'] = dsym_binary",
         "",
         "        linkmap = None",
@@ -521,7 +509,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         "            )",
         "            extensions['linkmap_exec_path'] = linkmap.path  # linkmap file",
         "            additional_outputs.append(linkmap)",
-        "            legacy_debug_outputs.setdefault(target_triplet.architecture, {})['linkmap'] ="
+        "            legacy_debug_outputs.setdefault(platform_info.target_arch, {})['linkmap'] ="
             + " linkmap",
         "",
         "        name = ctx.label.name + '_bin'",
@@ -542,9 +530,9 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         "",
         "        output = {",
         "            'binary': executable,",
-        "            'platform': target_triplet.platform,",
-        "            'architecture': target_triplet.architecture,",
-        "            'environment': target_triplet.environment,",
+        "            'platform': platform_info.target_os,",
+        "            'architecture': platform_info.target_arch,",
+        "            'environment': platform_info.target_environment,",
         "            'dsym_binary': dsym_binary,",
         "            'linkmap': linkmap,",
         "        }",
@@ -591,6 +579,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         "    link_result = _link_multi_arch_binary(",
         "        ctx = ctx,",
         "        avoid_deps = all_avoid_deps,",
+        "        cc_toolchains = ctx.split_attr._cc_toolchain_forwarder,",
         "        extra_linkopts = linkopts,",
         "        extra_link_inputs = link_inputs,",
         "        extra_requested_features = ctx.attr.extra_requested_features,",
@@ -641,6 +630,10 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         "        '_child_configuration_dummy': attr.label(",
         "            cfg=apple_platform_split_transition,",
         "            default=Label('" + toolsRepo + "//tools/cpp:current_cc_toolchain'),),",
+        "        '_cc_toolchain_forwarder': attr.label(",
+        "            cfg = apple_platform_split_transition,",
+        "            providers = [cc_common.CcToolchainInfo, ApplePlatformInfo],",
+        "            default = Label(':default_cc_toolchain_forwarder'),),",
         "        '_xcode_config': attr.label(",
         "            default=configuration_field(",
         "                fragment='apple', name='xcode_config_label'),),",
@@ -677,6 +670,123 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
             ],
         )
         """);
+    scratch.file(
+        "test_starlark/cc_toolchain_forwarder.bzl",
+        """
+load("@rules_cc//cc:find_cc_toolchain.bzl", "find_cc_toolchain", "use_cc_toolchain")
+load(":apple_binary_starlark.bzl", "ApplePlatformInfo")
+
+def _target_os_from_rule_ctx(ctx):
+  ios_constraint = ctx.attr._ios_constraint[platform_common.ConstraintValueInfo]
+  macos_constraint = ctx.attr._macos_constraint[platform_common.ConstraintValueInfo]
+  tvos_constraint = ctx.attr._tvos_constraint[platform_common.ConstraintValueInfo]
+  visionos_constraint = ctx.attr._visionos_constraint[platform_common.ConstraintValueInfo]
+  watchos_constraint = ctx.attr._watchos_constraint[platform_common.ConstraintValueInfo]
+
+  if ctx.target_platform_has_constraint(ios_constraint):
+      return str(apple_common.platform_type.ios)
+  elif ctx.target_platform_has_constraint(macos_constraint):
+      return str(apple_common.platform_type.macos)
+  elif ctx.target_platform_has_constraint(tvos_constraint):
+      return str(apple_common.platform_type.tvos)
+  elif ctx.target_platform_has_constraint(visionos_constraint):
+      return str(apple_common.platform_type.visionos)
+  elif ctx.target_platform_has_constraint(watchos_constraint):
+      return str(apple_common.platform_type.watchos)
+  fail("ERROR: A valid Apple platform constraint could not be found " +
+          "from the resolved toolchain.")
+
+def _target_arch_from_rule_ctx(ctx):
+  arm64_constraint = ctx.attr._arm64_constraint[platform_common.ConstraintValueInfo]
+  arm64e_constraint = ctx.attr._arm64e_constraint[platform_common.ConstraintValueInfo]
+  arm64_32_constraint = ctx.attr._arm64_32_constraint[platform_common.ConstraintValueInfo]
+  armv7k_constraint = ctx.attr._armv7k_constraint[platform_common.ConstraintValueInfo]
+  x86_64_constraint = ctx.attr._x86_64_constraint[platform_common.ConstraintValueInfo]
+
+  if ctx.target_platform_has_constraint(arm64_constraint):
+      return "arm64"
+  elif ctx.target_platform_has_constraint(arm64e_constraint):
+      return "arm64e"
+  elif ctx.target_platform_has_constraint(arm64_32_constraint):
+      return "arm64_32"
+  elif ctx.target_platform_has_constraint(armv7k_constraint):
+      return "armv7k"
+  elif ctx.target_platform_has_constraint(x86_64_constraint):
+      return "x86_64"
+  fail("ERROR: A valid Apple cpu constraint could not be" +
+           " found from the resolved toolchain.")
+
+def _target_environment_from_rule_ctx(ctx):
+  device_constraint = ctx.attr._apple_device_constraint[platform_common.ConstraintValueInfo]
+  simulator_constraint = ctx.attr._apple_simulator_constraint[platform_common.ConstraintValueInfo]
+
+  if ctx.target_platform_has_constraint(device_constraint):
+      return "device"
+  elif ctx.target_platform_has_constraint(simulator_constraint):
+      return "simulator"
+
+  fail("ERROR: A valid Apple environment (device, simulator) constraint could not be found from" +
+      " the resolved toolchain.")
+
+def _cc_toolchain_forwarder_impl(ctx):
+  return [
+      find_cc_toolchain(ctx),
+      ApplePlatformInfo(
+          target_os = _target_os_from_rule_ctx(ctx),
+          target_arch = _target_arch_from_rule_ctx(ctx),
+          target_environment = _target_environment_from_rule_ctx(ctx),
+      ),
+  ]
+
+cc_toolchain_forwarder = rule(
+  implementation = _cc_toolchain_forwarder_impl,
+  attrs = {
+      "_cc_toolchain": attr.label(
+          default = Label("TOOLS_REPOSITORY//tools/cpp:current_cc_toolchain"),
+      ),
+      "_ios_constraint": attr.label(
+          default = Label("CONSTRAINTS_PACKAGE_ROOTos:ios"),
+      ),
+      "_macos_constraint": attr.label(
+          default = Label("CONSTRAINTS_PACKAGE_ROOTos:osx"),
+      ),
+      "_tvos_constraint": attr.label(
+          default = Label("CONSTRAINTS_PACKAGE_ROOTos:tvos"),
+      ),
+      "_visionos_constraint": attr.label(
+          default = Label("CONSTRAINTS_PACKAGE_ROOTos:visionos"),
+      ),
+      "_watchos_constraint": attr.label(
+          default = Label("CONSTRAINTS_PACKAGE_ROOTos:watchos"),
+      ),
+      "_arm64_constraint": attr.label(
+          default = Label("CONSTRAINTS_PACKAGE_ROOTcpu:arm64"),
+      ),
+      "_arm64e_constraint": attr.label(
+          default = Label("CONSTRAINTS_PACKAGE_ROOTcpu:arm64e"),
+      ),
+      "_arm64_32_constraint": attr.label(
+          default = Label("CONSTRAINTS_PACKAGE_ROOTcpu:arm64_32"),
+      ),
+      "_armv7k_constraint": attr.label(
+          default = Label("CONSTRAINTS_PACKAGE_ROOTcpu:armv7k"),
+      ),
+      "_x86_64_constraint": attr.label(
+          default = Label("CONSTRAINTS_PACKAGE_ROOTcpu:x86_64"),
+      ),
+      "_apple_device_constraint": attr.label(
+          default = Label("CONSTRAINTS_PACKAGE_ROOTenv:device"),
+      ),
+      "_apple_simulator_constraint": attr.label(
+          default = Label("CONSTRAINTS_PACKAGE_ROOTenv:simulator"),
+      ),
+  },
+  provides = [cc_common.CcToolchainInfo, ApplePlatformInfo],
+  toolchains = use_cc_toolchain(),
+)
+"""
+            .replace("TOOLS_REPOSITORY", toolsRepo.toString())
+            .replace("CONSTRAINTS_PACKAGE_ROOT", TestConstants.CONSTRAINTS_PACKAGE_ROOT));
   }
 
   protected CommandAction compileAction(String ownerLabel, String objFileName) throws Exception {

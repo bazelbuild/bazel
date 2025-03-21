@@ -38,7 +38,6 @@ import com.google.devtools.build.lib.buildtool.buildevent.ProfilerStartedEvent;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
@@ -503,10 +502,9 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
         boolean newStatsSummary =
             options.getOptions(ExecutionOptions.class) != null
                 && options.getOptions(ExecutionOptions.class).statsSummary;
-        EventHandler handler =
+        UiEventHandler handler =
             createEventHandler(outErr, eventHandlerOptions, quiet, env, newStatsSummary);
-        reporter.addHandler(handler);
-        env.getEventBus().register(handler);
+        env.setUiEventHandler(handler);
 
         // We register an ANSI-allowing handler associated with {@code handler} so that ANSI control
         // codes can be re-introduced later even if blaze is invoked with --color=no. This is useful
@@ -673,20 +671,38 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
       }
       options = optionHandler.getOptionsResult();
 
+      boolean includeResidueInRunBepEvent =
+          env.getOptions().getOptions(BuildEventProtocolOptions.class) != null
+              && env.getOptions()
+                  .getOptions(BuildEventProtocolOptions.class)
+                  .includeResidueInRunBepEvent;
       // Log the command line now that the modules have all had a change to register their listeners
       // to the event bus, and the flags have been re-parsed.
       CommandLineEvent originalCommandLineEvent =
           new CommandLineEvent.OriginalCommandLineEvent(
-              runtime, commandName, options, startupOptionsTaggedWithBazelRc);
+              runtime,
+              commandName,
+              options.getResidue(),
+              includeResidueInRunBepEvent,
+              options.asListOfExplicitOptions(),
+              options.getExplicitStarlarkOptions(
+                  CommandLineEvent.OriginalCommandLineEvent::commandLinePriority),
+              startupOptionsTaggedWithBazelRc);
       // If flagsets are applied, a CanonicalCommandLineEvent is also emitted by
       // BuildTool.buildTargets(). This is a duplicate event, and consumers are expected to
       // handle it correctly, by accepting the last event.
       CommandLineEvent canonicalCommandLineEvent =
-          new CommandLineEvent.CanonicalCommandLineEvent(runtime, commandName, options);
-      BuildEventProtocolOptions bepOptions =
-          env.getOptions().getOptions(BuildEventProtocolOptions.class);
+          new CommandLineEvent.CanonicalCommandLineEvent(
+              runtime,
+              commandName,
+              options.getResidue(),
+              includeResidueInRunBepEvent,
+              options.getExplicitStarlarkOptions(
+                  CommandLineEvent.OriginalCommandLineEvent::commandLinePriority),
+              options.getStarlarkOptions(),
+              options.asListOfCanonicalOptions());
       OriginalUnstructuredCommandLineEvent unstructuredServerCommandLineEvent;
-      if (commandName.equals("run") && !bepOptions.includeResidueInRunBepEvent) {
+      if (commandName.equals("run") && !includeResidueInRunBepEvent) {
         unstructuredServerCommandLineEvent =
             OriginalUnstructuredCommandLineEvent.REDACTED_UNSTRUCTURED_COMMAND_LINE_EVENT;
       } else {

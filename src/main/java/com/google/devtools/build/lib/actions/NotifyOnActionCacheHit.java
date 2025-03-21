@@ -20,8 +20,9 @@ import com.google.devtools.build.lib.vfs.Path;
 /**
  * An action which must know when it is skipped due to an action cache hit.
  *
- * Use should be rare, as the action graph is a functional model.
+ * <p>Use should be rare, as the action graph is a functional model.
  */
+// TODO(lberki): Maybe merge this with RichDataProducingAction?
 public interface NotifyOnActionCacheHit extends Action {
   /** A custom interface similar to {@link ActionExecutionContext}, but specific to cache hits. */
   interface ActionCachedContext {

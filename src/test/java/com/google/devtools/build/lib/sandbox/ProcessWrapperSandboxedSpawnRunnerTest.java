@@ -60,11 +60,7 @@ public final class ProcessWrapperSandboxedSpawnRunnerTest extends SandboxedSpawn
     Duration policyTimeout = Duration.ofSeconds(60);
 
     ProcessWrapperSandboxedSpawnRunner runner =
-        new ProcessWrapperSandboxedSpawnRunner(
-            new SandboxHelpers(),
-            commandEnvironment,
-            sandboxBase,
-            treeDeleter);
+        new ProcessWrapperSandboxedSpawnRunner(commandEnvironment, sandboxBase, treeDeleter);
 
     Spawn spawn = new SpawnBuilder("echo", "cooee").build();
 
@@ -113,11 +109,7 @@ public final class ProcessWrapperSandboxedSpawnRunnerTest extends SandboxedSpawn
     Duration policyTimeout = Duration.ofSeconds(60);
 
     ProcessWrapperSandboxedSpawnRunner runner =
-        new ProcessWrapperSandboxedSpawnRunner(
-            new SandboxHelpers(),
-            commandEnvironment,
-            sandboxBase,
-            treeDeleter);
+        new ProcessWrapperSandboxedSpawnRunner(commandEnvironment, sandboxBase, treeDeleter);
 
     Spawn spawn =
         new SpawnBuilder(

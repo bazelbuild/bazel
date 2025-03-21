@@ -28,11 +28,10 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.CommandLineItem.MapFn;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
-import com.google.devtools.build.lib.analysis.actions.DeterministicWriter;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -41,6 +40,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.util.DeterministicWriter;
 import com.google.devtools.build.lib.util.Fingerprint;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -75,10 +75,10 @@ public final class RepoMappingManifestAction extends AbstractFileWriteAction
 
   // Uses MapFn's args parameter just like Fingerprint#addString to compute a cacheable fingerprint
   // of just the repo name and mapping of a given Package.
-  private static final MapFn<Package> REPO_AND_MAPPING_DIGEST_FN =
-      (pkg, args) -> {
-        args.accept(pkg.getPackageIdentifier().getRepository().getName());
-        args.accept(repoMappingFingerprintCache.get(pkg.getRepositoryMapping().entries()));
+  private static final MapFn<Package.Metadata> REPO_AND_MAPPING_DIGEST_FN =
+      (pkgMetadata, args) -> {
+        args.accept(pkgMetadata.packageIdentifier().getRepository().getName());
+        args.accept(repoMappingFingerprintCache.get(pkgMetadata.repositoryMapping().entries()));
       };
 
   private static final MapFn<Artifact> OWNER_REPO_FN =
@@ -90,7 +90,7 @@ public final class RepoMappingManifestAction extends AbstractFileWriteAction
   private static final MapFn<SymlinkEntry> FIRST_SEGMENT_FN =
       (symlink, args) -> args.accept(symlink.getPath().getSegment(0));
 
-  private final NestedSet<Package> transitivePackages;
+  private final NestedSet<Package.Metadata> transitivePackages;
   private final NestedSet<Artifact> runfilesArtifacts;
   private final boolean hasRunfilesSymlinks;
   private final NestedSet<SymlinkEntry> runfilesRootSymlinks;
@@ -99,7 +99,7 @@ public final class RepoMappingManifestAction extends AbstractFileWriteAction
   public RepoMappingManifestAction(
       ActionOwner owner,
       Artifact output,
-      NestedSet<Package> transitivePackages,
+      NestedSet<Package.Metadata> transitivePackages,
       NestedSet<Artifact> runfilesArtifacts,
       NestedSet<SymlinkEntry> runfilesSymlinks,
       NestedSet<SymlinkEntry> runfilesRootSymlinks,
@@ -125,7 +125,7 @@ public final class RepoMappingManifestAction extends AbstractFileWriteAction
   @Override
   protected void computeKey(
       ActionKeyContext actionKeyContext,
-      @Nullable ArtifactExpander artifactExpander,
+      @Nullable InputMetadataProvider inputMetadataProvider,
       Fingerprint fp)
       throws CommandLineExpansionException, EvalException, InterruptedException {
     fp.addUUID(MY_UUID);
@@ -144,7 +144,7 @@ public final class RepoMappingManifestAction extends AbstractFileWriteAction
   @Override
   public String getFileContents(@Nullable EventHandler eventHandler) throws IOException {
     ByteArrayOutputStream stream = new ByteArrayOutputStream();
-    newDeterministicWriter().writeOutputFile(stream);
+    newDeterministicWriter().writeTo(stream);
     return stream.toString(ISO_8859_1);
   }
 
@@ -184,8 +184,8 @@ public final class RepoMappingManifestAction extends AbstractFileWriteAction
               .collect(
                   toImmutableSortedMap(
                       comparing(RepositoryName::getName),
-                      pkg -> pkg.getPackageIdentifier().getRepository(),
-                      Package::getRepositoryMapping,
+                      pkgMetadata -> pkgMetadata.packageIdentifier().getRepository(),
+                      Package.Metadata::repositoryMapping,
                       // All packages in a given repository have the same repository mapping, so the
                       // particular way of resolving duplicates does not matter.
                       (first, second) -> first));

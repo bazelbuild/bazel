@@ -33,7 +33,7 @@ import com.google.devtools.build.lib.analysis.platform.ToolchainTypeInfo;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.packages.ExecGroup;
+import com.google.devtools.build.lib.packages.DeclaredExecGroup;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
 import com.google.devtools.build.lib.packages.util.MockCcSupport;
 import com.google.devtools.build.lib.rules.cpp.CppCompileAction;
@@ -311,7 +311,7 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
         /* execCompatibleWith= */ "");
 
     ConfiguredTarget target = getConfiguredTarget("//test:custom_rule_name");
-    ImmutableMap<String, ExecGroup> execGroups =
+    ImmutableMap<String, DeclaredExecGroup> execGroups =
         getRuleContext(target).getExecGroups().execGroups();
 
     assertThat(execGroups).isEmpty();
@@ -333,7 +333,7 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
         /* execCompatibleWith= */ "");
 
     ConfiguredTarget target = getConfiguredTarget("//test:custom_rule_name");
-    ImmutableMap<String, ExecGroup> execGroups =
+    ImmutableMap<String, DeclaredExecGroup> execGroups =
         getRuleContext(target).getExecGroups().execGroups();
 
     assertThat(execGroups).isNotEmpty();
@@ -356,7 +356,7 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
     useConfiguration("--incompatible_auto_exec_groups=False");
 
     ConfiguredTarget target = getConfiguredTarget("//test:custom_rule_name");
-    ImmutableMap<String, ExecGroup> execGroups =
+    ImmutableMap<String, DeclaredExecGroup> execGroups =
         getRuleContext(target).getExecGroups().execGroups();
 
     assertThat(execGroups).isEmpty();
@@ -379,7 +379,7 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
     useConfiguration("--incompatible_auto_exec_groups");
 
     ConfiguredTarget target = getConfiguredTarget("//test:custom_rule_name");
-    ImmutableMap<String, ExecGroup> execGroups =
+    ImmutableMap<String, DeclaredExecGroup> execGroups =
         getRuleContext(target).getExecGroups().execGroups();
 
     assertThat(execGroups).isEmpty();
@@ -402,7 +402,7 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
     useConfiguration("--incompatible_auto_exec_groups");
 
     ConfiguredTarget target = getConfiguredTarget("//test:custom_rule_name");
-    ImmutableMap<String, ExecGroup> execGroups =
+    ImmutableMap<String, DeclaredExecGroup> execGroups =
         getRuleContext(target).getExecGroups().execGroups();
 
     assertThat(execGroups).isNotEmpty();
@@ -425,7 +425,7 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
     useConfiguration("--incompatible_auto_exec_groups");
 
     ConfiguredTarget target = getConfiguredTarget("//test:custom_rule_name");
-    ImmutableMap<String, ExecGroup> execGroups =
+    ImmutableMap<String, DeclaredExecGroup> execGroups =
         getRuleContext(target).getExecGroups().execGroups();
 
     assertThat(execGroups).isNotEmpty();
@@ -762,16 +762,16 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
 
     assertThat(execGroups.execGroups().keySet())
         .containsExactly("//rule:toolchain_type_1", "//rule:toolchain_type_2");
-    ExecGroup execGroupTT1 = execGroups.getExecGroup("//rule:toolchain_type_1");
-    assertThat(execGroupTT1.toolchainTypes())
+    DeclaredExecGroup declaredExecGroupTT1 = execGroups.getExecGroup("//rule:toolchain_type_1");
+    assertThat(declaredExecGroupTT1.toolchainTypes())
         .containsExactly(
             ToolchainTypeRequirement.create(Label.parseCanonical("//rule:toolchain_type_1")));
-    assertThat(execGroupTT1.execCompatibleWith()).isEmpty();
-    ExecGroup execGroupTT2 = execGroups.getExecGroup("//rule:toolchain_type_2");
-    assertThat(execGroupTT2.toolchainTypes())
+    assertThat(declaredExecGroupTT1.execCompatibleWith()).isEmpty();
+    DeclaredExecGroup declaredExecGroupTT2 = execGroups.getExecGroup("//rule:toolchain_type_2");
+    assertThat(declaredExecGroupTT2.toolchainTypes())
         .containsExactly(
             ToolchainTypeRequirement.create(Label.parseCanonical("//rule:toolchain_type_2")));
-    assertThat(execGroupTT2.execCompatibleWith()).isEmpty();
+    assertThat(declaredExecGroupTT2.execCompatibleWith()).isEmpty();
   }
 
   @Test
@@ -795,7 +795,7 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
 
     assertThat(toolchainContextsKeys)
         .containsExactly(
-            ExecGroup.DEFAULT_EXEC_GROUP_NAME,
+            DeclaredExecGroup.DEFAULT_EXEC_GROUP_NAME,
             "//rule:toolchain_type_1",
             "//rule:toolchain_type_2");
   }
@@ -1104,7 +1104,7 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
     useConfiguration("--incompatible_auto_exec_groups");
 
     ConfiguredTarget target = getConfiguredTarget("//test:custom_rule_name");
-    ImmutableMap<String, ExecGroup> execGroups =
+    ImmutableMap<String, DeclaredExecGroup> execGroups =
         getRuleContext(target).getExecGroups().execGroups();
     Action generatedAction = getGeneratingAction(target, "test/custom_rule_name_dummy_output.jar");
 
@@ -1147,7 +1147,7 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
     useConfiguration("--incompatible_auto_exec_groups");
 
     ConfiguredTarget target = getConfiguredTarget("//test:custom_rule_name");
-    ImmutableMap<String, ExecGroup> execGroups =
+    ImmutableMap<String, DeclaredExecGroup> execGroups =
         getRuleContext(target).getExecGroups().execGroups();
     Action ruleAction = (Action) ((RuleConfiguredTarget) target).getActions().get(0);
 

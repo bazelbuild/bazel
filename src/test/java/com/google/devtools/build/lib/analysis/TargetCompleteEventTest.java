@@ -288,7 +288,7 @@ public class TargetCompleteEventTest extends AnalysisTestCase {
 
   private static ArtifactsToBuild getArtifactsToBuild(ConfiguredTargetAndData ctAndData) {
     TopLevelArtifactContext context =
-        new TopLevelArtifactContext(false, false, false, OutputGroupInfo.DEFAULT_GROUPS);
+        new TopLevelArtifactContext(false, false, OutputGroupInfo.DEFAULT_GROUPS);
     return TopLevelArtifactHelper.getAllArtifactsToBuild(ctAndData.getConfiguredTarget(), context);
   }
 
@@ -303,15 +303,8 @@ public class TargetCompleteEventTest extends AnalysisTestCase {
       Map<SpecialArtifact, TreeArtifactValue> treeMetadata,
       @Nullable FileArtifactValue baselineCoverageValue) {
     ActionInputMap inputMap = new ActionInputMap(0);
-
-    for (Map.Entry<Artifact, FileArtifactValue> entry : metadata.entrySet()) {
-      inputMap.put(entry.getKey(), entry.getValue(), /* depOwner= */ null);
-    }
-
-    for (Map.Entry<SpecialArtifact, TreeArtifactValue> entry : treeMetadata.entrySet()) {
-      inputMap.putTreeArtifact(entry.getKey(), entry.getValue(), /* depOwner= */ null);
-    }
-
+    metadata.forEach(inputMap::put);
+    treeMetadata.forEach(inputMap::putTreeArtifact);
     return new CompletionContext(
         directories.getExecRoot(TestConstants.WORKSPACE_NAME),
         ImmutableMap.copyOf(treeMetadata),
@@ -319,7 +312,6 @@ public class TargetCompleteEventTest extends AnalysisTestCase {
         baselineCoverageValue,
         ArtifactPathResolver.IDENTITY,
         inputMap,
-        /* expandFilesets= */ false,
-        /* fullyResolveFilesetLinks= */ false);
+        /* expandFilesets= */ false);
   }
 }

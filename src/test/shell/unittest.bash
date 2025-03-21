@@ -579,10 +579,10 @@ function assert_nonempty_file() {
 # between the original file and the new file.
 function __copy_to_undeclared_outputs() {
   local name=$(basename "$1")
-  local uuid=$(uuidgen)
-  local testdir="${TEST_UNDECLARED_OUTPUTS_DIR}/${TEST_name}/${uuid}"
+  local testdir="${TEST_UNDECLARED_OUTPUTS_DIR}/${TEST_name}"
   mkdir -p "$testdir"
-  local newname="${testdir}/${name}"
+  local unique_dir=$(mktemp -d -p "$testdir" XXX)
+  local newname="${unique_dir}/${name}"
   cp "$1" "$newname"
   echo "Copied '$1' to '$newname'"
 }

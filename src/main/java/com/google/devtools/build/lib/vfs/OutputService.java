@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.vfs;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
@@ -233,7 +232,7 @@ public interface OutputService {
       FileSystem actionFileSystem,
       Environment env,
       OutputMetadataStore outputMetadataStore,
-      ImmutableMap<Artifact, FilesetOutputTree> filesets) {}
+      Map<Artifact, FilesetOutputTree> filesets) {}
 
   /**
    * Checks the filesystem returned by {@link #createActionFileSystem} for errors attributable to

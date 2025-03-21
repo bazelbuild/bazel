@@ -18,6 +18,7 @@ import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Action;
@@ -45,6 +46,8 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.StarlarkAction.Code;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.ByteString;
 import java.io.BufferedReader;
@@ -87,6 +90,33 @@ public class StarlarkAction extends SpawnAction {
         outputPathsMode);
   }
 
+  /** Constructor for serialization. */
+  private StarlarkAction(
+      ActionOwner owner,
+      NestedSet<Artifact> tools,
+      NestedSet<Artifact> inputs,
+      Object rawOutputs,
+      ResourceSetOrBuilder resourceSetOrBuilder,
+      CommandLines commandLines,
+      ActionEnvironment env,
+      ImmutableSortedMap<String, String> sortedExecutionInfo,
+      CharSequence progressMessage,
+      String mnemonic,
+      OutputPathsMode outputPathsMode) {
+    super(
+        owner,
+        tools,
+        inputs,
+        rawOutputs,
+        resourceSetOrBuilder,
+        commandLines,
+        env,
+        sortedExecutionInfo,
+        progressMessage,
+        mnemonic,
+        outputPathsMode);
+  }
+
   @VisibleForTesting
   public Optional<Artifact> getUnusedInputsList() {
     return Optional.empty();
@@ -108,7 +138,7 @@ public class StarlarkAction extends SpawnAction {
 
   @SafeVarargs
   private static NestedSet<Artifact> createInputs(NestedSet<Artifact>... inputsLists) {
-    NestedSetBuilder<Artifact> nestedSetBuilder = new NestedSetBuilder<>(Order.STABLE_ORDER);
+    NestedSetBuilder<Artifact> nestedSetBuilder = NestedSetBuilder.newBuilder(Order.STABLE_ORDER);
     for (NestedSet<Artifact> inputs : inputsLists) {
       nestedSetBuilder.addTransitive(inputs);
     }
@@ -189,7 +219,9 @@ public class StarlarkAction extends SpawnAction {
   }
 
   /** A {@link StarlarkAction} with {@code unused_inputs_list} and/or a shadowed action present. */
-  private static final class EnhancedStarlarkAction extends StarlarkAction
+  @AutoCodec
+  @VisibleForSerialization
+  static final class EnhancedStarlarkAction extends StarlarkAction
       implements ActionCacheAwareAction {
     // All the inputs of the Starlark action including those listed in the unused inputs and
     // excluding the shadowed action inputs.
@@ -228,6 +260,41 @@ public class StarlarkAction extends SpawnAction {
           mnemonic,
           outputPathsMode);
       this.allStarlarkActionInputs = inputs;
+      this.unusedInputsList = unusedInputsList;
+      this.shadowedAction = shadowedAction;
+    }
+
+    @AutoCodec.Instantiator
+    @VisibleForSerialization
+    EnhancedStarlarkAction(
+        ActionOwner owner,
+        NestedSet<Artifact> tools,
+        NestedSet<Artifact> allStarlarkActionInputs,
+        Object rawOutputs,
+        ResourceSetOrBuilder resourceSetOrBuilder,
+        CommandLines commandLines,
+        ActionEnvironment environment,
+        ImmutableSortedMap<String, String> sortedExecutionInfo,
+        CharSequence progressMessage,
+        String mnemonic,
+        OutputPathsMode outputPathsMode,
+        Optional<Artifact> unusedInputsList,
+        Optional<Action> shadowedAction) {
+      super(
+          owner,
+          tools,
+          shadowedAction.isPresent()
+              ? createInputs(shadowedAction.get().getInputs(), allStarlarkActionInputs)
+              : allStarlarkActionInputs,
+          rawOutputs,
+          resourceSetOrBuilder,
+          commandLines,
+          environment,
+          sortedExecutionInfo,
+          progressMessage,
+          mnemonic,
+          outputPathsMode);
+      this.allStarlarkActionInputs = allStarlarkActionInputs;
       this.unusedInputsList = unusedInputsList;
       this.shadowedAction = shadowedAction;
     }

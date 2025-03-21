@@ -151,6 +151,9 @@ rule. Created by \
     private final Optional<String> documentation;
     @Nullable private Label extensionLabel;
     @Nullable private String exportedName;
+    // Populated on first use after export to avoid recreating the rule class on
+    // each usage.
+    @Nullable private volatile RuleClass ruleClass;
 
     private RepositoryRuleFunction(
         RuleClass.Builder builder,
@@ -279,8 +282,22 @@ rule. Created by \
 
     @Override
     public RuleClass getRuleClass() {
-      String name = getRuleClassName();
-      return builder.buildStarlark(name, extensionLabel);
+      if (ruleClass != null) {
+        return ruleClass;
+      }
+      synchronized (this) {
+        if (ruleClass != null) {
+          return ruleClass;
+        }
+        String name = getRuleClassName();
+        var builtRuleClass = builder.buildStarlark(name, extensionLabel);
+        // Before having been exported, the name is subject to change and must
+        // not be cached. This is a rare, discouraged case, see getRuleClassName().
+        if (isExported()) {
+          ruleClass = builtRuleClass;
+        }
+        return builtRuleClass;
+      }
     }
   }
 

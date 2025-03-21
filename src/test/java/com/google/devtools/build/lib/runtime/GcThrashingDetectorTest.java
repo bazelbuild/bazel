@@ -212,7 +212,8 @@ public final class GcThrashingDetectorTest {
     MemoryPressureEvent.Builder event =
         MemoryPressureEvent.newBuilder()
             .setTenuredSpaceUsedBytes(percentUsed)
-            .setTenuredSpaceMaxBytes(100L);
+            .setTenuredSpaceMaxBytes(100L)
+            .setDuration(Duration.ofMillis(42L));
     switch (type) {
       case ORGANIC_FULL:
         event.setWasFullGc(true);

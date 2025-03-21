@@ -21,13 +21,13 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.ArtifactExpander;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.unsafe.StringUnsafe;
+import com.google.devtools.build.lib.util.DeterministicWriter;
 import com.google.devtools.build.lib.util.Fingerprint;
-import java.util.function.Function;
 import javax.annotation.Nullable;
 
 /**
@@ -42,7 +42,6 @@ public final class LazyWritePathsFileAction extends AbstractFileWriteAction {
   private final NestedSet<Artifact> files;
   private final ImmutableSet<Artifact> filesToIgnore;
   private final boolean includeDerivedArtifacts;
-  private final Function<Artifact, String> converter;
 
   public LazyWritePathsFileAction(
       ActionOwner owner,
@@ -50,23 +49,12 @@ public final class LazyWritePathsFileAction extends AbstractFileWriteAction {
       NestedSet<Artifact> files,
       ImmutableSet<Artifact> filesToIgnore,
       boolean includeDerivedArtifacts) {
-    this(owner, output, files, filesToIgnore, includeDerivedArtifacts, Artifact::getExecPathString);
-  }
-
-  public LazyWritePathsFileAction(
-      ActionOwner owner,
-      Artifact output,
-      NestedSet<Artifact> files,
-      ImmutableSet<Artifact> filesToIgnore,
-      boolean includeDerivedArtifacts,
-      Function<Artifact, String> converter) {
     // We don't need to pass the given files as explicit inputs to this action; we don't care about
     // them, we only need their names, which we already know.
     super(owner, NestedSetBuilder.emptySet(Order.STABLE_ORDER), output);
     this.files = files;
     this.includeDerivedArtifacts = includeDerivedArtifacts;
     this.filesToIgnore = filesToIgnore;
-    this.converter = converter;
   }
 
   @Override
@@ -78,7 +66,7 @@ public final class LazyWritePathsFileAction extends AbstractFileWriteAction {
   @Override
   protected void computeKey(
       ActionKeyContext actionKeyContext,
-      @Nullable ArtifactExpander artifactExpander,
+      @Nullable InputMetadataProvider inputMetadataProvider,
       Fingerprint fp) {
     fp.addString(GUID);
     fp.addBoolean(includeDerivedArtifacts);
@@ -92,7 +80,7 @@ public final class LazyWritePathsFileAction extends AbstractFileWriteAction {
         continue;
       }
       if (file.isSourceArtifact() || includeDerivedArtifacts) {
-        stringBuilder.append(converter.apply(file));
+        stringBuilder.append(file.getExecPathString());
         stringBuilder.append("\n");
       }
     }

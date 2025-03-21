@@ -147,7 +147,7 @@ public class LocalSpawnRunner implements SpawnRunner {
               context.speculating()
                   ? ResourcePriority.DYNAMIC_STANDALONE
                   : ResourcePriority.LOCAL)) {
-        spawnMetrics.setQueueTimeInMs((int) queueStopwatch.elapsed().toMillis());
+        spawnMetrics.setQueueTime(queueStopwatch.elapsed());
         context.report(SpawnExecutingEvent.create(getName()));
         if (!localExecutionOptions.localLockfreeOutput) {
           // Without local-lockfree, we grab the lock before running the action, so we can't
@@ -201,7 +201,7 @@ public class LocalSpawnRunner implements SpawnRunner {
 
     private final int id;
 
-    public SubprocessHandler(
+    SubprocessHandler(
         Spawn spawn,
         SpawnExecutionContext context,
         SpawnMetrics.Builder spawnMetrics,
@@ -215,7 +215,7 @@ public class LocalSpawnRunner implements SpawnRunner {
       setState(State.PARSING);
     }
 
-    public SpawnResult run() throws InterruptedException, ExecException, IOException {
+    SpawnResult run() throws InterruptedException, ExecException, IOException {
       if (localExecutionOptions.localRetriesOnCrash == 0) {
         return runOnce();
       } else {
@@ -331,7 +331,7 @@ public class LocalSpawnRunner implements SpawnRunner {
                         + localExecutionOptions.allowedLocalAction.regexPattern()
                         + "\n")
                     .getBytes(UTF_8));
-        spawnMetrics.setTotalTimeInMs((int) totalTimeStopwatch.elapsed().toMillis());
+        spawnMetrics.setTotalTime(totalTimeStopwatch.elapsed());
         return spawnResultBuilder
             .setStatus(Status.EXECUTION_DENIED)
             .setExitCode(LOCAL_EXEC_ERROR)
@@ -355,8 +355,7 @@ public class LocalSpawnRunner implements SpawnRunner {
       }
 
       try (var s = Profiler.instance().profile("updateRunfiles")) {
-        runfilesTreeUpdater.updateRunfiles(
-            runfilesTrees, spawn.getEnvironment(), context.getFileOutErr());
+        runfilesTreeUpdater.updateRunfiles(runfilesTrees);
       }
 
       stepLog(INFO, "running locally");
@@ -402,7 +401,7 @@ public class LocalSpawnRunner implements SpawnRunner {
           args = ImmutableList.copyOf(newArgs);
         }
         subprocessBuilder.setArgv(args);
-        spawnMetrics.addSetupTimeInMs((int) setupTimeStopwatch.elapsed().toMillis());
+        spawnMetrics.addSetupTime(setupTimeStopwatch.elapsed());
 
         spawnResultBuilder.setStartTime(Instant.now());
         Stopwatch executionStopwatch = Stopwatch.createStarted();
@@ -435,7 +434,7 @@ public class LocalSpawnRunner implements SpawnRunner {
               .write(
                   ("Action failed to execute: java.io.IOException: " + msg + "\n").getBytes(UTF_8));
           outErr.getErrorStream().flush();
-          spawnMetrics.setTotalTimeInMs((int) totalTimeStopwatch.elapsed().toMillis());
+          spawnMetrics.setTotalTime(totalTimeStopwatch.elapsed());
           return spawnResultBuilder
               .setStatus(Status.EXECUTION_FAILED)
               .setExitCode(LOCAL_EXEC_ERROR)
@@ -447,7 +446,7 @@ public class LocalSpawnRunner implements SpawnRunner {
         setState(State.SUCCESS);
         // TODO(b/62588075): Calculate wall time inside commands instead?
         Duration wallTime = executionStopwatch.elapsed();
-        spawnMetrics.setExecutionWallTimeInMs((int) wallTime.toMillis());
+        spawnMetrics.setExecutionWallTime(wallTime);
 
         boolean wasTimeout =
             terminationStatus.timedOut()
@@ -466,7 +465,7 @@ public class LocalSpawnRunner implements SpawnRunner {
         if (statisticsPath != null) {
           spawnResultBuilder.setResourceUsageFromProto(statisticsPath);
         }
-        spawnMetrics.setTotalTimeInMs((int) totalTimeStopwatch.elapsed().toMillis());
+        spawnMetrics.setTotalTime(totalTimeStopwatch.elapsed());
         spawnResultBuilder.setSpawnMetrics(spawnMetrics.build());
         return spawnResultBuilder.build();
       } finally {

@@ -26,7 +26,6 @@ md5_cmd = "set -e -o pipefail && %s $(SRCS) | %s | %s > $@"
         "//src/main/java/com/google/devtools/build/lib/bazel:BazelServer_deploy.jar",
         "//src/main/java/net/starlark/java/eval:cpu_profiler",
         "//src/main/cpp:client",
-        "//src/main/tools:build-runfiles",
         "//src/main/tools:process-wrapper",
         "//src/main/tools:linux-sandbox",
         "//tools/osx:xcode-locator",
@@ -182,16 +181,22 @@ filegroup(
     visibility = ["//src/test/shell/bazel:__pkg__"],
 )
 
-# This program patches the app manifest of the java.exe launcher to force its
-# active code page to UTF-8 on Windows 1903 and later, which is required for
-# proper support of Unicode characters outside the system code page.
-# The JDK currently (as of JDK 23) doesn't support this natively:
-# https://mail.openjdk.org/pipermail/core-libs-dev/2024-November/133773.html
+# Reads the app manifest of a Windows executable.
 cc_binary(
-    name = "patch_java_manifest_for_utf8",
-    srcs = ["patch_java_manifest_for_utf8.cc"],
+    name = "read_manifest",
+    srcs = ["read_manifest.cc"],
     tags = ["manual"],
     target_compatible_with = ["@platforms//os:windows"],
+    visibility = ["//src/java_tools:__subpackages__"],
+)
+
+# Updates the app manifest of a Windows executable.
+cc_binary(
+    name = "write_manifest",
+    srcs = ["write_manifest.cc"],
+    tags = ["manual"],
+    target_compatible_with = ["@platforms//os:windows"],
+    visibility = ["//src/java_tools:__subpackages__"],
 )
 
 sh_binary(
@@ -199,7 +204,8 @@ sh_binary(
     srcs = ["minimize_jdk.sh"],
     data = select({
         "@platforms//os:windows": [
-            ":patch_java_manifest_for_utf8",
+            ":read_manifest",
+            ":write_manifest",
         ],
         "//conditions:default": [],
     }),
@@ -278,7 +284,6 @@ genrule(
         "//:platforms-srcs",
         # Non-ordered items follow:
         "//src/main/java/net/starlark/java/eval:cpu_profiler",
-        "//src/main/tools:build-runfiles",
         "//src/main/tools:process-wrapper",
         "//src/main/tools:linux-sandbox",
         "//tools/osx:xcode-locator",
@@ -445,6 +450,7 @@ genrule(
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:dist_jars",
         "//src/main/java/com/google/devtools/build/lib/bazel/debug:dist_jars",
         "//src/main/java/com/google/devtools/build/lib/packages/metrics:dist_jars",
+        "//src/main/java/com/google/devtools/build/lib/sandbox/cgroups/proto:dist_jars",
         "//src/main/java/com/google/devtools/build/lib/skyframe/proto:dist_jars",
         "//src/main/java/com/google/devtools/build/lib/starlarkdebug/proto:dist_jars",
         "//src/main/java/com/google/devtools/build/skyframe:dist_jars",

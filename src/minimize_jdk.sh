@@ -61,7 +61,6 @@ fi
 UNAME=$(uname -s | tr 'A-Z' 'a-z')
 
 if [[ "$UNAME" =~ msys_nt* ]]; then
-  set -x
   mkdir "tmp.$$"
   cd "tmp.$$"
   unzip -q "../$fulljdk"
@@ -72,8 +71,16 @@ if [[ "$UNAME" =~ msys_nt* ]]; then
   modules="$modules,jdk.crypto.mscapi"
   ./bin/jlink --module-path ./jmods/ --add-modules "$modules" \
     --vm=server --strip-debug --no-man-pages \
+    --add-options=' --enable-native-access=ALL-UNNAMED' \
     --output reduced
-  "$(rlocation "io_bazel/src/patch_java_manifest_for_utf8.exe")" reduced/bin/java.exe
+  # Patch the app manifest of the java.exe launcher to force its active code
+  # page to UTF-8 on Windows 1903 and later, which is required for proper
+  # support of Unicode characters outside the system code page.
+  # The JDK currently (as of JDK 23) doesn't support this natively:
+  # https://mail.openjdk.org/pipermail/core-libs-dev/2024-November/133773.html
+  "$(rlocation io_bazel/src/read_manifest.exe)" reduced/bin/java.exe \
+    | sed 's|</asmv3:windowsSettings>|<activeCodePage xmlns="http://schemas.microsoft.com/SMI/2019/WindowsSettings">UTF-8</activeCodePage>&|' \
+    | "$(rlocation io_bazel/src/write_manifest.exe)" reduced/bin/java.exe
   cp $DOCS legal/java.base/ASSEMBLY_EXCEPTION \
     reduced/
   # These are necessary for --host_jvm_debug to work.
@@ -90,6 +97,7 @@ else
   cd $FULL_JDK_DIR
   ./bin/jlink --module-path ./jmods/ --add-modules "$modules" \
     --vm=server --strip-debug --no-man-pages \
+    --add-options=' --enable-native-access=ALL-UNNAMED' \
     --output reduced
   cp $DOCS legal/java.base/ASSEMBLY_EXCEPTION \
     reduced/

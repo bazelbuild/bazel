@@ -95,10 +95,17 @@ public class WorkerFactory {
     if (key.isSandboxed()) {
       if (key.isMultiplex()) {
         WorkerMultiplexer workerMultiplexer = WorkerMultiplexerManager.getInstance(key, logFile);
-        Path workDir = getSandboxedWorkerPath(key);
+        int multiplexerId = workerMultiplexer.getMultiplexerId();
+        Path workDir = getMultiplexSandboxedWorkerPath(key, multiplexerId);
         worker =
             new SandboxedWorkerProxy(
-                key, workerId, logFile, workerMultiplexer, workDir, treeDeleter);
+                key,
+                workerId,
+                workerMultiplexer.getLogFile(),
+                workerMultiplexer,
+                workDir,
+                treeDeleter);
+        workerMultiplexer.setWorkDir(workDir);
       } else {
         Path workDir = getSandboxedWorkerPath(key, workerId);
         worker =
@@ -126,8 +133,9 @@ public class WorkerFactory {
 
     String msg =
         String.format(
-            "Created new %s %s %s (id %d, key hash %d), logging to %s",
+            "Created new %s %s %s %s (id %d, key hash %d), logging to %s",
             key.isSandboxed() ? "sandboxed" : "non-sandboxed",
+            key.isMultiplex() ? "multiplex" : "singleplex",
             key.getMnemonic(),
             workTypeName,
             workerId,
@@ -144,10 +152,11 @@ public class WorkerFactory {
         .getRelative(workspaceName);
   }
 
-  Path getSandboxedWorkerPath(WorkerKey key) {
+  Path getMultiplexSandboxedWorkerPath(WorkerKey key, int multiplexerId) {
     String workspaceName = key.getExecRoot().getBaseName();
     return workerBaseDir
-        .getRelative(key.getMnemonic() + "-" + key.getWorkerTypeName() + "-workdir")
+        .getRelative(
+            key.getMnemonic() + "-" + key.getWorkerTypeName() + "-" + multiplexerId + "-workdir")
         .getRelative(workspaceName);
   }
 

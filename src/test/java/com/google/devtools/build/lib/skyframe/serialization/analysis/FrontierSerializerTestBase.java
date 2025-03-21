@@ -24,14 +24,12 @@ import static org.junit.Assume.assumeTrue;
 
 import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Sets;
+import com.google.common.truth.Correspondence;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
-import com.google.devtools.build.lib.buildtool.BuildTool;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -41,19 +39,16 @@ import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.WorkspaceBuilder;
 import com.google.devtools.build.lib.runtime.commands.CqueryCommand;
 import com.google.devtools.build.lib.runtime.commands.TestCommand;
-import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectBaseKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.RemoteConfiguredTargetValue;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService;
-import com.google.devtools.build.lib.skyframe.serialization.analysis.FrontierSerializer.SelectionMarking;
 import com.google.devtools.build.lib.util.io.RecordingOutErr;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.SyscallCache;
-import com.google.devtools.build.skyframe.InMemoryGraph;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.errorprone.annotations.ForOverride;
 import com.google.perftools.profiles.ProfileProto.Profile;
@@ -62,8 +57,6 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
@@ -105,9 +98,8 @@ public abstract class FrontierSerializerTestBase extends BuildIntegrationTestCas
         package_group(name = "empty")
         """);
     addOptions("--experimental_remote_analysis_cache_mode=upload");
-    LoadingFailedException exception =
-        assertThrows(LoadingFailedException.class, () -> buildTarget("//foo:empty"));
-    assertThat(exception).hasMessageThat().contains("Failed to find PROJECT.scl file");
+    buildTarget("//foo:empty");
+    events.assertContainsInfo("Disabling Skycache due to missing PROJECT.scl: [//foo:empty]");
   }
 
   @Test
@@ -161,9 +153,7 @@ project = {
         assertThrows(LoadingFailedException.class, () -> buildTarget("//foo:empty", "//bar:empty"));
     assertThat(exception)
         .hasMessageThat()
-        .contains(
-            "This build doesn't support automatic project resolution. Targets have different"
-                + " project settings:");
+        .contains("Skycache only works on single-project builds. This is a multi-project build");
   }
 
   @Test
@@ -189,73 +179,6 @@ project = {
 
     addOptions("--experimental_remote_analysis_cache_mode=upload");
     buildTarget("//foo:empty", "//foo/bar:empty");
-  }
-
-  @Test
-  public void activeAspect_activatesBaseConfiguredTarget() throws Exception {
-    setupScenarioWithAspects();
-    InMemoryGraph graph = getSkyframeExecutor().getEvaluator().getInMemoryGraph();
-
-    ConfiguredTargetKey generateYKey =
-        ConfiguredTargetKey.builder()
-            .setLabel(label("//foo:generate_y"))
-            .setConfiguration(getTargetConfiguration())
-            .build();
-
-    // Determines the UTC of //foo:generate_y.
-    Set<ActionLookupKey> utc = Sets.newConcurrentHashSet();
-    collectAnalysisUtc(graph, generateYKey, utc);
-    assertThat(utc.remove(generateYKey)).isTrue();
-
-    // The strict UTC has 3 keys. One for the two targets in bar and one for the top level aspect.
-    assertThat(utc).hasSize(3);
-    // Everything in the UTC is an aspect. This means the underlying configured targets are *not*
-    // included. This is a dangerous situation. The danger is not present in the actual code because
-    // the underlying configured targets _will_ be computed by
-    // `FrontierSerializer#computeSelection`.
-    for (ActionLookupKey key : utc) {
-      assertThat(key).isInstanceOf(AspectBaseKey.class);
-    }
-
-    var matcher =
-        BuildTool.getWorkingSetMatcherForSkyfocus(
-            // We know exactly which PROJECT file is used, so inject it here.
-            parseCanonicalUnchecked("//bar:PROJECT.scl"),
-            getSkyframeExecutor(),
-            getCommandEnvironment().getReporter());
-    ImmutableMap<SkyKey, SelectionMarking> selection =
-        FrontierSerializer.computeSelection(
-            graph, (PackageIdentifier pkgId) -> matcher.includes(pkgId.getPackageFragment()));
-
-    ImmutableSet<SkyKey> activeKeys =
-        selection.entrySet().stream()
-            .filter(entry -> entry.getValue().equals(SelectionMarking.ACTIVE))
-            .map(Map.Entry::getKey)
-            .collect(toImmutableSet());
-
-    var expected = new HashSet<ActionLookupKey>();
-    expected.add(generateYKey);
-    expected.add(ConfiguredTargetKey.builder().setLabel(label("//foo:x.txt")).build());
-    expected.addAll(utc);
-    for (ActionLookupKey key : utc) {
-      // The base configured target keys are included in the active set.
-      expected.add(((AspectBaseKey) key).getBaseConfiguredTargetKey());
-    }
-
-    assertThat(activeKeys).containsExactlyElementsIn(expected);
-  }
-
-  private void collectAnalysisUtc(
-      InMemoryGraph graph, ActionLookupKey next, Set<ActionLookupKey> utc) {
-    if (!utc.add(next)) {
-      return;
-    }
-    for (SkyKey rdep : graph.getIfPresent(next).getReverseDepsForDoneEntry()) {
-      if (!(rdep instanceof ActionLookupKey parent)) {
-        continue;
-      }
-      collectAnalysisUtc(graph, parent, utc);
-    }
   }
 
   @Test
@@ -738,7 +661,10 @@ ACTIVE: CONFIGURED_TARGET:ConfiguredTargetKey{label=//foo:G,
             .collect(toImmutableList());
 
     expected.forEach(line -> assertThat(outErr.outAsLatin1()).contains(line));
-    assertThat(outErr.outAsLatin1().lines()).hasSize(expected.size());
+
+    // The additional line is from the additional --host_platforms analysis node, which has a
+    // different label internally and externally.
+    assertThat(outErr.outAsLatin1().lines()).hasSize(expected.size() + 1);
 
     // Nothing serialized
     assertThat(
@@ -1006,6 +932,44 @@ project = { "actual": "//A:PROJECT.scl" }
         """
 project = { "active_directories": {"default": ["A"]} }
 """);
+  }
+
+  protected static final void assertContainsExactlyPrefixes(
+      ImmutableList<String> strings, String... prefixes) {
+    Correspondence<String, String> prefixCorrespondence =
+        Correspondence.from(String::startsWith, "starts with");
+    for (String prefix : prefixes) {
+      assertThat(strings).comparingElementsUsing(prefixCorrespondence).contains(prefix);
+    }
+  }
+
+  protected static final void assertContainsPrefixes(
+      ImmutableList<String> strings, String... prefixes) {
+    Correspondence<String, String> prefixCorrespondence =
+        Correspondence.from(String::startsWith, "starts with");
+    for (String prefix : prefixes) {
+      assertThat(strings).comparingElementsUsing(prefixCorrespondence).contains(prefix);
+    }
+  }
+
+  protected static final void assertDoesNotContainPrefixes(
+      ImmutableList<String> strings, String... prefixes) {
+    Correspondence<String, String> prefixCorrespondence =
+        Correspondence.from(String::startsWith, "starts with");
+    assertThat(strings).comparingElementsUsing(prefixCorrespondence).containsNoneIn(prefixes);
+  }
+
+  protected final ImmutableList<String> uploadManifest(String... targets) throws Exception {
+    getSkyframeExecutor().resetEvaluator();
+    addOptions("--experimental_remote_analysis_cache_mode=dump_upload_manifest_only");
+    RecordingOutErr outErr = new RecordingOutErr();
+    this.outErr = outErr;
+    buildTarget(targets);
+    return outErr
+        .outAsLatin1()
+        .lines()
+        .filter(s -> s.startsWith("ACTIVE: ") || s.startsWith("FRONTIER_CANDIDATE:"))
+        .collect(toImmutableList());
   }
 
   protected final void roundtrip(String... targets) throws Exception {

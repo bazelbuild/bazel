@@ -167,7 +167,7 @@ def create_cc_link_actions(
         compilation_outputs = compilation_outputs,
 
         # Inputs from linking_contexts and toolchain:
-        linkopts = linkopts,
+        linkopts = [],
         non_code_inputs = [],
         toolchain_libraries_type = "",
         toolchain_libraries_input = depset(),
@@ -210,6 +210,9 @@ def create_cc_link_actions(
         # inputs in CppLinkActionBuilder. So these should be merged. Even before that happens, it's
         # totally fine for nonCodeLinkerInputs to contains precompiled libraries.
         link_action_kwargs["non_code_inputs"] = list(compilation_outputs.header_tokens())
+
+        # linkopts attribute is only passed when creating .so files
+        link_action_kwargs["linkopts"] = linkopts
 
         dynamic_library, all_lto_artifacts, linker_output_artifact = \
             _create_dynamic_link_actions(

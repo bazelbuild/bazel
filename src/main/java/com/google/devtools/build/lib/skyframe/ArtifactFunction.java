@@ -19,7 +19,6 @@ import static com.google.devtools.build.lib.skyframe.serialization.SkyValueRetri
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionLookupData;
@@ -32,8 +31,6 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileValue;
-import com.google.devtools.build.lib.actions.RunfilesArtifactValue;
-import com.google.devtools.build.lib.actions.RunfilesTreeAction;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
@@ -176,20 +173,14 @@ public final class ArtifactFunction implements SkyFunction {
       return null;
     }
 
-    if (artifact.isTreeArtifact()) {
-      // We got a request for the whole tree artifact. We can just return the associated
-      // TreeArtifactValue.
-      return Preconditions.checkNotNull(actionValue.getTreeArtifactValue(artifact), artifact);
-    }
+    Preconditions.checkState(
+        artifact.isTreeArtifact(),
+        "'%s' used as a key for ArtifactFunction is not a tree artifact or a source artifact",
+        artifact);
 
-    Preconditions.checkState(artifact.isRunfilesTree(), artifact);
-    Action action =
-        Preconditions.checkNotNull(
-            artifactDependencies.actionLookupValue.getAction(generatingActionKey.getActionIndex()),
-            "Null runfiles tree action? %s",
-            artifactDependencies);
-
-    return createRunfilesArtifactValue(artifact, (RunfilesTreeAction) action, env);
+    // We got a request for the whole tree artifact. We can just return the associated
+    // TreeArtifactValue.
+    return Preconditions.checkNotNull(actionValue.getTreeArtifactValue(artifact), artifact);
   }
 
   private static void mkdirForTreeArtifact(
@@ -374,57 +365,6 @@ public final class ArtifactFunction implements SkyFunction {
       fp.addBytes(file.getMetadata().getDigest());
     }
     return FileArtifactValue.createForDirectoryWithHash(fp.digestAndReset());
-  }
-
-  @Nullable
-  private static RunfilesArtifactValue createRunfilesArtifactValue(
-      Artifact artifact, RunfilesTreeAction action, SkyFunction.Environment env)
-      throws InterruptedException {
-    ImmutableList<Artifact> inputs = action.getInputs().toList();
-    SkyframeLookupResult values = env.getValuesAndExceptions(Artifact.keys(inputs));
-    if (env.valuesMissing()) {
-      return null;
-    }
-
-    ImmutableList.Builder<Artifact> files = ImmutableList.builder();
-    ImmutableList.Builder<FileArtifactValue> fileValues = ImmutableList.builder();
-    ImmutableList.Builder<Artifact> trees = ImmutableList.builder();
-    ImmutableList.Builder<TreeArtifactValue> treeValues = ImmutableList.builder();
-
-    // Sort for better equality in RunfilesArtifactValue.
-    ImmutableList<Artifact> sortedInputs =
-        ImmutableList.sortedCopyOf(Artifact.EXEC_PATH_COMPARATOR, inputs);
-    for (Artifact input : sortedInputs) {
-      SkyValue inputValue = values.get(Artifact.key(input));
-      if (inputValue == null) {
-        return null;
-      }
-      if (inputValue instanceof FileArtifactValue) {
-        files.add(input);
-        fileValues.add((FileArtifactValue) inputValue);
-      } else if (inputValue instanceof ActionExecutionValue) {
-        files.add(input);
-        fileValues.add(((ActionExecutionValue) inputValue).getExistingFileArtifactValue(input));
-      } else if (inputValue instanceof TreeArtifactValue) {
-        trees.add(input);
-        treeValues.add((TreeArtifactValue) inputValue);
-      } else {
-        // We do not recurse into runfiles tree artifacts.
-        Preconditions.checkState(
-            !(inputValue instanceof RunfilesArtifactValue),
-            "%s %s %s",
-            artifact,
-            action,
-            inputValue);
-      }
-    }
-
-    return new RunfilesArtifactValue(
-        action.getRunfilesTree(),
-        files.build(),
-        fileValues.build(),
-        trees.build(),
-        treeValues.build());
   }
 
   @Override

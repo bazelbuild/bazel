@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.remote;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.remote.util.IntegrationTestUtils.startWorker;
 import static com.google.devtools.build.lib.vfs.FileSystemUtils.readContent;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
@@ -28,6 +27,7 @@ import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialModule;
 import com.google.devtools.build.lib.dynamic.DynamicExecutionModule;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
+import com.google.devtools.build.lib.remote.util.IntegrationTestUtils;
 import com.google.devtools.build.lib.remote.util.IntegrationTestUtils.WorkerInstance;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
@@ -40,7 +40,8 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import java.io.IOException;
-import org.junit.After;
+import org.junit.ClassRule;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -48,15 +49,11 @@ import org.junit.runners.JUnit4;
 /** Integration tests for Build without the Bytes. */
 @RunWith(JUnit4.class)
 public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesIntegrationTestBase {
-  private WorkerInstance worker;
+  @ClassRule @Rule public static final WorkerInstance worker = IntegrationTestUtils.createWorker();
 
   @Override
   protected void setupOptions() throws Exception {
     super.setupOptions();
-
-    if (worker == null) {
-      worker = startWorker();
-    }
 
     addOptions(
         "--remote_executor=grpc://localhost:" + worker.getPort(),
@@ -105,7 +102,7 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
 
   @Override
   protected void evictAllBlobs() throws Exception {
-    worker.restart();
+    worker.reset();
   }
 
   @Override
@@ -115,13 +112,6 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
 
   @Override
   protected void injectFile(byte[] content) {}
-
-  @After
-  public void tearDown() throws IOException {
-    if (worker != null) {
-      worker.stop();
-    }
-  }
 
   @Test
   public void executeRemotely_actionFails_outputsAreAvailableLocallyForDebuggingPurpose()
@@ -362,9 +352,7 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
     var error = assertThrows(BuildFailedException.class, () -> buildTarget("//a:bar"));
 
     // Assert: Exit code is 39
-    assertThat(error)
-        .hasMessageThat()
-        .contains("Failed to fetch blobs because they do not exist remotely");
+    assertThat(error).hasMessageThat().contains("lost inputs with digests");
     assertThat(error).hasMessageThat().contains(String.format("%s/%s", hashCode, bytes.length));
     assertThat(error.getDetailedExitCode().getExitCode().getNumericExitCode()).isEqualTo(39);
   }

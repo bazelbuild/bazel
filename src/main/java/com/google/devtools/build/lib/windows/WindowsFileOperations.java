@@ -15,6 +15,8 @@
 package com.google.devtools.build.lib.windows;
 
 import com.google.devtools.build.lib.jni.JniLoader;
+import com.google.devtools.build.lib.vfs.FileSystem.NotASymlinkException;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.file.AccessDeniedException;
@@ -47,34 +49,6 @@ public class WindowsFileOperations {
 
   private WindowsFileOperations() {
     // Prevent construction
-  }
-
-  /** Result of {@link #readSymlinkOrJunction}. */
-  public static class ReadSymlinkOrJunctionResult {
-
-    /** Status code, indicating success or failure. */
-    public enum Status {
-      OK,
-      NOT_A_LINK,
-      ERROR
-    }
-
-    private String result;
-    private Status status;
-
-    public ReadSymlinkOrJunctionResult(Status s, String r) {
-      this.status = s;
-      this.result = r;
-    }
-
-    /** Result string (junction target) or error message (depending on {@link status}). */
-    public String getResult() {
-      return result;
-    }
-
-    public Status getStatus() {
-      return status;
-    }
   }
 
   // Keep IS_SYMLINK_OR_JUNCTION_* values in sync with src/main/native/windows/file.cc.
@@ -115,15 +89,12 @@ public class WindowsFileOperations {
   private static final int READ_SYMLINK_OR_JUNCTION_ACCESS_DENIED = 2;
   private static final int READ_SYMLINK_OR_JUNCTION_DOES_NOT_EXIST = 3;
   private static final int READ_SYMLINK_OR_JUNCTION_NOT_A_LINK = 4;
-  private static final int READ_SYMLINK_OR_JUNCTION_UNKNOWN_LINK_TYPE = 5;
 
   private static native int nativeIsSymlinkOrJunction(
       String path, boolean[] result, String[] error);
 
   private static native int nativeGetChangeTime(
       String path, boolean followReparsePoints, long[] result, String[] error);
-
-  private static native boolean nativeGetLongPath(String path, String[] result, String[] error);
 
   private static native int nativeCreateJunction(String name, String target, String[] error);
 
@@ -138,12 +109,11 @@ public class WindowsFileOperations {
   public static boolean isSymlinkOrJunction(String path) throws IOException {
     boolean[] result = new boolean[] {false};
     String[] error = new String[] {null};
-    switch (nativeIsSymlinkOrJunction(asLongPath(path), result, error)) {
+    switch (nativeIsSymlinkOrJunction(WindowsPathOperations.asLongPath(path), result, error)) {
       case IS_SYMLINK_OR_JUNCTION_SUCCESS:
         return result[0];
       case IS_SYMLINK_OR_JUNCTION_DOES_NOT_EXIST:
-        error[0] = "path does not exist";
-        break;
+        throw new FileNotFoundException(path);
       default:
         // This is IS_SYMLINK_OR_JUNCTION_ERROR (1). The JNI code puts a custom message in
         // 'error[0]'.
@@ -157,7 +127,8 @@ public class WindowsFileOperations {
       throws IOException {
     long[] result = new long[] {0};
     String[] error = new String[] {null};
-    switch (nativeGetChangeTime(asLongPath(path), followReparsePoints, result, error)) {
+    switch (nativeGetChangeTime(
+        WindowsPathOperations.asLongPath(path), followReparsePoints, result, error)) {
       case GET_CHANGE_TIME_SUCCESS:
         return result[0];
       case GET_CHANGE_TIME_DOES_NOT_EXIST:
@@ -172,46 +143,6 @@ public class WindowsFileOperations {
   }
 
   /**
-   * Returns the long path associated with the input `path`.
-   *
-   * <p>This method resolves all 8dot3 style components of the path and returns the long format. For
-   * example, if the input is "C:/progra~1/micros~1" the result may be "C:\Program Files\Microsoft
-   * Visual Studio 14.0". The returned path is Windows-style in that it uses backslashes, even if
-   * the input uses forward slashes.
-   *
-   * <p>May return an UNC path if `path` or its resolution is sufficiently long.
-   *
-   * @throws IOException if the `path` is not found or some other I/O error occurs
-   */
-  public static String getLongPath(String path) throws IOException {
-    String[] result = new String[] {null};
-    String[] error = new String[] {null};
-    if (nativeGetLongPath(asLongPath(path), result, error)) {
-      return removeUncPrefixAndUseSlashes(result[0]);
-    } else {
-      throw new IOException(error[0]);
-    }
-  }
-
-  /** Returns a Windows-style path suitable to pass to unicode WinAPI functions. */
-  static String asLongPath(String path) {
-    return !path.startsWith("\\\\?\\")
-        ? ("\\\\?\\" + path.replace('/', '\\'))
-        : path.replace('/', '\\');
-  }
-
-  private static String removeUncPrefixAndUseSlashes(String p) {
-    if (p.length() >= 4
-        && p.charAt(0) == '\\'
-        && (p.charAt(1) == '\\' || p.charAt(1) == '?')
-        && p.charAt(2) == '?'
-        && p.charAt(3) == '\\') {
-      p = p.substring(4);
-    }
-    return p.replace('\\', '/');
-  }
-
-  /**
    * Creates a junction at `name`, pointing to `target`.
    *
    * <p>Both `name` and `target` may be Unix-style Windows paths (i.e. use forward slashes), and
@@ -222,7 +153,8 @@ public class WindowsFileOperations {
    */
   public static void createJunction(String name, String target) throws IOException {
     String[] error = new String[] {null};
-    switch (nativeCreateJunction(asLongPath(name), asLongPath(target), error)) {
+    switch (nativeCreateJunction(
+        WindowsPathOperations.asLongPath(name), WindowsPathOperations.asLongPath(target), error)) {
       case CREATE_JUNCTION_SUCCESS:
         return;
       case CREATE_JUNCTION_TARGET_NAME_TOO_LONG:
@@ -250,7 +182,8 @@ public class WindowsFileOperations {
 
   public static void createSymlink(String name, String target) throws IOException {
     String[] error = new String[] {null};
-    switch (nativeCreateSymlink(asLongPath(name), asLongPath(target), error)) {
+    switch (nativeCreateSymlink(
+        WindowsPathOperations.asLongPath(name), WindowsPathOperations.asLongPath(target), error)) {
       case CREATE_SYMLINK_SUCCESS:
         return;
       case CREATE_SYMLINK_TARGET_IS_DIRECTORY:
@@ -264,38 +197,28 @@ public class WindowsFileOperations {
         String.format("Cannot create symlink (name=%s, target=%s): %s", name, target, error[0]));
   }
 
-  public static ReadSymlinkOrJunctionResult readSymlinkOrJunction(String name) {
+  public static String readSymlinkOrJunction(String name) throws IOException {
     String[] target = new String[] {null};
     String[] error = new String[] {null};
-    switch (nativeReadSymlinkOrJunction(asLongPath(name), target, error)) {
+    switch (nativeReadSymlinkOrJunction(WindowsPathOperations.asLongPath(name), target, error)) {
       case READ_SYMLINK_OR_JUNCTION_SUCCESS:
-        return new ReadSymlinkOrJunctionResult(
-            ReadSymlinkOrJunctionResult.Status.OK, removeUncPrefixAndUseSlashes(target[0]));
+        return WindowsPathOperations.removeUncPrefixAndUseSlashes(target[0]);
       case READ_SYMLINK_OR_JUNCTION_ACCESS_DENIED:
-        error[0] = "access is denied";
-        break;
+        throw new AccessDeniedException(name);
       case READ_SYMLINK_OR_JUNCTION_DOES_NOT_EXIST:
-        error[0] = "path does not exist";
-        break;
+        throw new FileNotFoundException(name);
       case READ_SYMLINK_OR_JUNCTION_NOT_A_LINK:
-        return new ReadSymlinkOrJunctionResult(
-            ReadSymlinkOrJunctionResult.Status.NOT_A_LINK, "path is not a link");
-      case READ_SYMLINK_OR_JUNCTION_UNKNOWN_LINK_TYPE:
-        error[0] = "unknown link type";
-        break;
+        throw new NotASymlinkException(PathFragment.create(name));
       default:
         // This is READ_SYMLINK_OR_JUNCTION_ERROR (1). The JNI code puts a custom message in
         // 'error[0]'.
-        break;
+        throw new IOException(String.format("Cannot read link (name=%s): %s", name, error[0]));
     }
-    return new ReadSymlinkOrJunctionResult(
-        ReadSymlinkOrJunctionResult.Status.ERROR,
-        String.format("Cannot read link (name=%s): %s", name, error[0]));
   }
 
   public static boolean deletePath(String path) throws IOException {
     String[] error = new String[] {null};
-    int result = nativeDeletePath(asLongPath(path), error);
+    int result = nativeDeletePath(WindowsPathOperations.asLongPath(path), error);
     switch (result) {
       case DELETE_PATH_SUCCESS:
         return true;

@@ -368,6 +368,7 @@ final class DependencyProducer
     sink.acceptDependencyError(DependencyError.of(error));
   }
 
+  // TODO(https://github.com/bazelbuild/bazel/issues/23852): support package pieces.
   private boolean isNonconfigurableTargetInSamePackage() {
     Target parentTarget = parameters.target();
     if (parentTarget.getLabel().getPackageIdentifier().equals(toLabel.getPackageIdentifier())) {

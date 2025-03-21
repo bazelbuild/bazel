@@ -23,12 +23,22 @@ import static javax.tools.StandardLocation.CLASS_PATH;
 import com.google.auto.value.AutoOneOf;
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Streams;
 import com.google.devtools.build.buildjar.JarOwner;
 import com.google.devtools.build.buildjar.javac.plugins.BlazeJavaCompilerPlugin;
 import com.google.devtools.build.buildjar.javac.plugins.dependency.DependencyModule.StrictJavaDeps;
 import com.google.devtools.build.buildjar.javac.statistics.BlazeJavacStatistics;
 import com.google.devtools.build.lib.view.proto.Deps;
 import com.google.devtools.build.lib.view.proto.Deps.Dependency;
+import com.sun.source.tree.CompilationUnitTree;
+import com.sun.source.tree.IdentifierTree;
+import com.sun.source.tree.LambdaExpressionTree;
+import com.sun.source.tree.MemberSelectTree;
+import com.sun.source.tree.MethodTree;
+import com.sun.source.tree.PackageTree;
+import com.sun.source.tree.VariableTree;
+import com.sun.source.util.TreePath;
+import com.sun.source.util.TreePathScanner;
 import com.sun.tools.javac.code.Flags;
 import com.sun.tools.javac.code.Kinds;
 import com.sun.tools.javac.code.Symbol;
@@ -40,16 +50,16 @@ import com.sun.tools.javac.resources.CompilerProperties.Errors;
 import com.sun.tools.javac.resources.CompilerProperties.Warnings;
 import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.tree.TreeInfo;
-import com.sun.tools.javac.tree.TreeScanner;
 import com.sun.tools.javac.util.Context;
 import com.sun.tools.javac.util.Log;
 import com.sun.tools.javac.util.Log.WriterKind;
 import com.sun.tools.javac.util.Name;
 import com.sun.tools.javac.util.Names;
+import com.sun.tools.javac.util.Position;
+import java.io.File;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.UncheckedIOException;
-import java.lang.reflect.Method;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -59,7 +69,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.Predicate;
 import java.util.jar.Attributes;
 import java.util.jar.JarFile;
 import java.util.jar.Manifest;
@@ -87,10 +96,13 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
 
   /** Marks seen compilation toplevels and their import sections */
   private final Set<JCTree.JCCompilationUnit> toplevels;
+
   /** Marks seen ASTs */
   private final Set<JCTree> trees;
+
   /** Computed missing dependencies */
   private final Set<JarOwner> missingTargets;
+
   /** Strict deps diagnostics. */
   private final List<SjdDiagnostic> diagnostics;
 
@@ -137,8 +149,7 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
     errWriter = log.getWriter(WriterKind.ERROR);
     implicitDependencyExtractor =
         new ImplicitDependencyExtractor(
-            dependencyModule.getImplicitDependenciesMap(),
-            dependencyModule.getPlatformJars());
+            dependencyModule.getImplicitDependenciesMap(), dependencyModule.getPlatformJars());
     checkingTreeScanner = context.get(CheckingTreeScanner.class);
     if (checkingTreeScanner == null) {
       checkingTreeScanner =
@@ -168,12 +179,12 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
           env.enclClass.sym.sourcefile != null
               ? env.enclClass.sym.sourcefile
               : env.toplevel.sourcefile;
+      TreePath path = new TreePath(env.toplevel);
       if (trees.add(env.tree)) {
-        checkingTreeScanner.scan(env.tree);
+        checkingTreeScanner.scan(new TreePath(path, env.tree), null);
       }
       if (toplevels.add(env.toplevel)) {
-        checkingTreeScanner.scan(env.toplevel.getImports());
-        checkingTreeScanner.scan(env.toplevel.getPackage());
+        checkingTreeScanner.scan(path, null);
         dependencyModule.addPackage(env.toplevel.packge);
       }
     } finally {
@@ -209,8 +220,7 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
               // we don't use the target mapping for the target, just the missing deps
               : canonicalizeTarget(dependencyModule.getTargetLabel());
       Set<JarOwner> canonicalizedMissing =
-          missingTargets
-              .stream()
+          missingTargets.stream()
               .filter(owner -> owner.label().isPresent())
               .sorted(Comparator.comparing((JarOwner owner) -> owner.label().get()))
               // for dependencies that are missing we canonicalize and remap the target so we don't
@@ -230,7 +240,7 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
    * types loaded from jar files provided by transitive (indirect) dependencies. Each type is
    * considered only once, so at most one warning is generated for it.
    */
-  private static class CheckingTreeScanner extends TreeScanner {
+  private static class CheckingTreeScanner extends TreePathScanner<Void, Void> {
 
     private final ImmutableSet<Path> directJars;
 
@@ -284,7 +294,7 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
     }
 
     /** Checks an AST node denoting a class type against direct/transitive dependencies. */
-    private void checkTypeLiteral(JCTree node, Symbol sym) {
+    private void checkTypeLiteral(Symbol sym) {
       if (sym == null || sym.kind != Kinds.Kind.TYP) {
         return;
       }
@@ -293,7 +303,7 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
       // If this type symbol comes from a class file loaded from a jar, check
       // whether that jar was a direct dependency and error out otherwise.
       if (jar != null && seenClasses.add(sym.enclClass())) {
-        collectExplicitDependency(jar, node, sym);
+        collectExplicitDependency(jar, sym);
       }
     }
 
@@ -301,7 +311,7 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
      * Marks the provided dependency as a direct/explicit dependency. Additionally, if
      * strict_java_deps is enabled, it emits a [strict] compiler warning/error.
      */
-    private void collectExplicitDependency(NonPlatformJar jar, JCTree node, Symbol sym) {
+    private void collectExplicitDependency(NonPlatformJar jar, Symbol sym) {
       // Does it make sense to emit a warning/error for this pair of (type, owner)?
       // We want to emit only one error/warning per owner.
       if (!directJars.contains(jar.pathOrEmpty()) && seenStrictDepsViolatingJars.add(jar)) {
@@ -329,7 +339,13 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
               String.format(
                   "[strict] Using %s from an indirect dependency (TOOL_INFO: \"%s\").%s",
                   used, toolInfo, (owner.label().isPresent() ? " See command below **" : ""));
-          diagnostics.add(SjdDiagnostic.create(node.pos, message, source));
+          int pos =
+              Streams.stream(getCurrentPath())
+                  .map(t -> TreeInfo.getStartPos((JCTree) t))
+                  .filter(p -> p != Position.NOPOS)
+                  .findFirst()
+                  .orElse(Position.NOPOS);
+          diagnostics.add(SjdDiagnostic.create(pos, message, source));
         }
       }
 
@@ -337,13 +353,11 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
         // Also update the dependency proto
         Dependency dep =
             Dependency.newBuilder()
-                // Path.toString uses the platform separator (`\` on Windows) which may not
-                // match the format in params files (which currently always use `/`, see
-                // bazelbuild/bazel#4108). JavaBuilder should always parse Path strings into
-                // java.nio.file.Paths before comparing them.
+                // Path.toString uses the platform separator (`\` on Windows), but the proto must
+                // use the same separator as in the arguments.
                 //
                 // An empty path is OK in the cases we produce it. See readJarOwnerFromManifest.
-                .setPath(jar.pathOrEmpty().toString())
+                .setPath(jar.pathOrEmpty().toString().replace(File.separatorChar, '/'))
                 .setKind(Dependency.Kind.EXPLICIT)
                 .build();
         directDependenciesMap.put(jar.pathOrEmpty(), dep);
@@ -374,58 +388,35 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
     }
 
     @Override
-    public void visitMethodDef(JCTree.JCMethodDecl method) {
-      if ((method.mods.flags & Flags.GENERATEDCONSTR) != 0) {
+    public Void visitMethod(MethodTree method, Void unused) {
+      if ((((JCTree.JCMethodDecl) method).mods.flags & Flags.GENERATEDCONSTR) != 0) {
         // If this is the constructor for an anonymous inner class, refrain from checking the
         // compiler-generated method signature. Don't skip scanning the method body though, there
         // might have been an anonymous initializer which still needs to be checked.
-        scan(method.body);
+        scan(method.getBody(), null);
       } else {
-        super.visitMethodDef(method);
+        super.visitMethod(method, null);
       }
+      return null;
     }
 
     @Override
-    public void visitVarDef(JCTree.JCVariableDecl variable) {
-      scan(variable.mods);
-      if (!declaredUsingVar(variable)) {
-        scan(variable.vartype);
+    public Void visitVariable(VariableTree variable, Void unused) {
+      scan(variable.getModifiers(), null);
+      JCTree vartype = ((JCTree.JCVariableDecl) variable).vartype;
+      if (vartype != null && vartype.pos != Position.NOPOS) {
+        scan(vartype, null);
       }
-      scan(variable.nameexpr);
-      scan(variable.init);
-    }
-
-    private static boolean declaredUsingVar(JCTree.JCVariableDecl variableTree) {
-      return DECLARED_USING_VAR.test(variableTree);
-    }
-
-    private static final Predicate<JCTree.JCVariableDecl> DECLARED_USING_VAR =
-        getDeclaredUsingVar();
-
-    private static Predicate<JCTree.JCVariableDecl> getDeclaredUsingVar() {
-      Method method;
-      try {
-        method = JCTree.JCVariableDecl.class.getMethod("declaredUsingVar");
-      } catch (ReflectiveOperationException e) {
-        // The method in JCVariableDecl is only available in stock JDK 17.
-        // There are no good options for earlier versions, short of looking at the source code and
-        // re-parsing the variable declaration, which would be complicated and expensive. For now,
-        // continue to enforce SJD on var for JDK < 17.
-        return variableTree -> false;
-      }
-      return variableTree -> {
-        try {
-          return (boolean) method.invoke(variableTree);
-        } catch (ReflectiveOperationException e) {
-          throw new LinkageError(e.getMessage(), e);
-        }
-      };
+      scan(variable.getNameExpression(), null);
+      scan(variable.getInitializer(), null);
+      return null;
     }
 
     /** Visits an identifier in the AST. We only care about type symbols. */
     @Override
-    public void visitIdent(JCTree.JCIdent tree) {
-      checkTypeLiteral(tree, tree.sym);
+    public Void visitIdentifier(IdentifierTree tree, Void unused) {
+      checkTypeLiteral(((JCTree.JCIdent) tree).sym);
+      return null;
     }
 
     /**
@@ -434,24 +425,34 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
      * reference to Bar).
      */
     @Override
-    public void visitSelect(JCTree.JCFieldAccess tree) {
-      scan(tree.selected);
-      checkTypeLiteral(tree, tree.sym);
+    public Void visitMemberSelect(MemberSelectTree tree, Void unused) {
+      scan(tree.getExpression(), null);
+      checkTypeLiteral(((JCTree.JCFieldAccess) tree).sym);
+      return null;
     }
 
     @Override
-    public void visitLambda(JCTree.JCLambda tree) {
-      if (tree.paramKind != JCTree.JCLambda.ParameterKind.IMPLICIT) {
+    public Void visitLambdaExpression(LambdaExpressionTree tree, Void unused) {
+      if (((JCTree.JCLambda) tree).paramKind != JCTree.JCLambda.ParameterKind.IMPLICIT) {
         // don't record type uses for implicitly typed lambda parameters
-        scan(tree.params);
+        scan(tree.getParameters(), null);
       }
-      scan(tree.body);
+      scan(tree.getBody(), null);
+      return null;
     }
 
     @Override
-    public void visitPackageDef(JCTree.JCPackageDecl tree) {
-      scan(tree.annotations);
-      checkTypeLiteral(tree, tree.packge.package_info);
+    public Void visitPackage(PackageTree tree, Void unused) {
+      scan(tree.getAnnotations(), null);
+      checkTypeLiteral(((JCTree.JCPackageDecl) tree).packge.package_info);
+      return null;
+    }
+
+    @Override
+    public Void visitCompilationUnit(CompilationUnitTree tree, Void unused) {
+      scan(tree.getPackage(), null);
+      scan(tree.getImports(), null);
+      return null;
     }
 
     /**
@@ -582,9 +583,7 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
 
   private static ImmutableSet<String> getGeneratedBy(Symbol symbol) {
     ImmutableSet.Builder<String> suppressions = ImmutableSet.builder();
-    symbol
-        .getRawAttributes()
-        .stream()
+    symbol.getRawAttributes().stream()
         .filter(
             a -> {
               Name name = a.type.tsym.getQualifiedName();
@@ -593,9 +592,7 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
             })
         .flatMap(
             a ->
-                a.getElementValues()
-                    .entrySet()
-                    .stream()
+                a.getElementValues().entrySet().stream()
                     .filter(e -> e.getKey().getSimpleName().contentEquals("value"))
                     .map(e -> e.getValue()))
         .forEachOrdered(

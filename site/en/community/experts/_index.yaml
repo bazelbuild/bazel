@@ -91,19 +91,6 @@ landing_page:
         path: https://www.epam.com/
         classname: button
     # Item 7
-    - image_path: /community/images/oasis-logo.png
-      heading: Oasis Digital
-      description: >
-        Whether you are considering Bazel or are underway in a complex migration, Oasis Digital can
-        train your build engineers and app developers, assist with build migration, and enhance
-        Bazel rules for your use cases. More broadly, we can assist with the related complexities
-        teams experience while adopting a monorepo approach, cross-project continuous integration,
-        dev-ops, single-version policy, and other technical-organizational challenges.
-      buttons:
-      - label: Learn more
-        path: https://oasisdigital.com/
-        classname: button
-    # Item 8
     - image_path: /community/images/sumglobal-logo.png
       heading: SUM Global
       description: >
@@ -116,7 +103,7 @@ landing_page:
       - label: Learn more
         path: http://sumglobal.com/bazel-build
         classname: button
-    # Item 9
+    # Item 8
     - image_path: /community/images/tweag-logo.png
       heading: Tweag
       description: >

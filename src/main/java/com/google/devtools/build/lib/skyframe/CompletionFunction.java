@@ -36,7 +36,6 @@ import com.google.devtools.build.lib.actions.CompletionContext;
 import com.google.devtools.build.lib.actions.CompletionContext.PathResolverFactory;
 import com.google.devtools.build.lib.actions.EventReportingArtifacts;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
-import com.google.devtools.build.lib.actions.FilesetOutputTree;
 import com.google.devtools.build.lib.actions.ImportantOutputHandler;
 import com.google.devtools.build.lib.actions.ImportantOutputHandler.ImportantOutputException;
 import com.google.devtools.build.lib.actions.ImportantOutputHandler.LostArtifacts;
@@ -203,7 +202,7 @@ public final class CompletionFunction<
 
     boolean allArtifactsAreImportant = artifactsToBuild.areAllOutputGroupsImportant();
 
-    ActionInputMap inputMap = new ActionInputMap(bugReporter, allArtifacts.size());
+    ActionInputMap inputMap = new ActionInputMap(allArtifacts.size());
     // Prepare an ActionInputMap for important artifacts separately, to be used by BEP events. The
     // _validation output group can contain orders of magnitude more unimportant artifacts than
     // there are important artifacts, and BEP events will retain the ActionInputMap until the
@@ -216,14 +215,11 @@ public final class CompletionFunction<
       importantInputMap = inputMap;
     } else {
       importantArtifacts = artifactsToBuild.getImportantArtifacts().toSet();
-      importantInputMap = new ActionInputMap(bugReporter, importantArtifacts.size());
+      importantInputMap = new ActionInputMap(importantArtifacts.size());
     }
 
     // TODO: b/239184359 - Can we just get the tree artifacts from the ActionInputMap?
     Map<Artifact, TreeArtifactValue> treeArtifacts = new HashMap<>();
-
-    Map<Artifact, FilesetOutputTree> expandedFilesets = new HashMap<>();
-    Map<Artifact, FilesetOutputTree> topLevelFilesets = new HashMap<>();
 
     ActionExecutionException firstActionExecutionException = null;
     NestedSetBuilder<Cause> rootCausesBuilder = NestedSetBuilder.stableOrder();
@@ -254,11 +250,8 @@ public final class CompletionFunction<
           ActionInputMapHelper.addToMap(
               inputMap,
               treeArtifacts::put,
-              expandedFilesets,
-              topLevelFilesets,
               input,
               artifactValue,
-              env,
               currentConsumer);
           if (!allArtifactsAreImportant && importantArtifacts.contains(input)) {
             // Calling #addToMap a second time with `input` and `artifactValue` will perform no-op
@@ -267,11 +260,9 @@ public final class CompletionFunction<
             ActionInputMapHelper.addToMap(
                 importantInputMap,
                 treeArtifacts::put,
-                expandedFilesets,
-                topLevelFilesets,
                 input,
                 artifactValue,
-                env);
+                MetadataConsumerForMetrics.NO_OP);
           }
         }
       } catch (ActionExecutionException e) {
@@ -289,15 +280,12 @@ public final class CompletionFunction<
         handleSourceFileError(input, e.getDetailedExitCode(), rootCausesBuilder, env, value, key);
       }
     }
-    expandedFilesets.putAll(topLevelFilesets);
-
     CompletionContext ctx =
         CompletionContext.create(
             treeArtifacts,
-            expandedFilesets,
+            inputMap.getFilesets(),
             baselineCoverageValue,
             key.topLevelArtifactContext().expandFilesets(),
-            key.topLevelArtifactContext().fullyResolveFilesetSymlinks(),
             inputMap,
             importantInputMap,
             pathResolverFactory,
@@ -432,7 +420,7 @@ public final class CompletionFunction<
     }
   }
 
-  private void downloadArtifact(
+  private static void downloadArtifact(
       Environment env,
       OutputChecker outputChecker,
       ActionInputPrefetcher actionInputPrefetcher,
@@ -456,7 +444,7 @@ public final class CompletionFunction<
       for (var child : treeMetadata.getChildValues().entrySet()) {
         var treeFile = child.getKey();
         var metadata = child.getValue();
-        if (!outputChecker.shouldTrustArtifact(treeFile, metadata)) {
+        if (outputChecker.shouldDownloadOutput(treeFile, metadata)) {
           filesToDownload.add(treeFile);
         }
       }
@@ -474,7 +462,7 @@ public final class CompletionFunction<
         return;
       }
 
-      if (!outputChecker.shouldTrustArtifact(artifact, metadata)) {
+      if (outputChecker.shouldDownloadOutput(artifact, metadata)) {
         var action =
             ActionUtils.getActionForLookupData(env, derivedArtifact.getGeneratingActionKey());
         var future =
@@ -559,10 +547,7 @@ public final class CompletionFunction<
 
     Label label = key.actionLookupKey().getLabel();
     InputMetadataProvider metadataProvider =
-        new ActionInputMetadataProvider(
-            skyframeActionExecutor.getExecRoot().asFragment(),
-            ctx.getImportantInputMap(),
-            ctx.getExpandedFilesets());
+        new ActionInputMetadataProvider(ctx.getImportantInputMap());
     try {
       LostArtifacts lostOutputs;
       try (var ignored =
@@ -574,7 +559,6 @@ public final class CompletionFunction<
                 key.topLevelArtifactContext().expandFilesets()
                     ? importantArtifacts
                     : Iterables.filter(importantArtifacts, artifact -> !artifact.isFileset()),
-                ctx,
                 metadataProvider);
       }
       if (lostOutputs.isEmpty()) {
@@ -585,7 +569,7 @@ public final class CompletionFunction<
       // rewinding is successful, we'll report them later on.
       for (ActionInput lostOutput : lostOutputs.byDigest().values()) {
         builtArtifacts.remove(lostOutput);
-        builtArtifacts.removeAll(lostOutputs.owners().getDepOwners(lostOutput));
+        builtArtifacts.removeAll(lostOutputs.owners().getOwners(lostOutput));
       }
 
       return actionRewindStrategy.prepareRewindPlanForLostTopLevelOutputs(

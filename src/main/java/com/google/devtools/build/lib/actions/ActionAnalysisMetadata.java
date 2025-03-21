@@ -85,7 +85,7 @@ public interface ActionAnalysisMetadata {
    * <p>Note the following exception: for actions that discover inputs, the key must change if any
    * input names change or else action validation may falsely validate.
    *
-   * <p>In case the {@link ArtifactExpander} is not provided, the key is not guaranteed to be
+   * <p>In case the {@link InputMetadataProvider} is not provided, the key is not guaranteed to be
    * correct. In fact, getting the key of an action is generally impossible until we have all the
    * information necessary to execute the action. An example of this is when arguments to an action
    * are defined as a lazy evaluation of Starlark over outputs of another action, after expanding
@@ -93,7 +93,8 @@ public interface ActionAnalysisMetadata {
    * unique key will depend on knowing the tree artifact contents. At analysis time, we only know
    * about the tree artifact directory and we find what is in it only after we execute that action.
    */
-  String getKey(ActionKeyContext actionKeyContext, @Nullable ArtifactExpander artifactExpander)
+  String getKey(
+      ActionKeyContext actionKeyContext, @Nullable InputMetadataProvider inputMetadataProvider)
       throws InterruptedException;
 
   /**

@@ -89,7 +89,6 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 import org.mockito.Mockito;
-import org.mockito.MockitoAnnotations;
 
 /** Test for {@link ByteStreamBuildEventArtifactUploader}. */
 @RunWith(JUnit4.class)
@@ -154,11 +153,6 @@ public class ByteStreamBuildEventArtifactUploaderTest {
 
     server.shutdownNow();
     server.awaitTermination();
-  }
-
-  @Before
-  public void setup() {
-    MockitoAnnotations.initMocks(this);
   }
 
   @Test
@@ -384,7 +378,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
           @Override
           public StreamObserver<WriteRequest> write(StreamObserver<WriteResponse> response) {
             StreamObserver<WriteRequest> delegate = super.write(response);
-            return new StreamObserver<WriteRequest>() {
+            return new StreamObserver<>() {
               private boolean failed;
 
               @Override
@@ -530,15 +524,16 @@ public class ByteStreamBuildEventArtifactUploaderTest {
     HashCode h = HashCode.fromString(DIGEST_UTIL.compute(b).getHash());
     FileArtifactValue f =
         FileArtifactValue.createForRemoteFile(h.asBytes(), b.length, /* locationIndex= */ 1);
-    inputs.putWithNoDepOwner(a, f);
+    inputs.put(a, f);
     return a;
   }
 
-  private CombinedCache newCombinedCache(ReferenceCountedChannel channel, RemoteRetrier retrier) {
+  private static CombinedCache newCombinedCache(
+      ReferenceCountedChannel channel, RemoteRetrier retrier) {
     return newCombinedCache(channel, retrier, new AllMissingDigestsFinder());
   }
 
-  private CombinedCache newCombinedCache(
+  private static CombinedCache newCombinedCache(
       ReferenceCountedChannel channel,
       RemoteRetrier retrier,
       MissingDigestsFinder missingDigestsFinder) {

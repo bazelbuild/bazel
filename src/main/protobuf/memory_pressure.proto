@@ -30,4 +30,17 @@ message MemoryPressureStats {
   int32 minor_gc_drops = 3;
   // Number of times HighWaterMarkLimiter dropped caches after full GCs.
   int32 full_gc_drops = 4;
+
+  // After a full GC, a point-in-time snapshot of the fraction of the
+  // invocation's wall time so far that has been spent on full GCs.
+  message FullGcFractionPoint {
+    // After this many milliseconds into the invocation,
+    int32 invocation_wall_time_so_far_ms = 1;
+
+    // This fraction of that wall time has been spent on full GCs.
+    double full_gc_fraction_so_far = 2;
+  }
+  // Chronological history of full GCs in this invocation (i.e. elements are in
+  // increasing order of invocation_wall_time_so_far_ms).
+  repeated FullGcFractionPoint full_gc_fraction_point = 5;
 }

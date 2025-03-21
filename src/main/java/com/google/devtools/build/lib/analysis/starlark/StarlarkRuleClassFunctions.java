@@ -68,6 +68,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.AllowlistChecker;
 import com.google.devtools.build.lib.packages.AllowlistChecker.LocationCheck;
+import com.google.devtools.build.lib.packages.AspectPropagationEdgesSupplier;
 import com.google.devtools.build.lib.packages.AspectPropagationPredicate;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.StarlarkComputedDefaultTemplate;
@@ -79,7 +80,7 @@ import com.google.devtools.build.lib.packages.BuiltinRestriction;
 import com.google.devtools.build.lib.packages.BuiltinRestriction.AllowlistEntry;
 import com.google.devtools.build.lib.packages.BzlInitThreadContext;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.MissingFragmentPolicy;
-import com.google.devtools.build.lib.packages.ExecGroup;
+import com.google.devtools.build.lib.packages.DeclaredExecGroup;
 import com.google.devtools.build.lib.packages.FunctionSplitTransitionAllowlist;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.StarlarkImplicitOutputsFunctionWithCallback;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.StarlarkImplicitOutputsFunctionWithMap;
@@ -929,8 +930,8 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
     builder.addToolchainTypes(parseToolchainTypes(toolchains, labelConverter));
 
     if (execGroups != Starlark.NONE) {
-      Map<String, ExecGroup> execGroupDict =
-          Dict.cast(execGroups, String.class, ExecGroup.class, "exec_group");
+      Map<String, DeclaredExecGroup> execGroupDict =
+          Dict.cast(execGroups, String.class, DeclaredExecGroup.class, "exec_group");
       for (String group : execGroupDict.keySet()) {
         // TODO(b/151742236): document this in the param documentation.
         if (!StarlarkExecGroupCollection.isValidGroupName(group)) {
@@ -1187,8 +1188,8 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
   @Override
   public StarlarkAspect aspect(
       StarlarkFunction implementation,
-      Sequence<?> attributeAspects,
-      Sequence<?> rawToolchainsAspects,
+      Object attributeAspects,
+      Object rawToolchainsAspects,
       Dict<?, ?> attrs,
       Sequence<?> requiredProvidersArg,
       Sequence<?> requiredAspectProvidersArg,
@@ -1207,24 +1208,6 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       StarlarkThread thread)
       throws EvalException {
     LabelConverter labelConverter = LabelConverter.forBzlEvaluatingThread(thread);
-
-    ImmutableList.Builder<String> attrAspects = ImmutableList.builder();
-    for (Object attributeAspect : attributeAspects) {
-      String attrName = STRING.convert(attributeAspect, "attr_aspects");
-
-      if (attrName.equals("*") && attributeAspects.size() != 1) {
-        throw new EvalException("'*' must be the only string in 'attr_aspects' list");
-      }
-
-      if (!attrName.startsWith("_")) {
-        attrAspects.add(attrName);
-      } else {
-        // Implicit attribute names mean either implicit or late-bound attributes
-        // (``$attr`` or ``:attr``). Depend on both.
-        attrAspects.add(AttributeValueSource.COMPUTED_DEFAULT.convertToNativeName(attrName));
-        attrAspects.add(AttributeValueSource.LATE_BOUND.convertToNativeName(attrName));
-      }
-    }
 
     ImmutableList<Pair<String, StarlarkAttrModule.Descriptor>> descriptors =
         attrObjectToAttributesList(attrs);
@@ -1364,14 +1347,11 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
     ImmutableSet<Label> execCompatibleWith =
         parseLabels(rawExecCompatibleWith, labelConverter, "exec_compatible_with");
 
-    ImmutableSet<Label> toolchainsAspects =
-        parseLabels(rawToolchainsAspects, labelConverter, "toolchains_aspects");
-
-    ImmutableMap<String, ExecGroup> execGroups = ImmutableMap.of();
+    ImmutableMap<String, DeclaredExecGroup> execGroups = ImmutableMap.of();
     if (rawExecGroups != Starlark.NONE) {
       execGroups =
           ImmutableMap.copyOf(
-              Dict.cast(rawExecGroups, String.class, ExecGroup.class, "exec_group"));
+              Dict.cast(rawExecGroups, String.class, DeclaredExecGroup.class, "exec_group"));
       for (String group : execGroups.keySet()) {
         // TODO(b/151742236): document this in the param documentation.
         if (!StarlarkExecGroupCollection.isValidGroupName(group)) {
@@ -1389,8 +1369,9 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
     return new StarlarkDefinedAspect(
         implementation,
         Starlark.toJavaOptional(doc, String.class).map(Starlark::trimDocString),
-        attrAspects.build(),
-        toolchainsAspects,
+        AspectPropagationEdgesSupplier.createForAttrAspects(attributeAspects, thread),
+        AspectPropagationEdgesSupplier.createForToolchainsAspects(
+            rawToolchainsAspects, thread, labelConverter),
         attributes.build(),
         StarlarkAttrModule.buildProviderPredicate(requiredProvidersArg, "required_providers"),
         StarlarkAttrModule.buildProviderPredicate(
@@ -2011,7 +1992,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
   }
 
   @Override
-  public ExecGroup execGroup(
+  public DeclaredExecGroup execGroup(
       Sequence<?> toolchains, Sequence<?> execCompatibleWith, StarlarkThread thread)
       throws EvalException {
     LabelConverter labelConverter = LabelConverter.forBzlEvaluatingThread(thread);
@@ -2019,7 +2000,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
         parseToolchainTypes(toolchains, labelConverter);
     ImmutableSet<Label> constraints =
         parseLabels(execCompatibleWith, labelConverter, "exec_compatible_with");
-    return ExecGroup.builder()
+    return DeclaredExecGroup.builder()
         .toolchainTypes(toolchainTypes)
         .execCompatibleWith(constraints)
         .build();

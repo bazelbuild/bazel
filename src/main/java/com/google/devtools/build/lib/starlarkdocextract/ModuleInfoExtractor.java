@@ -24,6 +24,8 @@ import com.google.devtools.build.lib.bazel.bzlmod.ModuleExtension;
 import com.google.devtools.build.lib.bazel.bzlmod.TagClass;
 import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryModule.RepositoryRuleFunction;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
+import com.google.devtools.build.lib.packages.AspectPropagationEdgesSupplier.FixedListSupplier;
+import com.google.devtools.build.lib.packages.AspectPropagationEdgesSupplier.FunctionSupplier;
 import com.google.devtools.build.lib.packages.MacroClass;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.StarlarkDefinedAspect;
@@ -103,7 +105,7 @@ public final class ModuleInfoExtractor {
                       + " resolution for dependencies of this repository.\n\n"
                       + "For example, an entry `\"@foo\": \"@bar\"` declares that, for any time"
                       + " this repository depends on `@foo` (such as a dependency on"
-                      + " `@foo//some:target`, it should actually resolve that dependency within"
+                      + " `@foo//some:target`), it should actually resolve that dependency within"
                       + " globally-declared `@bar` (`@bar//some:target`).\n\n"
                       + "This attribute is _not_ supported in `MODULE.bazel` context (when invoking"
                       + " a repository rule inside a module extension's implementation function).")
@@ -477,11 +479,19 @@ public final class ModuleInfoExtractor {
           .getDocumentation()
           .map(StringEncoding::internalToUnicode)
           .ifPresent(aspectInfoBuilder::setDocString);
-      for (String aspectAttribute : aspect.getAttributeAspects()) {
-        if (ExtractorContext.isPublicName(aspectAttribute)) {
-          aspectInfoBuilder.addAspectAttribute(aspectAttribute);
-        }
+      switch (aspect.getAttributeAspects()) {
+        case FixedListSupplier<String> s:
+          for (String aspectAttribute : s.getList()) {
+            if (ExtractorContext.isPublicName(aspectAttribute)) {
+              aspectInfoBuilder.addAspectAttribute(aspectAttribute);
+            }
+          }
+          break;
+        case FunctionSupplier<String> s:
+          // TODO(b/394400334): Make {@code attr_aspects} function avaiable in {@code AspectInfo}.
+          break;
       }
+
       AttributeInfoExtractor.addDocumentableAttributes(
           context, ImmutableMap.of(), aspect.getAttributes(), aspectInfoBuilder::addAttribute);
       moduleInfoBuilder.addAspectInfo(aspectInfoBuilder);

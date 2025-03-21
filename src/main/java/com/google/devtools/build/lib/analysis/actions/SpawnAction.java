@@ -18,7 +18,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.actions.ActionAnalysisMetadata.mergeMaps;
-import static com.google.devtools.build.lib.packages.ExecGroup.DEFAULT_EXEC_GROUP_NAME;
+import static com.google.devtools.build.lib.packages.DeclaredExecGroup.DEFAULT_EXEC_GROUP_NAME;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.CharMatcher;
@@ -40,7 +40,6 @@ import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.BaseSpawn;
 import com.google.devtools.build.lib.actions.CommandAction;
 import com.google.devtools.build.lib.actions.CommandLine;
@@ -51,7 +50,7 @@ import com.google.devtools.build.lib.actions.CommandLines;
 import com.google.devtools.build.lib.actions.CommandLines.CommandLineAndParamFileInfo;
 import com.google.devtools.build.lib.actions.CommandLines.ExpandedCommandLines;
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.FilesetOutputTree;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.ResourceSetOrBuilder;
@@ -74,6 +73,7 @@ import com.google.devtools.build.lib.exec.SpawnStrategyResolver;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.starlarkbuildapi.CommandLineArgsApi;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -111,7 +111,8 @@ public class SpawnAction extends AbstractAction implements CommandAction {
   private final String mnemonic;
 
   private final ResourceSetOrBuilder resourceSetOrBuilder;
-  private final ImmutableMap<String, String> executionInfo;
+  @VisibleForSerialization // protected access required due to b/32473060
+  protected final ImmutableSortedMap<String, String> sortedExecutionInfo;
   private final OutputPathsMode outputPathsMode;
 
   /**
@@ -145,13 +146,41 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       CharSequence progressMessage,
       String mnemonic,
       OutputPathsMode outputPathsMode) {
-    super(owner, inputs, outputs);
+    super(owner, inputs, /* outputs= */ outputs);
     this.tools = tools;
     this.resourceSetOrBuilder = resourceSetOrBuilder;
-    this.executionInfo =
+    this.sortedExecutionInfo =
         executionInfo.isEmpty()
             ? ImmutableSortedMap.of()
             : executionInfoInterner.intern(ImmutableSortedMap.copyOf(executionInfo));
+    this.commandLines = commandLines;
+    this.env = env;
+    this.progressMessage = progressMessage;
+    this.mnemonic = mnemonic;
+    this.outputPathsMode = outputPathsMode;
+  }
+
+  /** Constructor for serialization. */
+  @SuppressWarnings("TooManyParameters") // Follows the production constructor.
+  public SpawnAction(
+      ActionOwner owner,
+      NestedSet<Artifact> tools,
+      NestedSet<Artifact> inputs,
+      Object rawOutputs,
+      ResourceSetOrBuilder resourceSetOrBuilder,
+      CommandLines commandLines,
+      ActionEnvironment env,
+      ImmutableSortedMap<String, String> sortedExecutionInfo,
+      CharSequence progressMessage,
+      String mnemonic,
+      OutputPathsMode outputPathsMode) {
+    super(owner, inputs, /* rawOutputs= */ rawOutputs);
+    this.tools = tools;
+    this.resourceSetOrBuilder = resourceSetOrBuilder;
+    this.sortedExecutionInfo =
+        sortedExecutionInfo.isEmpty()
+            ? ImmutableSortedMap.of()
+            : executionInfoInterner.intern(sortedExecutionInfo);
     this.commandLines = commandLines;
     this.env = env;
     this.progressMessage = progressMessage;
@@ -309,7 +338,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
         // SpawnInfo doesn't report the runfiles trees of the Spawn, so it's fine to just pass in
         // an empty list here.
         /* additionalInputs= */ ImmutableList.of(),
-        /* filesetMappings= */ ImmutableMap.of(),
         /* reportOutputs= */ true,
         PathMapper.NOOP);
   }
@@ -345,10 +373,11 @@ public class SpawnAction extends AbstractAction implements CommandAction {
         PathMappers.create(this, outputPathsMode, this instanceof StarlarkAction);
     ExpandedCommandLines expandedCommandLines =
         commandLines.expand(
-            actionExecutionContext.getArtifactExpander(),
+            actionExecutionContext.getInputMetadataProvider(),
             getPrimaryOutput().getExecPath(),
             pathMapper,
             getCommandLineLimits());
+
     return new ActionSpawn(
         expandedCommandLines.arguments(),
         this,
@@ -356,7 +385,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
         envResolved,
         getInputs(),
         expandedCommandLines.getParamFiles(),
-        actionExecutionContext.getTopLevelFilesets(),
         reportOutputs,
         pathMapper);
   }
@@ -369,13 +397,13 @@ public class SpawnAction extends AbstractAction implements CommandAction {
   @Override
   protected void computeKey(
       ActionKeyContext actionKeyContext,
-      @Nullable ArtifactExpander artifactExpander,
+      @Nullable InputMetadataProvider inputMetadataProvider,
       Fingerprint fp)
       throws CommandLineExpansionException, InterruptedException {
     fp.addString(GUID);
     commandLines.addToFingerprint(
         actionKeyContext,
-        artifactExpander,
+        inputMetadataProvider,
         PathMappers.getEffectiveOutputPathsMode(outputPathsMode, getMnemonic(), getExecutionInfo()),
         fp);
     fp.addString(mnemonic);
@@ -493,13 +521,12 @@ public class SpawnAction extends AbstractAction implements CommandAction {
   /** Returns the out-of-band execution data for this action. */
   @Override
   public ImmutableMap<String, String> getExecutionInfo() {
-    return mergeMaps(super.getExecutionInfo(), executionInfo);
+    return mergeMaps(super.getExecutionInfo(), sortedExecutionInfo);
   }
 
   /** A spawn instance that is tied to a specific SpawnAction. */
   private static final class ActionSpawn extends BaseSpawn {
     private final NestedSet<ActionInput> inputs;
-    private final Map<Artifact, FilesetOutputTree> filesetMappings;
     private final ImmutableMap<String, String> effectiveEnvironment;
     private final boolean reportOutputs;
     private final PathMapper pathMapper;
@@ -517,7 +544,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
         boolean envResolved,
         NestedSet<Artifact> inputs,
         Iterable<? extends ActionInput> additionalInputs,
-        Map<Artifact, FilesetOutputTree> filesetMappings,
         boolean reportOutputs,
         PathMapper pathMapper)
         throws CommandLineExpansionException {
@@ -527,12 +553,11 @@ public class SpawnAction extends AbstractAction implements CommandAction {
           parent.getExecutionInfo(),
           parent,
           parent.resourceSetOrBuilder);
-      NestedSetBuilder<ActionInput> inputsBuilder = NestedSetBuilder.stableOrder();
-      addNonFilesetInputs(inputsBuilder, inputs, filesetMappings);
-      inputsBuilder.addAll(additionalInputs);
-
-      this.inputs = inputsBuilder.build();
-      this.filesetMappings = filesetMappings;
+      this.inputs =
+          NestedSetBuilder.<ActionInput>stableOrder()
+              .addTransitive(inputs)
+              .addAll(additionalInputs)
+              .build();
       this.pathMapper = pathMapper;
 
       // If the action environment is already resolved using the client environment, the given
@@ -546,23 +571,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       this.reportOutputs = reportOutputs;
     }
 
-    private static void addNonFilesetInputs(
-        NestedSetBuilder<ActionInput> builder,
-        NestedSet<Artifact> inputs,
-        Map<Artifact, FilesetOutputTree> filesetMappings) {
-      if (filesetMappings.isEmpty()) {
-        // Keep the original nested set intact. This aids callers that exploit the nested set
-        // structure to perform optimizations (see SpawnInputExpander#walkInputs and its callers).
-        builder.addTransitive(inputs);
-        return;
-      }
-      for (Artifact input : inputs.toList()) {
-        if (!input.isFileset()) {
-          builder.add(input);
-        }
-      }
-    }
-
     @Override
     public PathMapper getPathMapper() {
       return pathMapper;
@@ -571,11 +579,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     @Override
     public ImmutableMap<String, String> getEnvironment() {
       return effectiveEnvironment;
-    }
-
-    @Override
-    public ImmutableMap<Artifact, FilesetOutputTree> getFilesetMappings() {
-      return ImmutableMap.copyOf(filesetMappings);
     }
 
     @Override

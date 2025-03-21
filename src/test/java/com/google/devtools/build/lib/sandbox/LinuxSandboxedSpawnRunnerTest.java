@@ -213,10 +213,9 @@ public final class LinuxSandboxedSpawnRunnerTest extends SandboxedSpawnRunnerTes
     sandboxBase.createDirectory();
 
     return LinuxSandboxedStrategy.create(
-        new SandboxHelpers(),
         commandEnvironment,
         sandboxBase,
-        /*timeoutKillDelay=*/ Duration.ofSeconds(2),
+        /* timeoutKillDelay= */ Duration.ofSeconds(2),
         treeDeleter);
   }
 

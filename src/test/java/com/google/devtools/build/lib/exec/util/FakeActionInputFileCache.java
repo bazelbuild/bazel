@@ -14,11 +14,15 @@
 package com.google.devtools.build.lib.exec.util;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.FilesetOutputTree;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.RunfilesArtifactValue;
 import com.google.devtools.build.lib.actions.RunfilesTree;
+import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -29,13 +33,19 @@ import javax.annotation.Nullable;
 /** A fake implementation of the {@link InputMetadataProvider} interface. */
 public final class FakeActionInputFileCache implements InputMetadataProvider {
   private final Map<ActionInput, FileArtifactValue> inputs = new HashMap<>();
+  private final Map<ActionInput, TreeArtifactValue> treeArtifacts = new HashMap<>();
   private final Map<ActionInput, RunfilesArtifactValue> runfilesInputs = new HashMap<>();
+  private final Map<Artifact, FilesetOutputTree> filesets = new HashMap<>();
   private final List<RunfilesTree> runfilesTrees = new ArrayList<>();
 
   public FakeActionInputFileCache() {}
 
   public void put(ActionInput artifact, FileArtifactValue metadata) {
     inputs.put(artifact, metadata);
+  }
+
+  public void putTreeArtifact(ActionInput actionInput, TreeArtifactValue treeArtifactValue) {
+    treeArtifacts.put(actionInput, treeArtifactValue);
   }
 
   public void putRunfilesTree(ActionInput runfilesTreeArtifact, RunfilesTree runfilesTree) {
@@ -45,15 +55,38 @@ public final class FakeActionInputFileCache implements InputMetadataProvider {
             ImmutableList.of(),
             ImmutableList.of(),
             ImmutableList.of(),
+            ImmutableList.of(),
+            ImmutableList.of(),
             ImmutableList.of());
     runfilesInputs.put(runfilesTreeArtifact, runfilesArtifactValue);
     runfilesTrees.add(runfilesTree);
+  }
+
+  public void putFileset(Artifact fileset, FilesetOutputTree filesetOutputTree) {
+    filesets.put(fileset, filesetOutputTree);
   }
 
   @Override
   @Nullable
   public FileArtifactValue getInputMetadataChecked(ActionInput input) throws IOException {
     return inputs.get(input);
+  }
+
+  @Nullable
+  @Override
+  public TreeArtifactValue getTreeMetadata(ActionInput actionInput) {
+    return treeArtifacts.get(actionInput);
+  }
+
+  @Override
+  @Nullable
+  public FilesetOutputTree getFileset(ActionInput input) {
+    return filesets.get(input);
+  }
+
+  @Override
+  public ImmutableMap<Artifact, FilesetOutputTree> getFilesets() {
+    return ImmutableMap.copyOf(filesets);
   }
 
   @Override
@@ -71,5 +104,9 @@ public final class FakeActionInputFileCache implements InputMetadataProvider {
   @Nullable
   public ActionInput getInput(String execPath) {
     return null;
+  }
+
+  public ImmutableMap<ActionInput, TreeArtifactValue> getAllTreeArtifacts() {
+    return ImmutableMap.copyOf(treeArtifacts);
   }
 }

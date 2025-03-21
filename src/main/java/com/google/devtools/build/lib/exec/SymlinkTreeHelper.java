@@ -13,26 +13,17 @@
 // limitations under the License.
 package com.google.devtools.build.lib.exec;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
+import static com.google.common.base.Preconditions.checkArgument;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
-import com.google.devtools.build.lib.server.FailureDetails.Execution;
 import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
-import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
-import com.google.devtools.build.lib.shell.Command;
-import com.google.devtools.build.lib.shell.CommandException;
-import com.google.devtools.build.lib.util.CommandBuilder;
-import com.google.devtools.build.lib.util.CommandUtils;
-import com.google.devtools.build.lib.util.OsUtils;
-import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -42,7 +33,6 @@ import com.google.devtools.build.lib.vfs.SnapshottingFileSystem;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import java.io.IOException;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
 
@@ -51,14 +41,10 @@ import javax.annotation.Nullable;
  * symlink farms.
  */
 public final class SymlinkTreeHelper {
-  @VisibleForTesting
-  public static final String BUILD_RUNFILES = "build-runfiles" + OsUtils.executableExtension();
 
-  private final Path execRoot;
   private final Path inputManifest;
   private final Path outputManifest;
   private final Path symlinkTreeRoot;
-  private final boolean filesetTree;
   private final String workspaceName;
 
   /**
@@ -72,17 +58,10 @@ public final class SymlinkTreeHelper {
    * @param workspaceName the name of the workspace, used to create the workspace subdirectory
    */
   public SymlinkTreeHelper(
-      Path execRoot,
-      Path inputManifest,
-      Path outputManifest,
-      Path symlinkTreeRoot,
-      boolean filesetTree,
-      String workspaceName) {
-    this.execRoot = ensureNonSnapshotting(execRoot);
+      Path inputManifest, Path outputManifest, Path symlinkTreeRoot, String workspaceName) {
     this.inputManifest = ensureNonSnapshotting(inputManifest);
     this.outputManifest = ensureNonSnapshotting(outputManifest);
     this.symlinkTreeRoot = ensureNonSnapshotting(symlinkTreeRoot);
-    this.filesetTree = filesetTree;
     this.workspaceName = workspaceName;
   }
 
@@ -102,15 +81,13 @@ public final class SymlinkTreeHelper {
   }
 
   /** Creates a symlink tree for a fileset by making VFS calls. */
-  public void createFilesetSymlinksDirectly(Map<PathFragment, PathFragment> symlinkMap)
-      throws IOException {
-    createSymlinksDirectly(symlinkMap, (path) -> path);
+  public void createFilesetSymlinks(Map<PathFragment, PathFragment> symlinkMap) throws IOException {
+    createSymlinks(symlinkMap, (path) -> path);
   }
 
   /** Creates a symlink tree for a runfiles by making VFS calls. */
-  public void createRunfilesSymlinksDirectly(Map<PathFragment, Artifact> symlinkMap)
-      throws IOException {
-    createSymlinksDirectly(
+  public void createRunfilesSymlinks(Map<PathFragment, Artifact> symlinkMap) throws IOException {
+    createSymlinks(
         symlinkMap,
         (artifact) ->
             artifact.isSymlink()
@@ -119,8 +96,8 @@ public final class SymlinkTreeHelper {
                 : artifact.getPath().asFragment());
   }
 
-  /** Creates a symlink tree by making VFS calls. */
-  private <T> void createSymlinksDirectly(
+  /** Creates a symlink tree. */
+  private <T> void createSymlinks(
       Map<PathFragment, T> symlinkMap, TargetPathFunction<T> targetPathFn) throws IOException {
     // Our strategy is to minimize mutating file system operations as much as possible. Ideally, if
     // there is an existing symlink tree with the expected contents, we don't make any changes. Our
@@ -152,12 +129,15 @@ public final class SymlinkTreeHelper {
     //
     // 3. For every remaining entry in the node, create the corresponding file, symlink, or
     //    directory on disk. If it is a directory, recurse into that directory.
-    try (SilentCloseable c = Profiler.instance().profile("Create symlink tree in-process")) {
+    try (SilentCloseable c = Profiler.instance().profile("Create symlink tree")) {
       Directory<T> root = new Directory<>();
       for (Map.Entry<PathFragment, T> entry : symlinkMap.entrySet()) {
+        PathFragment path = entry.getKey();
+        T value = entry.getValue();
+        checkArgument(!path.isEmpty() && !path.isAbsolute(), path);
         // This creates intermediate directory nodes as a side effect.
-        Directory<T> parentDir = root.walk(entry.getKey().getParentDirectory());
-        parentDir.addSymlink(entry.getKey().getBaseName(), entry.getValue());
+        Directory<T> parentDir = root.walk(path.getParentDirectory());
+        parentDir.addSymlink(path.getBaseName(), value);
       }
       root.syncTreeRecursively(symlinkTreeRoot, targetPathFn);
       createWorkspaceSubdirectory();
@@ -208,59 +188,6 @@ public final class SymlinkTreeHelper {
   }
 
   /**
-   * Creates a symlink tree using a CommandBuilder. This means that the symlink tree will always be
-   * present on the developer's workstation. Useful when running commands locally.
-   *
-   * <p>Warning: this method REALLY executes the command on the box Bazel is running on, without any
-   * kind of synchronization, locking, or anything else.
-   */
-  public void createSymlinksUsingCommand(
-      BinTools binTools, Map<String, String> shellEnvironment, OutErr outErr)
-      throws EnvironmentalExecException, InterruptedException {
-    try (SilentCloseable c = Profiler.instance().profile("Create symlink tree out-of-process")) {
-      Command command = createCommand(binTools, shellEnvironment);
-      try {
-        if (outErr != null) {
-          command.execute(outErr.getOutputStream(), outErr.getErrorStream());
-        } else {
-          command.execute();
-        }
-      } catch (CommandException e) {
-        throw new EnvironmentalExecException(
-            e,
-            FailureDetail.newBuilder()
-                .setMessage(CommandUtils.describeCommandFailure(true, e))
-                .setExecution(
-                    Execution.newBuilder().setCode(Code.SYMLINK_TREE_CREATION_COMMAND_EXCEPTION))
-                .build());
-      }
-      try {
-        createWorkspaceSubdirectory();
-      } catch (IOException e) {
-        throw new EnvironmentalExecException(e, Code.SYMLINK_TREE_CREATION_IO_EXCEPTION);
-      }
-    }
-  }
-
-  @VisibleForTesting
-  Command createCommand(BinTools binTools, Map<String, String> shellEnvironment) {
-    Preconditions.checkNotNull(shellEnvironment);
-    List<String> args = Lists.newArrayList();
-    args.add(binTools.getEmbeddedPath(BUILD_RUNFILES).asFragment().getPathString());
-    args.add("--allow_relative");
-    if (filesetTree) {
-      args.add("--use_metadata");
-    }
-    args.add(inputManifest.relativeTo(execRoot).getPathString());
-    args.add(symlinkTreeRoot.relativeTo(execRoot).getPathString());
-    return new CommandBuilder()
-        .addArgs(args)
-        .setWorkingDir(execRoot)
-        .setEnv(shellEnvironment)
-        .build();
-  }
-
-  /**
    * Processes a list of fileset symlinks into a map that can be passed to {@link
    * com.google.devtools.build.lib.vfs.OutputService#createSymlinkTree}.
    *
@@ -294,9 +221,6 @@ public final class SymlinkTreeHelper {
     }
 
     void syncTreeRecursively(Path at, TargetPathFunction<T> targetPathFn) throws IOException {
-      // This is a reimplementation of the C++ code in build-runfiles.cc. This avoids having to ship
-      // a separate native tool to create a few runfiles.
-      // TODO(ulfjack): Measure performance.
       FileStatus stat = at.statNullable(Symlinks.FOLLOW);
       if (stat == null) {
         at.createDirectoryAndParents();
@@ -322,7 +246,9 @@ public final class SymlinkTreeHelper {
               next.deleteTree();
               FileSystemUtils.createEmptyFile(next);
             }
-            // For consistency with build-runfiles.cc, we don't truncate the file if one exists.
+            // For historical reasons, we don't truncate the file if one exists.
+            // TODO(tjgq): Ponder whether this is still necessary to preserve the intentional
+            // non-hermeticity of symlink trees under source edits.
           } else {
             // ensureSymbolicLink will replace a symlink that doesn't have the correct target, but
             // everything else needs to be deleted first.

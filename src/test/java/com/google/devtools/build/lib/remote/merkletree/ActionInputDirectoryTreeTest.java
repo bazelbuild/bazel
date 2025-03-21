@@ -84,9 +84,9 @@ public class ActionInputDirectoryTreeTest extends DirectoryTreeTest {
     assertThat(directoriesAtDepth(1, tree)).isEmpty();
 
     FileNode expectedFooNode =
-        FileNode.createExecutable("foo.cc", foo.getPath(), digestUtil.computeAsUtf8("foo"));
+        FileNode.create("foo.cc", foo.getPath(), digestUtil.computeAsUtf8("foo"));
     FileNode expectedBarNode =
-        FileNode.createExecutable("bar.cc", bar, digestUtil.computeAsUtf8("bar"), false);
+        FileNode.create("bar.cc", bar, digestUtil.computeAsUtf8("bar"), false);
     assertThat(fileNodesAtDepth(tree, 0)).isEmpty();
     assertThat(fileNodesAtDepth(tree, 1)).containsExactly(expectedFooNode, expectedBarNode);
   }
@@ -137,12 +137,12 @@ public class ActionInputDirectoryTreeTest extends DirectoryTreeTest {
     assertThat(directoriesAtDepth(3, tree)).isEmpty();
 
     FileNode expectedFooNode =
-        FileNode.createExecutable("foo.cc", foo.getPath(), digestUtil.computeAsUtf8("foo"));
+        FileNode.create("foo.cc", foo.getPath(), digestUtil.computeAsUtf8("foo"));
     FileNode expectedBarNode =
-        FileNode.createExecutable(
+        FileNode.create(
             "bar.cc", execRoot.getRelative(bar.getExecPath()), digestUtil.computeAsUtf8("bar"));
     FileNode expectedBuzzNode =
-        FileNode.createExecutable(
+        FileNode.create(
             "buzz.cc", execRoot.getRelative(buzz.getExecPath()), digestUtil.computeAsUtf8("buzz"));
     assertThat(fileNodesAtDepth(tree, 0)).isEmpty();
     assertThat(fileNodesAtDepth(tree, 1)).containsExactly(expectedFooNode);
@@ -185,7 +185,7 @@ public class ActionInputDirectoryTreeTest extends DirectoryTreeTest {
     assertThat(directoriesAtDepth(1, tree)).isEmpty();
 
     FileNode expectedFooNode =
-        FileNode.createExecutable(
+        FileNode.create(
             "foo.cc", execRoot.getRelative(foo.getExecPath()), digestUtil.computeAsUtf8("foo"));
     assertThat(fileNodesAtDepth(tree, 0)).isEmpty();
     assertThat(fileNodesAtDepth(tree, 1)).containsExactly(expectedFooNode);

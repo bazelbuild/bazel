@@ -19,12 +19,13 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import build.bazel.remote.execution.v2.Action;
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.DigestFunction;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.hash.HashCode;
 import com.google.common.hash.HashFunction;
 import com.google.common.io.BaseEncoding;
-import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
+import com.google.devtools.build.lib.util.DeterministicWriter;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.DigestUtils;
 import com.google.devtools.build.lib.vfs.FileStatus;
@@ -91,10 +92,10 @@ public class DigestUtil {
         DigestUtils.getDigestWithManualFallback(path, xattrProvider, status), status.getSize());
   }
 
-  public static Digest compute(VirtualActionInput input, HashFunction hashFunction)
+  public static Digest compute(DeterministicWriter input, HashFunction hashFunction)
       throws IOException {
-    // Stream the virtual action input as parameter files, which can be very large, are lazily
-    // computed from the in-memory CommandLine object. This avoids allocating large byte arrays.
+    // Stream the input as parameter files, which can be very large, are lazily computed from the
+    // in-memory CommandLine object. This avoids allocating large byte arrays.
     try (DigestOutputStream digestOutputStream =
         new DigestOutputStream(hashFunction, OutputStream.nullOutputStream())) {
       input.writeTo(digestOutputStream);
@@ -102,7 +103,7 @@ public class DigestUtil {
     }
   }
 
-  public Digest compute(VirtualActionInput input) throws IOException {
+  public Digest compute(DeterministicWriter input) throws IOException {
     return compute(input, hashFn.getHashFunction());
   }
 
@@ -162,6 +163,12 @@ public class DigestUtil {
 
   public static String toString(Digest digest) {
     return digest.getHash() + "/" + digest.getSizeBytes();
+  }
+
+  public static Digest fromString(String digest) {
+    String[] parts = digest.split("/", /* limit= */ -1);
+    Preconditions.checkArgument(parts.length == 2, "Invalid digest format: %s", digest);
+    return buildDigest(parts[0], Long.parseLong(parts[1]));
   }
 
   public static byte[] toBinaryDigest(Digest digest) {

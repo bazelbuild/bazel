@@ -527,7 +527,7 @@ public class FilesystemValueChecker {
       boolean isTrustedRemoteValue =
           fileMetadata.getType() == FileStateType.NONEXISTENT
               && lastKnownData.isRemote()
-              && outputChecker.shouldTrustArtifact(file, lastKnownData);
+              && outputChecker.shouldTrustMetadata(file, lastKnownData);
       if (!isTrustedRemoteValue && fileMetadata.couldBeModifiedSince(lastKnownData)) {
         modifiedOutputsReceiver.reportModifiedOutputFile(
             fileMetadata.getType() != FileStateType.NONEXISTENT

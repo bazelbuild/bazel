@@ -428,36 +428,10 @@ public abstract class LegacyLinkerInputs {
     return new SimpleLinkerInput(artifact, category, disableWholeArchive, libraryIdentifier);
   }
 
-  /** Creates input libraries for which we do not know what objects files it consists of. */
-  public static Iterable<LibraryInput> opaqueLibrariesToLink(
-      final ArtifactCategory category, Iterable<Artifact> input) {
-    return Iterables.transform(input, artifact -> precompiledLibraryInput(artifact, category));
-  }
-
   /** Creates a solib library symlink from the given artifact. */
   public static LibraryInput solibLibraryInput(
       Artifact solibSymlink, Artifact original, String libraryIdentifier) {
     return new SolibLibraryInput(solibSymlink, original, libraryIdentifier);
-  }
-
-  /** Creates an input library for which we do not know what objects files it consists of. */
-  public static LibraryInput precompiledLibraryInput(Artifact artifact, ArtifactCategory category) {
-    // This precondition check was in place and *most* of the tests passed with them; the only
-    // exception is when you mention a generated .a file in the srcs of a cc_* rule.
-    // It was very useful for proving that this actually works, though.
-    // Preconditions.checkArgument(
-    //     !(artifact.getGeneratingAction() instanceof CppLinkAction) ||
-    //     !Link.ARCHIVE_LIBRARY_FILETYPES.contains(artifact.getFileType()));
-    return new CompoundLibraryInput(
-        artifact,
-        category,
-        CcLinkingOutputs.libraryIdentifierOf(artifact),
-        /* objectFiles= */ null,
-        /* ltoCompilationContext= */ null,
-        /* sharedNonLtoBackends= */ null,
-        /* allowArchiveTypeInAlwayslink= */ false,
-        /* mustKeepDebug= */ false,
-        /* disableWholeArchive= */ false);
   }
 
   /** Creates a library to link with the specified object files. */

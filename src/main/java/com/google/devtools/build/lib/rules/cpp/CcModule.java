@@ -352,7 +352,7 @@ public abstract class CcModule
   @Override
   public CcToolchainVariables getVariables(StarlarkThread thread) throws EvalException {
     isCalledFromStarlarkCcCommon(thread);
-    return CcToolchainVariables.EMPTY;
+    return CcToolchainVariables.empty();
   }
 
   /**
@@ -368,16 +368,6 @@ public abstract class CcModule
       return defaultValue;
     }
     return (T) obj; // totally unsafe
-  }
-
-  /** Converts an object that can be ether Depset or None into NestedSet. */
-  protected NestedSet<String> asStringNestedSet(Object o) throws Depset.TypeException {
-    Depset starlarkNestedSet = convertFromNoneable(o, /* defaultValue= */ (Depset) null);
-    if (starlarkNestedSet != null) {
-      return starlarkNestedSet.getSet(String.class);
-    } else {
-      return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
-    }
   }
 
   /** Converts an object that can be either Sequence, or None into ImmutableList. */
@@ -1032,6 +1022,15 @@ public abstract class CcModule
     return thread
         .getSemantics()
         .getBool(BuildLanguageOptions.INCOMPATIBLE_DISABLE_OBJC_LIBRARY_TRANSITION);
+  }
+
+  @Override
+  public boolean addGoExecGroupsToBinaryRules(StarlarkThread thread) throws EvalException {
+    // This method is called from cc_common.bzl and semantics.bzl
+    if (!isStarlarkCcCommonCalledFromBuiltins(thread)) {
+      throw Starlark.errorf("add_go_exec_groups_to_binary_rules can only be used in builtins");
+    }
+    return thread.getSemantics().getBool(BuildLanguageOptions.ADD_GO_EXEC_GROUPS_TO_BINARY_RULES);
   }
 
   @Override
@@ -1968,6 +1967,7 @@ public abstract class CcModule
     // Allow direct access to cc_common.bzl and to C++ linking code that can't use cc_common.bzl
     // directly without creating a cycle.
     if (!label.getCanonicalForm().endsWith("_builtins//:common/cc/cc_common.bzl")
+        && !label.getCanonicalForm().contains("_builtins//:common/cc/compile")
         && !label.getCanonicalForm().contains("_builtins//:common/cc/link")) {
       throw Starlark.errorf(
           "cc_common_internal can only be used by cc_common.bzl in builtins, "
@@ -2036,6 +2036,44 @@ public abstract class CcModule
     }
   }
 
+  @StarlarkMethod(
+      name = "validate_starlark_compile_api_call",
+      documented = false,
+      useStarlarkThread = true,
+      parameters = {
+        @Param(
+            name = "actions",
+            doc = "<code>actions</code> object.",
+            positional = false,
+            named = true),
+        @Param(name = "include_prefix", documented = false, positional = false, named = true),
+        @Param(name = "strip_include_prefix", documented = false, positional = false, named = true),
+        @Param(
+            name = "additional_include_scanning_roots",
+            documented = false,
+            positional = false,
+            named = true,
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = Artifact.class)},
+            defaultValue = "unbound"),
+      })
+  public void validateStarlarkCompileApiCallFromStarlark(
+      StarlarkActionFactory actionFactory,
+      String includePrefix,
+      String stripIncludePrefix,
+      Sequence<?> additionalIncludeScanningRoots,
+      StarlarkThread thread)
+      throws EvalException {
+    isCalledFromStarlarkCcCommon(thread);
+    getSemantics()
+        .validateStarlarkCompileApiCall(
+            actionFactory,
+            thread,
+            includePrefix,
+            stripIncludePrefix,
+            additionalIncludeScanningRoots,
+            2); // stackDepth = 2 is the caller of Starlark implemented cc_common.compile().
+  }
+
   @Override
   @SuppressWarnings("unchecked")
   public Tuple compile(
@@ -2088,7 +2126,8 @@ public abstract class CcModule
             thread,
             includePrefix,
             stripIncludePrefix,
-            additionalIncludeScanningRoots);
+            additionalIncludeScanningRoots,
+            1); // stackDepth = 1 is the caller of native cc_common.compile().
 
     List<Artifact> includeScanningRoots =
         getAdditionalIncludeScanningRoots(additionalIncludeScanningRoots, thread);

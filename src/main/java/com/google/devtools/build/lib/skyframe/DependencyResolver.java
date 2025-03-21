@@ -214,7 +214,7 @@ public final class DependencyResolver {
       return transitiveState.transitiveRootCauses();
     }
 
-    public NestedSet<Package> transitivePackages() {
+    public NestedSet<Package.Metadata> transitivePackages() {
       return transitiveState.transitivePackages();
     }
 

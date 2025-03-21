@@ -23,12 +23,9 @@ import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
-import com.google.devtools.build.lib.actions.ArtifactExpander.MissingExpansionException;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
-import com.google.devtools.build.lib.actions.FilesetOutputTree;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.Spawn;
-import com.google.devtools.build.lib.vfs.Path;
-import java.util.Map;
 import java.util.NoSuchElementException;
 
 /** Utilities for finding {@link ActionInput} instances within a {@link Spawn}. */
@@ -41,25 +38,21 @@ public final class SpawnInputUtils {
         .orElseThrow(() -> noSuchInput("spawn input", name, spawn));
   }
 
-  public static Artifact getFilesetArtifactWithName(Spawn spawn, String name) {
-    return spawn.getFilesetMappings().keySet().stream()
-        .filter(filesetArtifact -> filesetArtifact.getExecPathString().contains(name))
-        .findFirst()
-        .orElseThrow(() -> noSuchInput("fileset artifact", name, spawn));
-  }
-
   public static ActionInput getFilesetInputWithName(
-      Spawn spawn, ActionExecutionContext context, String artifactName, String inputName) {
-    Path execRoot = context.getExecRoot();
-    for (Map.Entry<Artifact, FilesetOutputTree> entry : spawn.getFilesetMappings().entrySet()) {
-      Artifact filesetArtifact = entry.getKey();
-      if (!filesetArtifact.getExecPathString().contains(artifactName)) {
+      Spawn spawn,
+      InputMetadataProvider inputMetadataProvider,
+      String artifactName,
+      String inputName) {
+    for (ActionInput actionInput : spawn.getInputFiles().toList()) {
+      if (!(actionInput instanceof Artifact fileset)
+          || !fileset.isFileset()
+          || !fileset.getExecPathString().contains(artifactName)) {
         continue;
       }
-      for (FilesetOutputSymlink filesetOutputSymlink : entry.getValue().symlinks()) {
-        if (filesetOutputSymlink.targetPath().toString().contains(inputName)) {
-          Path inputPath = execRoot.getRelative(filesetOutputSymlink.targetPath());
-          return ActionInputHelper.fromPath(inputPath.asFragment());
+      for (FilesetOutputSymlink filesetOutputSymlink :
+          inputMetadataProvider.getFileset(fileset).symlinks()) {
+        if (filesetOutputSymlink.targetPath().getPathString().contains(inputName)) {
+          return ActionInputHelper.fromPath(filesetOutputSymlink.targetPath());
         }
       }
     }
@@ -71,16 +64,11 @@ public final class SpawnInputUtils {
     Artifact filesetArtifact = getRunfilesArtifactWithName(spawn, context, artifactName);
     checkState(filesetArtifact.isFileset(), filesetArtifact);
 
-    ImmutableList<FilesetOutputSymlink> filesetLinks;
-    try {
-      filesetLinks = context.getArtifactExpander().expandFileset(filesetArtifact).symlinks();
-    } catch (MissingExpansionException e) {
-      throw new IllegalStateException(e);
-    }
+    ImmutableList<FilesetOutputSymlink> filesetLinks =
+        context.getInputMetadataProvider().getFileset(filesetArtifact).symlinks();
     for (FilesetOutputSymlink filesetOutputSymlink : filesetLinks) {
       if (filesetOutputSymlink.targetPath().toString().contains(inputName)) {
-        Path inputPath = context.getExecRoot().getRelative(filesetOutputSymlink.targetPath());
-        return ActionInputHelper.fromPath(inputPath.asFragment());
+        return ActionInputHelper.fromPath(filesetOutputSymlink.targetPath());
       }
     }
     throw noSuchInput("runfiles fileset in " + filesetArtifact, inputName, spawn);

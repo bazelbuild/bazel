@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.analysis.ExecGroupCollection.InvalidExecGro
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.ConfigConditions;
 import com.google.devtools.build.lib.analysis.config.Fragment;
-import com.google.devtools.build.lib.analysis.config.RequiredFragmentsUtil;
 import com.google.devtools.build.lib.analysis.configuredtargets.EnvironmentGroupConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.InputFileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.OutputFileConfiguredTarget;
@@ -189,7 +188,7 @@ public final class ConfiguredTargetFactory {
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> prerequisiteMap,
       ConfigConditions configConditions,
       @Nullable ToolchainCollection<ResolvedToolchainContext> toolchainContexts,
-      @Nullable NestedSet<Package> transitivePackages,
+      @Nullable NestedSet<Package.Metadata> transitivePackages,
       ExecGroupCollection.Builder execGroupCollectionBuilder,
       @Nullable StarlarkAttributeTransitionProvider starlarkExecTransition)
       throws InterruptedException,
@@ -219,7 +218,7 @@ public final class ConfiguredTargetFactory {
     // analyzed. (createRule() already enforces this above for rule targets, with optional error
     // interception through analysis_test.)
     try {
-      target.getPackage().checkMacroNamespaceCompliance(target);
+      target.getPackageoid().checkMacroNamespaceCompliance(target);
     } catch (MacroNamespaceViolationException e) {
       analysisEnvironment
           .getEventHandler()
@@ -274,7 +273,7 @@ public final class ConfiguredTargetFactory {
                   analysisEnvironment
                       .getStarlarkSemantics()
                       .getBool(BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT)),
-              inputFile.getPackage().getSourceRoot().get(),
+              inputFile.getPackageMetadata().sourceRoot().get(),
               ConfiguredTargetKey.builder()
                   .setLabel(target.getLabel())
                   .setConfiguration(config)
@@ -309,7 +308,7 @@ public final class ConfiguredTargetFactory {
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> prerequisiteMap,
       ConfigConditions configConditions,
       @Nullable ToolchainCollection<ResolvedToolchainContext> toolchainContexts,
-      @Nullable NestedSet<Package> transitivePackages,
+      @Nullable NestedSet<Package.Metadata> transitivePackages,
       ExecGroupCollection.Builder execGroupCollectionBuilder,
       @Nullable StarlarkAttributeTransitionProvider starlarkExecTransition)
       throws InterruptedException,
@@ -354,7 +353,7 @@ public final class ConfiguredTargetFactory {
     }
 
     try {
-      rule.getPackage().checkMacroNamespaceCompliance(rule);
+      rule.getPackageoid().checkMacroNamespaceCompliance(rule);
     } catch (MacroNamespaceViolationException e) {
       ruleContext.ruleError(e.getMessage());
       return erroredConfiguredTarget(ruleContext, null);
@@ -624,7 +623,7 @@ public final class ConfiguredTargetFactory {
           ToolchainCollection<AspectBaseTargetResolvedToolchainContext> baseTargetToolchainContexts,
       @Nullable ExecGroupCollection.Builder execGroupCollectionBuilder,
       BuildConfigurationValue aspectConfiguration,
-      @Nullable NestedSet<Package> transitivePackages,
+      @Nullable NestedSet<Package.Metadata> transitivePackages,
       AspectKeyCreator.AspectKey aspectKey,
       StarlarkAttributeTransitionProvider starlarkExecTransition)
       throws InterruptedException,

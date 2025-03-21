@@ -17,11 +17,11 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableSetMultimap.toImmutableSetMultimap;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.vfs.FileSystemUtils.readContentAsLatin1;
+import static java.util.Arrays.stream;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
@@ -32,17 +32,13 @@ import static org.mockito.Mockito.verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultiset;
-import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Multimap;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.ActionInputDepOwnerMap;
-import com.google.devtools.build.lib.actions.ActionInputDepOwners;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
@@ -56,6 +52,7 @@ import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.analysis.AspectCompleteEvent;
 import com.google.devtools.build.lib.analysis.TargetCompleteEvent;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
+import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions.OutputGroupFileModes;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions.JobsConverter;
@@ -184,17 +181,35 @@ public class RewindingTestsHelper {
    * com.google.devtools.build.lib.vfs.DigestHashFunction}.
    */
   @ForOverride
-  String toHex(byte[] digest) {
+  String toHex(byte[] digest, long size) {
     StringBuilder hex = new StringBuilder();
     for (byte b : digest) {
       hex.append(String.format("%02x", b));
     }
+    hex.append('/');
+    hex.append(size);
     return hex.toString();
   }
 
   @ForOverride
   LostImportantOutputHandlerModule createLostOutputsModule() {
     return new LostImportantOutputHandlerModule(this::toHex);
+  }
+
+  /**
+   * Filters out spawn descriptions that only appear in Bazel or Blaze and aren't relevant to the
+   * test.
+   */
+  private Object[] filterExecutedSpawnDescriptions(String... expectedDescriptions) {
+    if (AnalysisMock.get().isThisBazel()) {
+      return stream(expectedDescriptions)
+          // Bazel doesn't support spawn-based include scanning without additional
+          // toolchain tools.
+          .filter(s -> !s.startsWith("Extracting include lines "))
+          .toArray(String[]::new);
+    } else {
+      return expectedDescriptions;
+    }
   }
 
   public final ControllableActionStrategyModule makeControllableActionStrategyModule(
@@ -219,26 +234,32 @@ public class RewindingTestsHelper {
   }
 
   public final ExecResult createLostInputsExecException(
-      ActionExecutionContext context,
-      ImmutableList<ActionInput> lostInputs,
-      ActionInputDepOwners owners)
-      throws IOException {
+      Spawn spawn, ActionExecutionContext context, String... lostInputNames) throws IOException {
+    return createLostInputsExecException(
+        context,
+        stream(lostInputNames)
+            .map(name -> SpawnInputUtils.getInputWithName(spawn, name))
+            .collect(toImmutableList()));
+  }
+
+  public final ExecResult createLostInputsExecException(
+      ActionExecutionContext context, ActionInput... lostInputs) throws IOException {
+    return createLostInputsExecException(context, ImmutableList.copyOf(lostInputs));
+  }
+
+  public final ExecResult createLostInputsExecException(
+      ActionExecutionContext context, ImmutableList<ActionInput> lostInputs) throws IOException {
     ImmutableMap.Builder<String, ActionInput> builder = ImmutableMap.builder();
     for (ActionInput lostInput : lostInputs) {
       builder.put(getHexDigest(lostInput, context), lostInput);
     }
-    return ExecResult.ofException(new LostInputsExecException(builder.buildOrThrow(), owners));
+    return ExecResult.ofException(new LostInputsExecException(builder.buildOrThrow()));
   }
 
   private String getHexDigest(ActionInput input, ActionExecutionContext context)
       throws IOException {
-    return toHex(context.getInputMetadataProvider().getInputMetadata(input).getDigest());
-  }
-
-  static ActionInputDepOwners getInputOwners(Multimap<ActionInput, Artifact> mappings) {
-    ActionInputDepOwnerMap owners = new ActionInputDepOwnerMap(mappings.keySet());
-    mappings.forEach(owners::addOwner);
-    return owners;
+    var metadata = context.getInputMetadataProvider().getInputMetadata(input);
+    return toHex(metadata.getDigest(), metadata.getSize());
   }
 
   /**
@@ -395,12 +416,7 @@ public class RewindingTestsHelper {
     testCase.addOptions("--norewind_lost_inputs");
     addSpawnShim(
         "Executing genrule //foo:top",
-        (spawn, context) -> {
-          ImmutableList<ActionInput> lostInputs =
-              ImmutableList.of(SpawnInputUtils.getInputWithName(spawn, "dep.out"));
-          return createLostInputsExecException(
-              context, lostInputs, new ActionInputDepOwnerMap(lostInputs));
-        });
+        (spawn, context) -> createLostInputsExecException(spawn, context, "dep.out"));
 
     var e = assertThrows(BuildFailedException.class, () -> testCase.buildTarget("//foo:top"));
     assertThat(e.getDetailedExitCode().getFailureDetail().getActionRewinding().getCode())
@@ -461,10 +477,7 @@ public class RewindingTestsHelper {
     // files are missing.
     runDependentActionsReevaluated(
         (spawn, context) ->
-            createLostInputsExecException(
-                context,
-                getIntermediate1And2LostInputs(spawn),
-                new ActionInputDepOwnerMap(getIntermediate1And2LostInputs(spawn))));
+            createLostInputsExecException(context, getIntermediate1And2LostInputs(spawn)));
   }
 
   static ImmutableList<ActionInput> getIntermediate1And2LostInputs(Spawn spawn) {
@@ -597,8 +610,7 @@ public class RewindingTestsHelper {
         (spawn, context) -> {
           ImmutableList<ActionInput> lostInputs =
               ImmutableList.of(SpawnInputUtils.getInputWithName(spawn, "intermediate.txt"));
-          return createLostInputsExecException(
-              context, lostInputs, new ActionInputDepOwnerMap(lostInputs));
+          return createLostInputsExecException(context, lostInputs);
         });
 
     List<SkyKey> rewoundKeys = collectOrderedRewoundKeys();
@@ -640,9 +652,7 @@ public class RewindingTestsHelper {
           (spawn, context) -> {
             intermediate.set(SpawnInputUtils.getInputWithName(spawn, "intermediate.txt"));
             return ExecResult.ofException(
-                new LostInputsExecException(
-                    ImmutableMap.of("fakedigest", intermediate.get()),
-                    new ActionInputDepOwnerMap(ImmutableList.of(intermediate.get()))));
+                new LostInputsExecException(ImmutableMap.of("fakedigest/10", intermediate.get())));
           });
     }
 
@@ -656,7 +666,7 @@ public class RewindingTestsHelper {
     String errorDetail =
         String.format(
             "lost input too many times (#%s) for the same action. lostInput: %s, "
-                + "lostInput digest: fakedigest, "
+                + "lostInput digest: fakedigest/10, "
                 + "failedAction: action 'Executing genrule //test:rule2'",
             ActionRewindStrategy.MAX_REPEATED_LOST_INPUTS + 1, intermediate.get());
     assertThat(e.getDetailedExitCode().getFailureDetail().getMessage()).contains(errorDetail);
@@ -758,9 +768,7 @@ public class RewindingTestsHelper {
               inputMapBuilder.put("fake_digest_" + target + "_" + e, input);
             }
             ImmutableMap<String, ActionInput> inputMap = inputMapBuilder.buildOrThrow();
-            return ExecResult.ofException(
-                new LostInputsExecException(
-                    inputMap, new ActionInputDepOwnerMap(inputMap.values())));
+            return ExecResult.ofException(new LostInputsExecException(inputMap));
           });
     }
     List<SkyKey> rewoundKeys = collectOrderedRewoundKeys();
@@ -795,8 +803,7 @@ public class RewindingTestsHelper {
 
           ImmutableList<ActionInput> lostInputs =
               ImmutableList.of(SpawnInputUtils.getInputWithName(spawn, "intermediate.txt"));
-          return createLostInputsExecException(
-              context, lostInputs, new ActionInputDepOwnerMap(lostInputs));
+          return createLostInputsExecException(context, lostInputs);
         });
 
     List<SkyKey> rewoundKeys = collectOrderedRewoundKeys();
@@ -888,8 +895,7 @@ public class RewindingTestsHelper {
 
           ImmutableList<ActionInput> lostInputs =
               ImmutableList.of(SpawnInputUtils.getInputWithName(spawn, "intermediate.txt"));
-          return createLostInputsExecException(
-              context, lostInputs, new ActionInputDepOwnerMap(lostInputs));
+          return createLostInputsExecException(context, lostInputs);
         });
 
     List<SkyKey> rewoundKeys = collectOrderedRewoundKeys();
@@ -958,20 +964,23 @@ public class RewindingTestsHelper {
 
     addSpawnShim(
         "Executing genrule //test:rule3",
-        (spawn, context) -> {
-          ImmutableList<ActionInput> lostInputs =
-              ImmutableList.of(SpawnInputUtils.getInputWithName(spawn, "intermediate_2.txt"));
-          return createLostInputsExecException(
-              context, lostInputs, new ActionInputDepOwnerMap(lostInputs));
-        });
+        (spawn, context) -> createLostInputsExecException(spawn, context, "intermediate_2.txt"));
 
     List<SkyKey> rewoundKeys = collectOrderedRewoundKeys();
     String outputFileContents = buildAndGetOutput("test", testCase);
 
     assertThat(outputFileContents)
         .isEqualTo(
-            "source_1\nfrom rule1\nsource_1\nfrom rule1\nsource_2\nfrom rule2\nsource_3\n"
-                + "from rule3\n");
+            """
+            source_1
+            from rule1
+            source_1
+            from rule1
+            source_2
+            from rule2
+            source_3
+            from rule3
+            """);
 
     assertThat(getExecutedSpawnDescriptions())
         .containsExactly(
@@ -1046,18 +1055,10 @@ public class RewindingTestsHelper {
         (spawn, context) -> {
           addSpawnShim(
               "Executing genrule //test:rule2",
-              (otherSpawn, otherContext) -> {
-                ImmutableList<ActionInput> lostInputs =
-                    ImmutableList.of(
-                        SpawnInputUtils.getInputWithName(otherSpawn, "intermediate_1.txt"));
-                return createLostInputsExecException(
-                    otherContext, lostInputs, new ActionInputDepOwnerMap(lostInputs));
-              });
+              (otherSpawn, otherContext) ->
+                  createLostInputsExecException(otherSpawn, otherContext, "intermediate_1.txt"));
 
-          ImmutableList<ActionInput> lostInputs =
-              ImmutableList.of(SpawnInputUtils.getInputWithName(spawn, "intermediate_2.txt"));
-          return createLostInputsExecException(
-              context, lostInputs, new ActionInputDepOwnerMap(lostInputs));
+          return createLostInputsExecException(spawn, context, "intermediate_2.txt");
         });
 
     List<SkyKey> rewoundKeys = collectOrderedRewoundKeys();
@@ -1136,9 +1137,7 @@ public class RewindingTestsHelper {
           ActionInput intermediate1 =
               SpawnInputUtils.getInputWithName(spawn, "intermediate_1.inlined");
           intermediate1FirstContent.set(latin1StringFromActionInput(context, intermediate1));
-          ImmutableList<ActionInput> lostInputs = ImmutableList.of(intermediate1);
-          return createLostInputsExecException(
-              context, lostInputs, new ActionInputDepOwnerMap(lostInputs));
+          return createLostInputsExecException(context, intermediate1);
         });
 
     AtomicReference<String> intermediate1SecondContent = new AtomicReference<>(null);
@@ -1299,20 +1298,10 @@ public class RewindingTestsHelper {
 
     addSpawnShim(
         "Copying A-shared.out to B-shared.out on behalf of shared_1",
-        (spawn, context) -> {
-          ImmutableList<ActionInput> sharedInput =
-              ImmutableList.of(SpawnInputUtils.getInputWithName(spawn, "A-shared.out"));
-          return createLostInputsExecException(
-              context, sharedInput, new ActionInputDepOwnerMap(sharedInput));
-        });
+        (spawn, context) -> createLostInputsExecException(spawn, context, "A-shared.out"));
     addSpawnShim(
         "Copying A-shared.out to B-shared.out on behalf of shared_2",
-        (spawn, context) -> {
-          ImmutableList<ActionInput> sharedInput =
-              ImmutableList.of(SpawnInputUtils.getInputWithName(spawn, "A-shared.out"));
-          return createLostInputsExecException(
-              context, sharedInput, new ActionInputDepOwnerMap(sharedInput));
-        });
+        (spawn, context) -> createLostInputsExecException(spawn, context, "A-shared.out"));
 
     // This code controls the evaluation of the shared actions belonging to shared_1 and shared_2
     // so that the following events occur in the specified order. Each non-final step is associated
@@ -1510,8 +1499,7 @@ public class RewindingTestsHelper {
     runTreeFileArtifactRewound(
         (spawn, context) -> {
           ImmutableList<ActionInput> lostInputs = getTreeFileArtifactRewoundLostInputs(spawn);
-          return createLostInputsExecException(
-              context, lostInputs, new ActionInputDepOwnerMap(lostInputs));
+          return createLostInputsExecException(context, lostInputs);
         });
   }
 
@@ -1619,13 +1607,7 @@ public class RewindingTestsHelper {
       ImmutableList<ActionInput> lostTreeFileArtifacts =
           getTreeArtifactRewoundWhenTreeFilesLostInputs(
               lostTreeFileArtifactNames, spawn, context, treeArtifact);
-
-      return createLostInputsExecException(
-          context,
-          lostTreeFileArtifacts,
-          getInputOwners(
-              lostTreeFileArtifacts.stream()
-                  .collect(toImmutableSetMultimap(a -> a, a -> treeArtifact))));
+      return createLostInputsExecException(context, lostTreeFileArtifacts);
     };
   }
 
@@ -1648,6 +1630,10 @@ public class RewindingTestsHelper {
     setUpTreeArtifactPackage(testCase);
 
     addSpawnShim("Linking tree/libconsumes_tree.so", shim);
+
+    if (!supportsConcurrentRewinding()) {
+      testCase.addOptions("--jobs=1");
+    }
 
     List<SkyKey> rewoundKeys = collectOrderedRewoundKeys();
     testCase.buildTarget("//tree:consumes_tree");
@@ -1716,8 +1702,7 @@ public class RewindingTestsHelper {
     return (spawn, context) -> {
       ImmutableList<ActionInput> lostRunfileArtifacts =
           getGeneratedRunfilesRewoundLostRunfiles(lostRunfiles, spawn, context);
-      return createLostInputsExecException(
-          context, lostRunfileArtifacts, new ActionInputDepOwnerMap(lostRunfileArtifacts));
+      return createLostInputsExecException(context, lostRunfileArtifacts);
     };
   }
 
@@ -1816,7 +1801,7 @@ public class RewindingTestsHelper {
         /* actionRewindingPostLostInputCounts= */ ImmutableList.of(lostRunfiles.size()));
 
     if (buildRunfileManifests()) {
-      assertThat(rewoundKeys).hasSize(7);
+      assertThat(rewoundKeys).hasSize(6);
       HashSet<String> expectedRewoundGenrules =
           new HashSet<>(ImmutableList.of("//middle:gen1", "//middle:gen2"));
       int i = 0;
@@ -1842,9 +1827,8 @@ public class RewindingTestsHelper {
       }
 
       assertActionKey(rewoundKeys.get(i++), "//middle:tool", /* index= */ 3);
-      assertArtifactKey(rewoundKeys.get(i), "middle/tool.runfiles");
     } else {
-      assertThat(rewoundKeys).hasSize(5);
+      assertThat(rewoundKeys).hasSize(4);
       HashSet<String> expectedRewoundGenrules =
           new HashSet<>(ImmutableList.of("//middle:gen1", "//middle:gen2"));
       int i = 0;
@@ -1861,7 +1845,6 @@ public class RewindingTestsHelper {
       }
 
       assertActionKey(rewoundKeys.get(i++), "//middle:tool", /* index= */ 1);
-      assertArtifactKey(rewoundKeys.get(i), "middle/tool.runfiles");
     }
   }
 
@@ -1872,9 +1855,7 @@ public class RewindingTestsHelper {
           ActionInput lostInput =
               getDupeDirectAndRunfilesDependencyRewoundLostInput(spawn, context);
           intermediate1FirstContent.set(latin1StringFromActionInput(context, lostInput));
-          ImmutableList<ActionInput> lostInputs = ImmutableList.of(lostInput);
-          return createLostInputsExecException(
-              context, lostInputs, new ActionInputDepOwnerMap(lostInputs));
+          return createLostInputsExecException(context, lostInput);
         };
     runDupeDirectAndRunfilesDependencyRewound(intermediate1FirstContent, shim);
   }
@@ -1992,7 +1973,7 @@ public class RewindingTestsHelper {
         /* actionRewindingPostLostInputCounts= */ ImmutableList.of(1));
 
     if (buildRunfileManifests()) {
-      assertThat(rewoundKeys).hasSize(6);
+      assertThat(rewoundKeys).hasSize(5);
       int i = 0;
       while (i < 4) {
         assertThat(rewoundKeys.get(i)).isInstanceOf(ActionLookupData.class);
@@ -2019,9 +2000,8 @@ public class RewindingTestsHelper {
       }
 
       assertActionKey(rewoundKeys.get(i++), "//test:tool", /* index= */ 3);
-      assertArtifactKey(rewoundKeys.get(i), "test/tool.runfiles");
     } else {
-      assertThat(rewoundKeys).hasSize(4);
+      assertThat(rewoundKeys).hasSize(3);
       int i = 0;
       while (i < 2) {
         assertThat(rewoundKeys.get(i)).isInstanceOf(ActionLookupData.class);
@@ -2036,7 +2016,6 @@ public class RewindingTestsHelper {
       }
 
       assertActionKey(rewoundKeys.get(i++), "//test:tool", /* index= */ 1);
-      assertArtifactKey(rewoundKeys.get(i), "test/tool.runfiles");
     }
   }
 
@@ -2046,12 +2025,7 @@ public class RewindingTestsHelper {
           Artifact treeArtifact = getTreeInRunfilesRewoundTree(spawn, context);
           ImmutableList<ActionInput> lostInputs =
               getTreeInRunfilesRewoundLostInputs(spawn, context, treeArtifact);
-          return createLostInputsExecException(
-              context,
-              lostInputs,
-              getInputOwners(
-                  ImmutableSetMultimap.of(
-                      lostInputs.get(0), treeArtifact, lostInputs.get(1), treeArtifact)));
+          return createLostInputsExecException(context, lostInputs);
         };
 
     runTreeInRunfilesRewound(shim);
@@ -2143,7 +2117,7 @@ public class RewindingTestsHelper {
         /* actionRewindingPostLostInputCounts= */ ImmutableList.of(2));
 
     if (buildRunfileManifests()) {
-      assertThat(rewoundKeys).hasSize(7);
+      assertThat(rewoundKeys).hasSize(6);
       int i = 0;
       while (i < 5) {
         assertThat(rewoundKeys.get(i)).isInstanceOf(ActionLookupData.class);
@@ -2169,9 +2143,8 @@ public class RewindingTestsHelper {
       }
 
       assertActionKey(rewoundKeys.get(i++), "//middle:tool", /* index= */ 3);
-      assertArtifactKey(rewoundKeys.get(i), "middle/tool.runfiles");
     } else {
-      assertThat(rewoundKeys).hasSize(5);
+      assertThat(rewoundKeys).hasSize(4);
       int i = 0;
       while (i < 3) {
         assertThat(rewoundKeys.get(i)).isInstanceOf(ActionLookupData.class);
@@ -2188,7 +2161,6 @@ public class RewindingTestsHelper {
       }
 
       assertActionKey(rewoundKeys.get(i++), "//middle:tool", /* index= */ 1);
-      assertArtifactKey(rewoundKeys.get(i), "middle/tool.runfiles");
     }
   }
 
@@ -2246,12 +2218,7 @@ public class RewindingTestsHelper {
 
     addSpawnShim(
         "Running consumer",
-        (spawn, context) -> {
-          ActionInput genOut1 = SpawnInputUtils.getInputWithName(spawn, "gen.out1");
-          ImmutableList<ActionInput> lostInputs = ImmutableList.of(genOut1);
-          return createLostInputsExecException(
-              context, lostInputs, new ActionInputDepOwnerMap(lostInputs));
-        });
+        (spawn, context) -> createLostInputsExecException(spawn, context, "gen.out1"));
     List<SkyKey> rewoundKeys = collectOrderedRewoundKeys();
 
     testCase.buildTarget("//test:consumer");
@@ -2304,9 +2271,7 @@ public class RewindingTestsHelper {
     SpawnShim shim =
         (spawn, context) -> {
           ActionInput header = getGeneratedHeaderRewoundLostInput(spawn);
-          ImmutableList<ActionInput> lostInputs = ImmutableList.of(header);
-          return createLostInputsExecException(
-              context, lostInputs, new ActionInputDepOwnerMap(lostInputs));
+          return createLostInputsExecException(context, header);
         };
 
     runGeneratedHeaderRewound_lostInInputDiscovery(shim);
@@ -2321,33 +2286,26 @@ public class RewindingTestsHelper {
     // is found by remote include scanning, which happens in input discovery.
     writeGeneratedHeaderDirectDepPackage(testCase);
 
-    addSpawnShim(
-        String.format(
-            "Extracting include lines from %s-out/k8-fastbuild/bin/genheader/gen.h",
-            TestConstants.PRODUCT_NAME),
-        shim);
+    addSpawnShim("Extracting include lines from blaze-out/k8-fastbuild/bin/genheader/gen.h", shim);
 
     List<SkyKey> rewoundKeys = collectOrderedRewoundKeys();
     testCase.buildTarget("//genheader:consumes_header");
     verifyAllSpawnShimsConsumed();
 
     assertThat(getExecutedSpawnDescriptions())
-        .containsExactly(
-            "Executing genrule //genheader:gen_header",
-            "Extracting include lines from genheader/consumes.cc",
-            "Extracting include lines from tools/cpp/malloc.cc",
-            "Compiling tools/cpp/malloc.cc",
-            "Extracting include lines from tools/cpp/linkextra.cc",
-            "Compiling tools/cpp/linkextra.cc",
-            String.format(
-                "Extracting include lines from %s-out/k8-fastbuild/bin/genheader/gen.h",
-                TestConstants.PRODUCT_NAME),
-            "Executing genrule //genheader:gen_header",
-            String.format(
-                "Extracting include lines from %s-out/k8-fastbuild/bin/genheader/gen.h",
-                TestConstants.PRODUCT_NAME),
-            "Compiling genheader/consumes.cc",
-            "Linking genheader/consumes_header");
+        .containsExactlyElementsIn(
+            filterExecutedSpawnDescriptions(
+                "Executing genrule //genheader:gen_header",
+                "Extracting include lines from genheader/consumes.cc",
+                "Extracting include lines from tools/cpp/malloc.cc",
+                "Compiling tools/cpp/malloc.cc",
+                "Extracting include lines from tools/cpp/linkextra.cc",
+                "Compiling tools/cpp/linkextra.cc",
+                "Extracting include lines from blaze-out/k8-fastbuild/bin/genheader/gen.h",
+                "Executing genrule //genheader:gen_header",
+                "Extracting include lines from blaze-out/k8-fastbuild/bin/genheader/gen.h",
+                "Compiling genheader/consumes.cc",
+                "Linking genheader/consumes_header"));
 
     // Input discovery actions do not result in action lifecycle events. E.g., the "Extracting
     // [...]" action is run, but results in no ActionStartedEvent/ActionCompletionEvent/etc.
@@ -2366,9 +2324,7 @@ public class RewindingTestsHelper {
     SpawnShim shim =
         (spawn, context) -> {
           ActionInput header = getGeneratedHeaderRewoundLostInput(spawn);
-          ImmutableList<ActionInput> lostInputs = ImmutableList.of(header);
-          return createLostInputsExecException(
-              context, lostInputs, new ActionInputDepOwnerMap(lostInputs));
+          return createLostInputsExecException(context, header);
         };
 
     runGeneratedHeaderRewound_lostInActionExecution(shim);
@@ -2388,20 +2344,19 @@ public class RewindingTestsHelper {
     testCase.buildTarget("//genheader:consumes_header");
     verifyAllSpawnShimsConsumed();
     assertThat(getExecutedSpawnDescriptions())
-        .containsExactly(
-            "Executing genrule //genheader:gen_header",
-            "Extracting include lines from genheader/consumes.cc",
-            "Extracting include lines from tools/cpp/malloc.cc",
-            "Compiling tools/cpp/malloc.cc",
-            "Extracting include lines from tools/cpp/linkextra.cc",
-            "Compiling tools/cpp/linkextra.cc",
-            String.format(
-                "Extracting include lines from %s-out/k8-fastbuild/bin/genheader/gen.h",
-                TestConstants.PRODUCT_NAME),
-            "Compiling genheader/consumes.cc",
-            "Executing genrule //genheader:gen_header",
-            "Compiling genheader/consumes.cc",
-            "Linking genheader/consumes_header");
+        .containsExactlyElementsIn(
+            filterExecutedSpawnDescriptions(
+                "Executing genrule //genheader:gen_header",
+                "Extracting include lines from genheader/consumes.cc",
+                "Extracting include lines from tools/cpp/malloc.cc",
+                "Compiling tools/cpp/malloc.cc",
+                "Extracting include lines from tools/cpp/linkextra.cc",
+                "Compiling tools/cpp/linkextra.cc",
+                "Extracting include lines from blaze-out/k8-fastbuild/bin/genheader/gen.h",
+                "Compiling genheader/consumes.cc",
+                "Executing genrule //genheader:gen_header",
+                "Compiling genheader/consumes.cc",
+                "Linking genheader/consumes_header"));
 
     recorder.assertEvents(
         /* runOnce= */ ImmutableList.of("Linking genheader/consumes_header"),
@@ -2451,9 +2406,7 @@ public class RewindingTestsHelper {
     SpawnShim shim =
         (discoverySpawn, discoveryContext) -> {
           ActionInput header = getGeneratedHeaderRewoundLostInput(discoverySpawn);
-          ImmutableList<ActionInput> lostInputs = ImmutableList.of(header);
-          return createLostInputsExecException(
-              discoveryContext, lostInputs, new ActionInputDepOwnerMap(lostInputs));
+          return createLostInputsExecException(discoveryContext, header);
         };
 
     runGeneratedTransitiveHeaderRewound_lostInInputDiscovery(shim);
@@ -2471,11 +2424,7 @@ public class RewindingTestsHelper {
     // discovered during execution.
     writeGeneratedHeaderIndirectDepPackage(testCase);
 
-    addSpawnShim(
-        String.format(
-            "Extracting include lines from %s-out/k8-fastbuild/bin/genheader/gen.h",
-            TestConstants.PRODUCT_NAME),
-        shim);
+    addSpawnShim("Extracting include lines from blaze-out/k8-fastbuild/bin/genheader/gen.h", shim);
 
     List<SkyKey> rewoundKeys = collectOrderedRewoundKeys();
     testCase.buildTarget("//genheader:consumes_header");
@@ -2494,13 +2443,9 @@ public class RewindingTestsHelper {
             "Extracting include lines from tools/cpp/linkextra.cc",
             "Compiling tools/cpp/linkextra.cc",
             "Compiling genheader/intermediate.cc",
-            String.format(
-                "Extracting include lines from %s-out/k8-fastbuild/bin/genheader/gen.h",
-                TestConstants.PRODUCT_NAME),
+            "Extracting include lines from blaze-out/k8-fastbuild/bin/genheader/gen.h",
             "Executing genrule //genheader:gen_header",
-            String.format(
-                "Extracting include lines from %s-out/k8-fastbuild/bin/genheader/gen.h",
-                TestConstants.PRODUCT_NAME),
+            "Extracting include lines from blaze-out/k8-fastbuild/bin/genheader/gen.h",
             "Compiling genheader/consumes.cc",
             "Linking genheader/consumes_header");
 
@@ -2524,9 +2469,7 @@ public class RewindingTestsHelper {
     SpawnShim shim =
         (spawn, context) -> {
           ActionInput header = getGeneratedHeaderRewoundLostInput(spawn);
-          ImmutableList<ActionInput> lostInputs = ImmutableList.of(header);
-          return createLostInputsExecException(
-              context, lostInputs, new ActionInputDepOwnerMap(lostInputs));
+          return createLostInputsExecException(context, header);
         };
 
     runGeneratedTransitiveHeaderRewound_lostInActionExecution(shim);
@@ -2550,22 +2493,21 @@ public class RewindingTestsHelper {
     testCase.buildTarget("//genheader:consumes_header");
     verifyAllSpawnShimsConsumed();
     assertThat(getExecutedSpawnDescriptions())
-        .containsExactly(
-            "Executing genrule //genheader:gen_header",
-            "Extracting include lines from genheader/intermediate.cc",
-            "Extracting include lines from tools/cpp/malloc.cc",
-            "Compiling tools/cpp/malloc.cc",
-            "Extracting include lines from tools/cpp/linkextra.cc",
-            "Compiling tools/cpp/linkextra.cc",
-            "Extracting include lines from genheader/consumes.cc",
-            "Compiling genheader/intermediate.cc",
-            String.format(
-                "Extracting include lines from %s-out/k8-fastbuild/bin/genheader/gen.h",
-                TestConstants.PRODUCT_NAME),
-            "Compiling genheader/consumes.cc",
-            "Executing genrule //genheader:gen_header",
-            "Compiling genheader/consumes.cc",
-            "Linking genheader/consumes_header");
+        .containsExactlyElementsIn(
+            filterExecutedSpawnDescriptions(
+                "Executing genrule //genheader:gen_header",
+                "Extracting include lines from genheader/intermediate.cc",
+                "Extracting include lines from tools/cpp/malloc.cc",
+                "Compiling tools/cpp/malloc.cc",
+                "Extracting include lines from tools/cpp/linkextra.cc",
+                "Compiling tools/cpp/linkextra.cc",
+                "Extracting include lines from genheader/consumes.cc",
+                "Compiling genheader/intermediate.cc",
+                "Extracting include lines from blaze-out/k8-fastbuild/bin/genheader/gen.h",
+                "Compiling genheader/consumes.cc",
+                "Executing genrule //genheader:gen_header",
+                "Compiling genheader/consumes.cc",
+                "Linking genheader/consumes_header"));
 
     recorder.assertEvents(
         /* runOnce= */ ImmutableList.of(
@@ -2637,12 +2579,7 @@ public class RewindingTestsHelper {
         });
     addSpawnShim(
         "Executing genrule //foo:other",
-        (spawn, context) -> {
-          ImmutableList<ActionInput> lostInputs =
-              ImmutableList.of(SpawnInputUtils.getInputWithName(spawn, "dep.out2"));
-          return createLostInputsExecException(
-              context, lostInputs, new ActionInputDepOwnerMap(lostInputs));
-        });
+        (spawn, context) -> createLostInputsExecException(spawn, context, "dep.out2"));
     testCase.injectListenerAtStartOfNextBuild(
         (key, type, order, context) -> {
           if (isActionExecutionKey(key, fail) && type == EventType.CREATE_IF_ABSENT) {
@@ -2667,7 +2604,41 @@ public class RewindingTestsHelper {
     testCase.assertContainsError("Executing genrule //foo:fail failed");
   }
 
-  private void runFlakyActionFailsAfterRewind_raceWithIndirectConsumer() throws Exception {
+  /**
+   * Tests handling of an action that is rewound and completes with an error in between the time
+   * that a second action declares a dependency on it and consumes it during input checking, where
+   * the second action depends on the lost input indirectly (via an {@link ArtifactNestedSetKey}).
+   *
+   * <p>Targets in this test:
+   *
+   * <ul>
+   *   <li>{@code :flaky_lost}: initially executes successfully, but then gets rewound and completes
+   *       with an error.
+   *   <li>{@code :top1}: initiates rewinding on {@code :flaky_lost}.
+   *   <li>{@code :top2}: depends indirectly on {@code :flaky_lost} and observes it as an undone
+   *       input.
+   * </ul>
+   *
+   * <p>Order of events in this test:
+   *
+   * <ol>
+   *   <li>{@code :top2} requests its inputs from Skyframe, including an {@link
+   *       ArtifactNestedSetKey} containing {@code flaky_lost.out}. It is not done, so {@code :top2}
+   *       needs a Skyframe restart.
+   *   <li>The {@link ArtifactNestedSetKey} containing {@code flaky_lost.out} completes
+   *       successfully.
+   *   <li>{@code :top2} resumes after the Skyframe restart.
+   *   <li>{@code :top1} observes {@code flaky_lost.out} to be a lost input and rewinds {@code
+   *       :flaky_lost}.
+   *   <li>{@code :flaky_lost} executes a second time, and this time the action fails.
+   *   <li>{@code :top2} has no missing direct deps, but cannot look up {@code flaky_lost.out}
+   *       because its generating action failed. In order to propagate a valid root cause, it
+   *       initiates rewinding of the {@link ArtifactNestedSetKey}.
+   * </ol>
+   */
+  public final void
+      runFlakyActionFailsAfterRewind_raceWithIndirectConsumer_undoneDuringInputChecking()
+          throws Exception {
     ensureMultipleJobs();
     testCase.write(
         "foo/defs.bzl",
@@ -2716,6 +2687,40 @@ public class RewindingTestsHelper {
             cmd = "touch $@",
         )
         """);
+    CountDownLatch top2RestartedWithDoneNestedSet = new CountDownLatch(1);
+    CountDownLatch errorSet = new CountDownLatch(1);
+    addSpawnShim(
+        "Executing genrule //foo:top1",
+        (spawn, context) -> {
+          top2RestartedWithDoneNestedSet.await();
+          addSpawnShim(
+              "Executing genrule //foo:flaky_lost",
+              (spawn2, context2) ->
+                  ExecResult.ofException(
+                      new SpawnExecException(
+                          "Flaky action failure",
+                          FAILED_RESULT,
+                          /* forciblyRunRemotely= */ false,
+                          /* catastrophe= */ false)));
+          return createLostInputsExecException(spawn, context, "flaky_lost.out");
+        });
+
+    testCase.injectListenerAtStartOfNextBuild(
+        (key, type, order, context) -> {
+          if (key instanceof ArtifactNestedSetKey
+              && type == EventType.GET_BATCH
+              && order == Order.BEFORE
+              && context == Reason.PREFETCH) {
+            top2RestartedWithDoneNestedSet.countDown();
+            awaitUninterruptibly(errorSet);
+          } else if (isActionExecutionKey(key, Label.parseCanonicalUnchecked("//foo:flaky_lost"))
+              && type == EventType.SET_VALUE
+              && order == Order.AFTER
+              && ValueWithMetadata.getMaybeErrorInfo((SkyValue) context) != null) {
+            errorSet.countDown();
+          }
+        });
+
     Label top2 = Label.parseCanonical("//foo:top2");
     Label top1 = Label.parseCanonical("//foo:top1");
     Label flakyLost = Label.parseCanonical("//foo:flaky_lost");
@@ -2748,157 +2753,6 @@ public class RewindingTestsHelper {
     assertThat(rewoundKeys).isEmpty();
   }
 
-  /**
-   * Tests handling of an action that is rewound and completes with an error in between the time
-   * that a second action declares a dependency on it and consumes it during input checking, where
-   * the second action depends on the lost input indirectly (via an {@link ArtifactNestedSetKey}).
-   *
-   * <p>Targets in this test:
-   *
-   * <ul>
-   *   <li>{@code :flaky_lost}: initially executes successfully, but then gets rewound and completes
-   *       with an error.
-   *   <li>{@code :top1}: initiates rewinding on {@code :flaky_lost}.
-   *   <li>{@code :top2}: depends indirectly on {@code :flaky_lost} and observes it as an undone
-   *       input.
-   * </ul>
-   *
-   * <p>Order of events in this test:
-   *
-   * <ol>
-   *   <li>{@code :top2} requests its inputs from Skyframe, including an {@link
-   *       ArtifactNestedSetKey} containing {@code flaky_lost.out}. It is not done, so {@code :top2}
-   *       needs a Skyframe restart.
-   *   <li>The {@link ArtifactNestedSetKey} containing {@code flaky_lost.out} completes
-   *       successfully.
-   *   <li>{@code :top2} resumes after the Skyframe restart.
-   *   <li>{@code :top1} observes {@code flaky_lost.out} to be a lost input and rewinds {@code
-   *       :flaky_lost}.
-   *   <li>{@code :flaky_lost} executes a second time, and this time the action fails.
-   *   <li>{@code :top2} has no missing direct deps, but cannot look up {@code flaky_lost.out}
-   *       because its generating action failed. In order to propagate a valid root cause, it
-   *       initiates rewinding of the {@link ArtifactNestedSetKey}.
-   * </ol>
-   */
-  public final void
-      runFlakyActionFailsAfterRewind_raceWithIndirectConsumer_undoneDuringInputChecking()
-          throws Exception {
-    CountDownLatch top2RestartedWithDoneNestedSet = new CountDownLatch(1);
-    CountDownLatch errorSet = new CountDownLatch(1);
-    addSpawnShim(
-        "Executing genrule //foo:top1",
-        (spawn, context) -> {
-          top2RestartedWithDoneNestedSet.await();
-          addSpawnShim(
-              "Executing genrule //foo:flaky_lost",
-              (spawn2, context2) ->
-                  ExecResult.ofException(
-                      new SpawnExecException(
-                          "Flaky action failure",
-                          FAILED_RESULT,
-                          /* forciblyRunRemotely= */ false,
-                          /* catastrophe= */ false)));
-          ImmutableList<ActionInput> lostInputs =
-              ImmutableList.of(SpawnInputUtils.getInputWithName(spawn, "flaky_lost.out"));
-          return createLostInputsExecException(
-              context, lostInputs, new ActionInputDepOwnerMap(lostInputs));
-        });
-
-    testCase.injectListenerAtStartOfNextBuild(
-        (key, type, order, context) -> {
-          if (key instanceof ArtifactNestedSetKey
-              && type == EventType.GET_BATCH
-              && order == Order.BEFORE
-              && context == Reason.PREFETCH) {
-            top2RestartedWithDoneNestedSet.countDown();
-            awaitUninterruptibly(errorSet);
-          } else if (isActionExecutionKey(key, Label.parseCanonicalUnchecked("//foo:flaky_lost"))
-              && type == EventType.SET_VALUE
-              && order == Order.AFTER
-              && ValueWithMetadata.getMaybeErrorInfo((SkyValue) context) != null) {
-            errorSet.countDown();
-          }
-        });
-
-    runFlakyActionFailsAfterRewind_raceWithIndirectConsumer();
-  }
-
-  /**
-   * Tests handling of an action that is rewound and completes with an error in between the time
-   * that a second action observes it to be lost and attempts to look it up during lost input
-   * handling, where the second action depends on the lost input indirectly (via an {@link
-   * ArtifactNestedSetKey}).
-   *
-   * <p>Targets in this test:
-   *
-   * <ul>
-   *   <li>{@code :flaky_lost}: initially executes successfully, but then gets rewound and completes
-   *       with an error.
-   *   <li>{@code :top1}: initiates rewinding on {@code :flaky_lost}.
-   *   <li>{@code :top2}: depends indirectly on {@code :flaky_lost} and observes it as an undone
-   *       input.
-   * </ul>
-   *
-   * <p>Order of events in this test:
-   *
-   * <ol>
-   *   <li>{@code :top2} requests its inputs from Skyframe, including an {@link
-   *       ArtifactNestedSetKey} containing {@code flaky_lost.out}. All are done, so it begins to
-   *       execute, and observes {@code flaky_lost.out} to be lost.
-   *   <li>{@code :top1} observes {@code flaky_lost.out} to be a lost input and rewinds {@code
-   *       :flaky_lost}.
-   *   <li>{@code :flaky_lost} executes a second time, and this time the action fails.
-   *   <li>{@code :top2} attempts to handle lost inputs by initiating rewinding, but this requires
-   *       looking up {@code flaky_lost.out}, which is undone.
-   * </ol>
-   */
-  public final void
-      runFlakyActionFailsAfterRewind_raceWithIndirectConsumer_undoneDuringLostInputHandling()
-          throws Exception {
-    CountDownLatch top2Executing = new CountDownLatch(1);
-    CountDownLatch errorSet = new CountDownLatch(1);
-    addSpawnShim(
-        "Executing genrule //foo:top1",
-        (spawn, context) -> {
-          top2Executing.await();
-          addSpawnShim(
-              "Executing genrule //foo:flaky_lost",
-              (spawn2, context2) ->
-                  ExecResult.ofException(
-                      new SpawnExecException(
-                          "Flaky action failure",
-                          FAILED_RESULT,
-                          /* forciblyRunRemotely= */ false,
-                          /* catastrophe= */ false)));
-          ImmutableList<ActionInput> lostInputs =
-              ImmutableList.of(SpawnInputUtils.getInputWithName(spawn, "flaky_lost.out"));
-          return createLostInputsExecException(
-              context, lostInputs, new ActionInputDepOwnerMap(lostInputs));
-        });
-    addSpawnShim(
-        "Action foo/top2.out",
-        (spawn, context) -> {
-          top2Executing.countDown();
-          awaitUninterruptibly(errorSet);
-          ImmutableList<ActionInput> lostInputs =
-              ImmutableList.of(SpawnInputUtils.getInputWithName(spawn, "flaky_lost.out"));
-          return createLostInputsExecException(
-              context, lostInputs, new ActionInputDepOwnerMap(lostInputs));
-        });
-
-    testCase.injectListenerAtStartOfNextBuild(
-        (key, type, order, context) -> {
-          if (isActionExecutionKey(key, Label.parseCanonicalUnchecked("//foo:flaky_lost"))
-              && type == EventType.SET_VALUE
-              && order == Order.AFTER
-              && ValueWithMetadata.getMaybeErrorInfo((SkyValue) context) != null) {
-            errorSet.countDown();
-          }
-        });
-
-    runFlakyActionFailsAfterRewind_raceWithIndirectConsumer();
-  }
-
   public void runDiscoveredCppModuleLost() throws Exception {
     testCase.write(
         "foo/BUILD",
@@ -2928,10 +2782,7 @@ public class RewindingTestsHelper {
         (spawn, context) -> {
           ActionInput lostInput = SpawnInputUtils.getInputWithName(spawn, "dep.pic.pcm");
           depPcm.set((Artifact) lostInput);
-          return createLostInputsExecException(
-              context,
-              ImmutableList.of(lostInput),
-              new ActionInputDepOwnerMap(ImmutableList.of(lostInput)));
+          return createLostInputsExecException(context, lostInput);
         });
     List<SkyKey> rewoundKeys = collectOrderedRewoundKeys();
 
@@ -3279,16 +3130,17 @@ public class RewindingTestsHelper {
     ActionExecutionValue actionExecutionValue =
         (ActionExecutionValue)
             testCase.getSkyframeExecutor().getEvaluator().getExistingValue(rewoundKeys.get(0));
-    byte[] lostDigest =
+    var lostInput =
         actionExecutionValue.getAllFileValues().entrySet().stream()
             .filter(entry -> entry.getKey().getRootRelativePathString().equals("foo/lost.out"))
-            .map(entry -> entry.getValue().getDigest())
+            .map(Map.Entry::getValue)
             .collect(onlyElement());
     String expectedError =
         String.format(
             "Lost output foo/lost.out (digest %s), and rewinding was ineffective after %d"
                 + " attempts.",
-            toHex(lostDigest), ActionRewindStrategy.MAX_REPEATED_LOST_INPUTS);
+            toHex(lostInput.getDigest(), lostInput.getSize()),
+            ActionRewindStrategy.MAX_REPEATED_LOST_INPUTS);
     testCase.assertContainsError(expectedError);
     assertThat(e.getDetailedExitCode().getFailureDetail().getMessage()).contains(expectedError);
     assertThat(Iterables.getOnlyElement(bugReporter.getExceptions()))

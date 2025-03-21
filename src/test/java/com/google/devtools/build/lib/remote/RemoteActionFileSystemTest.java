@@ -96,15 +96,12 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
     REMOTE;
 
     FileSystem getFilesystem(RemoteActionFileSystem actionFs) {
-      switch (this) {
-        case LOCAL:
-          return actionFs.getLocalFileSystem();
-        case REMOTE:
-          return actionFs.getRemoteOutputTree();
-      }
-      throw new IllegalStateException();
+      return switch (this) {
+        case LOCAL -> actionFs.getLocalFileSystem();
+        case REMOTE -> actionFs.getRemoteOutputTree();
+      };
     }
-  };
+  }
 
   @Before
   public void setUp() throws IOException {
@@ -893,7 +890,7 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
     assertReaddirThrows(actionFs, path, /* followSymlinks= */ true);
   }
 
-  private void assertReaddir(
+  private static void assertReaddir(
       RemoteActionFileSystem actionFs,
       PathFragment dirPath,
       boolean followSymlinks,
@@ -905,9 +902,8 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
             stream(expected).map(Dirent::getName).collect(toImmutableList()));
   }
 
-  private void assertReaddirThrows(
-      RemoteActionFileSystem actionFs, PathFragment dirPath, boolean followSymlinks)
-      throws Exception {
+  private static void assertReaddirThrows(
+      RemoteActionFileSystem actionFs, PathFragment dirPath, boolean followSymlinks) {
     assertThrows(IOException.class, () -> actionFs.readdir(dirPath, followSymlinks));
     assertThrows(IOException.class, () -> actionFs.getDirectoryEntries(dirPath));
   }
@@ -1018,7 +1014,7 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
     // an unrealistic scenario, as symlinks are always materialized even when produced remotely.
     Path symlinkPath = getLocalFileSystem(actionFs).getPath(symlink.getPath().getPathString());
     symlinkPath.createSymbolicLink(targetPath);
-    inputs.putWithNoDepOwner(symlink, FileArtifactValue.createForUnresolvedSymlink(symlinkPath));
+    inputs.put(symlink, FileArtifactValue.createForUnresolvedSymlink(symlinkPath));
     symlinkPath.delete();
 
     assertThat(actionFs.readSymbolicLink(getOutputPath("symlink"))).isEqualTo(targetPath);
@@ -1353,7 +1349,7 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
             Utf8.encodedLength(content),
             /* locationIndex= */ 1,
             /* expirationTime= */ null);
-    inputs.putWithNoDepOwner(a, f);
+    inputs.put(a, f);
     return a;
   }
 
@@ -1362,7 +1358,7 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
       String pathFragment, Map<String, String> contentMap, ActionInputMap inputs) {
     SpecialArtifact a =
         ActionsTestUtil.createTreeArtifactWithGeneratingAction(outputRoot, pathFragment);
-    inputs.putTreeArtifact(a, createRemoteTreeArtifactValue(a, contentMap), /* depOwner= */ null);
+    inputs.putTreeArtifact(a, createRemoteTreeArtifactValue(a, contentMap));
     return a;
   }
 
@@ -1393,7 +1389,7 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
     // Caution: there's a race condition between stating the file and computing the
     // digest. We need to stat first, since we're using the stat to detect changes.
     // We follow symlinks here to be consistent with getDigest.
-    inputs.putWithNoDepOwner(
+    inputs.put(
         a,
         FileArtifactValue.createFromStat(path, path.stat(Symlinks.FOLLOW), SyscallCache.NO_CACHE));
     return a;
@@ -1413,11 +1409,11 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
     }
     SpecialArtifact a =
         ActionsTestUtil.createTreeArtifactWithGeneratingAction(outputRoot, pathFragment);
-    inputs.putTreeArtifact(a, createLocalTreeArtifactValue(a, contentMap), /* depOwner= */ null);
+    inputs.putTreeArtifact(a, createLocalTreeArtifactValue(a, contentMap));
     return a;
   }
 
-  private TreeArtifactValue createLocalTreeArtifactValue(
+  private static TreeArtifactValue createLocalTreeArtifactValue(
       SpecialArtifact a, Map<String, String> contentMap) throws IOException {
     TreeArtifactValue.Builder builder = TreeArtifactValue.newBuilder(a);
     for (String name : contentMap.keySet()) {

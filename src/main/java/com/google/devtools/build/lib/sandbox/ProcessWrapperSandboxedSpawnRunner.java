@@ -36,7 +36,6 @@ final class ProcessWrapperSandboxedSpawnRunner extends AbstractSandboxSpawnRunne
     return OS.isPosixCompatible() && ProcessWrapper.fromCommandEnvironment(cmdEnv) != null;
   }
 
-  private final SandboxHelpers helpers;
   private final ProcessWrapper processWrapper;
   private final Path execRoot;
   private final Path sandboxBase;
@@ -46,17 +45,12 @@ final class ProcessWrapperSandboxedSpawnRunner extends AbstractSandboxSpawnRunne
   /**
    * Creates a sandboxed spawn runner that uses the {@code process-wrapper} tool.
    *
-   * @param helpers common tools and state across all spawns during sandboxed execution
    * @param cmdEnv the command environment to use
    * @param sandboxBase path to the sandbox base directory
    */
   ProcessWrapperSandboxedSpawnRunner(
-      SandboxHelpers helpers,
-      CommandEnvironment cmdEnv,
-      Path sandboxBase,
-      TreeDeleter treeDeleter) {
+      CommandEnvironment cmdEnv, Path sandboxBase, TreeDeleter treeDeleter) {
     super(cmdEnv);
-    this.helpers = helpers;
     this.processWrapper = ProcessWrapper.fromCommandEnvironment(cmdEnv);
     this.execRoot = cmdEnv.getExecRoot();
     this.localEnvProvider = LocalEnvProvider.forCurrentOs(cmdEnv.getClientEnv());
@@ -94,10 +88,10 @@ final class ProcessWrapperSandboxedSpawnRunner extends AbstractSandboxSpawnRunne
     commandLineBuilder.setStatisticsPath(statisticsPath.asFragment());
 
     SandboxInputs inputs =
-        helpers.processInputFiles(
+        SandboxHelpers.processInputFiles(
             context.getInputMapping(PathFragment.EMPTY_FRAGMENT, /* willAccessRepeatedly= */ true),
             execRoot);
-    SandboxOutputs outputs = helpers.getOutputs(spawn);
+    SandboxOutputs outputs = SandboxHelpers.getOutputs(spawn);
 
     return new SymlinkedSandboxedSpawn(
         sandboxPath,

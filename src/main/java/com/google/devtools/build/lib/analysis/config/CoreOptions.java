@@ -200,7 +200,11 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       converter = AutoCpuConverter.class,
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.CHANGES_INPUTS, OptionEffectTag.AFFECTS_OUTPUTS},
-      help = "The target CPU.")
+      // Don't set an actual deprecation notice: this is still heavily used and will be ignored.
+      help =
+          "Deprecated: this flag is not used internally by Blaze although there are legacy platform"
+              + " mappings to allow for backwards compatibility. Do not use this flag, instead use"
+              + " --platforms with an appropriate platform definition.")
   public String cpu;
 
   @Option(
@@ -833,7 +837,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
 
   @Option(
       name = "incompatible_bazel_test_exec_run_under",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
       effectTags = {
         OptionEffectTag.AFFECTS_OUTPUTS,
@@ -876,9 +880,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
       metadataTags = OptionMetadataTag.EXPERIMENTAL,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.EXECUTION},
-      help =
-          "Whether to make direct filesystem calls to create symlink trees instead of delegating"
-              + " to a helper process.")
+      help = "No-op.")
   public boolean inProcessSymlinkCreation;
 
   @Option(
@@ -935,6 +937,17 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       effectTags = {OptionEffectTag.EXECUTION},
       help = "Whether to throttle the check whether an action is cached.")
   public boolean throttleActionCacheCheck;
+
+  // This cannot be in TestOptions since the default test toolchain needs to be enabled
+  // conditionally based on its value and test trimming would drop it when evaluating the toolchain
+  // target.
+  @Option(
+      name = "use_target_platform_for_tests",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help = "If true, use the target platform for running tests rather than the test exec group.")
+  public boolean useTargetPlatformForTests;
 
   /** Ways configured targets may provide the {@link Fragment}s they require. */
   public enum IncludeConfigFragmentsEnum {

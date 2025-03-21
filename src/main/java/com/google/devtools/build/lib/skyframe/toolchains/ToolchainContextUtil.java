@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.analysis.starlark.StarlarkExecGroupCollecti
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.DeclaredExecGroup;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
@@ -68,8 +69,8 @@ public final class ToolchainContextUtil {
             rule, platformConfig, toolchainTypes, useAutoExecGroups);
 
     var processedExecGroups =
-        ExecGroupCollection.process(
-            ruleClass.getExecGroups(),
+        DeclaredExecGroup.process(
+            ruleClass.getDeclaredExecGroups(),
             defaultExecConstraintLabels,
             perExecGroupExecConstraintLabels,
             toolchainTypes,
@@ -185,7 +186,8 @@ public final class ToolchainContextUtil {
 
     var packageContext =
         Label.PackageContext.of(
-            rule.getPackage().getPackageIdentifier(), rule.getPackage().getRepositoryMapping());
+            rule.getPackageMetadata().packageIdentifier(),
+            rule.getPackageMetadata().repositoryMapping());
     for (var entry :
         mapper
             .get(RuleClass.EXEC_GROUP_COMPATIBLE_WITH_ATTR, BuildType.LABEL_LIST_DICT)
@@ -193,12 +195,12 @@ public final class ToolchainContextUtil {
       String canonicalKey;
       if (StarlarkExecGroupCollection.isValidGroupName(entry.getKey())) {
         canonicalKey = entry.getKey();
-        if (!rule.getRuleClassObject().getExecGroups().containsKey(canonicalKey)) {
+        if (!rule.getRuleClassObject().getDeclaredExecGroups().containsKey(canonicalKey)) {
           throw new ExecGroupCollection.InvalidExecGroupException(
               "execution constraints",
               rule.getDisplayFormLabel(),
               ImmutableSet.of(canonicalKey),
-              rule.getRuleClassObject().getExecGroups().keySet());
+              rule.getRuleClassObject().getDeclaredExecGroups().keySet());
         }
       } else if (useAutoExecGroups) {
         Label label;
@@ -220,7 +222,7 @@ public final class ToolchainContextUtil {
             suggestedLabels =
                 toolchainTypes.stream()
                     .map(ToolchainTypeRequirement::toolchainType)
-                    .map(type -> type.getDisplayForm(rule.getPackage().getRepositoryMapping()))
+                    .map(type -> type.getDisplayForm(rule.getPackageMetadata().repositoryMapping()))
                     .collect(toImmutableSet());
           }
           throw new ExecGroupCollection.InvalidExecGroupException(

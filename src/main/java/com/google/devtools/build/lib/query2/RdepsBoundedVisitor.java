@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.query2.ParallelVisitorUtils.ParallelQueryVi
 import com.google.devtools.build.lib.query2.ParallelVisitorUtils.QueryVisitorFactory;
 import com.google.devtools.build.lib.query2.engine.Callback;
 import com.google.devtools.build.lib.query2.engine.MinDepthUniquifier;
+import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.util.HashMap;
 import java.util.Map;
@@ -89,24 +90,25 @@ class RdepsBoundedVisitor extends AbstractTargetOuputtingVisitor<DepAndRdepAtDep
 
   @Override
   protected Visit getVisitResult(Iterable<DepAndRdepAtDepth> depAndRdepAtDepths)
-      throws InterruptedException {
+      throws InterruptedException, QueryException {
     Map<SkyKey, Integer> shallowestRdepDepthMap = new HashMap<>();
     depAndRdepAtDepths.forEach(
         depAndRdepAtDepth ->
             shallowestRdepDepthMap.merge(
                 depAndRdepAtDepth.depAndRdep.rdep, depAndRdepAtDepth.rdepDepth, Integer::min));
 
-    ImmutableList<SkyKey> uniqueValidRdeps =
-        Streams.stream(
-                RdepsVisitorUtils.getMaybeFilteredRdeps(
-                    Iterables.transform(
-                        depAndRdepAtDepths, depAndRdepAtDepth -> depAndRdepAtDepth.depAndRdep),
-                    env))
-            .filter(
-                validRdep ->
-                    validRdepMinDepthUniquifier.uniqueAtDepthLessThanOrEqualTo(
-                        validRdep, shallowestRdepDepthMap.get(validRdep)))
-            .collect(ImmutableList.toImmutableList());
+    ImmutableList.Builder<SkyKey> uniqueValidRdepsBuilder = ImmutableList.builder();
+    for (SkyKey validRdep :
+        RdepsVisitorUtils.getMaybeFilteredRdeps(
+            Iterables.transform(
+                depAndRdepAtDepths, depAndRdepAtDepth -> depAndRdepAtDepth.depAndRdep),
+            env)) {
+      if (validRdepMinDepthUniquifier.uniqueAtDepthLessThanOrEqualTo(
+          validRdep, shallowestRdepDepthMap.get(validRdep))) {
+        uniqueValidRdepsBuilder.add(validRdep);
+      }
+    }
+    ImmutableList<SkyKey> uniqueValidRdeps = uniqueValidRdepsBuilder.build();
 
     // Don't bother getting the rdeps of the rdeps that are already at the depth bound.
     Iterable<SkyKey> uniqueValidRdepsBelowDepthBound =

@@ -155,6 +155,7 @@ public final class Resolver extends NodeVisitor {
     private final String name;
     private final Location location;
     private final ImmutableList<Parameter> params;
+    @Nullable private final Expression returnType;
     private final ImmutableList<Statement> body;
     private final boolean hasVarargs;
     private final boolean hasKwargs;
@@ -170,6 +171,7 @@ public final class Resolver extends NodeVisitor {
         String name,
         Location loc,
         ImmutableList<Parameter> params,
+        @Nullable Expression returnType,
         ImmutableList<Statement> body,
         boolean hasVarargs,
         boolean hasKwargs,
@@ -180,6 +182,7 @@ public final class Resolver extends NodeVisitor {
       this.name = name;
       this.location = loc;
       this.params = params;
+      this.returnType = returnType;
       this.body = body;
       this.hasVarargs = hasVarargs;
       this.hasKwargs = hasKwargs;
@@ -282,6 +285,11 @@ public final class Resolver extends NodeVisitor {
      */
     public ImmutableList<Parameter> getParameters() {
       return params;
+    }
+
+    @Nullable
+    public Expression getReturnType() {
+      return returnType;
     }
 
     /**
@@ -918,6 +926,7 @@ public final class Resolver extends NodeVisitor {
         name,
         loc,
         params.build(),
+        syntax instanceof DefStatement def ? def.getReturnType() : null,
         body,
         star != null && star.getIdentifier() != null,
         starStar != null,
@@ -1099,13 +1108,14 @@ public final class Resolver extends NodeVisitor {
         new Function(
             "<toplevel>",
             file.getStartLocation(),
-            /*params=*/ ImmutableList.of(),
-            /*body=*/ stmts,
-            /*hasVarargs=*/ false,
-            /*hasKwargs=*/ false,
-            /*numKeywordOnlyParams=*/ 0,
+            /* params= */ ImmutableList.of(),
+            /* returnType= */ null,
+            /* body= */ stmts,
+            /* hasVarargs= */ false,
+            /* hasKwargs= */ false,
+            /* numKeywordOnlyParams= */ 0,
             frame,
-            /*freevars=*/ ImmutableList.of(),
+            /* freevars= */ ImmutableList.of(),
             r.globals));
   }
 
@@ -1132,13 +1142,14 @@ public final class Resolver extends NodeVisitor {
     return new Function(
         "<expr>",
         expr.getStartLocation(),
-        /*params=*/ ImmutableList.of(),
+        /* params= */ ImmutableList.of(),
+        /* returnType= */ null,
         ImmutableList.of(ReturnStatement.make(expr)),
-        /*hasVarargs=*/ false,
-        /*hasKwargs=*/ false,
-        /*numKeywordOnlyParams=*/ 0,
+        /* hasVarargs= */ false,
+        /* hasKwargs= */ false,
+        /* numKeywordOnlyParams= */ 0,
         frame,
-        /*freevars=*/ ImmutableList.of(),
+        /* freevars= */ ImmutableList.of(),
         r.globals);
   }
 

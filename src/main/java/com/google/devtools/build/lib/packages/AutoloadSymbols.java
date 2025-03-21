@@ -96,6 +96,9 @@ public class AutoloadSymbols {
   private final boolean bzlmodEnabled;
   private final boolean autoloadsEnabled;
 
+  // Should the autoloads be disabled in root project (main repository)
+  private final boolean disableAutoloadsInMainRepo;
+
   // Configuration of  --incompatible_load_externally
   public static final Precomputed<AutoloadSymbols> AUTOLOAD_SYMBOLS =
       new Precomputed<>("autoload_symbols");
@@ -104,6 +107,8 @@ public class AutoloadSymbols {
     ImmutableList<String> symbolConfiguration =
         ImmutableList.copyOf(semantics.get(BuildLanguageOptions.INCOMPATIBLE_AUTOLOAD_EXTERNALLY));
     this.bzlmodEnabled = semantics.getBool(BuildLanguageOptions.ENABLE_BZLMOD);
+    this.disableAutoloadsInMainRepo =
+        semantics.getBool(BuildLanguageOptions.INCOMPATIBLE_DISABLE_AUTOLOADS_IN_MAIN_REPO);
     this.autoloadsEnabled = !symbolConfiguration.isEmpty();
 
     if (!autoloadsEnabled) {
@@ -224,18 +229,33 @@ public class AutoloadSymbols {
   }
 
   /** Returns the environment for BzlCompile function */
-  public ImmutableMap<String, Object> getUninjectedBuildBzlEnv(@Nullable Label key) {
-    return autoloadsDisabledForRepo(key)
+  public ImmutableMap<String, Object> getUninjectedBuildBzlEnv(
+      @Nullable RepositoryName repository) {
+    return autoloadsDisabledInBzlForRepo(repository)
         ? uninjectedBuildBzlEnvWithoutAutoloads
         : uninjectedBuildBzlEnvWithAutoloads;
   }
 
-  /** Check if autoloads shouldn't be used. */
-  public boolean autoloadsDisabledForRepo(@Nullable Label key) {
+  /** Check if autoloads shouldn't be used for specific repository in bzl files. */
+  public boolean autoloadsDisabledInBzlForRepo(@Nullable RepositoryName repository) {
     if (!autoloadsEnabled) {
       return true;
     }
-    return key == null || autoloadsDisabledForRepo(key.getRepository().getName());
+    if (disableAutoloadsInMainRepo && (repository != null && repository.isMain())) {
+      return true;
+    }
+    return repository == null || autoloadsDisabledForRepo(repository.getName());
+  }
+
+  /** Check if autoloads shouldn't be used for specific repository in BUILD files. */
+  public boolean autoloadsDisabledInBuildForRepo(@Nullable RepositoryName repository) {
+    if (!autoloadsEnabled) {
+      return true;
+    }
+    if (disableAutoloadsInMainRepo && repository.isMain()) {
+      return true;
+    }
+    return false;
   }
 
   /**
@@ -581,7 +601,8 @@ public class AutoloadSymbols {
         autoloadedSymbols,
         removedSymbols,
         partiallyRemovedSymbols,
-        reposDisallowingAutoloads);
+        reposDisallowingAutoloads,
+        disableAutoloadsInMainRepo);
   }
 
   @Override
@@ -596,7 +617,8 @@ public class AutoloadSymbols {
           && this.autoloadedSymbols.equals(other.autoloadedSymbols)
           && this.removedSymbols.equals(other.removedSymbols)
           && this.partiallyRemovedSymbols.equals(other.partiallyRemovedSymbols)
-          && this.reposDisallowingAutoloads.equals(other.reposDisallowingAutoloads);
+          && this.reposDisallowingAutoloads.equals(other.reposDisallowingAutoloads)
+          && this.disableAutoloadsInMainRepo == other.disableAutoloadsInMainRepo;
     }
     return false;
   }

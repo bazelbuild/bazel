@@ -27,8 +27,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
-import com.google.common.eventbus.EventBus;
-import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.remote.CombinedCache.CachedActionResult;
 import com.google.devtools.build.lib.remote.common.RemoteExecutionClient;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
@@ -69,8 +67,7 @@ public class RemoteRepositoryRemoteExecutorTest {
             "none",
             "none",
             /* remoteInstanceName= */ "foo",
-            /* acceptCached= */ true,
-            new Reporter(new EventBus()));
+            /* acceptCached= */ true);
   }
 
   @Test

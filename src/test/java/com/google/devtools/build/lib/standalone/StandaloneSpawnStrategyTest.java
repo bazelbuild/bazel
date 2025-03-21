@@ -138,7 +138,6 @@ public class StandaloneSpawnStrategyTest {
     BinTools binTools = BinTools.forIntegrationTesting(directories, ImmutableList.of());
     StandaloneSpawnStrategy strategy =
         new StandaloneSpawnStrategy(
-            execRoot,
             new LocalSpawnRunner(
                 execRoot,
                 localExecutionOptions,
@@ -149,7 +148,7 @@ public class StandaloneSpawnStrategyTest {
                 Mockito.mock(RunfilesTreeUpdater.class)),
             new ExecutionOptions());
     this.executor =
-        new TestExecutorBuilder(fileSystem, directories, binTools)
+        new TestExecutorBuilder(fileSystem, directories)
             .addStrategy(strategy, "standalone")
             .setDefaultStrategies("standalone")
             .build();
@@ -204,10 +203,8 @@ public class StandaloneSpawnStrategyTest {
         outErr,
         reporter,
         /* clientEnv= */ ImmutableMap.of(),
-        /* topLevelFilesets= */ ImmutableMap.of(),
         treeArtifact -> ImmutableSortedSet.of(),
         /* actionFileSystem= */ null,
-        /* skyframeDepsResult= */ null,
         DiscoveredModulesPruner.DEFAULT,
         SyscallCache.NO_CACHE,
         ThreadStateReceiver.NULL_INSTANCE);

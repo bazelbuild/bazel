@@ -34,14 +34,14 @@ public class ConfigurationMakeVariableContext implements TemplateContext {
   private final ImmutableList<? extends MakeVariableSupplier> allMakeVariableSuppliers;
 
   public ConfigurationMakeVariableContext(
-      Package pkg,
+      Package.Declarations pkgDeclarations,
       BuildConfigurationValue configuration,
       ImmutableList<TemplateVariableInfo> ruleTemplateVariableProviders) {
-    this(pkg, configuration, ruleTemplateVariableProviders, ImmutableList.of());
+    this(pkgDeclarations, configuration, ruleTemplateVariableProviders, ImmutableList.of());
   }
 
   public ConfigurationMakeVariableContext(
-      Package pkg,
+      Package.Declarations pkgDeclarations,
       BuildConfigurationValue configuration,
       ImmutableList<TemplateVariableInfo> ruleTemplateVariableProviders,
       Iterable<? extends MakeVariableSupplier> extraMakeVariableSuppliers) {
@@ -55,7 +55,7 @@ public class ConfigurationMakeVariableContext implements TemplateContext {
             // 5) variables from the global configuration
             .addAll(Preconditions.checkNotNull(extraMakeVariableSuppliers))
             .add(new MapBackedMakeVariableSupplier(configuration.getCommandLineBuildVariables()))
-            .add(new MapBackedMakeVariableSupplier(pkg.getMakeEnvironment()))
+            .add(new MapBackedMakeVariableSupplier(pkgDeclarations.getMakeEnvironment()))
             .add(new TemplateVariableInfoBackedMakeVariableSupplier(ruleTemplateVariableProviders))
             .add(new MapBackedMakeVariableSupplier(configuration.getGlobalMakeEnvironment()))
             .build();

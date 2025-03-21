@@ -229,7 +229,7 @@ public class CcStarlarkInternal implements StarlarkValue {
     return starlarkRuleContext
         .getRuleContext()
         .getRule()
-        .getPackage()
+        .getPackageDeclarations()
         .getPackageArgs()
         .isDefaultHdrsCheckSet();
   }
@@ -242,7 +242,7 @@ public class CcStarlarkInternal implements StarlarkValue {
     return starlarkRuleContext
         .getRuleContext()
         .getRule()
-        .getPackage()
+        .getPackageDeclarations()
         .getPackageArgs()
         .getDefaultHdrsCheck();
   }
@@ -256,7 +256,7 @@ public class CcStarlarkInternal implements StarlarkValue {
     return starlarkRuleContext
         .getRuleContext()
         .getTarget()
-        .getPackage()
+        .getPackageDeclarations()
         .getPackageArgs()
         .isDefaultHdrsCheckSet();
   }
@@ -270,7 +270,7 @@ public class CcStarlarkInternal implements StarlarkValue {
     return starlarkRuleContext
         .getRuleContext()
         .getTarget()
-        .getPackage()
+        .getPackageDeclarations()
         .getPackageArgs()
         .getDefaultHdrsCheck();
   }

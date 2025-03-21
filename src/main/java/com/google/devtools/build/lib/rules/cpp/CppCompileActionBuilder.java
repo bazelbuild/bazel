@@ -48,7 +48,7 @@ public final class CppCompileActionBuilder {
   private boolean shareable;
   private final BuildConfigurationValue configuration;
   private CcToolchainFeatures.FeatureConfiguration featureConfiguration;
-  private CcToolchainVariables variables = CcToolchainVariables.EMPTY;
+  private CcToolchainVariables variables = CcToolchainVariables.empty();
   private Artifact sourceFile;
   private final NestedSetBuilder<Artifact> mandatoryInputsBuilder;
   private Artifact outputFile;
@@ -276,7 +276,7 @@ public final class CppCompileActionBuilder {
 
     NestedSet<Artifact> realMandatorySpawnInputs = buildMandatoryInputs();
     NestedSet<Artifact> realMandatoryInputs =
-        new NestedSetBuilder<Artifact>(Order.STABLE_ORDER)
+        NestedSet.<Artifact>builder(Order.STABLE_ORDER)
             .addTransitive(realMandatorySpawnInputs)
             .addTransitive(cacheKeyInputs)
             .build();

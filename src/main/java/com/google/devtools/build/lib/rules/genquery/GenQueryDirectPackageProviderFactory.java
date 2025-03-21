@@ -156,6 +156,7 @@ public class GenQueryDirectPackageProviderFactory implements GenQueryPackageProv
    * traversal.
    */
   private static class ScopeTraversal implements SkyKeyComputeState {
+    // TODO(https://github.com/bazelbuild/bazel/issues/23852): support lazy macro expansion
     private final LinkedHashMap<PackageIdentifier, Package> collectedPackages =
         new LinkedHashMap<>();
     private final LinkedHashMap<Label, Target> collectedTargets = new LinkedHashMap<>();

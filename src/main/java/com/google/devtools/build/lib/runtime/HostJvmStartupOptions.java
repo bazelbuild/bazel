@@ -49,18 +49,16 @@ public class HostJvmStartupOptions extends OptionsBase {
   public List<String> hostJvmArgs;
 
   @Option(
-    name = "host_jvm_debug",
-    defaultValue = "null", // NOTE: purely decorative!  See BlazeServerStartupOptions.
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help =
-        "Convenience option to add some additional JVM startup flags, which cause "
-            + "the JVM to wait during startup until you connect from a JDWP-compliant debugger "
-            + "(like Eclipse) to port 5005.",
-    expansion = {
-      "--host_jvm_args=-Xdebug",
-      "--host_jvm_args=-Xrunjdwp:transport=dt_socket,server=y,address=5005",
-    }
-  )
+      name = "host_jvm_debug",
+      defaultValue = "null", // NOTE: purely decorative!  See BlazeServerStartupOptions.
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Convenience option to add some additional JVM startup flags, which cause "
+              + "the JVM to wait during startup until you connect from a JDWP-compliant debugger "
+              + "(like Eclipse) to port 5005.",
+      expansion = {
+        "--host_jvm_args=-agentlib:jdwp=transport=dt_socket,server=y,address=5005",
+      })
   public Void hostJvmDebug;
 }

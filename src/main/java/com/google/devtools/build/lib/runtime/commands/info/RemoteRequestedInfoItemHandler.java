@@ -24,19 +24,22 @@ import com.google.protobuf.ByteString;
 import com.google.protobuf.TextFormat;
 import java.io.IOException;
 
+/** Collects {@link InfoItem}s and sends them to the remote client via response extensions. */
 class RemoteRequestedInfoItemHandler implements InfoItemHandler {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private final CommandEnvironment env;
   private final ImmutableList.Builder<InfoItem> infoItemsBuilder;
+  private final boolean printKeys;
 
-  RemoteRequestedInfoItemHandler(CommandEnvironment env) {
+  RemoteRequestedInfoItemHandler(CommandEnvironment env, boolean printKeys) {
     this.env = env;
     this.infoItemsBuilder = ImmutableList.builder();
+    this.printKeys = printKeys;
   }
 
   @Override
-  public void addInfoItem(String key, byte[] value, boolean printKeys) {
+  public void addInfoItem(String key, byte[] value) {
     infoItemsBuilder.add(
         InfoItem.newBuilder().setKey(key).setValue(ByteString.copyFrom(value)).build());
   }
@@ -48,6 +51,7 @@ class RemoteRequestedInfoItemHandler implements InfoItemHandler {
         InfoResponse.newBuilder()
             .addAllPathToReplace(PathToReplaceUtils.getPathsToReplace(env))
             .addAllInfoItem(infoItems)
+            .setPrintKeys(printKeys)
             .build();
 
     logger.atFine().log(

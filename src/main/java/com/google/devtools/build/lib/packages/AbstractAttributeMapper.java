@@ -149,7 +149,7 @@ public abstract class AbstractAttributeMapper implements AttributeMap {
 
   @Override
   public PackageArgs getPackageArgs() {
-    return rule.getPackage().getPackageArgs();
+    return rule.getPackageDeclarations().getPackageArgs();
   }
 
   @Override

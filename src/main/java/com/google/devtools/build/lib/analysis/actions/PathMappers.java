@@ -17,7 +17,7 @@ package com.google.devtools.build.lib.analysis.actions;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.AbstractAction;
-import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactExpander;
@@ -64,7 +64,8 @@ public final class PathMappers {
 
   /**
    * Actions that support path mapping should call this method from {@link
-   * Action#getKey(ActionKeyContext, ArtifactExpander)}.
+   * ActionAnalysisMetadata#getKey(ActionKeyContext,
+   * com.google.devtools.build.lib.actions.InputMetadataProvider)}.
    *
    * <p>Compared to {@link #create}, this method does not flatten nested sets and thus can't result
    * in memory regressions.
@@ -107,7 +108,9 @@ public final class PathMappers {
    * executed in the analysis phase.
    *
    * <p>Actions calling this method should also call {@link #addToFingerprint} from {@link
-   * Action#getKey(ActionKeyContext, ArtifactExpander)} to ensure correct incremental builds.
+   * ActionAnalysisMetadata#getKey(ActionKeyContext,
+   * com.google.devtools.build.lib.actions.InputMetadataProvider)} to ensure correct incremental
+   * builds.
    *
    * @param action the {@link AbstractAction} for which a {@link Spawn} is to be created
    * @param outputPathsMode the value of {@link CoreOptions#outputPathsMode}

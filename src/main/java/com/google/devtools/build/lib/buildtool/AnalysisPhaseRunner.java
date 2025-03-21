@@ -87,6 +87,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
+import javax.annotation.Nullable;
 
 /** Performs target pattern eval, configuration creation, loading and analysis. */
 public final class AnalysisPhaseRunner {
@@ -104,8 +105,6 @@ public final class AnalysisPhaseRunner {
       throws BuildFailedException,
           InterruptedException,
           ViewCreationFailedException,
-          TargetParsingException,
-          LoadingFailedException,
           AbruptExitException,
           InvalidConfigurationException,
           RepositoryMappingResolutionException {
@@ -206,6 +205,7 @@ public final class AnalysisPhaseRunner {
    *
    * <p>Shared by both Skymeld and non-Skymeld analysis.
    */
+  @Nullable
   static ProjectEvaluationResult evaluateProjectFile(
       BuildRequest request,
       BuildOptions buildOptions,
@@ -236,10 +236,10 @@ public final class AnalysisPhaseRunner {
       return new ProjectEvaluationResult(ImmutableSet.of(), Optional.empty(), Optional.empty());
     }
 
-    Label projectFile = null;
+    Project.ActiveProjects activeProjects;
     try {
-      projectFile =
-          Project.getProjectFile(
+      activeProjects =
+          Project.getProjectFiles(
               targetPatternPhaseValue.getNonExpandedLabels(),
               env.getSkyframeExecutor(),
               env.getReporter());
@@ -249,48 +249,64 @@ public final class AnalysisPhaseRunner {
           DetailedExitCode.of(ExitCode.PARSING_FAILURE, FailureDetail.getDefaultInstance()));
     }
 
-    if (featureFlags.contains(ANALYSIS_CACHING) && projectFile == null) {
-      // TODO: b/353233779 - consider falling back on full serialization when there is no
-      // project matcher.
-      String message =
-          "Failed to find PROJECT.scl file for: " + targetPatternPhaseValue.getTargetLabels();
-      throw new LoadingFailedException(
-          message,
-          DetailedExitCode.of(
-              FailureDetail.newBuilder()
-                  .setMessage(message)
-                  .setRemoteAnalysisCaching(
-                      RemoteAnalysisCaching.newBuilder().setCode(PROJECT_FILE_NOT_FOUND))
-                  .build()));
+    if (featureFlags.contains(ANALYSIS_CACHING) && activeProjects.isEmpty()) {
+      env.getReporter()
+          .handle(
+              Event.info(
+                  "Disabling Skycache due to missing PROJECT.scl: "
+                      + targetPatternPhaseValue.getTargetLabels()));
+      return null;
     }
 
     PathFragmentPrefixTrie projectMatcher = null;
 
     if (featureFlags.contains(ANALYSIS_CACHING) || featureFlags.contains(SKYFOCUS)) {
+      if (activeProjects.projectFiles().size() > 1 || activeProjects.partialProjectBuild()) {
+        String message =
+            "Skycache only works on single-project builds. This is a %s. %s"
+                .formatted(activeProjects.buildType(), activeProjects.differentProjectsDetails());
+        throw new LoadingFailedException(
+            message,
+            DetailedExitCode.of(
+                FailureDetail.newBuilder()
+                    .setMessage(message)
+                    .setRemoteAnalysisCaching(
+                        RemoteAnalysisCaching.newBuilder().setCode(PROJECT_FILE_NOT_FOUND))
+                    .build()));
+      }
       projectMatcher =
-          projectFile == null
+          activeProjects.isEmpty()
               ? null // Skyfocus can work without a project directory matcher.
               : BuildTool.getWorkingSetMatcherForSkyfocus(
-                  projectFile, env.getSkyframeExecutor(), env.getReporter());
+                  activeProjects.projectFiles().iterator().next(),
+                  env.getSkyframeExecutor(),
+                  env.getReporter());
     }
 
-    if (featureFlags.contains(SCL_CONFIG) && projectFile != null) {
-      // Do not apply canonical configurations if the project file doesn't exist.
+    if (featureFlags.contains(SCL_CONFIG) && !activeProjects.isEmpty()) {
+      // Do not apply canonical configurations if there are no project files.
       ImmutableSet<String> options =
-          BuildTool.applySclConfigs(
+          Project.applySclConfig(
               buildOptions,
+              activeProjects,
+              buildOptions.get(CoreOptions.class).sclConfig,
               userOptions,
               env.getConfigFlagDefinitions(),
-              projectFile,
               request.getBuildOptions().enforceProjectConfigs,
-              env.getSkyframeExecutor(),
-              env.getReporter());
+              env.getReporter(),
+              env.getSkyframeExecutor());
       return new ProjectEvaluationResult(
-          options, Optional.ofNullable(projectMatcher), Optional.ofNullable(projectFile));
+          options,
+          Optional.ofNullable(projectMatcher),
+          Optional.ofNullable(
+              activeProjects.isEmpty() ? null : activeProjects.projectFiles().iterator().next()));
     }
 
     return new ProjectEvaluationResult(
-        ImmutableSet.of(), Optional.ofNullable(projectMatcher), Optional.ofNullable(projectFile));
+        ImmutableSet.of(),
+        Optional.ofNullable(projectMatcher),
+        Optional.ofNullable(
+            activeProjects.isEmpty() ? null : activeProjects.projectFiles().iterator().next()));
   }
 
   static void postAbortedEventsForSkippedTargets(

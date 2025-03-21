@@ -115,7 +115,7 @@ public final class RuleAttributeStorageTest extends BuildViewTestCase {
     Rule actualRule = (Rule) getTarget("//foo:example");
     rule =
         new Rule(
-            actualRule.getPackage(),
+            actualRule.getPackageoid(),
             actualRule.getLabel(),
             actualRule.getRuleClassObject(),
             actualRule.getLocation(),

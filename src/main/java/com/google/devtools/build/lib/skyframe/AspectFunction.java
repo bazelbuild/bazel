@@ -72,6 +72,7 @@ import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
+import com.google.devtools.build.lib.packages.DeclaredExecGroup;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
@@ -109,6 +110,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
 
 /**
  * The Skyframe function that generates aspects.
@@ -449,11 +451,7 @@ final class AspectFunction implements SkyFunction {
       try {
         baseTargetToolchainContexts =
             getBaseTargetToolchainContexts(
-                baseTargetUnloadedToolchainContexts,
-                aspect,
-                target,
-                topologicalAspectPath,
-                depValueMap);
+                baseTargetUnloadedToolchainContexts, aspect, target, depValueMap);
       } catch (MergingException e) {
         env.getListener().handle(Event.error(target.getLocation(), e.getMessage()));
         throw new AspectFunctionException(
@@ -487,6 +485,12 @@ final class AspectFunction implements SkyFunction {
             new AspectCreationException(
                 cause.getMessage(), cause.getRootCauses(), cause.getDetailedExitCode()));
       }
+      // Exception while evaluating the aspect {@code attr_aspects} and {@code toolchains_aspects}
+      // functions.
+      if (e.getCause() instanceof EvalException cause) {
+        throw new AspectFunctionException(
+            new AspectCreationException(cause.getMessage(), key.getLabel(), configuration));
+      }
       // Cast to InconsistentAspectOrderException as a consistency check. If you add any
       // DependencyEvaluationException constructors, you may need to change this code, too.
       InconsistentAspectOrderException cause = (InconsistentAspectOrderException) e.getCause();
@@ -514,11 +518,9 @@ final class AspectFunction implements SkyFunction {
           ToolchainCollection<UnloadedToolchainContext> baseTargetUnloadedToolchainContexts,
           Aspect aspect,
           Target target,
-          ImmutableList<Aspect> aspectsPath,
           OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> depValueMap)
           throws MergingException {
-    if (baseTargetUnloadedToolchainContexts == null
-        || !canAspectsPropagateToToolchains(aspectsPath, target)) {
+    if (baseTargetUnloadedToolchainContexts == null) {
       return null;
     }
     String description =
@@ -610,24 +612,6 @@ final class AspectFunction implements SkyFunction {
     // base target's toolchain contexts are evaluated in this iteration without requiring a
     // Skyframe restart.
     return Pair.of(state.baseTargetUnloadedToolchainContexts, false);
-  }
-
-  /**
-   * Returns true if it is possible to propagate the aspects to the target's toolchains based on the
-   * conditions:
-   *
-   * <p>The base target is a rule.
-   *
-   * <p>At least one of the aspects in the aspects path propagates to toolchains.
-   */
-  private static boolean canAspectsPropagateToToolchains(
-      ImmutableList<Aspect> topologicalAspectPath, Target baseTarget) {
-    if (!baseTarget.isRule()) {
-      return false;
-    }
-
-    return topologicalAspectPath.stream()
-        .anyMatch(aspect -> aspect.getDefinition().propagatesToToolchains());
   }
 
   /** Populates {@code state.execGroupCollection} as a side effect. */
@@ -830,7 +814,7 @@ final class AspectFunction implements SkyFunction {
 
     boolean useAutoExecGroups = shouldUseAutoExecGroups(aspectDefinition, configuration);
     var processedExecGroups =
-        ExecGroupCollection.process(
+        DeclaredExecGroup.process(
             aspectDefinition.execGroups(),
             aspectDefinition.execCompatibleWith(),
             /* execGroupExecWith= */ ImmutableMultimap.of(),
@@ -921,10 +905,10 @@ final class AspectFunction implements SkyFunction {
       return null;
     }
 
-    NestedSet<Package> transitivePackages =
+    NestedSet<Package.Metadata> transitivePackages =
         storeTransitivePackages
-            ? NestedSetBuilder.<Package>stableOrder()
-                .add(originalTarget.getPackage())
+            ? NestedSetBuilder.<Package.Metadata>stableOrder()
+                .add(originalTarget.getPackageMetadata())
                 .addTransitive(transitiveState.transitivePackages())
                 .addTransitive(real.getTransitivePackages())
                 .build()

@@ -38,13 +38,13 @@ public class PackageGroup implements Target {
   private final boolean containsErrors;
   private final Label label;
   private final Location location;
-  private final Package containingPackage;
+  private final Packageoid containingPackageoid;
   private final PackageGroupContents packageSpecifications;
   private final List<Label> includes;
 
   public PackageGroup(
       Label label,
-      Package pkg,
+      Packageoid pkg,
       Collection<String> packageSpecifications,
       Collection<Label> includes,
       boolean allowPublicPrivate,
@@ -53,7 +53,7 @@ public class PackageGroup implements Target {
       Location location) {
     this.label = label;
     this.location = location;
-    this.containingPackage = pkg;
+    this.containingPackageoid = pkg;
     this.includes = ImmutableList.copyOf(includes);
 
     // TODO(bazel-team): Consider refactoring so constructor takes a PackageGroupContents.
@@ -124,8 +124,18 @@ public class PackageGroup implements Target {
   }
 
   @Override
-  public Package getPackage() {
-    return containingPackage;
+  public Packageoid getPackageoid() {
+    return containingPackageoid;
+  }
+
+  @Override
+  public Package.Metadata getPackageMetadata() {
+    return containingPackageoid.getMetadata();
+  }
+
+  @Override
+  public Package.Declarations getPackageDeclarations() {
+    return containingPackageoid.getDeclarations();
   }
 
   @Override

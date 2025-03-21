@@ -190,7 +190,6 @@ public abstract sealed class Artifact
   @ThreadSafety.ThreadSafe
   public static SkyKey key(Artifact artifact) {
     if (artifact.isTreeArtifact()
-        || artifact.isRunfilesTree()
         || !artifact.hasKnownGeneratingAction()) {
       return artifact;
     }

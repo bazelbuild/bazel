@@ -1990,32 +1990,24 @@ EOF
 }
 
 function test_header_compiler_direct_supports_unicode() {
-  if [[ "${JAVA_TOOLS_ZIP}" == released ]]; then
+  if [[ "${JAVA_TOOLS_ZIP}" == released && "$is_windows" ]]; then
       # TODO: Enable test after the next java_tools release.
       return 0
   fi
 
-  if "$is_windows"; then
-    # GraalVM native images on Windows use the same active code page they have been built
-    # with, which in the case of Bazel CI is 1252 (not UTF-8). Even with -H:+AddAllCharsets
-    # InvalidPathExceptions are still thrown when accessing a Unicode file path, indicating a
-    # problem within GraalVM's path encoding handling.
-    # https://github.com/oracle/graal/issues/10237
-    # TODO: Fix this by building java_tools binaries on a machine with system code page set to
-    #  UTF-8.
-    echo "Skipping test on Windows"
-    return 0
-  elif [[ "$(uname -s)" == "Linux" ]]; then
+  # JVMs on macOS always support UTF-8 since JEP 400.
+  # Windows releases of Turbine are built on a machine with system code page set
+  # to UTF-8 so that Graal picks up the correct sun.jnu.encoding value *and*
+  # have an app manifest patched in to set the system code page to UTF-8 at
+  # runtime.
+  if [[ "$(uname -s)" == "Linux" ]]; then
     export LC_ALL=C.UTF-8
     if [[ $(locale charmap) != "UTF-8" ]]; then
       echo "Skipping test due to missing UTF-8 locale"
       return 0
     fi
-    local -r unicode="äöüÄÖÜß🌱"
-  else
-    # JVMs on macOS always support UTF-8 since JEP 400.
-    local -r unicode="äöüÄÖÜß🌱"
   fi
+  local -r unicode="äöüÄÖÜß🌱"
   mkdir -p pkg
   cat << EOF > pkg/BUILD
 java_library(name = "a", srcs = ["A.java"], deps = [":b"])

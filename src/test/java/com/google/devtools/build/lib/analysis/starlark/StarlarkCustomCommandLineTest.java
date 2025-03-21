@@ -18,20 +18,18 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ArgChunk;
-import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
-import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLine.SimpleArgChunk;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.FilesetOutputTree;
 import com.google.devtools.build.lib.actions.PathMapper;
@@ -42,6 +40,8 @@ import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.BazelModuleKey;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
+import com.google.devtools.build.lib.exec.util.FakeActionInputFileCache;
+import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.Path;
@@ -65,11 +65,6 @@ import org.junit.runners.JUnit4;
 /** Tests for {@link StarlarkCustomCommandLine}. */
 @RunWith(JUnit4.class)
 public final class StarlarkCustomCommandLineTest {
-  private static final ArtifactExpander EMPTY_EXPANDER =
-      artifact -> {
-        throw new ArtifactExpander.MissingExpansionException("Missing expansion for " + artifact);
-      };
-
   private final Scratch scratch = new Scratch();
   private Path execRoot;
   private ArtifactRoot derivedRoot;
@@ -220,7 +215,7 @@ public final class StarlarkCustomCommandLineTest {
     CommandLineExpansionException e =
         assertThrows(
             CommandLineExpansionException.class,
-            () -> commandLine.arguments(EMPTY_EXPANDER, PathMapper.NOOP));
+            () -> commandLine.arguments(new FakeActionInputFileCache(), PathMapper.NOOP));
     assertThat(e).hasMessageThat().contains("Failed to expand directory <generated file tree>");
   }
 
@@ -235,14 +230,12 @@ public final class StarlarkCustomCommandLineTest {
     FilesetOutputSymlink symlink2 = createFilesetSymlink("file2");
     ActionKeyContext actionKeyContext = new ActionKeyContext();
     Fingerprint fingerprint = new Fingerprint();
-    ArtifactExpander artifactExpander =
-        createArtifactExpander(
-            /* treeExpansions= */ ImmutableMap.of(),
-            ImmutableMap.of(
-                fileset, FilesetOutputTree.create(ImmutableList.of(symlink1, symlink2))));
 
+    FakeActionInputFileCache fakeActionInputFileCache = new FakeActionInputFileCache();
+    fakeActionInputFileCache.putFileset(
+        fileset, FilesetOutputTree.create(ImmutableList.of(symlink1, symlink2)));
     commandLine.addToFingerprint(
-        actionKeyContext, artifactExpander, CoreOptions.OutputPathsMode.OFF, fingerprint);
+        actionKeyContext, fakeActionInputFileCache, CoreOptions.OutputPathsMode.OFF, fingerprint);
 
     assertThat(fingerprint.digestAndReset()).isNotEmpty();
   }
@@ -250,21 +243,25 @@ public final class StarlarkCustomCommandLineTest {
   @Test
   public void vectorArgAddToFingerprint_expandTreeArtifact_includesInDigest() throws Exception {
     SpecialArtifact tree = createTreeArtifact("tree");
+    TreeFileArtifact child = TreeFileArtifact.createTreeOutput(tree, "child");
+    // The files won't be read so MISSING_FILE_MARKER will do
+    TreeArtifactValue treeArtifactValue =
+        TreeArtifactValue.newBuilder(tree)
+            .putChild(child, FileArtifactValue.MISSING_FILE_MARKER)
+            .build();
+
     CommandLine commandLine =
         builder
             .add(vectorArg(tree).setExpandDirectories(true))
             .build(/* flagPerLine= */ false, RepositoryMapping.ALWAYS_FALLBACK);
-    TreeFileArtifact child = TreeFileArtifact.createTreeOutput(tree, "child");
+
     ActionKeyContext actionKeyContext = new ActionKeyContext();
+    FakeActionInputFileCache fakeActionInputFileCache = new FakeActionInputFileCache();
+    fakeActionInputFileCache.putTreeArtifact(tree, treeArtifactValue);
+
     Fingerprint fingerprint = new Fingerprint();
-    ArtifactExpander artifactExpander =
-        createArtifactExpander(
-            ImmutableMap.of(tree, ImmutableSortedSet.of(child)),
-            /*filesetExpansions*/ ImmutableMap.of());
-
     commandLine.addToFingerprint(
-        actionKeyContext, artifactExpander, CoreOptions.OutputPathsMode.OFF, fingerprint);
-
+        actionKeyContext, fakeActionInputFileCache, CoreOptions.OutputPathsMode.OFF, fingerprint);
     assertThat(fingerprint.digestAndReset()).isNotEmpty();
   }
 
@@ -282,44 +279,50 @@ public final class StarlarkCustomCommandLineTest {
         CommandLineExpansionException.class,
         () ->
             commandLine.addToFingerprint(
-                actionKeyContext, EMPTY_EXPANDER, CoreOptions.OutputPathsMode.OFF, fingerprint));
+                actionKeyContext,
+                new FakeActionInputFileCache(),
+                CoreOptions.OutputPathsMode.OFF,
+                fingerprint));
   }
 
   @Test
   public void vectorArgArguments_expandsTreeArtifact() throws Exception {
     SpecialArtifact tree = createTreeArtifact("tree");
+    TreeFileArtifact child1 = TreeFileArtifact.createTreeOutput(tree, "child1");
+    TreeFileArtifact child2 = TreeFileArtifact.createTreeOutput(tree, "child2");
+    // The files won't be read so MISSING_FILE_MARKER will do
+    TreeArtifactValue treeArtifactValue =
+        TreeArtifactValue.newBuilder(tree)
+            .putChild(child1, FileArtifactValue.MISSING_FILE_MARKER)
+            .putChild(child2, FileArtifactValue.MISSING_FILE_MARKER)
+            .build();
+
+    FakeActionInputFileCache fakeActionInputFileCache = new FakeActionInputFileCache();
+    fakeActionInputFileCache.putTreeArtifact(tree, treeArtifactValue);
+
     CommandLine commandLine =
         builder
             .add(vectorArg(tree).setExpandDirectories(true))
             .build(/* flagPerLine= */ false, RepositoryMapping.ALWAYS_FALLBACK);
-    TreeFileArtifact child1 = TreeFileArtifact.createTreeOutput(tree, "child1");
-    TreeFileArtifact child2 = TreeFileArtifact.createTreeOutput(tree, "child2");
-    ArtifactExpander artifactExpander =
-        createArtifactExpander(
-            ImmutableMap.of(tree, ImmutableSortedSet.of(child1, child2)),
-            /*filesetExpansions*/ ImmutableMap.of());
-
-    Iterable<String> arguments = commandLine.arguments(artifactExpander, PathMapper.NOOP);
-
+    Iterable<String> arguments = commandLine.arguments(fakeActionInputFileCache, PathMapper.NOOP);
     assertThat(arguments).containsExactly("bin/tree/child1", "bin/tree/child2");
   }
 
   @Test
   public void vectorArgArguments_expandsFileset() throws Exception {
     SpecialArtifact fileset = createFileset("fileset");
+    FilesetOutputSymlink symlink1 = createFilesetSymlink("file1");
+    FilesetOutputSymlink symlink2 = createFilesetSymlink("file2");
+
+    FakeActionInputFileCache fakeActionInputFileCache = new FakeActionInputFileCache();
+    fakeActionInputFileCache.putFileset(
+        fileset, FilesetOutputTree.create(ImmutableList.of(symlink1, symlink2)));
+
     CommandLine commandLine =
         builder
             .add(vectorArg(fileset).setExpandDirectories(true))
             .build(/* flagPerLine= */ false, RepositoryMapping.ALWAYS_FALLBACK);
-    FilesetOutputSymlink symlink1 = createFilesetSymlink("file1");
-    FilesetOutputSymlink symlink2 = createFilesetSymlink("file2");
-    ArtifactExpander artifactExpander =
-        createArtifactExpander(
-            /* treeExpansions= */ ImmutableMap.of(),
-            ImmutableMap.of(
-                fileset, FilesetOutputTree.create(ImmutableList.of(symlink1, symlink2))));
-
-    Iterable<String> arguments = commandLine.arguments(artifactExpander, PathMapper.NOOP);
+    Iterable<String> arguments = commandLine.arguments(fakeActionInputFileCache, PathMapper.NOOP);
 
     assertThat(arguments).containsExactly("bin/fileset/file1", "bin/fileset/file2");
   }
@@ -334,7 +337,7 @@ public final class StarlarkCustomCommandLineTest {
 
     assertThrows(
         CommandLineExpansionException.class,
-        () -> commandLine.arguments(EMPTY_EXPANDER, PathMapper.NOOP));
+        () -> commandLine.arguments(new FakeActionInputFileCache(), PathMapper.NOOP));
   }
 
   @Test
@@ -359,7 +362,7 @@ public final class StarlarkCustomCommandLineTest {
     CommandLineExpansionException e =
         assertThrows(
             CommandLineExpansionException.class,
-            () -> commandLine.arguments(EMPTY_EXPANDER, PathMapper.NOOP));
+            () -> commandLine.arguments(new FakeActionInputFileCache(), PathMapper.NOOP));
     assertThat(e).hasMessageThat().contains("Failed to expand directory <generated file tree>");
   }
 
@@ -373,7 +376,7 @@ public final class StarlarkCustomCommandLineTest {
 
     assertThrows(
         CommandLineExpansionException.class,
-        () -> commandLine.arguments(EMPTY_EXPANDER, PathMapper.NOOP));
+        () -> commandLine.arguments(new FakeActionInputFileCache(), PathMapper.NOOP));
   }
 
   private static VectorArg.Builder vectorArg(Object... elems) {
@@ -382,7 +385,7 @@ public final class StarlarkCustomCommandLineTest {
 
   private static void verifyCommandLine(CommandLine commandLine, String... expected)
       throws CommandLineExpansionException, InterruptedException {
-    ArgChunk chunk = commandLine.expand(EMPTY_EXPANDER, PathMapper.NOOP);
+    ArgChunk chunk = commandLine.expand(new FakeActionInputFileCache(), PathMapper.NOOP);
     assertThat(chunk.arguments()).containsExactlyElementsIn(expected).inOrder();
     // Check consistency of the total argument length calculation with SimpleArgChunk, which
     // materializes strings and adds up their lengths.
@@ -413,33 +416,6 @@ public final class StarlarkCustomCommandLineTest {
         derivedRoot.getExecPath().getRelative(relativePath),
         ActionsTestUtil.NULL_ARTIFACT_OWNER,
         type);
-  }
-
-  private static ArtifactExpander createArtifactExpander(
-      ImmutableMap<SpecialArtifact, ImmutableSortedSet<TreeFileArtifact>> treeExpansions,
-      ImmutableMap<SpecialArtifact, FilesetOutputTree> filesetExpansions) {
-    return new ArtifactExpander() {
-      @Override
-      public ImmutableSortedSet<TreeFileArtifact> expandTreeArtifact(Artifact treeArtifact)
-          throws MissingExpansionException {
-        //noinspection SuspiciousMethodCalls
-        ImmutableSortedSet<TreeFileArtifact> expansion = treeExpansions.get(treeArtifact);
-        if (expansion == null) {
-          throw new MissingExpansionException("Cannot expand " + treeArtifact);
-        }
-        return expansion;
-      }
-
-      @Override
-      public FilesetOutputTree expandFileset(Artifact artifact) throws MissingExpansionException {
-        //noinspection SuspiciousMethodCalls
-        FilesetOutputTree filesetOutput = filesetExpansions.get(artifact);
-        if (filesetOutput == null) {
-          throw new MissingExpansionException("Cannot expand " + artifact);
-        }
-        return filesetOutput;
-      }
-    };
   }
 
   private static Object execStarlark(String code) throws Exception {

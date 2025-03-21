@@ -19,6 +19,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.runtime.commands.info.InfoItemHandler.InfoItemHandlerFactoryImpl;
 import com.google.devtools.build.lib.runtime.commands.info.InfoItemHandler.InfoItemOutputType;
 import com.google.devtools.build.lib.server.CommandProtos.InfoItem;
 import com.google.devtools.build.lib.server.CommandProtos.InfoResponse;
@@ -33,66 +34,64 @@ public class RemoteRequestedInfoItemHandlerTest extends BuildIntegrationTestCase
   @Test
   public void testRemoteRequestedInfoItemHandlerCreation() throws Exception {
     InfoItemHandler infoItemHandler =
-        InfoItemHandler.create(runtimeWrapper.newCommand(), InfoItemOutputType.RESPONSE_PROTO);
+        new InfoItemHandlerFactoryImpl()
+            .create(
+                runtimeWrapper.newCommand(),
+                InfoItemOutputType.RESPONSE_PROTO,
+                /* printKeys= */ true);
     assertThat(infoItemHandler).isInstanceOf(RemoteRequestedInfoItemHandler.class);
   }
 
   @Test
   public void testRemoteRequestedInfoItemHandler_noExtensionIfNothingAdded() throws Exception {
     CommandEnvironment env = runtimeWrapper.newCommand();
+    try (RemoteRequestedInfoItemHandler unused =
+        new RemoteRequestedInfoItemHandler(env, /* printKeys= */ true)) {
+      // Nothing is added to remoteRequestedInfoItemHandler.
+    }
+
+    assertThat(env.getResponseExtensions()).hasSize(1);
+    assertThat(env.getResponseExtensions().get(0).is(InfoResponse.class)).isTrue();
+    InfoResponse infoResponse = env.getResponseExtensions().get(0).unpack(InfoResponse.class);
+
+    assertPathsToReplaceContainsExpectedItems(infoResponse, env);
+    assertThat(infoResponse.getInfoItemList()).isEmpty();
+  }
+
+  @Test
+  public void testRemoteRequestedInfoItemHandler_addOneItemWithoutPrintKey() throws Exception {
+    CommandEnvironment env = runtimeWrapper.newCommand();
     try (RemoteRequestedInfoItemHandler remoteRequestedInfoItemHandler =
-        new RemoteRequestedInfoItemHandler(env)) {
-      // No-op so nothing is added to remoteRequestedInfoItemHandler.
+        new RemoteRequestedInfoItemHandler(env, /* printKeys= */ false)) {
+      remoteRequestedInfoItemHandler.addInfoItem("foo", "value-foo\n".getBytes(UTF_8));
     }
     assertThat(env.getResponseExtensions()).hasSize(1);
     assertThat(env.getResponseExtensions().get(0).is(InfoResponse.class)).isTrue();
     InfoResponse infoResponse = env.getResponseExtensions().get(0).unpack(InfoResponse.class);
 
-    assertThat(infoResponse.getPathToReplaceList())
-        .containsAtLeast(
-            PathToReplace.newBuilder()
-                .setType(PathToReplace.Type.OUTPUT_BASE)
-                .setValue(bytes(env.getOutputBase().getPathString()))
-                .build(),
-            PathToReplace.newBuilder()
-                .setType(PathToReplace.Type.BUILD_WORKING_DIRECTORY)
-                .setValue(bytes(env.getWorkspace().getPathString()))
-                .build(),
-            PathToReplace.newBuilder()
-                .setType(PathToReplace.Type.BUILD_WORKSPACE_DIRECTORY)
-                .setValue(bytes(env.getWorkspace().getPathString()))
+    assertPathsToReplaceContainsExpectedItems(infoResponse, env);
+    assertThat(infoResponse.getInfoItemList())
+        .containsExactly(
+            InfoItem.newBuilder()
+                .setKey("foo")
+                .setValue(ByteString.copyFromUtf8("value-foo\n"))
                 .build());
-    assertThat(infoResponse.getInfoItemList()).isEmpty();
+    assertThat(infoResponse.getPrintKeys()).isFalse();
   }
 
   @Test
   public void testRemoteRequestedInfoItemHandler_addTwoItems() throws Exception {
     CommandEnvironment env = runtimeWrapper.newCommand();
     try (RemoteRequestedInfoItemHandler remoteRequestedInfoItemHandler =
-        new RemoteRequestedInfoItemHandler(env)) {
-      remoteRequestedInfoItemHandler.addInfoItem(
-          "foo", "value-foo\n".getBytes(UTF_8), /* printKeys= */ true);
-      remoteRequestedInfoItemHandler.addInfoItem(
-          "bar", "value-bar\n".getBytes(UTF_8), /* printKeys= */ true);
+        new RemoteRequestedInfoItemHandler(env, /* printKeys= */ true)) {
+      remoteRequestedInfoItemHandler.addInfoItem("foo", "value-foo\n".getBytes(UTF_8));
+      remoteRequestedInfoItemHandler.addInfoItem("bar", "value-bar\n".getBytes(UTF_8));
     }
     assertThat(env.getResponseExtensions()).hasSize(1);
     assertThat(env.getResponseExtensions().get(0).is(InfoResponse.class)).isTrue();
     InfoResponse infoResponse = env.getResponseExtensions().get(0).unpack(InfoResponse.class);
 
-    assertThat(infoResponse.getPathToReplaceList())
-        .containsAtLeast(
-            PathToReplace.newBuilder()
-                .setType(PathToReplace.Type.OUTPUT_BASE)
-                .setValue(bytes(env.getOutputBase().getPathString()))
-                .build(),
-            PathToReplace.newBuilder()
-                .setType(PathToReplace.Type.BUILD_WORKING_DIRECTORY)
-                .setValue(bytes(env.getWorkspace().getPathString()))
-                .build(),
-            PathToReplace.newBuilder()
-                .setType(PathToReplace.Type.BUILD_WORKSPACE_DIRECTORY)
-                .setValue(bytes(env.getWorkspace().getPathString()))
-                .build());
+    assertPathsToReplaceContainsExpectedItems(infoResponse, env);
     assertThat(infoResponse.getInfoItemList())
         .containsExactly(
             InfoItem.newBuilder()
@@ -102,6 +101,25 @@ public class RemoteRequestedInfoItemHandlerTest extends BuildIntegrationTestCase
             InfoItem.newBuilder()
                 .setKey("bar")
                 .setValue(ByteString.copyFromUtf8("value-bar\n"))
+                .build());
+    assertThat(infoResponse.getPrintKeys()).isTrue();
+  }
+
+  private static void assertPathsToReplaceContainsExpectedItems(
+      InfoResponse infoResponse, CommandEnvironment env) {
+    assertThat(infoResponse.getPathToReplaceList())
+        .containsAtLeast(
+            PathToReplace.newBuilder()
+                .setType(PathToReplace.Type.OUTPUT_BASE)
+                .setValue(bytes(env.getOutputBase().getPathString()))
+                .build(),
+            PathToReplace.newBuilder()
+                .setType(PathToReplace.Type.BUILD_WORKING_DIRECTORY)
+                .setValue(bytes(env.getWorkspace().getPathString()))
+                .build(),
+            PathToReplace.newBuilder()
+                .setType(PathToReplace.Type.BUILD_WORKSPACE_DIRECTORY)
+                .setValue(bytes(env.getWorkspace().getPathString()))
                 .build());
   }
 }

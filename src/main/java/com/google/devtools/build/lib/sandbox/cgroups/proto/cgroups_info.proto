@@ -1,0 +1,41 @@
+// Copyright 2025 The Bazel Authors. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+package cgroups_info;
+
+option java_package = "com.google.devtools.build.lib.sandbox.cgroups.proto";
+option java_outer_classname = "CgroupsInfoProtos";
+
+message CgroupsInfo {
+  // The list of all cgroup controllers.
+  repeated CgroupControllerInfo cgroup_controllers = 1;
+}
+
+message CgroupControllerInfo {
+  // The path of the cgroup controller.
+  string path = 1;
+
+  // Whether the cgroup controller is writable by the Blaze server.
+  bool is_writable = 2;
+
+  enum Version {
+    UNKNOWN = 0;
+    V1 = 1;
+    V2 = 2;
+  }
+
+  Version version = 3;
+}

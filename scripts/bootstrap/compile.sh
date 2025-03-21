@@ -317,51 +317,6 @@ log "Creating Bazel install base..."
 ARCHIVE_DIR=${OUTPUT_DIR}/archive
 mkdir -p ${ARCHIVE_DIR}
 
-# Dummy build-runfiles (we can't compile C++ yet, so we can't have the real one)
-if [ "${PLATFORM}" = "windows" ]; then
-  # We don't rely on runfiles trees on Windows
-  cat <<'EOF' >${ARCHIVE_DIR}/build-runfiles${EXE_EXT}
-#!/bin/sh
-# Skip over --allow_relative.
-mkdir -p $3
-cp $2 $3/MANIFEST
-EOF
-else
-  cat <<'EOF' >${ARCHIVE_DIR}/build-runfiles${EXE_EXT}
-#!/bin/sh
-# This is bash implementation of build-runfiles: reads space-separated paths
-# from each line in the file in $1, then creates a symlink under $2 for the
-# first element of the pair that points to the second element of the pair.
-#
-# bash is a terrible tool for this job, but in this case, that's the only one
-# we have (we could hand-compile a little .jar file like we hand-compile the
-# bootstrap version of Bazel, but we'd still need a shell wrapper around it, so
-# it's not clear whether that would be a win over a few lines of Lovecraftian
-# code)
-# Skip over --allow_relative.
-MANIFEST="$2"
-TREE="$3"
-
-rm -fr "$TREE"
-mkdir -p "$TREE"
-
-# Read the lines in $MANIFEST. the usual "for VAR in $(cat FILE)" idiom won't do
-# because the lines in FILE contain spaces.
-while read LINE; do
-  # Split each line into two parts on the first space
-  SYMLINK_PATH="${LINE%% *}"
-  TARGET_PATH="${LINE#* }"
-  ABSOLUTE_SYMLINK_PATH="$TREE/$SYMLINK_PATH"
-  mkdir -p "$(dirname $ABSOLUTE_SYMLINK_PATH)"
-  ln -s "$TARGET_PATH" "$ABSOLUTE_SYMLINK_PATH"
-done < "$MANIFEST"
-
-cp "$MANIFEST" "$TREE/MANIFEST"
-EOF
-fi
-
-chmod 0755 ${ARCHIVE_DIR}/build-runfiles${EXE_EXT}
-
 function build_jni() {
   local -r output_dir=$1
 
@@ -376,9 +331,8 @@ function build_jni() {
     mkdir -p "$(dirname "$tmp_output")"
     mkdir -p "$(dirname "$output")"
 
-    # Keep this `find` command in sync with the `srcs` of
-    # //src/main/native/windows:windows_jni
-    local srcs=$(find src/main/native/windows -name '*.cc' -o -name '*.h')
+    # Keep this in sync with the `srcs` of //src/main/native/windows:windows_jni
+    local -r srcs="src/main/native/common.cc $(find src/main/native/windows -name '*.cc' -o -name '*.h')"
     [ -n "$srcs" ] || fail "Could not find sources for Windows JNI library"
 
     # do not quote $srcs because we need to expand it to multiple args

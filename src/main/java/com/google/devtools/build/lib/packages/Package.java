@@ -14,12 +14,14 @@
 
 package com.google.devtools.build.lib.packages;
 
+import com.google.auto.value.AutoBuilder;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
+import com.google.common.collect.Interner;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
@@ -32,6 +34,7 @@ import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.StarlarkThreadContext;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
@@ -47,6 +50,7 @@ import com.google.devtools.build.lib.skyframe.serialization.DeserializationConte
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.vfs.Path;
@@ -94,7 +98,7 @@ import net.starlark.java.syntax.Location;
  * <p>When changing this class, make sure to make corresponding changes to serialization!
  */
 @SuppressWarnings("JavaLangClash")
-public class Package {
+public class Package extends Packageoid {
 
   // TODO(bazel-team): This class and its builder are ginormous. Future refactoring work might
   // attempt to separate the concerns of:
@@ -102,8 +106,6 @@ public class Package {
   //     afterwards
   //   - utility logical like validating names, checking for conflicts, etc.
   //   - tracking and enforcement of limits
-  //   - grouping metadata based on whether it's known prior to BUILD file evaluation, prior to
-  //     symbolic macro evalutaion, or at the time of final Package construction
   //   - machinery specific to external package / WORKSPACE / bzlmod
 
   // ==== Static fields and enums ====
@@ -145,42 +147,7 @@ public class Package {
 
   private final Metadata metadata;
 
-  private final Optional<Root> sourceRoot;
-
-  // For BUILD files, this is initialized immediately. For WORKSPACE files, it is known only after
-  // Starlark evaluation of the WORKSPACE file has finished.
-  private String workspaceName;
-
-  // Can be changed during BUILD file evaluation due to exports_files() modifying its visibility.
-  private InputFile buildFile;
-
-  // Mutated during BUILD file evaluation (but not by symbolic macro evaluation).
-  private PackageArgs packageArgs = PackageArgs.DEFAULT;
-
-  // Mutated during BUILD file evaluation (but not by symbolic macro evaluation).
-  private ImmutableMap<String, String> makeEnv;
-
-  // These two fields are mutually exclusive. Which one is set depends on
-  // PackageSettings#precomputeTransitiveLoads. See Package.Builder#setLoads.
-  @Nullable private ImmutableList<Module> directLoads;
-  @Nullable private ImmutableList<Label> transitiveLoads;
-
-  /**
-   * True iff this package's BUILD files contained lexical or grammatical errors, or experienced
-   * errors during evaluation, or semantic errors during the construction of any rule.
-   *
-   * <p>Note: A package containing errors does not necessarily prevent a build; if all the rules
-   * needed for a given build were constructed prior to the first error, the build may proceed.
-   */
-  private boolean containsErrors;
-
-  /**
-   * The first detailed error encountered during this package's construction and evaluation, or
-   * {@code null} if there were no such errors or all its errors lacked details.
-   */
-  @Nullable private FailureDetail failureDetail;
-
-  private long computationSteps;
+  private final Declarations declarations;
 
   /**
    * A rough approximation of the memory and general accounting costs associated with a loaded
@@ -203,21 +170,6 @@ public class Package {
   private OptionalInt firstWorkspaceSuffixRegisteredToolchain;
 
   // ==== Target and macro fields ====
-
-  /** The collection of all targets defined in this package, indexed by name. */
-  // TODO(bazel-team): Clarify what this map contains when a rule and its output both share the same
-  // name.
-  private ImmutableSortedMap<String, Target> targets;
-
-  /**
-   * The collection of all symbolic macro instances defined in this package, indexed by their {@link
-   * MacroInstance#getId id} (not name).
-   */
-  // TODO(#19922): Consider enforcing that macro namespaces are "exclusive", meaning that target
-  // names may only suffix a macro name when the target is created (transitively) within the macro.
-  // This would be a major change that would break the (common) use case where a BUILD file
-  // declares both "foo" and "foo_test".
-  private ImmutableSortedMap<String, MacroInstance> macros;
 
   /**
    * A map from names of targets declared in a symbolic macro which violate macro naming rules, such
@@ -276,22 +228,19 @@ public class Package {
   // BUILD evaluation.
   private Package(Metadata metadata) {
     this.metadata = metadata;
-    this.sourceRoot = computeSourceRoot(metadata);
+    this.declarations = new Declarations();
   }
 
   // ==== General package metadata accessors ====
 
+  @Override
   public Metadata getMetadata() {
     return metadata;
   }
 
-  /**
-   * Returns this package's identifier.
-   *
-   * <p>This is a suffix of {@code getFilename().getParentDirectory()}.
-   */
-  public PackageIdentifier getPackageIdentifier() {
-    return metadata.packageIdentifier();
+  @Override
+  public Declarations getDeclarations() {
+    return declarations;
   }
 
   /**
@@ -347,44 +296,34 @@ public class Package {
     return metadata.configSettingVisibilityPolicy();
   }
 
-  /**
-   * Returns the name of the workspace this package is in. Used as a prefix for the runfiles
-   * directory. This can be set in the WORKSPACE file. This must be a valid target name.
-   */
+  /** Convenience wrapper for {@link Declarations#getWorkspaceName} */
   public String getWorkspaceName() {
-    return workspaceName;
+    // To support declarations mocking, use getDeclarations() instead of directly using the field.
+    return getDeclarations().getWorkspaceName();
   }
 
-  /** Returns the InputFile target for this package's BUILD file. */
+  /** Convenience wrapper for {@link Declarations#getBuildFile} */
   public InputFile getBuildFile() {
-    return buildFile;
+    // To support declarations mocking, use getDeclarations() instead of directly using the field.
+    return getDeclarations().getBuildFile();
   }
 
-  /**
-   * Returns the label of this package's BUILD file.
-   *
-   * <p>Typically <code>getBuildFileLabel().getName().equals("BUILD")</code> -- though not
-   * necessarily: data in a subdirectory of a test package may use a different filename to avoid
-   * inadvertently creating a new package.
-   */
+  /** Convenience wrapper for {@link Declarations#getBuildFileLabel} */
   public Label getBuildFileLabel() {
-    return buildFile.getLabel();
+    // To support declarations mocking, use getDeclarations() instead of directly using the field.
+    return getDeclarations().getBuildFileLabel();
   }
 
-  /**
-   * Returns the collection of package-level attributes set by the {@code package()} callable and
-   * similar methods.
-   */
+  /** Convenience wrapper for {@link Declarations#getPackageArgs} */
   public PackageArgs getPackageArgs() {
-    return packageArgs;
+    // To support declarations mocking, use getDeclarations() instead of directly using the field.
+    return getDeclarations().getPackageArgs();
   }
 
-  /**
-   * Returns the "Make" environment of this package, containing package-local definitions of "Make"
-   * variables.
-   */
+  /** Convenience wrapper for {@link Declarations#getMakeEnvironment} */
   public ImmutableMap<String, String> getMakeEnvironment() {
-    return makeEnv;
+    // To support declarations mocking, use getDeclarations() instead of directly using the field.
+    return getDeclarations().getMakeEnvironment();
   }
 
   /**
@@ -395,83 +334,13 @@ public class Package {
    * getSourceRoot().get().getRelative(packageId.getSourceRoot()).equals(getPackageDirectory())}
    */
   public Optional<Root> getSourceRoot() {
-    return sourceRoot;
-  }
-
-  /**
-   * Returns a list of Starlark files transitively loaded by this package.
-   *
-   * <p>If transitive loads are not {@linkplain PackageSettings#precomputeTransitiveLoads
-   * precomputed}, performs a traversal over the load graph to compute them.
-   *
-   * <p>If only the count of transitively loaded files is needed, use {@link
-   * #countTransitivelyLoadedStarlarkFiles}. For a customized online visitation, use {@link
-   * #visitLoadGraph}.
-   */
-  public ImmutableList<Label> getOrComputeTransitivelyLoadedStarlarkFiles() {
-    return transitiveLoads != null ? transitiveLoads : computeTransitiveLoads(directLoads);
-  }
-
-  /**
-   * Counts the number Starlark files transitively loaded by this package.
-   *
-   * <p>If transitive loads are not {@linkplain PackageSettings#precomputeTransitiveLoads
-   * precomputed}, performs a traversal over the load graph to count them.
-   */
-  public int countTransitivelyLoadedStarlarkFiles() {
-    if (transitiveLoads != null) {
-      return transitiveLoads.size();
-    }
-    Set<Label> loads = new HashSet<>();
-    visitLoadGraph(loads::add);
-    return loads.size();
-  }
-
-  /**
-   * Performs an online visitation of the load graph rooted at this package.
-   *
-   * <p>If transitive loads were {@linkplain PackageSettings#precomputeTransitiveLoads precomputed},
-   * each file is passed to {@link LoadGraphVisitor#visit} once regardless of its return value.
-   */
-  public <E1 extends Exception, E2 extends Exception> void visitLoadGraph(
-      LoadGraphVisitor<E1, E2> visitor) throws E1, E2 {
-    if (transitiveLoads != null) {
-      for (Label load : transitiveLoads) {
-        visitor.visit(load);
-      }
-    } else {
-      BazelModuleContext.visitLoadGraphRecursively(directLoads, visitor);
-    }
+    return metadata.sourceRoot();
   }
 
   private static ImmutableList<Label> computeTransitiveLoads(Iterable<Module> directLoads) {
     Set<Label> loads = new LinkedHashSet<>();
     BazelModuleContext.visitLoadGraphRecursively(directLoads, loads::add);
     return ImmutableList.copyOf(loads);
-  }
-
-  /**
-   * Returns true if errors were encountered during evaluation of this package. (The package may be
-   * incomplete and its contents should not be relied upon for critical operations. However, any
-   * Rules belonging to the package are guaranteed to be intact, unless their <code>containsErrors()
-   * </code> flag is set.)
-   */
-  public boolean containsErrors() {
-    return containsErrors;
-  }
-
-  /**
-   * Returns the first {@link FailureDetail} describing one of the package's errors, or {@code null}
-   * if it has no errors or all its errors lack details.
-   */
-  @Nullable
-  public FailureDetail getFailureDetail() {
-    return failureDetail;
-  }
-
-  /** Returns the number of Starlark computation steps executed by this BUILD file. */
-  public long getComputationSteps() {
-    return computationSteps;
   }
 
   /** Returns package overhead as configured by the configured {@link PackageOverheadEstimator}. */
@@ -591,10 +460,7 @@ public class Package {
     }
   }
 
-  /**
-   * Throws {@link MacroNamespaceViolationException} if the given target (which must be a member of
-   * this package) violates macro naming rules.
-   */
+  @Override
   public void checkMacroNamespaceCompliance(Target target) throws MacroNamespaceViolationException {
     Preconditions.checkArgument(
         this.equals(target.getPackage()), "Target must belong to this package");
@@ -609,13 +475,7 @@ public class Package {
     }
   }
 
-  /**
-   * Returns the target (a member of this package) whose name is "targetName". First rules are
-   * searched, then output files, then input files. The target name must be valid, as defined by
-   * {@code LabelValidator#validateTargetName}.
-   *
-   * @throws NoSuchTargetException if the specified target was not found.
-   */
+  @Override
   public Target getTarget(String targetName) throws NoSuchTargetException {
     Target target = targets.get(targetName);
     if (target != null) {
@@ -733,63 +593,20 @@ public class Package {
 
   // ==== Initialization ====
 
-  private static Optional<Root> computeSourceRoot(Metadata metadata) {
-    if (metadata.isRepoRulePackage()) {
-      return Optional.empty();
-    }
-
-    RootedPath buildFileRootedPath = metadata.buildFilename();
-    Root buildFileRoot = buildFileRootedPath.getRoot();
-    PathFragment pkgIdFragment = metadata.packageIdentifier().getSourceRoot();
-    PathFragment pkgDirFragment = buildFileRootedPath.getRootRelativePath().getParentDirectory();
-
-    Root sourceRoot;
-    if (pkgIdFragment.equals(pkgDirFragment)) {
-      // Fast path: BUILD file path and package name are the same, don't create an extra root.
-      sourceRoot = buildFileRoot;
-    } else {
-      // TODO(bazel-team): Can this expr be simplified to just pkgDirFragment?
-      PathFragment current = buildFileRootedPath.asPath().asFragment().getParentDirectory();
-      for (int i = 0, len = pkgIdFragment.segmentCount(); i < len && current != null; i++) {
-        current = current.getParentDirectory();
-      }
-      if (current == null || current.isEmpty()) {
-        // This is never really expected to work. The below check should fail.
-        sourceRoot = buildFileRoot;
-      } else {
-        // Note that current is an absolute path.
-        sourceRoot = Root.fromPath(buildFileRoot.getRelative(current));
-      }
-    }
-
-    Preconditions.checkArgument(
-        sourceRoot.asPath() != null
-            && sourceRoot.getRelative(pkgIdFragment).equals(metadata.getPackageDirectory()),
-        "Invalid BUILD file name for package '%s': %s (in source %s with packageDirectory %s and"
-            + " package identifier source root %s)",
-        metadata.packageIdentifier(),
-        metadata.buildFilename(),
-        sourceRoot,
-        metadata.getPackageDirectory(),
-        metadata.packageIdentifier().getSourceRoot());
-
-    return Optional.of(sourceRoot);
-  }
-
   /**
    * Completes the initialization of this package. Only after this method may a package by shared
    * publicly.
    */
   private void finishInit(Builder builder) {
     this.containsErrors |= builder.containsErrors();
-    if (directLoads == null && transitiveLoads == null) {
+    if (declarations.directLoads == null && declarations.transitiveLoads == null) {
       Preconditions.checkState(containsErrors, "Loads not set for error-free package");
       builder.setLoads(ImmutableList.of());
     }
 
-    this.workspaceName = builder.workspaceName;
+    declarations.workspaceName = builder.workspaceName;
 
-    this.makeEnv = ImmutableMap.copyOf(builder.makeEnv);
+    declarations.makeEnv = ImmutableMap.copyOf(builder.makeEnv);
     this.targets = ImmutableSortedMap.copyOf(builder.recorder.getTargetMap());
     this.macros = ImmutableSortedMap.copyOf(builder.recorder.getMacroMap());
     this.macroNamespaceViolatingTargets =
@@ -821,15 +638,6 @@ public class Package {
     this.externalPackageRepositoryMappings = repositoryMappingsBuilder.buildOrThrow();
     OptionalLong overheadEstimate = builder.packageOverheadEstimator.estimatePackageOverhead(this);
     this.packageOverhead = overheadEstimate.orElse(PACKAGE_OVERHEAD_UNSET);
-  }
-
-  // TODO(bazel-team): This is a mutation, but Package is supposed to be immutable. In practice it
-  // seems like this is only called during Package construction (including deserialization),
-  // principally via Rule#reportError. I would bet that all of the callers have access to a
-  // Package.Builder, in which case they should report the bit using the builder instead. But maybe
-  // it's easier to just checkState() that the Package hasn't already finished constructing.
-  void setContainsErrors() {
-    containsErrors = true;
   }
 
   // ==== Stringification / debugging ====
@@ -970,15 +778,16 @@ public class Package {
             || workspaceName.equals(DUMMY_WORKSPACE_NAME_FOR_BZLMOD_PACKAGES);
 
     return new Builder(
-        new Metadata(
-            /* packageIdentifier= */ id,
-            /* buildFilename= */ filename,
-            /* isRepoRulePackage= */ isRepoRulePackage,
-            /* repositoryMapping= */ repositoryMapping,
-            /* associatedModuleName= */ associatedModuleName,
-            /* associatedModuleVersion= */ associatedModuleVersion,
-            /* configSettingVisibilityPolicy= */ configSettingVisibilityPolicy,
-            /* succinctTargetNotFoundErrors= */ packageSettings.succinctTargetNotFoundErrors()),
+        Metadata.builder()
+            .packageIdentifier(id)
+            .buildFilename(filename)
+            .isRepoRulePackage(isRepoRulePackage)
+            .repositoryMapping(repositoryMapping)
+            .associatedModuleName(associatedModuleName)
+            .associatedModuleVersion(associatedModuleVersion)
+            .configSettingVisibilityPolicy(configSettingVisibilityPolicy)
+            .succinctTargetNotFoundErrors(packageSettings.succinctTargetNotFoundErrors())
+            .build(),
         SymbolGenerator.create(id),
         packageSettings.precomputeTransitiveLoads(),
         noImplicitFileExport,
@@ -1002,15 +811,13 @@ public class Package {
       boolean simplifyUnconditionalSelectsInRuleAttrs,
       PackageOverheadEstimator packageOverheadEstimator) {
     return new Builder(
-        new Metadata(
-            /* packageIdentifier= */ LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER,
-            /* buildFilename= */ workspaceFileKey.getPath(),
-            /* isRepoRulePackage= */ true,
-            /* repositoryMapping= */ mainRepoMapping,
-            /* associatedModuleName= */ Optional.empty(),
-            /* associatedModuleVersion= */ Optional.empty(),
-            /* configSettingVisibilityPolicy= */ null,
-            /* succinctTargetNotFoundErrors= */ packageSettings.succinctTargetNotFoundErrors()),
+        Metadata.builder()
+            .packageIdentifier(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER)
+            .buildFilename(workspaceFileKey.getPath())
+            .isRepoRulePackage(true)
+            .repositoryMapping(mainRepoMapping)
+            .succinctTargetNotFoundErrors(packageSettings.succinctTargetNotFoundErrors())
+            .build(),
         // The SymbolGenerator is based on workspaceFileKey rather than a package id or path,
         // in order to distinguish different chunks of the same WORKSPACE file.
         SymbolGenerator.create(workspaceFileKey),
@@ -1027,23 +834,32 @@ public class Package {
         /* trackFullMacroInformation= */ true);
   }
 
+  // Bzlmod creates one fake package per external repository. The repos created by a given
+  // extension, which can be 1000s, share the same metadata.
+  private static final Interner<Metadata> bzlmodMetadataInterner = BlazeInterners.newWeakInterner();
+
   public static Builder newExternalPackageBuilderForBzlmod(
       RootedPath moduleFilePath,
       boolean noImplicitFileExport,
       boolean simplifyUnconditionalSelectsInRuleAttrs,
       PackageIdentifier basePackageId,
       RepositoryMapping repoMapping) {
+    // moduleFilePath is turned into a string and retained as the Location of
+    // the created package. Ensure that this string is the same instance as
+    // the one in the interned Metadata object.
+    RootedPath absoluteRootModuleFilePath =
+        RootedPath.toRootedPath(
+            Root.absoluteRoot(moduleFilePath.getRoot().getFileSystem()), moduleFilePath.asPath());
     return new Builder(
-            new Metadata(
-                /* packageIdentifier= */ basePackageId,
-                /* buildFilename= */ moduleFilePath,
-                /* isRepoRulePackage= */ true,
-                /* repositoryMapping= */ repoMapping,
-                /* associatedModuleName= */ Optional.empty(),
-                /* associatedModuleVersion= */ Optional.empty(),
-                /* configSettingVisibilityPolicy= */ null,
-                /* succinctTargetNotFoundErrors= */ PackageSettings.DEFAULTS
-                    .succinctTargetNotFoundErrors()),
+            bzlmodMetadataInterner.intern(
+                Metadata.builder()
+                    .packageIdentifier(basePackageId)
+                    .buildFilename(absoluteRootModuleFilePath)
+                    .isRepoRulePackage(true)
+                    .repositoryMapping(repoMapping)
+                    .succinctTargetNotFoundErrors(
+                        PackageSettings.DEFAULTS.succinctTargetNotFoundErrors())
+                    .build()),
             SymbolGenerator.create(basePackageId),
             PackageSettings.DEFAULTS.precomputeTransitiveLoads(),
             noImplicitFileExport,
@@ -1399,7 +1215,7 @@ public class Package {
 
     @Override
     public void mergePackageArgsFrom(PackageArgs packageArgs) {
-      pkg.packageArgs = pkg.packageArgs.mergeWith(packageArgs);
+      pkg.declarations.packageArgs = pkg.declarations.packageArgs.mergeWith(packageArgs);
     }
 
     @Override
@@ -1409,7 +1225,7 @@ public class Package {
 
     @Override
     public PackageArgs getPartialPackageArgs() {
-      return pkg.packageArgs;
+      return pkg.declarations.packageArgs;
     }
 
     /** Sets the number of Starlark computation steps executed by this BUILD file. */
@@ -1455,9 +1271,9 @@ public class Package {
     public Builder setLoads(Iterable<Module> directLoads) {
       checkLoadsNotSet();
       if (precomputeTransitiveLoads) {
-        pkg.transitiveLoads = computeTransitiveLoads(directLoads);
+        pkg.declarations.transitiveLoads = computeTransitiveLoads(directLoads);
       } else {
-        pkg.directLoads = ImmutableList.copyOf(directLoads);
+        pkg.declarations.directLoads = ImmutableList.copyOf(directLoads);
       }
       return this;
     }
@@ -1465,15 +1281,19 @@ public class Package {
     @CanIgnoreReturnValue
     Builder setTransitiveLoadsForDeserialization(ImmutableList<Label> transitiveLoads) {
       checkLoadsNotSet();
-      pkg.transitiveLoads = Preconditions.checkNotNull(transitiveLoads);
+      pkg.declarations.transitiveLoads = Preconditions.checkNotNull(transitiveLoads);
       return this;
     }
 
     private void checkLoadsNotSet() {
       Preconditions.checkState(
-          pkg.directLoads == null, "Direct loads already set: %s", pkg.directLoads);
+          pkg.declarations.directLoads == null,
+          "Direct loads already set: %s",
+          pkg.declarations.directLoads);
       Preconditions.checkState(
-          pkg.transitiveLoads == null, "Transitive loads already set: %s", pkg.transitiveLoads);
+          pkg.declarations.transitiveLoads == null,
+          "Transitive loads already set: %s",
+          pkg.declarations.transitiveLoads);
     }
 
     public Set<Target> getTargets() {
@@ -1723,9 +1543,9 @@ public class Package {
       // We create an InputFile corresponding to the BUILD file in Builder's constructor. However,
       // the visibility of this target may be overridden with an exports_files directive, so we wait
       // until now to obtain the current instance from the targets map.
-      pkg.buildFile =
+      pkg.declarations.buildFile =
           Preconditions.checkNotNull(
-              (InputFile) recorder.getTargetMap().get(buildFileLabel.getName()));
+              (InputFile) recorder.getTargetMap().get(metadata.buildFileLabel().getName()));
 
       // TODO(bazel-team): We run testSuiteImplicitTestsAccumulator here in beforeBuild(), but what
       // if one of the accumulated tests is later removed in PackageFunction, between the call to
@@ -1817,22 +1637,88 @@ public class Package {
   }
 
   /** A collection of data that is known before BUILD file evaluation even begins. */
+  // TODO(bazel-team): move to Packageoid.java or to its own file to reduce size of Package.java?
+  @AutoCodec
   public record Metadata(
       PackageIdentifier packageIdentifier,
       RootedPath buildFilename,
+      Label buildFileLabel,
       boolean isRepoRulePackage,
       RepositoryMapping repositoryMapping,
       Optional<String> associatedModuleName,
       Optional<String> associatedModuleVersion,
       @Nullable ConfigSettingVisibilityPolicy configSettingVisibilityPolicy,
-      boolean succinctTargetNotFoundErrors) {
+      boolean succinctTargetNotFoundErrors,
+      Optional<Root> sourceRoot) {
 
+    public static Builder builder() {
+      return new AutoBuilder_Package_Metadata_Builder();
+    }
+
+    /** Builder for {@link Metadata}. */
+    @AutoBuilder(callMethod = "of")
+    public interface Builder {
+      Builder packageIdentifier(PackageIdentifier packageIdentifier);
+
+      Builder buildFilename(RootedPath buildFilename);
+
+      Builder isRepoRulePackage(boolean isRepoRulePackage);
+
+      Builder repositoryMapping(RepositoryMapping repositoryMapping);
+
+      Builder associatedModuleName(Optional<String> associatedModuleName);
+
+      Builder associatedModuleVersion(Optional<String> associatedModuleVersion);
+
+      Builder configSettingVisibilityPolicy(
+          @Nullable ConfigSettingVisibilityPolicy configSettingVisibilityPolicy);
+
+      Builder succinctTargetNotFoundErrors(boolean succinctTargetNotFoundErrors);
+
+      Metadata build();
+    }
+
+    static Metadata of(
+        PackageIdentifier packageIdentifier,
+        RootedPath buildFilename,
+        boolean isRepoRulePackage,
+        RepositoryMapping repositoryMapping,
+        Optional<String> associatedModuleName,
+        Optional<String> associatedModuleVersion,
+        @Nullable ConfigSettingVisibilityPolicy configSettingVisibilityPolicy,
+        boolean succinctTargetNotFoundErrors) {
+      Label buildFileLabel;
+      try {
+        buildFileLabel =
+            Label.create(packageIdentifier, buildFilename.getRootRelativePath().getBaseName());
+      } catch (LabelSyntaxException e) {
+        // This can't actually happen.
+        throw new AssertionError("Package BUILD file has an illegal name: " + buildFilename, e);
+      }
+      return new Metadata(
+          packageIdentifier,
+          buildFilename,
+          buildFileLabel,
+          isRepoRulePackage,
+          repositoryMapping,
+          associatedModuleName,
+          associatedModuleVersion,
+          configSettingVisibilityPolicy,
+          succinctTargetNotFoundErrors,
+          computeSourceRoot(packageIdentifier, buildFilename, isRepoRulePackage));
+    }
+
+    /**
+     * @deprecated Use {@link #builder()} instead.
+     */
+    @Deprecated
     public Metadata {
       Preconditions.checkNotNull(packageIdentifier);
       Preconditions.checkNotNull(buildFilename);
       Preconditions.checkNotNull(repositoryMapping);
       Preconditions.checkNotNull(associatedModuleName);
       Preconditions.checkNotNull(associatedModuleVersion);
+      Preconditions.checkNotNull(sourceRoot);
 
       // Check for consistency between isRepoRulePackage and whether the buildFilename is a
       // WORKSPACE / MODULE.bazel file.
@@ -1856,8 +1742,175 @@ public class Package {
      * <p>All InputFile members of the packages are located relative to this directory.
      */
     public Path getPackageDirectory() {
+      return getPackageDirectory(buildFilename);
+    }
+
+    private static Path getPackageDirectory(RootedPath buildFilename) {
       return buildFilename.asPath().getParentDirectory();
     }
+
+    private static Optional<Root> computeSourceRoot(
+        PackageIdentifier packageIdentifier, RootedPath buildFilename, boolean isRepoRulePackage) {
+      Preconditions.checkNotNull(packageIdentifier);
+      Preconditions.checkNotNull(buildFilename);
+      if (isRepoRulePackage) {
+        return Optional.empty();
+      }
+
+      RootedPath buildFileRootedPath = buildFilename;
+      Root buildFileRoot = buildFileRootedPath.getRoot();
+      PathFragment pkgIdFragment = packageIdentifier.getSourceRoot();
+      PathFragment pkgDirFragment = buildFileRootedPath.getRootRelativePath().getParentDirectory();
+
+      Root sourceRoot;
+      if (pkgIdFragment.equals(pkgDirFragment)) {
+        // Fast path: BUILD file path and package name are the same, don't create an extra root.
+        sourceRoot = buildFileRoot;
+      } else {
+        // TODO(bazel-team): Can this expr be simplified to just pkgDirFragment?
+        PathFragment current = buildFileRootedPath.asPath().asFragment().getParentDirectory();
+        for (int i = 0, len = pkgIdFragment.segmentCount(); i < len && current != null; i++) {
+          current = current.getParentDirectory();
+        }
+        if (current == null || current.isEmpty()) {
+          // This is never really expected to work. The below check should fail.
+          sourceRoot = buildFileRoot;
+        } else {
+          // Note that current is an absolute path.
+          sourceRoot = Root.fromPath(buildFileRoot.getRelative(current));
+        }
+      }
+
+      Preconditions.checkArgument(
+          sourceRoot.asPath() != null
+              && sourceRoot.getRelative(pkgIdFragment).equals(getPackageDirectory(buildFilename)),
+          "Invalid BUILD file name for package '%s': %s (in source %s with packageDirectory %s and"
+              + " package identifier source root %s)",
+          packageIdentifier,
+          buildFilename,
+          sourceRoot,
+          getPackageDirectory(buildFilename),
+          packageIdentifier.getSourceRoot());
+
+      return Optional.of(sourceRoot);
+    }
+  }
+
+  /**
+   * A collection of data about a package that is known after BUILD file evaluation has completed
+   * and which doesn't require expanding any symbolic macros. Treated as immutable after BUILD file
+   * evaluation has completed.
+   *
+   * <p>This class should not be extended - it's only non-final for mocking!
+   */
+  public static class Declarations {
+    // For BUILD files, this is initialized immediately. For WORKSPACE files, it is known only after
+    // Starlark evaluation of the WORKSPACE file has finished.
+    // TODO(bazel-team): move to Metadata when WORKSPACE file logic is deleted.
+    private String workspaceName;
+
+    // Can be changed during BUILD file evaluation due to exports_files() modifying its visibility.
+    private InputFile buildFile;
+
+    // Mutated during BUILD file evaluation (but not by symbolic macro evaluation).
+    private PackageArgs packageArgs = PackageArgs.DEFAULT;
+
+    // Mutated during BUILD file evaluation (but not by symbolic macro evaluation).
+    private ImmutableMap<String, String> makeEnv;
+
+    // These two fields are mutually exclusive. Which one is set depends on
+    // PackageSettings#precomputeTransitiveLoads. See Package.Builder#setLoads.
+    @Nullable private ImmutableList<Module> directLoads;
+    @Nullable private ImmutableList<Label> transitiveLoads;
+
+    /**
+     * Returns the name of the workspace this package is in. Used as a prefix for the runfiles
+     * directory. This can be set in the WORKSPACE file. This must be a valid target name.
+     */
+    public String getWorkspaceName() {
+      return workspaceName;
+    }
+
+    /** Returns the InputFile target for this package's BUILD file. */
+    public InputFile getBuildFile() {
+      return buildFile;
+    }
+
+    /**
+     * Returns the label of this package's BUILD file.
+     *
+     * <p>Typically <code>getBuildFileLabel().getName().equals("BUILD")</code> -- though not
+     * necessarily: data in a subdirectory of a test package may use a different filename to avoid
+     * inadvertently creating a new package.
+     */
+    public Label getBuildFileLabel() {
+      return buildFile.getLabel();
+    }
+
+    /**
+     * Returns the collection of package-level attributes set by the {@code package()} callable and
+     * similar methods.
+     */
+    public PackageArgs getPackageArgs() {
+      return packageArgs;
+    }
+
+    /**
+     * Returns the "Make" environment of this package, containing package-local definitions of
+     * "Make" variables.
+     */
+    public ImmutableMap<String, String> getMakeEnvironment() {
+      return makeEnv;
+    }
+
+    /**
+     * Returns a list of Starlark files transitively loaded by this package.
+     *
+     * <p>If transitive loads are not {@linkplain PackageSettings#precomputeTransitiveLoads
+     * precomputed}, performs a traversal over the load graph to compute them.
+     *
+     * <p>If only the count of transitively loaded files is needed, use {@link
+     * #countTransitivelyLoadedStarlarkFiles}. For a customized online visitation, use {@link
+     * #visitLoadGraph}.
+     */
+    public ImmutableList<Label> getOrComputeTransitivelyLoadedStarlarkFiles() {
+      return transitiveLoads != null ? transitiveLoads : computeTransitiveLoads(directLoads);
+    }
+
+    /**
+     * Counts the number Starlark files transitively loaded by this package.
+     *
+     * <p>If transitive loads are not {@linkplain PackageSettings#precomputeTransitiveLoads
+     * precomputed}, performs a traversal over the load graph to count them.
+     */
+    public int countTransitivelyLoadedStarlarkFiles() {
+      if (transitiveLoads != null) {
+        return transitiveLoads.size();
+      }
+      Set<Label> loads = new HashSet<>();
+      visitLoadGraph(loads::add);
+      return loads.size();
+    }
+
+    /**
+     * Performs an online visitation of the load graph rooted at this package.
+     *
+     * <p>If transitive loads were {@linkplain PackageSettings#precomputeTransitiveLoads
+     * precomputed}, each file is passed to {@link LoadGraphVisitor#visit} once regardless of its
+     * return value.
+     */
+    public <E1 extends Exception, E2 extends Exception> void visitLoadGraph(
+        LoadGraphVisitor<E1, E2> visitor) throws E1, E2 {
+      if (transitiveLoads != null) {
+        for (Label load : transitiveLoads) {
+          visitor.visit(load);
+        }
+      } else {
+        BazelModuleContext.visitLoadGraphRecursively(directLoads, visitor);
+      }
+    }
+
+    private Declarations() {}
   }
 
   /** Package codec implementation. */

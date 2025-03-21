@@ -93,6 +93,7 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
@@ -243,13 +244,12 @@ public final class SkyframeActionExecutor {
   private OutputService outputService;
   private boolean finalizeActions;
   private boolean rewindingEnabled;
+  private boolean invocationRetriesEnabled;
   private final Supplier<ImmutableList<Root>> sourceRootSupplier;
 
   private DiscoveredModulesPruner discoveredModulesPruner;
 
   @Nullable private Semaphore cacheHitSemaphore;
-
-  private boolean useAsyncExecution;
 
   /**
    * If not null, we use this meter to limit the number of concurrent actions.
@@ -326,6 +326,8 @@ public final class SkyframeActionExecutor {
     // Cache some option values for performance, since we consult them on every action.
     this.finalizeActions = buildRequestOptions.finalizeActions;
     this.rewindingEnabled = buildRequestOptions.rewindLostInputs;
+    this.invocationRetriesEnabled =
+        options.getOptions(ExecutionOptions.class).remoteRetryOnTransientCacheError > 0;
     this.outputService = checkNotNull(outputService);
     this.outputDirectoryHelper = outputDirectoryHelper;
 
@@ -334,17 +336,17 @@ public final class SkyframeActionExecutor {
     freeDiscoveredInputsAfterExecution =
         !trackIncrementalState && options.getOptions(CoreOptions.class).actionListeners.isEmpty();
 
-    this.useAsyncExecution = buildRequestOptions.useAsyncExecution;
+    boolean useAsyncExecution = buildRequestOptions.useAsyncExecution;
 
     this.cacheHitSemaphore =
-        (!this.useAsyncExecution && options.getOptions(CoreOptions.class).throttleActionCacheCheck)
+        (!useAsyncExecution && options.getOptions(CoreOptions.class).throttleActionCacheCheck)
             ? new Semaphore(ResourceUsage.getAvailableProcessors())
             : null;
 
-    if (buildRequestOptions.useSemaphoreForJobs || this.useAsyncExecution) {
+    if (buildRequestOptions.useSemaphoreForJobs || useAsyncExecution) {
       var minActiveAction = buildRequestOptions.jobs;
       var maxActiveAction =
-          this.useAsyncExecution
+          useAsyncExecution
               ? min(MAX_JOBS, buildRequestOptions.asyncExecutionMaxConcurrentActions)
               : buildRequestOptions.jobs;
       this.actionConcurrencyMeter =
@@ -398,6 +400,10 @@ public final class SkyframeActionExecutor {
     return rewindingEnabled;
   }
 
+  public boolean invocationRetriesEnabled() {
+    return invocationRetriesEnabled;
+  }
+
   OutputPermissions getOutputPermissions() {
     return options.getOptions(CoreOptions.class).experimentalWritableOutputs
         ? OutputPermissions.WRITABLE
@@ -428,7 +434,7 @@ public final class SkyframeActionExecutor {
       FileSystem actionFileSystem,
       Environment env,
       OutputMetadataStore outputMetadataStore,
-      ImmutableMap<Artifact, FilesetOutputTree> filesets) {
+      Map<Artifact, FilesetOutputTree> filesets) {
     outputService.updateActionFileSystemContext(
         action, actionFileSystem, env, outputMetadataStore, filesets);
   }
@@ -527,16 +533,13 @@ public final class SkyframeActionExecutor {
       long actionStartTime,
       ActionLookupData actionLookupData,
       ArtifactExpander artifactExpander,
-      ImmutableMap<Artifact, FilesetOutputTree> expandedFilesets,
-      ImmutableMap<Artifact, FilesetOutputTree> topLevelFilesets,
       @Nullable FileSystem actionFileSystem,
-      @Nullable Object skyframeDepsResult,
       ActionPostprocessing postprocessing,
       boolean hasDiscoveredInputs)
       throws ActionExecutionException, InterruptedException {
     if (actionFileSystem != null) {
       updateActionFileSystemContext(
-          action, actionFileSystem, env, outputMetadataStore, expandedFilesets);
+          action, actionFileSystem, env, outputMetadataStore, inputMetadataProvider.getFilesets());
     }
 
     ActionExecutionContext actionExecutionContext =
@@ -545,9 +548,7 @@ public final class SkyframeActionExecutor {
             inputMetadataProvider,
             outputMetadataStore,
             artifactExpander,
-            topLevelFilesets,
             actionFileSystem,
-            skyframeDepsResult,
             actionLookupData);
 
     if (actionCacheChecker.isActionExecutionProhibited(action)) {
@@ -624,9 +625,7 @@ public final class SkyframeActionExecutor {
       InputMetadataProvider inputMetadataProvider,
       OutputMetadataStore outputMetadataStore,
       ArtifactExpander artifactExpander,
-      ImmutableMap<Artifact, FilesetOutputTree> topLevelFilesets,
       @Nullable FileSystem actionFileSystem,
-      @Nullable Object skyframeDepsResult,
       ActionLookupData actionLookupData) {
     boolean emitProgressEvents = shouldEmitProgressEvents(action);
     ArtifactPathResolver artifactPathResolver =
@@ -643,10 +642,8 @@ public final class SkyframeActionExecutor {
         fileOutErr,
         selectEventHandler(emitProgressEvents),
         clientEnv,
-        topLevelFilesets,
         artifactExpander,
         actionFileSystem,
-        skyframeDepsResult,
         discoveredModulesPruner,
         syscallCache,
         threadStateReceiverFactory.apply(actionLookupData));
@@ -680,7 +677,6 @@ public final class SkyframeActionExecutor {
       InputMetadataProvider inputMetadataProvider,
       OutputMetadataStore outputMetadataStore,
       ArtifactPathResolver artifactPathResolver,
-      ArtifactExpander artifactExpander,
       long actionStartTime,
       List<Artifact> resolvedCacheArtifacts,
       Map<String, String> clientEnv)
@@ -714,7 +710,6 @@ public final class SkyframeActionExecutor {
               handler,
               inputMetadataProvider,
               outputMetadataStore,
-              artifactExpander,
               remoteDefaultProperties,
               outputChecker);
 
@@ -756,7 +751,6 @@ public final class SkyframeActionExecutor {
                     handler,
                     inputMetadataProvider,
                     outputMetadataStore,
-                    artifactExpander,
                     remoteDefaultProperties,
                     outputChecker);
           }
@@ -768,7 +762,7 @@ public final class SkyframeActionExecutor {
             checkOutputs(
                 action,
                 outputMetadataStore,
-                /* filesetOutputForMetrics= */ null,
+                /* actionExecutionContext= */ null,
                 /* isActionCacheHitForMetrics= */ true);
         if (!eventPosted) {
           eventHandler.post(
@@ -1260,7 +1254,7 @@ public final class SkyframeActionExecutor {
         if (!checkOutputs(
             action,
             outputMetadataStore,
-            actionExecutionContext.getFilesetOutput(),
+            actionExecutionContext,
             /* isActionCacheHitForMetrics= */ false)) {
           throw toActionExecutionException(
               "not all outputs were created or valid",
@@ -1331,16 +1325,8 @@ public final class SkyframeActionExecutor {
           fileOutErr,
           ErrorTiming.NO_ERROR);
 
-      FilesetOutputTree filesetOutput = actionExecutionContext.getFilesetOutput();
-      checkState(
-          filesetOutput.isEmpty() || action instanceof SkyframeAwareAction,
-          "Unexpected to find outputSymlinks set in an action which is not a SkyframeAwareAction."
-              + "\nAction: %s"
-              + "\nSymlinks: %s",
-          action,
-          filesetOutput);
-      return ActionExecutionValue.createFromOutputMetadataStore(
-          this.outputMetadataStore, filesetOutput, action);
+      return ActionExecutionValue.create(
+          this.outputMetadataStore, actionExecutionContext.getRichArtifactData(), action);
     }
 
     /**
@@ -1563,7 +1549,7 @@ public final class SkyframeActionExecutor {
   private boolean checkOutputs(
       Action action,
       OutputMetadataStore outputMetadataStore,
-      @Nullable FilesetOutputTree filesetOutputForMetrics,
+      ActionExecutionContext actionExecutionContext,
       boolean isActionCacheHitForMetrics)
       throws InterruptedException {
     boolean success = true;
@@ -1580,11 +1566,21 @@ public final class SkyframeActionExecutor {
               return false;
             }
 
+            FilesetOutputTree filesetOutputTree = null;
+            if (actionExecutionContext != null
+                && actionExecutionContext.getRichArtifactData() instanceof FilesetOutputTree fot) {
+              // If isForwarded() is true, this action did not create the Fileset itself and thus
+              // it should not be counted.
+              if (!fot.isForwarded()) {
+                filesetOutputTree = fot;
+              }
+            }
+
             addOutputToMetrics(
                 output,
                 metadata,
                 outputMetadataStore,
-                filesetOutputForMetrics,
+                filesetOutputTree,
                 isActionCacheHitForMetrics,
                 action);
           } catch (IOException e) {

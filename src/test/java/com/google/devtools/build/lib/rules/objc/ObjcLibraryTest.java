@@ -58,17 +58,14 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CppCompileAction;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import java.util.Collection;
 import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Test case for objc_library.
- *
- * <p>TODO(b/322845822): remove uses of `--cpu=k8` in tests.
- */
+/** Test case for objc_library. */
 @RunWith(JUnit4.class)
 public class ObjcLibraryTest extends ObjcRuleTestCase {
 
@@ -124,12 +121,12 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         """);
 
     setBuildLanguageOptions("--incompatible_disable_objc_library_transition");
-    useConfiguration("--macos_cpus=arm64,x86_64", "--cpu=k8");
-    ConfiguredTarget cc = getConfiguredTarget("//bin:cc");
-    Artifact objcObject =
-        ActionsTestUtil.getFirstArtifactEndingWith(
-            actionsTestUtil().artifactClosureOf(getFilesToBuild(cc)), "objc.o");
-    assertThat(objcObject.getExecPathString()).contains("k8-fastbuild");
+    useConfiguration("--macos_cpus=arm64,x86_64", "--platforms=" + TestConstants.PLATFORM_LABEL);
+
+    // fails to find appropriate toolchain for `objc_library` given the default platform with
+    // transition disabled
+    assertThrows(AssertionError.class, () -> getConfiguredTarget("//bin:cc"));
+    assertContainsEvent("objc_library rule //bin:objc");
   }
 
   @Test
@@ -243,12 +240,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testObjcPlusPlusCompileDarwin() throws Exception {
-    useConfiguration(
-        "--cpu=darwin_x86_64",
-        // TODO(b/36126423): Darwin should imply macos, so the
-        // following line should not be necessary.
-        "--apple_platform_type=macos",
-        "--platforms=" + MockObjcSupport.DARWIN_X86_64);
+    useConfiguration("--platforms=" + MockObjcSupport.DARWIN_X86_64);
     createLibraryTargetWriter("//objc:lib").setList("srcs", "a.mm").write();
     CommandAction compileAction = compileAction("//objc:lib", "a.o");
     assertThat(compileAction.getArguments()).containsAtLeast("-stdlib=libc++", "-std=gnu++11");
@@ -1101,8 +1093,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         "--apple_platform_type=ios",
         "--platforms=" + MockObjcSupport.IOS_X86_64,
         "--compilation_mode=dbg",
-        "--incompatible_avoid_hardcoded_objc_compilation_flags",
-        "--cpu=k8");
+        "--incompatible_avoid_hardcoded_objc_compilation_flags");
     scratch.file("x/a.m");
     RULE_TYPE.scratchTarget(scratch, "srcs", "['a.m']");
 
@@ -1116,8 +1107,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         "--platforms=" + MockObjcSupport.IOS_X86_64,
         "--compilation_mode=dbg",
         "--objc_debug_with_GLIBCXX=false",
-        "--incompatible_avoid_hardcoded_objc_compilation_flags",
-        "--cpu=k8");
+        "--incompatible_avoid_hardcoded_objc_compilation_flags");
     scratch.file("x/a.m");
     RULE_TYPE.scratchTarget(scratch, "srcs", "['a.m']");
 
@@ -1136,8 +1126,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         "--apple_platform_type=ios",
         "--platforms=" + MockObjcSupport.IOS_X86_64,
         "--compilation_mode=opt",
-        "--incompatible_avoid_hardcoded_objc_compilation_flags",
-        "--cpu=k8");
+        "--incompatible_avoid_hardcoded_objc_compilation_flags");
     scratch.file("x/a.m");
     RULE_TYPE.scratchTarget(scratch, "srcs", "['a.m']");
 
@@ -1242,8 +1231,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testCompilationActionsWithPch() throws Exception {
-    useConfiguration(
-        "--apple_platform_type=ios", "--platforms=" + MockObjcSupport.IOS_X86_64, "--cpu=k8");
+    useConfiguration("--apple_platform_type=ios", "--platforms=" + MockObjcSupport.IOS_X86_64);
     scratch.file("objc/foo.pch");
     createLibraryTargetWriter("//objc:lib")
         .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
@@ -1581,8 +1569,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testAppleSdkDefaultPlatformEnv() throws Exception {
-    useConfiguration(
-        "--apple_platform_type=ios", "--platforms=" + MockObjcSupport.IOS_X86_64, "--cpu=k8");
+    useConfiguration("--apple_platform_type=ios", "--platforms=" + MockObjcSupport.IOS_X86_64);
     createLibraryTargetWriter("//objc:lib")
         .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
         .setAndCreateFiles("hdrs", "c.h")
@@ -2251,11 +2238,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
             deps = [":foo"],
         )
         """);
-    useConfiguration(
-        "--proto_toolchain_for_java=//tools/proto/toolchains:java",
-        "--platforms=" + MockObjcSupport.DARWIN_X86_64,
-        "--apple_platform_type=macos",
-        "--cpu=darwin_x86_64");
+    useConfiguration("--platforms=" + MockObjcSupport.DARWIN_X86_64);
 
     CcInfo ccInfo = getConfiguredTarget("//x:bar").get(CcInfo.PROVIDER);
 

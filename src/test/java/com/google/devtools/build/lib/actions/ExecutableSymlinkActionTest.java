@@ -80,10 +80,8 @@ public class ExecutableSymlinkActionTest {
         outErr,
         /* eventHandler= */ null,
         /* clientEnv= */ ImmutableMap.of(),
-        /* topLevelFilesets= */ ImmutableMap.of(),
         /* artifactExpander= */ null,
         /* actionFileSystem= */ null,
-        /* skyframeDepsResult= */ null,
         DiscoveredModulesPruner.DEFAULT,
         SyscallCache.NO_CACHE,
         ThreadStateReceiver.NULL_INSTANCE);

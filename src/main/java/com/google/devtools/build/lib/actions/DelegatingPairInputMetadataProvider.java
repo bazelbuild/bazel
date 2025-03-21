@@ -15,8 +15,11 @@
 package com.google.devtools.build.lib.actions;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import java.io.IOException;
 import java.util.LinkedHashSet;
+import java.util.Map;
 import javax.annotation.Nullable;
 
 /** A {@link InputMetadataProvider} implementation that consults two others in a given order. */
@@ -38,6 +41,38 @@ public final class DelegatingPairInputMetadataProvider implements InputMetadataP
     return (metadata != null) && (metadata != FileArtifactValue.MISSING_FILE_MARKER)
         ? metadata
         : secondary.getInputMetadataChecked(input);
+  }
+
+  @Nullable
+  @Override
+  public TreeArtifactValue getTreeMetadata(ActionInput actionInput) {
+    TreeArtifactValue metadata = primary.getTreeMetadata(actionInput);
+    return metadata != null ? metadata : secondary.getTreeMetadata(actionInput);
+  }
+
+  @Override
+  @Nullable
+  public FilesetOutputTree getFileset(ActionInput input) {
+    FilesetOutputTree result = primary.getFileset(input);
+    return result != null ? result : secondary.getFileset(input);
+  }
+
+  @Override
+  public Map<Artifact, FilesetOutputTree> getFilesets() {
+    Map<Artifact, FilesetOutputTree> first = primary.getFilesets();
+    Map<Artifact, FilesetOutputTree> second = secondary.getFilesets();
+    if (first.isEmpty()) {
+      return second;
+    }
+    if (second.isEmpty()) {
+      return first;
+    }
+
+    return ImmutableMap.<Artifact, FilesetOutputTree>builderWithExpectedSize(
+            first.size() + second.size())
+        .putAll(first)
+        .putAll(second)
+        .buildKeepingLast();
   }
 
   @Override

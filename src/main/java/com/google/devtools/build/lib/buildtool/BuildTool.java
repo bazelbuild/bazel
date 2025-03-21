@@ -29,7 +29,6 @@ import com.google.common.base.Suppliers;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.hash.HashCode;
@@ -41,7 +40,6 @@ import com.google.devtools.build.lib.analysis.AnalysisAndExecutionResult;
 import com.google.devtools.build.lib.analysis.AnalysisResult;
 import com.google.devtools.build.lib.analysis.BuildView;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.Project;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionException;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
@@ -78,7 +76,7 @@ import com.google.devtools.build.lib.runtime.BlazeOptionHandler.SkyframeExecutor
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.CommandLineEvent.CanonicalCommandLineEvent;
-import com.google.devtools.build.lib.runtime.ConfigFlagDefinitions;
+import com.google.devtools.build.lib.runtime.CommandLineEvent.OriginalCommandLineEvent;
 import com.google.devtools.build.lib.runtime.StarlarkOptionsParser;
 import com.google.devtools.build.lib.runtime.StarlarkOptionsParser.BuildSettingLoader;
 import com.google.devtools.build.lib.server.FailureDetails.ActionQuery;
@@ -97,7 +95,6 @@ import com.google.devtools.build.lib.skyframe.actiongraph.v2.ActionGraphDump;
 import com.google.devtools.build.lib.skyframe.actiongraph.v2.AqueryOutputHandler;
 import com.google.devtools.build.lib.skyframe.actiongraph.v2.AqueryOutputHandler.OutputType;
 import com.google.devtools.build.lib.skyframe.actiongraph.v2.InvalidAqueryOutputFormatException;
-import com.google.devtools.build.lib.skyframe.config.FlagSetValue;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecRegistry;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
@@ -108,6 +105,7 @@ import com.google.devtools.build.lib.skyframe.serialization.analysis.ClientId;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.FrontierSerializer;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.FrontierViolationChecker;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingDependenciesProvider;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingDependenciesProvider.DisabledDependenciesProvider;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingEventListener;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions.RemoteAnalysisCacheMode;
@@ -257,7 +255,7 @@ public class BuildTool {
           evaluateProjectFile(
               request, buildOptions, request.getUserOptions(), targetPatternPhaseValue, env);
 
-      if (!projectEvaluationResult.buildOptions().isEmpty()) {
+      if (projectEvaluationResult != null && !projectEvaluationResult.buildOptions().isEmpty()) {
         // First parse the native options from the project file.
         optionsParser.parse(
             PriorityCategory.COMMAND_LINE,
@@ -279,13 +277,25 @@ public class BuildTool {
                     .collect(toImmutableList())));
 
         env.getEventBus()
-            .post(new CanonicalCommandLineEvent(runtime, request.getCommandName(), optionsParser));
+            .post(
+                new CanonicalCommandLineEvent(
+                    runtime,
+                    request.getCommandName(),
+                    optionsParser.getResidue(),
+                    optionsParser.getOptions(BuildEventProtocolOptions.class)
+                        .includeResidueInRunBepEvent,
+                    optionsParser.getExplicitStarlarkOptions(
+                        OriginalCommandLineEvent::commandLinePriority),
+                    optionsParser.getStarlarkOptions(),
+                    optionsParser.asListOfCanonicalOptions()));
         env.getEventBus().post(new UpdateOptionsEvent(optionsParser));
       }
       buildOptions = runtime.createBuildOptions(optionsParser);
       var analysisCachingDeps =
-          RemoteAnalysisCachingDependenciesProviderImpl.forAnalysis(
-              env, projectEvaluationResult.activeDirectoriesMatcher());
+          projectEvaluationResult == null
+              ? DisabledDependenciesProvider.INSTANCE
+              : RemoteAnalysisCachingDependenciesProviderImpl.forAnalysis(
+                  env, projectEvaluationResult.activeDirectoriesMatcher());
 
       if (env.withMergedAnalysisAndExecutionSourceOfTruth()) {
         // a.k.a. Skymeld.
@@ -1027,31 +1037,6 @@ public class BuildTool {
     return PathFragmentPrefixTrie.of(((ProjectValue) result.get(key)).getDefaultActiveDirectory());
   }
 
-  /** Returns the set of options from the selected {@code projectFile} in command line format. */
-  public static ImmutableSet<String> applySclConfigs(
-      BuildOptions buildOptionsBeforeFlagSets,
-      ImmutableMap<String, String> userOptions,
-      ConfigFlagDefinitions configFlagDefinitions,
-      Label projectFile,
-      boolean enforceCanonicalConfigs,
-      SkyframeExecutor skyframeExecutor,
-      ExtendedEventHandler eventHandler)
-      throws InvalidConfigurationException {
-
-    FlagSetValue flagSetValue =
-        Project.modifyBuildOptionsWithFlagSets(
-            projectFile,
-            buildOptionsBeforeFlagSets,
-            userOptions,
-            configFlagDefinitions,
-            enforceCanonicalConfigs,
-            eventHandler,
-            skyframeExecutor);
-
-    // Options from the selected project config.
-    return flagSetValue.getOptionsFromFlagset();
-  }
-
   private Reporter getReporter() {
     return env.getReporter();
   }
@@ -1124,6 +1109,7 @@ public class BuildTool {
           return FrontierViolationChecker.check(
               dependenciesProvider,
               env.getOptions().getOptions(SkyfocusOptions.class).frontierViolationCheck,
+              env.getOptions().getOptions(SkyfocusOptions.class).frontierViolationVerbose,
               env.getReporter(),
               env.getSkyframeExecutor().getEvaluator(),
               env.getRuntime().getProductName(),

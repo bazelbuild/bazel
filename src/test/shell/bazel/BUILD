@@ -23,7 +23,7 @@ gen_workspace_stanza(
     ],
 )
 
-filegroup(
+sh_library(
     name = "test-deps",
     testonly = 1,
     srcs = [
@@ -39,7 +39,7 @@ filegroup(
     ],
 )
 
-filegroup(
+sh_library(
     name = "test-deps-wo-bazel",
     testonly = 1,
     srcs = [
@@ -68,6 +68,7 @@ filegroup(
     visibility = [
         "//src/test/shell:__subpackages__",
     ],
+    deps = ["@rules_shell//shell/runfiles"],
 )
 
 genrule(
