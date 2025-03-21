@@ -38,6 +38,7 @@ import java.util.Set;
  */
 public class SandboxedWorkerProxy extends WorkerProxy {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
+
   /** The sandbox directory for the current request, inside {@code workDir}. */
   private final Path sandboxDir;
 
@@ -94,7 +95,7 @@ public class SandboxedWorkerProxy extends WorkerProxy {
         treeDeleter);
     // Finally, create anything that is still missing. This is non-strict only for historical
     // reasons, we haven't seen what would break if we make it strict.
-    SandboxHelpers.createDirectories(dirsToCreate, sandboxDir, /* strict=*/ false);
+    SandboxHelpers.createDirectories(dirsToCreate, sandboxDir, /* strict= */ false);
     WorkerExecRoot.createInputs(inputsToCreate, inputFiles, sandboxDir);
   }
 
@@ -118,7 +119,7 @@ public class SandboxedWorkerProxy extends WorkerProxy {
   synchronized void destroy() {
     super.destroy();
     try {
-      workDir.deleteTree();
+      sandboxDir.deleteTree();
     } catch (IOException e) {
       logger.atWarning().withCause(e).log("Caught IOException while deleting workdir.");
     }
