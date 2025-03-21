@@ -770,19 +770,13 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       builder.setProgressMessageFromStarlark((String) progressMessage);
     }
 
-    ImmutableMap<String, String> env = null;
+    ImmutableMap<String, String> env = ImmutableMap.of();
     if (envUnchecked != Starlark.NONE) {
       env = ImmutableMap.copyOf(Dict.cast(envUnchecked, String.class, String.class, "env"));
     }
     if (Starlark.truth(useDefaultShellEnv)) {
-      if (env != null
-          && getSemantics()
-              .getBool(BuildLanguageOptions.INCOMPATIBLE_MERGE_FIXED_AND_DEFAULT_SHELL_ENV)) {
-        builder.useDefaultShellEnvironmentWithOverrides(env);
-      } else {
-        builder.useDefaultShellEnvironment();
-      }
-    } else if (env != null) {
+      builder.useDefaultShellEnvironment(env);
+    } else {
       builder.setEnvironment(env);
     }
 

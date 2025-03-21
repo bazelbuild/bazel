@@ -118,7 +118,7 @@ public class ResourceJarActionBuilder {
     ruleContext.registerAction(
         builder
             .setExecutable(javaToolchain.getSingleJar())
-            .useDefaultShellEnvironment()
+            .useDefaultShellEnvironment(ImmutableMap.of())
             .addOutput(outputJar)
             .addInputs(messages)
             .addInputs(resources.values())

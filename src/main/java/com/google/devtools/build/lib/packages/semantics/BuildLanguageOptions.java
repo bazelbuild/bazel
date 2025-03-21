@@ -652,19 +652,6 @@ public final class BuildLanguageOptions extends OptionsBase {
   public boolean incompatibleDisableStarlarkHostTransitions;
 
   @Option(
-      name = "incompatible_merge_fixed_and_default_shell_env",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          "If enabled, actions registered with ctx.actions.run and ctx.actions.run_shell with both"
-              + " 'env' and 'use_default_shell_env = True' specified will use an environment"
-              + " obtained from the default shell environment by overriding with the values passed"
-              + " in to 'env'. If disabled, the value of 'env' is completely ignored in this case.")
-  public boolean incompatibleMergeFixedAndDefaultShellEnv;
-
-  @Option(
       name = "incompatible_disable_objc_library_transition",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -940,9 +927,6 @@ public final class BuildLanguageOptions extends OptionsBase {
                 INCOMPATIBLE_DISABLE_STARLARK_HOST_TRANSITIONS,
                 incompatibleDisableStarlarkHostTransitions)
             .setBool(
-                INCOMPATIBLE_MERGE_FIXED_AND_DEFAULT_SHELL_ENV,
-                incompatibleMergeFixedAndDefaultShellEnv)
-            .setBool(
                 INCOMPATIBLE_DISABLE_OBJC_LIBRARY_TRANSITION,
                 incompatibleDisableObjcLibraryTransition)
             .setBool(ADD_GO_EXEC_GROUPS_TO_BINARY_RULES, addGoExecGroupsToBinaryRules)
@@ -1052,8 +1036,6 @@ public final class BuildLanguageOptions extends OptionsBase {
       "+incompatible_unambiguous_label_stringification";
   public static final String INCOMPATIBLE_DISABLE_STARLARK_HOST_TRANSITIONS =
       "-incompatible_disable_starlark_host_transitions";
-  public static final String INCOMPATIBLE_MERGE_FIXED_AND_DEFAULT_SHELL_ENV =
-      "+experimental_merge_fixed_and_default_shell_env";
   public static final String INCOMPATIBLE_DISABLE_OBJC_LIBRARY_TRANSITION =
       "+incompatible_disable_objc_library_transition";
   public static final String ADD_GO_EXEC_GROUPS_TO_BINARY_RULES =

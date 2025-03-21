@@ -665,7 +665,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       }
       CommandLines commandLines = result.build();
       ActionEnvironment env;
-      if (useDefaultShellEnvironment && environment != null) {
+      if (useDefaultShellEnvironment && !environment.isEmpty()) {
         // Inherited variables override fixed variables in ActionEnvironment. Since we want the
         // fixed part of the action-provided environment to override the inherited part of the
         // user-provided environment, we have to explicitly filter the inherited part.
@@ -675,8 +675,8 @@ public class SpawnAction extends AbstractAction implements CommandAction {
                     configuration.getActionEnvironment().getInheritedEnv(), environment.keySet()));
         // Do not create a new ActionEnvironment in the common case where no vars have been filtered
         // out.
-        if (userFilteredInheritedEnv.equals(
-            configuration.getActionEnvironment().getInheritedEnv())) {
+        if (userFilteredInheritedEnv.size()
+            == configuration.getActionEnvironment().getInheritedEnv().size()) {
           env = configuration.getActionEnvironment();
         } else {
           env =
@@ -685,6 +685,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
         }
         env = env.withAdditionalFixedVariables(environment);
       } else if (useDefaultShellEnvironment) {
+        // This produces the same result as the previous case, but without the overhead.
         env = configuration.getActionEnvironment();
       } else {
         env = ActionEnvironment.create(environment);
@@ -890,7 +891,8 @@ public class SpawnAction extends AbstractAction implements CommandAction {
      *
      * <p><b>All actions should set this if possible and avoid using {@link #setEnvironment}.</b>
      *
-     * <p>When this property is set, the action will use a minimal, standardized environment map.
+     * <p>When this property is set, the action will use a minimal, standardized environment map,
+     * overridden with the specified environment variables (if any).
      *
      * <p>The list of envvars available to the action (the keys in this map) comes from two places:
      * from the rule class provider and from the command line or rc-files via {@code --action_env}
@@ -917,19 +919,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
      * @see BuildConfigurationValue#getLocalShellEnvironment
      */
     @CanIgnoreReturnValue
-    public Builder useDefaultShellEnvironment() {
-      this.environment = null;
-      this.useDefaultShellEnvironment = true;
-      return this;
-    }
-
-    /**
-     * Same as {@link #useDefaultShellEnvironment()}, but additionally sets the provided fixed
-     * environment variables, which take precedence over the variables contained in the default
-     * shell environment.
-     */
-    @CanIgnoreReturnValue
-    public Builder useDefaultShellEnvironmentWithOverrides(Map<String, String> environment) {
+    public Builder useDefaultShellEnvironment(Map<String, String> environment) {
       this.environment = ImmutableMap.copyOf(environment);
       this.useDefaultShellEnvironment = true;
       return this;
