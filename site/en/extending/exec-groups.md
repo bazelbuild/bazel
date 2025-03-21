@@ -9,6 +9,13 @@ Execution groups allow for multiple execution platforms within a single target.
 Each execution group has its own [toolchain](/extending/toolchains) dependencies and
 performs its own [toolchain resolution](/extending/toolchains#toolchain-resolution).
 
+## Current status {:#current-status}
+
+Execution groups for certain natively declared actions, like `CppLink`, can be
+used inside `exec_properties` to set per-action, per-target execution
+requirements. For more details, see the
+[Default execution groups](#exec-groups-for-native-rules) section.
+
 ## Background {:#background}
 
 Execution groups allow the rule author to define sets of actions, each with a
@@ -36,11 +43,11 @@ namely any constraints via `exec_compatible_with` and toolchain types via
 my_rule = rule(
     _impl,
     exec_groups = {
-        “link”: exec_group(
-            exec_compatible_with = [ "@platforms//os:linux" ]
+        "link": exec_group(
+            exec_compatible_with = ["@platforms//os:linux"],
             toolchains = ["//foo:toolchain_type"],
         ),
-        “test”: exec_group(
+        "test": exec_group(
             toolchains = ["//foo_tools:toolchain_type"],
         ),
     },
@@ -129,6 +136,14 @@ settings override target-level settings.
 ### Execution groups for native rules {:#exec-groups-for-native-rules}
 
 The following execution groups are available for actions defined by native rules:
+
+* `test`: Test runner actions.
+* `cpp_link`: C++ linking actions.
+
+### Execution groups for native rules {:#execution-groups-for-native-rules}
+
+The following execution groups are available for actions defined by native
+rules:
 
 * `test`: Test runner actions.
 * `cpp_link`: C++ linking actions.
