@@ -1110,6 +1110,43 @@ public class RemoteSpawnCacheTest {
   }
 
   @Test
+  public void pathMappedActionNotUploadedRemovesInFlightExecution() throws Exception {
+    // arrange
+    RemoteSpawnCache cache = createRemoteSpawnCache();
+
+    SimpleSpawn spawn = simplePathMappedSpawn("k8-fastbuild");
+    FakeActionInputFileCache fakeFileCache = new FakeActionInputFileCache(execRoot);
+    fakeFileCache.createScratchInput(spawn.getInputFiles().getSingleton(), "xyz");
+    SpawnExecutionContext policy =
+        createSpawnExecutionContext(spawn, execRoot, fakeFileCache, outErr);
+
+    RemoteExecutionService remoteExecutionService = cache.getRemoteExecutionService();
+    Mockito.doCallRealMethod()
+        .when(remoteExecutionService)
+        .commitResultAndDecideWhetherToUpload(any(), any());
+
+    // act
+    try (CacheHandle cacheHandle = cache.lookup(spawn, policy)) {
+      cacheHandle.store(
+          new SpawnResult.Builder()
+              .setExitCode(1)
+              .setStatus(Status.NON_ZERO_EXIT)
+              .setFailureDetail(
+                  FailureDetail.newBuilder()
+                      .setMessage("test spawn failed")
+                      .setSpawn(
+                          FailureDetails.Spawn.newBuilder()
+                              .setCode(FailureDetails.Spawn.Code.NON_ZERO_EXIT))
+                      .build())
+              .setRunnerName("test")
+              .build());
+    }
+
+    // assert
+    assertThat(cache.getInFlightExecutionsSize()).isEqualTo(0);
+  }
+
+  @Test
   public void pathMappedActionWithCacheIoExceptionRemovesInFlightExecution() throws Exception {
     // arrange
     RemoteSpawnCache cache = createRemoteSpawnCache();
