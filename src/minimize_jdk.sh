@@ -59,6 +59,12 @@ else
 fi
 
 UNAME=$(uname -s | tr 'A-Z' 'a-z')
+# Options for the JVM that runs the Bazel server, which are either required or
+# recommended when using the embedded JDK on platforms that use a minified JDK.
+# Setting these options here rather than in blaze.cc avoids the need to detect
+# compatible JDKs.
+# Native access is required for the JNI library.
+# Compact object headers reduce retained and peak memory usage.
 JVM_OPTIONS='--enable-native-access=ALL-UNNAMED -XX:+UnlockExperimentalVMOptions -XX:+UseCompactObjectHeaders'
 
 if [[ "$UNAME" =~ msys_nt* ]]; then
