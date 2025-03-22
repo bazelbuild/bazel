@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.actions;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.DetailedException;
 import com.google.devtools.build.lib.skyframe.rewinding.LostInputOwners;
@@ -25,6 +26,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.time.Duration;
 import java.util.Collection;
 import java.util.Map;
+import java.util.Optional;
 
 /** Context to be informed of top-level outputs and their runfiles. */
 public interface ImportantOutputHandler extends ActionContext {
@@ -37,12 +39,15 @@ public interface ImportantOutputHandler extends ActionContext {
    *
    * @param outputs top-level outputs
    * @param metadataProvider provides metadata for artifacts in {@code outputs} and their expansions
+   * @param getGeneratingAction returns the generating action for a derived artifact
    * @return any artifacts that need to be regenerated via action rewinding
    * @throws ImportantOutputException for an issue processing the outputs, not including lost
    *     outputs which are reported in the returned {@link LostArtifacts}
    */
   LostArtifacts processOutputsAndGetLostArtifacts(
-      Iterable<Artifact> outputs, InputMetadataProvider metadataProvider)
+      Iterable<Artifact> outputs,
+      InputMetadataProvider metadataProvider,
+      GeneratingActionGetter getGeneratingAction)
       throws ImportantOutputException, InterruptedException;
 
   /**
@@ -107,9 +112,28 @@ public interface ImportantOutputHandler extends ActionContext {
   Duration LOG_THRESHOLD = Duration.ofMillis(100);
 
   /**
-   * Represents artifacts that need to be regenerated via action rewinding, along with their owners.
+   * A function that returns the {@link ActionExecutionMetadata} of the action that generates a
+   * given {@link DerivedArtifact}.
    */
-  record LostArtifacts(ImmutableMap<String, ActionInput> byDigest, LostInputOwners owners) {
+  @FunctionalInterface
+  interface GeneratingActionGetter {
+    /**
+     * Returns the {@link ActionExecutionMetadata} of the action that generates the given {@link
+     * DerivedArtifact}.
+     */
+    ActionExecutionMetadata of(DerivedArtifact artifact) throws InterruptedException;
+  }
+
+  /**
+   * Represents artifacts that need to be regenerated via action rewinding, optionally along with
+   * their owners if known.
+   */
+  record LostArtifacts(
+      ImmutableMap<String, ActionInput> byDigest, Optional<LostInputOwners> owners) {
+
+    /** An empty instance of {@link LostArtifacts}. */
+    public static final LostArtifacts EMPTY =
+        new LostArtifacts(ImmutableMap.of(), Optional.of(new LostInputOwners()));
 
     public LostArtifacts {
       checkNotNull(byDigest);
@@ -118,6 +142,15 @@ public interface ImportantOutputHandler extends ActionContext {
 
     public boolean isEmpty() {
       return byDigest.isEmpty();
+    }
+
+    /**
+     * @throws LostInputsExecException if this instance is not empty
+     */
+    public void throwIfNotEmpty() throws LostInputsExecException {
+      if (!isEmpty()) {
+        throw new LostInputsExecException(byDigest, owners, /* cause */ null);
+      }
     }
   }
 

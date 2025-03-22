@@ -90,7 +90,7 @@ public final class LostInputsExecException extends ExecException {
         .build();
   }
 
-  public void combineAndThrow(LostInputsExecException other) throws LostInputsExecException {
+  public LostInputsExecException combine(LostInputsExecException other) {
     ImmutableMap<String, ActionInput> combinedLostInputs =
         ImmutableMap.<String, ActionInput>builder()
             .putAll(lostInputs)
@@ -104,6 +104,10 @@ public final class LostInputsExecException extends ExecException {
         new LostInputsExecException(
             combinedLostInputs, /* owners= */ Optional.empty(), /* cause= */ this);
     combined.addSuppressed(other);
-    throw combined;
+    return combined;
+  }
+
+  public void combineAndThrow(LostInputsExecException other) throws LostInputsExecException {
+    throw combine(other);
   }
 }
