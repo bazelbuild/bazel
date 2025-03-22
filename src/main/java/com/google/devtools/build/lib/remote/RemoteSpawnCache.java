@@ -139,7 +139,7 @@ final class RemoteSpawnCache implements SpawnCache {
                   });
           if (previousOrThisExecution != thisExecution) {
             // The current execution is not the first one to be registered for this action key, so
-            // we need to wait for the previous one to finish before we can upload our result.
+            // we need to wait for the previous one to finish before we can reuse its result.
             previousExecution = previousOrThisExecution;
             thisExecution = null;
           }
