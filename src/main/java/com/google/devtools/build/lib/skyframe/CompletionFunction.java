@@ -446,7 +446,6 @@ public final class CompletionFunction<
                 key.topLevelArtifactContext().expandFilesets()
                     ? importantArtifacts
                     : Iterables.filter(importantArtifacts, artifact -> !artifact.isFileset()),
-                ctx,
                 metadataProvider,
                 artifact ->
                     checkNotNull(

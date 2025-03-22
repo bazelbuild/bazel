@@ -20,9 +20,9 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -77,11 +77,11 @@ public final class ExtraActionInfoFileWriteAction extends AbstractFileWriteActio
   @Override
   protected void computeKey(
       ActionKeyContext actionKeyContext,
-      @Nullable ArtifactExpander artifactExpander,
+      @Nullable InputMetadataProvider inputMetadataProvider,
       Fingerprint fp)
       throws CommandLineExpansionException, InterruptedException {
     fp.addString(UUID);
-    fp.addString(shadowedAction.getKey(actionKeyContext, artifactExpander));
+    fp.addString(shadowedAction.getKey(actionKeyContext, inputMetadataProvider));
     fp.addBytes(shadowedAction.getExtraActionInfo(actionKeyContext).build().toByteArray());
   }
 }

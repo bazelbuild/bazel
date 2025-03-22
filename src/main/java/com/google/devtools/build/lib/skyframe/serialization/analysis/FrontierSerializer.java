@@ -40,7 +40,6 @@ import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteAnalysisCaching;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteAnalysisCaching.Code;
-import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectBaseKey;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
@@ -359,14 +358,6 @@ public final class FrontierSerializer {
     }
     if (selection.put(root, ACTIVE) == ACTIVE) {
       return;
-    }
-    if (root instanceof AspectBaseKey aspectKey) {
-      // Whenever an aspect is marked active, its base configured target must also be marked active.
-      // This avoids a situation where an aspect inspects a deserialized configured target, which
-      // may crash because the configured target doesn't have its actions.
-      //
-      // This is possible when an aspect is in the UTC of an active node via an attribute label.
-      markActiveAndTraverseEdges(graph, aspectKey.getBaseConfiguredTargetKey(), selection);
     }
 
     InMemoryNodeEntry node = checkNotNull(graph.getIfPresent(root), root);

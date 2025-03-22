@@ -495,7 +495,6 @@ public class ActionCacheChecker {
       EventHandler handler,
       InputMetadataProvider inputMetadataProvider,
       OutputMetadataStore outputMetadataStore,
-      ArtifactExpander artifactExpander,
       Map<String, String> remoteDefaultPlatformProperties,
       @Nullable OutputChecker outputChecker)
       throws InterruptedException {
@@ -542,7 +541,6 @@ public class ActionCacheChecker {
         handler,
         inputMetadataProvider,
         outputMetadataStore,
-        artifactExpander,
         actionInputs,
         clientEnv,
         outputPermissions,
@@ -575,7 +573,6 @@ public class ActionCacheChecker {
       EventHandler handler,
       InputMetadataProvider inputMetadataProvider,
       OutputMetadataStore outputMetadataStore,
-      ArtifactExpander artifactExpander,
       NestedSet<Artifact> actionInputs,
       Map<String, String> clientEnv,
       OutputPermissions outputPermissions,
@@ -617,7 +614,7 @@ public class ActionCacheChecker {
       return true;
     }
 
-    String actionKey = action.getKey(actionKeyContext, artifactExpander);
+    String actionKey = action.getKey(actionKeyContext, inputMetadataProvider);
     token.actionKey = actionKey; // Save the action key for reuse in updateActionCache().
     if (!entry.getActionKey().equals(actionKey)) {
       reportCommand(handler, action);
@@ -718,7 +715,7 @@ public class ActionCacheChecker {
     // token since we won't need it again.
     String actionKey = token.actionKey;
     if (actionKey == null) {
-      actionKey = action.getKey(actionKeyContext, artifactExpander);
+      actionKey = action.getKey(actionKeyContext, inputMetadataProvider);
     }
 
     ActionCache.Entry entry =
@@ -841,7 +838,6 @@ public class ActionCacheChecker {
       EventHandler handler,
       InputMetadataProvider inputMetadataProvider,
       OutputMetadataStore outputMetadataStore,
-      ArtifactExpander artifactExpander,
       Map<String, String> remoteDefaultPlatformProperties,
       @Nullable OutputChecker outputChecker)
       throws InterruptedException {
@@ -856,7 +852,6 @@ public class ActionCacheChecker {
         handler,
         inputMetadataProvider,
         outputMetadataStore,
-        artifactExpander,
         remoteDefaultPlatformProperties,
         outputChecker);
   }

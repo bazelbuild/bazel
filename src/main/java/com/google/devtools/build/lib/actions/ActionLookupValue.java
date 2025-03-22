@@ -15,17 +15,11 @@ package com.google.devtools.build.lib.actions;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.skyframe.SkyValue;
-import javax.annotation.Nullable;
 
 /** Base interface for all values which can provide the generating action of an artifact. */
 public interface ActionLookupValue extends SkyValue {
 
-  /**
-   * Returns a list of actions registered by this {@link SkyValue}.
-   *
-   * <p>Null if this value was deserialized with analysis caching.
-   */
-  @Nullable
+  /** Returns a list of actions registered by this {@link SkyValue}. */
   ImmutableList<ActionAnalysisMetadata> getActions();
 
   /** Returns the {@link Action} with index {@code index} in this value. Never null. */
@@ -54,9 +48,6 @@ public interface ActionLookupValue extends SkyValue {
    * <p>There are no actions for deserialized values.
    */
   default int getNumActions() {
-    if (getActions() == null) {
-      return 0;
-    }
     return getActions().size();
   }
 }

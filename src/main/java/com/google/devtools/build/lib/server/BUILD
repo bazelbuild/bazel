@@ -29,7 +29,6 @@ java_library(
     deps = [
         ":idle_task",
         ":pid_file_watcher",
-        ":rpc_server",
         ":shutdown_hooks",
         "//src/main/java/com/google/devtools/build/lib:runtime/blaze_command_result",
         "//src/main/java/com/google/devtools/build/lib:runtime/command_dispatcher",
@@ -89,16 +88,6 @@ java_library(
         "//third_party:flogger",
         "//third_party:guava",
         "//third_party:jsr305",
-    ],
-)
-
-java_library(
-    name = "rpc_server",
-    srcs = [
-        "RPCServer.java",
-    ],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
     ],
 )
 

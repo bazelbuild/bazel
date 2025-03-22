@@ -36,7 +36,6 @@ import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
-import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.ImportantOutputHandler;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
@@ -1232,12 +1231,11 @@ public final class RemoteModule extends BlazeModule {
     @Override
     public LostArtifacts processOutputsAndGetLostArtifacts(
         Iterable<Artifact> outputs,
-        ArtifactExpander expander,
         InputMetadataProvider metadataProvider,
         GeneratingActionGetter getGeneratingAction)
         throws ImportantOutputException, InterruptedException {
       try {
-        ensureToplevelArtifacts(outputs, expander, metadataProvider, getGeneratingAction);
+        ensureToplevelArtifacts(outputs, metadataProvider, getGeneratingAction);
       } catch (IOException e) {
         if (e instanceof BulkTransferException bulkTransferException) {
           var lostArtifacts = bulkTransferException.getLostArtifacts(metadataProvider);
@@ -1262,7 +1260,6 @@ public final class RemoteModule extends BlazeModule {
     public LostArtifacts processRunfilesAndGetLostArtifacts(
         PathFragment runfilesDir,
         Map<PathFragment, Artifact> runfiles,
-        ArtifactExpander expander,
         InputMetadataProvider metadataProvider,
         String inputManifestExtension) {
       throw new UnsupportedOperationException(
@@ -1275,12 +1272,10 @@ public final class RemoteModule extends BlazeModule {
     }
 
     @Override
-    public void processWorkspaceStatusOutputs(Path stableOutput, Path volatileOutput) {
-    }
+    public void processWorkspaceStatusOutputs(Path stableOutput, Path volatileOutput) {}
 
     private void ensureToplevelArtifacts(
         Iterable<Artifact> importantArtifacts,
-        ArtifactExpander expander,
         InputMetadataProvider metadataProvider,
         GeneratingActionGetter getGeneratingAction)
         throws IOException, InterruptedException {
@@ -1301,7 +1296,6 @@ public final class RemoteModule extends BlazeModule {
         downloadArtifact(
             remoteOutputChecker,
             actionInputFetcher,
-            expander,
             metadataProvider,
             getGeneratingAction,
             artifact,
@@ -1313,7 +1307,6 @@ public final class RemoteModule extends BlazeModule {
           downloadArtifact(
               remoteOutputChecker,
               actionInputFetcher,
-              expander,
               metadataProvider,
               getGeneratingAction,
               artifact,
@@ -1336,7 +1329,6 @@ public final class RemoteModule extends BlazeModule {
     private static void downloadArtifact(
         OutputChecker outputChecker,
         ActionInputPrefetcher actionInputPrefetcher,
-        ArtifactExpander expander,
         InputMetadataProvider metadataProvider,
         GeneratingActionGetter getGeneratingAction,
         Artifact artifact,
@@ -1349,22 +1341,15 @@ public final class RemoteModule extends BlazeModule {
       // Metadata can be null during error bubbling, only download outputs that are already
       // generated. b/342188273
       if (artifact.isTreeArtifact()) {
-        var treeFiles = expander.tryExpandTreeArtifact(artifact);
+        var treeArtifactValue = metadataProvider.getTreeMetadata(artifact);
+        if (treeArtifactValue == null) {
+          return;
+        }
 
-        var filesToDownload = new ArrayList<ActionInput>(treeFiles.size());
-        for (var treeFile : treeFiles) {
-          FileArtifactValue metadata;
-          try {
-            metadata = metadataProvider.getInputMetadataChecked(treeFile);
-            if (metadata == null) {
-              continue;
-            }
-          } catch (MissingDepExecException e) {
-            // No expected implementation throws this exception.
-            throw new IllegalStateException(e);
-          }
-          if (outputChecker.shouldDownloadOutput(treeFile, metadata)) {
-            filesToDownload.add(treeFile);
+        var filesToDownload = new ArrayList<ActionInput>(treeArtifactValue.getChildren().size());
+        for (var entry : treeArtifactValue.getChildValues().entrySet()) {
+          if (outputChecker.shouldDownloadOutput(entry.getKey(), entry.getValue())) {
+            filesToDownload.add(entry.getKey());
           }
         }
         if (!filesToDownload.isEmpty()) {

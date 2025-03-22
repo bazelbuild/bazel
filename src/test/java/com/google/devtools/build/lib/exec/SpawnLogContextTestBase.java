@@ -20,6 +20,8 @@ import static com.google.devtools.build.lib.testutil.TestConstants.PRODUCT_NAME;
 import static com.google.devtools.build.lib.testutil.TestConstants.WORKSPACE_NAME;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Comparator.comparing;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.when;
 
 import com.google.common.base.Utf8;
 import com.google.common.collect.ImmutableList;
@@ -32,7 +34,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
-import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.CommandLines.ParamFileActionInput;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
@@ -98,6 +99,7 @@ import java.util.TreeMap;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.Mockito;
 
 /** Base class for {@link SpawnLogContext} tests. */
 @RunWith(TestParameterInjector.class)
@@ -2336,18 +2338,20 @@ public abstract class SpawnLogContextTestBase {
       RunfilesTree runfilesTree, ActionInput... actionInputs) throws Exception {
     TreeMap<PathFragment, ActionInput> builder = new TreeMap<>();
 
+    InputMetadataProvider inputMetadataProvider = Mockito.mock(InputMetadataProvider.class);
+    when(inputMetadataProvider.getTreeMetadata(any()))
+        .thenAnswer(
+            invocation -> {
+              SpecialArtifact treeArtifact = invocation.getArgument(0);
+              return createTreeArtifactValue(treeArtifact);
+            });
+
     if (runfilesTree != null) {
       new SpawnInputExpander()
           .addSingleRunfilesTreeToInputs(
               runfilesTree,
               builder,
-              treeArtifact -> {
-                try {
-                  return createTreeArtifactValue(treeArtifact).getChildren();
-                } catch (Exception e) {
-                  throw new ArtifactExpander.MissingExpansionException(e.getMessage());
-                }
-              },
+              inputMetadataProvider,
               PathMapper.NOOP,
               PathFragment.EMPTY_FRAGMENT);
     }

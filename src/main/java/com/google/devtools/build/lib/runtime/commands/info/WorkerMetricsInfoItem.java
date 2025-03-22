@@ -91,6 +91,7 @@ public final class WorkerMetricsInfoItem extends InfoItem {
         } else {
           stringBuilder.append("ids [").append(workerIds).append("]");
         }
+        stringBuilder.append("\n");
       }
       return print(stringBuilder.toString());
     }

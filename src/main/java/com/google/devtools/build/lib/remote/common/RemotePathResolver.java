@@ -115,7 +115,6 @@ public interface RemotePathResolver {
           .getSpawnInputExpander()
           .walkInputs(
               spawn,
-              context.getArtifactExpander(),
               context.getInputMetadataProvider(),
               PathFragment.EMPTY_FRAGMENT,
               visitor);
@@ -181,7 +180,6 @@ public interface RemotePathResolver {
           .getSpawnInputExpander()
           .walkInputs(
               spawn,
-              context.getArtifactExpander(),
               context.getInputMetadataProvider(),
               PathFragment.create(checkNotNull(getWorkingDirectory())),
               visitor);

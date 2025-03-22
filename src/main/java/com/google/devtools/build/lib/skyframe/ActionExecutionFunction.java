@@ -28,7 +28,6 @@ import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.MultimapBuilder;
@@ -44,14 +43,12 @@ import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.AlreadyReportedActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
-import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.DiscoveredInputsEvent;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
-import com.google.devtools.build.lib.actions.FilesetOutputTree;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
+import com.google.devtools.build.lib.actions.InputMetadataProviderArtifactExpander;
 import com.google.devtools.build.lib.actions.LostInputsActionExecutionException;
 import com.google.devtools.build.lib.actions.PackageRootResolver;
 import com.google.devtools.build.lib.actions.RichArtifactData;
@@ -710,8 +707,6 @@ public final class ActionExecutionFunction implements SkyFunction {
               env.getListener(), state.discoveredInputs != null, action, actionLookupData));
     }
 
-    ArtifactExpander artifactExpander = new ActionInputArtifactExpander(state.inputArtifactData);
-
     ArtifactPathResolver pathResolver =
         ArtifactPathResolver.createPathResolver(
             state.actionFileSystem, skyframeActionExecutor.getExecRoot());
@@ -737,7 +732,6 @@ public final class ActionExecutionFunction implements SkyFunction {
               inputMetadataProvider,
               outputMetadataStore,
               pathResolver,
-              artifactExpander,
               actionStartTime,
               state.allInputs.actionCacheInputs,
               clientEnv);
@@ -814,6 +808,9 @@ public final class ActionExecutionFunction implements SkyFunction {
                   actionStartTime));
     }
 
+    ArtifactExpander artifactExpander =
+        InputMetadataProviderArtifactExpander.maybeFrom(state.inputArtifactData);
+
     return skyframeActionExecutor.executeAction(
         env,
         action,
@@ -855,46 +852,9 @@ public final class ActionExecutionFunction implements SkyFunction {
           action,
           inputMetadataProvider,
           outputMetadataStore,
-          new ActionInputArtifactExpander(state.inputArtifactData),
+          InputMetadataProviderArtifactExpander.maybeFrom(state.inputArtifactData),
           state.token,
           clientEnv);
-    }
-  }
-
-  /**
-   * Implementation of {@link ArtifactExpander} that reads from the {@link ActionInputMap} and map
-   * of fileset expansions created during {@link #checkInputs}.
-   */
-  private record ActionInputArtifactExpander(ActionInputMap inputArtifactData)
-      implements ArtifactExpander {
-
-    @Override
-    public ImmutableSortedSet<TreeFileArtifact> expandTreeArtifact(Artifact treeArtifact)
-        throws MissingExpansionException {
-      checkArgument(treeArtifact.isTreeArtifact(), treeArtifact);
-      TreeArtifactValue tree = inputArtifactData.getTreeMetadata(treeArtifact.getExecPath());
-      if (tree == null) {
-        throw new MissingExpansionException("Missing expansion for tree artifact: " + treeArtifact);
-      }
-      return tree.getChildren();
-    }
-
-    @Override
-    public FilesetOutputTree expandFileset(Artifact fileset) throws MissingExpansionException {
-      checkArgument(fileset.isFileset(), fileset);
-      FilesetOutputTree filesetOutput = inputArtifactData.getFileset(fileset);
-      if (filesetOutput == null) {
-        throw new MissingExpansionException("Missing expansion for fileset: " + fileset);
-      }
-      return filesetOutput;
-    }
-
-    @Override
-    @Nullable
-    public ArchivedTreeArtifact getArchivedTreeArtifact(Artifact treeArtifact) {
-      checkArgument(treeArtifact.isTreeArtifact(), treeArtifact);
-      TreeArtifactValue tree = inputArtifactData.getTreeMetadata(treeArtifact.getExecPath());
-      return tree == null ? null : tree.getArchivedArtifact();
     }
   }
 

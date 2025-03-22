@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
-import com.google.devtools.build.lib.actions.ArtifactExpander.MissingExpansionException;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.Spawn;
@@ -65,12 +64,8 @@ public final class SpawnInputUtils {
     Artifact filesetArtifact = getRunfilesArtifactWithName(spawn, context, artifactName);
     checkState(filesetArtifact.isFileset(), filesetArtifact);
 
-    ImmutableList<FilesetOutputSymlink> filesetLinks;
-    try {
-      filesetLinks = context.getArtifactExpander().expandFileset(filesetArtifact).symlinks();
-    } catch (MissingExpansionException e) {
-      throw new IllegalStateException(e);
-    }
+    ImmutableList<FilesetOutputSymlink> filesetLinks =
+        context.getInputMetadataProvider().getFileset(filesetArtifact).symlinks();
     for (FilesetOutputSymlink filesetOutputSymlink : filesetLinks) {
       if (filesetOutputSymlink.targetPath().toString().contains(inputName)) {
         return ActionInputHelper.fromPath(filesetOutputSymlink.targetPath());

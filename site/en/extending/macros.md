@@ -341,6 +341,21 @@ Remember that legacy macros are entirely transparent to the visibility system,
 and behave as though their location is whatever BUILD file or symbolic macro
 they were called from.
 
+#### Finalizers and visibility {:#finalizers-and-visibility}
+
+Targets declared in a rule finalizer, in addition to seeing targets following
+the usual symbolic macro visibility rules, can *also* see all targets which are
+visible to the finalizer target's package.
+
+This means that if you migrate a `native.existing_rules()`-based legacy macro to
+a finalizer, the targets declared by the finalizer will still be able to see
+their old dependencies.
+
+However, note that it's possible to declare a target in a symbolic macro such
+that a finalizer's targets cannot see it under the visibility system – even
+though the finalizer can *introspect* its attributes using
+`native.existing_rules()`.
+
 ### Selects {:#selects}
 
 If an attribute is `configurable` (the default) and its value is not `None`,

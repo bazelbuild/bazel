@@ -25,11 +25,11 @@ import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactExpander;
-import com.google.devtools.build.lib.actions.ArtifactExpander.MissingExpansionException;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.FilesetOutputTree;
 import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
+import com.google.devtools.build.lib.actions.InputMetadataProviderArtifactExpander;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.RunfilesTree;
 import com.google.devtools.build.lib.actions.Spawn;
@@ -74,7 +74,7 @@ public final class SpawnInputExpander {
   void addSingleRunfilesTreeToInputs(
       RunfilesTree runfilesTree,
       Map<PathFragment, ActionInput> inputMap,
-      ArtifactExpander artifactExpander,
+      InputMetadataProvider inputMetadataProvider,
       PathMapper pathMapper,
       PathFragment baseDirectory)
       throws ForbiddenActionInputException {
@@ -82,7 +82,7 @@ public final class SpawnInputExpander {
         inputMap,
         runfilesTree.getExecPath(),
         runfilesTree.getMapping(),
-        artifactExpander,
+        inputMetadataProvider,
         pathMapper,
         baseDirectory);
   }
@@ -97,11 +97,13 @@ public final class SpawnInputExpander {
       Map<PathFragment, ActionInput> inputMap,
       PathFragment root,
       Map<PathFragment, Artifact> mappings,
-      ArtifactExpander artifactExpander,
+      InputMetadataProvider inputMetadataProvider,
       PathMapper pathMapper,
       PathFragment baseDirectory)
       throws ForbiddenActionInputException {
     Preconditions.checkArgument(!root.isAbsolute(), root);
+    ArtifactExpander artifactExpander =
+        InputMetadataProviderArtifactExpander.maybeFrom(inputMetadataProvider);
     for (Map.Entry<PathFragment, Artifact> mapping : mappings.entrySet()) {
       PathFragment location = root.getRelative(mapping.getKey());
       Artifact artifact = mapping.getValue();
@@ -116,7 +118,9 @@ public final class SpawnInputExpander {
       Preconditions.checkArgument(!artifact.isRunfilesTree(), artifact);
       if (artifact.isTreeArtifact()) {
         ArchivedTreeArtifact archivedTreeArtifact =
-            expandArchivedTreeArtifacts ? null : artifactExpander.getArchivedTreeArtifact(artifact);
+            expandArchivedTreeArtifacts
+                ? null
+                : inputMetadataProvider.getTreeMetadata(artifact).getArchivedArtifact();
         if (archivedTreeArtifact != null) {
           // TODO(bazel-team): Add path mapping support for archived tree artifacts.
           addMapping(inputMap, location, archivedTreeArtifact, baseDirectory);
@@ -137,13 +141,8 @@ public final class SpawnInputExpander {
           }
         }
       } else if (artifact.isFileset()) {
-        FilesetOutputTree filesetOutput;
-        try {
-          filesetOutput = artifactExpander.expandFileset(artifact);
-        } catch (MissingExpansionException e) {
-          throw new IllegalStateException(e);
-        }
         // TODO(bazel-team): Add path mapping support for filesets.
+        FilesetOutputTree filesetOutput = inputMetadataProvider.getFileset(artifact);
         addFilesetManifest(location, artifact, filesetOutput, inputMap, baseDirectory);
       } else {
         // TODO: b/7075837 - If we want to prohibit directory inputs, we can check if
@@ -183,7 +182,6 @@ public final class SpawnInputExpander {
   private void addInputs(
       Map<PathFragment, ActionInput> inputMap,
       NestedSet<? extends ActionInput> inputFiles,
-      ArtifactExpander artifactExpander,
       InputMetadataProvider inputMetadataProvider,
       PathMapper pathMapper,
       PathFragment baseDirectory)
@@ -194,7 +192,7 @@ public final class SpawnInputExpander {
     List<ActionInput> inputs =
         ActionInputHelper.expandArtifacts(
             inputFiles,
-            artifactExpander,
+            InputMetadataProviderArtifactExpander.maybeFrom(inputMetadataProvider),
             /* keepEmptyTreeArtifacts= */ true,
             /* keepRunfilesTrees= */ true);
     for (ActionInput input : inputs) {
@@ -210,7 +208,7 @@ public final class SpawnInputExpander {
         RunfilesTree runfilesTree =
             inputMetadataProvider.getRunfilesMetadata(input).getRunfilesTree();
         addSingleRunfilesTreeToInputs(
-            runfilesTree, inputMap, artifactExpander, pathMapper, baseDirectory);
+            runfilesTree, inputMap, inputMetadataProvider, pathMapper, baseDirectory);
       } else if (input instanceof Artifact fileset && fileset.isFileset()) {
         addFilesetManifest(
             fileset.getExecPath(),
@@ -237,7 +235,6 @@ public final class SpawnInputExpander {
    */
   public SortedMap<PathFragment, ActionInput> getInputMapping(
       Spawn spawn,
-      ArtifactExpander artifactExpander,
       InputMetadataProvider inputMetadataProvider,
       PathFragment baseDirectory)
       throws ForbiddenActionInputException {
@@ -245,7 +242,6 @@ public final class SpawnInputExpander {
     addInputs(
         inputMap,
         spawn.getInputFiles(),
-        artifactExpander,
         inputMetadataProvider,
         spawn.getPathMapper(),
         baseDirectory);
@@ -307,7 +303,6 @@ public final class SpawnInputExpander {
    */
   public void walkInputs(
       Spawn spawn,
-      ArtifactExpander artifactExpander,
       InputMetadataProvider inputMetadataProvider,
       PathFragment baseDirectory,
       InputVisitor visitor)
@@ -315,7 +310,6 @@ public final class SpawnInputExpander {
     walkNestedSetInputs(
         baseDirectory,
         spawn.getInputFiles(),
-        artifactExpander,
         inputMetadataProvider,
         spawn.getPathMapper(),
         visitor);
@@ -325,7 +319,6 @@ public final class SpawnInputExpander {
   private void walkNestedSetInputs(
       PathFragment baseDirectory,
       NestedSet<? extends ActionInput> someInputFiles,
-      ArtifactExpander artifactExpander,
       InputMetadataProvider inputMetadataProvider,
       PathMapper pathMapper,
       InputVisitor visitor)
@@ -347,7 +340,6 @@ public final class SpawnInputExpander {
             addInputs(
                 inputMap,
                 NestedSetBuilder.wrap(someInputFiles.getOrder(), leaves),
-                artifactExpander,
                 inputMetadataProvider,
                 pathMapper,
                 baseDirectory);
@@ -362,7 +354,6 @@ public final class SpawnInputExpander {
                 walkTreeInputs(
                     baseDirectory,
                     (SpecialArtifact) input,
-                    artifactExpander,
                     inputMetadataProvider,
                     pathMapper,
                     childVisitor);
@@ -372,7 +363,7 @@ public final class SpawnInputExpander {
                 walkRunfilesTree(
                     baseDirectory,
                     inputMetadataProvider.getRunfilesMetadata(input).getRunfilesTree(),
-                    artifactExpander,
+                    inputMetadataProvider,
                     pathMapper,
                     childVisitor);
               }
@@ -380,12 +371,7 @@ public final class SpawnInputExpander {
 
             for (NestedSet<? extends ActionInput> subInputs : someInputFiles.getNonLeaves()) {
               walkNestedSetInputs(
-                  baseDirectory,
-                  subInputs,
-                  artifactExpander,
-                  inputMetadataProvider,
-                  pathMapper,
-                  childVisitor);
+                  baseDirectory, subInputs, inputMetadataProvider, pathMapper, childVisitor);
             }
           }
         });
@@ -394,7 +380,7 @@ public final class SpawnInputExpander {
   private void walkRunfilesTree(
       PathFragment baseDirectory,
       RunfilesTree runfilesTree,
-      ArtifactExpander artifactExpander,
+      InputMetadataProvider inputMetadataProvider,
       PathMapper pathMapper,
       InputVisitor visitor)
       throws IOException, ForbiddenActionInputException {
@@ -407,7 +393,7 @@ public final class SpawnInputExpander {
               throws ForbiddenActionInputException {
             TreeMap<PathFragment, ActionInput> inputMap = new TreeMap<>();
             addSingleRunfilesTreeToInputs(
-                runfilesTree, inputMap, artifactExpander, pathMapper, baseDirectory);
+                runfilesTree, inputMap, inputMetadataProvider, pathMapper, baseDirectory);
             return inputMap;
           }
         });
@@ -417,7 +403,6 @@ public final class SpawnInputExpander {
   private void walkTreeInputs(
       PathFragment baseDirectory,
       SpecialArtifact tree,
-      ArtifactExpander artifactExpander,
       InputMetadataProvider inputMetadataProvider,
       PathMapper pathMapper,
       InputVisitor visitor)
@@ -433,7 +418,6 @@ public final class SpawnInputExpander {
             addInputs(
                 inputMap,
                 NestedSetBuilder.create(Order.STABLE_ORDER, tree),
-                artifactExpander,
                 inputMetadataProvider,
                 pathMapper,
                 baseDirectory);

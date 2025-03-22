@@ -40,7 +40,6 @@ import build.bazel.remote.execution.v2.RequestMetadata;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Sets;
 import com.google.common.eventbus.EventBus;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -211,9 +210,7 @@ public class RemoteSpawnCacheTest {
       public SortedMap<PathFragment, ActionInput> getInputMapping(
           PathFragment baseDirectory, boolean willAccessRepeatedly)
           throws ForbiddenActionInputException {
-        return getSpawnInputExpander()
-            .getInputMapping(
-                spawn, treeArtifact -> ImmutableSortedSet.of(), fakeFileCache, baseDirectory);
+        return getSpawnInputExpander().getInputMapping(spawn, fakeFileCache, baseDirectory);
       }
 
       @Override

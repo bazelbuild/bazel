@@ -96,16 +96,13 @@ public abstract class StarlarkList<E> extends AbstractCollection<E>
    */
   static <T> StarlarkList<T> wrap(@Nullable Mutability mutability, Object[] elems) {
     if (mutability == null || mutability.isFrozen()) {
-      switch (elems.length) {
-        case 0:
-          return empty();
-        case 1:
-          return new ImmutableSingletonStarlarkList<>(elems[0]);
-        default:
-          return new RegularImmutableStarlarkList<>(elems);
-      }
+      return switch (elems.length) {
+        case 0 -> empty();
+        case 1 -> new ImmutableSingletonStarlarkList<>(elems[0]);
+        default -> new RegularImmutableStarlarkList<>(elems);
+      };
     }
-    return new MutableStarlarkList<>(mutability, elems, elems.length);
+    return new MutableStarlarkList<>(mutability, elems);
   }
 
   @Override

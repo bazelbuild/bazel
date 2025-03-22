@@ -677,7 +677,6 @@ public final class SkyframeActionExecutor {
       InputMetadataProvider inputMetadataProvider,
       OutputMetadataStore outputMetadataStore,
       ArtifactPathResolver artifactPathResolver,
-      ArtifactExpander artifactExpander,
       long actionStartTime,
       List<Artifact> resolvedCacheArtifacts,
       Map<String, String> clientEnv)
@@ -711,7 +710,6 @@ public final class SkyframeActionExecutor {
               handler,
               inputMetadataProvider,
               outputMetadataStore,
-              artifactExpander,
               remoteDefaultProperties,
               outputChecker);
 
@@ -753,7 +751,6 @@ public final class SkyframeActionExecutor {
                     handler,
                     inputMetadataProvider,
                     outputMetadataStore,
-                    artifactExpander,
                     remoteDefaultProperties,
                     outputChecker);
           }

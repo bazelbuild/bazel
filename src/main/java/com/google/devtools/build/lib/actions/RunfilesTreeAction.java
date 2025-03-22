@@ -132,7 +132,7 @@ public final class RunfilesTreeAction extends AbstractAction implements RichData
   @Override
   protected void computeKey(
       ActionKeyContext actionKeyContext,
-      @Nullable ArtifactExpander artifactExpander,
+      @Nullable InputMetadataProvider inputMetadataProvider,
       Fingerprint fp) {
     // Only the set of inputs matters, and the dependency checker is
     // responsible for considering those.

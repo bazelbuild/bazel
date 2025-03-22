@@ -59,9 +59,7 @@ public interface QuiescingExecutor extends Executor {
    * <p>This is ideal for situations where tasks, that can spawn other tasks, are submitted in waves
    * and we'd like to reuse the same QuiescingExecutor for them.
    */
-  default void awaitQuiescenceWithoutShutdown(boolean interruptWorkers)
-      throws InterruptedException {}
-  ;
+  void awaitQuiescenceWithoutShutdown(boolean interruptWorkers) throws InterruptedException;
 
   /**
    * Prevent quiescence of the executor until the given future is completed. If the executor is
