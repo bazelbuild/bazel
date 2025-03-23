@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.analysis.test;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionConflictException;
@@ -29,11 +30,10 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.skyframe.CoverageReportValue;
 import java.util.Collection;
+import java.util.List;
 import javax.annotation.Nullable;
 
-/**
- * A factory class to create coverage report actions.
- */
+/** A factory class to create coverage report actions. */
 public interface CoverageReportActionFactory {
   /**
    * Wraps the necessary actions to get a coverage report as well as the final output artifacts. The
@@ -42,16 +42,24 @@ public interface CoverageReportActionFactory {
    * coverageReportAction.
    */
   final class CoverageReportActionsWrapper {
+    private final ActionAnalysisMetadata baselineReportAction;
     private final ActionAnalysisMetadata coverageReportAction;
     private final ImmutableList<ActionAnalysisMetadata> actions;
 
     public CoverageReportActionsWrapper(
-        ActionAnalysisMetadata lcovWriteAction,
+        ActionAnalysisMetadata baselineReportAction,
         ActionAnalysisMetadata coverageReportAction,
+        List<ActionAnalysisMetadata> intermediateActions,
         ActionKeyContext actionKeyContext)
         throws InterruptedException {
+      this.baselineReportAction = baselineReportAction;
       this.coverageReportAction = coverageReportAction;
-      this.actions = ImmutableList.of(lcovWriteAction, coverageReportAction);
+      this.actions =
+          ImmutableList.<ActionAnalysisMetadata>builder()
+              .add(baselineReportAction)
+              .add(coverageReportAction)
+              .addAll(intermediateActions)
+              .build();
       try {
         Actions.assignOwnersAndThrowIfConflict(
             actionKeyContext, actions, CoverageReportValue.COVERAGE_REPORT_KEY);
@@ -64,8 +72,12 @@ public interface CoverageReportActionFactory {
       return actions;
     }
 
-    public Collection<Artifact> getCoverageOutputs() {
-      return coverageReportAction.getOutputs();
+    public Iterable<Artifact> getCoverageOutputs() {
+      return Iterables.concat(baselineReportAction.getOutputs(), coverageReportAction.getOutputs());
+    }
+
+    public Artifact getBaselineReportArtifact() {
+      return baselineReportAction.getPrimaryOutput();
     }
 
     public Artifact getCoverageReportArtifact() {
