@@ -141,7 +141,8 @@ public class BazelCoverageReportModule extends BlazeModule {
       event
           .getResult()
           .getBuildToolLogCollection()
-          .addLocalFile("coverage_report.lcov", wrapper.getCoverageReportArtifact().getPath());
+          .addLocalFile("coverage_report.lcov", wrapper.getCoverageReportArtifact().getPath())
+          .addLocalFile("baseline_report.lcov", wrapper.getBaselineReportArtifact().getPath());
     }
   }
 }

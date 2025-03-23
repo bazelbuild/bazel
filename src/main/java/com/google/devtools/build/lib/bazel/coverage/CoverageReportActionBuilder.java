@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.bazel.coverage;
 
-
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -178,8 +177,7 @@ public final class CoverageReportActionBuilder {
     }
   }
 
-  public CoverageReportActionBuilder() {
-  }
+  public CoverageReportActionBuilder() {}
 
   /** Returns the coverage report action. May return null in case of an error. */
   @Nullable
@@ -220,17 +218,53 @@ public final class CoverageReportActionBuilder {
         builder.addTransitive(baselineCoverageArtifacts).build();
     if (!coverageArtifacts.isEmpty()) {
       PathFragment coverageDir = TestRunnerAction.COVERAGE_TMP_ROOT;
-      Artifact lcovArtifact = factory.getDerivedArtifact(
-          coverageDir.getRelative("lcov_files.tmp"),
-          directories.getBuildDataDirectory(workspaceName),
-          artifactOwner);
-      Action lcovFileAction = generateLcovFileWriteAction(lcovArtifact, coverageArtifacts);
-      Action coverageReportAction = generateCoverageReportAction(
-          CoverageArgs.create(directories, coverageArtifacts, lcovArtifact, factory, artifactOwner,
-              reportGenerator, workspaceName, htmlReport),
-          argsFunction, locationFunc);
+      Artifact baselineLcovArtifact =
+          factory.getDerivedArtifact(
+              coverageDir.getRelative("baseline_lcov_files.tmp"),
+              directories.getBuildDataDirectory(workspaceName),
+              artifactOwner);
+      Action baselineLcovFileAction =
+          generateLcovFileWriteAction(baselineLcovArtifact, baselineCoverageArtifacts);
+      Action baselineReportAction =
+          generateCoverageReportAction(
+              CoverageArgs.create(
+                  directories,
+                  baselineCoverageArtifacts,
+                  baselineLcovArtifact,
+                  factory,
+                  artifactOwner,
+                  reportGenerator,
+                  workspaceName,
+                  htmlReport),
+              argsFunction,
+              locationFunc,
+              "_baseline_report.dat");
+      Artifact coverageLcovArtifact =
+          factory.getDerivedArtifact(
+              coverageDir.getRelative("coverage_lcov_files.tmp"),
+              directories.getBuildDataDirectory(workspaceName),
+              artifactOwner);
+      Action coverageLcovFileAction =
+          generateLcovFileWriteAction(coverageLcovArtifact, coverageArtifacts);
+      Action coverageReportAction =
+          generateCoverageReportAction(
+              CoverageArgs.create(
+                  directories,
+                  coverageArtifacts,
+                  coverageLcovArtifact,
+                  factory,
+                  artifactOwner,
+                  reportGenerator,
+                  workspaceName,
+                  htmlReport),
+              argsFunction,
+              locationFunc,
+              "_coverage_report.dat");
       return new CoverageReportActionsWrapper(
-          lcovFileAction, coverageReportAction, actionKeyContext);
+          baselineReportAction,
+          coverageReportAction,
+          ImmutableList.of(baselineLcovFileAction, coverageLcovFileAction),
+          actionKeyContext);
     } else {
       reporter.handle(
           Event.error("Cannot generate coverage report - no coverage information was collected"));
@@ -261,13 +295,12 @@ public final class CoverageReportActionBuilder {
   }
 
   private static CoverageReportAction generateCoverageReportAction(
-      CoverageArgs args, ArgsFunc argsFunc, LocationFunc locationFunc) {
+      CoverageArgs args, ArgsFunc argsFunc, LocationFunc locationFunc, String basename) {
     ArtifactRoot root = args.directories().getBuildDataDirectory(args.workspaceName());
     PathFragment coverageDir = TestRunnerAction.COVERAGE_TMP_ROOT;
     Artifact lcovOutput =
         args.factory()
-            .getDerivedArtifact(
-                coverageDir.getRelative("_coverage_report.dat"), root, args.artifactOwner());
+            .getDerivedArtifact(coverageDir.getRelative(basename), root, args.artifactOwner());
     Artifact reportGeneratorExec = args.reportGenerator().getExecutable();
     RunfilesSupport runfilesSupport = args.reportGenerator().getRunfilesSupport();
     Artifact runfilesTree =
