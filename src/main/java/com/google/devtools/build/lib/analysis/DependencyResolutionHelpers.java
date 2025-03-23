@@ -510,7 +510,8 @@ public final class DependencyResolutionHelpers {
         && !rule.isAttrDefined(attrName, BuildType.NODEP_LABEL_LIST)) {
       return;
     }
-    Attribute attribute = rule.getRuleClassObject().getAttributeByName(attrName);
+    Attribute attribute =
+        rule.getRuleClassObject().getAttributeProvider().getAttributeByName(attrName);
     outgoingLabels.putAll(AttributeDependencyKind.forRule(attribute), labels);
   }
 
@@ -528,7 +529,8 @@ public final class DependencyResolutionHelpers {
     // `ctx.rule.attr` with rule attributes taking precedence then aspects' attributes based on the
     // aspect order in the aspects path (lowest order to highest).
 
-    List<Attribute> ruleAttributes = rule.getRuleClassObject().getAttributes();
+    List<Attribute> ruleAttributes =
+        rule.getRuleClassObject().getAttributeProvider().getAttributes();
     for (Attribute attribute : ruleAttributes) {
         result.add(AttributeDependencyKind.forRule(attribute));
       ruleAndBaseAspectsProcessedAttributes.add(attribute.getName());

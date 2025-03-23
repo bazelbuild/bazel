@@ -101,7 +101,7 @@ public class LateBoundAttributeTest extends BuildViewTestCase {
         return;
       }
 
-      for (Attribute attribute : ruleClass.getAttributes()) {
+      for (Attribute attribute : ruleClass.getAttributeProvider().getAttributes()) {
         checkAttribute(ruleClass, attribute);
       }
     }

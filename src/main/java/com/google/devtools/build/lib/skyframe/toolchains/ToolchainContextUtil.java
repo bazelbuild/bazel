@@ -157,6 +157,7 @@ public final class ToolchainContextUtil {
 
     execConstraintLabels.addAll(rule.getRuleClassObject().getExecutionPlatformConstraints());
     if (rule.getRuleClassObject()
+        .getAttributeProvider()
         .hasAttr(RuleClass.EXEC_COMPATIBLE_WITH_ATTR, BuildType.LABEL_LIST)) {
       execConstraintLabels.addAll(
           mapper.get(RuleClass.EXEC_COMPATIBLE_WITH_ATTR, BuildType.LABEL_LIST));
@@ -178,6 +179,7 @@ public final class ToolchainContextUtil {
       return ImmutableMultimap.of(); // See NoConfigTransition.
     }
     if (!rule.getRuleClassObject()
+        .getAttributeProvider()
         .hasAttr(RuleClass.EXEC_GROUP_COMPATIBLE_WITH_ATTR, BuildType.LABEL_LIST_DICT)) {
       return ImmutableMultimap.of();
     }

@@ -677,7 +677,7 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
       return false;
     }
     if (attributeName.equals("distribs")) {
-      Attribute attr = ruleClass.getAttributeByName(attributeName);
+      Attribute attr = ruleClass.getAttributeProvider().getAttributeByName(attributeName);
       if (attr != null && attr.getType() == BuildType.DISTRIBUTIONS) {
         // "distribs" attribute (a Set<License.DistributionType> value) is not a StarlarkValue. Note
         // that we cannot check for a Set<License.DistributionType> directly because generic type
@@ -727,7 +727,7 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
    * @return the value, or null if we don't want to export it to the user.
    */
   @Nullable
-  private static Object starlarkifyValue(Mutability mu, Object val, Package.Metadata pkgMetadata) {
+  public static Object starlarkifyValue(Mutability mu, Object val, Package.Metadata pkgMetadata) {
     // easy cases
     if (!isPotentiallyStarlarkifiableValue(val)) {
       return null;

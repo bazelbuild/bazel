@@ -126,6 +126,7 @@ public final class TestTargetUtilsTest extends PackageLoadingTestCase {
     RuleClass ruleClass = mock(RuleClass.class);
     when(ruleClass.getDefaultImplicitOutputsFunction())
         .thenReturn(SafeImplicitOutputsFunction.NONE);
+    when(ruleClass.getAttributeProvider()).thenReturn(mock(AttributeProvider.class));
     Rule mockRule =
         new Rule(
             pkg,

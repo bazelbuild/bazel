@@ -207,7 +207,7 @@ public class BuildDocCollector {
         if (ruleClass.isDocumented()) {
           Class<? extends RuleDefinition> ruleDefinition =
               ruleClassProvider.getRuleClassDefinition(ruleDoc.getRuleName()).getClass();
-          for (Attribute attribute : ruleClass.getAttributes()) {
+          for (Attribute attribute : ruleClass.getAttributeProvider().getAttributes()) {
             if (!attribute.isDocumented()) {
               continue;
             }

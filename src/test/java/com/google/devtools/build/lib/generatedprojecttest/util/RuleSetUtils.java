@@ -58,7 +58,7 @@ public class RuleSetUtils {
       new Predicate<RuleClass>() {
         @Override
         public boolean apply(final RuleClass input) {
-          List<Attribute> li = new ArrayList<>(input.getAttributes());
+          List<Attribute> li = new ArrayList<>(input.getAttributeProvider().getAttributes());
           return Iterables.any(li, RuleSetUtils::mandatoryExcludingName);
         }
       };
@@ -71,12 +71,11 @@ public class RuleSetUtils {
       new Predicate<RuleClass>() {
         @Override
         public boolean apply(final RuleClass input) {
-          List<Attribute> li = new ArrayList<>(input.getAttributes());
+          List<Attribute> li = new ArrayList<>(input.getAttributeProvider().getAttributes());
           // TODO(bazel-team): after the API migration we shouldn't check srcs separately
           boolean emptySrcsAllowed =
-              input.hasAttr("srcs", BuildType.LABEL_LIST)
-                  ? !input.getAttributeByName("srcs").isNonEmpty()
-                  : true;
+              !input.getAttributeProvider().hasAttr("srcs", BuildType.LABEL_LIST)
+                  || !input.getAttributeProvider().getAttributeByName("srcs").isNonEmpty();
           if (!(emptySrcsAllowed && Iterables.any(li, DEPS))) {
             return false;
           }
@@ -103,7 +102,8 @@ public class RuleSetUtils {
 
     @Override
     public boolean apply(final RuleClass ruleClass) {
-      return attributes.stream().anyMatch(pair -> ruleClass.hasAttr(pair.first, pair.second));
+      return attributes.stream()
+          .anyMatch(pair -> ruleClass.getAttributeProvider().hasAttr(pair.first, pair.second));
     }
   }
 
