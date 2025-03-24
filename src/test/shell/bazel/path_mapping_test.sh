@@ -450,7 +450,7 @@ function test_path_stripping_cc_remote() {
   local -r pkg="${FUNCNAME[0]}"
 
   cat > MODULE.bazel <<EOF
-bazel_dep(name = "apple_support", version = "1.15.1")
+bazel_dep(name = "apple_support", version = "1.21.0")
 EOF
 
   mkdir -p "$pkg"
@@ -772,7 +772,7 @@ EOF
   # (0 cached out of 6 in total).
   if is_darwin; then
     expect_log ' 6 remote cache hit'
-    expect_log ' 9 remote'
+    expect_log ' 13 remote'
   else
     expect_log ' 4 remote cache hit'
     expect_log ' 8 remote'
