@@ -33,7 +33,7 @@ public final class ListExpression extends Expression {
       FileLocations locs,
       boolean isTuple,
       int lbracketOffset,
-      List<Expression> elements,
+      ImmutableList<Expression> elements,
       int rbracketOffset) {
     super(locs, Kind.LIST_EXPR);
     // An unparenthesized tuple must be non-empty.
@@ -41,7 +41,7 @@ public final class ListExpression extends Expression {
         !elements.isEmpty() || (lbracketOffset >= 0 && rbracketOffset >= 0));
     this.lbracketOffset = lbracketOffset;
     this.isTuple = isTuple;
-    this.elements = ImmutableList.copyOf(elements);
+    this.elements = elements;
     this.rbracketOffset = rbracketOffset;
   }
 
