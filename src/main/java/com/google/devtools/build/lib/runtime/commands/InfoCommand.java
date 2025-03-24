@@ -82,6 +82,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
+import net.starlark.java.spelling.SpellChecker;
 
 /** Implementation of 'blaze info'. */
 @Command(
@@ -207,7 +208,9 @@ public class InfoCommand implements BlazeCommand {
           String message =
               "unknown key(s): "
                   + unknownKeys.stream()
-                      .map(key -> "'" + key + "'")
+                      .map(
+                          key ->
+                              "'%s'%s".formatted(key, SpellChecker.didYouMean(key, items.keySet())))
                       .collect(Collectors.joining(", "));
           env.getReporter().handle(Event.error(message));
           return createFailureResult(
