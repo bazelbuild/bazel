@@ -318,7 +318,6 @@ bazel_fragments["CppOptions"] = fragment(
         "//command_line_option:experimental_unsupported_and_brittle_include_scanning",
         "//command_line_option:incompatible_use_cpp_compile_header_mnemonic",
         "//command_line_option:experimental_starlark_cc_import",
-        "//command_line_option:incompatible_macos_set_install_name",
         "//command_line_option:experimental_cpp_compile_resource_estimation",
         "//command_line_option:experimental_generate_llvm_lcov",
         "//command_line_option:experimental_omitfp",

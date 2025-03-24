@@ -612,6 +612,15 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         help = "No-op.")
     public boolean experimentalActionResourceSet;
+
+    @Option(
+        name = "incompatible_macos_set_install_name",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+        help = "No-op.")
+    public boolean macosSetInstallName;
   }
 
   @Override
