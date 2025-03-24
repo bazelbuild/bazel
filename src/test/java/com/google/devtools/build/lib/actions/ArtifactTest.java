@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.testing.EqualsTester;
 import com.google.common.testing.EquivalenceTester;
+import com.google.common.testing.GcFinalization;
 import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactSerializationContext;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
@@ -92,11 +93,7 @@ public final class ArtifactTest {
   }
 
   private static long getUsedMemory() {
-    System.gc();
-    System.gc();
-    System.runFinalization();
-    System.gc();
-    System.gc();
+    GcFinalization.awaitFullGc();
     return Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory();
   }
 
