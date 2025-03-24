@@ -132,20 +132,26 @@ public final class LabelExpander {
       String labelText, Map<Label, T> labelMap, Label labelResolver)
       throws NotUniqueExpansionException {
     Label resolvedLabel = resolveLabelText(labelText, labelResolver);
-    if (resolvedLabel != null) {
-      Iterable<Artifact> artifacts = labelMap.get(resolvedLabel);
-      if (artifacts != null) { // resolvedLabel identifies an existing target
-        List<String> locations = new ArrayList<>();
-        Artifact.addExecPaths(artifacts, locations);
-        int resultSetSize = locations.size();
-        if (resultSetSize == 1) {
-          return Iterables.getOnlyElement(locations); // success!
-        } else {
-          throw new NotUniqueExpansionException(resultSetSize, labelText);
-        }
+    if (resolvedLabel == null) {
+      return labelText;
+    }
+    Iterable<Artifact> artifacts = labelMap.get(resolvedLabel);
+    if (artifacts == null) {
+      return labelText;
+    }
+    // resolvedLabel identifies an existing target
+    List<String> locations = new ArrayList<>();
+    for (Artifact artifact : artifacts) {
+      if (!artifact.isRunfilesTree()) {
+        locations.add(artifact.getExecPathString());
       }
     }
-    return labelText;
+    int resultSetSize = locations.size();
+    if (resultSetSize == 1) {
+      return Iterables.getOnlyElement(locations); // success!
+    } else {
+      throw new NotUniqueExpansionException(resultSetSize, labelText);
+    }
   }
 
   /**
