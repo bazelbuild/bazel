@@ -59,6 +59,13 @@ else
 fi
 
 UNAME=$(uname -s | tr 'A-Z' 'a-z')
+# Options for the JVM that runs the Bazel server, which are either required or
+# recommended when using the embedded JDK on platforms that use a minified JDK.
+# Setting these options here rather than in blaze.cc avoids the need to detect
+# compatible JDKs.
+# Native access is required for the JNI library.
+# Compact object headers reduce retained and peak memory usage.
+JVM_OPTIONS='--enable-native-access=ALL-UNNAMED -XX:+UnlockExperimentalVMOptions -XX:+UseCompactObjectHeaders'
 
 if [[ "$UNAME" =~ msys_nt* ]]; then
   mkdir "tmp.$$"
@@ -71,7 +78,7 @@ if [[ "$UNAME" =~ msys_nt* ]]; then
   modules="$modules,jdk.crypto.mscapi"
   ./bin/jlink --module-path ./jmods/ --add-modules "$modules" \
     --vm=server --strip-debug --no-man-pages \
-    --add-options=' --enable-native-access=ALL-UNNAMED' \
+    --add-options=" ${JVM_OPTIONS}"\
     --output reduced
   # Patch the app manifest of the java.exe launcher to force its active code
   # page to UTF-8 on Windows 1903 and later, which is required for proper
@@ -97,7 +104,7 @@ else
   cd $FULL_JDK_DIR
   ./bin/jlink --module-path ./jmods/ --add-modules "$modules" \
     --vm=server --strip-debug --no-man-pages \
-    --add-options=' --enable-native-access=ALL-UNNAMED' \
+    --add-options=" ${JVM_OPTIONS}" \
     --output reduced
   cp $DOCS legal/java.base/ASSEMBLY_EXCEPTION \
     reduced/
