@@ -96,4 +96,21 @@ function test_options_override() {
   expect_not_log '^xxxxxxxxxxx'
 }
 
+function test_bep_option_source() {
+  local -r build_event_text_file="$(pwd)/bep.txt"
+  local -r pkg=$FUNCNAME
+  create_pkg $pkg
+  bazel build --build_event_text_file="$TEST_log" \
+      $pkg:xxxxxxxxxxxxxxxxxxxxxxxxxtrue || fail "build failed"
+  if is_windows; then
+    # `/` are replaced by `\` on Windows.
+    # They are doubled due to escaping.
+    # Then they need to be doubled again in the regular expression for grep.
+    expected_path=$(echo "$bazelrc" | sed 's|^C:|c:|; s|/|\\\\\\\\|g')
+  else
+    expected_path="$bazelrc"
+  fi
+  expect_log "source: \"$expected_path\""
+}
+
 run_suite "Integration tests for rc options handling"
