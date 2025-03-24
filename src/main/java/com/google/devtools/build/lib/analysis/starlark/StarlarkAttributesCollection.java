@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.starlarkbuildapi.StarlarkAttributesCollecti
 import com.google.devtools.build.lib.starlarkbuildapi.platform.ExecGroupCollectionApi;
 import com.google.devtools.build.lib.starlarkbuildapi.platform.ToolchainContextApi;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -271,7 +272,7 @@ public class StarlarkAttributesCollection implements StarlarkAttributesCollectio
 
     @Nullable
     public static Object convertAttributeValueForAspectPropagationFunc(
-        Supplier<List<Label>> depLabelsSupplier, Attribute a, Object val) {
+        Supplier<Collection<Label>> depLabelsSupplier, Attribute a, Object val) {
 
       if (shouldIgnore(a)) {
         return null;
@@ -284,9 +285,13 @@ public class StarlarkAttributesCollection implements StarlarkAttributesCollectio
 
       Type<?> type = a.getType();
 
+      if (a.isMaterializing() && depLabelsSupplier.get().contains(null)) {
+        return Starlark.NONE;
+      }
+
       if (type == BuildType.LABEL && !a.getTransitionFactory().isSplit()) {
-        List<? extends Label> prerequisites = depLabelsSupplier.get();
-        return prerequisites.isEmpty() ? Starlark.NONE : prerequisites.get(0);
+        Collection<? extends Label> prerequisites = depLabelsSupplier.get();
+        return prerequisites.isEmpty() ? Starlark.NONE : prerequisites.iterator().next();
       } else if (type == BuildType.LABEL_LIST
           || (type == BuildType.LABEL && a.getTransitionFactory().isSplit())) {
         return StarlarkList.immutableCopyOf(depLabelsSupplier.get());

@@ -69,9 +69,7 @@ public final record StarlarkAspectPropagationContext(
     for (Attribute attr : rule.getAttributes()) {
       var starlarkValue =
           StarlarkAttributesCollection.Builder.convertAttributeValueForAspectPropagationFunc(
-              () ->
-                  ImmutableList.copyOf(
-                      dependencyLabels.get(DependencyKind.AttributeDependencyKind.forRule(attr))),
+              () -> dependencyLabels.get(DependencyKind.AttributeDependencyKind.forRule(attr)),
               attr,
               attributeMap.get(attr.getName(), attr.getType()));
 
