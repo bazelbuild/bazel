@@ -78,6 +78,7 @@ public final class BazelMockCcSupport extends MockCcSupport {
           TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/cpp/BUILD",
           """
           toolchain_type(name = 'toolchain_type')
+          filegroup(name = "current_cc_toolchain")
           cc_library(
               name = 'link_extra_lib',
               srcs = ['linkextra.cc'],
