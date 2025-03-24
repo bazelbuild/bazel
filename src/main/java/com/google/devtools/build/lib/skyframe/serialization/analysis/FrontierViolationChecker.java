@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Skyfocus;
 import com.google.devtools.build.lib.server.FailureDetails.Skyfocus.Code;
@@ -34,6 +35,7 @@ import com.google.devtools.build.lib.skyframe.serialization.analysis.FrontierVio
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingDependenciesProvider.DisabledDependenciesProvider;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.TestType;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
@@ -97,6 +99,23 @@ public final class FrontierViolationChecker {
                   + " analysis caching will be disabled."));
       markSerializableAnalysisAndExecutionPhaseKeysForDeletion(evaluator, eventHandler);
       return DisabledDependenciesProvider.INSTANCE;
+    }
+    for (Event event : modifiedFileSet.getMessages()) {
+      if (event.getKind() == EventKind.ERROR) {
+        eventBus.post(new FrontierViolationEvent(Level.ERROR));
+        AbruptExitException exception =
+            new AbruptExitException(
+                DetailedExitCode.of(
+                    FailureDetail.newBuilder()
+                        .setMessage(event.getMessage())
+                        .setSkyfocus(
+                            Skyfocus.newBuilder().setCode(Code.NON_WORKING_SET_CHANGE).build())
+                        .build()));
+        LoggingUtil.logToRemote(java.util.logging.Level.WARNING, event.getMessage(), exception);
+        throw exception;
+      } else {
+        eventHandler.handle(event);
+      }
     }
 
     Set<String> violations = new TreeSet<>();
