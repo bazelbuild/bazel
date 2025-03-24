@@ -238,7 +238,7 @@
   "moduleExtensions": {
     "//:repositories.bzl%async_profiler_repos": {
       "general": {
-        "bzlTransitiveDigest": "sZP+1R6WWs3AtxwigiCKw4QSdhIWK8m+woUU1R+KxKo=",
+        "bzlTransitiveDigest": "YxAL4mFIGuVkxi1lJ0GZWtS8pWt+Zm9fdvJwlQ9/EpY=",
         "usagesDigest": "5A28PwAsOZuSAXZ8vWJpTa+ii7fTnFSfd1ujDdf5xBg=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
@@ -1446,9 +1446,9 @@
     "@@rules_jvm_external+//:extensions.bzl%maven": {
       "general": {
         "bzlTransitiveDigest": "eFWAf0xs060wNpmZkersPexZt4+6p4VdZCCQb2swjng=",
-        "usagesDigest": "Cc7dkQCpvYl1dEVKoXSOo1qWzt5tBU7Y2OGhgO8FHFk=",
+        "usagesDigest": "3p/lFI/eoKYs94315sxjdthdLkYETYSX5it59mNw7q4=",
         "recordedFileInputs": {
-          "@@//maven_install.json": "f9508807b5b30252f7e53dfe69808ce414f6e3b13cbe3383b109f451898bc7cb",
+          "@@//maven_install.json": "8dca756854269b30cabe8610a2f109b2535c904814a4e74e57efc6e4ae65cf85",
           "@@rules_jvm_external+//rules_jvm_external_deps_install.json": "cafb5d2d8119391eb2b322ce3840d3352ea82d496bdb8cbd4b6779ec4d044dda",
           "@@stardoc+//maven_install.json": "25f3c138ca52c61e0e7a564fe21f5709261b33d78d35427b6c18d7aa202d973b"
         },
@@ -1498,7 +1498,7 @@
                 "{ \"group\": \"com.google.flogger\", \"artifact\": \"flogger-system-backend\", \"version\": \"0.5.1\" }",
                 "{ \"group\": \"com.google.flogger\", \"artifact\": \"google-extensions\", \"version\": \"0.5.1\" }",
                 "{ \"group\": \"com.google.guava\", \"artifact\": \"failureaccess\", \"version\": \"1.0.1\" }",
-                "{ \"group\": \"com.google.guava\", \"artifact\": \"guava\", \"version\": \"33.2.1-jre\" }",
+                "{ \"group\": \"com.google.guava\", \"artifact\": \"guava\", \"version\": \"33.4.5-jre\" }",
                 "{ \"group\": \"com.google.http-client\", \"artifact\": \"google-http-client\", \"version\": \"1.42.0\" }",
                 "{ \"group\": \"com.google.http-client\", \"artifact\": \"google-http-client-gson\", \"version\": \"1.42.0\" }",
                 "{ \"group\": \"com.google.j2objc\", \"artifact\": \"j2objc-annotations\", \"version\": \"1.3\" }",
@@ -2073,26 +2073,26 @@
               "downloaded_file_path": "v1/com/google/flogger/google-extensions/0.5.1/google-extensions-0.5.1.jar"
             }
           },
-          "com_google_guava_failureaccess_1_0_2": {
+          "com_google_guava_failureaccess_1_0_3": {
             "repoRuleId": "@@bazel_tools//tools/build_defs/repo:http.bzl%http_file",
             "attributes": {
-              "sha256": "8a8f81cf9b359e3f6dfa691a1e776985c061ef2f223c9b2c80753e1b458e8064",
+              "sha256": "cbfc3906b19b8f55dd7cfd6dfe0aa4532e834250d7f080bd8d211a3e246b59cb",
               "urls": [
-                "https://repo1.maven.org/maven2/com/google/guava/failureaccess/1.0.2/failureaccess-1.0.2.jar",
-                "https://repo.maven.apache.org/maven2/com/google/guava/failureaccess/1.0.2/failureaccess-1.0.2.jar"
+                "https://repo1.maven.org/maven2/com/google/guava/failureaccess/1.0.3/failureaccess-1.0.3.jar",
+                "https://repo.maven.apache.org/maven2/com/google/guava/failureaccess/1.0.3/failureaccess-1.0.3.jar"
               ],
-              "downloaded_file_path": "v1/com/google/guava/failureaccess/1.0.2/failureaccess-1.0.2.jar"
+              "downloaded_file_path": "v1/com/google/guava/failureaccess/1.0.3/failureaccess-1.0.3.jar"
             }
           },
-          "com_google_guava_guava_33_2_1_jre": {
+          "com_google_guava_guava_33_4_5_jre": {
             "repoRuleId": "@@bazel_tools//tools/build_defs/repo:http.bzl%http_file",
             "attributes": {
-              "sha256": "452b2d9787b7d366fa8cf5ed9a1c40404542d05effa7a598da03bbbbb76d9f31",
+              "sha256": "874b1f0ee75c77c12d069d14c9b8b268b7b2cbd7ce679655c225f4a9942dc9c8",
               "urls": [
-                "https://repo1.maven.org/maven2/com/google/guava/guava/33.2.1-jre/guava-33.2.1-jre.jar",
-                "https://repo.maven.apache.org/maven2/com/google/guava/guava/33.2.1-jre/guava-33.2.1-jre.jar"
+                "https://repo1.maven.org/maven2/com/google/guava/guava/33.4.5-jre/guava-33.4.5-jre.jar",
+                "https://repo.maven.apache.org/maven2/com/google/guava/guava/33.4.5-jre/guava-33.4.5-jre.jar"
               ],
-              "downloaded_file_path": "v1/com/google/guava/guava/33.2.1-jre/guava-33.2.1-jre.jar"
+              "downloaded_file_path": "v1/com/google/guava/guava/33.4.5-jre/guava-33.4.5-jre.jar"
             }
           },
           "com_google_guava_guava_testlib_33_2_1_jre": {
@@ -3612,7 +3612,7 @@
                 "{ \"group\": \"com.google.flogger\", \"artifact\": \"flogger-system-backend\", \"version\": \"0.5.1\" }",
                 "{ \"group\": \"com.google.flogger\", \"artifact\": \"google-extensions\", \"version\": \"0.5.1\" }",
                 "{ \"group\": \"com.google.guava\", \"artifact\": \"failureaccess\", \"version\": \"1.0.1\" }",
-                "{ \"group\": \"com.google.guava\", \"artifact\": \"guava\", \"version\": \"33.2.1-jre\" }",
+                "{ \"group\": \"com.google.guava\", \"artifact\": \"guava\", \"version\": \"33.4.5-jre\" }",
                 "{ \"group\": \"com.google.http-client\", \"artifact\": \"google-http-client\", \"version\": \"1.42.0\" }",
                 "{ \"group\": \"com.google.http-client\", \"artifact\": \"google-http-client-gson\", \"version\": \"1.42.0\" }",
                 "{ \"group\": \"com.google.j2objc\", \"artifact\": \"j2objc-annotations\", \"version\": \"1.3\" }",
@@ -5121,7 +5121,7 @@
     },
     "@@rules_python+//python/private/pypi:pip.bzl%pip_internal": {
       "general": {
-        "bzlTransitiveDigest": "Ktlvuwl7iL6H5Xizfvv0C5YgMwxj7b5iMqQlU33QDP4=",
+        "bzlTransitiveDigest": "gI+deLdiN3HoT5y7LcbvZLpdyCTx17lAymkg9ZvugLE=",
         "usagesDigest": "OLoIStnzNObNalKEMRq99FqenhPGLFZ5utVLV4sz7OI=",
         "recordedFileInputs": {
           "@@rules_python+//tools/publish/requirements_darwin.txt": "2994136eab7e57b083c3de76faf46f70fad130bc8e7360a7fed2b288b69e79dc",
