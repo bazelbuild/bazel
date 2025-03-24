@@ -804,7 +804,14 @@ public class RemoteSpawnCacheTest {
     // Simulate a very slow upload to the remote cache to ensure that the second spawn is
     // deduplicated rather than a cache hit. This is a slight hack, but also avoid introducing
     // concurrency to this test.
-    Mockito.doNothing().when(remoteExecutionService).uploadOutputs(any(), any(), any());
+    AtomicReference<Runnable> onUploadComplete = new AtomicReference<>();
+    Mockito.doAnswer(
+            invocationOnMock -> {
+              onUploadComplete.set(invocationOnMock.getArgument(2));
+              return null;
+            })
+        .when(remoteExecutionService)
+        .uploadOutputs(any(), any(), any());
 
     // act
     try (CacheHandle firstCacheHandle = cache.lookup(firstSpawn, firstPolicy)) {
@@ -827,6 +834,8 @@ public class RemoteSpawnCacheTest {
                 fs.getPath("/exec/root/bazel-bin/k8-opt/bin/output"), UTF_8))
         .isEqualTo("hello");
     assertThat(secondCacheHandle.willStore()).isFalse();
+    onUploadComplete.get().run();
+    assertThat(cache.getInFlightExecutionsSize()).isEqualTo(0);
   }
 
   @Test
@@ -872,10 +881,12 @@ public class RemoteSpawnCacheTest {
     // Simulate a very slow upload to the remote cache to ensure that the second spawn is
     // deduplicated rather than a cache hit. This is a slight hack, but also avoids introducing
     // more concurrency to this test.
+    AtomicReference<Runnable> onUploadComplete = new AtomicReference<>();
     Mockito.doAnswer(
             (Answer<Void>)
                 invocation -> {
                   enteredUploadOutputs.countDown();
+                  onUploadComplete.set(invocation.getArgument(2));
                   return null;
                 })
         .when(remoteExecutionService)
@@ -942,6 +953,8 @@ public class RemoteSpawnCacheTest {
                 fs.getPath("/exec/root/bazel-bin/k8-opt/bin/output"), UTF_8))
         .isEqualTo("hello");
     assertThat(secondCacheHandle.willStore()).isFalse();
+    onUploadComplete.get().run();
+    assertThat(cache.getInFlightExecutionsSize()).isEqualTo(0);
   }
 
   @Test
@@ -966,7 +979,14 @@ public class RemoteSpawnCacheTest {
     // Simulate a very slow upload to the remote cache to ensure that the second spawn is
     // deduplicated rather than a cache hit. This is a slight hack, but also avoid introducing
     // concurrency to this test.
-    Mockito.doNothing().when(remoteExecutionService).uploadOutputs(any(), any(), any());
+    AtomicReference<Runnable> onUploadComplete = new AtomicReference<>();
+    Mockito.doAnswer(
+            invocationOnMock -> {
+              onUploadComplete.set(invocationOnMock.getArgument(2));
+              return null;
+            })
+        .when(remoteExecutionService)
+        .uploadOutputs(any(), any(), any());
 
     // act
     try (CacheHandle firstCacheHandle = cache.lookup(firstSpawn, firstPolicy)) {
@@ -989,6 +1009,8 @@ public class RemoteSpawnCacheTest {
         .isEqualTo("in-memory");
     assertThat(execRoot.getRelative(inMemoryOutput.getExecPath()).exists()).isFalse();
     assertThat(secondCacheHandle.willStore()).isFalse();
+    onUploadComplete.get().run();
+    assertThat(cache.getInFlightExecutionsSize()).isEqualTo(0);
   }
 
   @Test
@@ -1010,10 +1032,6 @@ public class RemoteSpawnCacheTest {
 
     RemoteExecutionService remoteExecutionService = cache.getRemoteExecutionService();
     Mockito.doCallRealMethod().when(remoteExecutionService).waitForAndReuseOutputs(any(), any());
-    // Simulate a very slow upload to the remote cache to ensure that the second spawn is
-    // deduplicated rather than a cache hit. This is a slight hack, but also avoid introducing
-    // concurrency to this test.
-    Mockito.doNothing().when(remoteExecutionService).uploadOutputs(any(), any(), any());
 
     // act
     try (CacheHandle firstCacheHandle = cache.lookup(firstSpawn, firstPolicy)) {
@@ -1033,11 +1051,14 @@ public class RemoteSpawnCacheTest {
               .setRunnerName("test")
               .build());
     }
+    Mockito.verify(remoteExecutionService, never()).uploadOutputs(any(), any(), any());
     CacheHandle secondCacheHandle = cache.lookup(secondSpawn, secondPolicy);
 
     // assert
     assertThat(secondCacheHandle.hasResult()).isFalse();
     assertThat(secondCacheHandle.willStore()).isTrue();
+    secondCacheHandle.close();
+    assertThat(cache.getInFlightExecutionsSize()).isEqualTo(0);
   }
 
   @Test
@@ -1062,7 +1083,14 @@ public class RemoteSpawnCacheTest {
     // Simulate a very slow upload to the remote cache to ensure that the second spawn is
     // deduplicated rather than a cache hit. This is a slight hack, but also avoid introducing
     // concurrency to this test.
-    Mockito.doNothing().when(remoteExecutionService).uploadOutputs(any(), any(), any());
+    AtomicReference<Runnable> onUploadComplete = new AtomicReference<>();
+    Mockito.doAnswer(
+            invocationOnMock -> {
+              onUploadComplete.set(invocationOnMock.getArgument(2));
+              return null;
+            })
+        .when(remoteExecutionService)
+        .uploadOutputs(any(), any(), any());
 
     // act
     try (CacheHandle firstCacheHandle = cache.lookup(firstSpawn, firstPolicy)) {
@@ -1079,6 +1107,8 @@ public class RemoteSpawnCacheTest {
     // assert
     assertThat(secondCacheHandle.hasResult()).isFalse();
     assertThat(secondCacheHandle.willStore()).isTrue();
+    onUploadComplete.get().run();
+    assertThat(cache.getInFlightExecutionsSize()).isEqualTo(0);
   }
 
   @Test

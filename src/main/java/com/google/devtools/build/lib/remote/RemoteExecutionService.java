@@ -1590,8 +1590,7 @@ public class RemoteExecutionService {
     @Override
     public void close() {
       if (!closeManually.get()) {
-        spawnResultFuture.cancel(true);
-        onClose.run();
+        doClose();
       }
     }
 
@@ -1604,7 +1603,12 @@ public class RemoteExecutionService {
       if (!closeManually.compareAndSet(false, true)) {
         throw new IllegalStateException("delayClose has already been called");
       }
-      return this::close;
+      return this::doClose;
+    }
+
+    private void doClose() {
+      spawnResultFuture.cancel(true);
+      onClose.run();
     }
   }
 
