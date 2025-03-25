@@ -104,7 +104,7 @@ genrule(
         "//third_party/googleapis:MODULE.bazel",
         "//third_party/remoteapis:MODULE.bazel",
         "//third_party:BUILD",
-        "//third_party:rules_jvm_external_6.0.patch",
+        "//third_party:rules_jvm_external_6.2.patch",
         "//third_party/upb:BUILD",
         "//third_party/upb:01_remove_werror.patch",
         "//third_party/grpc:BUILD",

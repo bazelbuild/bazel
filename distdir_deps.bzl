@@ -488,6 +488,16 @@ DIST_DEPS = {
         ],
         "used_in": [],
     },
+    "openjdk_linux_riscv64_vanilla": {
+        "archive": "OpenJDK21U-jdk_riscv64_linux_hotspot_21.0.6_7.tar.gz",
+        "sha256": "203796e4ba2689aa921b5e0cdc9e02984d88622f80fcb9acb05a118b05007be8",
+        "strip_prefix": "jdk-21.0.6+7",
+        "urls": [
+            "https://mirror.bazel.build/github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.6%2B7/OpenJDK21U-jdk_riscv64_linux_hotspot_21.0.6_7.tar.gz",
+            "https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.6%2B7/OpenJDK21U-jdk_riscv64_linux_hotspot_21.0.6_7.tar.gz",
+        ],
+        "used_in": [],
+    },
     "openjdk_macos_x86_64_vanilla": {
         "archive": "zulu21.28.85-ca-jdk21.0.0-macosx_x64.tar.gz",
         "sha256": "9639b87db586d0c89f7a9892ae47f421e442c64b97baebdff31788fbe23265bd",
