@@ -347,7 +347,7 @@ public abstract class TargetDefinitionContext extends StarlarkThreadContext {
   }
 
   /**
-   * Creates a new {@link Rule} {@code r} where {@code r.getPackage()} is the {@link Package}
+   * Creates a new {@link Rule} {@code r} where {@code r.getPackageoid()} is the {@link Packageoid}
    * associated with this {@link Builder}.
    *
    * <p>The created {@link Rule} will have no output files and therefore will be in an invalid
@@ -369,15 +369,17 @@ public abstract class TargetDefinitionContext extends StarlarkThreadContext {
     return new Rule(pkg, label, ruleClass, location, interiorCallStack);
   }
 
-  /**
-   * Creates a new {@link MacroInstance} {@code m} where {@code m.getPackage()} is the {@link
-   * Package} associated with this {@link Builder}.
-   */
-  MacroInstance createMacro(MacroClass macroClass, Label label, int sameNameDepth)
-      throws EvalException {
+  /** Creates a new {@link MacroInstance} in this builder's packageoid. */
+  MacroInstance createMacro(MacroClass macroClass, String name, int sameNameDepth)
+      throws LabelSyntaxException, EvalException {
     MacroInstance parent = currentMacro();
     return new MacroInstance(
-        pkg.getMetadata(), pkg.getDeclarations(), parent, macroClass, label, sameNameDepth);
+        pkg.getMetadata(),
+        pkg.getDeclarations(),
+        parent,
+        macroClass,
+        Label.create(pkg.getMetadata().packageIdentifier(), name),
+        sameNameDepth);
   }
 
   @Nullable

@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Attribute.StarlarkComputedDefaultTemplate.CannotPrecomputeDefaultsException;
@@ -192,7 +193,10 @@ public final class MacroClass {
   // TODO(#19922): Consider reporting multiple events instead of failing on the first one. See
   // analogous implementation in RuleClass#populateDefinedRuleAttributeValues.
   private MacroInstance instantiateMacro(Package.Builder pkgBuilder, Map<String, Object> kwargs)
-      throws EvalException, InterruptedException, CannotPrecomputeDefaultsException {
+      throws LabelSyntaxException,
+          EvalException,
+          InterruptedException,
+          CannotPrecomputeDefaultsException {
     // A word on edge cases:
     //   - If an attr is implicit but does not have a default specified, its value is just the
     //     default value for its attr type (e.g. `[]` for `attr.label_list()`).
@@ -314,9 +318,7 @@ public final class MacroClass {
 
     BuildLangTypedAttributeValuesMap attributeValues =
         new BuildLangTypedAttributeValuesMap(attrValues.buildImmutable());
-    MacroInstance macroInstance =
-        pkgBuilder.createMacro(
-            this, Label.createUnvalidated(instantiatingLoc, name), sameNameDepth);
+    MacroInstance macroInstance = pkgBuilder.createMacro(this, name, sameNameDepth);
     attributeProvider.populateRuleAttributeValues(
         macroInstance,
         pkgBuilder,
@@ -358,7 +360,7 @@ public final class MacroClass {
       MacroInstance macroInstance = instantiateMacro(pkgBuilder, kwargs);
       pkgBuilder.addMacro(macroInstance);
       return macroInstance;
-    } catch (NameConflictException | CannotPrecomputeDefaultsException e) {
+    } catch (LabelSyntaxException | NameConflictException | CannotPrecomputeDefaultsException e) {
       throw new EvalException(e);
     }
   }
