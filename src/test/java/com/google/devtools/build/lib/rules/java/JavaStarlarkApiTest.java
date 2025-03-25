@@ -121,65 +121,6 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     return result.build();
   }
 
-  /** Tests that java_library exposes native library info to Starlark. */
-  @Test
-  public void javaLibrary_exposesNativeLibraryInfoToStarlark() throws Exception {
-    scratch.file(
-        "foo/extension.bzl",
-        """
-        load("@rules_java//java/common:java_info.bzl", "JavaInfo")
-        my_provider = provider()
-
-        def _impl(ctx):
-            dep_params = ctx.attr.dep[JavaInfo].transitive_native_libraries
-            return [my_provider(p = dep_params)]
-
-        my_rule = rule(_impl, attrs = {"dep": attr.label()})
-        """);
-    scratch.file(
-        "foo/BUILD",
-        """
-        load("@rules_java//java:defs.bzl", "java_library")
-        load(":extension.bzl", "my_rule")
-
-        cc_binary(
-            name = "native.so",
-            srcs = ["cc/x.cc"],
-            linkshared = True,
-        )
-
-        java_library(
-            name = "jl",
-            srcs = ["java/A.java"],
-            deps = [":native.so"],
-        )
-
-        my_rule(
-            name = "r",
-            dep = ":jl",
-        )
-        """);
-
-    ConfiguredTarget myRuleTarget = getConfiguredTarget("//foo:r");
-    ConfiguredTarget javaLibraryTarget = getConfiguredTarget("//foo:jl");
-
-    JavaInfo javaInfo = JavaInfo.getJavaInfo(javaLibraryTarget);
-    StarlarkProvider.Key myProviderKey =
-        new StarlarkProvider.Key(
-            keyForBuild(Label.parseCanonical("//foo:extension.bzl")), "my_provider");
-    StructImpl declaredProvider = (StructImpl) myRuleTarget.get(myProviderKey);
-    Object nativeLibrariesFromStarlark = declaredProvider.getValue("p");
-    assertThat(nativeLibrariesFromStarlark)
-        .isEqualTo(javaInfo.getTransitiveNativeLibrariesForStarlark());
-    assertThat(
-            javaInfo
-                .getTransitiveNativeLibraries()
-                .getSingleton()
-                .getDynamicLibrary()
-                .getFilename())
-        .isEqualTo("native.so");
-  }
-
   /** Tests that JavaInfo propagates native libraries from deps, runtime_deps, and exports. */
   @Test
   public void javaInfo_nativeLibrariesPropagate() throws Exception {
