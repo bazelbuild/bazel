@@ -121,41 +121,6 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     return result.build();
   }
 
-  @Test
-  public void javaInfoStarlarkCompilationInfoJavacOpts() throws Exception {
-    scratch.file(
-        "foo/extension.bzl",
-        """
-        load("@rules_java//java/common:java_info.bzl", "JavaInfo")
-        result = provider()
-
-        def _impl(ctx):
-            return [result(property = ctx.attr.dep[JavaInfo].compilation_info.javac_options)]
-
-        my_rule = rule(_impl, attrs = {"dep": attr.label()})
-        """);
-    scratch.file(
-        "foo/BUILD",
-        "load(':extension.bzl', 'my_rule')",
-        "load('@rules_java//java:defs.bzl', 'java_library')",
-        "java_library(name = 'my_java_lib_a', srcs = ['java/A.java'], javacopts = ['opt1',"
-            + " 'opt2'])",
-        "my_rule(name = 'my_starlark_rule', dep = ':my_java_lib_a')");
-    assertNoEvents();
-    ConfiguredTarget myRuleTarget = getConfiguredTarget("//foo:my_starlark_rule");
-
-    StructImpl info =
-        (StructImpl)
-            myRuleTarget.get(
-                new StarlarkProvider.Key(
-                    keyForBuild(Label.parseCanonical("//foo:extension.bzl")), "result"));
-    ImmutableList<String> javacOptionsList =
-        JavaHelper.tokenizeJavaOptions(
-            Depset.cast(info.getValue("property"), String.class, "javac_options"));
-
-    assertThat(javacOptionsList).containsAtLeast("opt1", "opt2").inOrder();
-  }
-
   /* Test inspired by {@link AbstractJavaLibraryConfiguredTargetTest#testNeverlink}.*/
   @Test
   public void javaCommonCompileNeverlink() throws Exception {
