@@ -455,7 +455,9 @@ public class RunCommand implements BlazeCommand {
       configuration = result.getBuildConfiguration();
     }
 
-    if (!configuration.buildRunfileManifests()) {
+    // When virtual paths are enabled, assume runfiles staging is handled elsewhere.
+    if (!configuration.buildRunfileManifests()
+        && env.getDirectories().getVirtualSourceRoot() == null) {
       throw new RunCommandException(
           reportAndCreateFailureResult(
               env,
@@ -716,19 +718,25 @@ public class RunCommand implements BlazeCommand {
         settings.getRunfilesSymlinksCreated()
             == options.getOptions(CoreOptions.class).buildRunfileLinks);
 
+    Path devirtualizedExecRoot = env.getExecRoot().devirtualize();
+    Path devirtualizedRunfilesDir =
+        settings.getRunfilesDir() != null
+            ? settings.getRunfilesDir().devirtualize()
+            : devirtualizedExecRoot;
+
     ExecutionOptions executionOptions = options.getOptions(ExecutionOptions.class);
     Path tmpDirRoot =
-        TestStrategy.getTmpRoot(env.getWorkspace(), env.getExecRoot(), executionOptions);
+        TestStrategy.getTmpRoot(env.getWorkspace(), devirtualizedExecRoot, executionOptions);
     PathFragment maybeRelativeTmpDir =
-        tmpDirRoot.startsWith(env.getExecRoot())
-            ? tmpDirRoot.relativeTo(env.getExecRoot())
+        tmpDirRoot.startsWith(devirtualizedExecRoot)
+            ? tmpDirRoot.relativeTo(devirtualizedExecRoot)
             : tmpDirRoot.asFragment();
     TreeMap<String, String> runEnvironment = makeMutableRunEnvironment(env);
     runEnvironment.putAll(
         testPolicy.computeTestEnvironment(
             testAction,
             env.getClientEnv(),
-            settings.getRunfilesDir().relativeTo(env.getExecRoot()),
+            devirtualizedRunfilesDir.relativeTo(devirtualizedExecRoot),
             maybeRelativeTmpDir.getRelative(TestStrategy.getTmpDirName(testAction))));
 
     try {
@@ -770,7 +778,9 @@ public class RunCommand implements BlazeCommand {
     }
 
     return new RunCommandLine.Builder(
-            ImmutableSortedMap.copyOf(runEnvironment), env.getExecRoot(), /* isTestTarget= */ true)
+            ImmutableSortedMap.copyOf(runEnvironment),
+            /* workingDir= */ devirtualizedExecRoot,
+            /* isTestTarget= */ true)
         .addArgs(testArgs)
         .addArgsFromResidue(argsFromResidue)
         .build();
@@ -786,7 +796,7 @@ public class RunCommand implements BlazeCommand {
     TreeMap<String, String> result = new TreeMap<>();
     result.put("BUILD_WORKSPACE_DIRECTORY", env.getWorkspace().getPathString());
     result.put("BUILD_WORKING_DIRECTORY", env.getWorkingDirectory().getPathString());
-    result.put("BUILD_EXECROOT", env.getExecRoot().getPathString());
+    result.put("BUILD_EXECROOT", env.getExecRoot().devirtualize().getPathString());
     result.put("BUILD_ID", env.getCommandId().toString());
     return result;
   }
@@ -933,6 +943,11 @@ public class RunCommand implements BlazeCommand {
     // Workspace name directory doesn't exist, so don't add it.
     if (configuration.runfilesEnabled()) {
       workingDir = workingDir.getRelative(runfilesSupport.getRunfiles().getPrefix());
+    }
+
+    // When virtual paths are enabled, assume runfiles staging is handled elsewhere.
+    if (env.getDirectories().getVirtualSourceRoot() != null) {
+      return workingDir.devirtualize();
     }
 
     // Always create runfiles directory and the workspace-named directory underneath, even if we
