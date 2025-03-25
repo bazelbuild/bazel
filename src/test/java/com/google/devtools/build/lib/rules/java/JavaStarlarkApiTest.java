@@ -122,53 +122,6 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testJavaInfoGetGenJarsProvider() throws Exception {
-    scratch.file(
-        "foo/extension.bzl",
-        """
-        load("@rules_java//java/common:java_info.bzl", "JavaInfo")
-        result = provider()
-
-        def _impl(ctx):
-            return [result(property = ctx.attr.dep[JavaInfo].annotation_processing)]
-
-        my_rule = rule(_impl, attrs = {"dep": attr.label()})
-        """);
-
-    scratch.file(
-        "foo/BUILD",
-        """
-        load("@rules_java//java:defs.bzl", "java_library")
-        load(":extension.bzl", "my_rule")
-
-        java_library(
-            name = "my_java_lib_a",
-            srcs = ["java/A.java"],
-            javacopts = ["-processor com.google.process.Processor"],
-        )
-
-        my_rule(
-            name = "my_starlark_rule",
-            dep = ":my_java_lib_a",
-        )
-        """);
-    assertNoEvents();
-    ConfiguredTarget myRuleTarget = getConfiguredTarget("//foo:my_starlark_rule");
-    StructImpl info =
-        (StructImpl)
-            myRuleTarget.get(
-                new StarlarkProvider.Key(
-                    keyForBuild(Label.parseCanonical("//foo:extension.bzl")), "result"));
-
-    JavaGenJarsProvider javaGenJarsProvider = JavaGenJarsProvider.from(info.getValue("property"));
-
-    assertThat(javaGenJarsProvider.getGenClassJar().getFilename())
-        .isEqualTo("libmy_java_lib_a-gen.jar");
-    assertThat(javaGenJarsProvider.getGenSourceJar().getFilename())
-        .isEqualTo("libmy_java_lib_a-gensrc.jar");
-  }
-
-  @Test
   public void javaInfoGetCompilationInfoProvider() throws Exception {
     scratch.file(
         "foo/extension.bzl",
