@@ -62,6 +62,17 @@ public final class StaticInputMetadataProvider implements InputMetadataProvider 
 
   @Override
   @Nullable
+  public FilesetOutputTree getFileset(ActionInput input) {
+    return null;
+  }
+
+  @Override
+  public ImmutableMap<Artifact, FilesetOutputTree> getFilesets() {
+    return ImmutableMap.of();
+  }
+
+  @Override
+  @Nullable
   public RunfilesArtifactValue getRunfilesMetadata(ActionInput input) {
     return null;
   }

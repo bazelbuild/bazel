@@ -70,6 +70,7 @@ import com.google.devtools.build.lib.actions.ActionOutputDirectoryHelper;
 import com.google.devtools.build.lib.actions.ActionUploadFinishedEvent;
 import com.google.devtools.build.lib.actions.ActionUploadStartedEvent;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
@@ -115,6 +116,7 @@ import com.google.devtools.build.lib.remote.util.InMemoryCacheClient;
 import com.google.devtools.build.lib.remote.util.RxNoGlobalErrorsRule;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.remote.util.Utils.InMemoryOutput;
+import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.TempPathGenerator;
@@ -1646,7 +1648,6 @@ public class RemoteExecutionServiceTest {
             /* arguments= */ ImmutableList.of(),
             /* environment= */ ImmutableMap.of(),
             /* executionInfo= */ ImmutableMap.of(REMOTE_EXECUTION_INLINE_OUTPUTS, "outputs/file1"),
-            /* filesetMappings= */ ImmutableMap.of(),
             /* inputs= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
             /* tools= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
             /* outputs= */ ImmutableSet.of(a1),
@@ -2208,7 +2209,9 @@ public class RemoteExecutionServiceTest {
     ActionInput dummyFile = ActionInputHelper.fromPath("file");
     fakeFileCache.createScratchInput(dummyFile, "file");
 
-    ActionInput tree = ActionsTestUtil.createTreeArtifactWithGeneratingAction(artifactRoot, "tree");
+    SpecialArtifact tree =
+        ActionsTestUtil.createTreeArtifactWithGeneratingAction(artifactRoot, "tree");
+    fakeFileCache.addTreeArtifact(tree, TreeArtifactValue.newBuilder(tree).build());
 
     ActionInput barFile = ActionInputHelper.fromPath("bar/file");
     NestedSet<ActionInput> nodeBar =
@@ -2282,13 +2285,9 @@ public class RemoteExecutionServiceTest {
     service.buildRemoteAction(spawn1, context1);
 
     // assert first time
-    verify(service, times(6)).uncachedBuildMerkleTreeVisitor(any(), any(), any(), any());
+    verify(service, times(5)).uncachedBuildMerkleTreeVisitor(any(), any(), any(), any());
     assertThat(service.getMerkleTreeCache().asMap().keySet())
         .containsExactly(
-            ImmutableList.of(
-                ImmutableMap.of(),
-                PathFragment.EMPTY_FRAGMENT,
-                PathMapper.NOOP.getClass()), // fileset mapping
             ImmutableList.of(
                 PathFragment.create("tools/tool.runfiles"),
                 PathFragment.EMPTY_FRAGMENT,
@@ -2305,13 +2304,9 @@ public class RemoteExecutionServiceTest {
     service.buildRemoteAction(spawn2, context2);
 
     // assert second time
-    verify(service, times(6 + 2)).uncachedBuildMerkleTreeVisitor(any(), any(), any(), any());
+    verify(service, times(5 + 2)).uncachedBuildMerkleTreeVisitor(any(), any(), any(), any());
     assertThat(service.getMerkleTreeCache().asMap().keySet())
         .containsExactly(
-            ImmutableList.of(
-                ImmutableMap.of(),
-                PathFragment.EMPTY_FRAGMENT,
-                PathMapper.NOOP.getClass()), // fileset mapping
             ImmutableList.of(
                 PathFragment.create("tools/tool.runfiles"),
                 PathFragment.EMPTY_FRAGMENT,

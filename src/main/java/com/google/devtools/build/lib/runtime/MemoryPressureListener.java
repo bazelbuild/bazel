@@ -22,6 +22,7 @@ import com.google.common.eventbus.EventBus;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.metrics.GarbageCollectionMetricsUtils;
+import com.google.devtools.build.lib.runtime.MemoryPressure.MemoryPressureStats;
 import com.sun.management.GarbageCollectionNotificationInfo;
 import java.lang.management.GarbageCollectorMXBean;
 import java.lang.management.ManagementFactory;
@@ -170,6 +171,13 @@ final class MemoryPressureListener implements NotificationListener {
     this.eventBus.set(eventBus);
     this.gcThrashingDetector.set(gcThrashingDetector);
     this.gcChurnDetector.set(gcChurningDetector);
+  }
+
+  void populateStats(MemoryPressureStats.Builder memoryPressureStatsBuilder) {
+    GcChurningDetector gcChurningDetector = gcChurnDetector.get();
+    if (gcChurningDetector != null) {
+      gcChurningDetector.populateStats(memoryPressureStatsBuilder);
+    }
   }
 
   void reset() {

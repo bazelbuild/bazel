@@ -903,7 +903,7 @@ public final class ResourceManagerTest {
 
     @Override
     public String getKey(
-        ActionKeyContext actionKeyContext, @Nullable ArtifactExpander artifactExpander) {
+        ActionKeyContext actionKeyContext, @Nullable InputMetadataProvider inputMetadataProvider) {
       throw new IllegalStateException();
     }
 

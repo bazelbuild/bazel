@@ -68,10 +68,10 @@ import net.starlark.java.eval.StarlarkValue;
 import net.starlark.java.eval.Structure;
 
 /**
- * Metadata of a rule attribute. Contains the attribute name and type, and a default value to be
- * used if none is provided in a rule declaration in a BUILD file. Attributes are immutable, and may
- * be shared by more than one rule (for example, <code>foo_binary</code> and <code>foo_library
- * </code> may share many attributes in common).
+ * Metadata of a rule or macro attribute. Contains the attribute name and type, and a default value
+ * to be used if none is provided in a rule or macro declaration in a BUILD file. Attributes are
+ * immutable, and may be shared by more than one rule or macro (for example, <code>foo_binary</code>
+ * and <code>foo_library </code> may share many attributes in common).
  */
 @Immutable
 public final class Attribute implements Comparable<Attribute> {
@@ -1209,7 +1209,7 @@ public final class Attribute implements Comparable<Attribute> {
     <T, TLimitException extends Exception> Map<List<Object>, T> computeValuesForAllCombinations(
         List<String> dependencies,
         Type<T> type,
-        Rule rule,
+        RuleOrMacroInstance rule,
         ComputationLimiter<TLimitException> limiter)
         throws TComputeException, TLimitException {
       AggregatingAttributeMapper mapper = AggregatingAttributeMapper.of(rule);
@@ -1317,7 +1317,7 @@ public final class Attribute implements Comparable<Attribute> {
           dependenciesInterner.intern(Ordering.natural().immutableSortedCopy(dependencies));
     }
 
-    <T> List<T> getPossibleValues(Type<T> type, Rule rule) {
+    <T> List<T> getPossibleValues(Type<T> type, RuleOrMacroInstance rule) {
       final ComputedDefault owner = ComputedDefault.this;
       if (dependencies.isEmpty()) {
         AggregatingAttributeMapper mapper = AggregatingAttributeMapper.of(rule);
@@ -1403,7 +1403,7 @@ public final class Attribute implements Comparable<Attribute> {
      * {@code rule}.
      */
     StarlarkComputedDefault computePossibleValues(
-        Attribute attr, final Rule rule, final EventHandler eventHandler)
+        Attribute attr, final RuleOrMacroInstance rule, final EventHandler eventHandler)
         throws InterruptedException, CannotPrecomputeDefaultsException {
 
       final StarlarkComputedDefaultTemplate owner = StarlarkComputedDefaultTemplate.this;
@@ -1426,7 +1426,7 @@ public final class Attribute implements Comparable<Attribute> {
       Map<List<Object>, Object> lookupTable;
       try {
         for (String dependency : dependencies) {
-          Attribute attribute = rule.getRuleClassObject().getAttributeByNameMaybe(dependency);
+          Attribute attribute = rule.getAttributeProvider().getAttributeByNameMaybe(dependency);
           if (attribute == null) {
             throw new AttributeNotFoundException(
                 String.format("No such attribute %s in rule %s", dependency, rule.getLabel()));
@@ -1568,7 +1568,7 @@ public final class Attribute implements Comparable<Attribute> {
     }
 
     @Override
-    <T> List<T> getPossibleValues(Type<T> type, Rule rule) {
+    <T> List<T> getPossibleValues(Type<T> type, RuleOrMacroInstance rule) {
       List<T> result = new ArrayList<>(lookupTable.size());
       for (Object obj : lookupTable.values()) {
         result.add(type.cast(obj));
@@ -1583,7 +1583,7 @@ public final class Attribute implements Comparable<Attribute> {
 
     private SimpleLateBoundDefault(
         Class<FragmentT> fragmentClass,
-        Function<Rule, ValueT> defaultValueEvaluator,
+        Function<RuleOrMacroInstance, ValueT> defaultValueEvaluator,
         Resolver<FragmentT, ValueT> resolver) {
       super(fragmentClass, defaultValueEvaluator);
 
@@ -1624,7 +1624,7 @@ public final class Attribute implements Comparable<Attribute> {
       ValueT resolve(Rule rule, AttributeMap attributeMap, FragmentT input);
     }
 
-    private final Function<Rule, ValueT> defaultValueEvaluator;
+    private final Function<RuleOrMacroInstance, ValueT> defaultValueEvaluator;
     private final Class<FragmentT> fragmentClass;
 
     /**
@@ -1653,7 +1653,8 @@ public final class Attribute implements Comparable<Attribute> {
     }
 
     protected LateBoundDefault(
-        Class<FragmentT> fragmentClass, Function<Rule, ValueT> defaultValueEvaluator) {
+        Class<FragmentT> fragmentClass,
+        Function<RuleOrMacroInstance, ValueT> defaultValueEvaluator) {
       this.defaultValueEvaluator = defaultValueEvaluator;
       this.fragmentClass = fragmentClass;
     }
@@ -1674,7 +1675,7 @@ public final class Attribute implements Comparable<Attribute> {
     }
 
     /** The default value for the attribute that is set during the loading phase. */
-    public ValueT getDefault(@Nullable Rule rule) {
+    public ValueT getDefault(@Nullable RuleOrMacroInstance rule) {
       return defaultValueEvaluator.apply(rule);
     }
 
@@ -1699,7 +1700,9 @@ public final class Attribute implements Comparable<Attribute> {
   public abstract static class AbstractLabelLateBoundDefault<FragmentT>
       extends LateBoundDefault<FragmentT, Label> {
     protected AbstractLabelLateBoundDefault(Class<FragmentT> fragmentClass, Label defaultValue) {
-      super(fragmentClass, (Function<Rule, Label> & Serializable) (rule) -> defaultValue);
+      super(
+          fragmentClass,
+          (Function<RuleOrMacroInstance, Label> & Serializable) (rule) -> defaultValue);
     }
   }
 
@@ -1719,7 +1722,7 @@ public final class Attribute implements Comparable<Attribute> {
     @VisibleForTesting
     protected LabelLateBoundDefault(
         Class<FragmentT> fragmentClass,
-        Function<Rule, Label> defaultValueEvaluator,
+        Function<RuleOrMacroInstance, Label> defaultValueEvaluator,
         Resolver<FragmentT, Label> resolver) {
       super(fragmentClass, defaultValueEvaluator, resolver);
     }
@@ -1756,7 +1759,9 @@ public final class Attribute implements Comparable<Attribute> {
     public static <FragmentT> LabelLateBoundDefault<FragmentT> fromTargetConfiguration(
         Class<FragmentT> fragmentClass, Label defaultValue, Resolver<FragmentT, Label> resolver) {
       return fromTargetConfigurationWithRuleBasedDefault(
-          fragmentClass, (Function<Rule, Label> & Serializable) (rule) -> defaultValue, resolver);
+          fragmentClass,
+          (Function<RuleOrMacroInstance, Label> & Serializable) (rule) -> defaultValue,
+          resolver);
     }
 
     /**
@@ -1770,7 +1775,7 @@ public final class Attribute implements Comparable<Attribute> {
     public static <FragmentT>
         LabelLateBoundDefault<FragmentT> fromTargetConfigurationWithRuleBasedDefault(
             Class<FragmentT> fragmentClass,
-            Function<Rule, Label> defaultValueEvaluator,
+            Function<RuleOrMacroInstance, Label> defaultValueEvaluator,
             Resolver<FragmentT, Label> resolver) {
       Preconditions.checkArgument(
           !fragmentClass.equals(Void.class),
@@ -1788,7 +1793,7 @@ public final class Attribute implements Comparable<Attribute> {
         Class<FragmentT> fragmentClass, Resolver<FragmentT, List<Label>> resolver) {
       super(
           fragmentClass,
-          (Function<Rule, List<Label>> & Serializable) (rule) -> ImmutableList.of(),
+          (Function<RuleOrMacroInstance, List<Label>> & Serializable) (rule) -> ImmutableList.of(),
           resolver);
     }
 
@@ -2214,7 +2219,7 @@ public final class Attribute implements Comparable<Attribute> {
    *     always be attached to rules.
    */
   @Nullable
-  public Object getDefaultValue(@Nullable Rule rule) {
+  public Object getDefaultValue(@Nullable RuleOrMacroInstance rule) {
     if (defaultValue instanceof LateBoundDefault) {
       return ((LateBoundDefault<?, ?>) defaultValue).getDefault(rule);
     } else {
@@ -2411,9 +2416,10 @@ public final class Attribute implements Comparable<Attribute> {
   }
 
   /**
-   * Converts a rule attribute value from internal form to Starlark form. Internal form may use any
-   * subtype of {@link List} or {@link Map} for {@code list} and {@code dict} attributes, whereas
-   * Starlark uses only immutable {@link net.starlark.java.eval.StarlarkList} and {@link Dict}.
+   * Converts a rule or macro attribute value from internal form to Starlark form. Internal form may
+   * use any subtype of {@link List} or {@link Map} for {@code list} and {@code dict} attributes,
+   * whereas Starlark uses only immutable {@link net.starlark.java.eval.StarlarkList} and {@link
+   * Dict}.
    *
    * <p>The conversion is similar to {@link Starlark#fromJava} for all types except {@code
    * attr.string_list_dict} ({@code Map<String, List<String>>}) and {@link
@@ -2432,6 +2438,8 @@ public final class Attribute implements Comparable<Attribute> {
    *       ramifications.
    * </ol>
    */
+  // TODO: b/403344971 - This a duplicate of StarlarkNativeModule.starlarkifyValue, with confusing
+  // skew! Try to merge the two.
   public static Object valueToStarlark(Object x) {
     if (x instanceof Map<?, ?> map) {
       // Is x a non-empty {label,string}_list_dict?
@@ -2448,9 +2456,36 @@ public final class Attribute implements Comparable<Attribute> {
     } else if (x instanceof TriState triState) {
       // Convert TriState to integer (same as in query output and native.existing_rules())
       return Starlark.fromJava(triState.toInt(), /* mutability= */ null);
+    } else if (x instanceof BuildType.SelectorList<?> selectorList) {
+      List<Object> selectors = new ArrayList<>();
+      for (BuildType.Selector<?> selector : selectorList.getSelectors()) {
+        Dict.Builder<Object, Object> m = Dict.builder();
+        selector.forEach(
+            (rawKey, rawValue) -> {
+              Object key = valueToStarlark(rawKey);
+              // BuildType.Selector constructor transforms `None` values of selector branches into
+              // the default value of the attribute's type. We need to reverse this transformation,
+              // but leave alone cases where the select value was actually set to the default value.
+              Object mapVal =
+                  !selector.isValueSet(rawKey) ? Starlark.NONE : valueToStarlark(rawValue);
+              m.put(key, mapVal);
+            });
+        Dict<?, ?> selectorDict = m.build(/* mu= */ null);
+        if (!selectorDict.isEmpty()) {
+          selectors.add(new SelectorValue(selectorDict, selector.getNoMatchError()));
+        }
+      }
+      try {
+        return SelectorList.of(selectors);
+      } catch (EvalException e) {
+        // This would happen if we were trying to create a SelectorList containing different types
+        // of selects (e.g. list select, string select). This should never happen because we are
+        // converting from a valid Native select.
+        throw new IllegalStateException(e);
+      }
     }
 
     // For all other attribute values, shallow conversion is safe.
-    return Starlark.fromJava(x, null);
+    return Starlark.fromJava(x, /* mutability= */ null);
   }
 }

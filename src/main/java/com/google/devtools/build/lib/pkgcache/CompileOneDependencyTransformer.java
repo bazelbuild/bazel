@@ -124,7 +124,7 @@ public final class CompileOneDependencyTransformer {
       return result;
     }
     // If the rule has source targets, return it: one of those sources will parse the header.
-    if (result.getRuleClassObject().hasAttr("srcs", BuildType.LABEL_LIST)
+    if (result.getRuleClassObject().getAttributeProvider().hasAttr("srcs", BuildType.LABEL_LIST)
         && !RawAttributeMapper.of(result).getMergedValues("srcs", BuildType.LABEL_LIST).isEmpty()) {
       return result;
     }
@@ -137,8 +137,8 @@ public final class CompileOneDependencyTransformer {
         continue;
       }
       RuleClass ruleClass = rule.getRuleClassObject();
-      if (ruleClass.hasAttr("deps", BuildType.LABEL_LIST)
-          && ruleClass.hasAttr("srcs", BuildType.LABEL_LIST)) {
+      if (ruleClass.getAttributeProvider().hasAttr("deps", BuildType.LABEL_LIST)
+          && ruleClass.getAttributeProvider().hasAttr("srcs", BuildType.LABEL_LIST)) {
         for (Label dep : attributes.get("deps", BuildType.LABEL_LIST)) {
           if (dep.equals(result.getLabel())) {
             if (!attributes.get("srcs", BuildType.LABEL_LIST).isEmpty()) {

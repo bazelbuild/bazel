@@ -479,6 +479,7 @@ class UiStateTracker {
 
   Event buildComplete(BuildCompleteEvent event) {
     setBuildComplete();
+    executionProgressReceiver = null;
 
     status = null;
     additionalMessage = "";

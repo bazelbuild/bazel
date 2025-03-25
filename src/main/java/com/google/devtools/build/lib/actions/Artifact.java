@@ -21,7 +21,6 @@ import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Predicate;
 import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -142,28 +141,6 @@ public abstract sealed class Artifact
         }
       };
 
-  /** Compares artifact according to their root relative paths. Sorts null values first. */
-  @SuppressWarnings("ReferenceEquality") // "a == b" is an optimization
-  public static final Comparator<Artifact> ROOT_RELATIVE_PATH_COMPARATOR =
-      (a, b) -> {
-        if (a == b) {
-          return 0;
-        } else if (a == null) {
-          return -1;
-        } else if (b == null) {
-          return 1;
-        } else {
-          int result = a.getRootRelativePath().compareTo(b.getRootRelativePath());
-          if (result == 0) {
-            // Use the full exec path as a fallback if the root-relative paths are the same, thus
-            // avoiding problems when ImmutableSortedMaps are switched from EXEC_PATH_COMPARATOR.
-            return a.execPath.compareTo(b.execPath);
-          } else {
-            return result;
-          }
-        }
-      };
-
   /**
    * {@link com.google.devtools.build.lib.skyframe.ArtifactFunction} does direct filesystem access
    * without declaring Skyframe dependencies if the artifact is a source directory. However, that
@@ -218,9 +195,6 @@ public abstract sealed class Artifact
   public int compareTo(Artifact o) {
     return EXEC_PATH_COMPARATOR.compare(this, o);
   }
-
-  /** A Predicate that evaluates to true if the Artifact is not a runfiles tree. */
-  public static final Predicate<Artifact> RUNFILES_FILTER = input -> !input.isRunfilesTree();
 
   private final ArtifactRoot root;
 
@@ -1207,29 +1181,6 @@ public abstract sealed class Artifact
       artifact -> artifact.getRootRelativePath().getPathString();
 
   /**
-   * Converts a collection of artifacts into execution-time path strings, and adds those to a given
-   * collection. Runfiles trees are ignored by this method.
-   */
-  public static void addExecPaths(Iterable<Artifact> artifacts, Collection<String> output) {
-    addNonRunfilesTreeArtifacts(artifacts, output, ActionInput::getExecPathString);
-  }
-
-  /**
-   * Converts a collection of artifacts into the outputs computed by outputFormatter and adds them
-   * to a given collection. Runfiles trees are ignored.
-   */
-  private static <E> void addNonRunfilesTreeArtifacts(
-      Iterable<Artifact> artifacts,
-      Collection<? super E> output,
-      Function<? super Artifact, E> outputFormatter) {
-    for (Artifact artifact : artifacts) {
-      if (RUNFILES_FILTER.apply(artifact)) {
-        output.add(outputFormatter.apply(artifact));
-      }
-    }
-  }
-
-  /**
    * Lazily converts artifacts into root-relative path strings. Runfiles trees are ignored by this
    * method.
    */
@@ -1243,7 +1194,7 @@ public abstract sealed class Artifact
    */
   public static Iterable<String> toRootRelativePaths(Iterable<Artifact> artifacts) {
     return Iterables.transform(
-        Iterables.filter(artifacts, RUNFILES_FILTER),
+        Iterables.filter(artifacts, a -> !a.isRunfilesTree()),
         artifact -> artifact.getRootRelativePath().getPathString());
   }
 
@@ -1253,7 +1204,7 @@ public abstract sealed class Artifact
    */
   public static Iterable<String> toExecPaths(Iterable<Artifact> artifacts) {
     return Iterables.transform(
-        Iterables.filter(artifacts, RUNFILES_FILTER), ActionInput::getExecPathString);
+        Iterables.filter(artifacts, a -> !a.isRunfilesTree()), ActionInput::getExecPathString);
   }
 
   /**

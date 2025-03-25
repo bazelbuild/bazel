@@ -21,6 +21,15 @@ java_library(
 )
 
 java_library(
+    name = "lost_input_owners",
+    srcs = ["LostInputOwners.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
     name = "rewinding",
     srcs = [
         "ActionRewindException.java",
@@ -29,11 +38,12 @@ java_library(
     ],
     deps = [
         ":action_rewound_event",
+        ":lost_input_owners",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:action_input_helper",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_data",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
-        "//src/main/java/com/google/devtools/build/lib/actions:fileset_output_tree",
+        "//src/main/java/com/google/devtools/build/lib/actions:fileset_output_symlink",
         "//src/main/java/com/google/devtools/build/lib/actions:runfiles_metadata",
         "//src/main/java/com/google/devtools/build/lib/actions:runfiles_tree",
         "//src/main/java/com/google/devtools/build/lib/bugreport",

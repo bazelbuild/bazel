@@ -17,6 +17,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.fail;
 
 import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.Iterables;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.clock.BlazeClock;
@@ -145,5 +146,12 @@ public abstract class FoundationTestCase {
 
   protected void assertContainsEventsInOrder(String... expectedMessages) {
     MoreAsserts.assertContainsEventsInOrder(eventCollector, expectedMessages);
+  }
+
+  protected ImmutableClassToInstanceMap<Object> getCommonSerializationDependencies() {
+    return ImmutableClassToInstanceMap.builder()
+        .put(FileSystem.class, fileSystem)
+        .put(Root.RootCodecDependencies.class, new Root.RootCodecDependencies(root))
+        .build();
   }
 }

@@ -19,7 +19,6 @@ import static org.junit.Assert.fail;
 import static org.mockito.Mockito.mock;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.ActionInput;
@@ -34,8 +33,6 @@ import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.FilesetOutputTree;
-import com.google.devtools.build.lib.actions.HasDigest;
-import com.google.devtools.build.lib.actions.HasDigest.ByteStringDigest;
 import com.google.devtools.build.lib.actions.StaticInputMetadataProvider;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil.NullAction;
@@ -144,8 +141,7 @@ public final class ActionOutputMetadataStoreTest {
     ActionInputMap map = new ActionInputMap(1);
     map.put(input, metadata);
     assertThat(map.getInputMetadata(input)).isEqualTo(metadata);
-    ActionInputMetadataProvider inputMetadataProvider =
-        new ActionInputMetadataProvider(map, ImmutableMap.of());
+    ActionInputMetadataProvider inputMetadataProvider = new ActionInputMetadataProvider(map);
     assertThat(inputMetadataProvider.getInputMetadata(input)).isNull();
     assertThat(chmodCalls).isEmpty();
   }
@@ -159,8 +155,7 @@ public final class ActionOutputMetadataStoreTest {
             new byte[] {1, 2, 3}, /* proxy= */ null, /* size= */ 10L);
     ActionInputMap map = new ActionInputMap(1);
     map.put(artifact, metadata);
-    ActionInputMetadataProvider inputMetadataProvider =
-        new ActionInputMetadataProvider(map, ImmutableMap.of());
+    ActionInputMetadataProvider inputMetadataProvider = new ActionInputMetadataProvider(map);
     assertThat(inputMetadataProvider.getInputMetadata(artifact)).isEqualTo(metadata);
     assertThat(chmodCalls).isEmpty();
   }
@@ -170,8 +165,7 @@ public final class ActionOutputMetadataStoreTest {
     PathFragment path = PathFragment.create("src/a");
     Artifact artifact = ActionsTestUtil.createArtifactWithRootRelativePath(sourceRoot, path);
     ActionInputMap inputMap = new ActionInputMap(0);
-    ActionInputMetadataProvider inputMetadataProvider =
-        new ActionInputMetadataProvider(inputMap, ImmutableMap.of());
+    ActionInputMetadataProvider inputMetadataProvider = new ActionInputMetadataProvider(inputMap);
     assertThat(inputMetadataProvider.getInputMetadata(artifact)).isNull();
     assertThat(chmodCalls).isEmpty();
   }
@@ -181,8 +175,7 @@ public final class ActionOutputMetadataStoreTest {
     PathFragment path = PathFragment.create("foo/bar");
     Artifact artifact = ActionsTestUtil.createArtifactWithRootRelativePath(outputRoot, path);
     ActionInputMap inputMap = new ActionInputMap(0);
-    ActionInputMetadataProvider inputMetadataProvider =
-        new ActionInputMetadataProvider(inputMap, ImmutableMap.of());
+    ActionInputMetadataProvider inputMetadataProvider = new ActionInputMetadataProvider(inputMap);
     assertThat(inputMetadataProvider.getInputMetadata(artifact)).isNull();
     assertThat(chmodCalls).isEmpty();
   }
@@ -211,8 +204,7 @@ public final class ActionOutputMetadataStoreTest {
         ActionsTestUtil.createTreeArtifactWithGeneratingAction(outputRoot, "foo/bar");
     Artifact artifact = TreeFileArtifact.createTreeOutput(treeArtifact, "baz");
     ActionInputMap inputMap = new ActionInputMap(0);
-    ActionInputMetadataProvider inputMetadataProvider =
-        new ActionInputMetadataProvider(inputMap, ImmutableMap.of());
+    ActionInputMetadataProvider inputMetadataProvider = new ActionInputMetadataProvider(inputMap);
     assertThat(inputMetadataProvider.getInputMetadata(artifact)).isNull();
     assertThat(chmodCalls).isEmpty();
   }
@@ -544,44 +536,27 @@ public final class ActionOutputMetadataStoreTest {
 
   @Test
   public void getMetadataFromFilesetMapping() throws Exception {
-    FileArtifactValue directoryFav = FileArtifactValue.createForDirectoryWithMtime(10L);
-    FileArtifactValue regularFav =
-        FileArtifactValue.createForVirtualActionInput(new byte[] {1, 2, 3, 4}, 10L);
-    HasDigest.ByteStringDigest byteStringDigest = new ByteStringDigest(new byte[] {2, 3, 4});
+    FileArtifactValue metadata =
+        FileArtifactValue.createForNormalFile(new byte[] {1, 2, 3, 4}, null, 10L);
+    FilesetOutputSymlink symlink =
+        FilesetOutputSymlink.create(
+            PathFragment.create("file"),
+            execRoot.getRelative("file").asFragment(),
+            metadata,
+            execRoot.asFragment(),
+            /* enclosingTreeArtifact= */ null);
 
-    ImmutableList<FilesetOutputSymlink> symlinks =
-        ImmutableList.of(
-            createFilesetOutputSymlink(directoryFav, "dir"),
-            createFilesetOutputSymlink(regularFav, "file"),
-            createFilesetOutputSymlink(byteStringDigest, "bytes"));
-
-    Artifact artifact =
-        ActionsTestUtil.createArtifactWithRootRelativePath(
-            outputRoot, PathFragment.create("foo/bar"));
-    ImmutableMap<Artifact, FilesetOutputTree> expandedFilesets =
-        ImmutableMap.of(artifact, FilesetOutputTree.create(symlinks));
-
+    Artifact artifact = ActionsTestUtil.createFilesetArtifact(outputRoot, "foo/bar");
+    ActionInputMap actionInputMap = new ActionInputMap(1);
+    actionInputMap.putFileset(artifact, FilesetOutputTree.create(ImmutableList.of(symlink)));
     ActionInputMetadataProvider inputMetadataProvider =
-        new ActionInputMetadataProvider(new ActionInputMap(0), expandedFilesets);
+        new ActionInputMetadataProvider(actionInputMap);
 
-    // Only the regular FileArtifactValue should have its metadata stored.
-    assertThat(inputMetadataProvider.getInputMetadata(ActionInputHelper.fromPath("dir"))).isNull();
     assertThat(inputMetadataProvider.getInputMetadata(ActionInputHelper.fromPath("file")))
-        .isEqualTo(regularFav);
-    assertThat(inputMetadataProvider.getInputMetadata(ActionInputHelper.fromPath("bytes")))
-        .isNull();
+        .isSameInstanceAs(metadata);
     assertThat(inputMetadataProvider.getInputMetadata(ActionInputHelper.fromPath("does_not_exist")))
         .isNull();
     assertThat(chmodCalls).isEmpty();
-  }
-
-  private FilesetOutputSymlink createFilesetOutputSymlink(HasDigest digest, String identifier) {
-    return FilesetOutputSymlink.create(
-        PathFragment.create(identifier + "_symlink"),
-        execRoot.getRelative(identifier).asFragment(),
-        digest,
-        execRoot.asFragment(),
-        /* enclosingTreeArtifact= */ null);
   }
 
   @Test

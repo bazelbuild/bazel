@@ -252,10 +252,10 @@ final class Parser {
     }
 
     // unparenthesized tuple
-    List<Expression> elems = new ArrayList<>();
+    ImmutableList.Builder<Expression> elems = ImmutableList.builder();
     elems.add(e);
     parseExprList(elems, /*trailingCommaAllowed=*/ false);
-    return new ListExpression(locs, /*isTuple=*/ true, -1, elems, -1);
+    return new ListExpression(locs, /* isTuple= */ true, -1, elems.build(), -1);
   }
 
   @FormatMethod
@@ -535,7 +535,7 @@ final class Parser {
   // It is used to parse tuples and list elements.
   //
   // expr_list = ( ',' expr )* ','?
-  private void parseExprList(List<Expression> list, boolean trailingCommaAllowed) {
+  private void parseExprList(ImmutableList.Builder<Expression> list, boolean trailingCommaAllowed) {
     //  terminating tokens for an expression list
     while (token.kind == TokenKind.COMMA) {
       expect(TokenKind.COMMA);
@@ -551,7 +551,7 @@ final class Parser {
 
   // dict_entry_list = ( (dict_entry ',')* dict_entry ','? )?
   private List<DictExpression.Entry> parseDictEntryList() {
-    List<DictExpression.Entry> list = new ArrayList<>();
+    ImmutableList.Builder<DictExpression.Entry> list = ImmutableList.builder();
     // the terminating token for a dict entry list
     while (token.kind != TokenKind.RBRACE) {
       list.add(parseDictEntry());
@@ -561,7 +561,7 @@ final class Parser {
         break;
       }
     }
-    return list;
+    return list.build();
   }
 
   // dict_entry = test ':' test
@@ -645,11 +645,12 @@ final class Parser {
 
           // non-empty tuple: (e,) or (e, ..., e)
           if (token.kind == TokenKind.COMMA) {
-            List<Expression> elems = new ArrayList<>();
+            ImmutableList.Builder<Expression> elems = ImmutableList.builder();
             elems.add(e);
             parseExprList(elems, /*trailingCommaAllowed=*/ true);
             int rparenOffset = expect(TokenKind.RPAREN);
-            return new ListExpression(locs, /*isTuple=*/ true, lparenOffset, elems, rparenOffset);
+            return new ListExpression(
+                locs, /* isTuple= */ true, lparenOffset, elems.build(), rparenOffset);
           }
 
           // (expr for vars in expr) -- Python generator expression?
@@ -743,7 +744,7 @@ final class Parser {
     }
 
     // unparenthesized tuple
-    List<Expression> elems = new ArrayList<>();
+    ImmutableList.Builder<Expression> elems = ImmutableList.builder();
     elems.add(e1);
     while (token.kind == TokenKind.COMMA) {
       expect(TokenKind.COMMA);
@@ -752,7 +753,7 @@ final class Parser {
       }
       elems.add(parsePrimaryWithSuffix());
     }
-    return new ListExpression(locs, /*isTuple=*/ true, -1, elems, -1);
+    return new ListExpression(locs, /* isTuple= */ true, -1, elems.build(), -1);
   }
 
   // comprehension_suffix = 'FOR' loop_variables 'IN' expr comprehension_suffix
@@ -822,13 +823,13 @@ final class Parser {
       case COMMA:
         // [e, ...], list expression
         {
-          List<Expression> elems = new ArrayList<>();
+          ImmutableList.Builder<Expression> elems = ImmutableList.builder();
           elems.add(expression);
           parseExprList(elems, /*trailingCommaAllowed=*/ true);
           if (token.kind == TokenKind.RBRACKET) {
             int rbracketOffset = nextToken();
             return new ListExpression(
-                locs, /*isTuple=*/ false, lbracketOffset, elems, rbracketOffset);
+                locs, /* isTuple= */ false, lbracketOffset, elems.build(), rbracketOffset);
           }
 
           expect(TokenKind.RBRACKET);
@@ -861,7 +862,7 @@ final class Parser {
       return parseComprehensionSuffix(lbraceOffset, entry, TokenKind.RBRACE);
     }
 
-    List<DictExpression.Entry> entries = new ArrayList<>();
+    ImmutableList.Builder<DictExpression.Entry> entries = ImmutableList.builder();
     entries.add(entry);
     if (token.kind == TokenKind.COMMA) {
       expect(TokenKind.COMMA);
@@ -869,7 +870,7 @@ final class Parser {
     }
     if (token.kind == TokenKind.RBRACE) {
       int rbraceOffset = nextToken();
-      return new DictExpression(locs, lbraceOffset, entries, rbraceOffset);
+      return new DictExpression(locs, lbraceOffset, entries.build(), rbraceOffset);
     }
 
     expect(TokenKind.RBRACE);

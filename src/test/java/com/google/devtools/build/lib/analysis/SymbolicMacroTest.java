@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.common.truth.Truth.assertWithMessage;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.test.AnalysisFailure;
@@ -1593,8 +1592,7 @@ Label("//conditions:default"): None})\
         """);
     Package pkg = getPackage("pkg");
     assertPackageNotInError(pkg);
-    assertThat(getMacroById(pkg, "abc:1").getMacroClass().getAttributes())
-        .doesNotContainKey("disabled_attr");
+    assertMacroDoesNotHaveAttributes(getMacroById(pkg, "abc:1"), ImmutableList.of("disabled_attr"));
   }
 
   @Test
@@ -1675,22 +1673,23 @@ Label("//conditions:default"): None})\
     Package pkg = getPackage("pkg");
     assertPackageNotInError(pkg);
     // inherited attrs
-    assertThat(getMacroById(pkg, "abc:1").getMacroClass().getAttributes().keySet())
-        .containsAtLeast("compatible_with", "testonly", "toolchains");
+    MacroInstance macroInstance = getMacroById(pkg, "abc:1");
+    assertMacroHasAttributes(
+        macroInstance, ImmutableList.of("compatible_with", "testonly", "toolchains"));
     // overridden attr
     assertThat(
-            getMacroById(pkg, "abc:1")
+            macroInstance
                 .getMacroClass()
-                .getAttributes()
-                .get("tags")
+                .getAttributeProvider()
+                .getAttributeByName("tags")
                 .getDefaultValueUnchecked())
         .isEqualTo(ImmutableList.of("foo"));
     // non-inherited attr
-    assertThat(getMacroById(pkg, "abc:1").getMacroClass().getAttributes())
-        .doesNotContainKey("features");
+    assertMacroDoesNotHaveAttributes(macroInstance, ImmutableList.of("features"));
     // internal public attrs which macro machinery must avoid inheriting
-    assertThat(getMacroById(pkg, "abc:1").getMacroClass().getAttributes().keySet())
-        .containsNoneOf("generator_name", "generator_location", "generator_function");
+    assertMacroDoesNotHaveAttributes(
+        macroInstance,
+        ImmutableList.of("generator_name", "generator_location", "generator_function"));
   }
 
   @Test
@@ -1712,7 +1711,7 @@ Label("//conditions:default"): None})\
     //   cannot inherit an attribute with a default with this source or of such a type (to fix, add
     //   a check for it in MacroClass#forceDefaultToNone).
     for (RuleClass ruleClass : getBuiltinRuleClasses(false)) {
-      if (ruleClass.getAttributes().isEmpty()) {
+      if (ruleClass.getAttributeProvider().getAttributes().isEmpty()) {
         continue;
       }
       if (!(ruleClass.getRuleClassType().equals(RuleClass.Builder.RuleClassType.NORMAL)
@@ -1723,7 +1722,7 @@ Label("//conditions:default"): None})\
       String macroName = "my_" + ruleClass.getName();
       // Provide fake values for mandatory attributes in macro invocation
       StringBuilder fakeMandatoryArgs = new StringBuilder();
-      for (Attribute attr : ruleClass.getAttributes()) {
+      for (Attribute attr : ruleClass.getAttributeProvider().getAttributes()) {
         String fakeValue = null;
         if (attr.isPublic() && attr.isMandatory() && !attr.getName().equals("name")) {
           Type<?> type = attr.getType();
@@ -1774,15 +1773,16 @@ Label("//conditions:default"): None})\
               macroName, macroName, fakeMandatoryArgs));
       Package pkg = getPackage(pkgName);
       assertPackageNotInError(pkg);
-      assertWithMessage("rule '%s'", ruleClass.getName())
-          .that(getMacroById(pkg, "abc:1").getMacroClass().getAttributes().keySet())
-          .containsAtLeastElementsIn(
-              ruleClass.getAttributes().stream()
-                  .filter(a -> a.isPublic() && a.isDocumented())
-                  .map(Attribute::getName)
-                  .collect(toImmutableList()));
-      assertThat(getMacroById(pkg, "abc:1").getMacroClass().getAttributes().keySet())
-          .containsNoneOf("generator_name", "generator_location", "generator_function");
+      assertMacroHasAttributes(
+          getMacroById(pkg, "abc:1"),
+          ruleClass.getAttributeProvider().getAttributes().stream()
+              .filter(a -> a.isPublic() && a.isDocumented())
+              .map(Attribute::getName)
+              .collect(toImmutableList()));
+      assertMacroDoesNotHaveAttributes(
+          getMacroById(pkg, "abc:1"),
+          ImmutableList.of(
+              "generator_name", "generator_location", "generator_function", "generator_location"));
     }
   }
 
@@ -1857,10 +1857,10 @@ my_genrule = macro(
         """);
     Package pkg = getPackage("pkg");
     assertPackageNotInError(pkg);
-    assertThat(getMacroById(pkg, "abc:1").getMacroClass().getAttributes().keySet())
-        .containsAtLeast("srcs", "tags");
-    assertThat(getMacroById(pkg, "abc:1").getMacroClass().getAttributes().keySet())
-        .containsNoneOf("generator_name", "generator_location", "generator_function");
+    assertMacroHasAttributes(getMacroById(pkg, "abc:1"), ImmutableList.of("srcs", "tags"));
+    assertMacroDoesNotHaveAttributes(
+        getMacroById(pkg, "abc:1"),
+        ImmutableList.of("generator_name", "generator_location", "generator_function"));
   }
 
   @Test
@@ -1936,8 +1936,11 @@ my_macro = macro(
         """);
     Package pkg = getPackage("pkg");
     assertPackageNotInError(pkg);
-    assertThat(getMacroById(pkg, "abc:1").getMacroClass().getAttributes().keySet())
-        .containsExactly("name", "visibility", "srcs", "tags");
+    assertMacroHasAttributes(
+        getMacroById(pkg, "abc:1"), ImmutableList.of("name", "visibility", "srcs", "tags"));
+    assertThat(
+            getMacroById(pkg, "abc:1").getMacroClass().getAttributeProvider().getAttributeCount())
+        .isEqualTo(4);
     assertContainsEvent("my_macro: tags = None"); // Not []
     assertContainsEvent("my_macro: kwarg srcs = None"); // Not select({"//conditions:default": []})
   }
@@ -1978,5 +1981,22 @@ my_macro = macro(
     assertContainsEvent(
         "a rule or macro callable must be assigned to a global variable in a .bzl file before it"
             + " can be inherited from");
+  }
+
+  private void assertMacroHasAttributes(MacroInstance macro, ImmutableList<String> attributeNames) {
+    for (String attributeName : attributeNames) {
+      assertThat(
+              macro.getMacroClass().getAttributeProvider().getAttributeByNameMaybe(attributeName))
+          .isNotNull();
+    }
+  }
+
+  private void assertMacroDoesNotHaveAttributes(
+      MacroInstance macro, ImmutableList<String> attributeNames) {
+    for (String attributeName : attributeNames) {
+      assertThat(
+              macro.getMacroClass().getAttributeProvider().getAttributeByNameMaybe(attributeName))
+          .isNull();
+    }
   }
 }

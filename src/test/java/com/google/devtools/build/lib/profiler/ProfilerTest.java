@@ -373,11 +373,17 @@ public final class ProfilerTest {
     profiler.stop();
 
     JsonProfile jsonProfile = new JsonProfile(new ByteArrayInputStream(buffer.toByteArray()));
-    ImmutableList<TraceEvent> usageEvents =
+    ImmutableList<TraceEvent> totalWorkerMemoryUsageEvents =
         jsonProfile.getTraceEvents().stream()
-            .filter(e -> e.name().contains("Workers memory usage"))
+            .filter(e -> e.name().contains("Total worker memory usage"))
             .collect(toImmutableList());
-    assertThat(usageEvents).hasSize(1);
+    ImmutableList<TraceEvent> perMnemonicWorkerMemoryUsageEvents =
+        jsonProfile.getTraceEvents().stream()
+            .filter(e -> e.name().contains("Per-mnemonic worker memory usage"))
+            .collect(toImmutableList());
+
+    assertThat(totalWorkerMemoryUsageEvents).hasSize(1);
+    assertThat(perMnemonicWorkerMemoryUsageEvents).hasSize(1);
   }
 
   @Test

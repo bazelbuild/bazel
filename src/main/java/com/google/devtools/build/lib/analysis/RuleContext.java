@@ -2169,7 +2169,7 @@ public class RuleContext extends TargetContext
       // but we no longer locations for individual attributes.
       // We should record the instantiation call stack in each rule
       // and report the position of its topmost frame here.
-      return rule.wasCreatedByMacro()
+      return rule.isRuleCreatedInLegacyMacro()
           ? String.format(
               ". Since this rule was created by the macro '%s', the error might have been "
                   + "caused by the macro implementation",

@@ -139,14 +139,6 @@ public class ObjcStarlarkInternal implements StarlarkValue {
   }
 
   @StarlarkMethod(
-      name = "get_cpu",
-      documented = false,
-      parameters = {@Param(name = "build_config", named = true)})
-  public String getCpu(BuildConfigurationValue buildConfiguration) throws EvalException {
-    return buildConfiguration.getCpu();
-  }
-
-  @StarlarkMethod(
       name = "get_split_build_configs",
       documented = false,
       parameters = {@Param(name = "ctx", positional = true, named = true)})

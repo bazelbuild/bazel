@@ -20,13 +20,10 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.ArtifactExpander;
-import com.google.devtools.build.lib.actions.ArtifactExpander.MissingExpansionException;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.ImportantOutputHandler;
@@ -35,6 +32,7 @@ import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.exec.ModuleActionContextRegistry;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.ForOverride;
@@ -103,19 +101,17 @@ public class LostImportantOutputHandlerModule extends BlazeModule {
     @Override
     public LostArtifacts processOutputsAndGetLostArtifacts(
         Iterable<Artifact> outputs,
-        ArtifactExpander expander,
         InputMetadataProvider metadataProvider) {
-      return getLostOutputs(outputs, expander, metadataProvider);
+      return getLostOutputs(outputs, metadataProvider);
     }
 
     @Override
     public LostArtifacts processRunfilesAndGetLostArtifacts(
         PathFragment runfilesDir,
         Map<PathFragment, Artifact> runfiles,
-        ArtifactExpander expander,
         InputMetadataProvider metadataProvider,
         String inputManifestExtension) {
-      return getLostOutputs(runfiles.values(), expander, metadataProvider);
+      return getLostOutputs(runfiles.values(), metadataProvider);
     }
 
     @Override
@@ -130,11 +126,10 @@ public class LostImportantOutputHandlerModule extends BlazeModule {
 
     private LostArtifacts getLostOutputs(
         Iterable<Artifact> outputs,
-        ArtifactExpander expander,
         InputMetadataProvider metadataProvider) {
       ImmutableMap.Builder<String, ActionInput> lost = ImmutableMap.builder();
-      ImmutableSetMultimap.Builder<ActionInput, Artifact> owners = ImmutableSetMultimap.builder();
-      for (OutputAndOwner outputAndOwner : expand(outputs, expander)) {
+      LostInputOwners owners = new LostInputOwners();
+      for (OutputAndOwner outputAndOwner : expand(outputs, metadataProvider)) {
         ActionInput output = outputAndOwner.output;
         Artifact owner = outputAndOwner.owner;
         if (!outputIsLost(output.getExecPath())) {
@@ -148,23 +143,25 @@ public class LostImportantOutputHandlerModule extends BlazeModule {
         }
         lost.put(digestFn.apply(metadata.getDigest(), metadata.getSize()), output);
         if (owner != null) {
-          owners.put(output, owner);
+          owners.addOwner(output, owner);
         }
       }
-      return new LostArtifacts(lost.buildKeepingLast(), owners.build()::get);
+      return new LostArtifacts(lost.buildKeepingLast(), owners);
     }
 
     private static ImmutableList<OutputAndOwner> expand(
-        Iterable<Artifact> outputs, ArtifactExpander expander) {
+        Iterable<Artifact> outputs, InputMetadataProvider inputMetadataProvider) {
       return stream(outputs)
-          .flatMap(artifact -> expand(artifact, expander))
+          .flatMap(artifact -> expand(artifact, inputMetadataProvider))
           .collect(toImmutableList());
     }
 
-    private static Stream<OutputAndOwner> expand(Artifact output, ArtifactExpander expander) {
+    private static Stream<OutputAndOwner> expand(
+        Artifact output, InputMetadataProvider inputMetadataProvider) {
       if (output.isTreeArtifact()) {
-        var children = expander.tryExpandTreeArtifact(output).stream();
-        var archivedTreeArtifact = expander.getArchivedTreeArtifact(output);
+        TreeArtifactValue treeArtifactValue = inputMetadataProvider.getTreeMetadata(output);
+        var archivedTreeArtifact = treeArtifactValue.getArchivedArtifact();
+        var children = treeArtifactValue.getChildren().stream();
         var expansion =
             archivedTreeArtifact == null
                 ? children
@@ -172,12 +169,8 @@ public class LostImportantOutputHandlerModule extends BlazeModule {
         return expansion.map(child -> new OutputAndOwner(child, output));
       }
       if (output.isFileset()) {
-        ImmutableList<FilesetOutputSymlink> links;
-        try {
-          links = expander.expandFileset(output).symlinks();
-        } catch (MissingExpansionException e) {
-          throw new IllegalStateException(e);
-        }
+        ImmutableList<FilesetOutputSymlink> links =
+            inputMetadataProvider.getFileset(output).symlinks();
         return links.stream()
             .filter(FilesetOutputSymlink::relativeToExecRoot)
             .map(link -> new OutputAndOwner(ActionInputHelper.fromPath(link.targetPath()), output));

@@ -118,7 +118,8 @@ public final class BuildLanguageInfoItem extends InfoItem {
 
       ImmutableList<Attribute> sortedAttributeDefinitions =
           ImmutableList.sortedCopyOf(
-              Comparator.comparing(Attribute::getName), ruleClass.getAttributes());
+              Comparator.comparing(Attribute::getName),
+              ruleClass.getAttributeProvider().getAttributes());
       for (Attribute attr : sortedAttributeDefinitions) {
         Type<?> t = attr.getType();
         AttributeDefinition.Builder attrPb = AttributeDefinition.newBuilder();

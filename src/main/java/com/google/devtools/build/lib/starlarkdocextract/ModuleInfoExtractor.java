@@ -399,7 +399,7 @@ public final class ModuleInfoExtractor {
       AttributeInfoExtractor.addDocumentableAttributes(
           contextForImplicitMacroAttributes,
           IMPLICIT_MACRO_ATTRIBUTES,
-          macroClass.getAttributes().values(),
+          macroClass.getAttributeProvider().getAttributes(),
           macroInfoBuilder::addAttribute);
 
       moduleInfoBuilder.addMacroInfo(macroInfoBuilder);
@@ -555,12 +555,15 @@ public final class ModuleInfoExtractor {
       AttributeInfoExtractor.addDocumentableAttributes(
           context,
           IMPLICIT_REPOSITORY_RULE_ATTRIBUTES,
-          ruleClass.getAttributes(),
+          ruleClass.getAttributeProvider().getAttributes(),
           repositoryRuleInfoBuilder::addAttribute);
-      if (ruleClass.hasAttr("$environ", Types.STRING_LIST)) {
+      if (ruleClass.getAttributeProvider().hasAttr("$environ", Types.STRING_LIST)) {
         for (String env :
             Types.STRING_LIST.cast(
-                ruleClass.getAttributeByName("$environ").getDefaultValue(null))) {
+                ruleClass
+                    .getAttributeProvider()
+                    .getAttributeByName("$environ")
+                    .getDefaultValue(null))) {
           repositoryRuleInfoBuilder.addEnviron(internalToUnicode(env));
         }
       }

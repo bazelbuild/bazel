@@ -16,10 +16,13 @@ package com.google.devtools.build.lib.exec;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.DigestOfDirectoryException;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.FilesetOutputTree;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.RunfilesArtifactValue;
 import com.google.devtools.build.lib.actions.RunfilesTree;
@@ -29,6 +32,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.XattrProvider;
 import java.io.IOException;
+import java.util.Map;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.ThreadSafe;
 
@@ -92,6 +96,17 @@ public class SingleBuildFileCache implements InputMetadataProvider {
   @Override
   public TreeArtifactValue getTreeMetadata(ActionInput actionInput) {
     return null;
+  }
+
+  @Override
+  @Nullable
+  public FilesetOutputTree getFileset(ActionInput input) {
+    return null;
+  }
+
+  @Override
+  public Map<Artifact, FilesetOutputTree> getFilesets() {
+    return ImmutableMap.of();
   }
 
   @Override

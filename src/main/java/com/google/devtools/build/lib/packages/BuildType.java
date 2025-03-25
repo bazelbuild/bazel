@@ -726,15 +726,7 @@ public final class BuildType {
     public void repr(Printer printer) {
       // Convert to a lib.packages.SelectorList to guarantee consistency with callers that serialize
       // directly on that type.
-      List<SelectorValue> selectorValueList = new ArrayList<>();
-      for (Selector<T> element : elements) {
-        selectorValueList.add(new SelectorValue(element.mapCopy(), element.getNoMatchError()));
-      }
-      try {
-        printer.repr(com.google.devtools.build.lib.packages.SelectorList.of(selectorValueList));
-      } catch (EvalException e) {
-        throw new IllegalStateException("this list should have been validated on creation", e);
-      }
+      printer.repr(Attribute.valueToStarlark(this));
     }
   }
 

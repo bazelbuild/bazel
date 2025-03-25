@@ -850,7 +850,7 @@ public abstract class BuildIntegrationTestCase {
   }
 
   /** Runs the {@code info} command. */
-  public void info() throws Exception {
+  protected void info() throws Exception {
     events.setOutErr(outErr);
     runtimeWrapper.newCommand(InfoCommand.class);
     runtimeWrapper.executeNonBuildCommand();

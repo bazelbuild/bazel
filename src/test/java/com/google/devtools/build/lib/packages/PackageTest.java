@@ -72,19 +72,23 @@ public class PackageTest {
     Label manualTestLabel = Label.parseCanonicalUnchecked("//test_pkg:my_manual_test");
     Rule tag2Rule = addRule(pkgBuilder, manualTestLabel, FAUX_TEST_CLASS);
     tag2Rule.setAttributeValue(
-        FAUX_TEST_CLASS.getAttributeByName("tags"), ImmutableList.of("manual"), /*explicit=*/ true);
+        FAUX_TEST_CLASS.getAttributeProvider().getAttributeByName("tags"),
+        ImmutableList.of("manual"),
+        /* explicit= */ true);
 
     Label taggedTestLabel = Label.parseCanonicalUnchecked("//test_pkg:my_tagged_test");
     Rule taggedTestRule = addRule(pkgBuilder, taggedTestLabel, FAUX_TEST_CLASS);
     taggedTestRule.setAttributeValue(
-        FAUX_TEST_CLASS.getAttributeByName("tags"), ImmutableList.of("tag1"), /*explicit=*/ true);
+        FAUX_TEST_CLASS.getAttributeProvider().getAttributeByName("tags"),
+        ImmutableList.of("tag1"),
+        /* explicit= */ true);
 
     Label taggedManualTestLabel = Label.parseCanonicalUnchecked("//test_pkg:my_tagged_manual_test");
     Rule taggedManualTestRule = addRule(pkgBuilder, taggedManualTestLabel, FAUX_TEST_CLASS);
     taggedManualTestRule.setAttributeValue(
-        FAUX_TEST_CLASS.getAttributeByName("tags"),
+        FAUX_TEST_CLASS.getAttributeProvider().getAttributeByName("tags"),
         ImmutableList.of("manual", "tag1"),
-        /*explicit=*/ true);
+        /* explicit= */ true);
 
     List<Label> allTests = pkgBuilder.getTestSuiteImplicitTestsRef(/*tags=*/ ImmutableList.of());
     List<Label> tag1Tests = pkgBuilder.getTestSuiteImplicitTestsRef(ImmutableList.of("tag1"));
@@ -102,12 +106,16 @@ public class PackageTest {
     Label tag1Label = Label.parseCanonicalUnchecked("//test_pkg:my_test_tag_1");
     Rule tag1Rule = addRule(pkgBuilder, tag1Label, FAUX_TEST_CLASS);
     tag1Rule.setAttributeValue(
-        FAUX_TEST_CLASS.getAttributeByName("tags"), ImmutableList.of("tag1"), /*explicit=*/ true);
+        FAUX_TEST_CLASS.getAttributeProvider().getAttributeByName("tags"),
+        ImmutableList.of("tag1"),
+        /* explicit= */ true);
 
     Label tag2Label = Label.parseCanonicalUnchecked("//test_pkg:my_test_tag_2");
     Rule tag2Rule = addRule(pkgBuilder, tag2Label, FAUX_TEST_CLASS);
     tag2Rule.setAttributeValue(
-        FAUX_TEST_CLASS.getAttributeByName("tags"), ImmutableList.of("tag2"), /*explicit=*/ true);
+        FAUX_TEST_CLASS.getAttributeProvider().getAttributeByName("tags"),
+        ImmutableList.of("tag2"),
+        /* explicit= */ true);
 
     List<Label> result = pkgBuilder.getTestSuiteImplicitTestsRef(ImmutableList.of("tag1"));
 
@@ -127,14 +135,16 @@ public class PackageTest {
     Label matchingLabel = Label.parseCanonicalUnchecked("//test_pkg:matching");
     Rule matchingRule = addRule(pkgBuilder, matchingLabel, FAUX_TEST_CLASS);
     matchingRule.setAttributeValue(
-        FAUX_TEST_CLASS.getAttributeByName("tags"), ImmutableList.of("tag1"), /*explicit=*/ true);
+        FAUX_TEST_CLASS.getAttributeProvider().getAttributeByName("tags"),
+        ImmutableList.of("tag1"),
+        /* explicit= */ true);
 
     Label excludedLabel = Label.parseCanonicalUnchecked("//test_pkg:excluded");
     Rule excludedRule = addRule(pkgBuilder, excludedLabel, FAUX_TEST_CLASS);
     excludedRule.setAttributeValue(
-        FAUX_TEST_CLASS.getAttributeByName("tags"),
+        FAUX_TEST_CLASS.getAttributeProvider().getAttributeByName("tags"),
         ImmutableList.of("tag1", "tag2"),
-        /*explicit=*/ true);
+        /* explicit= */ true);
 
     List<Label> result = pkgBuilder.getTestSuiteImplicitTestsRef(ImmutableList.of("tag1", "-tag2"));
 

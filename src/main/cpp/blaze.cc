@@ -432,6 +432,11 @@ static vector<string> GetServerExeArgs(const blaze_util::Path &jvm_path,
   // https://github.com/openjdk/jdk/blob/2faf8b8d582183275b1fdc92313a1c63c1753e80/src/java.base/share/classes/sun/nio/fs/AbstractWatchKey.java#L40
   result.push_back("-Djdk.nio.file.WatchService.maxEventsPerPoll=10000");
 
+  // Disable warnings about unsafe memory access, which still occurs in
+  // protobuf.
+  // TODO: Drop this when protobuf uses VarHandle.
+  result.push_back("-Dsun.misc.unsafe.memory.access=allow");
+
 #if defined(_WIN32)
   // See and use more than 64 CPUs on Windows.
   // https://bugs.openjdk.org/browse/JDK-6942632
@@ -444,8 +449,8 @@ static vector<string> GetServerExeArgs(const blaze_util::Path &jvm_path,
         << "Running host JVM under debugger (listening on TCP port 5005).";
     // Start JVM so that it listens for a connection from a
     // JDWP-compliant debugger:
-    result.push_back("-Xdebug");
-    result.push_back("-Xrunjdwp:transport=dt_socket,server=y,address=5005");
+    result.push_back(
+        "-agentlib:jdwp=transport=dt_socket,server=y,address=5005");
   }
   result.insert(result.end(), user_options.begin(), user_options.end());
 

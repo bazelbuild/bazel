@@ -57,7 +57,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
-import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
@@ -65,6 +64,7 @@ import com.google.devtools.build.lib.actions.BasicActionLookupValue;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileStateValue;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.OutputChecker;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
@@ -471,7 +471,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
 
           @Override
           public ModifiedFileSet getDiffFromEvaluatingVersion(
-              OptionsProvider options, FileSystem fs) throws BrokenDiffAwarenessException {
+              OptionsProvider options, FileSystem fs) {
             throw new UnsupportedOperationException("not implemented");
           }
 
@@ -1401,7 +1401,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
 
     @Override
     public String getKey(
-        ActionKeyContext actionKeyContext, @Nullable ArtifactExpander artifactExpander) {
+        ActionKeyContext actionKeyContext, @Nullable InputMetadataProvider inputMetadataProvider) {
       Fingerprint fp = new Fingerprint();
       fp.addPath(inputArtifact.getPath());
       fp.addPath(outputArtifact.getPath());
@@ -1865,7 +1865,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     @Override
     protected void computeKey(
         ActionKeyContext actionKeyContext,
-        @Nullable ArtifactExpander artifactExpander,
+        @Nullable InputMetadataProvider inputMetadataProvider,
         Fingerprint fp) {
       fp.addString(warningText);
       fp.addPath(getPrimaryOutput().getExecPath());
@@ -2269,7 +2269,6 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
                       null,
                       new TopLevelArtifactContext(
                           /* runTestsExclusively= */ false,
-                          false,
                           false,
                           OutputGroupInfo.determineOutputGroups(
                               ImmutableList.of(),

@@ -31,19 +31,19 @@ import javax.annotation.Nullable;
  * data before exposing it to consumers.
  */
 public abstract class AbstractAttributeMapper implements AttributeMap {
-  final RuleClass ruleClass;
-  final Rule rule;
+  final AttributeProvider ruleClass;
+  final RuleOrMacroInstance rule;
   private final Label ruleLabel;
 
-  protected AbstractAttributeMapper(Rule rule) {
-    this.ruleClass = rule.getRuleClassObject();
+  protected AbstractAttributeMapper(RuleOrMacroInstance rule) {
+    this.ruleClass = rule.getAttributeProvider();
     this.ruleLabel = rule.getLabel();
     this.rule = rule;
   }
 
   @Override
   public String describeRule() {
-    return String.format("%s %s", this.rule.getRuleClass(), getLabel());
+    return String.format("%s %s", this.rule.getAttributeProvider(), getLabel());
   }
 
   @Override
@@ -149,7 +149,7 @@ public abstract class AbstractAttributeMapper implements AttributeMap {
 
   @Override
   public PackageArgs getPackageArgs() {
-    return rule.getPackageDeclarations().getPackageArgs();
+    return rule.getPackageArgs();
   }
 
   @Override
@@ -209,7 +209,7 @@ public abstract class AbstractAttributeMapper implements AttributeMap {
    * Check if an attribute is configurable (uses select) or, if it's a computed default, if any of
    * its inputs are configurable.
    */
-  public static boolean isConfigurable(Rule rule, String attributeName) {
+  public static boolean isConfigurable(RuleOrMacroInstance rule, String attributeName) {
     Object attr = rule.getAttr(attributeName);
     if (attr instanceof Attribute.ComputedDefault) {
       for (String dep : ((Attribute.ComputedDefault) attr).dependencies()) {
@@ -219,7 +219,7 @@ public abstract class AbstractAttributeMapper implements AttributeMap {
       }
       return false;
     }
-    Attribute attrDef = rule.getRuleClassObject().getAttributeByNameMaybe(attributeName);
+    Attribute attrDef = rule.getAttributeProvider().getAttributeByNameMaybe(attributeName);
     return attrDef != null && rule.getSelectorList(attributeName, attrDef.getType()) != null;
   }
 

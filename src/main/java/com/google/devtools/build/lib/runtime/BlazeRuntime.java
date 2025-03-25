@@ -86,7 +86,6 @@ import com.google.devtools.build.lib.server.GrpcServerImpl;
 import com.google.devtools.build.lib.server.IdleTask;
 import com.google.devtools.build.lib.server.InstallBaseGarbageCollectorIdleTask;
 import com.google.devtools.build.lib.server.PidFileWatcher;
-import com.google.devtools.build.lib.server.RPCServer;
 import com.google.devtools.build.lib.server.ShutdownHooks;
 import com.google.devtools.build.lib.server.signal.InterruptSignalHandler;
 import com.google.devtools.build.lib.util.AbruptExitException;
@@ -99,7 +98,6 @@ import com.google.devtools.build.lib.util.FileSystemLock;
 import com.google.devtools.build.lib.util.InterruptedFailureDetails;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.Pair;
-import com.google.devtools.build.lib.util.ProcessUtils;
 import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.devtools.build.lib.util.TestType;
 import com.google.devtools.build.lib.util.ThreadUtils;
@@ -877,7 +875,8 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       System.exit(batchMain(modules, args));
     }
     logger.atInfo().log(
-        "Starting Bazel server with %s, args %s", maybeGetPidString(), Arrays.toString(args));
+        "Starting Bazel server with pid %d, args %s",
+        ProcessHandle.current().pid(), Arrays.toString(args));
     try {
       // Run Blaze in server mode.
       System.exit(serverMain(modules, OutErr.SYSTEM_OUT_ERR, args));
@@ -1031,8 +1030,8 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     InterruptSignalHandler signalHandler = captureSigint(getSlowInterruptMessageSuffix(modules));
     CommandLineOptions commandLineOptions = splitStartupOptions(modules, args);
     logger.atInfo().log(
-        "Running Bazel in batch mode with %s, startup args %s",
-        maybeGetPidString(), commandLineOptions.getStartupArgs());
+        "Running Bazel in batch mode with pid %d, startup args %s",
+        ProcessHandle.current().pid(), commandLineOptions.getStartupArgs());
 
     BlazeRuntime runtime;
     InvocationPolicy policy;
@@ -1141,7 +1140,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
   private static int serverMain(Iterable<BlazeModule> modules, OutErr outErr, String[] args) {
     InterruptSignalHandler sigintHandler = null;
     try {
-      AtomicReference<RPCServer> rpcServerRef = new AtomicReference<>();
+      AtomicReference<GrpcServerImpl> rpcServerRef = new AtomicReference<>();
       Runnable prepareForAbruptShutdown = () -> rpcServerRef.get().prepareForAbruptShutdown();
       BlazeRuntime runtime = newRuntime(modules, Arrays.asList(args), prepareForAbruptShutdown);
 
@@ -1159,7 +1158,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       BlazeCommandDispatcher dispatcher = new BlazeCommandDispatcher(runtime, serverPid);
       BlazeServerStartupOptions startupOptions =
           runtime.startupOptionsProvider.getOptions(BlazeServerStartupOptions.class);
-      RPCServer rpcServer =
+      GrpcServerImpl rpcServer =
           GrpcServerImpl.create(
               dispatcher,
               shutdownHooks,
@@ -1279,7 +1278,9 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     PathFragment outputBase = startupOptions.outputBase;
     PathFragment realExecRootBase = outputBase.getRelative(ServerDirectories.EXECROOT);
 
-    maybeForceJNIByGettingPid(installBase); // Must be before first use of JNI.
+    // Force JNI linking before the first real use of JNI to emit a helpful error message now that
+    // we have the install base path handy.
+    forceJniLinking(installBase);
 
     // From the point of view of the Java program --install_base, --output_base, --output_user_root,
     // and --failure_detail_out are mandatory options, despite the comment in their declarations.
@@ -1371,7 +1372,13 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     }
     SubscriberExceptionHandler subscriberExceptionHandler = currentHandlerValue;
     Thread.setDefaultUncaughtExceptionHandler(
-        (thread, throwable) -> subscriberExceptionHandler.handleException(throwable, null));
+        new Thread.UncaughtExceptionHandler() {
+          @SuppressWarnings("NullArgumentForNonNullParameter")
+          @Override
+          public void uncaughtException(Thread thread, Throwable throwable) {
+            subscriberExceptionHandler.handleException(throwable, null);
+          }
+        });
 
     // Set the hook used to display Starlark source lines in a stack trace.
     EvalException.setSourceReaderSupplier(
@@ -1468,32 +1475,21 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
         e);
   }
 
-  private static String maybeGetPidString() {
-    Integer pid = maybeForceJNIByGettingPid(null);
-    return pid == null ? "" : "pid " + pid + " and ";
-  }
-
-  /** Loads JNI libraries, if necessary under the current platform. */
-  @Nullable
-  private static Integer maybeForceJNIByGettingPid(@Nullable PathFragment installBase) {
-    return JniLoader.isJniAvailable() ? getPidUsingJNI(installBase) : null;
-  }
-
-  // Force JNI linking at a moment when we have 'installBase' handy, and print
-  // an informative error if it fails.
-  private static int getPidUsingJNI(@Nullable PathFragment installBase) {
+  /**
+   * Loads and links JNI libraries, if necessary under the current platform, and prints an
+   * informative error to stderr if that fails.
+   */
+  private static void forceJniLinking(PathFragment installBase) {
+    if (!JniLoader.isJniAvailable()) {
+      return;
+    }
     try {
-      return ProcessUtils.getpid(); // force JNI initialization
+      JniLoader.forceLinking();
     } catch (UnsatisfiedLinkError t) {
-      System.err.println(
-          "JNI initialization failed: "
-              + t.getMessage()
-              + ".  "
-              + "Possibly your installation has been corrupted"
-              + (installBase == null
-                  ? ""
-                  : "; if this problem persists, try 'rm -fr " + installBase + "'")
-              + ".");
+      System.err.printf(
+          "JNI initialization failed: %s. Possibly your installation has been corrupted; if this"
+              + " problem persists, try 'rm -fr %s'.\n",
+          t.getMessage(), installBase);
       throw t;
     }
   }

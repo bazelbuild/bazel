@@ -106,7 +106,6 @@ public class SymlinkActionTest extends BuildViewTestCase {
                 /* fileOutErr= */ null,
                 new StoredEventHandler(),
                 /* clientEnv= */ ImmutableMap.of(),
-                /* topLevelFilesets= */ ImmutableMap.of(),
                 /* artifactExpander= */ null,
                 /* actionFileSystem= */ null,
                 DiscoveredModulesPruner.DEFAULT,

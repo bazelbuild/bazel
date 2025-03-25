@@ -64,17 +64,20 @@ public class RuleClassBuilderTest extends PackageLoadingTestCase {
             .build();
 
     assertThat(ruleClassA.getName()).isEqualTo("ruleA");
-    assertThat(ruleClassA.getAttributeCount()).isEqualTo(4);
+    assertThat(ruleClassA.getAttributeProvider().getAttributeCount()).isEqualTo(4);
     assertThat(ruleClassA.outputsToBindir()).isTrue();
 
-    assertThat((int) ruleClassA.getAttributeIndex("srcs")).isEqualTo(1);
-    assertThat(ruleClassA.getAttributeByName("srcs")).isEqualTo(ruleClassA.getAttribute(1));
+    assertThat((int) ruleClassA.getAttributeProvider().getAttributeIndex("srcs")).isEqualTo(1);
+    assertThat(ruleClassA.getAttributeProvider().getAttributeByName("srcs"))
+        .isEqualTo(ruleClassA.getAttributeProvider().getAttribute(1));
 
-    assertThat((int) ruleClassA.getAttributeIndex("tags")).isEqualTo(2);
-    assertThat(ruleClassA.getAttributeByName("tags")).isEqualTo(ruleClassA.getAttribute(2));
+    assertThat((int) ruleClassA.getAttributeProvider().getAttributeIndex("tags")).isEqualTo(2);
+    assertThat(ruleClassA.getAttributeProvider().getAttributeByName("tags"))
+        .isEqualTo(ruleClassA.getAttributeProvider().getAttribute(2));
 
-    assertThat((int) ruleClassA.getAttributeIndex("X")).isEqualTo(3);
-    assertThat(ruleClassA.getAttributeByName("X")).isEqualTo(ruleClassA.getAttribute(3));
+    assertThat((int) ruleClassA.getAttributeProvider().getAttributeIndex("X")).isEqualTo(3);
+    assertThat(ruleClassA.getAttributeProvider().getAttributeByName("X"))
+        .isEqualTo(ruleClassA.getAttributeProvider().getAttribute(3));
   }
 
   @Test
@@ -173,9 +176,9 @@ public class RuleClassBuilderTest extends PackageLoadingTestCase {
         new RuleClass.Builder("c", RuleClassType.NORMAL, false, a)
             .factory(DUMMY_CONFIGURED_TARGET_FACTORY);
     RuleClass c = builder.removeAttribute("a").add(attr("a", INTEGER)).removeAttribute("b").build();
-    assertThat(c.hasAttr("a", STRING)).isFalse();
-    assertThat(c.hasAttr("a", INTEGER)).isTrue();
-    assertThat(c.hasAttr("b", STRING)).isFalse();
+    assertThat(c.getAttributeProvider().hasAttr("a", STRING)).isFalse();
+    assertThat(c.getAttributeProvider().hasAttr("a", INTEGER)).isTrue();
+    assertThat(c.getAttributeProvider().hasAttr("b", STRING)).isFalse();
 
     assertThrows(IllegalStateException.class, () -> builder.removeAttribute("c"));
   }

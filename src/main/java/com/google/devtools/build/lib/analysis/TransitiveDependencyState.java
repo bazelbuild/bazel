@@ -156,8 +156,7 @@ public final class TransitiveDependencyState {
    * following: {@code (//foo, null), (null, //bar), (//foo, //bar) or (null, null)}.
    *
    * <p>This class tracks how the {@link Package}s are added so they can be given a deterministic
-   * order. This is required for determinism of {@link
-   * com.google.devtools.build.lib.analysis.RepoMappingManifestAction#computeKey}.
+   * order. This is required for determinism of {@link ActionKeyComputer#computeKey}.
    */
   private static class PackageCollector {
     /**

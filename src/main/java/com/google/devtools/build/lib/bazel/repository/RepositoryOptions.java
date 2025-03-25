@@ -203,7 +203,8 @@ public class RepositoryOptions extends OptionsBase {
   public String experimentalResolvedFileInsteadOfWorkspace;
 
   @Option(
-      name = "experimental_downloader_config",
+      name = "downloader_config",
+      oldName = "experimental_downloader_config",
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},

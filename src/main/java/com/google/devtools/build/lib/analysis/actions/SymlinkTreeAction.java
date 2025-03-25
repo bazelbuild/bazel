@@ -17,7 +17,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
@@ -27,7 +26,6 @@ import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.FilesetOutputTree;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.RichArtifactData;
@@ -203,7 +201,7 @@ public final class SymlinkTreeAction extends AbstractAction implements RichDataP
   @Override
   protected void computeKey(
       ActionKeyContext actionKeyContext,
-      @Nullable ArtifactExpander artifactExpander,
+      @Nullable InputMetadataProvider inputMetadataProvider,
       Fingerprint fp) {
     fp.addString(GUID);
     fp.addNullableString(workspaceNameForFileset);
@@ -230,12 +228,9 @@ public final class SymlinkTreeAction extends AbstractAction implements RichDataP
   @Nullable
   @Override
   public RichArtifactData reconstructRichDataOnActionCacheHit(
-      Path execRoot,
-      ImmutableMap<Artifact, FilesetOutputTree> topLevelFilesets,
-      InputMetadataProvider inputMetadataProvider,
-      ArtifactExpander artifactExpander) {
+      Path execRoot, InputMetadataProvider inputMetadataProvider) {
     return getPrimaryOutput().isFileset()
-        ? FilesetOutputTree.forward(topLevelFilesets.get(getPrimaryInput()))
+        ? FilesetOutputTree.forward(inputMetadataProvider.getFileset(getPrimaryInput()))
         : null;
   }
 
@@ -248,7 +243,7 @@ public final class SymlinkTreeAction extends AbstractAction implements RichDataP
     if (getPrimaryOutput().isFileset()) {
       actionExecutionContext.setRichArtifactData(
           FilesetOutputTree.forward(
-              actionExecutionContext.getTopLevelFilesets().get(getPrimaryInput())));
+              actionExecutionContext.getInputMetadataProvider().getFileset(getPrimaryInput())));
     }
     return ActionResult.EMPTY;
   }

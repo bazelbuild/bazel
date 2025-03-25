@@ -843,6 +843,216 @@ public final class StarlarkAspectAttrAspectsFunctionTest extends AnalysisTestCas
             "aspect_a on @@//pkg1:dep_2 with BProv");
   }
 
+  private void createDormantDepsTest(String aspectDef) throws Exception {
+    scratch.file("test/BUILD");
+    scratch.file(
+        "test/defs.bzl",
+        String.format(
+            """
+ComponentInfo = provider(fields = ["components"])
+
+def _component_impl(ctx):
+  current = struct(label=ctx.label, impl = ctx.attr.impl)
+  transitive = [d[ComponentInfo].components for d in ctx.attr.deps]
+  return [
+    ComponentInfo(components = depset(direct = [current], transitive = transitive)),
+  ]
+
+component = rule(
+  implementation = _component_impl,
+  attrs = {
+    "deps": attr.label_list(providers = [ComponentInfo]),
+    "impl": attr.dormant_label(),
+  },
+  provides = [ComponentInfo],
+  dependency_resolution_rule = True,
+)
+
+def _binary_impl(ctx):
+  return [DefaultInfo(files=depset(ctx.files._impls))]
+
+def _materializer(ctx):
+  all = depset(transitive = [d[ComponentInfo].components for d in ctx.attr.components])
+  selected = [c.impl for c in all.to_list() if "yes" in str(c.label)]
+  return selected
+
+binary = rule(
+  implementation = _binary_impl,
+  attrs = {
+      "components": attr.label_list(providers = [ComponentInfo], for_dependency_resolution = True),
+      "_impls": attr.label_list(materializer = _materializer),
+      "regular_deps": attr.label_list(),
+  })
+
+def _rule_impl(ctx):
+  pass
+
+simple_rule = rule(
+    implementation = _rule_impl,
+)
+
+%s
+""",
+            aspectDef));
+
+    scratch.file(
+        "pkg1/BUILD",
+        """
+load("//test:defs.bzl", "component", "binary", "simple_rule")
+
+component(name="a_yes", impl=":a_impl")
+component(name="b_no", deps = [":c_yes", ":d_no"], impl=":b_impl")
+component(name="c_yes", impl=":c_impl")
+component(name="d_no", impl=":d_impl")
+
+binary(name="bin", components=[":a_yes", ":b_no"], regular_deps = [":dep_1"])
+[filegroup(name=x + "_impl", srcs=[x]) for x in ["a", "b", "c", "d"]]
+
+simple_rule(name = 'dep_1')
+""");
+  }
+
+  @Test
+  public void aspectOnMaterializingTarget_attrAspectsFuncUsed() throws Exception {
+    createDormantDepsTest(
+        """
+AspectInfo = provider()
+
+def _propagation_attrs(ctx):
+  if ctx.rule.qualified_kind.rule_name == 'binary':
+      # the value of _impls should be None as it is not materialized yet
+      if ctx.rule.attr._impls.value != None:
+        fail("'_impls' should be None")
+
+      # the value of regular_deps should be available
+      if Label('//pkg1:dep_1') not in ctx.rule.attr.regular_deps.value:
+        fail("regular_deps should be available")
+
+      # the value of components should be available
+      components = ctx.rule.attr.components.value
+      if Label('//pkg1:a_yes') not in components or Label('//pkg1:b_no') not in components:
+        fail("components should be available")
+
+      return ['_impls', 'components', 'regular_deps']
+
+  return []
+
+def _aspect_impl(target, ctx):
+  res = ['cmdline_aspect on %s' % target.label]
+
+  deps = []
+  deps.extend(getattr(ctx.rule.attr, '_impls', []))
+  deps.extend(getattr(ctx.rule.attr, 'components', []))
+  deps.extend(getattr(ctx.rule.attr, 'regular_deps', []))
+
+  for dep in deps:
+    if AspectInfo in dep:
+      res += dep[AspectInfo].res
+
+  return [AspectInfo(res = res)]
+
+cmdline_aspect = aspect(
+    implementation = _aspect_impl,
+    attr_aspects = _propagation_attrs,
+)
+""");
+
+    useConfiguration("--experimental_dormant_deps");
+    var analysisResult = update(ImmutableList.of("//test:defs.bzl%cmdline_aspect"), "//pkg1:bin");
+
+    assertThat(getFormattedAspectKeys("cmdline_aspect"))
+        .containsExactly(
+            "cmdline_aspect on //pkg1:bin",
+            "cmdline_aspect on //pkg1:dep_1",
+            "cmdline_aspect on //pkg1:a_yes",
+            "cmdline_aspect on //pkg1:b_no",
+            "cmdline_aspect on //pkg1:a_impl",
+            "cmdline_aspect on //pkg1:c_impl");
+
+    var aspectAResult =
+        getAspectResult(
+            analysisResult.getAspectsMap(), "cmdline_aspect", "//pkg1:bin", "AspectInfo");
+    assertThat(aspectAResult)
+        .containsExactly(
+            "cmdline_aspect on @@//pkg1:bin",
+            "cmdline_aspect on @@//pkg1:dep_1",
+            "cmdline_aspect on @@//pkg1:a_yes",
+            "cmdline_aspect on @@//pkg1:b_no",
+            "cmdline_aspect on @@//pkg1:a_impl",
+            "cmdline_aspect on @@//pkg1:c_impl");
+  }
+
+  @Test
+  public void aspectOnDependencyResolutionTargets_attrAspectsFuncUsed() throws Exception {
+    createDormantDepsTest(
+        """
+AspectInfo = provider()
+
+def _propagation_attrs(ctx):
+  if ctx.rule.qualified_kind.rule_name == 'component':
+      # the value of impl should be available
+      impl_name = ctx.rule.label.name.split('_')[0] + '_impl'
+      impl_val = ctx.rule.attr.impl.value
+      if type(impl_val) != 'DormantDependency' or impl_val.label.name != impl_name:
+        fail("'impl' should be available")
+
+      # the value of deps should be available
+      if ctx.rule.label == Label('//pkg1:b_no'):
+        deps = ctx.rule.attr.deps.value
+        if Label('//pkg1:c_yes') not in deps or Label('//pkg1:d_no') not in deps:
+            fail("deps should be available")
+      elif len(ctx.rule.attr.deps.value) != 0:
+        fail("deps should be empty")
+
+      return ['deps', 'impl']
+
+  return ['components']
+
+def _aspect_impl(target, ctx):
+  res = ['cmdline_aspect on %s' % target.label]
+
+  if hasattr(ctx.rule.attr, 'impl') and type(ctx.rule.attr.impl) != 'DormantDependency':
+    fail("impl should be a dormant dependency")
+
+  deps = []
+  deps.extend(getattr(ctx.rule.attr, 'deps', []))
+  deps.extend(getattr(ctx.rule.attr, 'components', []))
+
+  for dep in deps:
+    if AspectInfo in dep:
+      res += dep[AspectInfo].res
+
+  return [AspectInfo(res = res)]
+
+cmdline_aspect = aspect(
+    implementation = _aspect_impl,
+    attr_aspects = _propagation_attrs,
+)
+""");
+
+    useConfiguration("--experimental_dormant_deps");
+    var analysisResult = update(ImmutableList.of("//test:defs.bzl%cmdline_aspect"), "//pkg1:bin");
+
+    assertThat(getFormattedAspectKeys("cmdline_aspect"))
+        .containsExactly(
+            "cmdline_aspect on //pkg1:bin",
+            "cmdline_aspect on //pkg1:a_yes",
+            "cmdline_aspect on //pkg1:b_no",
+            "cmdline_aspect on //pkg1:c_yes",
+            "cmdline_aspect on //pkg1:d_no");
+
+    var aspectAResult =
+        getAspectResult(
+            analysisResult.getAspectsMap(), "cmdline_aspect", "//pkg1:bin", "AspectInfo");
+    assertThat(aspectAResult)
+        .containsExactly(
+            "cmdline_aspect on @@//pkg1:bin",
+            "cmdline_aspect on @@//pkg1:a_yes",
+            "cmdline_aspect on @@//pkg1:b_no",
+            "cmdline_aspect on @@//pkg1:c_yes",
+            "cmdline_aspect on @@//pkg1:d_no");
+  }
+
   private String formatAspectKey(AspectKey aspectKey) {
     if (aspectKey.getBaseKeys().isEmpty()) {
       return Splitter.on("%").splitToList(aspectKey.getAspectClass().toString()).get(1)

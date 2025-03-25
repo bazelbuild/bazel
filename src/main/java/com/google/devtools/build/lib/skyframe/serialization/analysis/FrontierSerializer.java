@@ -25,6 +25,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import com.google.common.eventbus.EventBus;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionLookupData;
@@ -39,7 +40,7 @@ import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteAnalysisCaching;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteAnalysisCaching.Code;
-import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectBaseKey;
+import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
 import com.google.devtools.build.lib.skyframe.serialization.ProfileCollector;
@@ -244,6 +245,13 @@ public final class FrontierSerializer {
             });
   }
 
+  private static boolean dependsOnBuildId(InMemoryNodeEntry node) {
+    // This method only checks direct dependencies because it is used to mark nodes as active in
+    // case they can't be cached and the upwards transitive closure of such nodes is marked as
+    // active anyway.
+    return Iterables.contains(node.getDirectDeps(), PrecomputedValue.BUILD_ID);
+  }
+
   @VisibleForTesting
   static ImmutableMap<SkyKey, SelectionMarking> computeSelection(
       InMemoryGraph graph, Predicate<PackageIdentifier> matcher) {
@@ -257,7 +265,7 @@ public final class FrontierSerializer {
               }
             }
             case ActionLookupData data -> {
-              if (data.valueIsShareable()) {
+              if (!dependsOnBuildId(node) && data.getLabel() != null) {
                 selection.putIfAbsent(data, FRONTIER_CANDIDATE);
               } else {
                 // If this is UnshareableActionLookupData, then its value will never be shared and
@@ -272,7 +280,7 @@ public final class FrontierSerializer {
             case Artifact artifact -> {
               switch (artifact) {
                 case DerivedArtifact derived:
-                  if (!derived.valueIsShareable()) {
+                  if (derived.isConstantMetadata()) {
                     return;
                   }
                   // Artifact#key is the canonical function to produce the SkyKey that will build
@@ -350,14 +358,6 @@ public final class FrontierSerializer {
     }
     if (selection.put(root, ACTIVE) == ACTIVE) {
       return;
-    }
-    if (root instanceof AspectBaseKey aspectKey) {
-      // Whenever an aspect is marked active, its base configured target must also be marked active.
-      // This avoids a situation where an aspect inspects a deserialized configured target, which
-      // may crash because the configured target doesn't have its actions.
-      //
-      // This is possible when an aspect is in the UTC of an active node via an attribute label.
-      markActiveAndTraverseEdges(graph, aspectKey.getBaseConfiguredTargetKey(), selection);
     }
 
     InMemoryNodeEntry node = checkNotNull(graph.getIfPresent(root), root);

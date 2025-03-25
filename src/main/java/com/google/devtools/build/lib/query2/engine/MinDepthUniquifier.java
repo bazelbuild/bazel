@@ -20,6 +20,8 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
  * A helper for deduping values that have already been seen at certain "depths".
  *
  * <p>This is similar to {@link Uniquifier}.
+ *
+ * @param <T> The type of the elements being visited with depth measurement.
  */
 @ThreadSafe
 public interface MinDepthUniquifier<T> {
@@ -40,22 +42,26 @@ public interface MinDepthUniquifier<T> {
 
   /**
    * Returns whether {@code newElement} hasn't been seen before at depth less than or equal to
-   * {@code depth} by {@link #uniqueAtDepthLessThanOrEqualTo(T, int)} or
-   * {@link #uniqueAtDepthLessThanOrEqualTo(Iterable, int)}.
+   * {@code depth} by {@link #uniqueAtDepthLessThanOrEqualTo(T, int)} or {@link
+   * #uniqueAtDepthLessThanOrEqualTo(Iterable, int)}.
    *
-   * <p> There's a natural benign check-then-act race in all concurrent uses of this interface.
+   * <p>There's a natural benign check-then-act race in all concurrent uses of this interface.
    * Imagine we have an element e, two depths d1 and d2 (with d2 < d1), and two threads T1 and T2.
    * T1 may think it's about to be the first one to process e at a depth less than or equal to d1.
    * But before T1 finishes processing e, T2 may think _it's_ about to be first one to process an
    * element at a depth less than or equal to than d2. T1's work is probably wasted.
    */
-  boolean uniqueAtDepthLessThanOrEqualTo(T newElement, int depth);
+  boolean uniqueAtDepthLessThanOrEqualTo(T newElement, int depth) throws QueryException;
 
   /**
    * Batch version of {@link #uniqueAtDepthLessThanOrEqualTo(Object, int)}.
    *
    * <p>The same benign check-then-act race applies here too.
    */
-  ImmutableList<T> uniqueAtDepthLessThanOrEqualTo(Iterable<T> newElements, int depth);
+  ImmutableList<T> uniqueAtDepthLessThanOrEqualTo(Iterable<T> newElements, int depth)
+      throws QueryException;
+
+  /** Returns the number of unique elements seen by the uniquifier. */
+  int uniqueElementsCount();
 }
 

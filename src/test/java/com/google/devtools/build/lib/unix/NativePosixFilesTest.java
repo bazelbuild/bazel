@@ -46,6 +46,14 @@ public class NativePosixFilesTest {
     workingDir = testFS.getPath(new File(TestUtils.tmpDir()).getCanonicalPath());
   }
 
+  @Test
+  public void nativeExceptionContainsFileAndLine() throws Exception {
+    File foo = new File("/non-existent");
+    IOException e = assertThrows(IOException.class, () -> NativePosixFiles.readlink(foo.getPath()));
+    assertThat(e).hasMessageThat().startsWith("[unix_jni.cc:");
+    assertThat(e).hasMessageThat().endsWith("/non-existent (No such file or directory)");
+  }
+
   // TODO(tjgq): Move this into FileSystemTest, and add more comprehensive coverage for chmod.
   @Test
   public void chmod_throwsFilePermissionException() throws Exception {
@@ -56,10 +64,10 @@ public class NativePosixFilesTest {
       NativePosixFiles.chmod(foo.getPath(), perms | UnixFileStatus.S_IWUSR);
       fail("Expected FilePermissionException or IOException, but wasn't thrown.");
     } catch (FilePermissionException e) {
-      assertThat(e).hasMessageThat().isEqualTo(foo + " (Operation not permitted)");
+      assertThat(e).hasMessageThat().endsWith(foo + " (Operation not permitted)");
     } catch (IOException e) {
       // When running in a sandbox, /bin might actually be a read-only file system.
-      assertThat(e).hasMessageThat().isEqualTo(foo + " (Read-only file system)");
+      assertThat(e).hasMessageThat().endsWith(foo + " (Read-only file system)");
     }
   }
 

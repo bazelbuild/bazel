@@ -21,7 +21,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.common.primitives.Ints;
 import com.google.devtools.build.lib.actions.Action;
@@ -29,12 +28,11 @@ import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
-import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
-import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.CommandLineLimits;
 import com.google.devtools.build.lib.actions.CommandLines.CommandLineAndParamFileInfo;
 import com.google.devtools.build.lib.actions.CommandLines.ExpandedCommandLines;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.ResourceSet;
@@ -48,6 +46,7 @@ import com.google.devtools.build.lib.analysis.util.ActionTester;
 import com.google.devtools.build.lib.analysis.util.ActionTester.ActionCombinationFactory;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.exec.util.FakeActionInputFileCache;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
 import com.google.devtools.build.lib.packages.util.MockObjcSupport;
@@ -55,11 +54,9 @@ import com.google.devtools.build.lib.packages.util.ResourceLoader;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppActionConfigs.CppPlatform;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
+import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.testutil.TestConstants;
-import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.OS;
-import com.google.devtools.build.lib.vfs.FileSystem;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain.EnvEntry;
@@ -947,13 +944,6 @@ cc_link_rule = rule(
     checkError("//foo", "the need whole archive flag must be false for static links");
   }
 
-  private SpecialArtifact createTreeArtifact(PathFragment execPath) {
-    FileSystem fs = scratch.getFileSystem();
-    Path execRoot = fs.getPath(TestUtils.tmpDir());
-    return ActionsTestUtil.createTreeArtifactWithGeneratingAction(
-        ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, execPath), execPath);
-  }
-
   private static void verifyArguments(
       Iterable<String> arguments,
       Iterable<String> allowedArguments,
@@ -1006,19 +996,19 @@ cc_binary(name = "tool")
     SpawnAction linkAction = (SpawnAction) Iterables.getOnlyElement(getActions("//foo", "CppLink"));
 
     SpecialArtifact testTreeArtifact =
-        createTreeArtifact(
-            linkAction
-                .getPrimaryOutput()
-                .getExecPath()
-                .getParentDirectory()
-                .getChild("library_directory"));
+        (SpecialArtifact) ActionsTestUtil.getInput(linkAction, "library_directory");
     TreeFileArtifact library0 = TreeFileArtifact.createTreeOutput(testTreeArtifact, "library0.o");
     TreeFileArtifact library1 = TreeFileArtifact.createTreeOutput(testTreeArtifact, "library1.o");
-    ArtifactExpander expander =
-        artifact ->
-            artifact.getExecPathString().equals(testTreeArtifact.getExecPathString())
-                ? ImmutableSortedSet.of(library0, library1)
-                : ImmutableSortedSet.of();
+
+    // We don't read the tree artifact or its contents, so MISSING_FILE_MARKER is OK
+    TreeArtifactValue treeArtifactValue =
+        TreeArtifactValue.newBuilder(testTreeArtifact)
+            .putChild(library0, FileArtifactValue.MISSING_FILE_MARKER)
+            .putChild(library1, FileArtifactValue.MISSING_FILE_MARKER)
+            .build();
+
+    FakeActionInputFileCache fakeActionInputFileCache = new FakeActionInputFileCache();
+    fakeActionInputFileCache.putTreeArtifact(testTreeArtifact, treeArtifactValue);
 
     ImmutableList<String> treeArtifactsPaths =
         ImmutableList.of(testTreeArtifact.getExecPathString());
@@ -1033,7 +1023,7 @@ cc_binary(name = "tool")
         linkAction
             .getCommandLines()
             .expand(
-                expander,
+                fakeActionInputFileCache,
                 linkAction.getPrimaryOutput().getExecPath(),
                 PathMapper.NOOP,
                 CommandLineLimits.UNLIMITED);

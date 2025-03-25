@@ -37,7 +37,6 @@ apple_common = struct(
     dotted_version = lambda version: native_apple_common.dotted_version(version),
     apple_platform = apple_platform,
     compilation_support = compilation_support,
-    get_cpu = lambda config: native_objc_internal.get_cpu(config),
     get_apple_config = lambda config: native_objc_internal.get_apple_config(config),
     get_split_build_configs = lambda ctx: native_objc_internal.get_split_build_configs(ctx),
     get_split_prerequisites = lambda ctx: native_objc_internal.get_split_prerequisites(ctx),

@@ -864,7 +864,7 @@ genrule(
 )
 EOF
 
-  bazel build --build_event_text_file=$TEST_log \
+  bazel build --keep_going --build_event_text_file=$TEST_log \
     --experimental_bep_target_summary \
     --aspects=requiringaspect.bzl%requiring_aspect \
     --output_groups=default,aspect_out \

@@ -177,6 +177,17 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
 
     @Nullable
     @Override
+    public FilesetOutputTree getFileset(ActionInput input) {
+      return wrapped.getFileset(input);
+    }
+
+    @Override
+    public Map<Artifact, FilesetOutputTree> getFilesets() {
+      return wrapped.getFilesets();
+    }
+
+    @Nullable
+    @Override
     public RunfilesArtifactValue getRunfilesMetadata(ActionInput input) {
       RunfilesArtifactValue original = wrapped.getRunfilesMetadata(input);
       if (wrappedRunfilesArtifact.equals(input)) {
@@ -221,7 +232,6 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
   private final FileOutErr fileOutErr;
   private final ExtendedEventHandler eventHandler;
   private final ImmutableMap<String, String> clientEnv;
-  private final ImmutableMap<Artifact, FilesetOutputTree> topLevelFilesets;
   @Nullable private final ArtifactExpander artifactExpander;
   @Nullable private final Environment env;
 
@@ -245,7 +255,6 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
       FileOutErr fileOutErr,
       ExtendedEventHandler eventHandler,
       Map<String, String> clientEnv,
-      ImmutableMap<Artifact, FilesetOutputTree> topLevelFilesets,
       @Nullable ArtifactExpander artifactExpander,
       @Nullable Environment env,
       @Nullable FileSystem actionFileSystem,
@@ -261,7 +270,6 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
     this.fileOutErr = fileOutErr;
     this.eventHandler = eventHandler;
     this.clientEnv = ImmutableMap.copyOf(clientEnv);
-    this.topLevelFilesets = topLevelFilesets;
     this.executor = executor;
     this.artifactExpander = artifactExpander;
     this.env = env;
@@ -285,7 +293,6 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
       FileOutErr fileOutErr,
       ExtendedEventHandler eventHandler,
       Map<String, String> clientEnv,
-      ImmutableMap<Artifact, FilesetOutputTree> topLevelFilesets,
       ArtifactExpander artifactExpander,
       @Nullable FileSystem actionFileSystem,
       DiscoveredModulesPruner discoveredModulesPruner,
@@ -302,7 +309,6 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
         fileOutErr,
         eventHandler,
         clientEnv,
-        topLevelFilesets,
         artifactExpander,
         /* env= */ null,
         actionFileSystem,
@@ -338,7 +344,6 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
         fileOutErr,
         eventHandler,
         clientEnv,
-        ImmutableMap.of(),
         /* artifactExpander= */ null,
         env,
         actionFileSystem,
@@ -427,10 +432,6 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
 
   public ExtendedEventHandler getEventHandler() {
     return eventHandler;
-  }
-
-  public ImmutableMap<Artifact, FilesetOutputTree> getTopLevelFilesets() {
-    return topLevelFilesets;
   }
 
   public RichArtifactData getRichArtifactData() {
@@ -563,7 +564,6 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
         fileOutErr,
         eventHandler,
         clientEnv,
-        topLevelFilesets,
         artifactExpander,
         env,
         actionFileSystem,
@@ -618,7 +618,6 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
         fileOutErr,
         eventHandler,
         clientEnv,
-        topLevelFilesets,
         artifactExpander,
         env,
         actionFileSystem,

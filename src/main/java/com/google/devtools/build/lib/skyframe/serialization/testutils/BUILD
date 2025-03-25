@@ -69,6 +69,7 @@ java_library(
     srcs = ["SerializationDepsUtils.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:build_options",
         "//third_party:guava",
     ],
 )

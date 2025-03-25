@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.actions;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertThrows;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -67,8 +66,6 @@ public final class CompletionContextTest {
     CompletionContext ctx = createCompletionContext(/* expandFilesets= */ true);
 
     assertThat(visit(ctx, file)).containsExactly(file);
-    assertThrows(IllegalArgumentException.class, () -> ctx.expandTreeArtifact(file));
-    assertThrows(IllegalArgumentException.class, () -> ctx.expandFileset(file));
   }
 
   @Test
@@ -86,7 +83,6 @@ public final class CompletionContextTest {
     CompletionContext ctx = createCompletionContext(/* expandFilesets= */ true);
 
     assertThat(visit(ctx, tree)).containsExactly(treeFile1, treeFile2).inOrder();
-    assertThat(ctx.expandTreeArtifact(tree)).isEqualTo(treeValue.getChildren());
   }
 
   @Test
@@ -104,7 +100,6 @@ public final class CompletionContextTest {
     verifyNoInteractions(receiver);
 
     assertThat(visit(ctx, fileset)).isEmpty();
-    assertThrows(IllegalStateException.class, () -> ctx.expandFileset(fileset));
   }
 
   @Test
@@ -125,8 +120,6 @@ public final class CompletionContextTest {
     inOrder
         .verify(receiver)
         .acceptFilesetMapping(fileset, PathFragment.create("a2"), execRoot.getRelative("b2"));
-
-    assertThat(ctx.expandFileset(fileset).symlinks()).isEqualTo(links);
   }
 
   private static List<Artifact> visit(CompletionContext ctx, Artifact artifact) {
@@ -174,7 +167,6 @@ public final class CompletionContextTest {
         /* baselineCoverageValue= */ null,
         ArtifactPathResolver.IDENTITY,
         inputMap,
-        expandFilesets,
-        /* fullyResolveFilesetLinks= */ false);
+        expandFilesets);
   }
 }

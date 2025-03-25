@@ -207,7 +207,7 @@ public class BuildRuleWithDefaultsBuilder extends BuildRuleBuilder {
 
   @CanIgnoreReturnValue
   public BuildRuleWithDefaultsBuilder populateAttributes(String rulePkg, boolean heuristics) {
-    for (Attribute attribute : ruleClass.getAttributes()) {
+    for (Attribute attribute : ruleClass.getAttributeProvider().getAttributes()) {
       if (attribute.isMandatory()) {
         if (BuildType.isLabelType(attribute.getType())) {
           // TODO(bazel-team): actually an empty list would be fine in the case where

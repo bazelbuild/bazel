@@ -23,8 +23,8 @@ import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.FilesetOutputTree;
-import com.google.devtools.build.lib.actions.FilesetOutputTree.RelativeSymlinkBehaviorWithoutError;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.RunfilesArtifactValue;
 import com.google.devtools.build.lib.actions.RunfilesTree;
@@ -55,23 +55,19 @@ final class ActionInputMetadataProvider implements InputMetadataProvider {
    */
   private final Supplier<ImmutableMap<String, FileArtifactValue>> filesetMapping;
 
-  ActionInputMetadataProvider(
-      ActionInputMap inputArtifactData, Map<Artifact, FilesetOutputTree> filesets) {
+  ActionInputMetadataProvider(ActionInputMap inputArtifactData) {
     this.inputArtifactData = inputArtifactData;
-    this.filesetMapping = Suppliers.memoize(() -> createFilesetMapping(filesets));
+    this.filesetMapping =
+        Suppliers.memoize(() -> createFilesetMapping(inputArtifactData.getFilesets()));
   }
 
   private static ImmutableMap<String, FileArtifactValue> createFilesetMapping(
       Map<Artifact, FilesetOutputTree> filesets) {
     Map<String, FileArtifactValue> filesetMap = new HashMap<>();
     for (FilesetOutputTree filesetOutput : filesets.values()) {
-      filesetOutput.visitSymlinks(
-          RelativeSymlinkBehaviorWithoutError.RESOLVE,
-          (name, target, metadata) -> {
-            if (metadata != null && metadata.getDigest() != null) {
-              filesetMap.put(target.getPathString(), metadata);
-            }
-          });
+      for (FilesetOutputSymlink link : filesetOutput.symlinks()) {
+        filesetMap.put(link.targetPath().getPathString(), link.metadata());
+      }
     }
     return ImmutableMap.copyOf(filesetMap);
   }
@@ -95,6 +91,17 @@ final class ActionInputMetadataProvider implements InputMetadataProvider {
   @Override
   public TreeArtifactValue getTreeMetadata(ActionInput actionInput) {
     return inputArtifactData.getTreeMetadata(actionInput);
+  }
+
+  @Nullable
+  @Override
+  public FilesetOutputTree getFileset(ActionInput input) {
+    return inputArtifactData.getFileset(input);
+  }
+
+  @Override
+  public Map<Artifact, FilesetOutputTree> getFilesets() {
+    return inputArtifactData.getFilesets();
   }
 
   @Nullable

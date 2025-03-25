@@ -48,7 +48,6 @@ import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
-import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.ArtifactResolver;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
@@ -57,6 +56,7 @@ import com.google.devtools.build.lib.actions.BuildConfigurationEvent;
 import com.google.devtools.build.lib.actions.DiscoveredModulesPruner;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.FilesetOutputTree;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.PackageRootResolver;
 import com.google.devtools.build.lib.actions.RunfilesArtifactValue;
@@ -124,7 +124,7 @@ public final class ActionsTestUtil {
     this.actionGraph = actionGraph;
   }
 
-  private static final Label NULL_LABEL = Label.parseCanonicalUnchecked("//null/action:owner");
+  public static final Label NULL_LABEL = Label.parseCanonicalUnchecked("//null/action:owner");
 
   public static ActionExecutionContext createContext(
       Executor executor,
@@ -163,7 +163,6 @@ public final class ActionsTestUtil {
         fileOutErr,
         eventHandler,
         ImmutableMap.copyOf(clientEnv),
-        /* topLevelFilesets= */ ImmutableMap.of(),
         treeArtifact -> ImmutableSortedSet.of(),
         /* actionFileSystem= */ null,
         DiscoveredModulesPruner.DEFAULT,
@@ -188,7 +187,6 @@ public final class ActionsTestUtil {
         /* fileOutErr= */ null,
         eventHandler,
         /* clientEnv= */ ImmutableMap.of(),
-        /* topLevelFilesets= */ ImmutableMap.of(),
         treeArtifact -> ImmutableSortedSet.of(),
         /* actionFileSystem= */ null,
         DiscoveredModulesPruner.DEFAULT,
@@ -264,6 +262,11 @@ public final class ActionsTestUtil {
   public static SpecialArtifact createRunfilesArtifact(ArtifactRoot root, String execPath) {
     return SpecialArtifact.create(
         root, PathFragment.create(execPath), NULL_ARTIFACT_OWNER, SpecialArtifactType.RUNFILES);
+  }
+
+  public static SpecialArtifact createFilesetArtifact(ArtifactRoot root, String execPath) {
+    return SpecialArtifact.create(
+        root, PathFragment.create(execPath), NULL_ARTIFACT_OWNER, SpecialArtifactType.FILESET);
   }
 
   public static SpecialArtifact createTreeArtifactWithGeneratingAction(
@@ -361,10 +364,13 @@ public final class ActionsTestUtil {
   public static final ActionTemplateExpansionKey NULL_TEMPLATE_EXPANSION_ARTIFACT_OWNER =
       ActionTemplateExpansionValue.key(NULL_ARTIFACT_OWNER, /*actionIndex=*/ 0);
 
+  @SerializationConstant
+  static final InMemoryFileSystem DUMMY_ARTIFACT_FILE_SYSTEM =
+      new InMemoryFileSystem(DigestHashFunction.SHA256);
+
   public static final Artifact DUMMY_ARTIFACT =
       new Artifact.SourceArtifact(
-          ArtifactRoot.asSourceRoot(
-              Root.absoluteRoot(new InMemoryFileSystem(DigestHashFunction.SHA256))),
+          ArtifactRoot.asSourceRoot(Root.absoluteRoot(DUMMY_ARTIFACT_FILE_SYSTEM)),
           PathFragment.create("/dummy"),
           NULL_ARTIFACT_OWNER);
 
@@ -430,7 +436,7 @@ public final class ActionsTestUtil {
     @Override
     protected void computeKey(
         ActionKeyContext actionKeyContext,
-        @Nullable ArtifactExpander artifactExpander,
+        @Nullable InputMetadataProvider inputMetadataProvider,
         Fingerprint fp) {
       fp.addString("action");
     }
@@ -438,6 +444,19 @@ public final class ActionsTestUtil {
     @Override
     public String getMnemonic() {
       return "Null";
+    }
+  }
+
+  /** {@link NullAction} that can be used in place of a shadowed action that discovers inputs. */
+  public static final class InputDiscoveringNullAction extends NullAction {
+    @Override
+    public boolean discoversInputs() {
+      return true;
+    }
+
+    @Override
+    protected boolean inputsDiscovered() {
+      return false;
     }
   }
 
@@ -471,7 +490,7 @@ public final class ActionsTestUtil {
     @Override
     protected void computeKey(
         ActionKeyContext actionKeyContext,
-        @Nullable ArtifactExpander artifactExpander,
+        @Nullable InputMetadataProvider inputMetadataProvider,
         Fingerprint fp) {
       fp.addString("Mock Action " + getPrimaryOutput());
     }
@@ -528,7 +547,7 @@ public final class ActionsTestUtil {
   }
 
   /** For a bunch of artifacts, gets the basenames and accumulates them in a List. */
-  public static List<String> baseArtifactNames(Iterable<Artifact> artifacts) {
+  public static List<String> baseArtifactNames(Iterable<? extends ActionInput> artifacts) {
     return transform(artifacts, artifact -> artifact.getExecPath().getBaseName());
   }
 
@@ -916,6 +935,17 @@ public final class ActionsTestUtil {
 
     @Override
     @Nullable
+    public FilesetOutputTree getFileset(ActionInput input) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Map<Artifact, FilesetOutputTree> getFilesets() {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    @Nullable
     public RunfilesArtifactValue getRunfilesMetadata(ActionInput input) {
       throw new UnsupportedOperationException();
     }
@@ -966,5 +996,23 @@ public final class ActionsTestUtil {
     public void resetOutputs(Iterable<? extends Artifact> outputs) {
       throw new UnsupportedOperationException();
     }
+  }
+
+  /**
+   * Ensures the special, meaningless, `memoizedIsInitialized` field in {@link ActionOwner} is set.
+   *
+   * <p>This field is set upon serializing a proto. It's intended to memoize checking that all the
+   * required fields are set. Since the protos in question are proto3, there are no required fields
+   * so the field is meaningless. However, serialization tests sometimes use reflection to compare
+   * the round tripped output to the input.
+   *
+   * <p>In particular, {@link BuildConfigurationEvent} contains a couple of instances of this field.
+   */
+  public static void ensureMemoizedIsInitializedIsSet(ActionAnalysisMetadata action) {
+    BuildConfigurationEvent buildConfigurationEvent =
+        action.getOwner().getBuildConfigurationEvent();
+    assertThat(buildConfigurationEvent.getEventId().isInitialized()).isTrue();
+    assertThat(buildConfigurationEvent.asStreamProto(/* unusedConverters= */ null).isInitialized())
+        .isTrue();
   }
 }

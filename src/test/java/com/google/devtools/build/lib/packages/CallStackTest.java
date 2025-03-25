@@ -32,6 +32,7 @@ import net.starlark.java.syntax.Location;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import org.mockito.Mockito;
 
 /** Tests for {@link CallStack}. */
 @RunWith(JUnit4.class)
@@ -130,18 +131,20 @@ public final class CallStackTest {
 
     CallStack.Node interiorStack1 = CallStack.compactInterior(stackEntries1);
     CallStack.Node interiorStack2 = CallStack.compactInterior(stackEntries2);
+    RuleClass ruleClass = mock(RuleClass.class);
+    Mockito.when(ruleClass.getAttributeProvider()).thenReturn(mock(AttributeProvider.class));
     Rule rule1 =
         new Rule(
             mock(Package.class),
             Label.parseCanonicalUnchecked("//pkg:rule1"),
-            mock(RuleClass.class),
+            ruleClass,
             stackEntries1.get(0).location,
             interiorStack1);
     Rule rule2 =
         new Rule(
             mock(Package.class),
             Label.parseCanonicalUnchecked("//pkg:rule2"),
-            mock(RuleClass.class),
+            ruleClass,
             stackEntries2.get(0).location,
             interiorStack2);
 

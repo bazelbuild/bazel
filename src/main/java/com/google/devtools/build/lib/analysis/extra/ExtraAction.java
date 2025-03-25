@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis.extra;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.Action;
@@ -39,6 +40,8 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import java.io.IOException;
 import java.util.Collection;
@@ -50,6 +53,7 @@ import javax.annotation.Nullable;
  * Action used by extra_action rules to create an action that shadows an existing action. Runs a
  * command-line using {@link com.google.devtools.build.lib.actions.SpawnStrategy} for executions.
  */
+@AutoCodec
 public final class ExtraAction extends SpawnAction {
   private final Action shadowedAction;
   private final boolean createDummyOutput;
@@ -69,10 +73,10 @@ public final class ExtraAction extends SpawnAction {
       String mnemonic) {
     super(
         owner,
-        NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+        /* tools= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
         createInputs(
             shadowedAction.getInputs(),
-            NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+            /* inputFilesForExtraAction= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
             extraActionInputs),
         outputs,
         AbstractAction.DEFAULT_RESOURCE_SET,
@@ -90,6 +94,39 @@ public final class ExtraAction extends SpawnAction {
       // Expecting just a single dummy file in the outputs.
       Preconditions.checkArgument(outputs.size() == 1, outputs);
     }
+  }
+
+  @AutoCodec.Instantiator
+  @VisibleForSerialization
+  ExtraAction(
+      ActionOwner owner,
+      NestedSet<Artifact> extraActionInputs,
+      Object rawOutputs,
+      Action shadowedAction,
+      boolean createDummyOutput,
+      CommandLines commandLines,
+      ActionEnvironment environment,
+      ImmutableSortedMap<String, String> sortedExecutionInfo,
+      CharSequence progressMessage,
+      String mnemonic) {
+    super(
+        owner,
+        /* tools= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+        createInputs(
+            shadowedAction.getInputs(),
+            /* inputFilesForExtraAction= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+            extraActionInputs),
+        rawOutputs,
+        AbstractAction.DEFAULT_RESOURCE_SET,
+        commandLines,
+        environment,
+        sortedExecutionInfo,
+        progressMessage,
+        mnemonic,
+        OutputPathsMode.OFF);
+    this.shadowedAction = shadowedAction;
+    this.createDummyOutput = createDummyOutput;
+    this.extraActionInputs = extraActionInputs;
   }
 
   @Override

@@ -38,7 +38,6 @@ import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
-import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ArtifactResolver;
 import com.google.devtools.build.lib.actions.CommandAction;
 import com.google.devtools.build.lib.actions.CommandLine;
@@ -48,6 +47,7 @@ import com.google.devtools.build.lib.actions.CommandLines.ParamFileActionInput;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.PathMapper;
@@ -80,6 +80,8 @@ import com.google.devtools.build.lib.server.FailureDetails.CppCompile;
 import com.google.devtools.build.lib.server.FailureDetails.CppCompile.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.ActionExecutionValue;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.starlarkbuildapi.CommandLineArgsApi;
 import com.google.devtools.build.lib.util.DependencySet;
 import com.google.devtools.build.lib.util.DetailedExitCode;
@@ -114,6 +116,7 @@ import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.StarlarkList;
 
 /** Action that represents some kind of C++ compilation step. */
+@AutoCodec
 @ThreadCompatible
 public class CppCompileAction extends AbstractAction implements IncludeScannable, CommandAction {
 
@@ -200,7 +203,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   private NestedSet<Artifact> topLevelModules;
 
   private ParamFileActionInput paramFileActionInput;
-  private PathFragment paramFilePath;
+  @Nullable private final PathFragment paramFilePath;
 
   /**
    * Creates a new action to compile C/C++ source files.
@@ -295,13 +298,13 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     this.usedModules = null;
     this.topLevelModules = null;
     this.grepIncludes = grepIncludes;
-    if (featureConfiguration.isEnabled(CppRuleClasses.COMPILER_PARAM_FILE)) {
-      paramFilePath =
-          outputFile
-              .getExecPath()
-              .getParentDirectory()
-              .getChild(outputFile.getFilename() + ".params");
-    }
+    this.paramFilePath =
+        featureConfiguration.isEnabled(CppRuleClasses.COMPILER_PARAM_FILE)
+            ? outputFile
+                .getExecPath()
+                .getParentDirectory()
+                .getChild(outputFile.getFilename() + ".params")
+            : null;
 
     NestedSetBuilder<Artifact> allowedDerivedInputsBuilder =
         NestedSetBuilder.fromNestedSet(mandatoryInputs)
@@ -317,7 +320,60 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     if (separateModule != null && !separateModule.equals(getPrimaryOutput())) {
       allowedDerivedInputsBuilder.add(separateModule);
     }
-    allowedDerivedInputs = allowedDerivedInputsBuilder.build();
+    this.allowedDerivedInputs = allowedDerivedInputsBuilder.build();
+  }
+
+  /** Constructor for serialization. */
+  @AutoCodec.Instantiator
+  @VisibleForSerialization
+  CppCompileAction(
+      ActionOwner owner,
+      NestedSet<Artifact> mandatoryInputs,
+      Object rawOutputs,
+      @Nullable Artifact gcnoFile,
+      Artifact sourceFile,
+      BuildConfigurationValue configuration,
+      NestedSet<Artifact> mandatorySpawnInputs,
+      NestedSet<Artifact> allowedDerivedInputs,
+      NestedSet<Artifact> additionalPrunableHeaders,
+      @Nullable Artifact grepIncludes,
+      boolean shareable,
+      boolean shouldScanIncludes,
+      boolean usePic,
+      boolean useHeaderModules,
+      boolean needsIncludeValidation,
+      CcCompilationContext ccCompilationContext,
+      ImmutableList<Artifact> builtinIncludeFiles,
+      ImmutableList<Artifact> additionalIncludeScanningRoots,
+      CompileCommandLine compileCommandLine,
+      ImmutableMap<String, String> executionInfo,
+      String actionName,
+      FeatureConfiguration featureConfiguration,
+      ImmutableList<PathFragment> builtInIncludeDirectories,
+      @Nullable PathFragment paramFilePath) {
+    super(owner, mandatoryInputs, rawOutputs);
+    this.gcnoFile = gcnoFile;
+    this.sourceFile = sourceFile;
+    this.configuration = configuration;
+    this.mandatoryInputs = mandatoryInputs;
+    this.mandatorySpawnInputs = mandatorySpawnInputs;
+    this.allowedDerivedInputs = allowedDerivedInputs;
+    this.additionalPrunableHeaders = additionalPrunableHeaders;
+    this.grepIncludes = grepIncludes;
+    this.shareable = shareable;
+    this.shouldScanIncludes = shouldScanIncludes;
+    this.usePic = usePic;
+    this.useHeaderModules = useHeaderModules;
+    this.needsIncludeValidation = needsIncludeValidation;
+    this.ccCompilationContext = ccCompilationContext;
+    this.builtinIncludeFiles = builtinIncludeFiles;
+    this.additionalIncludeScanningRoots = additionalIncludeScanningRoots;
+    this.compileCommandLine = compileCommandLine;
+    this.executionInfo = executionInfo;
+    this.actionName = actionName;
+    this.featureConfiguration = featureConfiguration;
+    this.builtInIncludeDirectories = builtInIncludeDirectories;
+    this.paramFilePath = paramFilePath;
   }
 
   private static ImmutableSet<Artifact> collectOutputs(
@@ -391,7 +447,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   }
 
   @Override
-  public List<PathFragment> getBuiltInIncludeDirectories() {
+  public ImmutableList<PathFragment> getBuiltInIncludeDirectories() {
     return builtInIncludeDirectories;
   }
 
@@ -1048,19 +1104,9 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     }
     IncludeProblems errors = new IncludeProblems();
     Set<Artifact> allowedIncludes = new HashSet<>();
-    for (NestedSet<Artifact> set :
-        ImmutableList.of(
-            mandatoryInputs,
-            ccCompilationContext.getDeclaredIncludeSrcs(),
-            additionalPrunableHeaders)) {
-      for (Artifact input : set.toList()) {
-        if (input.isTreeArtifact()) {
-          allowedIncludes.addAll(
-              actionExecutionContext.getArtifactExpander().tryExpandTreeArtifact(input));
-        }
-        allowedIncludes.add(input);
-      }
-    }
+    allowedIncludes.addAll(mandatoryInputs.toList());
+    allowedIncludes.addAll(ccCompilationContext.getDeclaredIncludeSrcs().toList());
+    allowedIncludes.addAll(additionalPrunableHeaders.toList());
 
     Iterable<PathFragment> ignoreDirs =
         cppConfiguration().isStrictSystemIncludes()
@@ -1281,7 +1327,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   @Override
   public void computeKey(
       ActionKeyContext actionKeyContext,
-      @Nullable ArtifactExpander artifactExpander,
+      @Nullable InputMetadataProvider inputMetadataProvider,
       Fingerprint fp)
       throws CommandLineExpansionException, InterruptedException {
     computeKey(
@@ -1615,7 +1661,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
           ImmutableList.copyOf(getArguments(pathMapper)),
           getEffectiveEnvironment(clientEnv, pathMapper),
           executionInfo.buildOrThrow(),
-          /* filesetMappings= */ ImmutableMap.of(),
           inputs,
           /* tools= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
           getOutputs(),

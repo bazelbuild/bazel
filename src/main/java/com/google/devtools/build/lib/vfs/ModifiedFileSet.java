@@ -13,8 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.vfs;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.events.Event;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import javax.annotation.Nullable;
@@ -41,6 +44,14 @@ public class ModifiedFileSet {
   @Nullable
   public String getInstructionsPrelude(Set<String> modified) {
     return null;
+  }
+
+  /**
+   * Returns events related to this modified file set, for example, files whose state violates some
+   * condition or require a warning.
+   */
+  public List<Event> getMessages() {
+    return ImmutableList.of();
   }
 
   // When everything is modified that naturally includes all directories.

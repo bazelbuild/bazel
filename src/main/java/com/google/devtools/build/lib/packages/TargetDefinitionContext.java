@@ -373,11 +373,11 @@ public abstract class TargetDefinitionContext extends StarlarkThreadContext {
    * Creates a new {@link MacroInstance} {@code m} where {@code m.getPackage()} is the {@link
    * Package} associated with this {@link Builder}.
    */
-  MacroInstance createMacro(
-      MacroClass macroClass, Map<String, Object> attrValues, int sameNameDepth)
+  MacroInstance createMacro(MacroClass macroClass, Label label, int sameNameDepth)
       throws EvalException {
     MacroInstance parent = currentMacro();
-    return new MacroInstance(pkg.getMetadata(), parent, macroClass, attrValues, sameNameDepth);
+    return new MacroInstance(
+        pkg.getMetadata(), pkg.getDeclarations(), parent, macroClass, label, sameNameDepth);
   }
 
   @Nullable

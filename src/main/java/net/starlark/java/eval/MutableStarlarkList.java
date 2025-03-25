@@ -30,15 +30,15 @@ final class MutableStarlarkList<E> extends StarlarkList<E> {
   // elems.getClass() == Object[].class. This is necessary to avoid ArrayStoreException.
   private int size;
   private int iteratorCount; // number of active iterators (unused once frozen)
-  Object[] elems = StarlarkList.EMPTY_ARRAY; // elems[i] == null  iff  i >= size
+  private Object[] elems; // elems[i] == null  iff  i >= size
 
   /** Final except for {@link #unsafeShallowFreeze}; must not be modified any other way. */
   private Mutability mutability;
 
-  MutableStarlarkList(@Nullable Mutability mutability, Object[] elems, int size) {
+  MutableStarlarkList(@Nullable Mutability mutability, Object[] elems) {
     Preconditions.checkArgument(elems.getClass() == Object[].class);
-    this.elems = elems;
-    this.size = size;
+    this.elems = elems.length == 0 ? StarlarkList.EMPTY_ARRAY : elems;
+    this.size = elems.length;
     this.mutability = mutability == null ? Mutability.IMMUTABLE : mutability;
   }
 

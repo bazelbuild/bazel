@@ -1,3 +1,19 @@
+## Release 7.6.0 (2025-03-24)
+
+```
+
+Release Notes:
+
+```
+
+## Release 9.0.0-pre.20250311.1 (2025-03-19)
+
+```
+Baseline: c422744caa072c66311a937049504901bc674b7d
+```
+
+This release contains contributions from many people at Google, as well as Fabian Meumertzheim.
+
 ## Release 9.0.0-pre.20250307.1 (2025-03-14)
 
 ```

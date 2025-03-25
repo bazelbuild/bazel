@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
-import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FilesetOutputTree;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
@@ -205,12 +204,9 @@ public final class SymlinkAction extends AbstractAction implements RichDataProdu
   @Nullable
   @Override
   public RichArtifactData reconstructRichDataOnActionCacheHit(
-      Path execRoot,
-      ImmutableMap<Artifact, FilesetOutputTree> topLevelFilesets,
-      InputMetadataProvider inputMetadataProvider,
-      ArtifactExpander artifactExpander) {
+      Path execRoot, InputMetadataProvider inputMetadataProvider) {
     return targetType == TargetType.FILESET
-        ? FilesetOutputTree.forward(topLevelFilesets.get(getPrimaryInput()))
+        ? FilesetOutputTree.forward(inputMetadataProvider.getFileset(getPrimaryInput()))
         : null;
   }
 
@@ -269,7 +265,7 @@ public final class SymlinkAction extends AbstractAction implements RichDataProdu
       // input can recreate the Fileset.
       actionExecutionContext.setRichArtifactData(
           FilesetOutputTree.forward(
-              actionExecutionContext.getTopLevelFilesets().get(getPrimaryInput())));
+              actionExecutionContext.getInputMetadataProvider().getFileset(getPrimaryInput())));
     } else {
       maybeInjectMetadata(this, actionExecutionContext);
     }
@@ -391,7 +387,7 @@ public final class SymlinkAction extends AbstractAction implements RichDataProdu
       ctx.getOutputMetadataStore()
           .injectFile(
               symlinkAction.getPrimaryOutput(),
-              primaryInput instanceof SourceArtifact sourceArtifact
+              primaryInput instanceof SourceArtifact
                   ? FileArtifactValue.createFromExistingWithResolvedPath(
                       metadata, primaryInput.getPath().asFragment())
                   : metadata);
@@ -412,7 +408,7 @@ public final class SymlinkAction extends AbstractAction implements RichDataProdu
   @Override
   protected void computeKey(
       ActionKeyContext actionKeyContext,
-      @Nullable ArtifactExpander artifactExpander,
+      @Nullable InputMetadataProvider inputMetadataProvider,
       Fingerprint fp) {
     fp.addString(GUID);
     // We don't normally need to add inputs to the key. In this case, however, the inputPath can be

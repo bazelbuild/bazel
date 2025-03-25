@@ -21,8 +21,10 @@ import com.google.common.collect.HashBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileContentsProxy;
+import com.google.devtools.build.lib.actions.FilesetOutputTree;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.RunfilesArtifactValue;
 import com.google.devtools.build.lib.actions.RunfilesTree;
@@ -46,6 +48,7 @@ final class FakeActionInputFileCache implements InputMetadataProvider {
   private final Path execRoot;
   private final BiMap<ActionInput, String> cas = HashBiMap.create();
   private final Map<ActionInput, RunfilesArtifactValue> runfilesMap = new HashMap<>();
+  private final Map<ActionInput, TreeArtifactValue> trees = new HashMap<>();
   private final List<RunfilesTree> runfilesTrees = new ArrayList<>();
   private final DigestUtil digestUtil;
 
@@ -67,6 +70,17 @@ final class FakeActionInputFileCache implements InputMetadataProvider {
   @Nullable
   @Override
   public TreeArtifactValue getTreeMetadata(ActionInput actionInput) {
+    return trees.get(actionInput);
+  }
+
+  @Override
+  @Nullable
+  public FilesetOutputTree getFileset(ActionInput input) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public Map<Artifact, FilesetOutputTree> getFilesets() {
     throw new UnsupportedOperationException();
   }
 
@@ -88,6 +102,10 @@ final class FakeActionInputFileCache implements InputMetadataProvider {
 
   private void setDigest(ActionInput input, String digest) {
     cas.put(input, digest);
+  }
+
+  public void addTreeArtifact(ActionInput treeArtifact, TreeArtifactValue value) {
+    trees.put(treeArtifact, value);
   }
 
   public void addRunfilesTree(ActionInput runfilesTreeArtifact, RunfilesTree runfilesTree) {

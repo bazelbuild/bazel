@@ -22,18 +22,21 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.packages.Attribute.StarlarkComputedDefaultTemplate.CannotPrecomputeDefaultsException;
+import com.google.devtools.build.lib.packages.RuleFactory.BuildLangTypedAttributeValuesMap;
 import com.google.devtools.build.lib.packages.TargetRecorder.MacroFrame;
 import com.google.devtools.build.lib.packages.TargetRecorder.NameConflictException;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading.Code;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.Starlark;
@@ -77,20 +80,31 @@ public final class MacroClass {
   private final Label definingBzlLabel;
   private final StarlarkFunction implementation;
   // Implicit attributes are stored under their given name ("_foo"), not a mangled name ("$foo").
-  private final ImmutableMap<String, Attribute> attributes;
   private final boolean isFinalizer;
+  private final AttributeProvider attributeProvider;
 
   private MacroClass(
       String name,
       Label definingBzlLabel,
       StarlarkFunction implementation,
-      ImmutableMap<String, Attribute> attributes,
+      ImmutableList<Attribute> attributes,
       boolean isFinalizer) {
     this.name = name;
     this.definingBzlLabel = definingBzlLabel;
     this.implementation = implementation;
-    this.attributes = attributes;
     this.isFinalizer = isFinalizer;
+    Map<String, Integer> attributeIndex = Maps.newHashMapWithExpectedSize(attributes.size());
+    for (int i = 0; i < attributes.size(); i++) {
+      Attribute attribute = attributes.get(i);
+      attributeIndex.put(attribute.getName(), i);
+    }
+    this.attributeProvider =
+        new AttributeProvider(
+            attributes,
+            attributeIndex,
+            /* nonConfigurableAttributes= */ null,
+            name,
+            /* ignoreLicenses= */ false);
   }
 
   /** Returns the macro's exported name. */
@@ -107,9 +121,8 @@ public final class MacroClass {
     return implementation;
   }
 
-  // NB: Order is preserved from what was passed to the constructor.
-  public ImmutableMap<String, Attribute> getAttributes() {
-    return attributes;
+  public AttributeProvider getAttributeProvider() {
+    return attributeProvider;
   }
 
   /**
@@ -125,7 +138,7 @@ public final class MacroClass {
     @Nullable private String name = null;
     @Nullable private Label definingBzlLabel = null;
     private final StarlarkFunction implementation;
-    private final ImmutableMap.Builder<String, Attribute> attributes = ImmutableMap.builder();
+    private final ImmutableList.Builder<Attribute> attributes = ImmutableList.builder();
     private boolean isFinalizer = false;
 
     public Builder(StarlarkFunction implementation) {
@@ -149,7 +162,7 @@ public final class MacroClass {
 
     @CanIgnoreReturnValue
     public Builder addAttribute(Attribute attribute) {
-      attributes.put(attribute.getName(), attribute);
+      attributes.add(attribute);
       return this;
     }
 
@@ -166,7 +179,7 @@ public final class MacroClass {
           name,
           definingBzlLabel,
           implementation,
-          attributes.buildOrThrow(),
+          attributes.build(),
           /* isFinalizer= */ isFinalizer);
     }
   }
@@ -179,7 +192,7 @@ public final class MacroClass {
   // TODO(#19922): Consider reporting multiple events instead of failing on the first one. See
   // analogous implementation in RuleClass#populateDefinedRuleAttributeValues.
   private MacroInstance instantiateMacro(Package.Builder pkgBuilder, Map<String, Object> kwargs)
-      throws EvalException {
+      throws EvalException, InterruptedException, CannotPrecomputeDefaultsException {
     // A word on edge cases:
     //   - If an attr is implicit but does not have a default specified, its value is just the
     //     default value for its attr type (e.g. `[]` for `attr.label_list()`).
@@ -188,23 +201,22 @@ public final class MacroClass {
     //   - If an attr is mandatory but also has a default, the default is meaningless.
     // These behaviors align with rule attributes.
 
-    LinkedHashMap<String, Object> attrValues = new LinkedHashMap<>();
+    Dict.Builder<String, Object> attrValues = Dict.builder();
 
     // For each given attr value, validate that the attr exists and can be set.
     for (Map.Entry<String, Object> entry : kwargs.entrySet()) {
       String attrName = entry.getKey();
       Object value = entry.getValue();
-      Attribute attr = attributes.get(attrName);
 
       // Check for unknown attr.
-      if (attr == null) {
+      if (attributeProvider.getAttributeIndex(attrName) == null) {
         throw Starlark.errorf(
             "no such attribute '%s' in '%s' macro%s",
             attrName,
             name,
             SpellChecker.didYouMean(
                 attrName,
-                attributes.values().stream()
+                attributeProvider.getAttributes().stream()
                     .filter(Attribute::isDocumented)
                     .map(Attribute::getName)
                     .collect(toImmutableList())));
@@ -222,8 +234,8 @@ public final class MacroClass {
       // TODO: #19922 - The lack of "_" -> "$" mangling may impact the future feature of inheriting
       // attributes from rules. We could consider just doing the mangling for macros too so they're
       // consistent.
-      if (attr.getName().startsWith("_")) {
-        throw Starlark.errorf("cannot set value of implicit attribute '%s'", attr.getName());
+      if (attrName.startsWith("_")) {
+        throw Starlark.errorf("cannot set value of implicit attribute '%s'", attrName);
       }
 
       attrValues.put(attrName, value);
@@ -234,9 +246,9 @@ public final class MacroClass {
     // distinguish between the different types of visibility a la Target#getRawVisibility /
     // #getVisibility / #getActualVisibility.
     @Nullable MacroFrame parentMacroFrame = pkgBuilder.getCurrentMacroFrame();
-    @Nullable Object rawVisibility = attrValues.get("visibility");
+    @Nullable Object rawVisibility = kwargs.get("visibility");
     RuleVisibility parsedVisibility;
-    if (rawVisibility == null) {
+    if (rawVisibility == null || rawVisibility.equals(Starlark.NONE)) {
       // Visibility wasn't explicitly supplied. If we're not in another symbolic macro, use the
       // package's default visibility, otherwise use private visibility.
       if (parentMacroFrame == null) {
@@ -258,60 +270,41 @@ public final class MacroClass {
             ? pkgBuilder.getPackageIdentifier()
             : parentMacroFrame.macroInstance.getDefinitionPackage();
     RuleVisibility actualVisibility = parsedVisibility.concatWithPackage(instantiatingLoc);
-    attrValues.put("visibility", actualVisibility.getDeclaredLabels());
-
-    // Populate defaults for the rest, and validate that no mandatory attr was missed.
-    for (Attribute attr : attributes.values()) {
-      if (attrValues.containsKey(attr.getName())) {
-        continue;
-      }
-      if (attr.isMandatory()) {
-        throw Starlark.errorf(
-            "missing value for mandatory attribute '%s' in '%s' macro", attr.getName(), name);
-      } else {
-        Object defaultValue = attr.getDefaultValueUnchecked();
-        // For attributes defined directly in this macro's `attrs` param, we've already validated
-        // that the default is not a computed default, late-bound default, etc. But these may still
-        // appear in inherited attributes. Those should be replaced by None as the default.
-        //
-        // We may also see a null default for LabelType, which also should be replaced by None.
-        //
-        // TODO(arostovtsev): All inherited attributes should be forced to have None defaults.
-        if (defaultValue == null || shouldForceDefaultToNone(attr)) {
-          // Set the default value as None if:
-          defaultValue = Starlark.NONE;
-        }
-        attrValues.put(attr.getName(), defaultValue);
-      }
-    }
+    attrValues.put(
+        "visibility",
+        Starlark.fromJava(actualVisibility.getDeclaredLabels(), Mutability.IMMUTABLE));
 
     // Normalize and validate all attr values. (E.g., convert strings to labels, promote
     // configurable attribute values to select()s, fail if bool was passed instead of label, ensure
-    // values are immutable.) Note that this applies even to default values, although as a special
-    // case None is never promoted to select().
-    for (Map.Entry<String, Object> entry : ImmutableMap.copyOf(attrValues).entrySet()) {
-      String attrName = entry.getKey();
-      Object value = entry.getValue();
-      Attribute attribute = attributes.get(attrName);
-      if (value.equals(Starlark.NONE)) {
-        // Don't promote None to select({"//conditions:default": None}).
-        continue;
+    // values are immutable.)
+    for (var attribute : attributeProvider.getAttributes()) {
+      if ((attribute.isPublic() && attribute.starlarkDefined())
+          || attribute.getName().equals("name")) {
+        if (kwargs.containsKey(attribute.getName())) {
+          Object value = kwargs.get(attribute.getName());
+          if (value.equals(Starlark.NONE)) {
+            // Don't promote None to select({"//conditions:default": None}).
+            continue;
+          }
+          Object normalizedValue =
+              // copyAndLiftStarlarkValue ensures immutability.
+              BuildType.copyAndLiftStarlarkValue(
+                  name, attribute, value, pkgBuilder.getLabelConverter());
+          // TODO(#19922): Validate that LABEL_LIST type attributes don't contain duplicates, to
+          // match the behavior of rules. This probably requires factoring out logic from
+          // AggregatingAttributeMapper.
+          attrValues.put(attribute.getName(), normalizedValue);
+        }
       }
-      Object normalizedValue =
-          // copyAndLiftStarlarkValue ensures immutability.
-          BuildType.copyAndLiftStarlarkValue(
-              name, attribute, value, pkgBuilder.getLabelConverter());
-      // TODO(#19922): Validate that LABEL_LIST type attributes don't contain duplicates, to match
-      // the behavior of rules. This probably requires factoring out logic from
-      // AggregatingAttributeMapper.
-      if (attribute.isConfigurable() && !(normalizedValue instanceof SelectorList)) {
-        normalizedValue = SelectorList.wrapSingleValue(normalizedValue);
-      }
-      attrValues.put(attrName, normalizedValue);
     }
 
     // Type and existence enforced by RuleClass.NAME_ATTRIBUTE.
-    String name = (String) Preconditions.checkNotNull(attrValues.get("name"));
+    // Other mandatory attributes are enforced after the macro is created, but we need to check for
+    // name now in order to find out the depth.
+    if (!kwargs.containsKey("name")) {
+      throw Starlark.errorf("missing value for mandatory attribute 'name' in '%s' macro", name);
+    }
+    String name = (String) kwargs.get("name");
     // Determine the id for this macro. If we're in another macro by the same name, increment the
     // number, otherwise use 1 for the number.
     int sameNameDepth =
@@ -319,7 +312,18 @@ public final class MacroClass {
             ? 1
             : parentMacroFrame.macroInstance.getSameNameDepth() + 1;
 
-    return pkgBuilder.createMacro(this, attrValues, sameNameDepth);
+    BuildLangTypedAttributeValuesMap attributeValues =
+        new BuildLangTypedAttributeValuesMap(attrValues.buildImmutable());
+    MacroInstance macroInstance =
+        pkgBuilder.createMacro(
+            this, Label.createUnvalidated(instantiatingLoc, name), sameNameDepth);
+    attributeProvider.populateRuleAttributeValues(
+        macroInstance,
+        pkgBuilder,
+        attributeValues,
+        /* failOnUnknownAttributes= */ true,
+        /* isStarlark= */ true);
+    return macroInstance;
   }
 
   /**
@@ -348,14 +352,15 @@ public final class MacroClass {
    *     substitution, or even validation that the attribute exists).
    */
   public MacroInstance instantiateAndAddMacro(
-      Package.Builder pkgBuilder, Map<String, Object> kwargs) throws EvalException {
-    MacroInstance macroInstance = instantiateMacro(pkgBuilder, kwargs);
+      Package.Builder pkgBuilder, Map<String, Object> kwargs)
+      throws EvalException, InterruptedException {
     try {
+      MacroInstance macroInstance = instantiateMacro(pkgBuilder, kwargs);
       pkgBuilder.addMacro(macroInstance);
-    } catch (NameConflictException e) {
+      return macroInstance;
+    } catch (NameConflictException | CannotPrecomputeDefaultsException e) {
       throw new EvalException(e);
     }
-    return macroInstance;
   }
 
   /**
@@ -407,13 +412,31 @@ public final class MacroClass {
 
       MacroFrame childMacroFrame = new MacroFrame(macro);
       @Nullable MacroFrame parentMacroFrame = builder.setCurrentMacroFrame(childMacroFrame);
+      // Retrieve the values of the macro's attributes and convert them to Starlark values.
+      ImmutableMap.Builder<String, Object> kwargs = ImmutableMap.builder();
+      for (Attribute attr : macro.getMacroClass().getAttributeProvider().getAttributes()) {
+        Object attrValue = macro.getAttr(attr.getName(), attr.getType());
+        if (attrValue == null) {
+          attrValue = attr.getDefaultValueUnchecked();
+          if (attrValue == null || shouldForceDefaultToNone(attr)) {
+            attrValue = Starlark.NONE;
+          }
+        }
+        attrValue = Attribute.valueToStarlark(attrValue);
+        if (attr.isConfigurable()
+            && !(attrValue instanceof SelectorList)
+            && attrValue != Starlark.NONE) {
+          attrValue = SelectorList.wrapSingleValue(attrValue);
+        }
+        kwargs.put(attr.getName(), attrValue);
+      }
       try {
         Object returnValue =
             Starlark.call(
                 thread,
                 macro.getMacroClass().getImplementation(),
                 /* args= */ ImmutableList.of(),
-                /* kwargs= */ macro.getAttrValues());
+                /* kwargs= */ kwargs.buildOrThrow());
         if (returnValue != Starlark.NONE) {
           throw Starlark.errorf(
               "macro '%s' may not return a non-None value (got %s)",
