@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
+import com.google.common.collect.Interner;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
@@ -32,6 +33,7 @@ import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.StarlarkThreadContext;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
@@ -1020,23 +1022,34 @@ public class Package {
         /* trackFullMacroInformation= */ true);
   }
 
+  // Bzlmod creates one fake package per external repository. The repos created by a given
+  // extension, which can be 1000s, share the same metadata.
+  private static final Interner<Metadata> bzlmodMetadataInterner = BlazeInterners.newWeakInterner();
+
   public static Builder newExternalPackageBuilderForBzlmod(
       RootedPath moduleFilePath,
       boolean noImplicitFileExport,
       boolean simplifyUnconditionalSelectsInRuleAttrs,
       PackageIdentifier basePackageId,
       RepositoryMapping repoMapping) {
+    // moduleFilePath is turned into a string and retained as the Location of
+    // the created package. Ensure that this string is the same instance as
+    // the one in the interned Metadata object.
+    RootedPath absoluteRootModuleFilePath =
+        RootedPath.toRootedPath(
+            Root.absoluteRoot(moduleFilePath.getRoot().getFileSystem()), moduleFilePath.asPath());
     return new Builder(
-            new Metadata(
-                /* packageIdentifier= */ basePackageId,
-                /* buildFilename= */ moduleFilePath,
-                /* isRepoRulePackage= */ true,
-                /* repositoryMapping= */ repoMapping,
-                /* associatedModuleName= */ Optional.empty(),
-                /* associatedModuleVersion= */ Optional.empty(),
-                /* configSettingVisibilityPolicy= */ null,
-                /* succinctTargetNotFoundErrors= */ PackageSettings.DEFAULTS
-                    .succinctTargetNotFoundErrors()),
+            bzlmodMetadataInterner.intern(
+                new Metadata(
+                    /* packageIdentifier= */ basePackageId,
+                    /* buildFilename= */ absoluteRootModuleFilePath,
+                    /* isRepoRulePackage= */ true,
+                    /* repositoryMapping= */ repoMapping,
+                    /* associatedModuleName= */ Optional.empty(),
+                    /* associatedModuleVersion= */ Optional.empty(),
+                    /* configSettingVisibilityPolicy= */ null,
+                    /* succinctTargetNotFoundErrors= */ PackageSettings.DEFAULTS
+                        .succinctTargetNotFoundErrors())),
             SymbolGenerator.create(basePackageId),
             PackageSettings.DEFAULTS.precomputeTransitiveLoads(),
             noImplicitFileExport,
