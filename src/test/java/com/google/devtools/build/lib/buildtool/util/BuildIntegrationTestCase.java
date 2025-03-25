@@ -1075,7 +1075,7 @@ public abstract class BuildIntegrationTestCase {
     return (FileArtifactValue) sourceArtifactValue;
   }
 
-  private ActionExecutionValue getActionExecutionValue(Artifact output)
+  protected ActionExecutionValue getActionExecutionValue(Artifact output)
       throws InterruptedException {
     assertThat(output).isInstanceOf(DerivedArtifact.class);
     SkyValue actionExecutionValue =
