@@ -20,7 +20,6 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Sets;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -203,7 +202,6 @@ public class StandaloneSpawnStrategyTest {
         outErr,
         reporter,
         /* clientEnv= */ ImmutableMap.of(),
-        treeArtifact -> ImmutableSortedSet.of(),
         /* actionFileSystem= */ null,
         DiscoveredModulesPruner.DEFAULT,
         SyscallCache.NO_CACHE,

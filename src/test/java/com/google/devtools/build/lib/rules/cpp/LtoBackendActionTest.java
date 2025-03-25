@@ -103,7 +103,6 @@ public class LtoBackendActionTest extends BuildViewTestCase {
             new FileOutErr(),
             new StoredEventHandler(),
             /* clientEnv= */ ImmutableMap.of(),
-            /* artifactExpander= */ null,
             /* actionFileSystem= */ null,
             DiscoveredModulesPruner.DEFAULT,
             SyscallCache.NO_CACHE,

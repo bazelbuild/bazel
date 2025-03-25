@@ -686,7 +686,7 @@ public final class CustomCommandLineTest {
       Fingerprint fingerprint = new Fingerprint();
       commandLine.addToFingerprint(
           actionKeyContext,
-          /* artifactExpander= */ null,
+          /* inputMetadataProvider= */ null,
           CoreOptions.OutputPathsMode.OFF,
           fingerprint);
       String digest = fingerprint.hexDigestAndReset();

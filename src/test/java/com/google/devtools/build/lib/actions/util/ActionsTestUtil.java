@@ -26,7 +26,6 @@ import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.Action;
@@ -163,7 +162,6 @@ public final class ActionsTestUtil {
         fileOutErr,
         eventHandler,
         ImmutableMap.copyOf(clientEnv),
-        treeArtifact -> ImmutableSortedSet.of(),
         /* actionFileSystem= */ null,
         DiscoveredModulesPruner.DEFAULT,
         SyscallCache.NO_CACHE,
@@ -187,7 +185,6 @@ public final class ActionsTestUtil {
         /* fileOutErr= */ null,
         eventHandler,
         /* clientEnv= */ ImmutableMap.of(),
-        treeArtifact -> ImmutableSortedSet.of(),
         /* actionFileSystem= */ null,
         DiscoveredModulesPruner.DEFAULT,
         SyscallCache.NO_CACHE,

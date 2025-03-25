@@ -18,7 +18,6 @@ java_test(
     srcs = ["AbstractFileWriteActionTest.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/actions:artifact_expander",
         "//src/main/java/com/google/devtools/build/lib/analysis:actions/abstract_file_write_action",
         "//src/main/java/com/google/devtools/build/lib/analysis:actions/file_write_action_context",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",

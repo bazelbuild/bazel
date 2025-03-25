@@ -124,7 +124,8 @@ public final class ExtraActionSpec implements TransitiveInfoProvider {
     String actionUniquifier =
         actionToShadow.getPrimaryOutput().getExecPath().getBaseName()
             + "."
-            + actionToShadow.getKey(owningRule.getActionKeyContext(), /* artifactExpander= */ null);
+            + actionToShadow.getKey(
+                owningRule.getActionKeyContext(), /* inputMetadataProvider= */ null);
 
     PathFragment shExecutable =
         ShToolchain.getPathForPlatform(
@@ -243,7 +244,7 @@ public final class ExtraActionSpec implements TransitiveInfoProvider {
     for (AspectDescriptor aspectDescriptor : aspectDescriptors) {
       f.addString(aspectDescriptor.getDescription());
     }
-    f.addString(action.getKey(actionKeyContext, /*artifactExpander=*/ null));
+    f.addString(action.getKey(actionKeyContext, /* inputMetadataProvider= */ null));
     return f.hexDigestAndReset();
   }
 }

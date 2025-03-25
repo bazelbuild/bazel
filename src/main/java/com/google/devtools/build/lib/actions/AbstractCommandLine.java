@@ -36,8 +36,8 @@ public abstract class AbstractCommandLine extends CommandLine {
   }
 
   /**
-   * Returns the expanded command line with enclosed artifacts expanded by {@code artifactExpander}
-   * at execution time.
+   * Returns the expanded command line with enclosed artifacts expanded by an {@code
+   * InputMetadataProvider} at execution time.
    *
    * <p>By default, this method just delegates to {@link #arguments()}, without performing any
    * artifact expansion. Subclasses should override this method if they contain tree artifacts and

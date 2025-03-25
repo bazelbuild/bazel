@@ -112,7 +112,6 @@ public final class StarlarkActionWithShadowedActionTest extends BuildViewTestCas
             /* fileOutErr= */ null,
             /* eventHandler= */ null,
             /* clientEnv= */ ImmutableMap.of(),
-            /* artifactExpander= */ null,
             /* actionFileSystem= */ null,
             DiscoveredModulesPruner.DEFAULT,
             SyscallCache.NO_CACHE,

@@ -33,7 +33,6 @@ import static org.mockito.Mockito.when;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
@@ -99,7 +98,6 @@ public class WorkerSpawnRunnerTest {
   @Before
   public void setUp() throws Exception {
     when(spawn.getInputFiles()).thenReturn(NestedSetBuilder.emptySet(Order.COMPILE_ORDER));
-    when(context.getArtifactExpander()).thenReturn(treeArtifact -> ImmutableSortedSet.of());
     doNothing()
         .when(metricsCollector)
         .registerWorker(

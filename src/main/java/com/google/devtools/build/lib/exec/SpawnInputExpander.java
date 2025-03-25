@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
-import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.FilesetOutputTree;
 import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
@@ -217,7 +216,7 @@ public final class SpawnInputExpander {
    * Convert the inputs and runfiles of the given spawn to a map from exec-root relative paths to
    * {@link ActionInput}s. The returned map does not contain non-empty tree artifacts as they are
    * expanded to file artifacts. Tree artifacts that would expand to the empty set under the
-   * provided {@link ArtifactExpander} are left untouched so that their corresponding empty
+   * provided {@link InputMetadataProvider} are left untouched so that their corresponding empty
    * directories can be created.
    *
    * <p>The returned map never contains {@code null} values.
@@ -225,9 +224,7 @@ public final class SpawnInputExpander {
    * <p>The returned map contains all runfiles, but not the {@code MANIFEST}.
    */
   public SortedMap<PathFragment, ActionInput> getInputMapping(
-      Spawn spawn,
-      InputMetadataProvider inputMetadataProvider,
-      PathFragment baseDirectory)
+      Spawn spawn, InputMetadataProvider inputMetadataProvider, PathFragment baseDirectory)
       throws ForbiddenActionInputException {
     TreeMap<PathFragment, ActionInput> inputMap = new TreeMap<>();
     addInputs(

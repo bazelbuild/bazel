@@ -48,7 +48,6 @@ import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
-import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
@@ -186,11 +185,6 @@ public class RemoteSpawnCacheTest {
       @Override
       public ArtifactPathResolver getPathResolver() {
         return ArtifactPathResolver.forExecRoot(execRoot);
-      }
-
-      @Override
-      public ArtifactExpander getArtifactExpander() {
-        throw new UnsupportedOperationException();
       }
 
       @Override
