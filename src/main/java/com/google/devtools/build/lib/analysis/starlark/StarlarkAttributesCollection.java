@@ -285,16 +285,17 @@ public class StarlarkAttributesCollection implements StarlarkAttributesCollectio
 
       Type<?> type = a.getType();
 
-      if (a.isMaterializing() && depLabelsSupplier.get().contains(null)) {
+      var prerequisites = depLabelsSupplier.get();
+
+      if (a.isMaterializing() || prerequisites == null || prerequisites.contains(null)) {
         return Starlark.NONE;
       }
 
       if (type == BuildType.LABEL && !a.getTransitionFactory().isSplit()) {
-        Collection<? extends Label> prerequisites = depLabelsSupplier.get();
         return prerequisites.isEmpty() ? Starlark.NONE : prerequisites.iterator().next();
       } else if (type == BuildType.LABEL_LIST
           || (type == BuildType.LABEL && a.getTransitionFactory().isSplit())) {
-        return StarlarkList.immutableCopyOf(depLabelsSupplier.get());
+        return StarlarkList.immutableCopyOf(prerequisites);
       } else if (type == BuildType.LABEL_DICT_UNARY || type == BuildType.LABEL_KEYED_STRING_DICT) {
         return val; // return the same map as the labels are not configured to targets
       } else {
