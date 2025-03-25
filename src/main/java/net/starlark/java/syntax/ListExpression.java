@@ -14,6 +14,7 @@
 package net.starlark.java.syntax;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import java.util.List;
 
 /** Syntax node for list and tuple expressions. */
@@ -25,14 +26,14 @@ public final class ListExpression extends Expression {
 
   private final boolean isTuple;
   private final int lbracketOffset; // -1 => unparenthesized non-empty tuple
-  private final List<Expression> elements;
+  private final ImmutableList<Expression> elements;
   private final int rbracketOffset; // -1 => unparenthesized non-empty tuple
 
   ListExpression(
       FileLocations locs,
       boolean isTuple,
       int lbracketOffset,
-      List<Expression> elements,
+      ImmutableList<Expression> elements,
       int rbracketOffset) {
     super(locs, Kind.LIST_EXPR);
     // An unparenthesized tuple must be non-empty.
