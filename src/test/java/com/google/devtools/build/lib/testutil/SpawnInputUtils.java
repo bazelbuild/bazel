@@ -87,7 +87,11 @@ public final class SpawnInputUtils {
 
   public static Artifact getExpandedToArtifact(
       String name, Artifact expandableArtifact, Spawn spawn, ActionExecutionContext context) {
-    return context.getArtifactExpander().tryExpandTreeArtifact(expandableArtifact).stream()
+    return context
+        .getInputMetadataProvider()
+        .getTreeMetadata(expandableArtifact)
+        .getChildren()
+        .stream()
         .filter(artifact -> artifact.getExecPathString().contains(name))
         .findFirst()
         .orElseThrow(

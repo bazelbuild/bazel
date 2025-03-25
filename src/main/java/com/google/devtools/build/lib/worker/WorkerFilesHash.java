@@ -19,9 +19,7 @@ import com.google.common.hash.HashCode;
 import com.google.common.hash.Hasher;
 import com.google.common.hash.Hashing;
 import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.RunfilesTree;
@@ -65,14 +63,13 @@ public class WorkerFilesHash {
    * @throws MissingInputException if metadata is missing for any of the worker files.
    */
   public static SortedMap<PathFragment, byte[]> getWorkerFilesWithDigests(
-      Spawn spawn, ArtifactExpander artifactExpander, InputMetadataProvider actionInputFileCache)
-      throws IOException {
+      Spawn spawn, InputMetadataProvider actionInputFileCache) throws IOException {
     TreeMap<PathFragment, byte[]> workerFilesMap = new TreeMap<>();
 
     List<ActionInput> tools =
-        ActionInputHelper.expandArtifacts(
+        InputMetadataProvider.expandArtifacts(
+            actionInputFileCache,
             spawn.getToolFiles(),
-            artifactExpander,
             /* keepEmptyTreeArtifacts= */ false,
             /* keepRunfilesTrees= */ true);
     for (ActionInput tool : tools) {

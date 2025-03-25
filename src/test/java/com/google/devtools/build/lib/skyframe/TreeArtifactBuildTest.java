@@ -988,7 +988,7 @@ public final class TreeArtifactBuildTest extends TimestampBuilderTestCase {
     @Override
     void run(ActionExecutionContext context) throws IOException {
       for (Artifact child :
-          context.getArtifactExpander().tryExpandTreeArtifact(getPrimaryInput())) {
+          context.getInputMetadataProvider().getTreeMetadata(getPrimaryInput()).getChildren()) {
         Path newOutput = getPrimaryOutput().getPath().getRelative(child.getParentRelativePath());
         newOutput.createDirectoryAndParents();
         FileSystemUtils.copyFile(child.getPath(), newOutput);

@@ -15,11 +15,17 @@ package com.google.devtools.build.lib.actions;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.TreeSet;
 import javax.annotation.Nullable;
 
 /** Provides {@link ActionInput} metadata. */
@@ -107,5 +113,53 @@ public interface InputMetadataProvider {
   @Nullable
   default FileSystem getFileSystemForInputResolution() {
     return null;
+  }
+
+  /**
+   * Expands runfiles trees and tree artifacts in a sequence of {@link ActionInput}s.
+   *
+   * <p>If {@code keepEmptyTreeArtifacts} is true, a tree artifact will be included in the
+   * constructed list when it expands into zero file artifacts. Otherwise, only the file artifacts
+   * the tree artifact expands into will be included.
+   *
+   * <p>Runfiles tree artifacts will be returned if {@code keepRunfilesTrees} is set.
+   *
+   * <p>Non-runfiles, non-tree artifacts are returned untouched.
+   */
+  static List<ActionInput> expandArtifacts(
+      InputMetadataProvider inputMetadataProvider,
+      NestedSet<? extends ActionInput> inputs,
+      boolean keepEmptyTreeArtifacts,
+      boolean keepRunfilesTrees) {
+    List<ActionInput> result = new ArrayList<>();
+    Set<Artifact> emptyTreeArtifacts = new TreeSet<>();
+    Set<Artifact> treeFileArtifactParents = new HashSet<>();
+    for (ActionInput input : inputs.toList()) {
+      if (!(input instanceof Artifact artifact)) {
+        result.add(input);
+      } else if (artifact.isRunfilesTree()) {
+        if (keepRunfilesTrees) {
+          result.add(artifact);
+        }
+      } else if (artifact.isTreeArtifact()) {
+        TreeArtifactValue treeArtifactValue = inputMetadataProvider.getTreeMetadata(artifact);
+        if (treeArtifactValue == null || treeArtifactValue.getChildren().isEmpty()) {
+          emptyTreeArtifacts.add(artifact);
+        } else {
+          result.addAll(treeArtifactValue.getChildren());
+        }
+      } else {
+        result.add(artifact);
+        if (artifact.isChildOfDeclaredDirectory()) {
+          treeFileArtifactParents.add(artifact.getParent());
+        }
+      }
+    }
+
+    if (keepEmptyTreeArtifacts) {
+      emptyTreeArtifacts.removeAll(treeFileArtifactParents);
+      result.addAll(emptyTreeArtifacts);
+    }
+    return result;
   }
 }

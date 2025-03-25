@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.FilesetOutputTree;
 import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
-import com.google.devtools.build.lib.actions.InputMetadataProviderArtifactExpander;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.RunfilesTree;
 import com.google.devtools.build.lib.actions.Spawn;
@@ -37,6 +36,7 @@ import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.util.List;
@@ -102,8 +102,6 @@ public final class SpawnInputExpander {
       PathFragment baseDirectory)
       throws ForbiddenActionInputException {
     Preconditions.checkArgument(!root.isAbsolute(), root);
-    ArtifactExpander artifactExpander =
-        InputMetadataProviderArtifactExpander.maybeFrom(inputMetadataProvider);
     for (Map.Entry<PathFragment, Artifact> mapping : mappings.entrySet()) {
       PathFragment location = root.getRelative(mapping.getKey());
       Artifact artifact = mapping.getValue();
@@ -117,21 +115,14 @@ public final class SpawnInputExpander {
       }
       Preconditions.checkArgument(!artifact.isRunfilesTree(), artifact);
       if (artifact.isTreeArtifact()) {
+        TreeArtifactValue treeArtifactValue = inputMetadataProvider.getTreeMetadata(artifact);
         ArchivedTreeArtifact archivedTreeArtifact =
-            expandArchivedTreeArtifacts
-                ? null
-                : inputMetadataProvider.getTreeMetadata(artifact).getArchivedArtifact();
+            expandArchivedTreeArtifacts ? null : treeArtifactValue.getArchivedArtifact();
         if (archivedTreeArtifact != null) {
           // TODO(bazel-team): Add path mapping support for archived tree artifacts.
           addMapping(inputMap, location, archivedTreeArtifact, baseDirectory);
         } else {
-          List<ActionInput> expandedInputs =
-              ActionInputHelper.expandArtifacts(
-                  NestedSetBuilder.create(Order.STABLE_ORDER, artifact),
-                  artifactExpander,
-                  /* keepEmptyTreeArtifacts= */ false,
-                  /* keepRunfilesTrees= */ false);
-          for (ActionInput input : expandedInputs) {
+          for (ActionInput input : treeArtifactValue.getChildren()) {
             addMapping(
                 inputMap,
                 mapForRunfiles(pathMapper, root, location)
@@ -190,9 +181,9 @@ public final class SpawnInputExpander {
     // to the artifact to be created, even if it is empty. We explicitly keep empty TreeArtifacts
     // here to signal consumers that they should create the directory.
     List<ActionInput> inputs =
-        ActionInputHelper.expandArtifacts(
+        InputMetadataProvider.expandArtifacts(
+            inputMetadataProvider,
             inputFiles,
-            InputMetadataProviderArtifactExpander.maybeFrom(inputMetadataProvider),
             /* keepEmptyTreeArtifacts= */ true,
             /* keepRunfilesTrees= */ true);
     for (ActionInput input : inputs) {

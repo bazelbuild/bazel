@@ -22,13 +22,11 @@ import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
-import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
@@ -38,6 +36,7 @@ import com.google.devtools.build.lib.actions.RunfilesArtifactValue;
 import com.google.devtools.build.lib.actions.RunfilesTree;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
+import com.google.devtools.build.lib.exec.util.FakeActionInputFileCache;
 import com.google.devtools.build.lib.exec.util.SpawnBuilder;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.testutil.Scratch;
@@ -73,8 +72,7 @@ public final class WorkerFilesHashTest {
             .build();
 
     SortedMap<PathFragment, byte[]> filesWithDigests =
-        WorkerFilesHash.getWorkerFilesWithDigests(
-            spawn, treeArtifact -> ImmutableSortedSet.of(), inputMetadataProvider);
+        WorkerFilesHash.getWorkerFilesWithDigests(spawn, inputMetadataProvider);
 
     assertThat(filesWithDigests)
         .containsExactly(
@@ -89,24 +87,21 @@ public final class WorkerFilesHashTest {
     TreeFileArtifact child2 = TreeFileArtifact.createTreeOutput(tree, "child2");
     byte[] child1Digest = "text1".getBytes(UTF_8);
     byte[] child2Digest = "text2".getBytes(UTF_8);
-    InputMetadataProvider inputMetadataProvider =
-        createMetadataProvider(
-            ImmutableMap.of(
-                child1.getExecPathString(),
-                fileArtifactValue(child1Digest),
-                child2.getExecPathString(),
-                fileArtifactValue(child2Digest)));
-    Spawn spawn = new SpawnBuilder().withTool(tree).build();
-    ArtifactExpander expander =
-        treeArtifact ->
-            treeArtifact.equals(tree)
-                ? ImmutableSortedSet.of(
-                    TreeFileArtifact.createTreeOutput(tree, "child1"),
-                    TreeFileArtifact.createTreeOutput(tree, "child2"))
-                : ImmutableSortedSet.of();
 
+    Spawn spawn = new SpawnBuilder().withTool(tree).build();
+
+    TreeArtifactValue treeArtifactValue =
+        TreeArtifactValue.newBuilder(tree)
+            .putChild(child1, FileArtifactValue.createProxy(child1Digest))
+            .putChild(child2, FileArtifactValue.createProxy(child2Digest))
+            .build();
+
+    FakeActionInputFileCache fakeActionInputFileCache = new FakeActionInputFileCache();
+    fakeActionInputFileCache.putTreeArtifact(tree, treeArtifactValue);
+    fakeActionInputFileCache.put(child1, FileArtifactValue.createProxy(child1Digest));
+    fakeActionInputFileCache.put(child2, FileArtifactValue.createProxy(child2Digest));
     SortedMap<PathFragment, byte[]> filesWithDigests =
-        WorkerFilesHash.getWorkerFilesWithDigests(spawn, expander, inputMetadataProvider);
+        WorkerFilesHash.getWorkerFilesWithDigests(spawn, fakeActionInputFileCache);
 
     assertThat(filesWithDigests)
         .containsExactly(child1.getExecPath(), child1Digest, child2.getExecPath(), child2Digest)
@@ -119,8 +114,7 @@ public final class WorkerFilesHashTest {
     Spawn spawn = new SpawnBuilder().withInputs("file1", "file2").build();
 
     SortedMap<PathFragment, byte[]> filesWithDigests =
-        WorkerFilesHash.getWorkerFilesWithDigests(
-            spawn, treeArtifact -> ImmutableSortedSet.of(), inputMetadataProvider);
+        WorkerFilesHash.getWorkerFilesWithDigests(spawn, inputMetadataProvider);
 
     assertThat(filesWithDigests).isEmpty();
   }
@@ -132,9 +126,7 @@ public final class WorkerFilesHashTest {
 
     assertThrows(
         MissingInputException.class,
-        () ->
-            WorkerFilesHash.getWorkerFilesWithDigests(
-                spawn, treeArtifact -> ImmutableSortedSet.of(), inputMetadataProvider));
+        () -> WorkerFilesHash.getWorkerFilesWithDigests(spawn, inputMetadataProvider));
   }
 
   @Test
@@ -147,9 +139,7 @@ public final class WorkerFilesHashTest {
     IOException thrown =
         assertThrows(
             IOException.class,
-            () ->
-                WorkerFilesHash.getWorkerFilesWithDigests(
-                    spawn, treeArtifact -> ImmutableSortedSet.of(), inputMetadataProvider));
+            () -> WorkerFilesHash.getWorkerFilesWithDigests(spawn, inputMetadataProvider));
 
     assertThat(thrown).isSameInstanceAs(injected);
   }
