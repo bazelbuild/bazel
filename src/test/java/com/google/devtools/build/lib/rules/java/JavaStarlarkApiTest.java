@@ -24,7 +24,6 @@ import static java.util.Arrays.stream;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ObjectArrays;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
@@ -41,7 +40,6 @@ import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaCommonApi;
 import com.google.devtools.build.lib.testutil.TestConstants;
-import com.google.devtools.build.lib.util.FileType;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import com.google.testing.junit.testparameterinjector.TestParameters;
 import com.google.testing.junit.testparameterinjector.TestParameters.TestParametersValues;
@@ -119,83 +117,6 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
       result.add(artifact.getFilename());
     }
     return result.build();
-  }
-
-  /* Test inspired by {@link AbstractJavaLibraryConfiguredTargetTest#testNeverlink}.*/
-  @Test
-  public void javaCommonCompileNeverlink() throws Exception {
-    JavaTestUtil.writeBuildFileForJavaToolchain(scratch);
-    scratch.file(
-        "java/test/BUILD",
-        """
-        load(":custom_rule.bzl", "java_custom_library")
-        load("@rules_java//java:defs.bzl", "java_binary")
-
-        java_binary(
-            name = "plugin",
-            srcs = ["Plugin.java"],
-            main_class = "plugin.start",
-            deps = [":somedep"],
-        )
-
-        java_custom_library(
-            name = "somedep",
-            srcs = ["Dependency.java"],
-            deps = [":eclipse"],
-        )
-
-        java_custom_library(
-            name = "eclipse",
-            srcs = ["EclipseDependency.java"],
-            neverlink = 1,
-        )
-        """);
-    scratch.file(
-        "java/test/custom_rule.bzl",
-        "load('@rules_java//java:defs.bzl', 'java_common')",
-        "def _impl(ctx):",
-        "  output_jar = ctx.actions.declare_file('lib' + ctx.label.name + '.jar')",
-        "  deps = [dep[java_common.provider] for dep in ctx.attr.deps]",
-        "  compilation_provider = java_common.compile(",
-        "    ctx,",
-        "    source_files = ctx.files.srcs,",
-        "    output = output_jar,",
-        "    neverlink = ctx.attr.neverlink,",
-        "    deps = deps,",
-        "    java_toolchain = ctx.attr._java_toolchain[java_common.JavaToolchainInfo],",
-        "  )",
-        "  return [",
-        "      DefaultInfo(",
-        "          files = depset([output_jar]),",
-        "      ),",
-        "      compilation_provider",
-        "  ]",
-        "java_custom_library = rule(",
-        "  implementation = _impl,",
-        "  outputs = {",
-        "    'my_output': 'lib%{name}.jar'",
-        "  },",
-        "  attrs = {",
-        "    'srcs': attr.label_list(allow_files=['.java']),",
-        "    'neverlink': attr.bool(),",
-        "     'deps': attr.label_list(),",
-        "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
-        "  },",
-        "  toolchains = ['" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'],",
-        "  fragments = ['java']",
-        ")");
-
-    setBuildLanguageOptions("--experimental_google_legacy_api");
-    ConfiguredTarget target = getConfiguredTarget("//java/test:plugin");
-    assertThat(
-            actionsTestUtil()
-                .predecessorClosureAsCollection(getFilesToBuild(target), JavaSemantics.JAVA_SOURCE))
-        .containsExactly("Plugin.java", "Dependency.java", "EclipseDependency.java");
-    assertThat(
-            ActionsTestUtil.baseNamesOf(
-                FileType.filter(
-                    getRunfilesSupport(target).getRunfilesSymlinkTargets(), JavaSemantics.JAR)))
-        .isEqualTo("plugin.jar libsomedep.jar");
   }
 
   @Test
