@@ -720,18 +720,12 @@ def _cc_shared_library_impl(ctx):
         link_variables["def_file_path"] = win_def_file.path
         additional_inputs.append(win_def_file)
 
-    cc_runtimes_deps = semantics.get_cc_runtimes(ctx, True)
-    cc_infos = [dep[CcInfo] for dep in cc_runtimes_deps if CcInfo in dep]
-    cc_runtimes_linking_context = cc_common.merge_cc_infos(
-        direct_cc_infos = cc_infos,
-        cc_infos = cc_infos,
-    ).linking_context
     additional_inputs.extend(ctx.files.additional_linker_inputs)
     linking_outputs = cc_common.link(
         actions = ctx.actions,
         feature_configuration = feature_configuration,
         cc_toolchain = cc_toolchain,
-        linking_contexts = [linking_context, cc_runtimes_linking_context],
+        linking_contexts = [linking_context],
         user_link_flags = user_link_flags,
         additional_inputs = additional_inputs,
         name = ctx.label.name,
@@ -1095,8 +1089,7 @@ following:
 </code></pre>"""),
         "_def_parser": semantics.get_def_parser(),
     },
-    toolchains = cc_helper.use_cpp_toolchain() +
-                 semantics.get_runtimes_toolchain(),
+    toolchains = cc_helper.use_cpp_toolchain(),
     fragments = ["cpp"] + semantics.additional_fragments(),
 )
 
