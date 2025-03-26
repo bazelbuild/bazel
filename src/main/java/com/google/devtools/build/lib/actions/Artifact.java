@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationDependencyProvider;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
@@ -270,8 +271,6 @@ public abstract sealed class Artifact
     @VisibleForTesting
     public final void setGeneratingActionKey(ActionLookupData generatingActionKey) {
       Preconditions.checkState(
-          this.owner != OMITTED_FOR_SERIALIZATION, "Owner was omitted for serialization: %s", this);
-      Preconditions.checkState(
           this.owner instanceof ActionLookupKey,
           "Already set generating action key: %s (%s %s)",
           this,
@@ -299,11 +298,9 @@ public abstract sealed class Artifact
 
     @Override
     public final ActionLookupKey getArtifactOwner() {
-      Preconditions.checkState(
-          this.owner != OMITTED_FOR_SERIALIZATION, "Owner was omitted for serialization: %s", this);
-      return owner instanceof ActionLookupData
-          ? getGeneratingActionKey().getActionLookupKey()
-          : (ActionLookupKey) owner;
+      return owner instanceof ActionLookupKey lookupKey
+          ? lookupKey
+          : getGeneratingActionKey().getActionLookupKey();
     }
 
     /**
@@ -323,7 +320,7 @@ public abstract sealed class Artifact
 
     @Override
     public final String toDebugString() {
-      if (hasGeneratingActionKey() || owner == OMITTED_FOR_SERIALIZATION) {
+      if (hasGeneratingActionKey()) {
         return super.toDetailString() + " (" + owner + ")";
       }
       return super.toDebugString();
@@ -362,34 +359,33 @@ public abstract sealed class Artifact
     SourceArtifact getSourceArtifact(PathFragment execPath, Root root, ArtifactOwner owner);
 
     /**
-     * Whether to include the generating action key when serializing the given derived artifact.
+     * Whether to include the generating action key when serializing the given derived artifact in
+     * the given context.
      *
-     * <p>If {@code false} is returned, upon deserialization the generating action key is replaced
-     * with the marker {@link #OMITTED_FOR_SERIALIZATION}. The artifact is then only intended for
-     * use with {@link #equalsWithoutOwner} or {@link OwnerlessArtifactWrapper} - any operation
-     * accessing the generating action key will fail.
+     * <p>If {@code false} is returned, {@link #getOmittedGeneratingActionKey} should be overridden
+     * to provide the generating action key upon deserialization.
      */
-    default boolean includeGeneratingActionKey(DerivedArtifact artifact) {
+    default boolean includeGeneratingActionKey(
+        DerivedArtifact artifact, SerializationDependencyProvider context) {
       return true;
     }
 
-    default DerivedArtifact intern(DerivedArtifact original) {
+    /**
+     * Returns the generating action key to use when one was not serialized.
+     *
+     * <p>Only called if {@link #includeGeneratingActionKey} returned {@code false} at serialization
+     * time.
+     */
+    default ActionLookupData getOmittedGeneratingActionKey(
+        SerializationDependencyProvider context) {
+      throw new UnsupportedOperationException();
+    }
+
+    default DerivedArtifact intern(
+        DerivedArtifact original, SerializationDependencyProvider context) {
       return original;
     }
   }
-
-  /**
-   * Marker stored in place of the generating action key for deserialized artifacts when {@link
-   * ArtifactSerializationContext#includeGeneratingActionKey} is {@code false}.
-   */
-  @SerializationConstant @VisibleForSerialization
-  static final Object OMITTED_FOR_SERIALIZATION =
-      new Object() {
-        @Override
-        public String toString() {
-          return "OMITTED_FOR_SERIALIZATION";
-        }
-      };
 
   public final Path getPath() {
     return root.getRoot().getRelative(getRootRelativePath());
@@ -450,7 +446,7 @@ public abstract sealed class Artifact
   }
 
   /** Checks whether this artifact is of one of the types in the supplied set. */
-  public boolean isFileType(FileTypeSet fileTypeSet) {
+  final boolean isFileType(FileTypeSet fileTypeSet) {
     return fileTypeSet.matches(filePathForFileTypeMatcher());
   }
 
@@ -561,10 +557,6 @@ public abstract sealed class Artifact
 
   public final String getRootRelativePathString() {
     return getRootRelativePath().getPathString();
-  }
-
-  public final String getRepositoryRelativePathString() {
-    return getRepositoryRelativePath().getPathString();
   }
 
   @Override
@@ -967,11 +959,10 @@ public abstract sealed class Artifact
      * bazel-out/:archived_tree_artifacts/k8-fastbuild/bin/directory.zip}.
      */
     public static ArchivedTreeArtifact createForTree(SpecialArtifact treeArtifact) {
-      return createInternal(
+      return createWithCustomDerivedTreeRoot(
           treeArtifact,
           DEFAULT_DERIVED_TREE_ROOT,
-          treeArtifact.getRootRelativePath().replaceName(treeArtifact.getFilename() + ".zip"),
-          treeArtifact.getGeneratingActionKey());
+          treeArtifact.getRootRelativePath().replaceName(treeArtifact.getFilename() + ".zip"));
     }
 
     /**
@@ -988,23 +979,13 @@ public abstract sealed class Artifact
      */
     public static ArchivedTreeArtifact createWithCustomDerivedTreeRoot(
         SpecialArtifact treeArtifact, PathFragment derivedTreeRoot, PathFragment rootRelativePath) {
-      return createInternal(
-          treeArtifact, derivedTreeRoot, rootRelativePath, treeArtifact.getGeneratingActionKey());
-    }
-
-    @VisibleForSerialization
-    static ArchivedTreeArtifact createInternal(
-        SpecialArtifact treeArtifact,
-        PathFragment derivedTreeRoot,
-        PathFragment rootRelativePath,
-        Object generatingActionKey) {
       ArtifactRoot treeRoot = treeArtifact.getRoot();
       PathFragment archiveRoot = embedDerivedTreeRoot(treeRoot.getExecPath(), derivedTreeRoot);
       return new ArchivedTreeArtifact(
           treeArtifact,
           ArtifactRoot.asDerivedRoot(getExecRoot(treeRoot), RootType.Output, archiveRoot),
           archiveRoot.getRelative(rootRelativePath),
-          generatingActionKey);
+          treeArtifact.getGeneratingActionKey());
     }
 
     /**

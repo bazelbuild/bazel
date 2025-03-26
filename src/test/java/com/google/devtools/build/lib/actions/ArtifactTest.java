@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.actions;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.common.truth.Truth.assertWithMessage;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.Mockito.mock;
 
@@ -27,7 +26,6 @@ import com.google.common.testing.GcFinalization;
 import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactSerializationContext;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
-import com.google.devtools.build.lib.actions.Artifact.OwnerlessArtifactWrapper;
 import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
@@ -45,6 +43,7 @@ import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueServ
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationDependencyProvider;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationDepsUtils;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.starlarkbuildapi.FileRootApi;
@@ -222,8 +221,19 @@ public final class ArtifactTest {
           }
 
           @Override
-          public boolean includeGeneratingActionKey(DerivedArtifact artifact) {
-            return includeGeneratingActionKey;
+          public boolean includeGeneratingActionKey(
+              DerivedArtifact artifact, SerializationDependencyProvider context) {
+            return includeGeneratingActionKey
+                || !artifact
+                    .getGeneratingActionKey()
+                    .equals(ActionsTestUtil.NULL_ACTION_LOOKUP_DATA);
+          }
+
+          @Override
+          public ActionLookupData getOmittedGeneratingActionKey(
+              SerializationDependencyProvider context) {
+            assertThat(includeGeneratingActionKey).isFalse();
+            return ActionsTestUtil.NULL_ACTION_LOOKUP_DATA;
           }
         };
 
@@ -279,30 +289,6 @@ public final class ArtifactTest {
         tester.addCodec(codec);
       }
       tester.makeMemoizingAndAllowFutureBlocking(/* allowFutureBlocking= */ true);
-    }
-
-    if (!includeGeneratingActionKey) {
-      tester.<DerivedArtifact>setVerificationFunction(
-          (original, deserialized) -> {
-            String debug =
-                String.format(
-                    "original=%s\ndeseriaized=%s",
-                    original.toDebugString(), deserialized.toDebugString());
-            assertWithMessage(debug).that(deserialized.hasGeneratingActionKey()).isFalse();
-            assertWithMessage(debug).that(deserialized.equalsWithoutOwner(original)).isTrue();
-            assertThat(new OwnerlessArtifactWrapper(deserialized))
-                .isEqualTo(new OwnerlessArtifactWrapper(original));
-
-            assertThrows(debug, RuntimeException.class, deserialized::getArtifactOwner);
-            assertThrows(debug, RuntimeException.class, deserialized::getGeneratingActionKey);
-            assertThrows(debug, RuntimeException.class, deserialized::getOwner);
-            assertThrows(debug, RuntimeException.class, deserialized::getOwnerLabel);
-            assertThrows(debug, RuntimeException.class, () -> deserialized.equals(original));
-            assertThrows(
-                debug,
-                RuntimeException.class,
-                () -> deserialized.setGeneratingActionKey(original.getGeneratingActionKey()));
-          });
     }
 
     tester.runTests();

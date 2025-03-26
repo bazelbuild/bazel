@@ -224,9 +224,8 @@ public final class Actions {
     for (ActionAnalysisMetadata action : actions) {
       ActionLookupData generatingActionKey =
           // Runfiles tree actions have the unfortunate property that their RichArtifactData
-          // contains a nested set of Artifacts, which requires Artifact.equals() to work. So we
-          // need an unshareable action lookup data because the shareable version would cause the
-          // deserialized Artifacts to have OMITTED_FOR_SERIALIZATION as their owner.
+          // contains a NestedSet of Artifacts, which we currently deem to be not worth serializing.
+          // TODO: b/401575099 - See if we can factor out the NestedSet and remove this exclusion.
           dependsOnBuildId(action) || action instanceof RunfilesTreeAction
               ? ActionLookupData.createUnshareable(actionLookupKey, actionIndex)
               : ActionLookupData.create(actionLookupKey, actionIndex);
