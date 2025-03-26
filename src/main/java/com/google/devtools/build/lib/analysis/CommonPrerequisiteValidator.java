@@ -200,14 +200,19 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
       }
     }
 
-    PackageIdentifier ruleTargetLocation =
-        declaringMacro != null
-            // Macro's location.
-            ? declaringMacro.getMacroClass().getDefiningBzlLabel().getPackageIdentifier()
-            // BUILD file's location.
-            : pkg.getPackageIdentifier();
-
-    return isVisibleToLocation(prerequisite, ruleTargetLocation);
+    if (declaringMacro != null) {
+      if (declaringMacro.getMacroClass().isFinalizer()
+          && isVisibleToLocation(prerequisite, pkg.getPackageIdentifier())) {
+        // Finalizers, unlike ordinary symbolic macros, are also granted the same visibility
+        // privileges as the consuming package's BUILD file.
+        return true;
+      }
+      PackageIdentifier macroLocation =
+          declaringMacro.getMacroClass().getDefiningBzlLabel().getPackageIdentifier();
+      return isVisibleToLocation(prerequisite, macroLocation);
+    } else {
+      return isVisibleToLocation(prerequisite, pkg.getPackageIdentifier());
+    }
   }
 
   /**
