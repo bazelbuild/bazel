@@ -70,7 +70,6 @@ final class ParamDescriptor {
     String disabledByFlag = null;
     if (!starlarkSemantics.isFeatureEnabledBasedOnTogglingFlags(
         param.enableOnlyWithFlag(), param.disableWithFlag())) {
-      defaultExpr = param.valueWhenDisabled();
       disabledByFlag =
           !param.enableOnlyWithFlag().isEmpty()
               ? param.enableOnlyWithFlag()

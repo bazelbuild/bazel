@@ -20,19 +20,21 @@ import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkValue;
 
 /**
- * Test case for a StarlarkMethod method which has a parameter which has a "disabled value" set but
- * is always-on.
+ * Test case for a StarlarkMethod method which has a parameter which may be disabled with a semantic
+ * flag but has no default value.
  */
-public class DisabledValueParamNoToggle implements StarlarkValue {
+public class ToggledParamNoDefaultValue implements StarlarkValue {
+
+  private static final String FOO = "-foo";
 
   @StarlarkMethod(
-      name = "no_toggle_method",
+      name = "no_default_value_method",
       documented = false,
       parameters = {
         @Param(name = "one", named = true, positional = true),
-        @Param(name = "two", named = true, valueWhenDisabled = "3", positional = true)
+        @Param(name = "two", named = true, enableOnlyWithFlag = FOO, positional = true)
       })
-  public Integer noToggleMethod(StarlarkInt one, StarlarkInt two) {
+  public Integer noDisabledValueMethod(StarlarkInt one, StarlarkInt two) {
     return 42;
   }
 }
