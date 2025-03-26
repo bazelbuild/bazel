@@ -1503,7 +1503,6 @@ public interface CcModuleApi<
             named = true,
             disableWithFlag = BuildLanguageOptions.INCOMPATIBLE_REQUIRE_LINKER_INPUT_CC_API,
             defaultValue = "None",
-            valueWhenDisabled = "None",
             allowedTypes = {@ParamType(type = NoneType.class), @ParamType(type = Sequence.class)}),
         @Param(
             name = "user_link_flags",
@@ -1512,7 +1511,6 @@ public interface CcModuleApi<
             named = true,
             disableWithFlag = BuildLanguageOptions.INCOMPATIBLE_REQUIRE_LINKER_INPUT_CC_API,
             defaultValue = "None",
-            valueWhenDisabled = "None",
             allowedTypes = {@ParamType(type = NoneType.class), @ParamType(type = Sequence.class)}),
         @Param(
             name = "additional_inputs",
@@ -1521,7 +1519,6 @@ public interface CcModuleApi<
             named = true,
             disableWithFlag = BuildLanguageOptions.INCOMPATIBLE_REQUIRE_LINKER_INPUT_CC_API,
             defaultValue = "None",
-            valueWhenDisabled = "None",
             allowedTypes = {@ParamType(type = NoneType.class), @ParamType(type = Sequence.class)}),
         @Param(
             name = "extra_link_time_library",

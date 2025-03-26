@@ -444,8 +444,7 @@ public class ModuleFileGlobals {
             named = true,
             positional = false,
             defaultValue = "False",
-            enableOnlyWithFlag = "-experimental_isolated_extension_usages",
-            valueWhenDisabled = "False"),
+            enableOnlyWithFlag = "-experimental_isolated_extension_usages"),
       },
       useStarlarkThread = true)
   public ModuleExtensionProxy useExtension(
