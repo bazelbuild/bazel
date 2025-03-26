@@ -41,6 +41,19 @@ cc_import(
     static_library = ":static",
 )
 
+cc_import(
+    name = "static_import_strip_include_prefix",
+    hdrs = ["nested/stripped_bar.h"],
+    static_library = ":static",
+    strip_include_prefix = "nested",
+)
+
+cc_test(
+    name = "test_static_import_strip_include_prefix",
+    srcs = ["test_static_import_strip_include_prefix.cc"],
+    deps = [":static_import_strip_include_prefix"],
+)
+
 cc_test(
     name = "test",
     srcs = ["test.cc"],
