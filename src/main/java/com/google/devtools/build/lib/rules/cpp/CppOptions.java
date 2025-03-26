@@ -944,20 +944,6 @@ public class CppOptions extends FragmentOptions {
       help = "If enabled, give distinguishing mnemonic to header processing actions")
   public boolean useCppCompileHeaderMnemonic;
 
-  // TODO: When moving this flag to the graveyard, also delete
-  // tools/cpp/osx_cc_wrapper.sh.tpl and make tools/cpp/linux_cc_wrapper.sh.tpl
-  // the generic wrapper for header parsing on all Unix platforms.
-  @Option(
-      name = "incompatible_macos_set_install_name",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          "Whether to explicitly set `-install_name` when creating dynamic libraries. "
-              + "See https://github.com/bazelbuild/bazel/issues/12370")
-  public boolean macosSetInstallName;
-
   @Option(
       name = "experimental_use_cpp_compile_action_args_params_file",
       defaultValue = "false",
