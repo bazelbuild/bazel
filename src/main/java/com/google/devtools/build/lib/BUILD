@@ -236,7 +236,9 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/clock",
+        "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
         "//src/main/java/com/google/devtools/common/options",
+        "//src/main/protobuf:failure_details_java_proto",
         "//third_party:auto_value",
         "//third_party:flogger",
         "//third_party:guava",

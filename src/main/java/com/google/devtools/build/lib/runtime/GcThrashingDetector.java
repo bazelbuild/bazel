@@ -26,6 +26,11 @@ import com.google.devtools.build.lib.bugreport.Crash;
 import com.google.devtools.build.lib.bugreport.CrashContext;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.clock.Clock;
+import com.google.devtools.build.lib.server.FailureDetails;
+import com.google.devtools.build.lib.server.FailureDetails.Crash.Code;
+import com.google.devtools.build.lib.server.FailureDetails.Crash.OomCauseCategory;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayDeque;
@@ -147,7 +152,18 @@ class GcThrashingDetector {
                         + " occupied after %s consecutive full GCs within the past %s seconds.",
                     threshold, count, period.toSeconds()));
         logger.atInfo().log("Calling handleCrash");
-        bugReporter.handleCrash(Crash.from(oom), CrashContext.halt());
+        bugReporter.handleCrash(
+            Crash.from(
+                oom,
+                DetailedExitCode.of(
+                    FailureDetail.newBuilder()
+                        .setMessage(oom.getMessage())
+                        .setCrash(
+                            FailureDetails.Crash.newBuilder()
+                                .setCode(Code.CRASH_OOM)
+                                .setOomCauseCategory(OomCauseCategory.GC_THRASHING))
+                        .build())),
+            CrashContext.halt());
       }
     }
   }

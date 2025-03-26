@@ -336,6 +336,30 @@ message Crash {
   // CRASH_OOM was chosen because an OutOfMemoryError was detected prior to the
   // crash.
   bool oom_detector_override = 3;
+
+  enum OomCauseCategory {
+    // This was not an OOM.
+    NONE = 0;
+
+    // Normal OOM noticed in Blaze's app-land code.
+    ORGANIC = 1;
+
+    // Originally a crash, but changed to an OOM because Blaze's native code was
+    // told by the JVM there was an OOM, and then Blaze's app-land code assumed
+    // the crash was a symptom of that OOM.
+    //
+    // Conveys the same thing that the field oom_detector_override does.
+    OOM_DETECTOR_OVERRIDE = 2;
+
+    // Blaze gave up and pretended it OOM'd because its post-full-GC heap size
+    // was too big after a number of full GCs within a time window.
+    //
+    // See --gc_thrashing_threshold and --gc_thrashing_limits.
+    GC_THRASHING = 3;
+  }
+
+  // If Blaze OOM'd (code = CRASH_OOM), the category of cause of that OOM.
+  OomCauseCategory oom_cause_category = 4;
 }
 
 message Throwable {

@@ -26,6 +26,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.bugreport.Crash;
 import com.google.devtools.build.lib.runtime.GcThrashingDetector.Limit;
+import com.google.devtools.build.lib.server.FailureDetails.Crash.OomCauseCategory;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.testing.junit.testparameterinjector.TestParameter;
@@ -193,8 +194,11 @@ public final class GcThrashingDetectorTest {
   private OutOfMemoryError verifyOom() {
     ArgumentCaptor<Crash> crashArgument = ArgumentCaptor.forClass(Crash.class);
     verify(bugReporter).handleCrash(crashArgument.capture(), any());
-    Throwable oom = crashArgument.getValue().getThrowable();
+    Crash crash = crashArgument.getValue();
+    Throwable oom = crash.getThrowable();
     assertThat(oom).isInstanceOf(OutOfMemoryError.class);
+    assertThat(crash.getDetailedExitCode().getFailureDetail().getCrash().getOomCauseCategory())
+        .isEqualTo(OomCauseCategory.GC_THRASHING);
     return (OutOfMemoryError) oom;
   }
 
