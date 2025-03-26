@@ -61,7 +61,7 @@ interface SandboxedSpawn extends DescribableExecutionUnit {
    *
    * @throws IOException
    */
-  void copyOutputs(Path execRoot) throws IOException;
+  void copyOutputs(Path execRoot) throws IOException, InterruptedException;
 
   /** Deletes the sandbox directory. */
   void delete();
