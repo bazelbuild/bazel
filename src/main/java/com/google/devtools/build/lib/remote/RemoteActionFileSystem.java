@@ -383,7 +383,7 @@ public class RemoteActionFileSystem extends AbstractFileSystem
     try {
       downloadFileIfRemote(path);
     } catch (BulkTransferException e) {
-      var newlyLostInputs = e.getLostArtifacts(inputArtifactData);
+      var newlyLostInputs = e.getLostArtifacts(inputArtifactData::getInput);
       if (!newlyLostInputs.isEmpty()) {
         lostInputs.add(newlyLostInputs);
       }

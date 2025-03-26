@@ -1238,7 +1238,7 @@ public final class RemoteModule extends BlazeModule {
         ensureToplevelArtifacts(outputs, metadataProvider, getGeneratingAction);
       } catch (IOException e) {
         if (e instanceof BulkTransferException bulkTransferException) {
-          var lostArtifacts = bulkTransferException.getLostArtifacts(metadataProvider);
+          var lostArtifacts = bulkTransferException.getLostArtifacts(metadataProvider::getInput);
           if (!lostArtifacts.isEmpty()) {
             return lostArtifacts;
           }

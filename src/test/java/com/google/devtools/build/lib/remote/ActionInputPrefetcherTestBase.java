@@ -878,7 +878,7 @@ public abstract class ActionInputPrefetcherTestBase {
                 wait(
                     prefetcher.prefetchFilesInterruptibly(
                         action, metadata.keySet(), metadata::get, Priority.MEDIUM, Reason.INPUTS)));
-    assertThat(e.getLostArtifacts(metadataProvider).byDigest())
+    assertThat(e.getLostArtifacts(metadataProvider::getInput).byDigest())
         .containsExactly(
             DigestUtil.toString(
                 new DigestUtil(SyscallCache.NO_CACHE, HASH_FUNCTION).computeAsUtf8("hello world")),

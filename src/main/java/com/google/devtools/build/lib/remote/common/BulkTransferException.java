@@ -17,17 +17,15 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSetMultimap;
 import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ImportantOutputHandler.LostArtifacts;
-import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
@@ -83,19 +81,18 @@ public class BulkTransferException extends IOException {
    * Returns a {@link LostArtifacts} instance that is non-empty if and only if all suppressed
    * exceptions are caused by cache misses.
    */
-  public LostArtifacts getLostArtifacts(InputMetadataProvider metadataProvider) {
+  public LostArtifacts getLostArtifacts(Function<String, ActionInput> actionInputResolver) {
     if (!allCausedByCacheNotFoundException(this)) {
       return LostArtifacts.EMPTY;
     }
 
     var byDigestBuilder = ImmutableMap.<String, ActionInput>builder();
-    var owners = ImmutableSetMultimap.<ActionInput, Artifact>builder();
     for (var suppressed : getSuppressed()) {
       CacheNotFoundException e = (CacheNotFoundException) suppressed;
       var missingDigest = e.getMissingDigest();
       var execPath = e.getExecPath();
       checkNotNull(execPath, "exec path not known for action input with digest %s", missingDigest);
-      var actionInput = metadataProvider.getInput(execPath.getPathString());
+      var actionInput = actionInputResolver.apply(execPath.getPathString());
       checkNotNull(
           actionInput, "ActionInput not found for filename %s in CacheNotFoundException", execPath);
       byDigestBuilder.put(DigestUtil.toString(missingDigest), actionInput);

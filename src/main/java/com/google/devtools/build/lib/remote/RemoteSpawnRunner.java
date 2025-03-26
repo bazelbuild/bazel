@@ -594,7 +594,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
     // remotely, try to regenerate the lost inputs. This doesn't make sense for outputs of the
     // current action.
     if (reason == FailureReason.UPLOAD && cause instanceof BulkTransferException e) {
-      e.getLostArtifacts(context.getInputMetadataProvider()).throwIfNotEmpty();
+      e.getLostArtifacts(context.getInputMetadataProvider()::getInput).throwIfNotEmpty();
     }
     if (remoteOptions.remoteLocalFallback && !RemoteRetrierUtils.causedByExecTimeout(cause)) {
       return execLocallyAndUpload(action, spawn, context, uploadLocalResults);
