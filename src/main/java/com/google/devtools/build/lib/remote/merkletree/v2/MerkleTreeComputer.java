@@ -15,6 +15,7 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -63,7 +64,7 @@ public final class MerkleTreeComputer {
       ImmutableList.of(Map.entry(PathFragment.EMPTY_FRAGMENT, VirtualActionInput.EMPTY_MARKER));
   private static final PathFragment ROOT_FAKE_PATH_SEGMENT = PathFragment.create("root");
 
-  private static final AsyncCache<FileArtifactValue, MerkleTree> directoryDigestCache =
+  private static final AsyncCache<FileArtifactValue, MerkleTree> subTreeCache =
       Caffeine.newBuilder().weakKeys().buildAsync();
 
   private final DigestUtil digestUtil;
@@ -71,12 +72,45 @@ public final class MerkleTreeComputer {
 
   public MerkleTreeComputer(DigestUtil digestUtil) {
     this.digestUtil = digestUtil;
-    this.emptyTree = new MerkleTree(digestUtil.compute(new byte[0]), 0, 0, ImmutableMap.of());
+    var emptyBlob = new byte[0];
+    var emptyDigest = digestUtil.compute(emptyBlob);
+    this.emptyTree =
+        new MerkleTree(
+            new MerkleTreeRoot(emptyDigest, 0, 0), ImmutableMap.of(emptyDigest, emptyBlob));
   }
 
+  private record MerkleTreeRoot(Digest rootDigest, long inputFiles, long inputBytes) {}
+
   // TODO: Drop blobs after they have been uploaded.
-  public record MerkleTree(
-      Digest rootDigest, long inputFiles, long inputBytes, ImmutableMap<Digest, Object> blobs) {
+  public static final class MerkleTree {
+    private final MerkleTreeRoot root;
+    private final ImmutableMap<Digest, Object> blobs;
+
+    private MerkleTree(MerkleTreeRoot root, ImmutableMap<Digest, Object> blobs) {
+      this.root = root;
+      this.blobs = blobs;
+    }
+
+    public Digest rootDigest() {
+      return root.rootDigest();
+    }
+
+    public long inputFiles() {
+      return root.inputFiles;
+    }
+
+    public long inputBytes() {
+      return root.inputBytes;
+    }
+
+    public ImmutableSet<Digest> allDigests() {
+      return blobs.keySet();
+    }
+
+    ImmutableMap<Digest, Object> blobs() {
+      return blobs;
+    }
+
     public Optional<ListenableFuture<Void>> upload(BlobUploader uploader, Digest digest) {
       return switch (blobs.get(digest)) {
         case byte[] data -> Optional.of(uploader.upload(digest, data));
@@ -204,7 +238,8 @@ public final class MerkleTreeComputer {
           var topDirectory = directoryStack.peek();
           if (topDirectory == null) {
             return new MerkleTree(
-                directoryBlobDigest, inputFiles, inputBytes, blobs.buildKeepingLast());
+                new MerkleTreeRoot(directoryBlobDigest, inputFiles, inputBytes),
+                blobs.buildKeepingLast());
           }
           topDirectory
               .addDirectoriesBuilder()
@@ -232,20 +267,20 @@ public final class MerkleTreeComputer {
           var subTree =
               computeForTreeArtifactIfAbsent(
                   treeArtifactValue, rootIsTool, metadataProvider, artifactPathResolver);
-          currentDirectory.addDirectoriesBuilder().setName(name).setDigest(subTree.rootDigest);
+          currentDirectory.addDirectoriesBuilder().setName(name).setDigest(subTree.rootDigest());
           blobs.putAll(subTree.blobs());
-          inputFiles += subTree.inputFiles;
-          inputBytes += subTree.inputBytes;
+          inputFiles += subTree.inputFiles();
+          inputBytes += subTree.inputBytes();
         }
         case Artifact runfilesTreeArtifact when runfilesTreeArtifact.isRunfilesTree() -> {
           var runfilesArtifactValue = metadataProvider.getRunfilesMetadata(runfilesTreeArtifact);
           var subTree =
               computeForRunfilesTreeIfAbsent(
                   runfilesArtifactValue, metadataProvider, artifactPathResolver);
-          currentDirectory.addDirectoriesBuilder().setName(name).setDigest(subTree.rootDigest);
+          currentDirectory.addDirectoriesBuilder().setName(name).setDigest(subTree.rootDigest());
           blobs.putAll(subTree.blobs());
-          inputFiles += subTree.inputFiles;
-          inputBytes += subTree.inputBytes;
+          inputFiles += subTree.inputFiles();
+          inputBytes += subTree.inputBytes();
         }
         case Artifact symlink when symlink.isSymlink() -> {
           Path symlinkPath = artifactPathResolver.toPath(symlink);
@@ -275,10 +310,10 @@ public final class MerkleTreeComputer {
                     isToolInput.test(path),
                     metadataProvider,
                     artifactPathResolver);
-            currentDirectory.addDirectoriesBuilder().setName(name).setDigest(subTree.rootDigest);
+            currentDirectory.addDirectoriesBuilder().setName(name).setDigest(subTree.rootDigest());
             blobs.putAll(subTree.blobs());
-            inputFiles += subTree.inputFiles;
-            inputBytes += subTree.inputBytes;
+            inputFiles += subTree.inputFiles();
+            inputBytes += subTree.inputBytes();
           } else {
             var digest = DigestUtil.buildDigest(metadata.getDigest(), metadata.getSize());
             addFile(currentDirectory, name, digest, nodeProperties);
@@ -359,7 +394,7 @@ public final class MerkleTreeComputer {
       ArtifactPathResolver artifactPathResolver)
       throws IOException, InterruptedException {
     try {
-      return directoryDigestCache
+      return subTreeCache
           .get(
               metadata,
               unused -> {

@@ -136,7 +136,7 @@ public class RemoteExecutionCache extends CombinedCache {
       throws IOException, InterruptedException {
     Iterable<Digest> merkleTreeAllDigests;
     try (SilentCloseable s = Profiler.instance().profile("merkleTree.getAllDigests()")) {
-      merkleTreeAllDigests = merkleTree.blobs().keySet();
+      merkleTreeAllDigests = merkleTree.allDigests();
     }
     Iterable<Digest> allDigests = Iterables.concat(merkleTreeAllDigests, additionalInputs.keySet());
 
