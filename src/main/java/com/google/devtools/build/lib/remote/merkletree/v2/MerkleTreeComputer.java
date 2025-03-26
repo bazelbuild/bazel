@@ -1,6 +1,7 @@
 package com.google.devtools.build.lib.remote.merkletree.v2;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSortedMap.toImmutableSortedMap;
 import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
 
@@ -12,10 +13,10 @@ import com.github.benmanes.caffeine.cache.AsyncCache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.common.base.Predicates;
 import com.google.common.base.Throwables;
+import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
@@ -24,7 +25,6 @@ import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileStateType;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
-import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.RunfilesArtifactValue;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.StaticInputMetadataProvider;
@@ -100,21 +100,19 @@ public final class MerkleTreeComputer {
       InputMetadataProvider metadataProvider,
       ArtifactPathResolver artifactPathResolver)
       throws IOException, InterruptedException {
-    TreeMap<PathFragment, ActionInput> inputMap = new TreeMap<>();
-    PathMapper pathMapper = spawn.getPathMapper();
-    for (ActionInput input : spawn.getInputFiles().toList()) {
-      inputMap.put(pathMapper.map(input.getExecPath()), input);
-    }
+    // Reduce peak memory usage by avoiding the allocation of a TreeMap.
+    var spawnInputs = spawn.getInputFiles().toList();
     // Add output directories to inputs so that they are created as empty directories by the
     // executor. The spec only requires the executor to create the parent directory of an output
     // directory, which differs from the behavior of both local and sandboxed execution.
-    for (ActionInput output : spawn.getOutputFiles()) {
-      if (output instanceof Artifact artifact && artifact.isTreeArtifact()) {
-        var mappedPath = pathMapper.map(artifact.getExecPath());
-        inputMap.put(mappedPath, new InputDirectory(mappedPath));
-      }
-    }
-    return build(inputMap, isToolInput, metadataProvider, artifactPathResolver);
+    var outputDirectories =
+        spawn.getOutputFiles().stream()
+            .filter(
+                output ->
+                    output instanceof Artifact artifact && artifact.isTreeArtifact())
+            .map(outputDir -> new InputDirectory(outputDir.getExecPath()))
+            .collect(toImmutableList());
+    return build(ImmutableList.sortedCopyOf(), isToolInput, metadataProvider, artifactPathResolver);
   }
 
   public MerkleTree buildForFiles(SortedMap<PathFragment, Path> inputs)
@@ -128,14 +126,16 @@ public final class MerkleTreeComputer {
       absolutePathResolver = ArtifactPathResolver.forExecRoot(absoluteRoot);
     }
     return build(
-        Maps.transformValues(inputs, path -> ActionInputHelper.fromPath(path.asFragment())),
+        Collections2.transform(
+            inputs.entrySet(),
+            e -> Map.entry(e.getKey(), ActionInputHelper.fromPath(e.getValue().asFragment()))),
         Predicates.alwaysFalse(),
         StaticInputMetadataProvider.empty(),
         absolutePathResolver);
   }
 
   private MerkleTree build(
-      SortedMap<PathFragment, ? extends ActionInput> inputs,
+      Collection<Map.Entry<PathFragment, ? extends ActionInput>> inputs,
       Predicate<PathFragment> isToolInput,
       InputMetadataProvider metadataProvider,
       ArtifactPathResolver artifactPathResolver)
@@ -156,7 +156,7 @@ public final class MerkleTreeComputer {
     directoryStack.push(Directory.newBuilder());
 
     PathFragment currentParent = PathFragment.EMPTY_FRAGMENT;
-    for (var entry : Iterables.concat(inputs.entrySet(), END_OF_INPUTS_SENTINEL)) {
+    for (var entry : Iterables.concat(inputs, END_OF_INPUTS_SENTINEL)) {
       if (Thread.interrupted()) {
         throw new InterruptedException();
       }
