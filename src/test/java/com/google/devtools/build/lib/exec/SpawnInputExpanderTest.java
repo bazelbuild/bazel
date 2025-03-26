@@ -19,7 +19,6 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
@@ -91,14 +90,8 @@ public final class SpawnInputExpanderTest {
     Runfiles runfiles = new Runfiles.Builder("workspace").addArtifact(fileset).build();
     RunfilesTree runfilesTree =
         AnalysisTestUtil.createRunfilesTree(PathFragment.create("runfiles"), runfiles);
-
-    FilesetOutputTree filesetOutputTree =
-        FilesetOutputTree.create(
-            ImmutableList.of(
-                FilesetOutputSymlink.createForTesting(
-                    PathFragment.create("zizz"),
-                    PathFragment.create("/foo/fake_exec/xyz/zizz"),
-                    PathFragment.create("/foo/fake_exec/"))));
+    FilesetOutputSymlink link = filesetSymlink("zizz", "xyz/zizz");
+    FilesetOutputTree filesetOutputTree = FilesetOutputTree.create(ImmutableList.of(link));
 
     FakeActionInputFileCache fakeActionInputFileCache = new FakeActionInputFileCache();
     fakeActionInputFileCache.putFileset(fileset, filesetOutputTree);
@@ -111,8 +104,7 @@ public final class SpawnInputExpanderTest {
 
     assertThat(inputMap)
         .containsExactly(
-            PathFragment.create("runfiles/workspace/foo/biz/fs_out/zizz"),
-            ActionInputHelper.fromPath("xyz/zizz"));
+            PathFragment.create("runfiles/workspace/foo/biz/fs_out/zizz"), link.target());
   }
 
   @Test
@@ -457,56 +449,26 @@ public final class SpawnInputExpanderTest {
   }
 
   @Test
-  public void testManifestWithSingleFile() {
+  public void fileset() {
+    FilesetOutputSymlink link1 = filesetSymlink("foo/bar", "dir/file1");
+    FilesetOutputSymlink link2 = filesetSymlink("foo/baz", "dir/file2");
     Artifact fileset = createFileset("out");
     ImmutableMap<Artifact, FilesetOutputTree> filesetMappings =
-        ImmutableMap.of(
-            fileset,
-            FilesetOutputTree.create(ImmutableList.of(filesetSymlink("foo/bar", "/dir/file"))));
+        ImmutableMap.of(fileset, FilesetOutputTree.create(ImmutableList.of(link1, link2)));
 
     SpawnInputExpander.addFilesetManifests(filesetMappings, inputMap, PathFragment.EMPTY_FRAGMENT);
 
     assertThat(inputMap)
         .containsExactly(
-            PathFragment.create("out/foo/bar"), ActionInputHelper.fromPath("/dir/file"));
+            PathFragment.create("out/foo/bar"), link1.target(),
+            PathFragment.create("out/foo/baz"), link2.target());
   }
 
-  @Test
-  public void testManifestWithTwoFiles() {
-    Artifact fileset = createFileset("out");
-    ImmutableMap<Artifact, FilesetOutputTree> filesetMappings =
-        ImmutableMap.of(
-            fileset,
-            FilesetOutputTree.create(
-                ImmutableList.of(
-                    filesetSymlink("foo/bar", "/dir/file"),
-                    filesetSymlink("foo/baz", "/dir/file"))));
-
-    SpawnInputExpander.addFilesetManifests(filesetMappings, inputMap, PathFragment.EMPTY_FRAGMENT);
-
-    assertThat(inputMap)
-        .containsExactly(
-            PathFragment.create("out/foo/bar"), ActionInputHelper.fromPath("/dir/file"),
-            PathFragment.create("out/foo/baz"), ActionInputHelper.fromPath("/dir/file"));
-  }
-
-  @Test
-  public void testManifestWithDirectory() {
-    Artifact fileset = createFileset("out");
-    ImmutableMap<Artifact, FilesetOutputTree> filesetMappings =
-        ImmutableMap.of(
-            fileset,
-            FilesetOutputTree.create(ImmutableList.of(filesetSymlink("foo/bar", "/some"))));
-
-    SpawnInputExpander.addFilesetManifests(filesetMappings, inputMap, PathFragment.EMPTY_FRAGMENT);
-
-    assertThat(inputMap)
-        .containsExactly(PathFragment.create("out/foo/bar"), ActionInputHelper.fromPath("/some"));
-  }
-
-  private static FilesetOutputSymlink filesetSymlink(String from, String to) {
-    return FilesetOutputSymlink.createForTesting(
-        PathFragment.create(from), PathFragment.create(to), PathFragment.create("/root"));
+  private FilesetOutputSymlink filesetSymlink(String from, String to) {
+    return new FilesetOutputSymlink(
+        PathFragment.create(from),
+        ActionsTestUtil.createArtifact(rootDir, to),
+        FileArtifactValue.createForNormalFile(new byte[] {1}, null, 1));
   }
 
   private SpecialArtifact createFileset(String execPath) {

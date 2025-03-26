@@ -52,12 +52,10 @@ public final class SymlinkTreeStrategy implements SymlinkTreeActionContext {
       (artifact) -> artifact == null ? null : artifact.getPath().asFragment();
 
   private final OutputService outputService;
-  private final Path execRoot;
   private final String workspaceName;
 
-  public SymlinkTreeStrategy(OutputService outputService, Path execRoot, String workspaceName) {
+  public SymlinkTreeStrategy(OutputService outputService, String workspaceName) {
     this.outputService = outputService;
-    this.execRoot = execRoot;
     this.workspaceName = workspaceName;
   }
 
@@ -120,8 +118,7 @@ public final class SymlinkTreeStrategy implements SymlinkTreeActionContext {
             .getInputMetadataProvider()
             .getFileset(action.getInputManifest())
             .symlinks();
-    return SymlinkTreeHelper.processFilesetLinks(
-        filesetLinks, action.getWorkspaceNameForFileset(), execRoot.asFragment());
+    return SymlinkTreeHelper.processFilesetLinks(filesetLinks, action.getWorkspaceNameForFileset());
   }
 
   private static Map<PathFragment, Artifact> getRunfilesMap(SymlinkTreeAction action) {

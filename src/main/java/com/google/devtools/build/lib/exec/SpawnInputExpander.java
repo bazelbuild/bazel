@@ -19,7 +19,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
@@ -161,11 +160,7 @@ public final class SpawnInputExpander {
       PathFragment baseDirectory) {
     Preconditions.checkArgument(filesetArtifact.isFileset(), filesetArtifact);
     for (FilesetOutputSymlink link : filesetOutput.symlinks()) {
-      addMapping(
-          inputMap,
-          location.getRelative(link.name()),
-          ActionInputHelper.fromPath(link.targetPath()),
-          baseDirectory);
+      addMapping(inputMap, location.getRelative(link.name()), link.target(), baseDirectory);
     }
   }
 

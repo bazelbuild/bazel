@@ -38,7 +38,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.OS;
-import com.google.devtools.build.lib.vfs.Path;
 import javax.annotation.Nullable;
 
 /**
@@ -228,7 +227,7 @@ public final class SymlinkTreeAction extends AbstractAction implements RichDataP
   @Nullable
   @Override
   public RichArtifactData reconstructRichDataOnActionCacheHit(
-      Path execRoot, InputMetadataProvider inputMetadataProvider) {
+      InputMetadataProvider inputMetadataProvider) {
     return getPrimaryOutput().isFileset()
         ? FilesetOutputTree.forward(inputMetadataProvider.getFileset(getPrimaryInput()))
         : null;

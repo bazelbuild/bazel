@@ -289,7 +289,6 @@ public final class CompletionFunction<
             inputMap,
             importantInputMap,
             pathResolverFactory,
-            skyframeActionExecutor.getExecRoot(),
             workspaceNameValue.getName());
 
     NestedSet<Cause> rootCauses = rootCausesBuilder.build();

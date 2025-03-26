@@ -95,7 +95,7 @@ public final class RunfilesTreeAction extends AbstractAction implements RichData
 
   @Override
   public RichArtifactData reconstructRichDataOnActionCacheHit(
-      Path execRoot, InputMetadataProvider inputMetadataProvider) {
+      InputMetadataProvider inputMetadataProvider) {
     try {
       return createRunfilesArtifactValue(inputMetadataProvider);
     } catch (IOException e) {

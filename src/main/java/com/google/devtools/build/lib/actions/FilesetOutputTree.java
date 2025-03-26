@@ -84,16 +84,8 @@ public final class FilesetOutputTree implements RichArtifactData {
 
   public void addTo(Fingerprint fp) {
     for (var symlink : symlinks) {
-      fp.addBoolean(symlink.relativeToExecRoot());
       fp.addPath(symlink.name());
-      fp.addPath(symlink.targetPath());
-      if (symlink.enclosingTreeArtifactExecPath() != null) {
-        fp.addBoolean(true);
-        fp.addPath(symlink.enclosingTreeArtifactExecPath());
-      } else {
-        fp.addBoolean(false);
-      }
-
+      fp.addPath(symlink.target().getExecPath());
       fp.addBytes(symlink.metadata().getDigest());
     }
   }

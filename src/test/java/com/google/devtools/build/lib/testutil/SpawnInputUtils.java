@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
@@ -51,15 +50,15 @@ public final class SpawnInputUtils {
       }
       for (FilesetOutputSymlink filesetOutputSymlink :
           inputMetadataProvider.getFileset(fileset).symlinks()) {
-        if (filesetOutputSymlink.targetPath().getPathString().contains(inputName)) {
-          return ActionInputHelper.fromPath(filesetOutputSymlink.targetPath());
+        if (filesetOutputSymlink.target().getExecPathString().contains(inputName)) {
+          return filesetOutputSymlink.target();
         }
       }
     }
     throw noSuchInput("fileset input in " + artifactName, inputName, spawn);
   }
 
-  public static ActionInput getRunfilesFilesetInputWithName(
+  public static Artifact getRunfilesFilesetInputWithName(
       Spawn spawn, ActionExecutionContext context, String artifactName, String inputName) {
     Artifact filesetArtifact = getRunfilesArtifactWithName(spawn, context, artifactName);
     checkState(filesetArtifact.isFileset(), filesetArtifact);
@@ -67,8 +66,8 @@ public final class SpawnInputUtils {
     ImmutableList<FilesetOutputSymlink> filesetLinks =
         context.getInputMetadataProvider().getFileset(filesetArtifact).symlinks();
     for (FilesetOutputSymlink filesetOutputSymlink : filesetLinks) {
-      if (filesetOutputSymlink.targetPath().toString().contains(inputName)) {
-        return ActionInputHelper.fromPath(filesetOutputSymlink.targetPath());
+      if (filesetOutputSymlink.target().getExecPathString().contains(inputName)) {
+        return filesetOutputSymlink.target();
       }
     }
     throw noSuchInput("runfiles fileset in " + filesetArtifact, inputName, spawn);

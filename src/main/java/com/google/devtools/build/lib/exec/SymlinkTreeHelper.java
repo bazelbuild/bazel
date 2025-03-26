@@ -194,11 +194,11 @@ public final class SymlinkTreeHelper {
    * <p>By convention, all symlinks are placed under a directory with the given workspace name.
    */
   static ImmutableMap<PathFragment, PathFragment> processFilesetLinks(
-      ImmutableList<FilesetOutputSymlink> links, String workspaceName, PathFragment execRoot) {
+      ImmutableList<FilesetOutputSymlink> links, String workspaceName) {
     PathFragment root = PathFragment.create(workspaceName);
     var symlinks = ImmutableMap.<PathFragment, PathFragment>builderWithExpectedSize(links.size());
     for (FilesetOutputSymlink symlink : links) {
-      symlinks.put(root.getRelative(symlink.name()), symlink.reconstituteTargetPath(execRoot));
+      symlinks.put(root.getRelative(symlink.name()), symlink.target().getPath().asFragment());
     }
     // Fileset links are already deduplicated by name in SkyframeFilesetManifestAction.
     return symlinks.buildOrThrow();

@@ -92,7 +92,6 @@ import com.google.devtools.build.lib.util.DetailedExitCode.DetailedExitCodeCompa
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.FileSystem;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
@@ -754,19 +753,10 @@ public final class ActionExecutionFunction implements SkyFunction {
     }
 
     if (state.token == null) {
-      RichArtifactData reconstructedRichArtifactData;
-      if (action instanceof RichDataProducingAction rdpa) {
-        Path execRoot =
-            state.actionFileSystem != null
-                ? state.actionFileSystem.getPath(skyframeActionExecutor.getExecRoot().asFragment())
-                : skyframeActionExecutor.getExecRoot();
-
-        reconstructedRichArtifactData =
-            rdpa.reconstructRichDataOnActionCacheHit(execRoot, inputMetadataProvider);
-      } else {
-        reconstructedRichArtifactData = null;
-      }
-
+      RichArtifactData reconstructedRichArtifactData =
+          action instanceof RichDataProducingAction rdpa
+              ? rdpa.reconstructRichDataOnActionCacheHit(inputMetadataProvider)
+              : null;
       return ActionExecutionValue.create(
           outputMetadataStore, reconstructedRichArtifactData, action);
     }

@@ -53,7 +53,7 @@ final class ActionInputMetadataProvider implements InputMetadataProvider {
    * com.google.devtools.build.lib.vfs.OutputService#createActionFileSystem action file system} is
    * in use.
    */
-  private final Supplier<ImmutableMap<String, FileArtifactValue>> filesetMapping;
+  private final Supplier<ImmutableMap<Artifact, FileArtifactValue>> filesetMapping;
 
   ActionInputMetadataProvider(ActionInputMap inputArtifactData) {
     this.inputArtifactData = inputArtifactData;
@@ -61,12 +61,12 @@ final class ActionInputMetadataProvider implements InputMetadataProvider {
         Suppliers.memoize(() -> createFilesetMapping(inputArtifactData.getFilesets()));
   }
 
-  private static ImmutableMap<String, FileArtifactValue> createFilesetMapping(
+  private static ImmutableMap<Artifact, FileArtifactValue> createFilesetMapping(
       Map<Artifact, FilesetOutputTree> filesets) {
-    Map<String, FileArtifactValue> filesetMap = new HashMap<>();
+    Map<Artifact, FileArtifactValue> filesetMap = new HashMap<>();
     for (FilesetOutputTree filesetOutput : filesets.values()) {
       for (FilesetOutputSymlink link : filesetOutput.symlinks()) {
-        filesetMap.put(link.targetPath().getPathString(), link.metadata());
+        filesetMap.put(link.target(), link.metadata());
       }
     }
     return ImmutableMap.copyOf(filesetMap);
@@ -76,15 +76,13 @@ final class ActionInputMetadataProvider implements InputMetadataProvider {
   @Override
   public FileArtifactValue getInputMetadataChecked(ActionInput actionInput) throws IOException {
     if (!(actionInput instanceof Artifact artifact)) {
-      return filesetMapping.get().get(actionInput.getExecPathString());
+      return null;
     }
-
     FileArtifactValue value = inputArtifactData.getInputMetadataChecked(artifact);
     if (value != null) {
       return checkExists(value, artifact);
     }
-
-    return null;
+    return filesetMapping.get().get(artifact);
   }
 
   @Nullable

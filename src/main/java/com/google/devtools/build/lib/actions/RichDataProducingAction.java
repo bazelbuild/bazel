@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
-import com.google.devtools.build.lib.vfs.Path;
 import javax.annotation.Nullable;
 
 /**
@@ -26,6 +25,6 @@ import javax.annotation.Nullable;
 // TODO(lberki): Maybe merge this with NotifyOnActionCacheHit?
 public interface RichDataProducingAction {
   @Nullable
-  RichArtifactData reconstructRichDataOnActionCacheHit(
-      Path execRoot, InputMetadataProvider inputMetadataProvider) throws ActionExecutionException;
+  RichArtifactData reconstructRichDataOnActionCacheHit(InputMetadataProvider inputMetadataProvider)
+      throws ActionExecutionException;
 }

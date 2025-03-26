@@ -204,7 +204,7 @@ public final class SymlinkAction extends AbstractAction implements RichDataProdu
   @Nullable
   @Override
   public RichArtifactData reconstructRichDataOnActionCacheHit(
-      Path execRoot, InputMetadataProvider inputMetadataProvider) {
+      InputMetadataProvider inputMetadataProvider) {
     return targetType == TargetType.FILESET
         ? FilesetOutputTree.forward(inputMetadataProvider.getFileset(getPrimaryInput()))
         : null;

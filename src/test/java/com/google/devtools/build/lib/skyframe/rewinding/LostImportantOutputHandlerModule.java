@@ -22,7 +22,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
@@ -171,9 +170,7 @@ public class LostImportantOutputHandlerModule extends BlazeModule {
       if (output.isFileset()) {
         ImmutableList<FilesetOutputSymlink> links =
             inputMetadataProvider.getFileset(output).symlinks();
-        return links.stream()
-            .filter(FilesetOutputSymlink::relativeToExecRoot)
-            .map(link -> new OutputAndOwner(ActionInputHelper.fromPath(link.targetPath()), output));
+        return links.stream().map(link -> new OutputAndOwner(link.target(), output));
       }
       return Stream.of(new OutputAndOwner(output, null));
     }

@@ -536,15 +536,11 @@ public final class ActionOutputMetadataStoreTest {
 
   @Test
   public void getMetadataFromFilesetMapping() throws Exception {
+    Artifact sourceArtifact = ActionsTestUtil.createArtifact(sourceRoot, "src.txt");
     FileArtifactValue metadata =
         FileArtifactValue.createForNormalFile(new byte[] {1, 2, 3, 4}, null, 10L);
     FilesetOutputSymlink symlink =
-        FilesetOutputSymlink.create(
-            PathFragment.create("file"),
-            execRoot.getRelative("file").asFragment(),
-            metadata,
-            execRoot.asFragment(),
-            /* enclosingTreeArtifact= */ null);
+        new FilesetOutputSymlink(PathFragment.create("file"), sourceArtifact, metadata);
 
     Artifact artifact = ActionsTestUtil.createFilesetArtifact(outputRoot, "foo/bar");
     ActionInputMap actionInputMap = new ActionInputMap(1);
@@ -552,8 +548,7 @@ public final class ActionOutputMetadataStoreTest {
     ActionInputMetadataProvider inputMetadataProvider =
         new ActionInputMetadataProvider(actionInputMap);
 
-    assertThat(inputMetadataProvider.getInputMetadata(ActionInputHelper.fromPath("file")))
-        .isSameInstanceAs(metadata);
+    assertThat(inputMetadataProvider.getInputMetadata(sourceArtifact)).isSameInstanceAs(metadata);
     assertThat(inputMetadataProvider.getInputMetadata(ActionInputHelper.fromPath("does_not_exist")))
         .isNull();
     assertThat(chmodCalls).isEmpty();

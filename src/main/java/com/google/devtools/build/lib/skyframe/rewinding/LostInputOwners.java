@@ -44,13 +44,18 @@ public final class LostInputOwners {
 
   private static boolean isValidOwnerRelationship(ActionInput input, Artifact owner) {
     if (owner.isFileset()) {
-      return !(input instanceof Artifact);
+      return input instanceof Artifact artifact
+          && !artifact.isTreeArtifact()
+          && !artifact.isFileset()
+          && !artifact.isRunfilesTree();
     }
     if (owner.isTreeArtifact()) {
-      return input instanceof Artifact child && child.getParent().equals(owner);
+      return input instanceof Artifact child
+          && child.hasParent()
+          && child.getParent().equals(owner);
     }
     if (owner.isRunfilesTree()) {
-      return input instanceof Artifact;
+      return input instanceof Artifact artifact && !artifact.isRunfilesTree();
     }
     return false;
   }

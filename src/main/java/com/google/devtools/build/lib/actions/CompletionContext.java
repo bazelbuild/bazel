@@ -38,7 +38,6 @@ import javax.annotation.Nullable;
 public final class CompletionContext {
   public static final CompletionContext FAILED_COMPLETION_CTX =
       new CompletionContext(
-          null,
           ImmutableMap.of(),
           ImmutableMap.of(),
           null,
@@ -46,7 +45,6 @@ public final class CompletionContext {
           new ActionInputMap(0),
           false);
 
-  private final Path execRoot;
   private final ArtifactPathResolver pathResolver;
   private final Map<Artifact, TreeArtifactValue> treeArtifacts;
   private final Map<Artifact, FilesetOutputTree> filesets;
@@ -60,14 +58,12 @@ public final class CompletionContext {
 
   @VisibleForTesting
   public CompletionContext(
-      Path execRoot,
       Map<Artifact, TreeArtifactValue> treeArtifacts,
       Map<Artifact, FilesetOutputTree> filesets,
       @Nullable FileArtifactValue baselineCoverageValue,
       ArtifactPathResolver pathResolver,
       ActionInputMap importantInputMap,
       boolean expandFilesets) {
-    this.execRoot = execRoot;
     this.treeArtifacts = treeArtifacts;
     this.filesets = filesets;
     this.baselineCoverageValue = baselineCoverageValue;
@@ -84,7 +80,6 @@ public final class CompletionContext {
       ActionInputMap inputMap,
       ActionInputMap importantInputMap,
       PathResolverFactory pathResolverFactory,
-      Path execRoot,
       String workspaceName) {
     ArtifactPathResolver pathResolver =
         pathResolverFactory.shouldCreatePathResolverForArtifactValues()
@@ -95,7 +90,6 @@ public final class CompletionContext {
                 workspaceName)
             : ArtifactPathResolver.IDENTITY;
     return new CompletionContext(
-        execRoot,
         treeArtifacts,
         filesets,
         baselineCoverageValue,
@@ -157,8 +151,7 @@ public final class CompletionContext {
   private void visitFileset(Artifact filesetArtifact, ArtifactReceiver receiver) {
     FilesetOutputTree filesetOutput = filesets.get(filesetArtifact);
     for (FilesetOutputSymlink link : filesetOutput.symlinks()) {
-      receiver.acceptFilesetMapping(
-          filesetArtifact, link.name(), execRoot.getRelative(link.targetPath()));
+      receiver.acceptFilesetMapping(filesetArtifact, link.name(), link.target().getPath());
     }
   }
 

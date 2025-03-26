@@ -34,7 +34,6 @@ import com.google.common.flogger.GoogleLogger;
 import com.google.common.graph.MutableGraph;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -437,31 +436,25 @@ public final class ActionRewindStrategy {
       ImmutableCollection<ActionInput> lostInputs, ActionInputMap inputArtifactData) {
     Set<ActionInput> lostInputsAndOwners = new HashSet<>();
     LostInputOwners owners = new LostInputOwners();
-    boolean sawLostFilesetFile = false;
     for (ActionInput lostInput : lostInputs) {
       lostInputsAndOwners.add(lostInput);
-      if (!(lostInput instanceof Artifact artifact)) {
-        sawLostFilesetFile = true;
-      } else if (artifact.hasParent()) {
+      if (lostInput instanceof Artifact artifact && artifact.hasParent()) {
         lostInputsAndOwners.add(artifact.getParent());
         owners.addOwner(artifact, artifact.getParent());
       }
     }
 
-    if (sawLostFilesetFile) {
-      inputArtifactData
-          .getFilesets()
-          .forEach(
-              (fileset, outputTree) -> {
-                for (FilesetOutputSymlink link : outputTree.symlinks()) {
-                  ActionInput input = ActionInputHelper.fromPath(link.targetPath());
-                  if (lostInputsAndOwners.contains(input)) {
-                    lostInputsAndOwners.add(fileset);
-                    owners.addOwner(input, fileset);
-                  }
+    inputArtifactData
+        .getFilesets()
+        .forEach(
+            (fileset, outputTree) -> {
+              for (FilesetOutputSymlink link : outputTree.symlinks()) {
+                if (lostInputsAndOwners.contains(link.target())) {
+                  lostInputsAndOwners.add(fileset);
+                  owners.addOwner(link.target(), fileset);
                 }
-              });
-    }
+              }
+            });
 
     // Runfiles trees may contain tree artifacts and filesets, but not vice versa. Runfiles are
     // processed last to ensure that any lost input owning tree artifacts and filesets are already

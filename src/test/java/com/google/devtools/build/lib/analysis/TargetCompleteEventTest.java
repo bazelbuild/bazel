@@ -42,7 +42,6 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Fil
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
-import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -292,13 +291,13 @@ public class TargetCompleteEventTest extends AnalysisTestCase {
     return TopLevelArtifactHelper.getAllArtifactsToBuild(ctAndData.getConfiguredTarget(), context);
   }
 
-  private CompletionContext getCompletionContext(
+  private static CompletionContext getCompletionContext(
       Map<Artifact, FileArtifactValue> metadata,
       Map<SpecialArtifact, TreeArtifactValue> treeMetadata) {
     return getCompletionContext(metadata, treeMetadata, /* baselineCoverageValue= */ null);
   }
 
-  private CompletionContext getCompletionContext(
+  private static CompletionContext getCompletionContext(
       Map<Artifact, FileArtifactValue> metadata,
       Map<SpecialArtifact, TreeArtifactValue> treeMetadata,
       @Nullable FileArtifactValue baselineCoverageValue) {
@@ -306,7 +305,6 @@ public class TargetCompleteEventTest extends AnalysisTestCase {
     metadata.forEach(inputMap::put);
     treeMetadata.forEach(inputMap::putTreeArtifact);
     return new CompletionContext(
-        directories.getExecRoot(TestConstants.WORKSPACE_NAME),
         ImmutableMap.copyOf(treeMetadata),
         /* filesets= */ ImmutableMap.of(),
         baselineCoverageValue,

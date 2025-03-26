@@ -70,15 +70,15 @@ public final class ActionExecutionValueTest {
             .putChild(TreeFileArtifact.createTreeOutput(tree1, "file1"), VALUE_2_REMOTE)
             .build();
     FilesetOutputSymlink symlink1 =
-        FilesetOutputSymlink.createForTesting(
+        new FilesetOutputSymlink(
             PathFragment.create("name1"),
-            PathFragment.create("target1"),
-            PathFragment.create("execPath1"));
+            ActionsTestUtil.createArtifact(OUTPUT_ROOT, "target1"),
+            VALUE_1_REMOTE);
     FilesetOutputSymlink symlink2 =
-        FilesetOutputSymlink.createForTesting(
+        new FilesetOutputSymlink(
             PathFragment.create("name2"),
-            PathFragment.create("target2"),
-            PathFragment.create("execPath2"));
+            ActionsTestUtil.createArtifact(OUTPUT_ROOT, "target2"),
+            VALUE_2_REMOTE);
 
     new EqualsTester()
         .addEqualityGroup(createWithArtifactData(ImmutableMap.of(output("file1"), VALUE_1_REMOTE)))
@@ -142,10 +142,8 @@ public final class ActionExecutionValueTest {
             createWithFilesetOutput(
                 FilesetOutputTree.create(
                     ImmutableList.of(
-                        FilesetOutputSymlink.createForTesting(
-                            PathFragment.create("name"),
-                            PathFragment.create("target"),
-                            PathFragment.create("execPath"))))),
+                        new FilesetOutputSymlink(
+                            PathFragment.create("name"), output("target"), VALUE_1_REMOTE)))),
             // Module discovering
             createWithDiscoveredModules(
                 NestedSetBuilder.create(Order.STABLE_ORDER, output("module"))),
