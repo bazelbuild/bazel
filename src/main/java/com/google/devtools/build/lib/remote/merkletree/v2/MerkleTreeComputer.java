@@ -2,7 +2,6 @@ package com.google.devtools.build.lib.remote.merkletree.v2;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableSortedMap.toImmutableSortedMap;
 import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
 
 import build.bazel.remote.execution.v2.Digest;
@@ -17,6 +16,7 @@ import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
@@ -38,9 +38,12 @@ import com.google.devtools.build.lib.vfs.Symlinks;
 import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.io.UncheckedIOException;
+import java.util.AbstractCollection;
 import java.util.ArrayDeque;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.Deque;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -100,19 +103,37 @@ public final class MerkleTreeComputer {
       InputMetadataProvider metadataProvider,
       ArtifactPathResolver artifactPathResolver)
       throws IOException, InterruptedException {
-    // Reduce peak memory usage by avoiding the allocation of a TreeMap.
     var spawnInputs = spawn.getInputFiles().toList();
     // Add output directories to inputs so that they are created as empty directories by the
     // executor. The spec only requires the executor to create the parent directory of an output
     // directory, which differs from the behavior of both local and sandboxed execution.
     var outputDirectories =
         spawn.getOutputFiles().stream()
-            .filter(
-                output ->
-                    output instanceof Artifact artifact && artifact.isTreeArtifact())
+            .filter(output -> output instanceof Artifact artifact && artifact.isTreeArtifact())
             .map(outputDir -> new InputDirectory(outputDir.getExecPath()))
             .collect(toImmutableList());
-    return build(ImmutableList.sortedCopyOf(), isToolInput, metadataProvider, artifactPathResolver);
+    // Reduce peak memory usage by avoiding the allocation of intermediate arrays and TreeMaps, as
+    // well as the prolonged retention of mapped paths.
+    var pathMapper = spawn.getPathMapper();
+    var allInputs =
+        ImmutableList.sortedCopyOf(
+            Comparator.comparing(input -> pathMapper.map(input.getExecPath())),
+            new AbstractCollection<ActionInput>() {
+              @Override
+              public Iterator<ActionInput> iterator() {
+                return Iterables.concat(spawnInputs, outputDirectories).iterator();
+              }
+
+              @Override
+              public int size() {
+                return spawnInputs.size() + outputDirectories.size();
+              }
+            });
+    return build(
+        Lists.transform(allInputs, input -> Map.entry(pathMapper.map(input.getExecPath()), input)),
+        isToolInput,
+        metadataProvider,
+        artifactPathResolver);
   }
 
   public MerkleTree buildForFiles(SortedMap<PathFragment, Path> inputs)
@@ -135,12 +156,12 @@ public final class MerkleTreeComputer {
   }
 
   private MerkleTree build(
-      Collection<Map.Entry<PathFragment, ? extends ActionInput>> inputs,
+      Collection<? extends Map.Entry<PathFragment, ? extends ActionInput>> sortedInputs,
       Predicate<PathFragment> isToolInput,
       InputMetadataProvider metadataProvider,
       ArtifactPathResolver artifactPathResolver)
       throws IOException, InterruptedException {
-    if (inputs.isEmpty()) {
+    if (sortedInputs.isEmpty()) {
       return emptyTree;
     }
 
@@ -149,14 +170,14 @@ public final class MerkleTreeComputer {
 
     long inputFiles = 0;
     long inputBytes = 0;
-    // inputs.size() is unlikely to be the correct size, but it's a better lower bound than the
-    // default (4).
-    var blobs = ImmutableMap.<Digest, Object>builderWithExpectedSize(inputs.size());
+    // sortedInputs.size() is unlikely to be the correct size, but it's a better lower bound than
+    // the default (4).
+    var blobs = ImmutableMap.<Digest, Object>builderWithExpectedSize(sortedInputs.size());
     Deque<Directory.Builder> directoryStack = new ArrayDeque<>();
     directoryStack.push(Directory.newBuilder());
 
     PathFragment currentParent = PathFragment.EMPTY_FRAGMENT;
-    for (var entry : Iterables.concat(inputs, END_OF_INPUTS_SENTINEL)) {
+    for (var entry : Iterables.concat(sortedInputs, END_OF_INPUTS_SENTINEL)) {
       if (Thread.interrupted()) {
         throw new InterruptedException();
       }
@@ -248,7 +269,9 @@ public final class MerkleTreeComputer {
             var subTree =
                 computeIfAbsent(
                     metadata,
-                    () -> explodeDirectory(artifactPathResolver.toPath(fileOrSourceDirectory)),
+                    () ->
+                        explodeDirectory(artifactPathResolver.toPath(fileOrSourceDirectory))
+                            .entrySet(),
                     isToolInput.test(path),
                     metadataProvider,
                     artifactPathResolver);
@@ -298,7 +321,7 @@ public final class MerkleTreeComputer {
       throws IOException, InterruptedException {
     return computeIfAbsent(
         runfilesArtifactValue.getMetadata(),
-        () -> runfilesArtifactValue.getRunfilesTree().getMapping(),
+        () -> runfilesArtifactValue.getRunfilesTree().getMapping().entrySet(),
         /* TODO */ false,
         metadataProvider,
         artifactPathResolver);
@@ -313,19 +336,19 @@ public final class MerkleTreeComputer {
     return computeIfAbsent(
         treeArtifactValue.getMetadata(),
         () ->
-            treeArtifactValue.getChildren().stream()
-                .collect(
-                    toImmutableSortedMap(
-                        PathFragment::compareTo,
-                        Artifact.TreeFileArtifact::getParentRelativePath,
-                        treeFile -> treeFile)),
+            Collections2.transform(
+                // getChildren() returns a set that is sorted by exec path, which gives the same
+                // order as sorting by parent relative path.
+                treeArtifactValue.getChildren(),
+                child -> Map.entry(child.getParentRelativePath(), child)),
         rootIsTool,
         metadataProvider,
         artifactPathResolver);
   }
 
   private interface SortedInputsSupplier {
-    SortedMap<PathFragment, ? extends ActionInput> compute() throws IOException;
+    Collection<? extends Map.Entry<PathFragment, ? extends ActionInput>> compute()
+        throws IOException;
   }
 
   private MerkleTree computeIfAbsent(
