@@ -43,9 +43,6 @@ public abstract class RuleOrMacroInstance implements DependencyFilter.AttributeI
   static final String GENERATOR_LOCATION = "generator_location";
 
   private static final int ATTR_SIZE_THRESHOLD = 126;
-  private final int attrCount;
-
-  @Nullable private final Declarations packageDeclarations;
 
   /**
    * For {@link Rule}s, the length of this instance's generator name if it is a prefix of its name,
@@ -68,12 +65,10 @@ public abstract class RuleOrMacroInstance implements DependencyFilter.AttributeI
    */
   int generatorNamePrefixLength = 0;
 
-  RuleOrMacroInstance(Label label, Declarations packageDeclarations, int attrCount) {
+  RuleOrMacroInstance(Label label, int attrCount) {
     this.label = checkNotNull(label);
-    this.packageDeclarations = packageDeclarations;
     this.attrValues = new Object[attrCount];
-    this.attrCount = attrCount;
-    this.attrBytes = new byte[bitSetSize()];
+    this.attrBytes = new byte[bitSetSize(attrCount)];
   }
 
   /**
@@ -260,6 +255,7 @@ public abstract class RuleOrMacroInstance implements DependencyFilter.AttributeI
    */
   @Nullable
   Object getAttrIfStored(int attrIndex) {
+    int attrCount = getAttributeProvider().getAttributeCount();
     checkPositionIndex(attrIndex, attrCount - 1);
     return switch (getAttrState()) {
       case MUTABLE -> attrValues[attrIndex];
@@ -271,7 +267,7 @@ public abstract class RuleOrMacroInstance implements DependencyFilter.AttributeI
         if (attrBytes.length == 0) {
           yield null;
         }
-        int bitSetSize = bitSetSize();
+        int bitSetSize = bitSetSize(attrCount);
         int index = binarySearchAttrBytes(bitSetSize, attrIndex, 0xff);
         yield index < 0 ? null : attrValues[index - bitSetSize];
       }
@@ -408,7 +404,7 @@ public abstract class RuleOrMacroInstance implements DependencyFilter.AttributeI
       indicesToStore.set(i);
     }
 
-    if (attrCount < ATTR_SIZE_THRESHOLD) {
+    if (getAttributeProvider().getAttributeCount() < ATTR_SIZE_THRESHOLD) {
       freezeSmall(indicesToStore);
     } else {
       freezeLarge(indicesToStore);
@@ -464,7 +460,8 @@ public abstract class RuleOrMacroInstance implements DependencyFilter.AttributeI
 
   AttrState getAttrState() {
     // This check works because the name attribute is never stored, so the compact representation
-    // of attrValues will always have length < attrCount.
+    // of attrValues will always have length < attr count.
+    int attrCount = getAttributeProvider().getAttributeCount();
     if (attrValues.length == attrCount) {
       return AttrState.MUTABLE;
     }
@@ -472,7 +469,7 @@ public abstract class RuleOrMacroInstance implements DependencyFilter.AttributeI
   }
 
   /** Calculates the number of bytes necessary to have an explicit bit for each attribute. */
-  private int bitSetSize() {
+  private static int bitSetSize(int attrCount) {
     // ceil(attrCount / 8)
     return (attrCount + 7) / 8;
   }
@@ -548,9 +545,11 @@ public abstract class RuleOrMacroInstance implements DependencyFilter.AttributeI
     return rawLabels != null ? rawLabels : getDefaultVisibility().getDeclaredLabels();
   }
 
+  abstract Declarations getPackageDeclarations();
+
   @Nullable
   public PackageArgs getPackageArgs() {
-    return packageDeclarations.getPackageArgs();
+    return getPackageDeclarations().getPackageArgs();
   }
 
   abstract void reportError(String message, EventHandler eventHandler);

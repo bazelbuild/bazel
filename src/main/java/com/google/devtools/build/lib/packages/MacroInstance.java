@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.packages.Package.Declarations;
 import java.util.List;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
-import net.starlark.java.eval.EvalException;
 
 /**
  * Represents a use of a symbolic macro in a package.
@@ -45,6 +44,11 @@ public final class MacroInstance extends RuleOrMacroInstance {
   // single field of type Object, and walk up the parent hierarchy to answer getPackage() queries.
   private final Package.Metadata packageMetadata;
 
+  // TODO(bazel-team): This is only needed for RuleOrMacroInstance#getPackageDeclarations(), which
+  // is used by the attribute mapper logic. That might only be needed for rules rather than macros.
+  // Consider removing it and pushing getPackageDeclarations() down to Rule.
+  private final Package.Declarations packageDeclarations;
+
   @Nullable private final MacroInstance parent;
 
   private final MacroClass macroClass;
@@ -57,9 +61,6 @@ public final class MacroInstance extends RuleOrMacroInstance {
    * <p>{@code sameNameDepth} is the number of macro instances that this one is inside of that share
    * its name. For most instances it is 1, but for the main submacro of a parent macro it is one
    * more than the parent's depth.
-   *
-   * @throws EvalException if there's a problem with the attribute values (currently, only thrown if
-   *     the {@code visibility} value is invalid)
    */
   // TODO: #19922 - Better encapsulate the invariant around attrValues, by either transitioning to
   // storing internal-typed values (the way Rules do) instead of Starlark-typed values, or else just
@@ -71,8 +72,9 @@ public final class MacroInstance extends RuleOrMacroInstance {
       MacroClass macroClass,
       Label label,
       int sameNameDepth) {
-    super(label, packageDeclarations, macroClass.getAttributeProvider().getAttributeCount());
+    super(label, macroClass.getAttributeProvider().getAttributeCount());
     this.packageMetadata = packageMetadata;
+    this.packageDeclarations = packageDeclarations;
     this.parent = parent;
     this.macroClass = macroClass;
     Preconditions.checkArgument(sameNameDepth > 0);
@@ -82,6 +84,11 @@ public final class MacroInstance extends RuleOrMacroInstance {
   /** Returns the Package.Metadata of the package in which this instance was created. */
   public Package.Metadata getPackageMetadata() {
     return packageMetadata;
+  }
+
+  @Override
+  Declarations getPackageDeclarations() {
+    return packageDeclarations;
   }
 
   /**
