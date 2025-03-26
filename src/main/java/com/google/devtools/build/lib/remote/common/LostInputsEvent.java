@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 
 /**
- * An event sent when inputs to an action were previously determined to exist remotely, but have
- * since been evicted.
+ * An event sent when CAS objects were previously determined to exist remotely, but have since been
+ * evicted.
  */
 public record LostInputsEvent(ImmutableSet<String> missingDigests) implements Postable {}

@@ -90,7 +90,7 @@ public final class LostInputsExecException extends ExecException {
         .build();
   }
 
-  public void combineAndThrow(LostInputsExecException other) throws LostInputsExecException {
+  public LostInputsExecException combine(LostInputsExecException other) {
     // Key collisions are expected when the two sources of the original exceptions shared knowledge
     // of what was lost. For example, a SpawnRunner may discover a lost input and look it up in an
     // action filesystem in which it's also lost. The SpawnRunner and the filesystem may then each
@@ -108,6 +108,10 @@ public final class LostInputsExecException extends ExecException {
         new LostInputsExecException(
             combinedLostInputs, /* owners= */ Optional.empty(), /* cause= */ this);
     combined.addSuppressed(other);
-    throw combined;
+    return combined;
+  }
+
+  public void combineAndThrow(LostInputsExecException other) throws LostInputsExecException {
+    throw combine(other);
   }
 }

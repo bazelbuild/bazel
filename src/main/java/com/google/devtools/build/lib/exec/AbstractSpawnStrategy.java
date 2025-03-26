@@ -22,7 +22,6 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionContext;
@@ -299,19 +298,15 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
                     Reason.INPUTS),
             BulkTransferException.class,
             (BulkTransferException e) -> {
-              ImmutableMap<String, ActionInput> lostInputs =
-                  e.getLostInputs(actionExecutionContext.getInputMetadataProvider()::getInput);
-              if (!lostInputs.isEmpty()) {
-                throw new LostInputsExecException(lostInputs);
-              } else {
-                throw new EnvironmentalExecException(
-                    e,
-                    FailureDetail.newBuilder()
-                        .setMessage("Failed to fetch blobs because of a remote cache error.")
-                        .setSpawn(
-                            FailureDetails.Spawn.newBuilder().setCode(Code.REMOTE_CACHE_EVICTED))
-                        .build());
-              }
+              e.getLostArtifacts(actionExecutionContext.getInputMetadataProvider()::getInput)
+                  .throwIfNotEmpty();
+              throw new EnvironmentalExecException(
+                  e,
+                  FailureDetail.newBuilder()
+                      .setMessage("Failed to fetch blobs because of a remote cache error.")
+                      .setSpawn(
+                          FailureDetails.Spawn.newBuilder().setCode(Code.REMOTE_CACHE_EVICTED))
+                      .build());
             },
             directExecutor());
       }
