@@ -62,9 +62,6 @@ public final class MacroInstance extends RuleOrMacroInstance {
    * its name. For most instances it is 1, but for the main submacro of a parent macro it is one
    * more than the parent's depth.
    */
-  // TODO: #19922 - Better encapsulate the invariant around attrValues, by either transitioning to
-  // storing internal-typed values (the way Rules do) instead of Starlark-typed values, or else just
-  // making the constructor private and moving instantiateMacro() to this class.
   public MacroInstance(
       Package.Metadata packageMetadata,
       Declarations packageDeclarations,
@@ -206,9 +203,6 @@ public final class MacroInstance extends RuleOrMacroInstance {
       return;
     }
 
-    // Unlike rules, null attribute values are disallowed here by construction (the attrValues
-    // map won't tolerate them). It's unclear if the visitor can be passed null values like it can
-    // for rules, so filter them out just in case.
     Type.LabelVisitor visitor =
         (label, unusedAttribute) -> {
           if (label != null) {
