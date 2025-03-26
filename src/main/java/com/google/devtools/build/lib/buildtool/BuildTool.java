@@ -21,6 +21,7 @@ import static com.google.devtools.common.options.OptionsParser.STARLARK_SKIPPED_
 import static java.util.Objects.requireNonNull;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.base.Stopwatch;
@@ -38,6 +39,7 @@ import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.analysis.AnalysisAndExecutionResult;
 import com.google.devtools.build.lib.analysis.AnalysisResult;
+import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.BuildView;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
@@ -1135,7 +1137,8 @@ public class BuildTool {
                               env.getBlazeWorkspace().getAnalysisObjectCodecRegistrySupplier())
                           .get(),
                       env.getRuntime().getRuleClassProvider(),
-                      env.getBlazeWorkspace().getSkyframeExecutor()));
+                      env.getBlazeWorkspace().getSkyframeExecutor(),
+                      env.getDirectories()));
       this.fingerprintValueServiceFuture =
           CompletableFuture.supplyAsync(
               () ->
@@ -1168,15 +1171,21 @@ public class BuildTool {
     private static ObjectCodecs initAnalysisObjectCodecs(
         ObjectCodecRegistry registry,
         RuleClassProvider ruleClassProvider,
-        SkyframeExecutor skyframeExecutor) {
+        SkyframeExecutor skyframeExecutor,
+        BlazeDirectories directories) {
+      var roots = ImmutableList.<Root>builder().add(Root.fromPath(directories.getWorkspace()));
+      // TODO: b/406458763 - clean this up
+      if (Ascii.equalsIgnoreCase(directories.getProductName(), "blaze")) {
+        roots.add(Root.fromPath(directories.getBlazeExecRoot()));
+      }
+
       ImmutableClassToInstanceMap.Builder<Object> serializationDeps =
           ImmutableClassToInstanceMap.builder()
               .put(
                   ArtifactSerializationContext.class,
                   skyframeExecutor.getSkyframeBuildView().getArtifactFactory()::getSourceArtifact)
               .put(RuleClassProvider.class, ruleClassProvider)
-              // We need a RootCodecDependencies but don't care about the likely roots.
-              .put(Root.RootCodecDependencies.class, new Root.RootCodecDependencies())
+              .put(Root.RootCodecDependencies.class, new Root.RootCodecDependencies(roots.build()))
               // This is needed to determine TargetData for a ConfiguredTarget during serialization.
               .put(PrerequisitePackageFunction.class, skyframeExecutor::getExistingPackage);
 

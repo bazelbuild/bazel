@@ -28,6 +28,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.truth.Correspondence;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
+import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
@@ -43,10 +44,14 @@ import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.RemoteConfiguredTargetValue;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService;
+import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.io.RecordingOutErr;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -111,7 +116,7 @@ public abstract class FrontierSerializerTestBase extends BuildIntegrationTestCas
         """);
     write(
         "foo/PROJECT.scl",
-        """
+"""
 project = {
   "active_directories": { "default": ["foo"] },
 }
@@ -129,7 +134,7 @@ project = {
         """);
     write(
         "foo/PROJECT.scl",
-        """
+"""
 project = {
   "active_directories": { "default": ["foo"] },
 }
@@ -142,7 +147,7 @@ project = {
         """);
     write(
         "bar/PROJECT.scl",
-        """
+"""
 project = {
   "active_directories": { "default": ["bar"] },
 }
@@ -171,7 +176,7 @@ project = {
         """);
     write(
         "foo/PROJECT.scl",
-        """
+"""
 project = {
   "active_directories": { "default": ["foo"] },
 }
@@ -204,7 +209,7 @@ project = {
   private void runSkymeldScenario() throws Exception {
     write(
         "foo/PROJECT.scl",
-        """
+"""
 project = {
   "active_directories": { "default": ["foo"] },
 }
@@ -235,6 +240,7 @@ project = {
 
     addOptions("--serialized_frontier_profile=" + profilePath);
     setupScenarioWithAspects();
+    upload("//bar:one");
 
     // The proto parses successfully from the file.
     var proto =
@@ -288,10 +294,73 @@ project = {
         .doesNotContain("com.google.devtools.build.lib.skyframe.NonRuleConfiguredTargetValue");
   }
 
+  @Test
+  public void roundTrip_withDifferentWorkspaces_translatesRoots() throws Exception {
+    // Performs setup twice to simulate running in two different workspaces. The first setup is for
+    // the writer, using the default roots provided by BuildIntegrationTestCase. The second setup
+    // populates roots obtained upon recreating the files and mocks.
+    setupScenarioWithAspects();
+    upload("//bar:one"); // Cache writing build.
+
+    // TODO: b/367287783 - RemoteConfiguredTargetValue cannot be deserialized successfully with
+    // Bazel yet. Return early.
+    assumeTrue(
+        Ascii.equalsIgnoreCase(getCommandEnvironment().getRuntime().getProductName(), "blaze"));
+
+    var barOneKey =
+        ConfiguredTargetKey.builder()
+            .setLabel(parseCanonicalUnchecked("//bar:one"))
+            .setConfiguration(getTargetConfiguration())
+            .build();
+
+    PathFragment writerWorkspace = directories.getWorkspace().asFragment();
+
+    var graph = getSkyframeExecutor().getEvaluator().getInMemoryGraph();
+    var writerValue = graph.getIfPresent(barOneKey).getValue();
+
+    assertThat(writerValue).isInstanceOf(ConfiguredTargetValue.class);
+    Root writerRoot = getRootOfFirstInputOfFirstAction((ActionLookupValue) writerValue);
+    // The root is the workspace.
+    assertThat(writerRoot.asPath().asFragment()).isEqualTo(writerWorkspace);
+
+    // Since createTestRoot is overridden to create unique directories, this creates distinct roots
+    // for the reader, simulating a cross-workspace build.
+    cleanUp();
+    createFilesAndMocks();
+    setupScenarioWithAspects();
+    addOptions("--experimental_frontier_violation_check=disabled_for_testing");
+
+    download("//bar:one"); // Cache reading build.
+
+    PathFragment readerWorkspace = directories.getWorkspace().asFragment();
+    // Sanity checks that recreating the directories results in a distinct workspace.
+    assertThat(readerWorkspace).isNotEqualTo(writerWorkspace);
+
+    graph = getSkyframeExecutor().getEvaluator().getInMemoryGraph();
+    var readerValue = graph.getIfPresent(barOneKey).getValue();
+    assertThat(readerValue).isInstanceOf(RemoteConfiguredTargetValue.class);
+    Root readerRoot = getRootOfFirstInputOfFirstAction((ActionLookupValue) readerValue);
+    // Asserts that the root was transformed to the reader's workspace.
+    assertThat(readerRoot.asPath().asFragment()).isEqualTo(readerWorkspace);
+  }
+
+  @Override
+  protected Path createTestRoot(FileSystem fileSystem) {
+    try {
+      return TestUtils.createUniqueTmpDir(fileSystem);
+    } catch (IOException e) {
+      throw new AssertionError(e);
+    }
+  }
+
+  private static Root getRootOfFirstInputOfFirstAction(ActionLookupValue value) {
+    return value.getAction(0).getInputs().toList().get(0).getRoot().getRoot();
+  }
+
   protected final void setupScenarioWithAspects() throws Exception {
     write(
         "foo/provider.bzl",
-        """
+"""
 FileCountInfo = provider(
     fields = {
         'count' : 'number of files'
@@ -301,7 +370,7 @@ FileCountInfo = provider(
 
     write(
         "foo/file_count.bzl",
-        """
+"""
 load("//foo:provider.bzl", "FileCountInfo")
 def _file_count_aspect_impl(target, ctx):
     count = 0
@@ -327,7 +396,7 @@ file_count_aspect = aspect(
 
     write(
         "bar/PROJECT.scl",
-        """
+"""
 project = {
   "active_directories": { "default": ["foo"] },
 }
@@ -335,7 +404,7 @@ project = {
 
     write(
         "foo/BUILD",
-        """
+"""
 genrule(
     name = "generate_y",
     srcs = ["x.txt"],
@@ -346,7 +415,7 @@ genrule(
 
     write(
         "bar/BUILD",
-        """
+"""
 load("@rules_java//java:defs.bzl", "java_library")
 java_library(
     name = "one",
@@ -374,7 +443,6 @@ genrule(
 """);
 
     addOptions("--nobuild", "--aspects=//foo:file_count.bzl%file_count_aspect");
-    upload("//bar:one");
   }
 
   @Test
@@ -382,7 +450,7 @@ genrule(
     setupScenarioWithConfiguredTargets();
     write(
         "foo/PROJECT.scl",
-        """
+"""
 project = {
   "active_directories": { "default": ["foo"] },
 }
@@ -414,7 +482,7 @@ project = {
     setupScenarioWithConfiguredTargets();
     write(
         "foo/PROJECT.scl",
-        """
+"""
 project = {
   "active_directories": { "default": ["foo"] },
 }
@@ -468,7 +536,7 @@ project = {
 
     write(
         "foo/PROJECT.scl",
-        """
+"""
 project = {
   "active_directories": { "default": ["foo"] },
 }
@@ -489,7 +557,7 @@ project = {
     // realizes that it's not done, so it will be ignored.
     write(
         "foo/BUILD",
-        """
+"""
 filegroup(name = "A", srcs = [":B", "//bar:C"])      # unchanged.
 filegroup(name = "B", srcs = ["//bar:E", "//bar:F"]) # changed: cut dep on D.
 filegroup(name = "D", srcs = ["//bar:H"])            # unchanged.
@@ -510,7 +578,7 @@ filegroup(name = "G")                                # unchanged.
     setupScenarioWithConfiguredTargets();
     write(
         "foo/PROJECT.scl",
-        """
+"""
 project = {
   "active_directories": { "default": ["foo"] },
 }
@@ -560,7 +628,7 @@ project = {
     setupScenarioWithConfiguredTargets();
     write(
         "foo/PROJECT.scl",
-        """
+"""
 project = {
   "active_directories": { "default": ["foo"] },
 }
@@ -580,7 +648,7 @@ project = {
     setupScenarioWithConfiguredTargets();
     write(
         "mytest/PROJECT.scl",
-        """
+"""
 project = {
   "active_directories": { "default": ["mytest"] },
 }
@@ -634,7 +702,7 @@ project = {
     addOptions("--experimental_remote_analysis_cache_mode=dump_upload_manifest_only");
     write(
         "foo/PROJECT.scl",
-        """
+"""
 project = {
   "active_directories": { "default": ["foo"] },
 }
@@ -646,7 +714,7 @@ project = {
 
     // BuildConfigurationKey is omitted to avoid too much specificity.
     var expected =
-        """
+"""
 FRONTIER_CANDIDATE: CONFIGURED_TARGET:ConfiguredTargetKey{label=//bar:C,
 FRONTIER_CANDIDATE: CONFIGURED_TARGET:ConfiguredTargetKey{label=//bar:E,
 FRONTIER_CANDIDATE: CONFIGURED_TARGET:ConfiguredTargetKey{label=//bar:H,
@@ -698,7 +766,7 @@ ACTIVE: CONFIGURED_TARGET:ConfiguredTargetKey{label=//foo:G,
     //               └───────┘
     write(
         "foo/BUILD",
-        """
+"""
 filegroup(name = "A", srcs = [":B", "//bar:C"])
 filegroup(name = "B", srcs = [":D", "//bar:E", "//bar:F"])
 filegroup(name = "D", srcs = ["//bar:H"])
@@ -706,7 +774,7 @@ filegroup(name = "G")
 """);
     write(
         "bar/BUILD",
-        """
+"""
 filegroup(name = "C")
 filegroup(name = "E", srcs = [":I"])
 filegroup(name = "F", srcs = ["//foo:G"])
@@ -816,7 +884,7 @@ filegroup(name = "I")
     // exact number of entries in the manifest later, so the two //A:A configured targets will be
     // counted correctly.
     var expectedActiveSet =
-        """
+"""
 ACTIVE: CONFIGURED_TARGET:ConfiguredTargetKey{label=//A:copy_of_A, config=
 ACTIVE: CONFIGURED_TARGET:ConfiguredTargetKey{label=//A:A, config=
 ACTIVE: CONFIGURED_TARGET:ConfiguredTargetKey{label=//A:A, config=
@@ -862,7 +930,7 @@ ACTION_EXECUTION:ActionLookupData0{actionLookupKey=ConfiguredTargetKey{label=//A
     setupGenruleGraph();
     write(
         "B/PROJECT.scl",
-        """
+"""
 project = { "actual": "//A:PROJECT.scl" }
 """);
     upload("//A", "//B");
@@ -929,7 +997,7 @@ project = { "actual": "//A:PROJECT.scl" }
         """);
     write(
         "A/PROJECT.scl",
-        """
+"""
 project = { "active_directories": {"default": ["A"]} }
 """);
   }
