@@ -290,23 +290,10 @@ public final class BuiltinFunction implements StarlarkCallable {
       // disabled?
       String flag = param.disabledByFlag();
       if (flag != null) {
-        // spill to **kwargs
-        // TODO(b/380824219): Disabled named parameters should be skipped, no matter whether kwargs
-        // is null or not. Disabled parameters should not be spilled to **kwargs.
-        if (kwargs == null) {
-          pushCallableAndThrow(
-              Starlark.errorf(
-                  "in call to %s(), parameter '%s' is %s",
-                  owner.methodName, param.getName(), disabled(flag, thread.getSemantics())));
-        }
-
-        // duplicate named argument?
-        if (kwargs.put(name, value) != null) {
-          pushCallableAndThrow(
-              Starlark.errorf(
-                  "%s() got multiple values for keyword argument '%s'", owner.methodName, name));
-        }
-        return;
+        pushCallableAndThrow(
+            Starlark.errorf(
+                "in call to %s(), parameter '%s' is %s",
+                owner.methodName, param.getName(), disabled(flag, thread.getSemantics())));
       }
 
       checkParamValue(param, value);
@@ -534,21 +521,9 @@ public final class BuiltinFunction implements StarlarkCallable {
       // disabled?
       String flag = param.disabledByFlag();
       if (flag != null) {
-        // spill to **kwargs
-        // TODO(b/380824219): Disabled named parameters should be skipped, no matter whether kwargs
-        // is null or not. Disabled parameters should not be spilled to **kwargs.
-        if (kwargs == null) {
-          throw Starlark.errorf(
-              "in call to %s(), parameter '%s' is %s",
-              methodName, param.getName(), disabled(flag, thread.getSemantics()));
-        }
-
-        // duplicate named argument?
-        if (kwargs.put(name, value) != null) {
-          throw Starlark.errorf(
-              "%s() got multiple values for keyword argument '%s'", methodName, name);
-        }
-        continue;
+        throw Starlark.errorf(
+            "in call to %s(), parameter '%s' is %s",
+            methodName, param.getName(), disabled(flag, thread.getSemantics()));
       }
 
       checkParamValue(param, value);
