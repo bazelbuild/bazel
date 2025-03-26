@@ -31,6 +31,7 @@ java_test(
         "StarlarkMutableTest.java",
         "StarlarkThreadDebuggingTest.java",
         "StarlarkThreadTest.java",
+        "StarlarkTypesTest.java",
     ],
     jvm_flags = [
         "-Dfile.encoding=UTF8",
