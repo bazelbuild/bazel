@@ -112,7 +112,7 @@ public class Rule extends RuleOrMacroInstance implements Target {
       RuleClass ruleClass,
       Location location,
       @Nullable CallStack.Node interiorCallStack) {
-    super(label, pkg.getDeclarations(), ruleClass.getAttributeProvider().getAttributeCount());
+    super(label, ruleClass.getAttributeProvider().getAttributeCount());
     this.pkg = checkNotNull(pkg);
     this.ruleClass = checkNotNull(ruleClass);
     this.location = checkNotNull(location);
