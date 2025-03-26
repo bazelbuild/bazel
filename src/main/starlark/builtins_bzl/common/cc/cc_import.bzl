@@ -153,6 +153,9 @@ def _cc_import_impl(ctx):
             linker_inputs = depset([linker_input]),
         )
 
+    additional_make_variable_substitutions = cc_helper.get_toolchain_global_make_variables(cc_toolchain)
+    additional_make_variable_substitutions.update(cc_helper.get_cc_flags_make_variable(ctx, feature_configuration, cc_toolchain))
+
     runtimes_deps = semantics.get_cc_runtimes(ctx, True)
     runtimes_copts = semantics.get_cc_runtimes_copts(ctx)
     compilation_contexts = cc_helper.get_compilation_contexts_from_deps(runtimes_deps)
@@ -163,7 +166,7 @@ def _cc_import_impl(ctx):
         cc_toolchain = cc_toolchain,
         compilation_contexts = compilation_contexts,
         public_hdrs = ctx.files.hdrs,
-        includes = ctx.attr.includes,
+        includes = cc_helper.system_include_dirs(ctx, additional_make_variable_substitutions),
         name = ctx.label.name,
         strip_include_prefix = ctx.attr.strip_include_prefix,
     )
