@@ -1597,6 +1597,11 @@ public class Package extends Packageoid {
         rule.freeze();
       }
 
+      // Freeze macros, compacting their attributes' representations.
+      for (MacroInstance macro : recorder.getMacroMap().values()) {
+        macro.freeze();
+      }
+
       // Now all targets have been loaded, so we validate the group's member environments.
       for (EnvironmentGroup envGroup : ImmutableSet.copyOf(environmentGroups.values())) {
         List<Event> errors = envGroup.processMemberEnvironments(recorder.getTargetMap());

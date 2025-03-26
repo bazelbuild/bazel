@@ -232,7 +232,6 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
   private final FileOutErr fileOutErr;
   private final ExtendedEventHandler eventHandler;
   private final ImmutableMap<String, String> clientEnv;
-  @Nullable private final ArtifactExpander artifactExpander;
   @Nullable private final Environment env;
 
   @Nullable private final FileSystem actionFileSystem;
@@ -255,7 +254,6 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
       FileOutErr fileOutErr,
       ExtendedEventHandler eventHandler,
       Map<String, String> clientEnv,
-      @Nullable ArtifactExpander artifactExpander,
       @Nullable Environment env,
       @Nullable FileSystem actionFileSystem,
       DiscoveredModulesPruner discoveredModulesPruner,
@@ -271,7 +269,6 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
     this.eventHandler = eventHandler;
     this.clientEnv = ImmutableMap.copyOf(clientEnv);
     this.executor = executor;
-    this.artifactExpander = artifactExpander;
     this.env = env;
     this.actionFileSystem = actionFileSystem;
     this.threadStateReceiverForMetrics = threadStateReceiverForMetrics;
@@ -293,7 +290,6 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
       FileOutErr fileOutErr,
       ExtendedEventHandler eventHandler,
       Map<String, String> clientEnv,
-      ArtifactExpander artifactExpander,
       @Nullable FileSystem actionFileSystem,
       DiscoveredModulesPruner discoveredModulesPruner,
       SyscallCache syscallCache,
@@ -309,7 +305,6 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
         fileOutErr,
         eventHandler,
         clientEnv,
-        artifactExpander,
         /* env= */ null,
         actionFileSystem,
         discoveredModulesPruner,
@@ -344,7 +339,6 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
         fileOutErr,
         eventHandler,
         clientEnv,
-        /* artifactExpander= */ null,
         env,
         actionFileSystem,
         discoveredModulesPruner,
@@ -503,10 +497,6 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
     return clientEnv;
   }
 
-  public ArtifactExpander getArtifactExpander() {
-    return artifactExpander;
-  }
-
   /**
    * Provide that {@code FileOutErr} that the action should use for redirecting the output and error
    * stream.
@@ -564,7 +554,6 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
         fileOutErr,
         eventHandler,
         clientEnv,
-        artifactExpander,
         env,
         actionFileSystem,
         discoveredModulesPruner,
@@ -618,7 +607,6 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
         fileOutErr,
         eventHandler,
         clientEnv,
-        artifactExpander,
         env,
         actionFileSystem,
         discoveredModulesPruner,

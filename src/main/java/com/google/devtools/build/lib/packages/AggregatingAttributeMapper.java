@@ -48,11 +48,11 @@ import javax.annotation.Nullable;
  */
 public class AggregatingAttributeMapper extends AbstractAttributeMapper {
 
-  private AggregatingAttributeMapper(Rule rule) {
+  private AggregatingAttributeMapper(RuleOrMacroInstance rule) {
     super(rule);
   }
 
-  public static AggregatingAttributeMapper of(Rule rule) {
+  public static AggregatingAttributeMapper of(RuleOrMacroInstance rule) {
     return new AggregatingAttributeMapper(rule);
   }
 
@@ -61,7 +61,7 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
    * available to computed defaults no matter what dependencies they've declared.
    */
   private List<String> getNonConfigurableAttributes() {
-    return rule.getRuleClassObject().getNonConfigurableAttributes();
+    return rule.getAttributeProvider().getNonConfigurableAttributes();
   }
 
   /**
@@ -184,7 +184,7 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
       Attribute attribute,
       Type<T> type,
       Type.LabelVisitor visitor,
-      @Nullable Rule rule,
+      @Nullable RuleOrMacroInstance rule,
       boolean includeKeys,
       boolean includeValues) {
     var entryProcessor =

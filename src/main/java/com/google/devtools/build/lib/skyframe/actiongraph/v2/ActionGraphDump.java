@@ -173,7 +173,8 @@ public class ActionGraphDump {
     if (action instanceof ActionExecutionMetadata actionExecutionMetadata) {
       actionBuilder
           .setActionKey(
-              actionExecutionMetadata.getKey(getActionKeyContext(), /*artifactExpander=*/ null))
+              actionExecutionMetadata.getKey(
+                  getActionKeyContext(), /* inputMetadataProvider= */ null))
           .setDiscoversInputs(actionExecutionMetadata.discoversInputs());
     }
 

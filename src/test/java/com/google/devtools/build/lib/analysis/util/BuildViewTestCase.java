@@ -46,7 +46,6 @@ import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
-import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
@@ -2394,19 +2393,12 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   public class ActionExecutionContextBuilder {
     private InputMetadataProvider actionInputFileCache = null;
     private final TreeMap<String, String> clientEnv = new TreeMap<>();
-    private ArtifactExpander artifactExpander = null;
     private Executor executor = new DummyExecutor(fileSystem, getExecRoot());
 
     @CanIgnoreReturnValue
     public ActionExecutionContextBuilder setMetadataProvider(
         InputMetadataProvider actionInputFileCache) {
       this.actionInputFileCache = actionInputFileCache;
-      return this;
-    }
-
-    @CanIgnoreReturnValue
-    public ActionExecutionContextBuilder setArtifactExpander(ArtifactExpander artifactExpander) {
-      this.artifactExpander = artifactExpander;
       return this;
     }
 
@@ -2428,7 +2420,6 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
           actionLogBufferPathGenerator.generate(ArtifactPathResolver.IDENTITY),
           reporter,
           clientEnv,
-          artifactExpander,
           /* actionFileSystem= */ null,
           DiscoveredModulesPruner.DEFAULT,
           SyscallCache.NO_CACHE,

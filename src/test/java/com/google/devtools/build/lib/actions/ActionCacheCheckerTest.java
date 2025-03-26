@@ -238,7 +238,6 @@ public class ActionCacheCheckerTest {
           token,
           inputMetadataProvider,
           outputMetadataStore,
-          /* artifactExpander= */ null,
           clientEnv,
           OutputPermissions.READONLY,
           platform);

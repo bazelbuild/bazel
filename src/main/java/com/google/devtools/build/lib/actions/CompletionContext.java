@@ -13,15 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Maps;
-import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
@@ -38,7 +35,7 @@ import javax.annotation.Nullable;
  * <p>This is needed because some artifacts (tree artifacts and Filesets) are in fact aggregations
  * of multiple files.
  */
-public final class CompletionContext implements ArtifactExpander {
+public final class CompletionContext {
   public static final CompletionContext FAILED_COMPLETION_CTX =
       new CompletionContext(
           null,
@@ -163,32 +160,6 @@ public final class CompletionContext implements ArtifactExpander {
       receiver.acceptFilesetMapping(
           filesetArtifact, link.name(), execRoot.getRelative(link.targetPath()));
     }
-  }
-
-  @Override
-  public ImmutableSortedSet<TreeFileArtifact> expandTreeArtifact(Artifact treeArtifact) {
-    checkArgument(treeArtifact.isTreeArtifact(), treeArtifact);
-    TreeArtifactValue treeValue = treeArtifacts.get(treeArtifact);
-    return treeValue != null ? treeValue.getChildren() : ImmutableSortedSet.of();
-  }
-
-  @Nullable
-  @Override
-  public ArchivedTreeArtifact getArchivedTreeArtifact(Artifact treeArtifact) {
-    checkArgument(treeArtifact.isTreeArtifact(), treeArtifact);
-    TreeArtifactValue treeValue = treeArtifacts.get(treeArtifact);
-    return treeValue != null ? treeValue.getArchivedArtifact() : null;
-  }
-
-  @Override
-  public FilesetOutputTree expandFileset(Artifact fileset) throws MissingExpansionException {
-    checkArgument(fileset.isFileset(), fileset);
-    checkState(expandFilesets, "Fileset expansion disabled, cannot expand %s", fileset);
-    FilesetOutputTree filesetOutput = filesets.get(fileset);
-    if (filesetOutput == null) {
-      throw new MissingExpansionException("Missing expansion for fileset: " + fileset);
-    }
-    return filesetOutput;
   }
 
   /** A function that accepts an {@link Artifact}. */

@@ -80,7 +80,6 @@ public class ExecutableSymlinkActionTest {
         outErr,
         /* eventHandler= */ null,
         /* clientEnv= */ ImmutableMap.of(),
-        /* artifactExpander= */ null,
         /* actionFileSystem= */ null,
         DiscoveredModulesPruner.DEFAULT,
         SyscallCache.NO_CACHE,

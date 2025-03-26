@@ -466,12 +466,12 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       return ImmutableList.of();
     } else if (inheritAttrsArg instanceof RuleFunction ruleFunction) {
       verifyInheritAttrsArgExportedIfExportable(ruleFunction);
-      return ruleFunction.getRuleClass().getAttributes();
+      return ruleFunction.getRuleClass().getAttributeProvider().getAttributes();
     } else if (inheritAttrsArg instanceof MacroFunction macroFunction) {
       verifyInheritAttrsArgExportedIfExportable(macroFunction);
-      return macroFunction.getMacroClass().getAttributes().values().asList();
+      return macroFunction.getMacroClass().getAttributeProvider().getAttributes();
     } else if (inheritAttrsArg.equals(COMMON_ATTRIBUTES_NAME)) {
-      return baseRule.getAttributes();
+      return baseRule.getAttributeProvider().getAttributes();
     }
     throw Starlark.errorf(
         "Invalid 'inherit_attrs' value %s; expected a rule, a macro, or \"common\"",
@@ -1390,7 +1390,8 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
   }
 
   private static ImmutableSet<String> getLegacyAnyTypeAttrs(RuleClass ruleClass) {
-    Attribute attr = ruleClass.getAttributeByNameMaybe("$legacy_any_type_attrs");
+    Attribute attr =
+        ruleClass.getAttributeProvider().getAttributeByNameMaybe("$legacy_any_type_attrs");
     if (attr == null
         || attr.getType() != STRING_LIST
         || !(attr.getDefaultValueUnchecked() instanceof List<?>)) {
@@ -1677,7 +1678,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
           // users.
           // The less magic the better. Do not give in those temptations!
           Dict.Builder<String, Object> initializerKwargs = Dict.builder();
-          for (var attr : currentRuleClass.getAttributes()) {
+          for (var attr : currentRuleClass.getAttributeProvider().getAttributes()) {
             if ((attr.isPublic() && attr.starlarkDefined()) || attr.getName().equals("name")) {
               if (kwargs.containsKey(attr.getName())) {
                 Object value = kwargs.get(attr.getName());
@@ -1724,7 +1725,8 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
                   ALLOWLIST_RULE_EXTENSION_API_EXPERIMENTAL);
             }
             String nativeName = arg.startsWith("_") ? "$" + arg.substring(1) : arg;
-            Attribute attr = currentRuleClass.getAttributeByNameMaybe(nativeName);
+            Attribute attr =
+                currentRuleClass.getAttributeProvider().getAttributeByNameMaybe(nativeName);
             if (attr != null && !attr.starlarkDefined()) {
               throw Starlark.errorf(
                   "Initializer can only set Starlark defined attributes, not '%s'", arg);
@@ -1770,7 +1772,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
     }
 
     private static void validateRulePropagatedAspects(RuleClass ruleClass) throws EvalException {
-      for (Attribute attribute : ruleClass.getAttributes()) {
+      for (Attribute attribute : ruleClass.getAttributeProvider().getAttributes()) {
         attribute.validateRulePropagatedAspectsParameters(ruleClass);
       }
     }

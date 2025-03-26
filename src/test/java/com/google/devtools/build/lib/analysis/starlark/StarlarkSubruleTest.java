@@ -829,6 +829,7 @@ public class StarlarkSubruleTest extends BuildViewTestCase {
         getRuleContext(getConfiguredTarget("//subrule_testing:foo"))
             .getRule()
             .getRuleClassObject()
+            .getAttributeProvider()
             .getAttributes()
             .stream()
             .map(Attribute::getName)

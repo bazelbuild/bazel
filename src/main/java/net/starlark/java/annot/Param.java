@@ -100,6 +100,9 @@ public @interface Param {
    *
    * <p>Note that at most one of {@link #enableOnlyWithFlag} and {@link #disableWithFlag} can be
    * non-empty.
+   *
+   * <p>If {@link #enableOnlyWithFlag} is non-empty, then {@link #defaultValue} must also be
+   * non-empty; mandatory parameters cannot be toggled by a flag.
    */
   String enableOnlyWithFlag() default "";
 
@@ -110,27 +113,9 @@ public @interface Param {
    *
    * <p>Note that at most one of {@link #enableOnlyWithFlag} and {@link #disableWithFlag} can be
    * non-empty.
+   *
+   * <p>If {@link #disableWithFlag} is non-empty, then {@link #defaultValue} must also be non-empty;
+   * mandatory parameters cannot be toggled by a flag.
    */
   String disableWithFlag() default "";
-
-  /**
-   * Value for the parameter when the parameter is "disabled" based on semantic flags. (When the
-   * parameter is disabled, it may not be set from Starlark, but an argument of the given value is
-   * passed to the annotated Java method when invoked.) (See {@link #enableOnlyWithFlag()} and
-   * {@link #disableWithFlag()} for toggling a parameter with semantic flags.
-   *
-   * <p>The parameter value is written as a Starlark expression (for example: "False", "True", "[]",
-   * "None").
-   *
-   * <p>This should be set (non-empty) if and only if the parameter may be disabled with a semantic
-   * flag.
-   *
-   * <p>Note that this is very similar to {@link #defaultValue}; it may be considered "the default
-   * value if no parameter is specified". It is important that this is distinct, however, in cases
-   * where it is desired to have a normally-mandatory parameter toggled by flag. Such a parameter
-   * should have no {@link #defaultValue} set, but should have a sensible {@link
-   * #valueWhenDisabled()} set. ("unbound" may be used in cases where no value would be valid. See
-   * {@link #defaultValue}.)
-   */
-  String valueWhenDisabled() default "";
 }

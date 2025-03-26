@@ -201,7 +201,12 @@ public class StarlarkSubrule implements StarlarkExportable, StarlarkCallable, St
     if (ruleContext.isForAspect()) {
       return ruleContext.getRuleContext().getMainAspect().getDefinition().getAttributes().get(attr);
     } else {
-      return ruleContext.getRuleContext().getRule().getRuleClassObject().getAttributeByName(attr);
+      return ruleContext
+          .getRuleContext()
+          .getRule()
+          .getRuleClassObject()
+          .getAttributeProvider()
+          .getAttributeByName(attr);
     }
   }
 

@@ -3244,7 +3244,6 @@ function test_cc_binary_tool_with_dynamic_deps() {
   setup_cc_binary_tool_with_dynamic_deps .
 
   bazel build \
-      --incompatible_macos_set_install_name \
       --remote_executor=grpc://localhost:${worker_port} \
       //pkg:rule >& $TEST_log || fail "Build should succeed"
 }
@@ -3253,7 +3252,6 @@ function test_cc_binary_tool_with_dynamic_deps_sibling_repository_layout() {
   setup_cc_binary_tool_with_dynamic_deps .
 
   bazel build \
-      --incompatible_macos_set_install_name \
       --experimental_sibling_repository_layout \
       --remote_executor=grpc://localhost:${worker_port} \
       //pkg:rule >& $TEST_log || fail "Build should succeed"
@@ -3263,7 +3261,6 @@ function test_external_cc_binary_tool_with_dynamic_deps() {
   setup_cc_binary_tool_with_dynamic_deps other_repo
 
   bazel build \
-      --incompatible_macos_set_install_name \
       --remote_executor=grpc://localhost:${worker_port} \
       @other_repo//pkg:rule >& $TEST_log || fail "Build should succeed"
 }
@@ -3272,7 +3269,6 @@ function test_external_cc_binary_tool_with_dynamic_deps_sibling_repository_layou
   setup_cc_binary_tool_with_dynamic_deps other_repo
 
   bazel build \
-      --incompatible_macos_set_install_name \
       --experimental_sibling_repository_layout \
       --remote_executor=grpc://localhost:${worker_port} \
       @other_repo//pkg:rule >& $TEST_log || fail "Build should succeed"

@@ -19,7 +19,6 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
@@ -207,13 +206,6 @@ public interface SpawnRunner {
      * obtain file digests and sizes.
      */
     InputMetadataProvider getInputMetadataProvider();
-
-    /** An artifact expander. */
-    // TODO(ulfjack): This is only used for the sandbox runners to compute a set of empty
-    // directories. We shouldn't have this and the getInputMapping method; maybe there's a way to
-    // unify the two? Alternatively, maybe the input mapping should (optionally?) contain
-    // directories? Or maybe we need a separate method to return the set of directories?
-    ArtifactExpander getArtifactExpander();
 
     /** A spawn input expander. */
     // TODO(moroten): This is only used for the remote cache and remote execution to optimize

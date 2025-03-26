@@ -461,7 +461,7 @@ public class DumpCommand implements BlazeCommand {
       RuleClass ruleClass = ruleClassMap.get(name);
       out.print(ruleClass + "(");
       boolean first = true;
-      for (Attribute attribute : ruleClass.getAttributes()) {
+      for (Attribute attribute : ruleClass.getAttributeProvider().getAttributes()) {
         if (attribute.isImplicit()) {
           continue;
         }

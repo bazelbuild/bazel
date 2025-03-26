@@ -18,17 +18,16 @@ import static java.util.Objects.requireNonNull;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.BuildType.SelectorList;
-import com.google.devtools.build.lib.packages.Type.ConversionException;
+import com.google.devtools.build.lib.packages.Package.Declarations;
 import java.util.List;
-import java.util.Map;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
-import net.starlark.java.eval.Starlark;
 
 /**
  * Represents a use of a symbolic macro in a package.
@@ -40,7 +39,7 @@ import net.starlark.java.eval.Starlark;
  *
  * <p>Macro instance names are not guaranteed to be unique within a package; see {@link #getId}.
  */
-public final class MacroInstance {
+public final class MacroInstance extends RuleOrMacroInstance {
 
   // TODO: #19922 - If we want to save the cost of a field here, we can merge pkg and parent into a
   // single field of type Object, and walk up the parent hierarchy to answer getPackage() queries.
@@ -52,20 +51,8 @@ public final class MacroInstance {
 
   private final int sameNameDepth;
 
-  // Order isn't guaranteed, sort before dumping. You can use the schema map
-  // MacroClass#getAttributes for a guaranteed order.
-  private final ImmutableMap<String, Object> attrValues;
-
-  // TODO(#19922): Consider switching to more optimized, indexed representation for attributes, as
-  // in Rule.
-
   /**
-   * Instantiates the given macro class with the given attribute values.
-   *
-   * <p>{@code attrValues} must have already been normalized based on the types of the attributes;
-   * see {@link MacroClass#instantiateMacro}. Values for the {@code "name"} and {@code "visibility"}
-   * attributes must exist with the correct types, and the {@code "visibility"} value must satisfy
-   * {@link RuleVisibility#validate}.
+   * Instantiates the given macro class.
    *
    * <p>{@code sameNameDepth} is the number of macro instances that this one is inside of that share
    * its name. For most instances it is 1, but for the main submacro of a parent macro it is one
@@ -79,18 +66,17 @@ public final class MacroInstance {
   // making the constructor private and moving instantiateMacro() to this class.
   public MacroInstance(
       Package.Metadata packageMetadata,
+      Declarations packageDeclarations,
       @Nullable MacroInstance parent,
       MacroClass macroClass,
-      Map<String, Object> attrValues,
-      int sameNameDepth)
-      throws EvalException {
+      Label label,
+      int sameNameDepth) {
+    super(label, packageDeclarations, macroClass.getAttributeProvider().getAttributeCount());
     this.packageMetadata = packageMetadata;
     this.parent = parent;
     this.macroClass = macroClass;
-    this.attrValues = ImmutableMap.copyOf(attrValues);
     Preconditions.checkArgument(sameNameDepth > 0);
     this.sameNameDepth = sameNameDepth;
-    Preconditions.checkArgument(macroClass.getAttributes().keySet().equals(attrValues.keySet()));
   }
 
   /** Returns the Package.Metadata of the package in which this instance was created. */
@@ -146,13 +132,12 @@ public final class MacroInstance {
     return getName() + ":" + sameNameDepth;
   }
 
-  /**
-   * Returns the name of this instance, as given in the {@code name = ...} attribute in the calling
-   * BUILD file or macro.
-   */
-  public String getName() {
-    // Type and existence enforced by RuleClass.NAME_ATTRIBUTE.
-    return (String) Preconditions.checkNotNull(attrValues.get("name"));
+  @Override
+  public RuleVisibility getDefaultVisibility() {
+    return RuleVisibility.parseUnchecked(
+        ImmutableList.of(
+            Label.createUnvalidated(
+                macroClass.getDefiningBzlLabel().getPackageIdentifier(), "__pkg__")));
   }
 
   /**
@@ -167,19 +152,10 @@ public final class MacroInstance {
    */
   public ImmutableList<Label> getActualVisibility() {
     @SuppressWarnings("unchecked")
-    List<Label> visibility = (List<Label>) Preconditions.checkNotNull(attrValues.get("visibility"));
+    List<Label> visibility = (List<Label>) Preconditions.checkNotNull(getAttr("visibility"));
     return ImmutableList.copyOf(visibility);
   }
 
-  /**
-   * Dictionary of attributes for this instance.
-   *
-   * <p>Contains all attributes, as seen after processing by {@link
-   * MacroClass#instantiateAndAddMacro}.
-   */
-  public ImmutableMap<String, Object> getAttrValues() {
-    return attrValues;
-  }
 
   /**
    * Returns the package containing the .bzl file from which this macro instance's macro class was
@@ -201,7 +177,7 @@ public final class MacroInstance {
    * visibility privilege to us.
    */
   public void visitExplicitAttributeLabels(Consumer<Label> consumer) {
-    for (Attribute attribute : macroClass.getAttributes().values()) {
+    for (Attribute attribute : macroClass.getAttributeProvider().getAttributes()) {
       String name = attribute.getName();
       Type<?> type = attribute.getType();
       if (name.startsWith("_")) {
@@ -210,36 +186,17 @@ public final class MacroInstance {
       if (type.getLabelClass() != Type.LabelClass.DEPENDENCY) {
         continue;
       }
-      Object value = attrValues.get(name);
-      if (value == Starlark.NONE) {
-        continue;
-      }
+      Object value = getAttr(name, type);
       visitAttributeLabels(value, type, attribute, consumer);
     }
   }
 
   // Separate method needed to satisfy type system w.r.t. Type<T>.
   // `value` is either a T or SelectorList<T>.
-  private static <T> void visitAttributeLabels(
+  private <T> void visitAttributeLabels(
       Object value, Type<T> type, Attribute attribute, Consumer<Label> consumer) {
-    // The attribute value is stored as a Starlark value. Convert it to the internal type as would
-    // be used in rules, so we can apply visitLabels() machinery to it. selectableConvert() will
-    // yield either a T or a BuildType.SelectorList.
-    Object convertedValue;
-    try {
-      convertedValue =
-          BuildType.selectableConvert(
-              type,
-              value,
-              "macro attribute (internal)",
-              // No string -> Label conversion is being done here.
-              /* context= */ null,
-              // Macros always preserve selects as selects.
-              /* simplifyUnconditionalSelects= */ false);
-    } catch (ConversionException e) {
-      // TODO: #19922 - The fact that we have to do this seems like a signal that we should
-      // transition to storing macro attribute values as native-typed attributes in the future.
-      throw new IllegalStateException("Could not convert macro attribute value internally", e);
+    if (value == null) {
+      return;
     }
 
     // Unlike rules, null attribute values are disallowed here by construction (the attrValues
@@ -252,9 +209,9 @@ public final class MacroInstance {
           }
         };
 
-    if (convertedValue instanceof SelectorList) {
+    if (value instanceof SelectorList) {
       @SuppressWarnings("unchecked") // safe by precondition assumption
-      SelectorList<T> selectorList = (SelectorList<T>) convertedValue;
+      SelectorList<T> selectorList = (SelectorList<T>) value;
       AggregatingAttributeMapper.visitLabelsInSelect(
           selectorList,
           attribute,
@@ -264,9 +221,29 @@ public final class MacroInstance {
           /* includeKeys= */ false,
           /* includeValues= */ true);
     } else {
-      T castValue = type.cast(convertedValue);
+      T castValue = type.cast(value);
       type.visitLabels(visitor, castValue, attribute);
     }
+  }
+
+  @Override
+  public AttributeProvider getAttributeProvider() {
+    return macroClass.getAttributeProvider();
+  }
+
+  @Override
+  void reportError(String message, EventHandler eventHandler) {
+    eventHandler.handle(Event.error(message));
+  }
+
+  @Override
+  public boolean isRuleInstance() {
+    return false;
+  }
+
+  @Override
+  public boolean isRuleCreatedInLegacyMacro() {
+    return false;
   }
 
   /**

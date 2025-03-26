@@ -933,7 +933,7 @@ public final class CppConfiguration extends Fragment
 
   @Override
   public boolean macosSetInstallName() {
-    return cppOptions.macosSetInstallName;
+    return true;
   }
 
   private static void checkInExpandedApiAllowlist(StarlarkThread thread, String feature)

@@ -228,7 +228,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         "  return",
         "r = rule(impl, attrs = {'a': attr.string(), 'b': attr.label()})");
     Stream<Attribute> builtInAttributes =
-        getRuleClass("r").getAttributes().stream()
+        getRuleClass("r").getAttributeProvider().getAttributes().stream()
             .filter(attr -> !(attr.getName().equals("a") || attr.getName().equals("b")));
     assertThat(builtInAttributes.map(Attribute::starlarkDefined)).doesNotContain(true);
   }
@@ -242,8 +242,11 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         "  pass",
         "exec_rule = rule(implementation = _impl, executable = True)",
         "non_exec_rule = rule(implementation = _impl)");
-    assertThat(getRuleClass("exec_rule").hasAttr("args", Types.STRING_LIST)).isTrue();
-    assertThat(getRuleClass("non_exec_rule").hasAttr("args", Types.STRING_LIST)).isFalse();
+    assertThat(getRuleClass("exec_rule").getAttributeProvider().hasAttr("args", Types.STRING_LIST))
+        .isTrue();
+    assertThat(
+            getRuleClass("non_exec_rule").getAttributeProvider().hasAttr("args", Types.STRING_LIST))
+        .isFalse();
   }
 
   /**
@@ -632,15 +635,11 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     assertThat(unexported.getExtensionLabel()).isNull();
 
     assertThat(exported.getMacroClass().getName()).isEqualTo("exported");
-    assertThat(exported.getMacroClass().getAttributes())
+    assertThat(exported.getMacroClass().getAttributeProvider().getAttributes())
         .containsExactly(
-            "name",
             RuleClass.NAME_ATTRIBUTE,
-            "visibility",
             MacroClass.VISIBILITY_ATTRIBUTE,
-            "abc",
             Attribute.attr("abc", Type.INTEGER).starlarkDefined().build(),
-            "xyz",
             Attribute.attr("xyz", Type.STRING).starlarkDefined().build());
     assertThat(unexported.getMacroClass()).isNull();
   }
@@ -1644,7 +1643,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   public void testRuleAddAttribute() throws Exception {
     evalAndExport(ev, "def impl(ctx): return None", "r1 = rule(impl, attrs={'a1': attr.string()})");
     RuleClass c = ((StarlarkRuleFunction) ev.lookup("r1")).getRuleClass();
-    assertThat(c.hasAttr("a1", Type.STRING)).isTrue();
+    assertThat(c.getAttributeProvider().hasAttr("a1", Type.STRING)).isTrue();
   }
 
   private static void evalAndExport(BazelEvaluationTestCase ev, String... lines) throws Exception {
@@ -1697,8 +1696,8 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         "            'a2': attr.int()",
         "})");
     RuleClass c = ((StarlarkRuleFunction) ev.lookup("r1")).getRuleClass();
-    assertThat(c.hasAttr("a1", BuildType.LABEL_LIST)).isTrue();
-    assertThat(c.hasAttr("a2", Type.INTEGER)).isTrue();
+    assertThat(c.getAttributeProvider().hasAttr("a1", BuildType.LABEL_LIST)).isTrue();
+    assertThat(c.getAttributeProvider().hasAttr("a2", Type.INTEGER)).isTrue();
   }
 
   @Test
@@ -1708,7 +1707,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         "def impl(ctx): return None",
         "r1 = rule(impl, attrs = {'a1': attr.string(mandatory=True)})");
     RuleClass c = ((StarlarkRuleFunction) ev.lookup("r1")).getRuleClass();
-    assertThat(c.getAttributeByName("a1").isMandatory()).isTrue();
+    assertThat(c.getAttributeProvider().getAttributeByName("a1").isMandatory()).isTrue();
   }
 
   @Test
@@ -1807,7 +1806,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
             + "r1 = rule(impl, attrs = {'a1': "
             + "attr.label(default = Label('//foo:foo'), allow_files=True)})");
     RuleClass c = ((StarlarkRuleFunction) ev.lookup("r1")).getRuleClass();
-    Attribute a = c.getAttributeByName("a1");
+    Attribute a = c.getAttributeProvider().getAttributeByName("a1");
     assertThat(a.getDefaultValueUnchecked()).isInstanceOf(Label.class);
     assertThat(a.getDefaultValueUnchecked().toString()).isEqualTo("//foo:foo");
   }
@@ -1819,7 +1818,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         "def impl(ctx): return None",
         "r1 = rule(impl, attrs = {'a1': attr.int(default = 40+2)})");
     RuleClass c = ((StarlarkRuleFunction) ev.lookup("r1")).getRuleClass();
-    Attribute a = c.getAttributeByName("a1");
+    Attribute a = c.getAttributeProvider().getAttributeByName("a1");
     assertThat(a.getDefaultValueUnchecked()).isEqualTo(StarlarkInt.of(42));
   }
 
@@ -1886,10 +1885,10 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   public void testRuleInheritsBaseRuleAttributes() throws Exception {
     evalAndExport(ev, "def impl(ctx): return None", "r1 = rule(impl)");
     RuleClass c = ((StarlarkRuleFunction) ev.lookup("r1")).getRuleClass();
-    assertThat(c.hasAttr("tags", Types.STRING_LIST)).isTrue();
-    assertThat(c.hasAttr("visibility", BuildType.NODEP_LABEL_LIST)).isTrue();
-    assertThat(c.hasAttr("deprecation", Type.STRING)).isTrue();
-    assertThat(c.hasAttr(":action_listener", BuildType.LABEL_LIST))
+    assertThat(c.getAttributeProvider().hasAttr("tags", Types.STRING_LIST)).isTrue();
+    assertThat(c.getAttributeProvider().hasAttr("visibility", BuildType.NODEP_LABEL_LIST)).isTrue();
+    assertThat(c.getAttributeProvider().hasAttr("deprecation", Type.STRING)).isTrue();
+    assertThat(c.getAttributeProvider().hasAttr(":action_listener", BuildType.LABEL_LIST))
         .isTrue(); // required for extra actions
   }
 
@@ -3609,7 +3608,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     RuleContext ruleContext = createRuleContext("//:main").getRuleContext();
 
     Rule rule = ruleContext.getRule();
-    Attribute attr = rule.getRuleClassObject().getAttributeByName("deps");
+    Attribute attr = rule.getRuleClassObject().getAttributeProvider().getAttributeByName("deps");
     ImmutableList<Aspect> aspects = attr.getAspects(rule);
     Aspect requiredNativeAspect = aspects.get(0);
     assertThat(requiredNativeAspect.getAspectClass().getName())
@@ -5291,13 +5290,23 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     assertThat(rule.getRuleClassObject().isExecutableStarlark()).isFalse();
     assertThat(rule.getRuleClassObject().getRuleClassType()).isEqualTo(RuleClassType.NORMAL);
     assertThat(
-            rule.getRuleClassObject().getAttributeByName("deps").getAspectClasses().stream()
+            rule
+                .getRuleClassObject()
+                .getAttributeProvider()
+                .getAttributeByName("deps")
+                .getAspectClasses()
+                .stream()
                 .map(AspectClass::toString))
         .containsExactly(
             "//extend_rule_testing/parent:parent.bzl%parent_aspect",
             "//extend_rule_testing:child.bzl%my_aspect");
     assertThat(
-            rule.getRuleClassObject().getAttributeByName("tool").getAspectClasses().stream()
+            rule
+                .getRuleClassObject()
+                .getAttributeProvider()
+                .getAttributeByName("tool")
+                .getAspectClasses()
+                .stream()
                 .map(AspectClass::toString))
         .containsExactly("//extend_rule_testing:child.bzl%my_aspect");
   }

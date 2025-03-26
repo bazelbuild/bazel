@@ -96,7 +96,6 @@ java_library(
         "HasDigest.java",
         "InputFileErrorException.java",
         "InputMetadataProvider.java",
-        "InputMetadataProviderArtifactExpander.java",
         "LostInputsActionExecutionException.java",
         "LostInputsExecException.java",
         "MapBasedActionGraph.java",
@@ -140,7 +139,6 @@ java_library(
         ":action_lookup_data",
         ":action_lookup_key",
         ":arg_chunk",
-        ":artifact_expander",
         ":artifact_owner",
         ":artifacts",
         ":commandline_item",
@@ -247,9 +245,7 @@ java_library(
     name = "action_input_helper",
     srcs = ["ActionInputHelper.java"],
     deps = [
-        ":artifact_expander",
         ":artifacts",
-        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//third_party:guava",
@@ -346,17 +342,6 @@ java_library(
         "//third_party:guava",
         "//third_party:jsr305",
         "@com_google_protobuf//:protobuf_java",
-    ],
-)
-
-java_library(
-    name = "artifact_expander",
-    srcs = ["ArtifactExpander.java"],
-    deps = [
-        ":artifacts",
-        ":fileset_output_tree",
-        "//third_party:guava",
-        "//third_party:jsr305",
     ],
 )
 
@@ -485,7 +470,6 @@ java_library(
     srcs = ["ImportantOutputHandler.java"],
     deps = [
         ":actions",
-        ":artifact_expander",
         ":artifacts",
         "//src/main/java/com/google/devtools/build/lib/skyframe:detailed_exceptions",
         "//src/main/java/com/google/devtools/build/lib/skyframe/rewinding:lost_input_owners",

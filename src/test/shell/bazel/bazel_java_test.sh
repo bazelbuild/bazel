@@ -270,6 +270,40 @@ java_custom_library = rule(
 EOF
 }
 
+function write_java_classpath_reduction_files() {
+  local -r pkg="$1"
+  mkdir -p "$pkg/java/hello/" || fail "Expected success"
+  cat > "$pkg/java/hello/A.java" <<'EOF'
+package hello;
+public class A {
+  public void f(B b) { b.getC().getD(); }
+}
+EOF
+  cat > "$pkg/java/hello/B.java" <<'EOF'
+package hello;
+public class B {
+  public C getC() { return null; }
+}
+EOF
+  cat > "$pkg/java/hello/C.java" <<'EOF'
+package hello;
+public class C {
+  public D getD() { return null; }
+}
+EOF
+  cat > "$pkg/java/hello/D.java" <<'EOF'
+package hello;
+public class D {}
+EOF
+  cat > "$pkg/java/hello/BUILD" <<'EOF'
+load("@rules_java//java:java_library.bzl", "java_library")
+java_library(name='a', srcs=['A.java'], deps = [':b'])
+java_library(name='b', srcs=['B.java'], deps = [':c'])
+java_library(name='c', srcs=['C.java'], deps = [':d'])
+java_library(name='d', srcs=['D.java'])
+EOF
+}
+
 function test_build_hello_world() {
   write_hello_library_files
 
@@ -280,6 +314,27 @@ function test_build_hello_world_reduced_classpath() {
   write_hello_library_files
 
   bazel build --experimental_java_classpath=bazel //java/main:main &> $TEST_log || fail "build failed"
+}
+
+function test_build_hello_world_reduced_classpath_no_fallback() {
+  write_hello_library_files
+
+  bazel build --experimental_java_classpath=bazel_no_fallback //java/main:main &> $TEST_log || fail "build failed"
+}
+
+function test_build_reduced_classpath_fallback() {
+  local -r pkg="${FUNCNAME[0]}"
+  write_java_classpath_reduction_files "$pkg"
+
+  bazel build --experimental_java_classpath=bazel //"$pkg"/java/hello:a &> $TEST_log || fail "should build with fallback"
+}
+
+function test_build_reduced_classpath_no_fallback() {
+  local -r pkg="${FUNCNAME[0]}"
+  write_java_classpath_reduction_files "$pkg"
+
+  bazel build --experimental_java_classpath=bazel_no_fallback //"$pkg"/java/hello:a &> $TEST_log && fail "shouldn't build with no fallback"
+  expect_log 'error: cannot access D'
 }
 
 function test_worker_strategy_is_default() {

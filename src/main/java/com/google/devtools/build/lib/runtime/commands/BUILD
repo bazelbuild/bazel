@@ -116,6 +116,7 @@ java_library(
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/java/com/google/devtools/common/options:invocation_policy",
         "//src/main/java/net/starlark/java/eval",
+        "//src/main/java/net/starlark/java/spelling",
         "//src/main/protobuf:bazel_flags_java_proto",
         "//src/main/protobuf:command_server_java_proto",
         "//src/main/protobuf:extra_actions_base_java_proto",

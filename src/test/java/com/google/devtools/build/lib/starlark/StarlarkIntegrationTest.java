@@ -3454,6 +3454,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
                 getTarget("//test")
                     .getAssociatedRule()
                     .getRuleClassObject()
+                    .getAttributeProvider()
                     .getAttributeByName("dep")
                     .getTransitionFactory())
             .getStarlarkDefinedConfigTransitionForTesting();

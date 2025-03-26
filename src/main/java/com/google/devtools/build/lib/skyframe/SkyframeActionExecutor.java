@@ -59,7 +59,6 @@ import com.google.devtools.build.lib.actions.AlreadyReportedActionExecutionExcep
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.OwnerlessArtifactWrapper;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
-import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.CachedActionEvent;
 import com.google.devtools.build.lib.actions.DelegatingPairInputMetadataProvider;
@@ -532,7 +531,6 @@ public final class SkyframeActionExecutor {
       ActionOutputMetadataStore outputMetadataStore,
       long actionStartTime,
       ActionLookupData actionLookupData,
-      ArtifactExpander artifactExpander,
       @Nullable FileSystem actionFileSystem,
       ActionPostprocessing postprocessing,
       boolean hasDiscoveredInputs)
@@ -547,7 +545,6 @@ public final class SkyframeActionExecutor {
             action,
             inputMetadataProvider,
             outputMetadataStore,
-            artifactExpander,
             actionFileSystem,
             actionLookupData);
 
@@ -624,7 +621,6 @@ public final class SkyframeActionExecutor {
       Action action,
       InputMetadataProvider inputMetadataProvider,
       OutputMetadataStore outputMetadataStore,
-      ArtifactExpander artifactExpander,
       @Nullable FileSystem actionFileSystem,
       ActionLookupData actionLookupData) {
     boolean emitProgressEvents = shouldEmitProgressEvents(action);
@@ -642,7 +638,6 @@ public final class SkyframeActionExecutor {
         fileOutErr,
         selectEventHandler(emitProgressEvents),
         clientEnv,
-        artifactExpander,
         actionFileSystem,
         discoveredModulesPruner,
         syscallCache,
@@ -784,7 +779,6 @@ public final class SkyframeActionExecutor {
       Action action,
       InputMetadataProvider inputMetadataProvider,
       OutputMetadataStore outputMetadataStore,
-      ArtifactExpander artifactExpander,
       Token token,
       Map<String, String> clientEnv)
       throws ActionExecutionException, InterruptedException {
@@ -808,7 +802,6 @@ public final class SkyframeActionExecutor {
           token,
           inputMetadataProvider,
           outputMetadataStore,
-          artifactExpander,
           clientEnv,
           getOutputPermissions(),
           remoteDefaultProperties);

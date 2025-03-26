@@ -115,8 +115,8 @@ public class ExtraActionTest extends FoundationTestCase {
     Action actionTwo = new ExtraActionInfoFileWriteAction(ActionsTestUtil.NULL_ACTION_OWNER, output,
         new SpecifiedInfoAction(infoTwo));
 
-    assertThat(actionOne.getKey(actionKeyContext, /*artifactExpander=*/ null))
-        .isNotEqualTo(actionTwo.getKey(actionKeyContext, /*artifactExpander=*/ null));
+    assertThat(actionOne.getKey(actionKeyContext, /* inputMetadataProvider= */ null))
+        .isNotEqualTo(actionTwo.getKey(actionKeyContext, /* inputMetadataProvider= */ null));
   }
 
   /**
@@ -179,7 +179,6 @@ public class ExtraActionTest extends FoundationTestCase {
                 /* fileOutErr= */ null,
                 /* eventHandler= */ null,
                 /* clientEnv= */ ImmutableMap.of(),
-                /* artifactExpander= */ null,
                 /* actionFileSystem= */ null,
                 DiscoveredModulesPruner.DEFAULT,
                 SyscallCache.NO_CACHE,

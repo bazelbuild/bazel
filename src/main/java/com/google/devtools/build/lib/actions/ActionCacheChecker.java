@@ -695,7 +695,6 @@ public class ActionCacheChecker {
       Token token,
       InputMetadataProvider inputMetadataProvider,
       OutputMetadataStore outputMetadataStore,
-      ArtifactExpander artifactExpander,
       Map<String, String> clientEnv,
       OutputPermissions outputPermissions,
       Map<String, String> remoteDefaultPlatformProperties)

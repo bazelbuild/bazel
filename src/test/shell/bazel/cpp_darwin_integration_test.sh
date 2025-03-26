@@ -173,7 +173,7 @@ EOF
   }
 EOF
 
-  bazel test --incompatible_macos_set_install_name //cpp:test || \
+  bazel test //cpp:test || \
       fail "bazel test //cpp:test failed"
   # Ensure @rpath is correctly set in the binary.
   ./bazel-bin/cpp/test || \
@@ -219,7 +219,7 @@ EOF
   }
 EOF
 
-  bazel test --incompatible_macos_set_install_name //cpp:test || \
+  bazel test //cpp:test || \
       fail "bazel test //cpp:test failed"
   # Ensure @rpath is correctly set in the binary.
   ./bazel-bin/cpp/test || \

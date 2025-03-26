@@ -43,12 +43,10 @@ import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.AlreadyReportedActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.DiscoveredInputsEvent;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
-import com.google.devtools.build.lib.actions.InputMetadataProviderArtifactExpander;
 import com.google.devtools.build.lib.actions.LostInputsActionExecutionException;
 import com.google.devtools.build.lib.actions.PackageRootResolver;
 import com.google.devtools.build.lib.actions.RichArtifactData;
@@ -808,9 +806,6 @@ public final class ActionExecutionFunction implements SkyFunction {
                   actionStartTime));
     }
 
-    ArtifactExpander artifactExpander =
-        InputMetadataProviderArtifactExpander.maybeFrom(state.inputArtifactData);
-
     return skyframeActionExecutor.executeAction(
         env,
         action,
@@ -818,7 +813,6 @@ public final class ActionExecutionFunction implements SkyFunction {
         outputMetadataStore,
         actionStartTime,
         actionLookupData,
-        artifactExpander,
         state.actionFileSystem,
         new ActionPostprocessingImpl(state),
         state.discoveredInputs != null);
@@ -852,7 +846,6 @@ public final class ActionExecutionFunction implements SkyFunction {
           action,
           inputMetadataProvider,
           outputMetadataStore,
-          InputMetadataProviderArtifactExpander.maybeFrom(state.inputArtifactData),
           state.token,
           clientEnv);
     }

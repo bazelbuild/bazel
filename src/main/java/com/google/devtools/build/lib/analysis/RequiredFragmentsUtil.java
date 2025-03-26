@@ -248,7 +248,7 @@ public final class RequiredFragmentsUtil {
             .attributes(attributeMap)
             .analysisData(starlarkExecTransition)
             .build();
-    for (Attribute attribute : target.getRuleClassObject().getAttributes()) {
+    for (Attribute attribute : target.getRuleClassObject().getAttributeProvider().getAttributes()) {
       if (attribute.getTransitionFactory() != null) {
         attribute
             .getTransitionFactory()

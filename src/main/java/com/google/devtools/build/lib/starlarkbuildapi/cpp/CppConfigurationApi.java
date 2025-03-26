@@ -108,7 +108,7 @@ public interface CppConfigurationApi<InvalidConfigurationExceptionT extends Exce
       structField = true,
       // Only for migration purposes. Intentionally not documented.
       documented = false,
-      doc = "Accessor for <code>--incompatible_macos_set_install_name</code>.")
+      doc = "Deprecated, always true")
   boolean macosSetInstallName();
 
   @StarlarkMethod(name = "force_pic", documented = false, useStarlarkThread = true)

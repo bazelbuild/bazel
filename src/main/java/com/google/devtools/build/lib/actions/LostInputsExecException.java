@@ -91,14 +91,18 @@ public final class LostInputsExecException extends ExecException {
   }
 
   public LostInputsExecException combine(LostInputsExecException other) {
+    // Key collisions are expected when the two sources of the original exceptions shared knowledge
+    // of what was lost. For example, a SpawnRunner may discover a lost input and look it up in an
+    // action filesystem in which it's also lost. The SpawnRunner and the filesystem may then each
+    // throw a LostInputsExecException with the same information.
+    //
+    // In the case of shared artifacts, it is currently important that other's lost inputs take
+    // precedence over this exception's lost inputs.
+    // TODO: b/321128298 - This is untested and way too delicate. Improve it.
     ImmutableMap<String, ActionInput> combinedLostInputs =
         ImmutableMap.<String, ActionInput>builder()
             .putAll(lostInputs)
             .putAll(other.lostInputs)
-            // Key collisions are expected when the two sources of the original exceptions shared
-            // knowledge of what was lost. For example, a SpawnRunner may discover a lost input and
-            // look it up in an action filesystem in which it's also lost. The SpawnRunner and the
-            // filesystem may then each throw a LostInputsExecException with the same information.
             .buildKeepingLast();
     LostInputsExecException combined =
         new LostInputsExecException(

@@ -97,8 +97,7 @@ public class WorkerParser {
         localEnvProvider.rewriteLocalEnv(spawn.getEnvironment(), binTools, "/tmp");
 
     SortedMap<PathFragment, byte[]> workerFiles =
-        WorkerFilesHash.getWorkerFilesWithDigests(
-            spawn, context.getArtifactExpander(), context.getInputMetadataProvider());
+        WorkerFilesHash.getWorkerFilesWithDigests(spawn, context.getInputMetadataProvider());
 
     HashCode workerFilesCombinedHash = WorkerFilesHash.getCombinedHash(workerFiles);
 

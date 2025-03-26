@@ -213,7 +213,7 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
                 + "' of type '"
                 + type
                 + "'")
-        .that(ruleClass.hasAttr(attrName, type))
+        .that(ruleClass.getAttributeProvider().hasAttr(attrName, type))
         .isTrue();
   }
 
