@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.testutil.TestThread;
 import com.google.devtools.build.lib.testutil.TestThread.TestRunnable;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
-import java.io.EOFException;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -287,36 +286,25 @@ public final class PersistentStringIndexerTest {
 
     byte[] journalContent = FileSystemUtils.readContent(journalPath);
 
-    // Now restore data from file and verify it. All data should be restored from journal;
+    // Restore data from file and verify it.
     indexer = PersistentStringIndexer.create(dataPath, journalPath, clock);
+    assertThat(indexer.size()).isEqualTo(10);
     assertThat(dataPath.exists()).isTrue();
     assertThat(journalPath.exists()).isFalse();
 
-    // Now put back truncated journal. We should get an error.
+    // Replace journal with a truncated copy. We should tolerate it and drop the incomplete record.
     assertThat(dataPath.delete()).isTrue();
     FileSystemUtils.writeContent(
         journalPath, Arrays.copyOf(journalContent, journalContent.length - 1));
-    assertThrows(
-        EOFException.class,
-        () -> indexer = PersistentStringIndexer.create(dataPath, journalPath, clock));
+    indexer = PersistentStringIndexer.create(dataPath, journalPath, clock);
+    assertThat(indexer.size()).isEqualTo(9);
 
-    // Corrupt the journal with a negative size value.
+    // Replace journal with a corrupted copy. We should tolerate it and drop remaining records.
     byte[] journalCopy = journalContent.clone();
-    // Flip this bit to make the key size negative.
-    journalCopy[95] = -2;
+    journalCopy[95] = -2; // make the key size negative
     FileSystemUtils.writeContent(journalPath, journalCopy);
-    e =
-        assertThrows(
-            IOException.class,
-            () -> indexer = PersistentStringIndexer.create(dataPath, journalPath, clock));
-    assertThat(e).hasMessageThat().contains("corrupt key length");
-
-    // Now put back corrupted journal. We should get an error.
-    journalContent[journalContent.length - 13] = 100;
-    FileSystemUtils.writeContent(journalPath, journalContent);
-    assertThrows(
-        IOException.class,
-        () -> indexer = PersistentStringIndexer.create(dataPath, journalPath, clock));
+    indexer = PersistentStringIndexer.create(dataPath, journalPath, clock);
+    assertThat(indexer.size()).isEqualTo(9);
   }
 
   @Test

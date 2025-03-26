@@ -65,7 +65,7 @@ public abstract class MapCodec<K, V> {
    * @param path the path to the file to read
    * @param version the expected version number
    * @throws IncompatibleFormatException if the on-disk data is in an incompatible format
-   * @throws IOException if some other I/O error occurs
+   * @throws IOException if data corruption is detected or some other I/O error occurs
    */
   public Reader createReader(Path path, long version) throws IOException {
     long size = path.getFileSize();

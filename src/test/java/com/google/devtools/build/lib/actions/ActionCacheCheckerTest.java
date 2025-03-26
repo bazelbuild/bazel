@@ -95,10 +95,11 @@ public class ActionCacheCheckerTest {
   public void setupCache() throws Exception {
     Scratch scratch = new Scratch();
     Clock clock = new ManualClock();
-    Path cacheRoot = scratch.resolve("/cache/test.dat");
+    Path cacheRoot = scratch.resolve("/cache_root");
+    Path corruptedCacheRoot = scratch.resolve("/corrupted_cache_root");
 
     execRoot = scratch.resolve("/output");
-    cache = new CorruptibleActionCache(cacheRoot, clock);
+    cache = new CorruptibleActionCache(cacheRoot, corruptedCacheRoot, clock);
     cacheChecker = createActionCacheChecker(/*storeOutputMetadata=*/ false);
     digestHashFunction = DigestHashFunction.SHA256;
     fileSystem = new InMemoryFileSystem(digestHashFunction);
@@ -1461,9 +1462,11 @@ public class ActionCacheCheckerTest {
     private final CompactPersistentActionCache delegate;
     private boolean corrupted = false;
 
-    CorruptibleActionCache(Path cacheRoot, Clock clock) throws IOException {
+    CorruptibleActionCache(Path cacheRoot, Path corruptedCacheRoot, Clock clock)
+        throws IOException {
       this.delegate =
-          CompactPersistentActionCache.create(cacheRoot, clock, NullEventHandler.INSTANCE);
+          CompactPersistentActionCache.create(
+              cacheRoot, corruptedCacheRoot, clock, NullEventHandler.INSTANCE);
     }
 
     void corruptAllEntries() {

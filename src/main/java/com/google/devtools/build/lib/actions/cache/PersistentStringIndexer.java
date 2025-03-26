@@ -230,7 +230,7 @@ final class PersistentStringIndexer implements StringIndexer {
       super(VERSION, CODEC, new ConcurrentHashMap<>(INITIAL_CAPACITY), mapFile, journalFile);
       this.clock = clock;
       nextUpdate = clock.nanoTime();
-      load(/* failFast= */ true);
+      load();
     }
 
     @Override

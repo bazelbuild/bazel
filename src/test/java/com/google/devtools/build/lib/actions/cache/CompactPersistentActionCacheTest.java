@@ -15,6 +15,11 @@ package com.google.devtools.build.lib.actions.cache;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.verify;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -24,6 +29,7 @@ import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.cache.ActionCache.Entry.SerializableTreeArtifactValue;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.testutil.ManualClock;
@@ -32,38 +38,50 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.OutputPermissions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.Arrays;
 import java.util.Map;
 import java.util.Optional;
 import javax.annotation.Nullable;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 /** Test for the CompactPersistentActionCache class. */
-@RunWith(JUnit4.class)
+@RunWith(TestParameterInjector.class)
 public class CompactPersistentActionCacheTest {
 
   private final Scratch scratch = new Scratch();
   private Path execRoot;
-  private Path dataRoot;
+  private Path cacheRoot;
+  private Path corruptedCacheRoot;
   private Path mapFile;
   private Path journalFile;
+  private Path indexFile;
+  private Path indexJournalFile;
   private final ManualClock clock = new ManualClock();
   private CompactPersistentActionCache cache;
   private ArtifactRoot artifactRoot;
 
+  private final EventHandler eventHandler = spy(EventHandler.class);
+
   @Before
   public final void createFiles() throws Exception  {
     execRoot = scratch.resolve("/output");
-    dataRoot = scratch.resolve("/cache/test.dat");
-    cache = CompactPersistentActionCache.create(dataRoot, clock, NullEventHandler.INSTANCE);
-    mapFile = CompactPersistentActionCache.cacheFile(dataRoot);
-    journalFile = CompactPersistentActionCache.journalFile(dataRoot);
+    cacheRoot = scratch.resolve("/cache_root");
+    corruptedCacheRoot = scratch.resolve("/corrupted_cache_root");
+    cache =
+        CompactPersistentActionCache.create(
+            cacheRoot, corruptedCacheRoot, clock, NullEventHandler.INSTANCE);
+    mapFile = CompactPersistentActionCache.cacheFile(cacheRoot);
+    journalFile = CompactPersistentActionCache.journalFile(cacheRoot);
+    indexFile = CompactPersistentActionCache.indexFile(cacheRoot);
+    indexJournalFile = CompactPersistentActionCache.indexJournalFile(cacheRoot);
     artifactRoot = ArtifactRoot.asDerivedRoot(execRoot, ArtifactRoot.RootType.Output, "bin");
   }
 
@@ -127,7 +145,8 @@ public class CompactPersistentActionCacheTest {
     assertThat(journalFile.exists()).isFalse();
 
     CompactPersistentActionCache newcache =
-        CompactPersistentActionCache.create(dataRoot, clock, NullEventHandler.INSTANCE);
+        CompactPersistentActionCache.create(
+            cacheRoot, corruptedCacheRoot, clock, NullEventHandler.INSTANCE);
     ActionCache.Entry readentry = newcache.get(key);
     assertThat(readentry).isNotNull();
     assertThat(readentry.toString()).isEqualTo(cache.get(key).toString());
@@ -148,7 +167,8 @@ public class CompactPersistentActionCacheTest {
     // Make sure we have all the entries, including those in the journal,
     // after deserializing into a new cache.
     CompactPersistentActionCache newcache =
-        CompactPersistentActionCache.create(dataRoot, clock, NullEventHandler.INSTANCE);
+        CompactPersistentActionCache.create(
+            cacheRoot, corruptedCacheRoot, clock, NullEventHandler.INSTANCE);
     for (int i = 0; i < 100; i++) {
       assertKeyEquals(cache, newcache, Integer.toString(i));
     }
@@ -159,7 +179,8 @@ public class CompactPersistentActionCacheTest {
 
     // Make sure we can see previous journal values after a second incremental save.
     CompactPersistentActionCache newerCache =
-        CompactPersistentActionCache.create(dataRoot, clock, NullEventHandler.INSTANCE);
+        CompactPersistentActionCache.create(
+            cacheRoot, corruptedCacheRoot, clock, NullEventHandler.INSTANCE);
     for (int i = 0; i < 100; i++) {
       assertKeyEquals(cache, newerCache, Integer.toString(i));
     }
@@ -199,7 +220,8 @@ public class CompactPersistentActionCacheTest {
 
     // Make sure we get the same result after deserializing into a new cache.
     CompactPersistentActionCache newerCache =
-        CompactPersistentActionCache.create(dataRoot, clock, NullEventHandler.INSTANCE);
+        CompactPersistentActionCache.create(
+            cacheRoot, corruptedCacheRoot, clock, NullEventHandler.INSTANCE);
     for (int i = 0; i < 100; i++) {
       ActionCache.Entry entry = newerCache.get(Integer.toString(i));
       if (i % 20 == 0) {
@@ -242,6 +264,71 @@ public class CompactPersistentActionCacheTest {
   public void testToStringIsntTooBig() {
     assertToStringIsntTooBig(3);
     assertToStringIsntTooBig(3000);
+  }
+
+  enum IncompatibleFile {
+    MAP_FILE,
+    JOURNAL_FILE,
+    INDEX_FILE,
+    INDEX_JOURNAL_FILE
+  }
+
+  @Test
+  public void testIncompatibleFormat(@TestParameter IncompatibleFile param) throws IOException {
+    Path incompatibleFile =
+        switch (param) {
+          case MAP_FILE -> mapFile;
+          case JOURNAL_FILE -> journalFile;
+          case INDEX_FILE -> indexFile;
+          case INDEX_JOURNAL_FILE -> indexJournalFile;
+        };
+
+    FileSystemUtils.writeContent(incompatibleFile, "incompatible".getBytes(ISO_8859_1));
+
+    cache = CompactPersistentActionCache.create(cacheRoot, corruptedCacheRoot, clock, eventHandler);
+
+    verify(eventHandler, never()).handle(any());
+    assertThat(corruptedCacheRoot.exists()).isFalse();
+    assertThat(cache.size()).isEqualTo(0);
+  }
+
+  @Test
+  public void testTruncatedMapFile() throws IOException {
+    for (int i = 0; i < 300; i++) {
+      putKey(Integer.toString(i));
+    }
+    assertFullSave();
+
+    byte[] contents = FileSystemUtils.readContent(mapFile);
+    FileSystemUtils.writeContent(mapFile, Arrays.copyOf(contents, contents.length - 1));
+
+    cache = CompactPersistentActionCache.create(cacheRoot, corruptedCacheRoot, clock, eventHandler);
+
+    verify(eventHandler).handle(any());
+    assertThat(corruptedCacheRoot.exists()).isTrue();
+    assertThat(cache.size()).isEqualTo(0);
+  }
+
+  @Test
+  public void testTruncatedJournalFile() throws IOException {
+    for (int i = 0; i < 300; i++) {
+      putKey(Integer.toString(i));
+    }
+    assertFullSave();
+
+    putKey("abc");
+    assertIncrementalSave(cache);
+
+    assertThat(cache.size()).isEqualTo(302); // 301 entries + validation record
+
+    byte[] contents = FileSystemUtils.readContent(journalFile);
+    FileSystemUtils.writeContent(journalFile, Arrays.copyOf(contents, contents.length - 1));
+
+    cache = CompactPersistentActionCache.create(cacheRoot, corruptedCacheRoot, clock, eventHandler);
+
+    verify(eventHandler, never()).handle(any());
+    assertThat(corruptedCacheRoot.exists()).isFalse();
+    assertThat(cache.size()).isEqualTo(301);
   }
 
   private FileArtifactValue createLocalMetadata(Artifact artifact, String content)

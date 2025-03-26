@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.util.MapCodec.IncompatibleFormatException;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Hashtable;
@@ -231,28 +230,42 @@ public abstract class PersistentMap<K, V> extends ForwardingConcurrentMap<K, V> 
   /**
    * Loads the previous written map entries from disk.
    *
-   * @param failFast whether to throw an IOException if an error occurs, including a version
-   *     mismatch or corrupted file contents; otherwise, the error is suppressed and the remainder
-   *     of the file is ignored, resulting in a valid but potentially incomplete map.
+   * <p>If no on-disk state exists, loading is successful and produces an empty map.
+   *
+   * <p>Data corruption is handled differently for each file:
+   *
+   * <ul>
+   *   <li>Corruption in the map file is treated as an error, as the file is updated atomically.
+   *   <li>Corruption in the journal file is tolerated by ignoring the remaining contents, as the
+   *       file is updated non-atomically.
+   *
+   * @throws IncompatibleFormatException if the on-disk data is in an incompatible format
+   * @throws IOException if data corruption is detected and cannot be recovered from, or some other
+   *     I/O error occurs
    */
-  public synchronized void load(boolean failFast) throws IOException {
+  public synchronized void load() throws IOException {
     if (!loaded) {
-      loadEntries(mapFile, failFast);
+      if (mapFile.exists()) {
+        loadEntries(mapFile);
+      }
       if (journalFile.exists()) {
-        loadEntries(journalFile, failFast);
-        // Force the map to be dirty, so that we can save it to disk.
+        try {
+          loadEntries(journalFile);
+        } catch (IOException e) {
+          if (e instanceof IncompatibleFormatException) {
+            throw e;
+          }
+        }
+        // Merge the journal into the map file and delete the former, ensuring that we don't keep
+        // appending to a corrupted journal.
+        // TODO(tjgq): Avoid doing this unless journal corruption was detected.
         dirty = true;
-        save(/*fullSave=*/ true);
+        save(/* fullSave= */ true);
       } else {
         dirty = false;
       }
       loaded = true;
     }
-  }
-
-  /** Loads the previous written map entries from disk. */
-  public synchronized void load() throws IOException {
-    load(/* failFast= */ false);
   }
 
   @Override
@@ -346,21 +359,12 @@ public abstract class PersistentMap<K, V> extends ForwardingConcurrentMap<K, V> 
   /**
    * Loads all entries from the given file into the backing map.
    *
-   * @param failFast whether to throw an IOException if an error occurs, including a version
-   *     mismatch or corrupted file contents; otherwise, the error is suppressed and the remainder
-   *     of the file is ignored, resulting in a valid but potentially incomplete map.
+   * @throws IncompatibleFormatException if the file is in an incompatible format
+   * @throws IOException if the file is corrupted or an I/O error occurs
    */
-  private synchronized void loadEntries(Path mapFile, boolean failFast) throws IOException {
+  private synchronized void loadEntries(Path mapFile) throws IOException {
     try (MapCodec<K, V>.Reader in = codec.createReader(mapFile, version)) {
       readEntries(in);
-    } catch (FileNotFoundException e) {
-      // Always treat nonexistence as an empty map.
-    } catch (IncompatibleFormatException e) {
-      // Unless otherwise requested, treat an incompatible format as an empty map, so that format
-      // changes are not interpreted as corruption.
-      if (failFast) {
-        throw e;
-      }
     }
   }
 

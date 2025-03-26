@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
 import com.google.devtools.build.lib.util.MapCodec;
+import com.google.devtools.build.lib.util.MapCodec.IncompatibleFormatException;
 import com.google.devtools.build.lib.util.PersistentMap;
 import com.google.devtools.build.lib.util.StringIndexer;
 import com.google.devtools.build.lib.util.VarInt;
@@ -179,12 +180,19 @@ public class CompactPersistentActionCache implements ActionCache {
   }
 
   public static CompactPersistentActionCache create(
-      Path cacheRoot, Clock clock, EventHandler reporterForInitializationErrors)
+      Path cacheRoot,
+      Path corruptedCacheRoot,
+      Clock clock,
+      EventHandler reporterForInitializationErrors)
       throws IOException {
     Instant before = clock.now();
     CompactPersistentActionCache compactPersistentActionCache =
         create(
-            cacheRoot, clock, reporterForInitializationErrors, /* alreadyFoundCorruption= */ false);
+            cacheRoot,
+            corruptedCacheRoot,
+            clock,
+            reporterForInitializationErrors,
+            /* retrying= */ false);
     Instant after = clock.now();
     compactPersistentActionCache.loadTime = Duration.between(before, after);
 
@@ -193,9 +201,10 @@ public class CompactPersistentActionCache implements ActionCache {
 
   private static CompactPersistentActionCache create(
       Path cacheRoot,
+      Path corruptedCacheRoot,
       Clock clock,
       EventHandler reporterForInitializationErrors,
-      boolean alreadyFoundCorruption)
+      boolean retrying)
       throws IOException {
     cacheRoot.createDirectoryAndParents();
 
@@ -212,11 +221,12 @@ public class CompactPersistentActionCache implements ActionCache {
     } catch (IOException e) {
       return logAndThrowOrRecurse(
           cacheRoot,
+          corruptedCacheRoot,
           clock,
-          "Failed to load filename index data",
+          "Failed to load action cache index data",
           e,
           reporterForInitializationErrors,
-          alreadyFoundCorruption);
+          retrying);
     }
 
     try {
@@ -224,11 +234,12 @@ public class CompactPersistentActionCache implements ActionCache {
     } catch (IOException e) {
       return logAndThrowOrRecurse(
           cacheRoot,
+          corruptedCacheRoot,
           clock,
           "Failed to load action cache data",
           e,
           reporterForInitializationErrors,
-          alreadyFoundCorruption);
+          retrying);
     }
 
     // Validate referential integrity between two collections.
@@ -237,7 +248,13 @@ public class CompactPersistentActionCache implements ActionCache {
         validateIntegrity(indexer.size(), map.get(VALIDATION_KEY));
       } catch (IOException e) {
         return logAndThrowOrRecurse(
-            cacheRoot, clock, null, e, reporterForInitializationErrors, alreadyFoundCorruption);
+            cacheRoot,
+            corruptedCacheRoot,
+            clock,
+            "Failed action cache referential integrity check",
+            e,
+            reporterForInitializationErrors,
+            retrying);
       }
     }
 
@@ -256,75 +273,68 @@ public class CompactPersistentActionCache implements ActionCache {
 
   private static CompactPersistentActionCache logAndThrowOrRecurse(
       Path cacheRoot,
+      Path corruptedCacheRoot,
       Clock clock,
       String message,
       IOException e,
       EventHandler reporterForInitializationErrors,
-      boolean alreadyFoundCorruption)
+      boolean retrying)
       throws IOException {
-    renameCorruptedFiles(cacheRoot);
-    if (message != null) {
+    if (retrying) {
+      // Prevent a retry loop.
+      throw new IOException("Action cache initialization is stuck in a retry loop", e);
+    }
+
+    if (e instanceof IncompatibleFormatException) {
+      // Format incompatibility is expected when switching between Bazel versions, so we don't treat
+      // it as corruption; we simply delete the cache directory and start fresh.
+      cacheRoot.deleteTree();
+    } else {
+      // Move the corrupted cache to a separate location so it can be analyzed later.
+      // This also ensures that the next initialization attempt will create an empty cache.
+      // To avoid using too much disk space, only keep the most recent corrupted cache around.
+      corruptedCacheRoot.deleteTree();
+      cacheRoot.renameTo(corruptedCacheRoot);
+
       e = new IOException("%s: %s".formatted(message, e.getMessage()), e);
+
+      logger.atWarning().withCause(e).log(
+          "Failed to load action cache, preexisting files kept in %s", corruptedCacheRoot);
+
+      reporterForInitializationErrors.handle(
+          Event.error(
+              "Error during action cache initialization: "
+                  + e.getMessage()
+                  + ". Data may be incomplete, potentially causing rebuilds"));
     }
-    logger.atWarning().withCause(e).log(
-        "Failed to load action cache, preexisting files kept as %s/*.bad", cacheRoot);
-    reporterForInitializationErrors.handle(
-        Event.error(
-            "Error during action cache initialization: "
-                + e.getMessage()
-                + ". Data may be incomplete, potentially causing rebuilds"));
-    if (alreadyFoundCorruption) {
-      throw e;
-    }
+
     return create(
-        cacheRoot, clock, reporterForInitializationErrors, /* alreadyFoundCorruption= */ true);
+        cacheRoot,
+        corruptedCacheRoot,
+        clock,
+        reporterForInitializationErrors,
+        /* retrying= */ true);
   }
-
-  /**
-   * Rename corrupted files so they could be analyzed later. This would also ensure that next
-   * initialization attempt will create empty cache.
-   */
-  private static void renameCorruptedFiles(Path cacheRoot) {
-    try {
-      for (Path path :
-          ImmutableList.of(
-              cacheFile(cacheRoot),
-              journalFile(cacheRoot),
-              indexFile(cacheRoot),
-              indexJournalFile(cacheRoot))) {
-        if (path.exists()) {
-          path.renameTo(path.getParentDirectory().getChild(path.getBaseName() + ".bad"));
-        }
-      }
-    } catch (IOException e) {
-      logger.atWarning().withCause(e).log("Unable to rename corrupted action cache files");
-    }
-  }
-
-  private static final String FAILURE_PREFIX = "Failed action cache referential integrity check: ";
 
   /** Throws IOException if indexer contains no data or integrity check has failed. */
   private static void validateIntegrity(int indexerSize, byte[] validationRecord)
       throws IOException {
     if (indexerSize == 0) {
-      throw new IOException(FAILURE_PREFIX + "empty index");
+      throw new IOException("empty index");
     }
     if (validationRecord == null) {
-      throw new IOException(FAILURE_PREFIX + "no validation record");
+      throw new IOException("missing validation record");
     }
     try {
       int validationSize = ByteBuffer.wrap(validationRecord).asIntBuffer().get();
       if (validationSize > indexerSize) {
         throw new IOException(
             String.format(
-                FAILURE_PREFIX
-                    + "Validation mismatch: validation entry %d is too large "
-                    + "compared to index size %d",
-                validationSize,
-                indexerSize));
+                "validation record %d is too large compared to index size %d",
+                validationSize, indexerSize));
       }
     } catch (BufferUnderflowException e) {
-      throw new IOException(FAILURE_PREFIX + e.getMessage(), e);
+      throw new IOException("validation record is incomplete", e);
     }
   }
 

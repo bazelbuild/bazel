@@ -189,12 +189,18 @@ public final class BlazeWorkspace {
   }
 
   /**
-   * Returns path to the cache directory. Path must be inside output base to ensure that users can
-   * run concurrent instances of blaze in different clients without attempting to concurrently write
-   * to the same action cache on disk, which might not be safe.
+   * Returns the path to the action cache directory.
+   *
+   * <p>This path must be a descendant of the output base, as the action cache cannot be safely
+   * shared between different workspaces.
    */
-  private Path getCacheDirectory() {
+  private Path getActionCacheDirectory() {
     return getOutputBase().getChild("action_cache");
+  }
+
+  /** Returns the path where an action cache previously determined to be corrupted is stored. */
+  private Path getCorruptedActionCacheDirectory() {
+    return getOutputBase().getChild("action_cache.bad");
   }
 
   void recordLastExecutionTime(long commandStartTime) {
@@ -287,7 +293,8 @@ public final class BlazeWorkspace {
       actionCache.clear();
     }
     actionCache = null;
-    getCacheDirectory().deleteTree();
+    getActionCacheDirectory().deleteTree();
+    getCorruptedActionCacheDirectory().deleteTree();
   }
 
   /** Returns the reference to the action cache instance, without attempting to reload it. */
@@ -305,7 +312,11 @@ public final class BlazeWorkspace {
     if (actionCache == null) {
       try (AutoProfiler p = profiledAndLogged("Loading action cache", ProfilerTask.INFO)) {
         actionCache =
-            CompactPersistentActionCache.create(getCacheDirectory(), runtime.getClock(), reporter);
+            CompactPersistentActionCache.create(
+                getActionCacheDirectory(),
+                getCorruptedActionCacheDirectory(),
+                runtime.getClock(),
+                reporter);
       }
     }
     return actionCache;
