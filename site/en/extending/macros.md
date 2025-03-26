@@ -115,7 +115,7 @@ def _my_macro_impl(name, visibility, tags, **kwargs):
 
 `implementation` accepts a function which contains the logic of the macro.
 Implementation functions often create targets by calling one or more rules, and
-they are are usually private (named with a leading underscore). Conventionally,
+they are usually private (named with a leading underscore). Conventionally,
 they are named the same as their macro, but prefixed with `_` and suffixed with
 `_impl`.
 
