@@ -235,7 +235,7 @@ public final class CoverageReportActionBuilder {
                   artifactOwner,
                   reportGenerator,
                   workspaceName,
-                  htmlReport),
+                  /* htmlReport= */ false),
               argsFunction,
               locationFunc,
               "_baseline_report.dat");
