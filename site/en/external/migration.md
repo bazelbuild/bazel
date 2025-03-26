@@ -830,8 +830,12 @@ following command:
 
 ```shell
 git clone https://github.com/bazelbuild/bazel-central-registry.git
+cd bazel-central-registry
+bazel build //tools:migrate_to_bzlmod
+alias migrate2bzlmod=$(realpath ./bazel-bin/tools/migrate_to_bzlmod)
+
 cd <your workspace root>
-<BCR repo root>/tools/migrate_to_bzlmod.py -t <your build targets>
+migrate2bzlmod -t <your build targets>
 ```
 
 Note: The migration script is not perfect and may not be up-to-date since Bzlmod
