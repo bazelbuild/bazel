@@ -59,14 +59,17 @@ function reset_and_modify_file() {
   reset_file
   # Add a public method with a unique name to the file to ensure that the incremental build is
   # not using any cached results.
-  sed -i"" -e "s/^}/  public void foo$(uuid | tr '-' '_')() {}\n}/g" "$FILE_TO_MODIFY"
+  sed -i"" -e "s/^}/  public void foo$(uuidgen | tr '-' '_')() {}\n}/g" "$FILE_TO_MODIFY"
 }
 export -f reset_and_modify_file
 
 function build_target() {
-  # Keep the last profile around after a benchmark
-  bazel build --experimental_java_classpath=bazel \
+  # Keep the last profile around after a benchmark.
+  # Also work around https://github.com/bazelbuild/bazel/issues/20161.
+  bazel --nosystem_rc --nohome_rc \
+    build --experimental_java_classpath=bazel \
     --disk_cache="$DISK_CACHE" \
+    --experimental_remote_cache_eviction_retries=2 \
     --extra_toolchains=//_turbine_benchmark:turbine_benchmark_toolchain_definition \
     --profile="${PROFILE_PATH:-}" \
     $BAZEL_TARGET
@@ -96,7 +99,7 @@ function run_benchmark() {
   # Cache a full non-incremental build.
   build_target
   # Change a file and benchmark the incremental build.
-  hyperfine --shell=bash --warmup 1 --runs $RUNS --prepare reset_and_modify_file build_target
+  hyperfine --shell=bash --warmup 3 --runs $RUNS --prepare reset_and_modify_file build_target
 }
 
 echo "===== Benchmarking prebuilt Turbine ====="
@@ -104,10 +107,8 @@ cat << 'EOF' > _turbine_benchmark/BUILD
 load("@rules_java//toolchains:default_java_toolchain.bzl", "default_java_toolchain")
 default_java_toolchain(
     name = "turbine_benchmark_toolchain",
-    source_version = "11",
-    target_version = "11",
-    # Work around for https://github.com/bazelbuild/bazel/issues/19837.
-    bootclasspath = ["@rules_java//toolchains:platformclasspath"],
+    source_version = "21",
+    target_version = "21",
 )
 EOF
 export PROFILE_PATH=with_prebuilt_turbine.profile.gz
