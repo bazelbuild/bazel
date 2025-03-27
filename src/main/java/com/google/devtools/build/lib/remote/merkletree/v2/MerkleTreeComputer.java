@@ -1,6 +1,8 @@
 package com.google.devtools.build.lib.remote.merkletree.v2;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Predicates.alwaysFalse;
+import static com.google.common.base.Predicates.alwaysTrue;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
 
@@ -12,7 +14,6 @@ import com.github.benmanes.caffeine.cache.AsyncCache;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Predicates;
 import com.google.common.base.Throwables;
 import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
@@ -202,7 +203,7 @@ public final class MerkleTreeComputer {
         Collections2.transform(
             inputs.entrySet(),
             e -> Map.entry(e.getKey(), ActionInputHelper.fromPath(e.getValue().asFragment()))),
-        Predicates.alwaysFalse(),
+        alwaysFalse(),
         /* spawnScrubber= */ null,
         StaticInputMetadataProvider.empty(),
         absolutePathResolver);
@@ -424,7 +425,7 @@ public final class MerkleTreeComputer {
                 try {
                   return build(
                       sortedInputsSupplier.compute(),
-                      isTool ? unused2 -> true : unused2 -> false,
+                      isTool ? alwaysTrue() : alwaysFalse(),
                       /* spawnScrubber= */ null,
                       metadataProvider,
                       artifactPathResolver);
