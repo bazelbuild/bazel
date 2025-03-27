@@ -11,6 +11,7 @@ import build.bazel.remote.execution.v2.NodeProperty;
 import com.github.benmanes.caffeine.cache.AsyncCache;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Predicates;
 import com.google.common.base.Throwables;
 import com.google.common.collect.Collections2;
@@ -31,6 +32,8 @@ import com.google.devtools.build.lib.actions.RunfilesArtifactValue;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.StaticInputMetadataProvider;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
+import com.google.devtools.build.lib.remote.Scrubber;
+import com.google.devtools.build.lib.remote.Scrubber.SpawnScrubber;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.vfs.Dirent;
@@ -48,6 +51,7 @@ import java.util.Deque;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.SortedMap;
 import java.util.TreeMap;
@@ -69,6 +73,7 @@ public final class MerkleTreeComputer {
       Caffeine.newBuilder().weakKeys().build();
   private static final Cache<FileArtifactValue, MerkleTreeRoot> nonToolSubTreeCache =
       Caffeine.newBuilder().weakKeys().build();
+  @Nullable private static volatile Scrubber lastScrubber;
 
   private final DigestUtil digestUtil;
   private final MerkleTree emptyTree;
@@ -112,7 +117,8 @@ public final class MerkleTreeComputer {
       return blobs.keySet();
     }
 
-    ImmutableMap<Digest, Object> blobs() {
+    @VisibleForTesting
+    public ImmutableMap<Digest, Object> blobs() {
       return blobs;
     }
 
@@ -139,9 +145,15 @@ public final class MerkleTreeComputer {
   public MerkleTree buildForSpawn(
       Spawn spawn,
       Predicate<PathFragment> isToolInput,
+      @Nullable Scrubber scrubber,
       InputMetadataProvider metadataProvider,
       ArtifactPathResolver artifactPathResolver)
       throws IOException, InterruptedException {
+    if (!Objects.equals(scrubber, lastScrubber)) {
+      toolSubTreeCache.invalidateAll();
+      nonToolSubTreeCache.invalidateAll();
+      lastScrubber = scrubber;
+    }
     var spawnInputs = spawn.getInputFiles().toList();
     // Add output directories to inputs so that they are created as empty directories by the
     // executor. The spec only requires the executor to create the parent directory of an output
@@ -171,6 +183,7 @@ public final class MerkleTreeComputer {
     return build(
         Lists.transform(allInputs, input -> Map.entry(pathMapper.map(input.getExecPath()), input)),
         isToolInput,
+        scrubber != null ? scrubber.forSpawn(spawn) : null,
         metadataProvider,
         artifactPathResolver);
   }
@@ -190,6 +203,7 @@ public final class MerkleTreeComputer {
             inputs.entrySet(),
             e -> Map.entry(e.getKey(), ActionInputHelper.fromPath(e.getValue().asFragment()))),
         Predicates.alwaysFalse(),
+        /* spawnScrubber= */ null,
         StaticInputMetadataProvider.empty(),
         absolutePathResolver);
   }
@@ -197,6 +211,7 @@ public final class MerkleTreeComputer {
   private MerkleTree build(
       Collection<? extends Map.Entry<PathFragment, ? extends ActionInput>> sortedInputs,
       Predicate<PathFragment> isToolInput,
+      @Nullable SpawnScrubber spawnScrubber,
       InputMetadataProvider metadataProvider,
       ArtifactPathResolver artifactPathResolver)
       throws IOException, InterruptedException {
@@ -222,6 +237,9 @@ public final class MerkleTreeComputer {
       }
 
       PathFragment path = entry.getKey();
+      if (spawnScrubber != null && spawnScrubber.shouldOmitInput(path)) {
+        continue;
+      }
       ActionInput input = entry.getValue();
       PathFragment newParent = path.getParentDirectory();
       if (!currentParent.equals(newParent)) {
@@ -407,6 +425,7 @@ public final class MerkleTreeComputer {
                   return build(
                       sortedInputsSupplier.compute(),
                       isTool ? unused2 -> true : unused2 -> false,
+                      /* spawnScrubber= */ null,
                       metadataProvider,
                       artifactPathResolver);
                 } catch (IOException e) {

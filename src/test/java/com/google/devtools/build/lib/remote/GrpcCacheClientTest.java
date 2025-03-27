@@ -298,6 +298,7 @@ public class GrpcCacheClientTest {
                     .withOutputs("foo")
                     .build(),
                 Predicates.alwaysFalse(),
+                /* spawnScrubber= */ null,
                 fakeFileCache,
                 ArtifactPathResolver.forExecRoot(execRoot));
     Digest digest = DIGEST_UTIL.compute(virtualActionInput.getBytes().toByteArray());
