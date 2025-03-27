@@ -215,8 +215,10 @@ public final class MerkleTreeComputer {
   // layout enabled, but this isn't covered by any tests.
   private static PathFragment getOutputPath(
       ActionInput input, RemotePathResolver remotePathResolver) {
-    return PathFragment.create(remotePathResolver.getWorkingDirectory())
-        .getRelative(remotePathResolver.localPathToOutputPath(input.getExecPath()));
+    return PathFragment.create(
+        remotePathResolver.localPathToOutputPath(
+            PathFragment.create(remotePathResolver.getWorkingDirectory())
+                .getRelative(input.getExecPath())));
   }
 
   public MerkleTree buildForFiles(SortedMap<PathFragment, Path> inputs)
