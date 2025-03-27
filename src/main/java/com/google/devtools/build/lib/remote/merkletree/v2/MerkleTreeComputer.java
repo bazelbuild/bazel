@@ -72,9 +72,9 @@ public final class MerkleTreeComputer {
       ImmutableList.of(Map.entry(PathFragment.EMPTY_FRAGMENT, VirtualActionInput.EMPTY_MARKER));
   private static final PathFragment ROOT_FAKE_PATH_SEGMENT = PathFragment.create("root");
 
-  private static final Cache<FileArtifactValue, MerkleTreeRoot> toolSubTreeCache =
+  private static final Cache<FileArtifactValue, MerkleTreeRoot> persistentToolSubTreeCache =
       Caffeine.newBuilder().weakKeys().build();
-  private static final Cache<FileArtifactValue, MerkleTreeRoot> nonToolSubTreeCache =
+  private static final Cache<FileArtifactValue, MerkleTreeRoot> persistentNonToolSubTreeCache =
       Caffeine.newBuilder().weakKeys().build();
   @Nullable private static volatile Scrubber lastScrubber;
 
@@ -154,8 +154,8 @@ public final class MerkleTreeComputer {
       RemotePathResolver remotePathResolver)
       throws IOException, InterruptedException {
     if (!Objects.equals(scrubber, lastScrubber)) {
-      toolSubTreeCache.invalidateAll();
-      nonToolSubTreeCache.invalidateAll();
+      persistentToolSubTreeCache.invalidateAll();
+      persistentNonToolSubTreeCache.invalidateAll();
       lastScrubber = scrubber;
     }
     var spawnInputs = spawn.getInputFiles().toList();
@@ -452,12 +452,15 @@ public final class MerkleTreeComputer {
       InputMetadataProvider metadataProvider,
       ArtifactPathResolver artifactPathResolver)
       throws IOException, InterruptedException {
+    var cache = isTool ? persistentToolSubTreeCache : persistentNonToolSubTreeCache;
     try {
+      var cacheKey = cacheKeyFor(metadata, isTool);
       return inFlightSubTreeCache
           .get(
-              cacheKeyFor(metadata, isTool),
+              cacheKey,
               unused -> {
                 try {
+                  // TODO: Upload after building and then invalidate the in-flight cache entry.
                   return build(
                       sortedInputsSupplier.compute(),
                       isTool ? alwaysTrue() : alwaysFalse(),
@@ -469,6 +472,11 @@ public final class MerkleTreeComputer {
                 } catch (InterruptedException e) {
                   throw new UncheckedIOException(new InterruptedIOException());
                 }
+              })
+          .thenApply(
+              merkleTree -> {
+                cache.put(metadata, merkleTree.root);
+                return merkleTree;
               })
           .get();
     } catch (ExecutionException e) {
