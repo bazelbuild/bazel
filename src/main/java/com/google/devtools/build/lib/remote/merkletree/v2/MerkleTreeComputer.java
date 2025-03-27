@@ -192,6 +192,8 @@ public final class MerkleTreeComputer {
         artifactPathResolver);
   }
 
+  // TODO: This may not be the correct path to test isToolInput on with the sibling repository
+  // layout enabled, but this isn't covered by any tests.
   private static PathFragment getOutputPath(
       ActionInput input, RemotePathResolver remotePathResolver) {
     return PathFragment.create(remotePathResolver.getWorkingDirectory())
