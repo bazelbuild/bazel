@@ -279,12 +279,15 @@ public abstract class AbstractConfiguredTarget implements ConfiguredTarget, Visi
    * so all values must be accessible in Starlark. If the value of a provider is not convertible to
    * a Starlark value, that name/value pair is left out of the {@link Dict}.
    */
-  static Dict<String, Object> toProvidersDictForQuery(TransitiveInfoProviderMap providers) {
+  Dict<String, Object> toProvidersDictForQuery(TransitiveInfoProviderMap providers) {
     Dict.Builder<String, Object> dict = Dict.builder();
     for (int i = 0; i < providers.getProviderCount(); i++) {
       tryAddProviderForQuery(
           dict, providers.getProviderKeyAt(i), providers.getProviderInstanceAt(i));
     }
+    // DefaultInfo is not stored as a provider, but Starlark targets still observe it on
+    // dependencies.
+    tryAddProviderForQuery(dict, DefaultInfo.PROVIDER.getKey(), DefaultInfo.build(this));
     return dict.buildImmutable();
   }
 
