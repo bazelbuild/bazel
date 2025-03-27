@@ -372,7 +372,14 @@ public final class MerkleTreeComputer {
               .setName(name)
               .setDigest(digestUtil.emptyDigest());
         }
+        case null -> {
+          // This is a sentinel value for an empty file.
+          addFile(currentDirectory, name, digestUtil.emptyDigest(), nodeProperties);
+          inputFiles++;
+        }
         default -> {
+          // The input is not represented by a known subtype of ActionInput. Bare ActionInputs
+          // arise from exploded source directories or tests.
           Path inputPath = artifactPathResolver.toPath(input);
           var digest = digestUtil.compute(inputPath);
           addFile(currentDirectory, name, digest, nodeProperties);
