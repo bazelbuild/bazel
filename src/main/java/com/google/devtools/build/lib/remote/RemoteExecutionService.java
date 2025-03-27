@@ -1514,9 +1514,11 @@ public class RemoteExecutionService {
   }
 
   /** An ongoing local execution of a spawn. */
-  public static final class LocalExecution {
+  public static final class LocalExecution implements SilentCloseable {
     private final RemoteAction action;
     private final SettableFuture<SpawnResult> spawnResultFuture;
+    private final Runnable onClose;
+    private final AtomicBoolean closeManually = new AtomicBoolean(false);
     private final Phaser spawnResultConsumers =
         new Phaser(1) {
           @Override
@@ -1526,9 +1528,10 @@ public class RemoteExecutionService {
           }
         };
 
-    private LocalExecution(RemoteAction action) {
+    private LocalExecution(RemoteAction action, Runnable onClose) {
       this.action = action;
       this.spawnResultFuture = SettableFuture.create();
+      this.onClose = onClose;
     }
 
     /**
@@ -1541,11 +1544,11 @@ public class RemoteExecutionService {
      * builds and clients.
      */
     @Nullable
-    public static LocalExecution createIfDeduplicatable(RemoteAction action) {
+    public static LocalExecution createIfDeduplicatable(RemoteAction action, Runnable onClose) {
       if (action.getSpawn().getPathMapper().isNoop()) {
         return null;
       }
-      return new LocalExecution(action);
+      return new LocalExecution(action, onClose);
     }
 
     /**
@@ -1581,10 +1584,30 @@ public class RemoteExecutionService {
 
     /**
      * Signals to all potential consumers of the {@link #spawnResultFuture} that this execution has
-     * been cancelled and that the result will not be available.
+     * finished or been canceled and that the result will no longer be available.
      */
-    public void cancel() {
+    @Override
+    public void close() {
+      if (!closeManually.get()) {
+        doClose();
+      }
+    }
+
+    /**
+     * Returns a {@link Runnable} that will close this {@link LocalExecution} instance when called.
+     * After this method is called, the {@link LocalExecution} instance will not be closed by the
+     * {@link #close()} method.
+     */
+    public Runnable delayClose() {
+      if (!closeManually.compareAndSet(false, true)) {
+        throw new IllegalStateException("delayClose has already been called");
+      }
+      return this::doClose;
+    }
+
+    private void doClose() {
       spawnResultFuture.cancel(true);
+      onClose.run();
     }
   }
 
