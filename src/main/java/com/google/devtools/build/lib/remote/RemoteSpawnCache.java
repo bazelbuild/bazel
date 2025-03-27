@@ -78,6 +78,11 @@ final class RemoteSpawnCache implements SpawnCache {
     return remoteExecutionService;
   }
 
+  @VisibleForTesting
+  int getInFlightExecutionsSize() {
+    return inFlightExecutions.size();
+  }
+
   @Override
   public CacheHandle lookup(Spawn spawn, SpawnExecutionContext context)
       throws InterruptedException, IOException, ExecException, ForbiddenActionInputException {
@@ -110,7 +115,9 @@ final class RemoteSpawnCache implements SpawnCache {
       // first one.
       LocalExecution previousExecution = null;
       try {
-        thisExecution = LocalExecution.createIfDeduplicatable(action);
+        thisExecution =
+            LocalExecution.createIfDeduplicatable(
+                action, () -> inFlightExecutions.remove(action.getActionKey()));
         if (shouldUploadLocalResults && thisExecution != null) {
           LocalExecution previousOrThisExecution =
               inFlightExecutions.merge(
@@ -126,8 +133,12 @@ final class RemoteSpawnCache implements SpawnCache {
                       return thisExecutionArg;
                     }
                   });
-          previousExecution =
-              previousOrThisExecution == thisExecution ? null : previousOrThisExecution;
+          if (previousOrThisExecution != thisExecution) {
+            // The current execution is not the first one to be registered for this action key, so
+            // we need to wait for the previous one to finish before we can reuse its result.
+            previousExecution = previousOrThisExecution;
+            thisExecution = null;
+          }
         }
         try {
           RemoteActionResult result;
@@ -138,6 +149,9 @@ final class RemoteSpawnCache implements SpawnCache {
           // In case the remote cache returned a failed action (exit code != 0) we treat it as a
           // cache miss
           if (result != null && result.getExitCode() == 0) {
+            if (thisExecution != null) {
+              thisExecution.close();
+            }
             Stopwatch fetchTime = Stopwatch.createStarted();
             InMemoryOutput inMemoryOutput;
             try (SilentCloseable c = prof.profile(REMOTE_DOWNLOAD, "download outputs")) {
@@ -259,7 +273,9 @@ final class RemoteSpawnCache implements SpawnCache {
           // indefinitely is important to avoid excessive memory pressure - Spawns can be very
           // large.
           remoteExecutionService.uploadOutputs(
-              action, result, () -> inFlightExecutions.remove(action.getActionKey()));
+              action,
+              result,
+              thisExecutionFinal != null ? thisExecutionFinal.delayClose() : () -> {});
           if (thisExecutionFinal != null
               && action.getSpawn().getResourceOwner().mayModifySpawnOutputsAfterExecution()) {
             // In this case outputs have been uploaded synchronously and the callback above has run,
@@ -290,7 +306,7 @@ final class RemoteSpawnCache implements SpawnCache {
         @Override
         public void close() {
           if (thisExecutionFinal != null) {
-            thisExecutionFinal.cancel();
+            thisExecutionFinal.close();
           }
         }
       };
