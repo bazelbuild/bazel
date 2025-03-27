@@ -234,9 +234,7 @@ public final class MerkleTreeComputer {
 
     long inputFiles = 0;
     long inputBytes = 0;
-    // sortedInputs.size() is unlikely to be the correct size, but it's a better lower bound than
-    // the default (4).
-    var blobs = ImmutableMap.<Digest, Object>builderWithExpectedSize(sortedInputs.size());
+    var blobs = ImmutableMap.<Digest, Object>builder();
     Deque<Directory.Builder> directoryStack = new ArrayDeque<>();
     directoryStack.push(Directory.newBuilder());
 
