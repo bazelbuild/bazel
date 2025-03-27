@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.actions.RunfilesArtifactValue;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.StaticInputMetadataProvider;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.remote.Scrubber;
 import com.google.devtools.build.lib.remote.Scrubber.SpawnScrubber;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
@@ -282,25 +283,26 @@ public final class MerkleTreeComputer {
 
       switch (input) {
         case Artifact treeArtifact when treeArtifact.isTreeArtifact() -> {
-          var treeArtifactValue = metadataProvider.getTreeMetadata(treeArtifact);
-          boolean rootIsTool =
-              !treeArtifactValue.getChildren().isEmpty()
-                  && isToolInput.test(
-                      path.getRelative(
-                          treeArtifactValue.getChildren().first().getParentRelativePath()));
           var subTree =
               computeForTreeArtifactIfAbsent(
-                  treeArtifactValue, rootIsTool, metadataProvider, artifactPathResolver);
+                  metadataProvider.getTreeMetadata(treeArtifact),
+                  path,
+                  isToolInput,
+                  metadataProvider,
+                  artifactPathResolver);
           currentDirectory.addDirectoriesBuilder().setName(name).setDigest(subTree.rootDigest());
           blobs.putAll(subTree.blobs());
           inputFiles += subTree.inputFiles();
           inputBytes += subTree.inputBytes();
         }
         case Artifact runfilesTreeArtifact when runfilesTreeArtifact.isRunfilesTree() -> {
-          var runfilesArtifactValue = metadataProvider.getRunfilesMetadata(runfilesTreeArtifact);
           var subTree =
               computeForRunfilesTreeIfAbsent(
-                  runfilesArtifactValue, metadataProvider, artifactPathResolver);
+                  metadataProvider.getRunfilesMetadata(runfilesTreeArtifact),
+                  path,
+                  isToolInput,
+                  metadataProvider,
+                  artifactPathResolver);
           currentDirectory.addDirectoriesBuilder().setName(name).setDigest(subTree.rootDigest());
           blobs.putAll(subTree.blobs());
           inputFiles += subTree.inputFiles();
@@ -375,23 +377,48 @@ public final class MerkleTreeComputer {
 
   private MerkleTree computeForRunfilesTreeIfAbsent(
       RunfilesArtifactValue runfilesArtifactValue,
+      PathFragment mappedExecPath,
+      Predicate<PathFragment> isToolInput,
       InputMetadataProvider metadataProvider,
       ArtifactPathResolver artifactPathResolver)
       throws IOException, InterruptedException {
+    // A runfiles tree contains either only tool inputs or only non-tool inputs. It always contains
+    // at least one artifact at its canonical location: the executable for which it has been
+    // created.
+    var artifactAtCanonicalLocation =
+        checkNotNull(
+            getOneElement(
+                runfilesArtifactValue
+                    .getRunfilesTree()
+                    .getArtifactsAtCanonicalLocationsForLogging()),
+            "runfiles tree contains no artifacts at canonical location: %s",
+            mappedExecPath);
+    var fullPath =
+        mappedExecPath.getChild("_main").getRelative(artifactAtCanonicalLocation.getRunfilesPath());
+    boolean isTool = isToolInput.test(fullPath);
+    // mappedExecPath and isToolInput must not be used below as they aren't part of the cache key.
     return computeIfAbsent(
         runfilesArtifactValue.getMetadata(),
         () -> runfilesArtifactValue.getRunfilesTree().getMapping().entrySet(),
-        /* TODO */ false,
+        isTool,
         metadataProvider,
         artifactPathResolver);
   }
 
   private MerkleTree computeForTreeArtifactIfAbsent(
       TreeArtifactValue treeArtifactValue,
-      boolean rootIsTool,
+      PathFragment mappedExecPath,
+      Predicate<PathFragment> isToolInput,
       InputMetadataProvider metadataProvider,
       ArtifactPathResolver artifactPathResolver)
       throws IOException, InterruptedException {
+    // A tree artifact contains either only tool inputs or only non-tool inputs.
+    boolean isTool =
+        !treeArtifactValue.getChildren().isEmpty()
+            && isToolInput.test(
+                mappedExecPath.getRelative(
+                    treeArtifactValue.getChildren().first().getParentRelativePath()));
+    // mappedExecPath and isToolInput must not be used below as they aren't part of the cache key.
     return computeIfAbsent(
         treeArtifactValue.getMetadata(),
         () ->
@@ -400,7 +427,7 @@ public final class MerkleTreeComputer {
                 // order as sorting by parent relative path.
                 treeArtifactValue.getChildren(),
                 child -> Map.entry(child.getParentRelativePath(), child)),
-        rootIsTool,
+        isTool,
         metadataProvider,
         artifactPathResolver);
   }
@@ -512,6 +539,22 @@ public final class MerkleTreeComputer {
                 "Unsupported file type of %s: %s".formatted(path, entry.getType()));
       }
     }
+  }
+
+  @Nullable
+  private static <T> T getOneElement(NestedSet<T> nestedSet) {
+    ImmutableList<T> leaves = nestedSet.getLeaves();
+    if (!leaves.isEmpty()) {
+      return leaves.getFirst();
+    }
+    ImmutableList<NestedSet<T>> nonLeaves = nestedSet.getNonLeaves();
+    for (NestedSet<T> nonLeaf : nonLeaves) {
+      T leaf = getOneElement(nonLeaf);
+      if (leaf != null) {
+        return leaf;
+      }
+    }
+    return null;
   }
 
   private static class InputDirectory extends ActionInputHelper.BasicActionInput {
