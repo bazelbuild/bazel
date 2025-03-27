@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.remote.Scrubber;
 import com.google.devtools.build.lib.remote.Scrubber.SpawnScrubber;
+import com.google.devtools.build.lib.remote.common.RemotePathResolver;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.vfs.Dirent;
@@ -149,7 +150,8 @@ public final class MerkleTreeComputer {
       Predicate<PathFragment> isToolInput,
       @Nullable Scrubber scrubber,
       InputMetadataProvider metadataProvider,
-      ArtifactPathResolver artifactPathResolver)
+      ArtifactPathResolver artifactPathResolver,
+      RemotePathResolver remotePathResolver)
       throws IOException, InterruptedException {
     if (!Objects.equals(scrubber, lastScrubber)) {
       toolSubTreeCache.invalidateAll();
@@ -167,10 +169,9 @@ public final class MerkleTreeComputer {
             .collect(toImmutableList());
     // Reduce peak memory usage by avoiding the allocation of intermediate arrays and TreeMaps, as
     // well as the prolonged retention of mapped paths.
-    var pathMapper = spawn.getPathMapper();
     var allInputs =
         ImmutableList.sortedCopyOf(
-            Comparator.comparing(input -> pathMapper.map(input.getExecPath())),
+            Comparator.comparing(input -> getOutputPath(input, remotePathResolver)),
             new AbstractCollection<ActionInput>() {
               @Override
               public Iterator<ActionInput> iterator() {
@@ -183,11 +184,18 @@ public final class MerkleTreeComputer {
               }
             });
     return build(
-        Lists.transform(allInputs, input -> Map.entry(pathMapper.map(input.getExecPath()), input)),
+        Lists.transform(
+            allInputs, input -> Map.entry(getOutputPath(input, remotePathResolver), input)),
         isToolInput,
         scrubber != null ? scrubber.forSpawn(spawn) : null,
         metadataProvider,
         artifactPathResolver);
+  }
+
+  private static PathFragment getOutputPath(
+      ActionInput input, RemotePathResolver remotePathResolver) {
+    return PathFragment.create(remotePathResolver.getWorkingDirectory())
+        .getRelative(remotePathResolver.localPathToOutputPath(input.getExecPath()));
   }
 
   public MerkleTree buildForFiles(SortedMap<PathFragment, Path> inputs)

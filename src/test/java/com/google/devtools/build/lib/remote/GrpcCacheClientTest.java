@@ -300,7 +300,8 @@ public class GrpcCacheClientTest {
                 Predicates.alwaysFalse(),
                 /* spawnScrubber= */ null,
                 fakeFileCache,
-                ArtifactPathResolver.forExecRoot(execRoot));
+                ArtifactPathResolver.forExecRoot(execRoot),
+                remotePathResolver);
     Digest digest = DIGEST_UTIL.compute(virtualActionInput.getBytes().toByteArray());
 
     // Add a fake CAS that responds saying that the above virtual action input is missing
