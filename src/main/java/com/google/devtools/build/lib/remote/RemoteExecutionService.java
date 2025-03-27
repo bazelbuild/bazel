@@ -557,9 +557,16 @@ public class RemoteExecutionService {
         serverHighestVersion == null || serverHighestVersion.compareTo(ApiVersion.twoPointOne) >= 0;
   }
 
+  @VisibleForTesting
+  RemoteAction buildRemoteAction(Spawn spawn, SpawnExecutionContext context)
+      throws IOException, ExecException, InterruptedException {
+    return buildRemoteAction(spawn, context, /* forExecution= */ true);
+  }
+
   /** Creates a new {@link RemoteAction} instance from spawn. */
-  public RemoteAction buildRemoteAction(Spawn spawn, SpawnExecutionContext context)
-      throws IOException, ExecException, ForbiddenActionInputException, InterruptedException {
+  public RemoteAction buildRemoteAction(
+      Spawn spawn, SpawnExecutionContext context, boolean forExecution)
+      throws IOException, ExecException, InterruptedException {
     maybeAcquireRemoteActionBuildingSemaphore(ProfilerTask.REMOTE_SETUP);
     try {
       // Create a remote path resolver that is aware of the spawn's path mapper, which rewrites
@@ -576,7 +583,8 @@ public class RemoteExecutionService {
               scrubber,
               context.getInputMetadataProvider(),
               context.getPathResolver(),
-              remotePathResolver);
+              remotePathResolver,
+              new MerkleTreeComputer.Options(forExecution, /* force= */ false));
 
       // Get the remote platform properties.
       Platform platform;
@@ -1877,7 +1885,8 @@ public class RemoteExecutionService {
                 scrubber,
                 context.getInputMetadataProvider(),
                 context.getPathResolver(),
-                action.getRemotePathResolver());
+                action.getRemotePathResolver(),
+                new MerkleTreeComputer.Options(/* forExecution= */ true, /* force= */ false));
       }
 
       remoteExecutionCache.ensureInputsPresent(

@@ -92,6 +92,8 @@ public final class MerkleTreeComputer {
             new MerkleTreeRoot(emptyDigest, 0, 0), ImmutableMap.of(emptyDigest, emptyBlob));
   }
 
+  public record Options(boolean forExecution, boolean force) {}
+
   private record MerkleTreeRoot(Digest rootDigest, long inputFiles, long inputBytes) {}
 
   // TODO: Drop blobs after they have been uploaded.
@@ -151,7 +153,8 @@ public final class MerkleTreeComputer {
       @Nullable Scrubber scrubber,
       InputMetadataProvider metadataProvider,
       ArtifactPathResolver artifactPathResolver,
-      RemotePathResolver remotePathResolver)
+      RemotePathResolver remotePathResolver,
+      Options options)
       throws IOException, InterruptedException {
     if (!Objects.equals(scrubber, lastScrubber)) {
       persistentToolSubTreeCache.invalidateAll();

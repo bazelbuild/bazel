@@ -100,7 +100,8 @@ final class RemoteSpawnCache implements SpawnCache {
 
     Stopwatch totalTime = Stopwatch.createStarted();
 
-    RemoteAction action = remoteExecutionService.buildRemoteAction(spawn, context);
+    RemoteAction action =
+        remoteExecutionService.buildRemoteAction(spawn, context, /* forExecution= */ false);
     SpawnMetrics.Builder spawnMetrics =
         SpawnMetrics.Builder.forRemoteExec()
             .setInputBytes(action.getInputBytes())
