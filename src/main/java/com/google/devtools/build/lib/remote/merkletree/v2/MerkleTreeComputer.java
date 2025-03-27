@@ -9,6 +9,7 @@ import build.bazel.remote.execution.v2.Directory;
 import build.bazel.remote.execution.v2.NodeProperties;
 import build.bazel.remote.execution.v2.NodeProperty;
 import com.github.benmanes.caffeine.cache.AsyncCache;
+import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.common.base.Predicates;
 import com.google.common.base.Throwables;
@@ -64,11 +65,15 @@ public final class MerkleTreeComputer {
       ImmutableList.of(Map.entry(PathFragment.EMPTY_FRAGMENT, VirtualActionInput.EMPTY_MARKER));
   private static final PathFragment ROOT_FAKE_PATH_SEGMENT = PathFragment.create("root");
 
-  private static final AsyncCache<FileArtifactValue, MerkleTree> subTreeCache =
-      Caffeine.newBuilder().weakKeys().buildAsync();
+  private static final Cache<FileArtifactValue, MerkleTreeRoot> toolSubTreeCache =
+      Caffeine.newBuilder().weakKeys().build();
+  private static final Cache<FileArtifactValue, MerkleTreeRoot> nonToolSubTreeCache =
+      Caffeine.newBuilder().weakKeys().build();
 
   private final DigestUtil digestUtil;
   private final MerkleTree emptyTree;
+  private final AsyncCache<Object, MerkleTree> inFlightSubTreeCache =
+      Caffeine.newBuilder().buildAsync();
 
   public MerkleTreeComputer(DigestUtil digestUtil) {
     this.digestUtil = digestUtil;
@@ -389,20 +394,19 @@ public final class MerkleTreeComputer {
   private MerkleTree computeIfAbsent(
       FileArtifactValue metadata,
       SortedInputsSupplier sortedInputsSupplier,
-      boolean rootIsTool,
+      boolean isTool,
       InputMetadataProvider metadataProvider,
       ArtifactPathResolver artifactPathResolver)
       throws IOException, InterruptedException {
     try {
-      return subTreeCache
+      return inFlightSubTreeCache
           .get(
-              metadata,
+              cacheKeyFor(metadata, isTool),
               unused -> {
                 try {
                   return build(
                       sortedInputsSupplier.compute(),
-                      // TODO: Include rootIsTool in the cache key.
-                      rootIsTool ? unused2 -> true : unused2 -> false,
+                      isTool ? unused2 -> true : unused2 -> false,
                       metadataProvider,
                       artifactPathResolver);
                 } catch (IOException e) {
@@ -422,6 +426,11 @@ public final class MerkleTreeComputer {
       Throwables.throwIfUnchecked(e.getCause());
       throw new IllegalStateException(e);
     }
+  }
+
+  private static Object cacheKeyFor(FileArtifactValue metadata, boolean isTool) {
+    record ToolFileArtifactValue(FileArtifactValue metadata) {}
+    return isTool ? new ToolFileArtifactValue(metadata) : metadata;
   }
 
   private static void addFile(
