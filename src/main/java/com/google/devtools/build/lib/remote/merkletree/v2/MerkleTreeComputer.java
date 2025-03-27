@@ -505,6 +505,9 @@ public final class MerkleTreeComputer {
     var cache = isTool ? persistentToolSubTreeCache : persistentNonToolSubTreeCache;
     try {
       var cacheKey = cacheKeyFor(metadata, isTool);
+      if (options.refresh) {
+        inFlightSubTreeCache.synchronous().invalidate(cacheKey);
+      }
       return inFlightSubTreeCache
           .get(
               cacheKey,
