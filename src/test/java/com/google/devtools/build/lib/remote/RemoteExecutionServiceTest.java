@@ -119,6 +119,7 @@ import com.google.devtools.build.lib.remote.util.RxNoGlobalErrorsRule;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.remote.util.Utils.InMemoryOutput;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.TempPathGenerator;
@@ -2337,11 +2338,9 @@ public class RemoteExecutionServiceTest {
     Artifact toolDat = ActionsTestUtil.createArtifact(artifactRoot, "tool.dat");
     fakeFileCache.createScratchInput(toolDat, "tool.dat");
     RunfilesTree runfilesTree =
-        createRunfilesTree(
-            artifactRoot.getExecPathString() + "/worker_input.runfiles", ImmutableList.of(toolDat));
+        createRunfilesTree("outputs/worker_input.runfiles", ImmutableList.of(toolDat));
     ActionInput runfilesArtifact =
-        ActionsTestUtil.createRunfilesArtifact(
-            artifactRoot, artifactRoot.getExecPathString() + "/worker_input.runfiles");
+        ActionsTestUtil.createRunfilesArtifact(artifactRoot, "outputs/worker_input.runfiles");
     fakeFileCache.addRunfilesTree(runfilesArtifact, runfilesTree);
 
     Spawn spawn =
@@ -2367,52 +2366,10 @@ public class RemoteExecutionServiceTest {
                         .setName("persistentWorkerKey")
                         .setValue(
                             enablePathMapping
-                                ? "0d8336db089ad9f8754f8c551c6c38430e506becfa06508aeebcfbc4530a6c69"
-                                : "b218f80e9b457a2b84a130e75266bda866876f9b6b1ca576334ee0fe7961abac"))
+                                ? "85e3ad12f36ccb7b5eddbfe8f6bc28f57004634c537faac32d33a30b8d456bb8"
+                                : "5b1f31685d47bab5267d65bf671a682a486240ae351d74130a12d452190bd5f3"))
                 .build());
     var merkleTree = remoteAction.getMerkleTree();
-    var toolRunfilesDirectoryDigest =
-        Digest.newBuilder()
-            .setHash("d381fa88ae089e4279570ffcb05920a955626c36e3e8e8c23b8a7318556e99e7")
-            .setSizeBytes(81)
-            .build();
-    var toolRunfilesDirectory =
-        DirectoryNode.newBuilder()
-            .setName("worker_input.runfiles")
-            .setDigest(toolRunfilesDirectoryDigest);
-    var runfilesDirectory = merkleTree.getDirectoryByDigest(toolRunfilesDirectoryDigest);
-    var runfilesSubdirectoryDigest =
-        Digest.newBuilder()
-            .setHash("2773ed2d89aed9db55b83230eb8c66f56a02884e151009a3b070164bb6800cc8")
-            .setSizeBytes(106)
-            .build();
-    assertThat(runfilesDirectory)
-        .isEqualTo(
-            Directory.newBuilder()
-                .addDirectories(
-                    DirectoryNode.newBuilder()
-                        .setName("outputs")
-                        .setDigest(runfilesSubdirectoryDigest))
-                .build());
-    var runfilesSubdirectory = merkleTree.getDirectoryByDigest(runfilesSubdirectoryDigest);
-    assertThat(runfilesSubdirectory)
-        .isEqualTo(
-            Directory.newBuilder()
-                .addFiles(
-                    FileNode.newBuilder()
-                        .setName("tool.dat")
-                        .setDigest(
-                            Digest.newBuilder()
-                                .setHash(
-                                    "968b7e2e112917824f4ea807dbc3adeebc00de2836f98c68418f525295f9a0c1")
-                                .setSizeBytes(8))
-                        .setIsExecutable(true)
-                        .setNodeProperties(
-                            NodeProperties.newBuilder()
-                                .addProperties(
-                                    NodeProperty.newBuilder().setName("bazel_tool_input")))
-                        .build())
-                .build());
     var outputDirectory =
         merkleTree.getDirectoryByDigest(merkleTree.getRootProto().getDirectories(0).getDigest());
     var inputFile =
@@ -2434,12 +2391,54 @@ public class RemoteExecutionServiceTest {
             .setNodeProperties(
                 NodeProperties.newBuilder()
                     .addProperties(NodeProperty.newBuilder().setName("bazel_tool_input")));
+    var toolRunfilesDirectoryDigest =
+        Digest.newBuilder()
+            .setHash("d5cf7403c6b6c97f7b404c829a3d70c618412411c4554ed29b0f59815c53d952")
+            .setSizeBytes(79)
+            .build();
+    var toolRunfilesDirectory =
+        DirectoryNode.newBuilder()
+            .setName("worker_input.runfiles")
+            .setDigest(toolRunfilesDirectoryDigest);
     assertThat(outputDirectory)
         .isEqualTo(
             Directory.newBuilder()
                 .addFiles(inputFile)
                 .addFiles(toolFile)
                 .addDirectories(toolRunfilesDirectory)
+                .build());
+    var runfilesDirectory = merkleTree.getDirectoryByDigest(toolRunfilesDirectoryDigest);
+    var runfilesSubdirectoryDigest =
+        Digest.newBuilder()
+            .setHash("2773ed2d89aed9db55b83230eb8c66f56a02884e151009a3b070164bb6800cc8")
+            .setSizeBytes(106)
+            .build();
+    assertThat(runfilesDirectory)
+        .isEqualTo(
+            Directory.newBuilder()
+                .addDirectories(
+                    DirectoryNode.newBuilder()
+                        .setName(TestConstants.WORKSPACE_NAME)
+                        .setDigest(runfilesSubdirectoryDigest))
+                .build());
+    var runfilesSubdirectory = merkleTree.getDirectoryByDigest(runfilesSubdirectoryDigest);
+    assertThat(runfilesSubdirectory)
+        .isEqualTo(
+            Directory.newBuilder()
+                .addFiles(
+                    FileNode.newBuilder()
+                        .setName("tool.dat")
+                        .setDigest(
+                            Digest.newBuilder()
+                                .setHash(
+                                    "968b7e2e112917824f4ea807dbc3adeebc00de2836f98c68418f525295f9a0c1")
+                                .setSizeBytes(8))
+                        .setIsExecutable(true)
+                        .setNodeProperties(
+                            NodeProperties.newBuilder()
+                                .addProperties(
+                                    NodeProperty.newBuilder().setName("bazel_tool_input")))
+                        .build())
                 .build());
 
     // Check that if an non-tool input changes, the persistent worker key does not change.
@@ -2452,8 +2451,8 @@ public class RemoteExecutionServiceTest {
                         .setName("persistentWorkerKey")
                         .setValue(
                             enablePathMapping
-                                ? "0d8336db089ad9f8754f8c551c6c38430e506becfa06508aeebcfbc4530a6c69"
-                                : "b218f80e9b457a2b84a130e75266bda866876f9b6b1ca576334ee0fe7961abac"))
+                                ? "85e3ad12f36ccb7b5eddbfe8f6bc28f57004634c537faac32d33a30b8d456bb8"
+                                : "5b1f31685d47bab5267d65bf671a682a486240ae351d74130a12d452190bd5f3"))
                 .build());
 
     // Check that if a tool input changes, the persistent worker key changes.
@@ -2466,8 +2465,8 @@ public class RemoteExecutionServiceTest {
                         .setName("persistentWorkerKey")
                         .setValue(
                             enablePathMapping
-                                ? "e05403c549ba3afbc9512679a52e8ed4364c1e7fdb7b947390e7de2f2ca2ff76"
-                                : "e73cc2be292446c6b572b4117eb8f26abf8fb0098b2e888b3425d76f32921fbb"))
+                                ? "6667700b8ff75e77f50c0d6b471e9052c856a21648c8204f0772fc455df6d6dc"
+                                : "63335231cbbf2ff838acdd19da768ce6524e929c4dcedcdce77c822a480fa49b"))
                 .build());
   }
 
@@ -2752,7 +2751,13 @@ public class RemoteExecutionServiceTest {
       @Override
       public SortedMap<PathFragment, Artifact> getMapping() {
         return artifacts.stream()
-            .collect(toImmutableSortedMap(naturalOrder(), Artifact::getExecPath, identity()));
+            .collect(
+                toImmutableSortedMap(
+                    naturalOrder(),
+                    artifact ->
+                        PathFragment.create(TestConstants.WORKSPACE_NAME)
+                            .getRelative(artifact.getRunfilesPath()),
+                    identity()));
       }
 
       @Override
