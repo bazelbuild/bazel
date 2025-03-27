@@ -560,12 +560,13 @@ public class RemoteExecutionService {
   @VisibleForTesting
   RemoteAction buildRemoteAction(Spawn spawn, SpawnExecutionContext context)
       throws IOException, ExecException, InterruptedException {
-    return buildRemoteAction(spawn, context, /* forExecution= */ true);
+    return buildRemoteAction(
+        spawn, context, MerkleTreeComputer.Options.builder().forExecution(true).build());
   }
 
   /** Creates a new {@link RemoteAction} instance from spawn. */
   public RemoteAction buildRemoteAction(
-      Spawn spawn, SpawnExecutionContext context, boolean forExecution)
+      Spawn spawn, SpawnExecutionContext context, MerkleTreeComputer.Options options)
       throws IOException, ExecException, InterruptedException {
     maybeAcquireRemoteActionBuildingSemaphore(ProfilerTask.REMOTE_SETUP);
     try {
@@ -584,7 +585,7 @@ public class RemoteExecutionService {
               context.getInputMetadataProvider(),
               context.getPathResolver(),
               remotePathResolver,
-              new MerkleTreeComputer.Options(forExecution, /* force= */ false));
+              options);
 
       // Get the remote platform properties.
       Platform platform;
@@ -1886,7 +1887,7 @@ public class RemoteExecutionService {
                 context.getInputMetadataProvider(),
                 context.getPathResolver(),
                 action.getRemotePathResolver(),
-                new MerkleTreeComputer.Options(/* forExecution= */ true, /* force= */ false));
+                MerkleTreeComputer.Options.builder().forExecution(true).build());
       }
 
       remoteExecutionCache.ensureInputsPresent(

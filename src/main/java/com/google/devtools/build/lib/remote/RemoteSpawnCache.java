@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.remote.common.BulkTransferException;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.common.RemoteExecutionCapabilitiesException;
+import com.google.devtools.build.lib.remote.merkletree.v2.MerkleTreeComputer;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.Utils;
@@ -101,7 +102,8 @@ final class RemoteSpawnCache implements SpawnCache {
     Stopwatch totalTime = Stopwatch.createStarted();
 
     RemoteAction action =
-        remoteExecutionService.buildRemoteAction(spawn, context, /* forExecution= */ false);
+        remoteExecutionService.buildRemoteAction(
+            spawn, context, MerkleTreeComputer.Options.builder().forExecution(false).build());
     SpawnMetrics.Builder spawnMetrics =
         SpawnMetrics.Builder.forRemoteExec()
             .setInputBytes(action.getInputBytes())

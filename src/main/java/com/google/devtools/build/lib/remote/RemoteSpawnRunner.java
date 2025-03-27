@@ -68,6 +68,7 @@ import com.google.devtools.build.lib.remote.circuitbreaker.CircuitBreakerFactory
 import com.google.devtools.build.lib.remote.common.BulkTransferException;
 import com.google.devtools.build.lib.remote.common.OperationObserver;
 import com.google.devtools.build.lib.remote.common.RemoteExecutionCapabilitiesException;
+import com.google.devtools.build.lib.remote.merkletree.v2.MerkleTreeComputer;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.Utils;
@@ -198,7 +199,8 @@ public class RemoteSpawnRunner implements SpawnRunner {
     boolean uploadLocalResults = remoteExecutionService.getWriteCachePolicy(spawn).allowAnyCache();
 
     RemoteAction action =
-        remoteExecutionService.buildRemoteAction(spawn, context, /* forExecution= */ true);
+        remoteExecutionService.buildRemoteAction(
+            spawn, context, MerkleTreeComputer.Options.builder().forExecution(true).build());
 
     context.setDigest(digestUtil.asSpawnLogProto(action.getActionKey()));
 
