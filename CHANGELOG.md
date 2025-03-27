@@ -1,3 +1,17 @@
+## Release 9.0.0-pre.20250317.2 (2025-03-27)
+
+```
+Baseline: 528c2c5e2e7341f9bf538f35077d29dd41988a71
+
+Cherry picks:
+
+   + d02f003a4b818ed2936bc6719204b884aa71e1ff:
+     Prevent concurrent use of the same `CharsetEncoder` in
+     `json.decode`
+```
+
+This release contains contributions from many people at Google, as well as Benjamin Peterson, Fabian Meumertzheim, Zachary Kipping.
+
 ## Release 7.6.0 (2025-03-24)
 
 ```
