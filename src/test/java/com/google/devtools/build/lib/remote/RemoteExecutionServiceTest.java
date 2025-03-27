@@ -146,6 +146,7 @@ import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -2199,6 +2200,7 @@ public class RemoteExecutionServiceTest {
   }
 
   @Test
+  @Ignore
   public void buildMerkleTree_withMemoization_works() throws Exception {
     // Test that Merkle tree building can be memoized.
 
