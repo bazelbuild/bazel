@@ -434,7 +434,7 @@ public final class MerkleTreeComputer {
 
   private interface SortedInputsSupplier {
     Collection<? extends Map.Entry<PathFragment, ? extends ActionInput>> compute()
-        throws IOException;
+        throws IOException, InterruptedException;
   }
 
   private MerkleTree computeIfAbsent(
@@ -518,7 +518,7 @@ public final class MerkleTreeComputer {
   }
 
   private static SortedMap<PathFragment, ActionInput> explodeDirectory(Path dirPath)
-      throws IOException {
+      throws IOException, InterruptedException {
     SortedMap<PathFragment, ActionInput> inputs = new TreeMap<>();
     explodeDirectory(PathFragment.EMPTY_FRAGMENT, dirPath, inputs);
     return inputs;
@@ -526,7 +526,10 @@ public final class MerkleTreeComputer {
 
   private static void explodeDirectory(
       PathFragment relPath, Path dirPath, SortedMap<PathFragment, ActionInput> inputs)
-      throws IOException {
+      throws IOException, InterruptedException {
+    if (Thread.interrupted()) {
+      throw new InterruptedException();
+    }
     Collection<Dirent> entries = dirPath.getRelative(relPath).readdir(Symlinks.FOLLOW);
     for (Dirent entry : entries) {
       String basename = entry.getName();
