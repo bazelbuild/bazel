@@ -351,7 +351,7 @@ public final class MerkleTreeComputer {
           } else {
             var digest = DigestUtil.buildDigest(metadata.getDigest(), metadata.getSize());
             addFile(currentDirectory, name, digest, nodeProperties);
-            blobs.put(digest, fileOrSourceDirectory.getPath());
+            blobs.put(digest, artifactPathResolver.toPath(fileOrSourceDirectory));
             inputFiles++;
             inputBytes += digest.getSizeBytes();
           }
