@@ -62,7 +62,7 @@ public class CopyingSandboxedSpawn extends AbstractContainerizingSandboxedSpawn 
   }
 
   @Override
-  public void copyOutputs(Path execRoot) throws IOException, InterruptedException {
+  public void copyOutputs(Path execRoot) throws IOException {
     successCallback.run();
     super.copyOutputs(execRoot);
   }

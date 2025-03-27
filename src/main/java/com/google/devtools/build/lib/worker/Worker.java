@@ -132,8 +132,7 @@ public abstract class Worker {
    * @param execRoot The global execRoot, where outputs must go.
    * @param outputs The expected outputs.
    */
-  public void finishExecution(Path execRoot, SandboxOutputs outputs)
-      throws IOException, InterruptedException {
+  public void finishExecution(Path execRoot, SandboxOutputs outputs) throws IOException {
     status.maybeUpdateStatus(WorkerProcessStatus.Status.ALIVE);
   }
 

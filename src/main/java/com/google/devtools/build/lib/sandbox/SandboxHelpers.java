@@ -37,8 +37,6 @@ import com.google.devtools.build.lib.actions.cache.VirtualActionInput.EmptyActio
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.collect.compacthashmap.CompactHashMap;
-import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
-import com.google.devtools.build.lib.concurrent.ErrorClassifier;
 import com.google.devtools.build.lib.exec.TreeDeleter;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Sandbox;
@@ -55,7 +53,6 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.io.UncheckedIOException;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -65,8 +62,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
@@ -87,80 +82,6 @@ public final class SandboxHelpers {
 
   private static final AtomicBoolean warnedAboutMovesBeingCopies = new AtomicBoolean(false);
 
-  @SuppressWarnings("AllowVirtualThreads")
-  private static final ExecutorService VISITOR_POOL =
-      Executors.newThreadPerTaskExecutor(
-          Thread.ofVirtual().name("sandbox-directory-visitor-").factory());
-
-  private static class DirectoryCopier extends AbstractQueueVisitor {
-    private final Path sourceRoot;
-    private final Path targetRoot;
-
-    private DirectoryCopier(Path sourceRoot, Path targetRoot) {
-      super(
-          VISITOR_POOL,
-          ExecutorOwnership.SHARED,
-          ExceptionHandlingMode.FAIL_FAST,
-          ErrorClassifier.DEFAULT);
-      this.sourceRoot = checkNotNull(sourceRoot);
-      this.targetRoot = checkNotNull(targetRoot);
-    }
-
-    private void run() throws IOException, InterruptedException {
-      try {
-        visitDirectory(sourceRoot, targetRoot);
-        awaitQuiescence(true);
-      } catch (UncheckedIOException e) {
-        throw e.getCause();
-      }
-    }
-
-    private void visitDirectory(Path sourceDir, Path targetDir) {
-      Collection<Dirent> dirents;
-      try {
-        try {
-          dirents = sourceDir.readdir(Symlinks.NOFOLLOW);
-        } catch (FileAccessException e) {
-          // Make the source directory readable and try again (but only once).
-          // Don't check the permissions upfront to optimize for the typical case.
-          sourceDir.chmod(0755);
-          dirents = sourceDir.readdir(Symlinks.NOFOLLOW);
-        }
-        targetDir.createDirectory();
-        for (Dirent dirent : dirents) {
-          Path sourceChild = sourceDir.getChild(dirent.getName());
-          Path targetChild = targetDir.getChild(dirent.getName());
-          switch (dirent.getType()) {
-            case DIRECTORY -> execute(() -> visitDirectory(sourceChild, targetChild));
-            case FILE -> execute(() -> visitFile(sourceChild, targetChild));
-            case SYMLINK -> execute(() -> visitSymlink(sourceChild, targetChild));
-            case UNKNOWN ->
-                throw new IOException(
-                    "Don't know how to copy %s to %s".formatted(sourceChild, targetChild));
-          }
-        }
-      } catch (IOException e) {
-        throw new UncheckedIOException(e);
-      }
-    }
-
-    private void visitFile(Path sourceFile, Path targetFile) {
-      try {
-        copyFile(sourceFile, targetFile);
-      } catch (IOException e) {
-        throw new UncheckedIOException(e);
-      }
-    }
-
-    private void visitSymlink(Path sourceSymlink, Path targetSymlink) {
-      try {
-        copySymlink(sourceSymlink, targetSymlink);
-      } catch (IOException e) {
-        throw new UncheckedIOException(e);
-      }
-    }
-  }
-
   /**
    * Moves or copies all given outputs from a root to another.
    *
@@ -173,7 +94,7 @@ public final class SandboxHelpers {
    * @throws IOException if moving/copying fails
    */
   public static void moveOutputs(SandboxOutputs outputs, Path sourceRoot, Path targetRoot)
-      throws IOException, InterruptedException {
+      throws IOException {
     for (Entry<PathFragment, PathFragment> output :
         Iterables.concat(outputs.files().entrySet(), outputs.dirs().entrySet())) {
       Path source = sourceRoot.getRelative(output.getValue());
@@ -216,13 +137,11 @@ public final class SandboxHelpers {
         // Do as little work as possible, as any overhead adds up for large trees. In particular,
         // avoid FileSystemUtils, which spends time deleting preexisting files and preserving
         // attributes: we know output directories start out empty, and don't care about attributes.
-        // Speed up copying of large directory trees by parallelizing over files.
-        // Don't delete the original; leave it to the sandbox to clean up after itself.
+        // Don't delete the original, either; leave it to the sandbox to clean up after itself.
         if (stat.isFile()) {
           copyFile(source, target);
         } else if (stat.isDirectory()) {
-          DirectoryCopier copier = new DirectoryCopier(source, target);
-          copier.run();
+          copyDir(source, target);
         } else if (stat.isSymbolicLink()) {
           copySymlink(source, target);
         } else {
@@ -230,6 +149,38 @@ public final class SandboxHelpers {
               "Don't know how to copy %s into %s because it has an unsupported type"
                   .formatted(source, target));
         }
+      }
+    }
+  }
+
+  private static void copyDir(Path source, Path target) throws IOException {
+    Collection<Dirent> dirents;
+    try {
+      dirents = source.readdir(Symlinks.NOFOLLOW);
+    } catch (FileAccessException e) {
+      // Make the source directory readable and try again (but only once).
+      // Don't check the permissions upfront to optimize for the typical case.
+      source.chmod(0755);
+      dirents = source.readdir(Symlinks.NOFOLLOW);
+    }
+    target.createDirectory();
+    for (Dirent dirent : dirents) {
+      Path sourceChild = source.getChild(dirent.getName());
+      Path targetChild = target.getChild(dirent.getName());
+      switch (dirent.getType()) {
+        case DIRECTORY:
+          copyDir(sourceChild, targetChild);
+          break;
+        case FILE:
+          copyFile(sourceChild, targetChild);
+          break;
+        case SYMLINK:
+          copySymlink(sourceChild, targetChild);
+          break;
+        case UNKNOWN:
+          throw new IOException(
+              "Don't know how to copy %s into %s because it has an unsupported type"
+                  .formatted(sourceChild, targetChild));
       }
     }
   }

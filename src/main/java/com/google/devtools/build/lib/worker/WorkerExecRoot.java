@@ -127,8 +127,7 @@ final class WorkerExecRoot {
     }
   }
 
-  public void copyOutputs(Path execRoot, SandboxOutputs outputs)
-      throws IOException, InterruptedException {
+  public void copyOutputs(Path execRoot, SandboxOutputs outputs) throws IOException {
     SandboxHelpers.moveOutputs(outputs, workDir, execRoot);
   }
 }
