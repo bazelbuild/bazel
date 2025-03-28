@@ -888,10 +888,6 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
             + " definitions");
   }
 
-  private static StarlarkProviderIdentifier legacy(String legacyId) {
-    return StarlarkProviderIdentifier.forLegacy(legacyId);
-  }
-
   private static StarlarkProviderIdentifier declared(String exportedName) {
     return StarlarkProviderIdentifier.forKey(
         new StarlarkProvider.Key(keyForBuild(FAKE_LABEL), exportedName));
@@ -902,11 +898,13 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     Attribute attr =
         buildAttribute(
             "a1", //
+            "a = provider()",
             "b = provider()",
-            "attr.label_list(allow_files = True, providers = ['a', b])");
+            "attr.label_list(allow_files = True, providers = [a, b])");
     assertThat(attr.starlarkDefined()).isTrue();
-    assertThat(attr.getRequiredProviders().isSatisfiedBy(set(legacy("a"), declared("b")))).isTrue();
-    assertThat(attr.getRequiredProviders().isSatisfiedBy(set(legacy("a")))).isFalse();
+    assertThat(attr.getRequiredProviders().isSatisfiedBy(set(declared("a"), declared("b"))))
+        .isTrue();
+    assertThat(attr.getRequiredProviders().isSatisfiedBy(set(declared("a")))).isFalse();
   }
 
   @Test
@@ -914,8 +912,9 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     Attribute attr =
         buildAttribute(
             "a1",
+            "a = provider()",
             "b = provider()",
-            "attr.label_list(allow_files = True, providers = [['a', b],[]])");
+            "attr.label_list(allow_files = True, providers = [[a, b],[]])");
     assertThat(attr.starlarkDefined()).isTrue();
     assertThat(attr.getRequiredProviders().acceptsAny()).isTrue();
   }
@@ -925,12 +924,15 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     Attribute attr =
         buildAttribute(
             "a1",
+            "a = provider()",
             "b = provider()",
-            "attr.label_list(allow_files = True, providers = [['a', b], ['c']])");
+            "c = provider()",
+            "attr.label_list(allow_files = True, providers = [[a, b], [c]])");
     assertThat(attr.starlarkDefined()).isTrue();
-    assertThat(attr.getRequiredProviders().isSatisfiedBy(set(legacy("a"), declared("b")))).isTrue();
-    assertThat(attr.getRequiredProviders().isSatisfiedBy(set(legacy("c")))).isTrue();
-    assertThat(attr.getRequiredProviders().isSatisfiedBy(set(legacy("a")))).isFalse();
+    assertThat(attr.getRequiredProviders().isSatisfiedBy(set(declared("a"), declared("b"))))
+        .isTrue();
+    assertThat(attr.getRequiredProviders().isSatisfiedBy(set(declared("c")))).isTrue();
+    assertThat(attr.getRequiredProviders().isSatisfiedBy(set(declared("a")))).isFalse();
   }
 
   private static AdvertisedProviderSet set(StarlarkProviderIdentifier... ids) {
@@ -950,24 +952,22 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   @Test
   public void testAttrWithWrongProvidersList() throws Exception {
     checkAttributeError(
-        "element in 'providers' is of unexpected type. Either all elements should be providers,"
-            + " or all elements should be lists of providers,"
-            + " but got list with an element of type int.",
-        "attr.label_list(allow_files = True,  providers = [['a', 1], ['c']])");
+        "Error in label_list: at index 1 of providers, got element of type int, want Provider",
+        "a = provider()",
+        "c = provider()",
+        "attr.label_list(allow_files = True,  providers = [[a, 1], [c]])");
 
     checkAttributeError(
-        "element in 'providers' is of unexpected type. Either all elements should be providers,"
-            + " or all elements should be lists of providers,"
-            + " but got an element of type string.",
+        "Error in label_list: at index 1 of providers, got element of type string, want sequence",
         "b = provider()",
         "attr.label_list(allow_files = True,  providers = [['a', b], 'c'])");
 
     checkAttributeError(
-        "element in 'providers' is of unexpected type. Either all elements should be providers,"
-            + " or all elements should be lists of providers,"
-            + " but got an element of type string.",
+        "Error in label_list: at index 1 of providers, got element of type Provider, want sequence",
+        "a = provider()",
+        "b = provider()",
         "c = provider()",
-        "attr.label_list(allow_files = True,  providers = [['a', b], c])");
+        "attr.label_list(allow_files = True,  providers = [[a, b], c])");
   }
 
   @Test
@@ -2705,8 +2705,9 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         ev,
         "def _impl(target, ctx):",
         "   pass",
+        "java = provider()",
         "cc = provider()",
-        "my_aspect = aspect(_impl, required_aspect_providers=['java', cc])");
+        "my_aspect = aspect(_impl, required_aspect_providers=[java, cc])");
     StarlarkDefinedAspect myAspect = (StarlarkDefinedAspect) ev.lookup("my_aspect");
     RequiredProviders requiredProviders =
         myAspect.getDefinition(AspectParameters.EMPTY).getRequiredProvidersForAspects();
@@ -2716,12 +2717,12 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
             requiredProviders.isSatisfiedBy(
                 AdvertisedProviderSet.builder()
                     .addStarlark(declared("cc"))
-                    .addStarlark("java")
+                    .addStarlark(declared("java"))
                     .build()))
         .isTrue();
     assertThat(
             requiredProviders.isSatisfiedBy(
-                AdvertisedProviderSet.builder().addStarlark("cc").build()))
+                AdvertisedProviderSet.builder().addStarlark(declared("cc")).build()))
         .isFalse();
   }
 
@@ -2731,8 +2732,9 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         ev,
         "def _impl(target, ctx):",
         "   pass",
+        "java = provider()",
         "cc = provider()",
-        "my_aspect = aspect(_impl, required_aspect_providers=[['java'], [cc]])");
+        "my_aspect = aspect(_impl, required_aspect_providers=[[java], [cc]])");
     StarlarkDefinedAspect myAspect = (StarlarkDefinedAspect) ev.lookup("my_aspect");
     RequiredProviders requiredProviders =
         myAspect.getDefinition(AspectParameters.EMPTY).getRequiredProvidersForAspects();
@@ -2740,7 +2742,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     assertThat(requiredProviders.isSatisfiedBy(AdvertisedProviderSet.EMPTY)).isFalse();
     assertThat(
             requiredProviders.isSatisfiedBy(
-                AdvertisedProviderSet.builder().addStarlark("java").build()))
+                AdvertisedProviderSet.builder().addStarlark(declared("java")).build()))
         .isTrue();
     assertThat(
             requiredProviders.isSatisfiedBy(
@@ -2748,7 +2750,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         .isTrue();
     assertThat(
             requiredProviders.isSatisfiedBy(
-                AdvertisedProviderSet.builder().addStarlark("prolog").build()))
+                AdvertisedProviderSet.builder().addStarlark(declared("prolog")).build()))
         .isFalse();
   }
 
@@ -2799,8 +2801,9 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         ev,
         "def _impl(target, ctx):",
         "   pass",
+        "java = provider()",
         "cc = provider()",
-        "my_aspect = aspect(_impl, required_providers=['java', cc])");
+        "my_aspect = aspect(_impl, required_providers=[java, cc])");
     StarlarkDefinedAspect myAspect = (StarlarkDefinedAspect) ev.lookup("my_aspect");
     RequiredProviders requiredProviders =
         myAspect.getDefinition(AspectParameters.EMPTY).getRequiredProviders();
@@ -2811,7 +2814,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
             requiredProviders.isSatisfiedBy(
                 AdvertisedProviderSet.builder()
                     .addStarlark(declared("cc"))
-                    .addStarlark("java")
+                    .addStarlark(declared("java"))
                     .build()))
         .isTrue();
     assertThat(
@@ -2826,8 +2829,9 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         ev,
         "def _impl(target, ctx):",
         "   pass",
+        "java = provider()",
         "cc = provider()",
-        "my_aspect = aspect(_impl, required_providers=[['java'], [cc]])");
+        "my_aspect = aspect(_impl, required_providers=[[java], [cc]])");
     StarlarkDefinedAspect myAspect = (StarlarkDefinedAspect) ev.lookup("my_aspect");
     RequiredProviders requiredProviders =
         myAspect.getDefinition(AspectParameters.EMPTY).getRequiredProviders();
@@ -2836,7 +2840,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     assertThat(requiredProviders.isSatisfiedBy(AdvertisedProviderSet.EMPTY)).isFalse();
     assertThat(
             requiredProviders.isSatisfiedBy(
-                AdvertisedProviderSet.builder().addStarlark("java").build()))
+                AdvertisedProviderSet.builder().addStarlark(declared("java")).build()))
         .isTrue();
     assertThat(
             requiredProviders.isSatisfiedBy(
@@ -2844,7 +2848,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         .isTrue();
     assertThat(
             requiredProviders.isSatisfiedBy(
-                AdvertisedProviderSet.builder().addStarlark("prolog").build()))
+                AdvertisedProviderSet.builder().addStarlark(declared("prolog")).build()))
         .isFalse();
   }
 
@@ -2885,13 +2889,12 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         "def _impl(target, ctx):",
         "   pass",
         "y = provider()",
-        "my_aspect = aspect(_impl, provides = ['x', y])");
+        "my_aspect = aspect(_impl, provides = [y])");
     StarlarkDefinedAspect myAspect = (StarlarkDefinedAspect) ev.lookup("my_aspect");
     AdvertisedProviderSet advertisedProviders =
         myAspect.getDefinition(AspectParameters.EMPTY).getAdvertisedProviders();
     assertThat(advertisedProviders.canHaveAnyProvider()).isFalse();
-    assertThat(advertisedProviders.getStarlarkProviders())
-        .containsExactly(legacy("x"), declared("y"));
+    assertThat(advertisedProviders.getStarlarkProviders()).containsExactly(declared("y"));
   }
 
   @Test
@@ -2902,11 +2905,10 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         "def _impl(target, ctx):",
         "   pass",
         "y = provider()",
-        "my_aspect = aspect(_impl, provides = ['x', 1])");
+        "my_aspect = aspect(_impl, provides = [y, 1])");
     MoreAsserts.assertContainsEvent(
         ev.getEventCollector(),
-        " Illegal argument: element in 'provides' is of unexpected type."
-            + " Should be list of providers, but got item of type int. ");
+        "Error in aspect: at index 1 of provides, got element of type int, want Provider");
   }
 
   @Test

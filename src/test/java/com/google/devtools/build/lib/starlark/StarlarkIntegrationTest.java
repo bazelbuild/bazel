@@ -1398,13 +1398,14 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     scratch.file(
         "test/starlark/extension.bzl",
         """
+        MyInfo = provider()
         def rule_impl(ctx):
           return []
 
         dependent_rule = rule(implementation = rule_impl)
 
         main_rule = rule(implementation = rule_impl,
-            attrs = {'dependencies': attr.label_list(providers = ['some_provider'],
+            attrs = {'dependencies': attr.label_list(providers = [MyInfo],
                 allow_files=True)})
         """);
 
@@ -1412,50 +1413,12 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
         "test",
         "b",
         "in dependencies attribute of main_rule rule //test:b: "
-            + "'//test:a' does not have mandatory providers: 'some_provider'",
+            + "'//test:a' does not have mandatory providers: 'MyInfo'",
         "load('//test/starlark:extension.bzl', 'dependent_rule')",
         "load('//test/starlark:extension.bzl', 'main_rule')",
         "",
         "dependent_rule(name = 'a')",
         "main_rule(name = 'b', dependencies = [':a'])");
-  }
-
-  @Test
-  public void testSpecialMandatoryProviderMissing() throws Exception {
-    // Test that rules satisfy `providers = [...]` condition if a special provider that always
-    // exists for all rules is requested.
-    scratch.file(
-        "test/ext/BUILD",
-        """
-        load('//test/starlark:extension.bzl', 'foobar')
-
-        foobar(name = 'bar', visibility = ['//visibility:public'],)
-        """);
-    scratch.file(
-        "test/starlark/extension.bzl",
-        """
-        def rule_impl(ctx):
-          pass
-
-        foobar = rule(implementation = rule_impl)
-        main_rule = rule(implementation = rule_impl, attrs = {
-            'deps': attr.label_list(providers = [
-                'files', 'data_runfiles', 'default_runfiles',
-                'files_to_run', 'output_groups',
-            ])
-        })
-        """);
-    scratch.file(
-        "test/starlark/BUILD",
-        """
-        load(':extension.bzl', 'foobar', 'main_rule')
-
-        foobar(name = 'foo')
-        main_rule(name = 'main', deps = [':foo', '//test/ext:bar'])
-        """);
-
-    invalidatePackages();
-    getConfiguredTarget("//test/starlark:main");
   }
 
   @Test
@@ -3590,7 +3553,6 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
 
   @Test
   public void testDisableTargetProviderFields() throws Exception {
-    setBuildLanguageOptions("--incompatible_disable_target_provider_fields=true");
     scratch.file(
         "test/starlark/rule.bzl",
         """
@@ -3620,17 +3582,13 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test/starlark:r");
     assertContainsEvent(
-        "Accessing providers via the field syntax on structs is deprecated and will be removed "
-            + "soon. It may be temporarily re-enabled by setting "
-            + "--incompatible_disable_target_provider_fields=false. "
-            + "See https://github.com/bazelbuild/bazel/issues/9014 for details.");
+        "Accessing providers via the field syntax on structs is deprecated and removed.");
   }
 
   // Verifies that non-provider fields on the 'target' type are still available even with
   // --incompatible_disable_target_provider_fields.
   @Test
   public void testDisableTargetProviderFields_actionsField() throws Exception {
-    setBuildLanguageOptions("--incompatible_disable_target_provider_fields=true");
     scratch.file(
         "test/starlark/rule.bzl",
         """

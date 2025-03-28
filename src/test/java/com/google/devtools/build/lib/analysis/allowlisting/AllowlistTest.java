@@ -177,7 +177,7 @@ public final class AllowlistTest extends BuildViewTestCase {
         "    '_allowlist_test': attr.label(",
         "      default = '//allowlist:allowlist',",
         "      cfg = 'exec',",
-        "      providers = ['PackageSpecificationInfo']",
+        "      providers = [PackageSpecificationInfo]",
         "    ),",
         "  },",
         ")");

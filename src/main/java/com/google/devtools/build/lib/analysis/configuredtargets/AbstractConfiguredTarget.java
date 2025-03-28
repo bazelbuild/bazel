@@ -125,13 +125,9 @@ public abstract class AbstractConfiguredTarget implements ConfiguredTarget, Visi
 
   @Override
   public Object getValue(StarlarkSemantics semantics, String name) throws EvalException {
-    if (semantics.getBool(BuildLanguageOptions.INCOMPATIBLE_DISABLE_TARGET_PROVIDER_FIELDS)
-        && !SPECIAL_FIELD_NAMES.contains(name)) {
+    if (!SPECIAL_FIELD_NAMES.contains(name)) {
       throw Starlark.errorf(
-          "Accessing providers via the field syntax on structs is "
-              + "deprecated and will be removed soon. It may be temporarily re-enabled by setting "
-              + "--incompatible_disable_target_provider_fields=false. See "
-              + "https://github.com/bazelbuild/bazel/issues/9014 for details.");
+          "Accessing providers via the field syntax on structs is deprecated and removed.");
     } else if (semantics.getBool(
             BuildLanguageOptions.INCOMPATIBLE_DISABLE_TARGET_DEFAULT_PROVIDER_FIELDS)
         && DEFAULT_PROVIDER_FIELDS.contains(name)) {

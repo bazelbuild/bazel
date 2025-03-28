@@ -62,7 +62,7 @@ public class PythonStarlarkApiTest extends BuildViewTestCase {
         "    implementation = _userlib_impl,",
         "    attrs = {",
         "        'srcs': attr.label_list(allow_files=True),",
-        "        'deps': attr.label_list(providers=[['py'], [PyInfo]]),",
+        "        'deps': attr.label_list(providers=[PyInfo]),",
         "        'uses_shared_libraries': attr.bool(),",
         "        'imports': attr.string_list(),",
         "        'has_py2_only_sources': attr.bool(),",
