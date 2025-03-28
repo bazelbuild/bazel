@@ -117,7 +117,7 @@ maven.install(
         "com.google.flogger:flogger-system-backend:0.5.1",
         "com.google.flogger:google-extensions:0.5.1",
         "com.google.guava:failureaccess:1.0.1",
-        "com.google.guava:guava:33.4.5-jre",
+        "com.google.guava:guava:33.4.6-jre",
         "com.google.http-client:google-http-client:1.42.0",
         "com.google.http-client:google-http-client-gson:1.42.0",
         "com.google.j2objc:j2objc-annotations:1.3",
