@@ -60,7 +60,6 @@ public class PredefinedAttributes {
       ImmutableList.of(
           "templates/attributes/common/compatible_with.html",
           "templates/attributes/common/deprecation.html",
-          "templates/attributes/common/distribs.html",
           "templates/attributes/common/exec_compatible_with.html",
           "templates/attributes/common/exec_group_compatible_with.html",
           "templates/attributes/common/exec_properties.html",
