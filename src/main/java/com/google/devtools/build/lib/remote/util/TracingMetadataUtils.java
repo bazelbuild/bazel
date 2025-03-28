@@ -55,7 +55,7 @@ public class TracingMetadataUtils {
         buildRequestId,
         commandId,
         actionId,
-        actionMetadata != null ? actionMetadata.getProgressMessage() : null,
+        actionMetadata != null ? actionMetadata.getMnemonic() : null,
         actionMetadata != null && actionMetadata.getOwner().getLabel() != null
             ? actionMetadata.getOwner().getLabel().getCanonicalForm()
             : null,
