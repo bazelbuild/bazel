@@ -70,6 +70,7 @@ public final class BuiltinFunction implements StarlarkCallable {
     this.desc = desc;
   }
 
+  // TODO(b/380824219): Remove together with getArgumentVector().
   @Override
   public Object fastcall(StarlarkThread thread, Object[] positional, Object[] named)
       throws EvalException, InterruptedException {
@@ -83,12 +84,117 @@ public final class BuiltinFunction implements StarlarkCallable {
   public Object positionalOnlyCall(StarlarkThread thread, Object... positional)
       throws EvalException, InterruptedException {
     MethodDescriptor desc = getMethodDescriptor(thread.getSemantics());
-    Object[] vector = getArgumentVector(thread, desc, positional, EMPTY);
+    Object[] vector;
+    if (desc.isPositionalsReusableAsJavaArgsVectorIfArgumentCountValid()
+        && positional.length == desc.getParameters().length) {
+      vector = positional;
+    } else {
+      vector = getPositionalOnlyArgumentVector(thread, desc, positional);
+    }
     return desc.call(
         obj instanceof String ? StringModule.INSTANCE : obj, vector, thread.mutability());
   }
 
-  private static final Object[] EMPTY = {};
+  /**
+   * Converts the arguments of a Starlark call into the argument vector for a reflective call to a
+   * StarlarkMethod-annotated Java method.
+   *
+   * @param thread the Starlark thread for the call
+   * @param desc descriptor for the StarlarkMethod-annotated method
+   * @param positional an array of positional arguments
+   * @return the array of arguments which may be passed to {@link MethodDescriptor#call}. It is
+   *     unsafe to mutate the returned array.
+   * @throws EvalException if the given set of arguments are invalid for the given method. For
+   *     example, if any arguments are of unexpected type, or not all mandatory parameters are
+   *     specified by the user
+   */
+  private Object[] getPositionalOnlyArgumentVector(
+      StarlarkThread thread,
+      MethodDescriptor desc, // intentionally shadows this.desc
+      Object[] positional)
+      throws EvalException {
+
+    // Overview of steps:
+    // - allocate vector of actual arguments of correct size.
+    // - process positional arguments, accumulating surplus ones into *args.
+    // - set default values for missing optionals, and report missing mandatory parameters.
+    // - set special parameters.
+    // The static checks ensure that positional parameters appear before named,
+    // and mandatory positionals appear before optional.
+    // Flag-disabled parameters are skipped during argument matching, as if they do not exist. They
+    // are instead assigned their flag-disabled values.
+
+    ParamDescriptor[] parameters = desc.getParameters();
+
+    // Allocate argument vector.
+    int n = parameters.length;
+    if (desc.acceptsExtraArgs()) {
+      n++;
+    }
+    if (desc.acceptsExtraKwargs()) {
+      n++;
+    }
+    if (desc.isUseStarlarkThread()) {
+      n++;
+    }
+    Object[] vector = new Object[n];
+
+    // positional arguments
+    int paramIndex = 0;
+    int argIndex = 0;
+    if (obj instanceof String) {
+      // String methods get the string as an extra argument
+      // because their true receiver is StringModule.INSTANCE.
+      vector[paramIndex++] = obj;
+    }
+    for (; argIndex < positional.length && paramIndex < parameters.length; paramIndex++) {
+      ParamDescriptor param = parameters[paramIndex];
+      if (!param.isPositional()) {
+        break;
+      }
+
+      // disabled?
+      if (param.disabledByFlag() != null) {
+        // Skip disabled parameter as if not present at all.
+        // The default value will be filled in below.
+        continue;
+      }
+
+      Object value = positional[argIndex++];
+      checkParamValue(param, value);
+      vector[paramIndex] = value;
+    }
+
+    // *args
+    Tuple varargs = null;
+    if (desc.acceptsExtraArgs()) {
+      varargs = Tuple.wrap(Arrays.copyOfRange(positional, argIndex, positional.length));
+    } else if (argIndex < positional.length) {
+      if (argIndex == 0) {
+        throw Starlark.errorf("%s() got unexpected positional argument", methodName);
+      } else {
+        throw Starlark.errorf(
+            "%s() accepts no more than %d positional argument%s but got %d",
+            methodName, argIndex, plural(argIndex), positional.length);
+      }
+    }
+
+    applyDefaultsReportMissingArgs(parameters, vector);
+
+    // special parameters
+    int i = parameters.length;
+    if (desc.acceptsExtraArgs()) {
+      vector[i++] = varargs;
+    }
+    if (desc.acceptsExtraKwargs()) {
+      vector[i++] = Dict.wrap(thread.mutability(), Maps.newLinkedHashMapWithExpectedSize(1));
+    }
+    if (desc.isUseStarlarkThread()) {
+      vector[i++] = thread;
+    }
+
+    return vector;
+  }
 
   private MethodDescriptor getMethodDescriptor(StarlarkSemantics semantics) {
     MethodDescriptor desc = this.desc;
@@ -387,6 +493,7 @@ public final class BuiltinFunction implements StarlarkCallable {
    *     example, if any arguments are of unexpected type, or not all mandatory parameters are
    *     specified by the user
    */
+  // TODO(b/380824219): Remove together with fastcall().
   private Object[] getArgumentVector(
       StarlarkThread thread,
       MethodDescriptor desc, // intentionally shadows this.desc
