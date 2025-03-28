@@ -1,3 +1,53 @@
+## Release 9.0.0-pre.20250324.2 (2025-03-28)
+
+```
+Baseline: 7e538803d775929beb3c9af1cd2e87667d373bbe
+
+Cherry picks:
+
+   + fa6b1b7ec8deb727d437cd6f7f0324bfc7a6d6b8:
+     Reverse a RAM regression introduced by
+     https://github.com/bazelbuild/bazel/commit/7e538803d775929beb3c9a
+     f1cd2e87667d373bbe
+```
+
+Important changes:
+
+  - The new
+    `--@bazel_tools//tools/test:incompatible_use_default_test_toolchai
+    n` flag can be used to have test actions select an execution
+    platform that has all the constraints provided by the target
+    platform instead of always selecting the first available
+    execution platform. This supersedes the
+    `--use_target_platform_for_tests` flag.
+  - `--experimental_downloader_config` is now no longer experimental,
+    and has been renamed to `--downloader_config`. The old flag name
+    can still be used.
+
+This release contains contributions from many people at Google, as well as Benjamin Peterson, Fabian Meumertzheim, Kevin Bernal, Lszl Csomor, tfrench.
+
+## Release 9.0.0-pre.20250317.2 (2025-03-27)
+
+```
+Baseline: 528c2c5e2e7341f9bf538f35077d29dd41988a71
+
+Cherry picks:
+
+   + d02f003a4b818ed2936bc6719204b884aa71e1ff:
+     Prevent concurrent use of the same `CharsetEncoder` in
+     `json.decode`
+```
+
+This release contains contributions from many people at Google, as well as Benjamin Peterson, Fabian Meumertzheim, Zachary Kipping.
+
+## Release 7.6.0 (2025-03-24)
+
+```
+
+Release Notes:
+
+```
+
 ## Release 9.0.0-pre.20250311.1 (2025-03-19)
 
 ```
