@@ -155,6 +155,7 @@ public final class TargetPatternPhaseValue implements SkyValue {
       boolean buildTestsOnly,
       boolean determineTests,
       ImmutableList<String> buildTargetFilter,
+      ImmutableList<String> buildLangFilter,
       boolean buildManualTests,
       boolean expandTestSuites,
       @Nullable TestFilter testFilter) {
@@ -165,6 +166,7 @@ public final class TargetPatternPhaseValue implements SkyValue {
         buildTestsOnly,
         determineTests,
         buildTargetFilter,
+        buildLangFilter,
         buildManualTests,
         expandTestSuites,
         testFilter);
@@ -194,6 +196,7 @@ public final class TargetPatternPhaseValue implements SkyValue {
     private final boolean buildTestsOnly;
     private final boolean determineTests;
     private final ImmutableList<String> buildTargetFilter;
+    private final ImmutableList<String> buildLangFilter;
     private final boolean buildManualTests;
     private final boolean expandTestSuites;
     @Nullable private final TestFilter testFilter;
@@ -205,6 +208,7 @@ public final class TargetPatternPhaseValue implements SkyValue {
         boolean buildTestsOnly,
         boolean determineTests,
         ImmutableList<String> buildTargetFilter,
+        ImmutableList<String> buildLangFilter,
         boolean buildManualTests,
         boolean expandTestSuites,
         @Nullable TestFilter testFilter) {
@@ -214,6 +218,7 @@ public final class TargetPatternPhaseValue implements SkyValue {
       this.buildTestsOnly = buildTestsOnly;
       this.determineTests = determineTests;
       this.buildTargetFilter = Preconditions.checkNotNull(buildTargetFilter);
+      this.buildTargetFilter = Preconditions.checkNotNull(buildLangFilter);
       this.buildManualTests = buildManualTests;
       this.expandTestSuites = expandTestSuites;
       this.testFilter = testFilter;
@@ -249,6 +254,10 @@ public final class TargetPatternPhaseValue implements SkyValue {
 
     public ImmutableList<String> getBuildTargetFilter() {
       return buildTargetFilter;
+    }
+
+    public ImmutableList<String> getBuildLangFilter() {
+      return buildLangFilter;
     }
 
     public boolean getBuildManualTests() {
@@ -305,6 +314,7 @@ public final class TargetPatternPhaseValue implements SkyValue {
           && other.buildTestsOnly == buildTestsOnly
           && other.determineTests == determineTests
           && other.buildTargetFilter.equals(buildTargetFilter)
+          && other.buildLangFilter.equals(buildLangFilter)
           && other.buildManualTests == buildManualTests
           && other.expandTestSuites == expandTestSuites
           && Objects.equals(other.testFilter, testFilter);

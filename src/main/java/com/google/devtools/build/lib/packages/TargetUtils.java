@@ -392,6 +392,32 @@ public final class TargetUtils {
     };
   }
 
+    /**
+   * Returns a predicate to be used for test tag filtering, i.e., that only accepts tests that match
+   * all of the required tags and none of the excluded tags.
+   */
+  public static Predicate<Target> ruleFilter(List<String> ruleFilterList) {
+    Pair<Collection<String>, Collection<String>> ruleLists =
+        TestTargetUtils.sortTagsBySense(tagFilterList);
+    final Collection<String> requiredTags = tagLists.first;
+    final Collection<String> excludedTags = tagLists.second;
+    return input -> {
+      if (requiredTags.isEmpty() && excludedTags.isEmpty()) {
+        return true;
+      }
+
+      if (!(input instanceof Rule)) {
+        return requiredTags.isEmpty();
+      }
+      // Note that test_tags are those originating from the XX_test rule, whereas the requiredTags
+      // and excludedTags originate from the command line or test_suite rule.
+      // TODO(ulfjack): getRuleTags is inconsistent with TestFunction and other places that use
+      // tags + size, but consistent with TestSuite.
+      return TestTargetUtils.testMatchesFilters(
+          ((Rule) input).getRuleTags(), requiredTags, excludedTags, false);
+    };
+  }
+
   /** Return {@link Location} for {@link Target} target, if it should not be null. */
   @Nullable
   public static Location getLocationMaybe(Target target) {
