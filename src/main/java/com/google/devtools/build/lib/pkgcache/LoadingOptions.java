@@ -129,6 +129,37 @@ public class LoadingOptions extends OptionsBase {
   public List<String> testLangFilterList;
 
   @Option(
+    name = "build_rule_filters",
+    converter = CommaSeparatedOptionListConverter.class,
+    defaultValue = "",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
+    help =
+        "Specifies a comma-separated list of tags. Each tag can be optionally "
+            + "preceded with '-' to specify excluded tags. Only those targets will be built that "
+            + "contain at least one included tag and do not contain any excluded tags. This option "
+            + "does not affect the set of tests executed with the 'test' command; those are be "
+            + "governed by the test filtering options, for example '--test_tag_filters'"
+  )
+  public List<String> buildRuleFilterList;
+
+  @Option(
+    name = "test_rule_filters",
+    converter = CommaSeparatedOptionListConverter.class,
+    defaultValue = "",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
+    help =
+        "Specifies a comma-separated list of test languages. Each language can be "
+            + "optionally preceded with '-' to specify excluded languages. Only those "
+            + "test targets will be found that are written in the specified languages. "
+            + "The name used for each language should be the same as the language prefix in the "
+            + "*_test rule, e.g. one of 'cc', 'java', 'py', etc. "
+            + "This option affects --build_tests_only behavior and the test command."
+  )
+  public List<String> testRuleFilterList;
+
+  @Option(
     name = "build_manual_tests",
     defaultValue = "false",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,

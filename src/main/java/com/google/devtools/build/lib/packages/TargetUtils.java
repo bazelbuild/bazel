@@ -316,6 +316,17 @@ public final class TargetUtils {
    *
    * <p>Precondition: isTestRule(target) || isRunnableNonTestRule(target).
    */
+  public static String getRuleName(Target target) {
+    return ((Rule) target).getRuleClass();
+  }
+
+  /**
+   * Returns the language part of the rule name (e.g. "foo" for foo_test or foo_binary).
+   *
+   * <p>In practice this is the part before the "_", if any, otherwise the entire rule class name.
+   *
+   * <p>Precondition: isTestRule(target) || isRunnableNonTestRule(target).
+   */
   public static String getRuleLanguage(Target target) {
     return getRuleLanguage(((Rule) target).getRuleClass());
   }
@@ -361,6 +372,32 @@ public final class TargetUtils {
    */
   public static Predicate<Target> tagFilter(List<String> tagFilterList) {
     Pair<Collection<String>, Collection<String>> tagLists =
+        TestTargetUtils.sortTagsBySense(tagFilterList);
+    final Collection<String> requiredTags = tagLists.first;
+    final Collection<String> excludedTags = tagLists.second;
+    return input -> {
+      if (requiredTags.isEmpty() && excludedTags.isEmpty()) {
+        return true;
+      }
+
+      if (!(input instanceof Rule)) {
+        return requiredTags.isEmpty();
+      }
+      // Note that test_tags are those originating from the XX_test rule, whereas the requiredTags
+      // and excludedTags originate from the command line or test_suite rule.
+      // TODO(ulfjack): getRuleTags is inconsistent with TestFunction and other places that use
+      // tags + size, but consistent with TestSuite.
+      return TestTargetUtils.testMatchesFilters(
+          ((Rule) input).getRuleTags(), requiredTags, excludedTags, false);
+    };
+  }
+
+    /**
+   * Returns a predicate to be used for test tag filtering, i.e., that only accepts tests that match
+   * all of the required tags and none of the excluded tags.
+   */
+  public static Predicate<Target> ruleFilter(List<String> ruleFilterList) {
+    Pair<Collection<String>, Collection<String>> ruleLists =
         TestTargetUtils.sortTagsBySense(tagFilterList);
     final Collection<String> requiredTags = tagLists.first;
     final Collection<String> excludedTags = tagLists.second;

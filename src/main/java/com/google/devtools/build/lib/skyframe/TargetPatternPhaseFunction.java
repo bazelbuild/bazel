@@ -368,7 +368,7 @@ final class TargetPatternPhaseFunction implements SkyFunction {
     }
 
     ResolvedTargets<Target> result =
-        builder.filter(TargetUtils.tagFilter(options.getBuildTargetFilter())).build();
+        builder.filter(TargetUtils.tagFilter(options.getBuildTargetFilter())).filter(TargetUtils.tagFilter(options.getBuildRuleFilter())).build();
     if (options.getCompileOneDependency()) {
       EnvironmentBackedRecursivePackageProvider environmentBackedRecursivePackageProvider =
           new EnvironmentBackedRecursivePackageProvider(env);
