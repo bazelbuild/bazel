@@ -316,6 +316,17 @@ public final class TargetUtils {
    *
    * <p>Precondition: isTestRule(target) || isRunnableNonTestRule(target).
    */
+  public static String getRuleName(Target target) {
+    return ((Rule) target).getRuleClass();
+  }
+
+  /**
+   * Returns the language part of the rule name (e.g. "foo" for foo_test or foo_binary).
+   *
+   * <p>In practice this is the part before the "_", if any, otherwise the entire rule class name.
+   *
+   * <p>Precondition: isTestRule(target) || isRunnableNonTestRule(target).
+   */
   public static String getRuleLanguage(Target target) {
     return getRuleLanguage(((Rule) target).getRuleClass());
   }
