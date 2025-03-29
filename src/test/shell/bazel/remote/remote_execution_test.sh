@@ -2640,7 +2640,7 @@ int main(int argc, char** argv) {
 
 EOF
 
-  BAZEL_USE_LLVM_NATIVE_COVERAGE=1 GCOV=llvm-profdata BAZEL_LLVM_COV=llvm-cov CC=clang \
+  BAZEL_USE_LLVM_NATIVE_COVERAGE=1 BAZEL_LLVM_PROFDATA=llvm-profdata BAZEL_LLVM_COV=llvm-cov CC=clang \
     bazel coverage \
       --test_output=all \
       --experimental_fetch_all_coverage_outputs \
