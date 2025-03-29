@@ -405,7 +405,6 @@ this option is off.
 """,
     ),
     "env": attr.string_dict(),
-    "distribs": attr.string_list(),
     "licenses": attr.license() if hasattr(attr, "license") else attr.string_list(),
     "_cc_binary": attr.bool(),
     "_is_test": attr.bool(default = False),
@@ -415,4 +414,3 @@ this option is off.
 }
 
 cc_binary_attrs.update(dynamic_deps_attrs)
-cc_binary_attrs.update(semantics.get_distribs_attr())
