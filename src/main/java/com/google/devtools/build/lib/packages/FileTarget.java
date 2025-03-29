@@ -17,9 +17,7 @@ package com.google.devtools.build.lib.packages;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.License.DistributionType;
 import com.google.devtools.build.lib.util.FileType;
-import java.util.Set;
 
 /**
  * Common superclass for InputFile and OutputFile which provides implementation for the file
@@ -58,11 +56,6 @@ public abstract class FileTarget implements Target, FileType.HasFileType {
   @Override
   public String toString() {
     return getTargetKind() + "(" + label + ")"; // Just for debugging
-  }
-
-  @Override
-  public Set<DistributionType> getDistributions() {
-    return License.DEFAULT_DISTRIB;
   }
 
   /**

@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading.Code;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -301,11 +300,6 @@ public class EnvironmentGroup implements Target {
   @Override
   public String toString() {
     return targetKind() + " " + getLabel();
-  }
-
-  @Override
-  public Set<License.DistributionType> getDistributions() {
-    return Collections.emptySet();
   }
 
   @Override

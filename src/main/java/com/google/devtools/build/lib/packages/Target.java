@@ -16,9 +16,7 @@ package com.google.devtools.build.lib.packages;
 
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.packages.License.DistributionType;
 import java.util.List;
-import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
@@ -101,9 +99,6 @@ public interface Target extends TargetData {
    * Returns the license associated with this target.
    */
   License getLicense();
-
-  /** Returns the set of distribution types associated with this target. */
-  Set<DistributionType> getDistributions();
 
   /**
    * Returns the visibility that was supplied at the point of this target's declaration -- e.g. the

@@ -21,7 +21,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.License;
-import com.google.devtools.build.lib.packages.License.DistributionType;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Packageoid;
 import com.google.devtools.build.lib.packages.Rule;
@@ -30,7 +29,6 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetData;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Set;
 import net.starlark.java.syntax.Location;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -87,11 +85,6 @@ public class DigraphTest {
 
     @Override
     public Location getLocation() {
-      return null;
-    }
-
-    @Override
-    public Set<DistributionType> getDistributions() {
       return null;
     }
 

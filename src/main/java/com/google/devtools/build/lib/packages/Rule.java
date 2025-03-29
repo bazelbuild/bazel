@@ -40,7 +40,6 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.StarlarkImplicitOutputsFunction;
-import com.google.devtools.build.lib.packages.License.DistributionType;
 import com.google.devtools.build.lib.packages.Package.ConfigSettingVisibilityPolicy;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
@@ -716,16 +715,6 @@ public class Rule extends RuleOrMacroInstance implements Target {
   @Override
   public boolean isConfigurable() {
     return true;
-  }
-
-  @Override
-  public Set<DistributionType> getDistributions() {
-    if (isAttrDefined("distribs", BuildType.DISTRIBUTIONS)
-        && isAttributeValueExplicitlySpecified("distribs")) {
-      return NonconfigurableAttributeMapper.of(this).get("distribs", BuildType.DISTRIBUTIONS);
-    } else {
-      return License.DEFAULT_DISTRIB;
-    }
   }
 
   @Override

@@ -19,13 +19,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.packages.License.DistributionType;
 import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading.Code;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
-import java.util.Set;
 import javax.annotation.Nullable;
 import net.starlark.java.syntax.Location;
 
@@ -106,11 +103,6 @@ public class PackageGroup implements Target {
   @Override
   public Rule getAssociatedRule() {
     return null;
-  }
-
-  @Override
-  public Set<DistributionType> getDistributions() {
-    return Collections.emptySet();
   }
 
   @Override
