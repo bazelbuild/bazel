@@ -381,6 +381,29 @@ public final class TargetUtils {
     };
   }
 
+    /**
+   * Returns a predicate to be used for test rule name filtering, i.e., that only accepts tests that match
+   * a required rule name and not an excluded rule name.
+   */
+  public static Predicate<Target> ruleFilter(List<String> ruleFilterList) {
+    Pair<Collection<String>, Collection<String>> ruleLists =
+        TestTargetUtils.sortTagsBySense(ruleFilterList);
+    final Collection<String> requiredRules = ruleLists.first;
+    final Collection<String> excludedRules = ruleLists.second;
+    return input -> {
+      if (requiredRules.isEmpty() && excludedRules.isEmpty()) {
+        return true;
+      }
+
+      if (!(input instanceof Rule)) {
+        return requiredRules.isEmpty();
+      }
+
+      return TestTargetUtils.testMatchesRuleFilters(
+          ((Rule) input).getRuleClass(), requiredRules, excludedRules);
+    };
+  }
+
   /** Return {@link Location} for {@link Target} target, if it should not be null. */
   @Nullable
   public static Location getLocationMaybe(Target target) {

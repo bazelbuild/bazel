@@ -129,6 +129,35 @@ public class LoadingOptions extends OptionsBase {
   public List<String> testLangFilterList;
 
   @Option(
+    name = "build_rule_filters",
+    converter = CommaSeparatedOptionListConverter.class,
+    defaultValue = "",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
+    help =
+        "Specifies a comma-separated list of rule names. Each rule name can be optionally "
+            + "preceded with '-' to specify excluded rule names. Only those targets will be built that "
+            + "equal the positive rule name or do not equal the negative rule name. This option "
+            + "does not affect the set of tests executed with the 'test' command; those are be "
+            + "governed by the test filtering options, for example '--test_rule_filters'"
+  )
+  public List<String> buildRuleFilterList;
+
+  @Option(
+    name = "test_rule_filters",
+    converter = CommaSeparatedOptionListConverter.class,
+    defaultValue = "",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
+    help =
+      "Specifies a comma-separated list of rule names. Each rule name can be optionally "
+      + "preceded with '-' to specify excluded rule names. Only those test targets will be "
+      + "found that equal the positive rule name or do not equal the negative rule name."
+      + "This option affects --build_tests_only behavior and the test command."
+  )
+  public List<String> testRuleFilterList;
+
+  @Option(
     name = "build_manual_tests",
     defaultValue = "false",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
