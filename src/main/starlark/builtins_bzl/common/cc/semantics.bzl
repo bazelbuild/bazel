@@ -43,9 +43,6 @@ def _get_platforms_root():
 def _additional_fragments():
     return []
 
-def _get_distribs_attr():
-    return {}
-
 def _get_licenses_attr():
     # TODO(b/182226065): Change to applicable_licenses
     return {}
@@ -167,7 +164,6 @@ semantics = struct(
     get_repo = _get_repo,
     get_platforms_root = _get_platforms_root,
     additional_fragments = _additional_fragments,
-    get_distribs_attr = _get_distribs_attr,
     get_licenses_attr = _get_licenses_attr,
     get_def_parser = _get_def_parser,
     get_stl = _get_stl,
