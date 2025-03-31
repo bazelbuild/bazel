@@ -72,7 +72,7 @@ abstract class ConfigCommandOutputFormatter {
       if (config.isExec()) {
         return " (exec)";
       } else if (!config.hasTestConfig()) {
-        return "( test-trimmed)";
+        return " (test-trimmed)";
       }
       return "";
     }
