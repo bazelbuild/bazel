@@ -1924,7 +1924,7 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
     String expectedCompilerFlag = "-fbasic-block-sections=list=.*/cc_profile.txt";
     assertThat(Joiner.on(" ").join(backendAction.getArguments()))
         .containsMatch(expectedCompilerFlag);
-    String expectedBuildTypeFlag = "-DBUILD_PROPELLER_TYPE=\"full\"";
+    String expectedBuildTypeFlag = "-DBUILD_PROPELLER_ENABLED=1";
     assertThat(Joiner.on(" ").join(backendAction.getArguments()))
         .containsMatch(expectedBuildTypeFlag);
     assertThat(ActionsTestUtil.baseArtifactNames(backendAction.getInputs()))
@@ -2120,7 +2120,7 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
     String expectedCompilerFlag = "-fbasic-block-sections=list=.*/cc_profile.txt";
     assertThat(Joiner.on(" ").join(backendAction.getArguments()))
         .containsMatch(expectedCompilerFlag);
-    String expectedBuildTypeFlag = "-DBUILD_PROPELLER_TYPE=\"full\"";
+    String expectedBuildTypeFlag = "-DBUILD_PROPELLER_ENABLED=1";
     assertThat(Joiner.on(" ").join(backendAction.getArguments()))
         .containsMatch(expectedBuildTypeFlag);
     assertThat(ActionsTestUtil.baseArtifactNames(backendAction.getInputs()))

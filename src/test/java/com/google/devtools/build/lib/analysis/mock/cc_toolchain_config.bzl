@@ -657,8 +657,6 @@ _split_functions_feature = feature(
                 flag_group(
                     flags = [
                         "-fsplit-machine-functions",
-                        # TODO(b/403335308): Remove this in favor of the one below.
-                        "-DBUILD_PROPELLER_TYPE=\"split\"",
                         "-DBUILD_MFS_ENABLED=1",
                     ],
                 ),
