@@ -36,9 +36,30 @@ final class ParamDescriptor {
   // Null means any class is allowed.
   // Should be not empty otherwise.
   @Nullable private final List<Class<?>> allowedClasses;
-  // The semantics flag responsible for disabling this parameter, or null if enabled.
+  // Non-null when the parameter might be enabled or disabled with a semantics flag.
   // It is an error for Starlark code to supply a value to a disabled parameter.
-  @Nullable private final String disabledByFlag;
+  // Making it nullable is cpu performance optimization (don't need to call String::isEmpty)
+  // Making it a class is a memory optimization, conditional parameters don't take more space
+  // Current serialization code can't handle records.
+  @Nullable final ConditionalCheck conditionalCheck;
+
+  static class ConditionalCheck {
+    private final String enableOnlyWithFlag;
+    private final String disableWithFlag;
+
+    public ConditionalCheck(String enableOnlyWithFlag, String disableWithFlag) {
+      this.enableOnlyWithFlag = enableOnlyWithFlag;
+      this.disableWithFlag = disableWithFlag;
+    }
+
+    public String disableWithFlag() {
+      return disableWithFlag;
+    }
+
+    public String enableOnlyWithFlag() {
+      return enableOnlyWithFlag;
+    }
+  }
 
   private ParamDescriptor(
       String name,
@@ -46,7 +67,8 @@ final class ParamDescriptor {
       boolean named,
       boolean positional,
       List<Class<?>> allowedClasses,
-      @Nullable String disabledByFlag) {
+      String enableOnlyWithFlag,
+      String disableWithFlag) {
     this.name = name;
     // TODO(adonovan): apply the same validation logic to the default value
     // as we do to caller-supplied values (see BuiltinFunction.checkParamValue).
@@ -58,25 +80,16 @@ final class ParamDescriptor {
     } else {
       this.allowedClasses = allowedClasses;
     }
-    this.disabledByFlag = disabledByFlag;
+    if (!enableOnlyWithFlag.isEmpty() || !disableWithFlag.isEmpty()) {
+      this.conditionalCheck = new ConditionalCheck(enableOnlyWithFlag, disableWithFlag);
+    } else {
+      this.conditionalCheck = null;
+    }
   }
 
-  /**
-   * Returns a {@link ParamDescriptor} representing the given raw {@link Param} annotation and the
-   * given semantics.
-   */
-  static ParamDescriptor of(Param param, Class<?> paramClass, StarlarkSemantics starlarkSemantics) {
+  /** Returns a {@link ParamDescriptor} representing the given raw {@link Param} annotation. */
+  static ParamDescriptor of(Param param, Class<?> paramClass) {
     String defaultExpr = param.defaultValue();
-    String disabledByFlag = null;
-    if (!starlarkSemantics.isFeatureEnabledBasedOnTogglingFlags(
-        param.enableOnlyWithFlag(), param.disableWithFlag())) {
-      defaultExpr = param.valueWhenDisabled();
-      disabledByFlag =
-          !param.enableOnlyWithFlag().isEmpty()
-              ? param.enableOnlyWithFlag()
-              : param.disableWithFlag();
-      Preconditions.checkState(!disabledByFlag.isEmpty());
-    }
 
     // Compute set of allowed classes.
     ParamType[] allowedTypes = param.allowedTypes();
@@ -97,7 +110,8 @@ final class ParamDescriptor {
         param.named(),
         param.positional(),
         allowedClasses,
-        disabledByFlag);
+        param.enableOnlyWithFlag(),
+        param.disableWithFlag());
   }
 
   /** @see Param#name() */
@@ -139,7 +153,7 @@ final class ParamDescriptor {
     return positional;
   }
 
-  /** @see Param#named() */
+  /** See {@link Param#named()}. */
   boolean isNamed() {
     return named;
   }
@@ -150,10 +164,30 @@ final class ParamDescriptor {
     return defaultValue;
   }
 
-  /** Returns the flag responsible for disabling this parameter, or null if it is enabled. */
-  @Nullable
-  String disabledByFlag() {
-    return disabledByFlag;
+  /** Returns true if parameter is enabled. */
+  boolean isEnabled(StarlarkThread thread) {
+    return conditionalCheck == null
+        || thread
+            .getSemantics()
+            .isFeatureEnabledBasedOnTogglingFlags(
+                conditionalCheck.enableOnlyWithFlag, conditionalCheck.disableWithFlag);
+  }
+
+  /** Returns a phrase meaning "disabled" appropriate to the specified flag. */
+  public String getDisabledErrorMessage() {
+    Preconditions.checkNotNull(conditionalCheck);
+    // TODO(b/407506132): A parameter enabled by a non-experimental flag should not be marked as
+    //  experimental
+    if (!conditionalCheck.enableOnlyWithFlag().isEmpty()) {
+      return String.format(
+          "experimental and thus unavailable with the current flags. It may be enabled by setting"
+              + " --%s",
+          conditionalCheck.enableOnlyWithFlag().substring(1)); // remove [+-] prefix
+    }
+    return String.format(
+        "deprecated and will be removed soon. It may be temporarily re-enabled by setting"
+            + " --%s=false",
+        conditionalCheck.disableWithFlag().substring(1)); // remove [+-] prefix
   }
 
   // A memoization of evalDefault, keyed by expression.

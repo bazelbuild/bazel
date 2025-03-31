@@ -126,7 +126,6 @@ public final class BuiltinFunction implements StarlarkCallable {
    * StarlarkMethod-annotated Java method.
    *
    * @param thread the Starlark thread for the call
-   * @param loc the location of the call expression, or BUILTIN for calls from Java
    * @param desc descriptor for the StarlarkMethod-annotated method
    * @param positional an array of positional arguments; as an optimization, in simple cases, this
    *     array may be reused as the method's return value
@@ -196,7 +195,7 @@ public final class BuiltinFunction implements StarlarkCallable {
       }
 
       // disabled?
-      if (param.disabledByFlag() != null) {
+      if (!param.isEnabled(thread)) {
         // Skip disabled parameter as if not present at all.
         // The default value will be filled in below.
         continue;
@@ -269,13 +268,12 @@ public final class BuiltinFunction implements StarlarkCallable {
       }
 
       // disabled?
-      String flag = param.disabledByFlag();
-      if (flag != null) {
+      if (!param.isEnabled(thread)) {
         // spill to **kwargs
         if (kwargs == null) {
           throw Starlark.errorf(
               "in call to %s(), parameter '%s' is %s",
-              methodName, param.getName(), disabled(flag, thread.getSemantics()));
+              methodName, param.getName(), param.getDisabledErrorMessage());
         }
 
         // duplicate named argument?
@@ -373,23 +371,6 @@ public final class BuiltinFunction implements StarlarkCallable {
       throw Starlark.errorf(
           "in call to %s(), parameter '%s' got value of type '%s', want '%s'",
           methodName, param.getName(), Starlark.type(value), param.getTypeErrorMessage());
-    }
-  }
-
-  // Returns a phrase meaning "disabled" appropriate to the specified flag.
-  private static String disabled(String flag, StarlarkSemantics semantics) {
-    // If the flag is True, it must be a deprecation flag. Otherwise it's an experimental flag.
-    // TODO(adonovan): is that assumption sound?
-    if (semantics.getBool(flag)) {
-      return String.format(
-          "deprecated and will be removed soon. It may be temporarily re-enabled by setting"
-              + " --%s=false",
-          flag.substring(1)); // remove [+-] prefix
-    } else {
-      return String.format(
-          "experimental and thus unavailable with the current flags. It may be enabled by setting"
-              + " --%s",
-          flag.substring(1)); // remove [+-] prefix
     }
   }
 }

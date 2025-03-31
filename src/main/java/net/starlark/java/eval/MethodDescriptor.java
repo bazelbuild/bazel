@@ -114,7 +114,7 @@ final class MethodDescriptor {
 
   private static boolean paramUsableAsPositionalWithoutChecks(ParamDescriptor param) {
     return param.isPositional()
-        && param.disabledByFlag() == null
+        && param.conditionalCheck == null
         && param.getAllowedClasses() == null;
   }
 
@@ -123,9 +123,8 @@ final class MethodDescriptor {
     return annotation;
   }
 
-  /** @return Starlark method descriptor for provided Java method and signature annotation. */
-  static MethodDescriptor of(
-      Method method, StarlarkMethod annotation, StarlarkSemantics semantics) {
+  /** Returns starlark method descriptor for provided Java method and signature annotation. */
+  static MethodDescriptor of(Method method, StarlarkMethod annotation) {
     // This happens when the interface is public but the implementation classes
     // have reduced visibility.
     method.setAccessible(true);
@@ -133,7 +132,7 @@ final class MethodDescriptor {
     Class<?>[] paramClasses = method.getParameterTypes();
     Param[] paramAnnots = annotation.parameters();
     ParamDescriptor[] params = new ParamDescriptor[paramAnnots.length];
-    Arrays.setAll(params, i -> ParamDescriptor.of(paramAnnots[i], paramClasses[i], semantics));
+    Arrays.setAll(params, i -> ParamDescriptor.of(paramAnnots[i], paramClasses[i]));
 
     return new MethodDescriptor(
         method,
