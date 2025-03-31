@@ -173,14 +173,13 @@ public class ActionCacheChecker {
   }
 
   /**
-   * Validate metadata state for action input or output artifacts.
+   * Validate metadata state for action input and output artifacts.
    *
    * @param entry cached action information.
    * @param action action to be validated.
    * @param actionInputs the inputs of the action. Normally just the result of action.getInputs(),
    *     but if this action doesn't yet know its inputs, we check the inputs from the cache.
    * @param outputMetadataStore provider of metadata for the action outputs.
-   * @param checkOutput true to validate output artifacts, Otherwise, just validate inputs.
    * @param cachedOutputMetadata a set of cached metadata that should be used instead of loading
    *     from {@code outputMetadataStore}.
    * @param outputChecker used to check whether remote metadata should be trusted.
@@ -192,36 +191,33 @@ public class ActionCacheChecker {
       NestedSet<Artifact> actionInputs,
       InputMetadataProvider inputMetadataProvider,
       OutputMetadataStore outputMetadataStore,
-      boolean checkOutput,
       @Nullable CachedOutputMetadata cachedOutputMetadata,
       @Nullable OutputChecker outputChecker)
       throws InterruptedException {
     Map<String, FileArtifactValue> mdMap = new HashMap<>();
-    if (checkOutput) {
-      for (Artifact artifact : action.getOutputs()) {
-        if (artifact.isTreeArtifact()) {
-          TreeArtifactValue treeMetadata = getCachedTreeMetadata(cachedOutputMetadata, artifact);
-          if (treeMetadata == null) {
-            treeMetadata = getOutputTreeMetadataMaybe(outputMetadataStore, artifact);
-          }
-          if (shouldTrustTreeMetadata(artifact, treeMetadata, outputChecker)) {
-            mdMap.put(
-                artifact.getExecPathString(),
-                treeMetadata != null ? treeMetadata.getMetadata() : null);
-          } else {
-            mdMap.put(artifact.getExecPathString(), null);
-          }
-
+    for (Artifact artifact : action.getOutputs()) {
+      if (artifact.isTreeArtifact()) {
+        TreeArtifactValue treeMetadata = getCachedTreeMetadata(cachedOutputMetadata, artifact);
+        if (treeMetadata == null) {
+          treeMetadata = getOutputTreeMetadataMaybe(outputMetadataStore, artifact);
+        }
+        if (shouldTrustTreeMetadata(artifact, treeMetadata, outputChecker)) {
+          mdMap.put(
+              artifact.getExecPathString(),
+              treeMetadata != null ? treeMetadata.getMetadata() : null);
         } else {
-          FileArtifactValue metadata = getCachedMetadata(cachedOutputMetadata, artifact);
-          if (metadata == null) {
-            metadata = getOutputMetadataMaybe(outputMetadataStore, artifact);
-          }
-          if (shouldTrustMetadata(artifact, metadata, outputChecker)) {
-            mdMap.put(artifact.getExecPathString(), metadata);
-          } else {
-            mdMap.put(artifact.getExecPathString(), null);
-          }
+          mdMap.put(artifact.getExecPathString(), null);
+        }
+
+      } else {
+        FileArtifactValue metadata = getCachedMetadata(cachedOutputMetadata, artifact);
+        if (metadata == null) {
+          metadata = getOutputMetadataMaybe(outputMetadataStore, artifact);
+        }
+        if (shouldTrustMetadata(artifact, metadata, outputChecker)) {
+          mdMap.put(artifact.getExecPathString(), metadata);
+        } else {
+          mdMap.put(artifact.getExecPathString(), null);
         }
       }
     }
@@ -606,7 +602,6 @@ public class ActionCacheChecker {
         actionInputs,
         inputMetadataProvider,
         outputMetadataStore,
-        true,
         cachedOutputMetadata,
         outputChecker)) {
       reportChanged(handler, action);
