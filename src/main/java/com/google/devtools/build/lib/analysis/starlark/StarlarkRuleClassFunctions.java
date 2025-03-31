@@ -103,6 +103,7 @@ import com.google.devtools.build.lib.packages.StarlarkDefinedAspect;
 import com.google.devtools.build.lib.packages.StarlarkExportable;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
+import com.google.devtools.build.lib.packages.TargetDefinitionContext;
 import com.google.devtools.build.lib.packages.TargetRecorder.NameConflictException;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.Type;
@@ -1463,6 +1464,10 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
     @Override
     public Object call(StarlarkThread thread, Tuple args, Dict<String, Object> kwargs)
         throws EvalException, InterruptedException {
+      TargetDefinitionContext targetDefinitionContext =
+          TargetDefinitionContext.fromOrFailDisallowWorkspace(
+              thread, "a symbolic macro", "instantiated");
+
       Package.Builder pkgBuilder = Package.Builder.fromOrNull(thread);
       if (pkgBuilder == null) {
         throw Starlark.errorf(
@@ -1504,7 +1509,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       // expanding them here. And when we have lazy evaluation, they won't even be expanded at the
       // end of BUILD file evaluation, but rather at the end of package evaluation (which at that
       // time would be a distinct skyfunction).
-      if (!macroClass.isFinalizer()) {
+      if (targetDefinitionContext.eagerlyExpandMacros() && !macroClass.isFinalizer()) {
         // TODO: #19922 - At some point we should maybe impose a check that the macro stack depth
         // isn't too big. Maybe this is unnecessary since we don't permit recursion. But in theory,
         // a big stack can crash under eager evaluation (where evaluation is on the Java call stack)
@@ -1639,29 +1644,28 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       if (ruleClass == null) {
         throw new EvalException("Invalid rule class hasn't been exported by a bzl file");
       }
-      Package.Builder pkgBuilder = Package.Builder.fromOrNull(thread);
-      if (pkgBuilder == null) {
-        throw new EvalException(
-            // TODO: #19922 - Clarify message. See analogous TODO for macros, above.
-            "Cannot instantiate a rule when loading a .bzl file. "
-                + "Rules may be instantiated only in a BUILD thread.");
-      }
+      TargetDefinitionContext targetDefinitionContext =
+          ruleClass.getWorkspaceOnly()
+              ? Package.Builder.fromOrFailAllowWorkspaceOrModuleExtension(
+                  thread, "a repository rule", "instantiated")
+              : TargetDefinitionContext.fromOrFailDisallowWorkspace(
+                  thread, "a rule", "instantiated");
 
       validateRulePropagatedAspects(ruleClass);
 
       ImmutableSet<String> legacyAnyTypeAttrs = getLegacyAnyTypeAttrs(ruleClass);
 
       try {
-        // Temporarily remove `pkgBuilder` from the thread to prevent calls to load time functions.
-        // Mutating values in initializers is mostly not a problem, because the attribute values are
-        // copied before calling the initializers (<-TODO) and before they are set on the target.
-        // Exception is a legacy case allowing arbitrary type of parameter values. In that case the
-        // values may be mutated by the initializer, but they are still copied when set on the
-        // target.
+        // Temporarily remove `targetDefinitionContext` from the thread to prevent calls to load
+        // time functions. Mutating values in initializers is mostly not a problem, because the
+        // attribute values are copied before calling the initializers (<-TODO) and before they are
+        // set on the target. Exception is a legacy case allowing arbitrary type of parameter
+        // values. In that case the values may be mutated by the initializer, but they are still
+        // copied when set on the target.
         thread.setThreadLocal(StarlarkThreadContext.class, null);
         // Allow access to the LabelConverter to support native.package_relative_label() in an
         // initializer.
-        thread.setThreadLocal(LabelConverter.class, pkgBuilder.getLabelConverter());
+        thread.setThreadLocal(LabelConverter.class, targetDefinitionContext.getLabelConverter());
         thread.setUncheckedExceptionContext(() -> "an initializer");
 
         // We call all the initializers of the rule and its ancestor rules, proceeding from child to
@@ -1692,7 +1696,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
                             currentRuleClass.getName(),
                             attr,
                             value,
-                            pkgBuilder.getLabelConverter());
+                            targetDefinitionContext.getLabelConverter());
                 initializerKwargs.put(attr.getName(), reifiedValue);
               }
             }
@@ -1744,21 +1748,21 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
                         // Reify to the location of the initializer definition (except for outputs)
                         attr.getType() == BuildType.OUTPUT
                                 || attr.getType() == BuildType.OUTPUT_LIST
-                            ? pkgBuilder.getLabelConverter()
+                            ? targetDefinitionContext.getLabelConverter()
                             : currentRuleClass.getLabelConverterForInitializer());
             kwargs.putEntry(nativeName, reifiedValue);
           }
         }
       } finally {
         thread.setThreadLocal(LabelConverter.class, null);
-        pkgBuilder.storeInThread(thread);
+        targetDefinitionContext.storeInThread(thread);
       }
 
       BuildLangTypedAttributeValuesMap attributeValues =
           new BuildLangTypedAttributeValuesMap(kwargs);
       try {
         RuleFactory.createAndAddRule(
-            pkgBuilder,
+            targetDefinitionContext,
             ruleClass,
             attributeValues,
             thread

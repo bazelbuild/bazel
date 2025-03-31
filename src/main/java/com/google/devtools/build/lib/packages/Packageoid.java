@@ -59,7 +59,7 @@ public abstract class Packageoid {
 
   /**
    * The collection of all targets defined in this packageoid, indexed by name. Null until the
-   * packageoid is fully initialized.
+   * packageoid is fully initialized by its builder's {@code finishBuild()}.
    */
   // TODO(bazel-team): Clarify what this map contains when a rule and its output both share the same
   // name.
@@ -67,7 +67,8 @@ public abstract class Packageoid {
 
   /**
    * The collection of all symbolic macro instances defined in this packageoid, indexed by their
-   * {@link MacroInstance#getId id} (not name). Null until the packageoid is fully initialized.
+   * {@link MacroInstance#getId id} (not name). Null until the packageoid is fully initialized by
+   * its builder's {@code finishBuild()}.
    */
   // TODO(bazel-team): Consider enforcing that macro namespaces are "exclusive", meaning that target
   // names may only suffix a macro name when the target is created (transitively) within the macro.

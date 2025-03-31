@@ -2217,7 +2217,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
         """);
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test:my_glob");
-    assertContainsEvent("glob() can only be used while evaluating a BUILD file (or legacy macro)");
+    assertContainsEvent("glob() can only be used while evaluating a BUILD file or a legacy macro");
   }
 
   @Test
@@ -2238,7 +2238,9 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
     scratch.file("test/BUILD", "load('//test:ext.bzl', 'a')");
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test:x");
-    assertContainsEvent("Cannot instantiate a rule when loading a .bzl file");
+    assertContainsEvent(
+        "a rule can only be instantiated while evaluating a BUILD file or a legacy or symbolic"
+            + " macro");
   }
 
   @Test
@@ -3622,7 +3624,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
     CommandLine commandLine1 =
         getCommandLine(
             mainRepoMapping,
-            """
+"""
 args = ruleContext.actions.args()
 args.add_all(depset([Label("@@canonical1+//foo:bar"), Label("@@canonical2+//foo:bar")]))
 """);
@@ -3833,7 +3835,7 @@ args.add_all(depset([Label("@@canonical1+//foo:bar"), Label("@@canonical2+//foo:
 
     CommandLine commandLine1 =
         getCommandLine(
-            """
+"""
 def _map_each(x):
   return x.field.root.path
 args = ruleContext.actions.args()
@@ -3842,7 +3844,7 @@ args.add_all(d, map_each = _map_each, uniquify = True)
 """);
     CommandLine commandLine2 =
         getCommandLine(
-            """
+"""
 def _map_each(x):
   return x.field
 args = ruleContext.actions.args()

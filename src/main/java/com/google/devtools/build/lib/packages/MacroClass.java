@@ -192,7 +192,8 @@ public final class MacroClass {
    */
   // TODO(#19922): Consider reporting multiple events instead of failing on the first one. See
   // analogous implementation in RuleClass#populateDefinedRuleAttributeValues.
-  private MacroInstance instantiateMacro(Package.Builder pkgBuilder, Map<String, Object> kwargs)
+  private MacroInstance instantiateMacro(
+      TargetDefinitionContext targetDefinitionContext, Map<String, Object> kwargs)
       throws LabelSyntaxException,
           EvalException,
           InterruptedException,
@@ -249,14 +250,14 @@ public final class MacroClass {
     // TODO(brandjon): When we add introspection of attributes of symbolic macros, we'll want to
     // distinguish between the different types of visibility a la Target#getRawVisibility /
     // #getVisibility / #getActualVisibility.
-    @Nullable MacroFrame parentMacroFrame = pkgBuilder.getCurrentMacroFrame();
+    @Nullable MacroFrame parentMacroFrame = targetDefinitionContext.getCurrentMacroFrame();
     @Nullable Object rawVisibility = kwargs.get("visibility");
     RuleVisibility parsedVisibility;
     if (rawVisibility == null || rawVisibility.equals(Starlark.NONE)) {
       // Visibility wasn't explicitly supplied. If we're not in another symbolic macro, use the
       // package's default visibility, otherwise use private visibility.
       if (parentMacroFrame == null) {
-        parsedVisibility = pkgBuilder.getPartialPackageArgs().defaultVisibility();
+        parsedVisibility = targetDefinitionContext.getPartialPackageArgs().defaultVisibility();
       } else {
         parsedVisibility = RuleVisibility.PRIVATE;
       }
@@ -265,13 +266,16 @@ public final class MacroClass {
       List<Label> liftedVisibility =
           (List<Label>)
               BuildType.copyAndLiftStarlarkValue(
-                  name, VISIBILITY_ATTRIBUTE, rawVisibility, pkgBuilder.getLabelConverter());
+                  name,
+                  VISIBILITY_ATTRIBUTE,
+                  rawVisibility,
+                  targetDefinitionContext.getLabelConverter());
       parsedVisibility = RuleVisibility.parse(liftedVisibility);
     }
     // Concatenate the visibility (as previously populated) with the instantiation site's location.
     PackageIdentifier instantiatingLoc =
         parentMacroFrame == null
-            ? pkgBuilder.getPackageIdentifier()
+            ? targetDefinitionContext.getPackageIdentifier()
             : parentMacroFrame.macroInstance.getDefinitionPackage();
     RuleVisibility actualVisibility = parsedVisibility.concatWithPackage(instantiatingLoc);
     attrValues.put(
@@ -293,7 +297,7 @@ public final class MacroClass {
           Object normalizedValue =
               // copyAndLiftStarlarkValue ensures immutability.
               BuildType.copyAndLiftStarlarkValue(
-                  name, attribute, value, pkgBuilder.getLabelConverter());
+                  name, attribute, value, targetDefinitionContext.getLabelConverter());
           // TODO(#19922): Validate that LABEL_LIST type attributes don't contain duplicates, to
           // match the behavior of rules. This probably requires factoring out logic from
           // AggregatingAttributeMapper.
@@ -318,10 +322,10 @@ public final class MacroClass {
 
     BuildLangTypedAttributeValuesMap attributeValues =
         new BuildLangTypedAttributeValuesMap(attrValues.buildImmutable());
-    MacroInstance macroInstance = pkgBuilder.createMacro(this, name, sameNameDepth);
+    MacroInstance macroInstance = targetDefinitionContext.createMacro(this, name, sameNameDepth);
     attributeProvider.populateRuleAttributeValues(
         macroInstance,
-        pkgBuilder,
+        targetDefinitionContext,
         attributeValues,
         /* failOnUnknownAttributes= */ true,
         /* isStarlark= */ true);
@@ -348,17 +352,18 @@ public final class MacroClass {
    * Constructs a new {@link MacroInstance} associated with this {@code MacroClass}, adds it to the
    * package, and returns it.
    *
-   * @param pkgBuilder The builder corresponding to the package in which this instance will live.
+   * @param targetDefinitionContext The builder corresponding to the packageoid in which this
+   *     instance will live.
    * @param kwargs A map from attribute name to its given Starlark value, such as passed in a BUILD
    *     file (i.e., prior to attribute type conversion, {@code select()} promotion, default value
    *     substitution, or even validation that the attribute exists).
    */
   public MacroInstance instantiateAndAddMacro(
-      Package.Builder pkgBuilder, Map<String, Object> kwargs)
+      TargetDefinitionContext targetDefinitionContext, Map<String, Object> kwargs)
       throws EvalException, InterruptedException {
     try {
-      MacroInstance macroInstance = instantiateMacro(pkgBuilder, kwargs);
-      pkgBuilder.addMacro(macroInstance);
+      MacroInstance macroInstance = instantiateMacro(targetDefinitionContext, kwargs);
+      targetDefinitionContext.addMacro(macroInstance);
       return macroInstance;
     } catch (LabelSyntaxException | NameConflictException | CannotPrecomputeDefaultsException e) {
       throw new EvalException(e);
@@ -367,13 +372,12 @@ public final class MacroClass {
 
   /**
    * Executes a symbolic macro's implementation function, in a new Starlark thread, mutating the
-   * given package under construction.
+   * given packageoid under construction.
    */
-  // TODO: #19922 - Take a new type, PackagePiece.Builder, in place of Package.Builder. PackagePiece
-  // would represent the collection of targets/macros instantiated by expanding a single symbolic
-  // macro.
   public static void executeMacroImplementation(
-      MacroInstance macro, Package.Builder builder, StarlarkSemantics semantics)
+      MacroInstance macro,
+      TargetDefinitionContext targetDefinitionContext,
+      StarlarkSemantics semantics)
       throws InterruptedException {
     // Ensure we're not expanding a (possibly indirect) recursive macro. This is morally analogous
     // to StarlarkThread#isRecursiveCall, except in this context, recursion is through the chain of
@@ -381,17 +385,20 @@ public final class MacroClass {
     // depending on whether the evaluation is eager or deferred.
     @Nullable String recursionMsg = getRecursionErrorMessage(macro);
     if (recursionMsg != null) {
-      builder
+      targetDefinitionContext
           .getLocalEventHandler()
           .handle(Package.error(/* location= */ null, recursionMsg, Code.STARLARK_EVAL_ERROR));
-      builder.setContainsErrors();
+      targetDefinitionContext.setContainsErrors();
       // Don't try to evaluate this macro again.
-      builder.markMacroComplete(macro);
+      if (targetDefinitionContext instanceof Package.Builder pkgBuilder) {
+        pkgBuilder.markMacroComplete(macro);
+      }
       return;
     }
 
     try (Mutability mu =
-        Mutability.create("macro", builder.getPackageIdentifier(), macro.getName())) {
+        Mutability.create(
+            "macro", targetDefinitionContext.getPackageIdentifier(), macro.getName())) {
       StarlarkThread thread =
           StarlarkThread.create(
               mu,
@@ -400,12 +407,13 @@ public final class MacroClass {
               SymbolGenerator.create(
                   MacroInstance.UniqueId.create(
                       macro.getPackageMetadata().packageIdentifier(), macro.getId())));
-      thread.setPrintHandler(Event.makeDebugPrintHandler(builder.getLocalEventHandler()));
+      thread.setPrintHandler(
+          Event.makeDebugPrintHandler(targetDefinitionContext.getLocalEventHandler()));
 
       // TODO: #19922 - Technically the embedded SymbolGenerator field should use a different key
       // than the one in the main BUILD thread, but that'll be fixed when we change the type to
       // PackagePiece.Builder.
-      builder.storeInThread(thread);
+      targetDefinitionContext.storeInThread(thread);
 
       // TODO: #19922 - If we want to support creating analysis_test rules inside symbolic macros,
       // we'd need to call `thread.setThreadLocal(RuleDefinitionEnvironment.class,
@@ -413,7 +421,8 @@ public final class MacroClass {
       // ConfiguredRuleClassProvider. For instance, we could put it in the builder.
 
       MacroFrame childMacroFrame = new MacroFrame(macro);
-      @Nullable MacroFrame parentMacroFrame = builder.setCurrentMacroFrame(childMacroFrame);
+      @Nullable
+      MacroFrame parentMacroFrame = targetDefinitionContext.setCurrentMacroFrame(childMacroFrame);
       // Retrieve the values of the macro's attributes and convert them to Starlark values.
       ImmutableMap.Builder<String, Object> kwargs = ImmutableMap.builder();
       for (Attribute attr : macro.getMacroClass().getAttributeProvider().getAttributes()) {
@@ -445,18 +454,20 @@ public final class MacroClass {
               macro.getName(), Starlark.repr(returnValue));
         }
       } catch (EvalException ex) { // from either call() or non-None return
-        builder
+        targetDefinitionContext
             .getLocalEventHandler()
             .handle(
                 Package.error(
                     /* location= */ null, ex.getMessageWithStack(), Code.STARLARK_EVAL_ERROR));
-        builder.setContainsErrors();
+        targetDefinitionContext.setContainsErrors();
       } finally {
         // Restore the previously running symbolic macro's state (if any).
-        @Nullable MacroFrame top = builder.setCurrentMacroFrame(parentMacroFrame);
+        @Nullable MacroFrame top = targetDefinitionContext.setCurrentMacroFrame(parentMacroFrame);
         Preconditions.checkState(top == childMacroFrame, "inconsistent macro stack state");
         // Mark the macro as having completed, even if it was in error (or interrupted?).
-        builder.markMacroComplete(macro);
+        if (targetDefinitionContext instanceof Package.Builder pkgBuilder) {
+          pkgBuilder.markMacroComplete(macro);
+        }
       }
     }
   }

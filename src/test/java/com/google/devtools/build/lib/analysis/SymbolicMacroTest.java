@@ -677,6 +677,11 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
    * macro.
    */
   private void doCannotCallApiTest(String apiName, String usageLine) throws Exception {
+    doCannotCallApiTest(apiName, usageLine, "used");
+  }
+
+  private void doCannotCallApiTest(String apiName, String usageLine, String errorMessageParticiple)
+      throws Exception {
     scratch.file(
         "pkg/foo.bzl",
         String.format(
@@ -697,9 +702,9 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
         "pkg",
         String.format(
             // The error also has one of the following suffixes:
-            //   - " or a symbolic macro"
-            //   - ", a symbolic macro, or a WORKSPACE file"
-            "%s can only be used while evaluating a BUILD file (or legacy macro)", apiName));
+            //   - " or a legacy macro"
+            //   - ", a rule finalizer, a legacy macro, or a WORKSPACE file"
+            "%s can only be %s while evaluating a BUILD file", apiName, errorMessageParticiple));
   }
 
   @Test
@@ -730,7 +735,7 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
 
   @Test
   public void macroCannotCallEnvironmentRuleFunction() throws Exception {
-    doCannotCallApiTest("environment rule", "native.environment(name = 'foo')");
+    doCannotCallApiTest("environment rule", "native.environment(name = 'foo')", "instantiated");
   }
 
   // There are other symbols that must not be called from within symbolic macros, but we don't test
@@ -1138,7 +1143,7 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
     // cases here.
     scratch.file(
         "pkg/foo.bzl",
-        """
+"""
 def _impl(name, visibility, attr_using_schema_default, attr_using_hardcoded_nonnull_default,
           attr_using_hardcoded_null_default):
     print("attr_using_schema_default is %s" % attr_using_schema_default)
@@ -1180,17 +1185,17 @@ my_macro = macro(
     // From the macro implementation's point of view, the select() entries are still None,
     // regardless of how they are represented and transformed internally.
     assertContainsEvent(
-        """
+"""
 attr_using_schema_default is select({Label("//common:some_configsetting"): None, \
 Label("//conditions:default"): None})\
 """);
     assertContainsEvent(
-        """
+"""
 attr_using_hardcoded_nonnull_default is select({Label("//common:some_configsetting"): None, \
 Label("//conditions:default"): None})\
 """);
     assertContainsEvent(
-        """
+"""
 attr_using_hardcoded_null_default is select({Label("//common:some_configsetting"): None, \
 Label("//conditions:default"): None})\
 """);
@@ -1793,7 +1798,7 @@ Label("//conditions:default"): None})\
     // that the macro-wrapped rule target passes analysis.
     scratch.file(
         "pkg/my_genrule.bzl",
-        """
+"""
 def _my_genrule_impl(name, visibility, tags, **kwargs):
     print("my_genrule: tags = %s" % tags)
     for k in kwargs:
@@ -1905,7 +1910,7 @@ my_genrule = macro(
   public void inheritAttrs_fromExportedMacro() throws Exception {
     scratch.file(
         "pkg/my_macro.bzl",
-        """
+"""
 def _other_macro_impl(name, visibility, **kwargs):
     pass
 

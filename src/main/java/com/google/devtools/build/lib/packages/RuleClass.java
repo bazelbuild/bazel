@@ -2058,12 +2058,12 @@ public class RuleClass implements RuleClassData {
   }
 
   /**
-   * Creates a new {@link Rule} {@code r} where {@code r.getPackage()} is the {@link Package}
-   * associated with {@code pkgBuilder}.
+   * Creates a new {@link Rule} {@code r} where {@code r.getPackageoid()} is the {@link Packageoid}
+   * associated with {@code targetDefinitionContext}.
    *
    * <p>The created {@link Rule} will be populated with attribute values from {@code
    * attributeValues} or the default attribute values associated with this {@link RuleClass} and
-   * {@code pkgBuilder}.
+   * {@code targetDefinitionContext}.
    *
    * <p>The created {@link Rule} will also be populated with output files. These output files will
    * have been collected from the explicitly provided values of type {@link BuildType#OUTPUT} and
@@ -2076,19 +2076,19 @@ public class RuleClass implements RuleClassData {
    * eventHandler}.
    */
   <T> Rule createRule(
-      Package.Builder pkgBuilder,
+      TargetDefinitionContext targetDefinitionContext,
       Label ruleLabel,
       AttributeValues<T> attributeValues,
       boolean failOnUnknownAttributes,
       List<StarlarkThread.CallStackEntry> callstack)
       throws LabelSyntaxException, InterruptedException, CannotPrecomputeDefaultsException {
-    EventHandler eventHandler = pkgBuilder.getLocalEventHandler();
+    EventHandler eventHandler = targetDefinitionContext.getLocalEventHandler();
 
-    Rule rule = pkgBuilder.createRule(ruleLabel, this, callstack);
+    Rule rule = targetDefinitionContext.createRule(ruleLabel, this, callstack);
     attributeProvider.populateRuleAttributeValues(
-        rule, pkgBuilder, attributeValues, failOnUnknownAttributes, isStarlark);
+        rule, targetDefinitionContext, attributeValues, failOnUnknownAttributes, isStarlark);
     checkAspectAllowedValues(rule, eventHandler);
-    rule.populateOutputFiles(eventHandler, pkgBuilder.getPackageIdentifier());
+    rule.populateOutputFiles(eventHandler, targetDefinitionContext.getPackageIdentifier());
     checkForDuplicateLabels(rule, eventHandler);
 
     checkForValidSizeAndTimeoutValues(rule, eventHandler);
@@ -2101,16 +2101,18 @@ public class RuleClass implements RuleClassData {
    * <p>Don't call this function unless you know what you're doing.
    */
   <T> Rule createRuleUnchecked(
-      Package.Builder pkgBuilder,
+      TargetDefinitionContext targetDefinitionContext,
       Label ruleLabel,
       AttributeValues<T> attributeValues,
       CallStack.Node callstack,
       ImplicitOutputsFunction implicitOutputsFunction)
       throws InterruptedException, CannotPrecomputeDefaultsException {
-    Rule rule = pkgBuilder.createRule(ruleLabel, this, callstack.toLocation(), callstack.next());
+    Rule rule =
+        targetDefinitionContext.createRule(
+            ruleLabel, this, callstack.toLocation(), callstack.next());
     attributeProvider.populateRuleAttributeValues(
-        rule, pkgBuilder, attributeValues, true, isStarlark);
-    rule.populateOutputFilesUnchecked(pkgBuilder, implicitOutputsFunction);
+        rule, targetDefinitionContext, attributeValues, true, isStarlark);
+    rule.populateOutputFilesUnchecked(targetDefinitionContext, implicitOutputsFunction);
     return rule;
   }
 

@@ -57,11 +57,19 @@ public interface Target extends TargetData {
    */
   @Nullable
   default MacroInstance getDeclaringMacro() {
-    // TODO: #19922 - We might replace Package#getDeclaringMacroForTarget by storing a reference to
-    // the declaring macro in implementations of this interface (sharing memory with the field for
-    // the package).
-    // TODO(https://github.com/bazelbuild/bazel/issues/23852): support package pieces.
-    return getPackage().getDeclaringMacroForTarget(getName());
+    Packageoid packageoid = getPackageoid();
+    if (packageoid instanceof Package pkg) {
+      return pkg.getDeclaringMacroForTarget(getName());
+      // TODO: #19922 - We might replace Package#getDeclaringMacroForTarget by storing a reference
+      // to the declaring macro in implementations of this interface (sharing memory with the field
+      // for the package).
+    } else if (packageoid instanceof PackagePiece.ForMacro forMacro) {
+      return forMacro.getEvaluatedMacro();
+    } else if (packageoid instanceof PackagePiece.ForBuildFile) {
+      return null;
+    } else {
+      throw new AssertionError("Unknown packageoid " + packageoid);
+    }
   }
 
   /**
@@ -72,9 +80,17 @@ public interface Target extends TargetData {
    * as the package the target lives in.
    */
   default PackageIdentifier getDeclaringPackage() {
-    // TODO(https://github.com/bazelbuild/bazel/issues/23852): support package pieces.
-    PackageIdentifier pkgId = getPackage().getDeclaringPackageForTargetIfInMacro(getName());
-    return pkgId != null ? pkgId : getPackageMetadata().packageIdentifier();
+    Packageoid packageoid = getPackageoid();
+    if (packageoid instanceof Package pkg) {
+      PackageIdentifier pkgId = pkg.getDeclaringPackageForTargetIfInMacro(getName());
+      return pkgId != null ? pkgId : pkg.getPackageIdentifier();
+    } else if (packageoid instanceof PackagePiece.ForMacro forMacro) {
+      return forMacro.getDeclaringPackage();
+    } else if (packageoid instanceof PackagePiece.ForBuildFile forBuildFile) {
+      return forBuildFile.getPackageIdentifier();
+    } else {
+      throw new AssertionError("Unknown packageoid " + packageoid);
+    }
   }
 
   /**
@@ -82,8 +98,16 @@ public interface Target extends TargetData {
    * the product of running only a BUILD file and the legacy macros it called.
    */
   default boolean isCreatedInSymbolicMacro() {
-    // TODO(https://github.com/bazelbuild/bazel/issues/23852): support package pieces.
-    return getPackage().getDeclaringPackageForTargetIfInMacro(getName()) != null;
+    Packageoid packageoid = getPackageoid();
+    if (packageoid instanceof Package pkg) {
+      return pkg.getDeclaringPackageForTargetIfInMacro(getName()) != null;
+    } else if (packageoid instanceof PackagePiece.ForMacro) {
+      return true;
+    } else if (packageoid instanceof PackagePiece.ForBuildFile) {
+      return false;
+    } else {
+      throw new AssertionError("Unknown packageoid " + packageoid);
+    }
   }
 
   /**

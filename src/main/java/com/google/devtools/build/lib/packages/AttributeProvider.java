@@ -161,7 +161,7 @@ public class AttributeProvider {
    */
   <T> void populateRuleAttributeValues(
       RuleOrMacroInstance ruleOrMacroInstance,
-      Package.Builder pkgBuilder,
+      TargetDefinitionContext targetDefinitionContext,
       AttributeValues<T> attributeValues,
       boolean failOnUnknownAttributes,
       boolean isStarlark)
@@ -170,14 +170,14 @@ public class AttributeProvider {
     BitSet definedAttrIndices =
         populateDefinedRuleAttributeValues(
             ruleOrMacroInstance,
-            pkgBuilder.getLabelConverter(),
+            targetDefinitionContext.getLabelConverter(),
             attributeValues,
             failOnUnknownAttributes,
-            pkgBuilder.getListInterner(),
-            pkgBuilder.getLocalEventHandler(),
-            pkgBuilder.simplifyUnconditionalSelectsInRuleAttrs());
+            targetDefinitionContext.getListInterner(),
+            targetDefinitionContext.getLocalEventHandler(),
+            targetDefinitionContext.simplifyUnconditionalSelectsInRuleAttrs());
     populateDefaultRuleAttributeValues(
-        ruleOrMacroInstance, pkgBuilder, definedAttrIndices, isStarlark);
+        ruleOrMacroInstance, targetDefinitionContext, definedAttrIndices, isStarlark);
     // Now that all attributes are bound to values, collect and store configurable attribute keys.
     populateConfigDependenciesAttribute(ruleOrMacroInstance);
   }
@@ -303,7 +303,7 @@ public class AttributeProvider {
    */
   private void populateDefaultRuleAttributeValues(
       RuleOrMacroInstance ruleOrMacroInstance,
-      Package.Builder pkgBuilder,
+      TargetDefinitionContext targetDefinitionContext,
       BitSet definedAttrIndices,
       boolean isStarlark)
       throws InterruptedException, CannotPrecomputeDefaultsException {
@@ -324,7 +324,7 @@ public class AttributeProvider {
                 attr.getName(),
                 owner,
                 ruleOrMacroInstance.isRuleInstance() ? "rule" : "macro"),
-            pkgBuilder.getLocalEventHandler());
+            targetDefinitionContext.getLocalEventHandler());
       }
 
       // Macros don't have computed defaults or special logic for licenses or distributions.
@@ -374,7 +374,9 @@ public class AttributeProvider {
         } else if (attr.getName().equals("licenses") && attr.getType() == BuildType.LICENSE) {
           ruleInstance.setAttributeValue(
               attr,
-              ignoreLicenses ? License.NO_LICENSE : pkgBuilder.getPartialPackageArgs().license(),
+              ignoreLicenses
+                  ? License.NO_LICENSE
+                  : targetDefinitionContext.getPartialPackageArgs().license(),
               /* explicit= */ false);
 
         } else if (attr.getName().equals("distribs") && attr.getType() == BuildType.DISTRIBUTIONS) {
@@ -396,7 +398,8 @@ public class AttributeProvider {
         boolean explicit = true; // so that it appears in query output
         ruleOrMacroInstance.setAttributeValue(
             implicitTests,
-            pkgBuilder.getTestSuiteImplicitTestsRef(attributeMapper.get("tags", Types.STRING_LIST)),
+            targetDefinitionContext.getTestSuiteImplicitTestsRef(
+                attributeMapper.get("tags", Types.STRING_LIST)),
             explicit);
       }
     }
@@ -422,7 +425,7 @@ public class AttributeProvider {
       if (defaultValue instanceof StarlarkComputedDefaultTemplate template) {
         valueToSet =
             template.computePossibleValues(
-                attr, ruleOrMacroInstance, pkgBuilder.getLocalEventHandler());
+                attr, ruleOrMacroInstance, targetDefinitionContext.getLocalEventHandler());
       } else if (defaultValue instanceof ComputedDefault computedDefault) {
         // Compute all possible values to verify that the ComputedDefault is well-defined. This
         // was previously done implicitly as part of visiting all labels to check for null-ness in

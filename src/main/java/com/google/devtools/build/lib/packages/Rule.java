@@ -477,12 +477,13 @@ public class Rule extends RuleOrMacroInstance implements Target {
   }
 
   void populateOutputFilesUnchecked(
-      Package.Builder pkgBuilder, ImplicitOutputsFunction implicitOutputsFunction)
+      TargetDefinitionContext targetDefinitionContext,
+      ImplicitOutputsFunction implicitOutputsFunction)
       throws InterruptedException {
     try {
       populateOutputFilesInternal(
           NullEventHandler.INSTANCE,
-          pkgBuilder.getPackageIdentifier(),
+          targetDefinitionContext.getPackageIdentifier(),
           implicitOutputsFunction,
           /* checkLabels= */ false);
     } catch (LabelSyntaxException e) {
@@ -640,8 +641,7 @@ public class Rule extends RuleOrMacroInstance implements Target {
   @Override
   void reportError(String message, EventHandler eventHandler) {
     eventHandler.handle(Package.error(location, message, PackageLoading.Code.STARLARK_EVAL_ERROR));
-    // TODO(https://github.com/bazelbuild/bazel/issues/23852): support package pieces.
-    getPackage().setContainsErrors();
+    pkg.setContainsErrors();
   }
 
   private void reportWarning(String message, EventHandler eventHandler) {

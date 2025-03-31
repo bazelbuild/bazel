@@ -96,7 +96,8 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
       Object allowEmptyArgument,
       StarlarkThread thread)
       throws EvalException, InterruptedException {
-    Package.Builder pkgBuilder = Package.Builder.fromOrFailAllowBuildOnly(thread, "glob()");
+    Package.AbstractBuilder pkgBuilder =
+        Package.AbstractBuilder.fromOrFailAllowBuildOnly(thread, "glob()");
 
     List<String> includes = Types.STRING_LIST.convert(include, "'glob' argument");
     List<String> excludes = Types.STRING_LIST.convert(exclude, "'glob' argument");
@@ -434,9 +435,16 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
     if (thread.getThreadLocal(ExistingRulesShouldBeNoOp.class) != null) {
       return Starlark.NONE;
     }
-    Package.Builder pkgBuilder =
-        Package.Builder.fromOrFailDisallowNonFinalizerMacros(thread, "existing_rule()");
-    @Nullable Rule rule = pkgBuilder.getNonFinalizerInstantiatedRule(name);
+    TargetDefinitionContext targetDefinitionContext =
+        TargetDefinitionContext.fromOrFailDisallowNonFinalizerMacros(thread, "existing_rule()");
+    if (!(targetDefinitionContext instanceof Package.Builder)) {
+      // TODO(https://github.com/bazelbuild/bazel/issues/25539): support native.existing_rule()
+      // in finalizers under lazy symbolic macro expansion. Figure out what to do if we encounter
+      // native.existing_rule() under PackagePiece.ForBuildFile.Builder (it's not obvious).
+      throw Starlark.errorf(
+          "existing_rule() is not yet supported under lazy symbolic macro expansion");
+    }
+    @Nullable Rule rule = targetDefinitionContext.getNonFinalizerInstantiatedRule(name);
     if (rule != null) {
       return new ExistingRuleView(rule);
     } else {
@@ -500,27 +508,36 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
     if (thread.getThreadLocal(ExistingRulesShouldBeNoOp.class) != null) {
       return Dict.empty();
     }
-    Package.Builder pkgBuilder =
-        Package.Builder.fromOrFailDisallowNonFinalizerMacros(thread, "existing_rules()");
-    return new ExistingRulesView(pkgBuilder.getRulesSnapshotView());
+    TargetDefinitionContext targetDefinitionContext =
+        TargetDefinitionContext.fromOrFailDisallowNonFinalizerMacros(thread, "existing_rules()");
+    if (!(targetDefinitionContext instanceof Package.Builder)) {
+      // TODO(https://github.com/bazelbuild/bazel/issues/25539): support native.existing_rules()
+      // in finalizers under lazy symbolic macro expansion. Figure out what to do if we encounter
+      // native.existing_rules() under PackagePiece.ForBuildFile.Builder (it's not obvious).
+      throw Starlark.errorf(
+          "existing_rules() is not yet supported under lazy symbolic macro expansion");
+    }
+    return new ExistingRulesView(targetDefinitionContext.getRulesSnapshotView());
   }
 
   @Override
   public NoneType packageGroup(
       String name, Sequence<?> packagesO, Sequence<?> includesO, StarlarkThread thread)
       throws EvalException {
-    Package.Builder pkgBuilder =
-        Package.Builder.fromOrFailDisallowWorkspace(thread, "package_group()");
+    TargetDefinitionContext targetDefinitionContext =
+        TargetDefinitionContext.fromOrFailDisallowWorkspace(thread, "package_group()");
 
     List<String> packages =
         Types.STRING_LIST.convert(packagesO, "'package_group.packages argument'");
     List<Label> includes =
         BuildType.LABEL_LIST.convert(
-            includesO, "'package_group.includes argument'", pkgBuilder.getLabelConverter());
+            includesO,
+            "'package_group.includes argument'",
+            targetDefinitionContext.getLabelConverter());
 
     Location loc = thread.getCallerLocation();
     try {
-      pkgBuilder.addPackageGroup(
+      targetDefinitionContext.addPackageGroup(
           name,
           packages,
           includes,
@@ -531,7 +548,7 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
               .getSemantics()
               .getBool(BuildLanguageOptions.INCOMPATIBLE_FIX_PACKAGE_GROUP_REPOROOT_SYNTAX),
           // TODO(#19922): addPackageGroup should access the builder's own eventHandler directly.
-          pkgBuilder.getLocalEventHandler(),
+          targetDefinitionContext.getLocalEventHandler(),
           loc);
       return Starlark.NONE;
     } catch (LabelSyntaxException e) {
@@ -545,8 +562,8 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
   public NoneType exportsFiles(
       Sequence<?> srcs, Object visibilityO, Object licensesO, StarlarkThread thread)
       throws EvalException {
-    Package.Builder pkgBuilder =
-        Package.Builder.fromOrFailDisallowWorkspace(thread, "exports_files()");
+    TargetDefinitionContext targetDefinitionContext =
+        TargetDefinitionContext.fromOrFailDisallowWorkspace(thread, "exports_files()");
     List<String> files = Types.STRING_LIST.convert(srcs, "'exports_files' operand");
 
     RuleVisibility visibility =
@@ -554,8 +571,10 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
             ? RuleVisibility.PUBLIC
             : RuleVisibility.parse(
                 BuildType.LABEL_LIST.convert(
-                    visibilityO, "'exports_files' operand", pkgBuilder.getLabelConverter()));
-    MacroInstance currentMacro = pkgBuilder.currentMacro();
+                    visibilityO,
+                    "'exports_files' operand",
+                    targetDefinitionContext.getLabelConverter()));
+    MacroInstance currentMacro = targetDefinitionContext.currentMacro();
     if (currentMacro != null) {
       visibility = visibility.concatWithPackage(currentMacro.getDefinitionPackage());
     }
@@ -570,7 +589,7 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
         throw Starlark.errorf("%s", errorMessage);
       }
       try {
-        InputFile inputFile = pkgBuilder.createInputFile(file, loc);
+        InputFile inputFile = targetDefinitionContext.createInputFile(file, loc);
         // TODO: #19922 - The use of identity inequality in this visibility check seems suspect,
         // since the same logical visibility may have multiple RuleVisibility instances. But it's
         // unclear why we want to support idempotent exports_files() with the same logical
@@ -585,7 +604,7 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
               "licenses for exported file '%s' declared twice", inputFile.getName());
         }
 
-        pkgBuilder.setVisibilityAndLicense(inputFile, visibility, license);
+        targetDefinitionContext.setVisibilityAndLicense(inputFile, visibility, license);
       } catch (NameConflictException e) {
         throw Starlark.errorf("%s", e.getMessage());
       }
@@ -595,35 +614,36 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
 
   @Override
   public String packageName(StarlarkThread thread) throws EvalException {
-    Package.Builder pkgBuilder =
-        Package.Builder.fromOrFailDisallowWorkspace(thread, "package_name()");
-    return pkgBuilder.getPackageIdentifier().getPackageFragment().getPathString();
+    TargetDefinitionContext targetDefinitionContext =
+        TargetDefinitionContext.fromOrFailDisallowWorkspace(thread, "package_name()");
+    return targetDefinitionContext.getPackageIdentifier().getPackageFragment().getPathString();
   }
 
   @Override
   public List<Label> packageDefaultVisibility(StarlarkThread thread) throws EvalException {
-    Package.Builder pkgBuilder =
-        Package.Builder.fromOrFailDisallowWorkspace(thread, "package_default_visibility()");
-    return pkgBuilder
+    TargetDefinitionContext targetDefinitionContext =
+        TargetDefinitionContext.fromOrFailDisallowWorkspace(thread, "package_default_visibility()");
+    return targetDefinitionContext
         .getPartialPackageArgs()
         .defaultVisibility()
         // Add the package itself to the returned value. This matches the semantics that anything
         // that implicitly uses the default_visibility is also visible to the package.
-        .concatWithPackage(pkgBuilder.getPackageIdentifier())
+        .concatWithPackage(targetDefinitionContext.getPackageIdentifier())
         .getDeclaredLabels();
   }
 
   @Override
   public String repositoryName(StarlarkThread thread) throws EvalException {
     // for legacy reasons, this is prefixed with a single '@'.
-    Package.Builder.fromOrFailDisallowWorkspace(thread, "repository_name()");
+    TargetDefinitionContext.fromOrFailDisallowWorkspace(thread, "repository_name()");
     return '@' + repoName(thread);
   }
 
   @Override
   public String repoName(StarlarkThread thread) throws EvalException {
-    Package.Builder pkgBuilder = Package.Builder.fromOrFailDisallowWorkspace(thread, "repo_name()");
-    return pkgBuilder.getPackageIdentifier().getRepository().getName();
+    TargetDefinitionContext targetDefinitionContext =
+        TargetDefinitionContext.fromOrFailDisallowWorkspace(thread, "repo_name()");
+    return targetDefinitionContext.getPackageIdentifier().getRepository().getName();
   }
 
   @Override
@@ -631,9 +651,9 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
     // In an initializer, BazelStarlarkContext isn't available, just the label converter.
     LabelConverter labelConverter = thread.getThreadLocal(LabelConverter.class);
     if (labelConverter == null) {
-      Package.Builder pkgBuilder =
-          Package.Builder.fromOrFailDisallowWorkspace(thread, "package_relative_label()");
-      labelConverter = pkgBuilder.getLabelConverter();
+      TargetDefinitionContext targetDefinitionContext =
+          TargetDefinitionContext.fromOrFailDisallowWorkspace(thread, "package_relative_label()");
+      labelConverter = targetDefinitionContext.getLabelConverter();
     }
     if (input instanceof Label inputLabel) {
       return inputLabel;
@@ -648,17 +668,17 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
   @Override
   @Nullable
   public String moduleName(StarlarkThread thread) throws EvalException {
-    Package.Builder pkgBuilder =
-        Package.Builder.fromOrFailDisallowWorkspace(thread, "module_name()");
-    return pkgBuilder.getAssociatedModuleName().orElse(null);
+    TargetDefinitionContext targetDefinitionContext =
+        TargetDefinitionContext.fromOrFailDisallowWorkspace(thread, "module_name()");
+    return targetDefinitionContext.getAssociatedModuleName().orElse(null);
   }
 
   @Override
   @Nullable
   public String moduleVersion(StarlarkThread thread) throws EvalException {
-    Package.Builder pkgBuilder =
-        Package.Builder.fromOrFailDisallowWorkspace(thread, "module_version()");
-    return pkgBuilder.getAssociatedModuleVersion().orElse(null);
+    TargetDefinitionContext targetDefinitionContext =
+        TargetDefinitionContext.fromOrFailDisallowWorkspace(thread, "module_version()");
+    return targetDefinitionContext.getAssociatedModuleVersion().orElse(null);
   }
 
   /**
@@ -827,7 +847,8 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
   public Sequence<?> subpackages(
       Sequence<?> include, Sequence<?> exclude, boolean allowEmpty, StarlarkThread thread)
       throws EvalException, InterruptedException {
-    Package.Builder pkgBuilder = Package.Builder.fromOrFailAllowBuildOnly(thread, "subpackages()");
+    Package.AbstractBuilder pkgBuilder =
+        Package.AbstractBuilder.fromOrFailAllowBuildOnly(thread, "subpackages()");
 
     List<String> includes = Types.STRING_LIST.convert(include, "'subpackages' argument");
     List<String> excludes = Types.STRING_LIST.convert(exclude, "'subpackages' argument");
@@ -846,7 +867,7 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
   }
 
   private List<String> runGlobOperation(
-      Package.Builder pkgBuilder,
+      Package.AbstractBuilder pkgBuilder,
       StarlarkThread thread,
       List<String> includes,
       List<String> excludes,
@@ -861,7 +882,7 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
         cpuSemaphore.release();
       }
       // getGlobber() is not null because we're called from glob() and subpackages(), both of which
-      // are guarded with Package.Builder.fromOrFailDisallowingWorkspace().
+      // are guarded with Package.AbstractBuilder.fromOrFailDisallowingWorkspace().
       Globber.Token globToken =
           pkgBuilder.getGlobber().runAsync(includes, excludes, operation, allowEmpty);
       return pkgBuilder.getGlobber().fetchUnsorted(globToken);

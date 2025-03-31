@@ -52,7 +52,7 @@ public class RuleFactory {
    * to do so if, for example, the rule has errors).
    */
   public static Rule createRule(
-      Package.Builder pkgBuilder,
+      TargetDefinitionContext targetDefinitionContext,
       RuleClass ruleClass,
       BuildLangTypedAttributeValuesMap attributeValues,
       boolean failOnUnknownAttributes,
@@ -71,11 +71,11 @@ public class RuleFactory {
     try {
       // Test that this would form a valid label name -- in particular, this
       // catches cases where Makefile variables $(foo) appear in "name".
-      label = pkgBuilder.createLabel(name);
+      label = targetDefinitionContext.createLabel(name);
     } catch (LabelSyntaxException e) {
       throw new InvalidRuleException("illegal rule name: " + name + ": " + e.getMessage());
     }
-    boolean inWorkspaceFile = pkgBuilder.isRepoRulePackage();
+    boolean inWorkspaceFile = targetDefinitionContext.isRepoRulePackage();
     if (ruleClass.getWorkspaceOnly() && !inWorkspaceFile) {
       throw new RuleFactory.InvalidRuleException(
           ruleClass + " must be in the WORKSPACE file " + "(used by " + label + ")");
@@ -86,7 +86,8 @@ public class RuleFactory {
 
     // Add the generator_name attribute.
     BuildLangTypedAttributeValuesMap processedAttributes;
-    @Nullable String generatorName = getGeneratorName(pkgBuilder, attributeValues, callstack);
+    @Nullable
+    String generatorName = getGeneratorName(targetDefinitionContext, attributeValues, callstack);
     // Don't bother copying anything if nothing changed.
     if (generatorName != null) {
       ImmutableMap.Builder<String, Object> builder =
@@ -104,7 +105,7 @@ public class RuleFactory {
 
     try {
       return ruleClass.createRule(
-          pkgBuilder, label, processedAttributes, failOnUnknownAttributes, callstack);
+          targetDefinitionContext, label, processedAttributes, failOnUnknownAttributes, callstack);
     } catch (LabelSyntaxException | CannotPrecomputeDefaultsException e) {
       throw new RuleFactory.InvalidRuleException(ruleClass + " " + e.getMessage());
     }
@@ -131,15 +132,20 @@ public class RuleFactory {
    */
   @CanIgnoreReturnValue
   public static Rule createAndAddRule(
-      Package.Builder pkgBuilder,
+      TargetDefinitionContext targetDefinitionContext,
       RuleClass ruleClass,
       BuildLangTypedAttributeValuesMap attributeValues,
       boolean failOnUnknownAttributes,
       ImmutableList<StarlarkThread.CallStackEntry> callstack)
       throws InvalidRuleException, NameConflictException, InterruptedException {
     Rule rule =
-        createRule(pkgBuilder, ruleClass, attributeValues, failOnUnknownAttributes, callstack);
-    pkgBuilder.addRule(rule);
+        createRule(
+            targetDefinitionContext,
+            ruleClass,
+            attributeValues,
+            failOnUnknownAttributes,
+            callstack);
+    targetDefinitionContext.addRule(rule);
     return rule;
   }
 
@@ -232,7 +238,7 @@ public class RuleFactory {
   // within a legacy macro? Otherwise tooling may think those targets were not created in a macro.
   @Nullable
   private static String getGeneratorName(
-      Package.Builder pkgBuilder,
+      TargetDefinitionContext targetDefinitionContext,
       BuildLangTypedAttributeValuesMap args,
       ImmutableList<CallStackEntry> stack) {
     // The "generator" of a rule is the function outermost in the call stack (regardless of whether
@@ -258,7 +264,8 @@ public class RuleFactory {
       return null;
     }
 
-    String generatorName = pkgBuilder.getGeneratorNameByLocation(stack.get(0).location);
+    String generatorName =
+        targetDefinitionContext.getGeneratorNameByLocation(stack.get(0).location);
     if (generatorName == null) {
       // Fall back on target name (meh).
       generatorName = (String) args.getAttributeValue("name");
@@ -300,12 +307,20 @@ public class RuleFactory {
         throw Starlark.errorf("unexpected positional arguments");
       }
       try {
-        Package.Builder pkgBuilder =
-            ruleClass.getRuleClassType() != RuleClassType.BUILD_ONLY
-                ? Package.Builder.fromOrFail(thread, "rules")
-                : Package.Builder.fromOrFailAllowBuildOnly(thread, ruleClass.getName() + " rule");
+        TargetDefinitionContext targetDefinitionContext =
+            switch (ruleClass.getRuleClassType()) {
+              case BUILD_ONLY ->
+                  Package.AbstractBuilder.fromOrFailAllowBuildOnly(
+                      thread, String.format("%s rule", ruleClass.getName()), "instantiated");
+              case WORKSPACE ->
+                  Package.Builder.fromOrFailAllowWorkspaceOrModuleExtension(
+                      thread, "a repository rule", "instantiated");
+              default ->
+                  TargetDefinitionContext.fromOrFailDisallowWorkspace(
+                      thread, "a rule", "instantiated");
+            };
         RuleFactory.createAndAddRule(
-            pkgBuilder,
+            targetDefinitionContext,
             ruleClass,
             new BuildLangTypedAttributeValuesMap(kwargs),
             thread

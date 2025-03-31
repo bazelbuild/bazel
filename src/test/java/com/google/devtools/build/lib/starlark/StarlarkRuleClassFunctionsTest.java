@@ -362,7 +362,9 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     Package pkg = getPackage("pkg");
     assertThat(pkg).isNull();
-    assertContainsEvent("Cannot instantiate a macro when loading a .bzl file");
+    assertContainsEvent(
+        "a symbolic macro can only be instantiated while evaluating a BUILD file or a legacy or"
+            + " symbolic macro");
   }
 
   @Test
@@ -4579,8 +4581,8 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     getConfiguredTarget("//initializer_testing:my_target");
 
     ev.assertContainsError(
-        "Cannot instantiate a rule when loading a .bzl file. Rules may be instantiated only in a"
-            + " BUILD thread.");
+        "a rule can only be instantiated while evaluating a BUILD file or a legacy or symbolic"
+            + " macro");
   }
 
   @Test
@@ -4620,7 +4622,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     getConfiguredTarget("//initializer_testing:my_target");
 
     ev.assertContainsError(
-        "existing_rules() can only be used while evaluating a BUILD file (or legacy macro), a rule"
+        "existing_rules() can only be used while evaluating a BUILD file, a legacy macro, a rule"
             + " finalizer, or a WORKSPACE file");
   }
 
