@@ -154,7 +154,7 @@ public final class BuiltinFunction implements StarlarkCallable {
       }
 
       // disabled?
-      if (param.disabledByFlag() != null) {
+      if (!param.isEnabled(thread)) {
         // Skip disabled parameter as if not present at all.
         // The default value will be filled in below.
         continue;
@@ -324,7 +324,7 @@ public final class BuiltinFunction implements StarlarkCallable {
           allPositionalParamsFilled = true;
           return null;
         }
-        if (param.disabledByFlag() == null) {
+        if (param.isEnabled(thread)) {
           return param;
         }
         paramIndex++;
@@ -394,12 +394,11 @@ public final class BuiltinFunction implements StarlarkCallable {
       }
 
       // disabled?
-      String flag = param.disabledByFlag();
-      if (flag != null) {
+      if (!param.isEnabled(thread)) {
         pushCallableAndThrow(
             Starlark.errorf(
                 "in call to %s(), parameter '%s' is %s",
-                owner.methodName, param.getName(), disabled(flag, thread.getSemantics())));
+                owner.methodName, param.getName(), param.getDisabledErrorMessage()));
       }
 
       checkParamValue(param, value);
@@ -553,7 +552,7 @@ public final class BuiltinFunction implements StarlarkCallable {
       }
 
       // disabled?
-      if (param.disabledByFlag() != null) {
+      if (!param.isEnabled(thread)) {
         // Skip disabled parameter as if not present at all.
         // The default value will be filled in below.
         continue;
@@ -626,11 +625,10 @@ public final class BuiltinFunction implements StarlarkCallable {
       }
 
       // disabled?
-      String flag = param.disabledByFlag();
-      if (flag != null) {
+      if (!param.isEnabled(thread)) {
         throw Starlark.errorf(
             "in call to %s(), parameter '%s' is %s",
-            methodName, param.getName(), disabled(flag, thread.getSemantics()));
+            methodName, param.getName(), param.getDisabledErrorMessage());
       }
 
       checkParamValue(param, value);
@@ -725,23 +723,6 @@ public final class BuiltinFunction implements StarlarkCallable {
       throw Starlark.errorf(
           "in call to %s(), parameter '%s' got value of type '%s', want '%s'",
           methodName, param.getName(), Starlark.type(value), param.getTypeErrorMessage());
-    }
-  }
-
-  // Returns a phrase meaning "disabled" appropriate to the specified flag.
-  private static String disabled(String flag, StarlarkSemantics semantics) {
-    // If the flag is True, it must be a deprecation flag. Otherwise it's an experimental flag.
-    // TODO(adonovan): is that assumption sound?
-    if (semantics.getBool(flag)) {
-      return String.format(
-          "deprecated and will be removed soon. It may be temporarily re-enabled by setting"
-              + " --%s=false",
-          flag.substring(1)); // remove [+-] prefix
-    } else {
-      return String.format(
-          "experimental and thus unavailable with the current flags. It may be enabled by setting"
-              + " --%s",
-          flag.substring(1)); // remove [+-] prefix
     }
   }
 }

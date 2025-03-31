@@ -148,7 +148,7 @@ final class CallUtils {
         continue;
       }
 
-      MethodDescriptor descriptor = MethodDescriptor.of(method, callable, semantics);
+      MethodDescriptor descriptor = MethodDescriptor.of(method, callable);
 
       // self-call method?
       if (callable.selfCall()) {
@@ -200,7 +200,7 @@ final class CallUtils {
     if (desc == null) {
       throw Starlark.errorf("value of type %s has no .%s field", Starlark.type(x), fieldName);
     }
-    return desc.callField(x, semantics, /*mu=*/ null);
+    return desc.callField(x, semantics, /* mu= */ null);
   }
 
   /** Returns the names of the Starlark fields of {@code x} under the specified semantics. */
