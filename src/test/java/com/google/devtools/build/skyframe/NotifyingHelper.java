@@ -49,7 +49,7 @@ public class NotifyingHelper {
     };
   }
 
-  final Listener graphListener;
+  final ErrorRecordingDelegatingListener graphListener;
 
   NotifyingHelper(Listener graphListener) {
     this.graphListener = new ErrorRecordingDelegatingListener(graphListener);
@@ -179,18 +179,25 @@ public class NotifyingHelper {
 
   /** Receiver to be informed when an event for a given key occurs. */
   public interface Listener {
+
+    /**
+     * Informs this listener of an event.
+     *
+     * <p>{@link InterruptedException} may be thrown but is translated to an {@link
+     * IllegalStateException} by the test framework. Listeners may use blocking synchronization to
+     * exercise a certain scenario and are encouraged to propagate unexpected interrupts instead of
+     * using {@link com.google.common.util.concurrent.Uninterruptibles} - this way an unexpected
+     * build failure that interrupts and awaits quiescence of skyframe threads leads to a timely
+     * test failure without deadlocking.
+     */
     @ThreadSafe
-    void accept(SkyKey key, EventType type, Order order, @Nullable Object context);
+    void accept(SkyKey key, EventType type, Order order, @Nullable Object context)
+        throws InterruptedException;
 
     Listener NULL_LISTENER = (key, type, order, context) -> {};
   }
 
-  private static class ErrorRecordingDelegatingListener implements Listener {
-    private final Listener delegate;
-
-    private ErrorRecordingDelegatingListener(Listener delegate) {
-      this.delegate = delegate;
-    }
+  record ErrorRecordingDelegatingListener(Listener delegate) implements Listener {
 
     @Override
     public void accept(SkyKey key, EventType type, Order order, @Nullable Object context) {

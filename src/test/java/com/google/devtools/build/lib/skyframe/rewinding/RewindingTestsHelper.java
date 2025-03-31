@@ -22,7 +22,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.vfs.FileSystemUtils.readContentAsLatin1;
 import static java.util.Arrays.stream;
-import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.any;
@@ -77,7 +76,6 @@ import com.google.devtools.build.lib.testutil.SpawnController.ExecResult;
 import com.google.devtools.build.lib.testutil.SpawnController.SpawnShim;
 import com.google.devtools.build.lib.testutil.SpawnInputUtils;
 import com.google.devtools.build.lib.testutil.TestConstants;
-import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.NodeEntry.DirtyType;
@@ -200,7 +198,7 @@ public class RewindingTestsHelper {
    * Filters out spawn descriptions that only appear in Bazel or Blaze and aren't relevant to the
    * test.
    */
-  private Object[] filterExecutedSpawnDescriptions(String... expectedDescriptions) {
+  private static Object[] filterExecutedSpawnDescriptions(String... expectedDescriptions) {
     if (AnalysisMock.get().isThisBazel()) {
       return stream(expectedDescriptions)
           // Bazel doesn't support spawn-based include scanning without additional
@@ -1374,7 +1372,7 @@ public class RewindingTestsHelper {
               && actionHasLabelAndIndex(actionLookupData, "shared_2", 0)) {
             int shared2AReadiedCount = shared2AReady.incrementAndGet();
             if (shared2AReadiedCount == 1) {
-              awaitUninterruptibly(shared1BEmittedRewoundEvent);
+              shared1BEmittedRewoundEvent.await();
             }
           }
 
@@ -1385,7 +1383,7 @@ public class RewindingTestsHelper {
             if (shared2BReadiedCount == 5) {
               // Wait to attempt final evaluation of shared_2B until after shared_1B is done.
               shared2BReadyForFifthTime.countDown();
-              awaitUninterruptibly(shared1BDone);
+              shared1BDone.await();
             }
           }
 
@@ -1403,7 +1401,7 @@ public class RewindingTestsHelper {
               && key instanceof ActionLookupData actionLookupData
               && actionHasLabelAndIndex(actionLookupData, "shared_1", 0)) {
             if (shared1ARewound.get() == 1) {
-              awaitUninterruptibly(shared2BReadyForFifthTime);
+              shared2BReadyForFifthTime.await();
             }
           }
 
@@ -1420,7 +1418,11 @@ public class RewindingTestsHelper {
           if (progressMessage.equals(
               "Copying A-shared.out to B-shared.out on behalf of shared_1")) {
             shared1BEmittedRewoundEvent.countDown();
-            awaitUninterruptibly(shared2BDeclaresFutureDep);
+            try {
+              shared2BDeclaresFutureDep.await();
+            } catch (InterruptedException e) {
+              throw new IllegalStateException(e);
+            }
           }
         });
 
@@ -2583,7 +2585,7 @@ public class RewindingTestsHelper {
     testCase.injectListenerAtStartOfNextBuild(
         (key, type, order, context) -> {
           if (isActionExecutionKey(key, fail) && type == EventType.CREATE_IF_ABSENT) {
-            awaitUninterruptibly(depDone);
+            depDone.await();
           } else if (isActionExecutionKey(key, dep)
               && type == EventType.SET_VALUE
               && order == Order.AFTER) {
@@ -2592,7 +2594,7 @@ public class RewindingTestsHelper {
               && type == EventType.ADD_REVERSE_DEP
               && order == Order.BEFORE
               && isActionExecutionKey(context, fail)) {
-            awaitUninterruptibly(depRewound);
+            depRewound.await();
           } else if (isActionExecutionKey(key, dep)
               && type == EventType.MARK_DIRTY
               && order == Order.AFTER) {
@@ -2712,7 +2714,9 @@ public class RewindingTestsHelper {
               && order == Order.BEFORE
               && context == Reason.PREFETCH) {
             top2RestartedWithDoneNestedSet.countDown();
-            awaitUninterruptibly(errorSet);
+            // This needs to be uninterruptible to exercise the desired scenario in the
+            // --nokeep_going case.
+            Uninterruptibles.awaitUninterruptibly(errorSet);
           } else if (isActionExecutionKey(key, Label.parseCanonicalUnchecked("//foo:flaky_lost"))
               && type == EventType.SET_VALUE
               && order == Order.AFTER
@@ -3201,12 +3205,6 @@ public class RewindingTestsHelper {
 
   static boolean isActionExecutionKey(Object key, Label label) {
     return key instanceof ActionLookupData && label.equals(((ActionLookupData) key).getLabel());
-  }
-
-  static void awaitUninterruptibly(CountDownLatch latch) {
-    assertThat(
-            Uninterruptibles.awaitUninterruptibly(latch, TestUtils.WAIT_TIMEOUT_SECONDS, SECONDS))
-        .isTrue();
   }
 
   /**
