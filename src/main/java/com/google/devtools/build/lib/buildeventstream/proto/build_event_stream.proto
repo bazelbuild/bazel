@@ -84,6 +84,14 @@ message BuildEventId {
   message FetchId {
     // The external resource that was fetched from.
     string url = 1;
+
+    enum Downloader {
+      UNKNOWN = 0;
+      HTTP = 1;
+      GRPC = 2;
+    }
+    // The downloader used to fetch the resource.
+    Downloader downloader = 2;
   }
 
   // Identifier of an event indicating that a target pattern has been expanded

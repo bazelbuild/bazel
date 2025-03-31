@@ -43,8 +43,10 @@ import com.google.devtools.build.lib.bazel.repository.cache.DownloadCache.KeyTyp
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import com.google.devtools.build.lib.bazel.repository.downloader.Downloader;
 import com.google.devtools.build.lib.bazel.repository.downloader.UnrecoverableHttpException;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId.FetchId;
+import com.google.devtools.build.lib.buildeventstream.FetchEvent;
 import com.google.devtools.build.lib.clock.BlazeClock;
-import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.remote.ChannelConnectionWithServerCapabilitiesFactory;
 import com.google.devtools.build.lib.remote.ReferenceCountedChannel;
 import com.google.devtools.build.lib.remote.RemoteRetrier;
@@ -104,6 +106,7 @@ public class GrpcRemoteDownloaderTest {
 
   private final MutableHandlerRegistry serviceRegistry = new MutableHandlerRegistry();
   private final String fakeServerName = "fake server for " + getClass();
+  private final StoredEventHandler eventHandler = new StoredEventHandler();
   private Server fakeServer;
   private RemoteActionExecutionContext context;
   private ListeningScheduledExecutorService retryService;
@@ -182,13 +185,11 @@ public class GrpcRemoteDownloaderTest {
         fallbackDownloader);
   }
 
-  private static byte[] downloadBlob(
-      GrpcRemoteDownloader downloader, URL url, Optional<Checksum> checksum)
+  private byte[] downloadBlob(GrpcRemoteDownloader downloader, URL url, Optional<Checksum> checksum)
       throws IOException, InterruptedException {
     final List<URL> urls = ImmutableList.of(url);
 
     final String canonicalId = "";
-    final ExtendedEventHandler eventHandler = mock(ExtendedEventHandler.class);
     final Map<String, String> clientEnv = ImmutableMap.of();
 
     Scratch scratch = new Scratch();
@@ -243,6 +244,10 @@ public class GrpcRemoteDownloaderTest {
             downloader, new URL("http://example.com/content.txt"), Optional.<Checksum>empty());
 
     assertThat(downloaded).isEqualTo(content);
+    assertThat(eventHandler.getPosts())
+        .contains(
+            new FetchEvent(
+                "http://example.com/content.txt", FetchId.Downloader.GRPC, /* success= */ true));
   }
 
   @Test
@@ -276,6 +281,10 @@ public class GrpcRemoteDownloaderTest {
             downloader, new URL("http://example.com/content.txt"), Optional.<Checksum>empty());
 
     assertThat(downloaded).isEqualTo(content);
+    assertThat(eventHandler.getPosts())
+        .containsExactly(
+            new FetchEvent(
+                "http://example.com/content.txt", FetchId.Downloader.GRPC, /* success= */ false));
   }
 
   @Test
@@ -300,7 +309,7 @@ public class GrpcRemoteDownloaderTest {
                             .setCode(Code.PERMISSION_DENIED_VALUE)
                             .setMessage("permission denied")
                             .build())
-                    .setUri("http://example.com/content.txt")
+                    .setUri("http://example.com/other.txt")
                     .build());
             responseObserver.onCompleted();
           }
@@ -319,6 +328,10 @@ public class GrpcRemoteDownloaderTest {
                 downloadBlob(
                     downloader, new URL("http://example.com/content.txt"), Optional.empty()));
     assertThat(exception).hasMessageThat().contains("permission denied");
+    assertThat(eventHandler.getPosts())
+        .containsExactly(
+            new FetchEvent(
+                "http://example.com/other.txt", FetchId.Downloader.GRPC, /* success= */ false));
   }
 
   @Test

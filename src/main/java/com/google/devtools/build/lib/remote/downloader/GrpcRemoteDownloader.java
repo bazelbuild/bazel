@@ -28,6 +28,8 @@ import com.google.common.base.Strings;
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import com.google.devtools.build.lib.bazel.repository.downloader.Downloader;
 import com.google.devtools.build.lib.bazel.repository.downloader.HashOutputStream;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId.FetchId;
+import com.google.devtools.build.lib.buildeventstream.FetchEvent;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -162,6 +164,7 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
             digestFunction,
             headers,
             credentials);
+    String eventUri = urls.getFirst().toString();
     try {
       FetchBlobResponse response =
           retrier.execute(
@@ -170,7 +173,12 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
                       channel ->
                           fetchBlockingStub(remoteActionExecutionContext, channel)
                               .fetchBlob(request)));
-      if (response.getStatus().getCode() != Code.OK_VALUE) {
+      if (!response.getUri().isEmpty()) {
+        eventUri = response.getUri();
+      }
+      if (response.getStatus().getCode() == Code.OK_VALUE) {
+        eventHandler.post(new FetchEvent(eventUri, FetchId.Downloader.GRPC, /* success= */ true));
+      } else {
         throw StatusProto.toStatusRuntimeException(response.getStatus());
       }
       final Digest blobDigest = response.getBlobDigest();
@@ -188,6 +196,7 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
           });
 
     } catch (StatusRuntimeException | IOException e) {
+      eventHandler.post(new FetchEvent(eventUri, FetchId.Downloader.GRPC, /* success= */ false));
       if (fallbackDownloader == null) {
         if (e instanceof StatusRuntimeException) {
           throw new IOException(e);
