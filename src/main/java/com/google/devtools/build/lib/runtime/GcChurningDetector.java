@@ -61,13 +61,18 @@ class GcChurningDetector {
 
     cumulativeFullGcDuration = cumulativeFullGcDuration.plus(event.duration());
     Duration invocationWallTimeDuration = Duration.between(start, clock.now());
-    double gcFraction =
-        cumulativeFullGcDuration.toMillis() * 1.0 / invocationWallTimeDuration.toMillis();
+    // This narrowing conversion is fine in practice since MAX_INT ms is almost 25 days, and
+    // we don't care about supporting an invocation running for that long.
+    int invocationWallTimeSoFarMs = (int) invocationWallTimeDuration.toMillis();
+    if (invocationWallTimeSoFarMs == 0) {
+      // Given that our data points have millisecond resolution, don't bother recording a data point
+      // if it's been less than a full millisecond so far.
+      return;
+    }
+    double gcFraction = cumulativeFullGcDuration.toMillis() * 1.0 / invocationWallTimeSoFarMs;
     fullGcFractionPoints.add(
         FullGcFractionPoint.newBuilder()
-            // This narrowing conversion is fine in practice since MAX_INT ms is almost 25 days, and
-            // we don't care about supporting an invocation running for that long.
-            .setInvocationWallTimeSoFarMs((int) invocationWallTimeDuration.toMillis())
+            .setInvocationWallTimeSoFarMs(invocationWallTimeSoFarMs)
             .setFullGcFractionSoFar(gcFraction)
             .build());
     logger.atInfo().log(

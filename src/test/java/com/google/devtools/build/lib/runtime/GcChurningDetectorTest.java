@@ -57,6 +57,32 @@ public class GcChurningDetectorTest {
                 .build());
   }
 
+  @Test
+  public void doesNotRecordDataPointIfInvocationWallTimeSoFarIsLessThanOneMillisecond() {
+    ManualClock fakeClock = new ManualClock();
+
+    GcChurningDetector underTest = new GcChurningDetector(fakeClock);
+
+    fakeClock.advance(Duration.ofNanos(456L));
+    underTest.handle(fullGcEvent(Duration.ofNanos(123L)));
+
+    fakeClock.advance(Duration.ofMillis(2L));
+    underTest.handle(fullGcEvent(Duration.ofMillis(1L)));
+
+    MemoryPressureStats.Builder actualBuilder = MemoryPressureStats.newBuilder();
+    underTest.populateStats(actualBuilder);
+
+    assertThat(actualBuilder.build())
+        .isEqualTo(
+            MemoryPressureStats.newBuilder()
+                .addFullGcFractionPoint(
+                    FullGcFractionPoint.newBuilder()
+                        .setInvocationWallTimeSoFarMs(2)
+                        .setFullGcFractionSoFar(0.5)
+                        .build())
+                .build());
+  }
+
   private static MemoryPressureEvent fullGcEvent(Duration duration) {
     return MemoryPressureEvent.newBuilder()
         .setWasFullGc(true)
