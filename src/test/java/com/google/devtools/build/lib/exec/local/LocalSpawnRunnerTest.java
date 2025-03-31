@@ -909,13 +909,10 @@ public class LocalSpawnRunnerTest {
     assertThat(spawnResult.setupSuccess()).isTrue();
     assertThat(spawnResult.getExecutorHostName()).isEqualTo(NetUtil.getCachedShortHostName());
 
-    assertThat(spawnResult.getWallTimeInMs()).isNotNull();
     assertThat(spawnResult.getWallTimeInMs()).isAtLeast(minimumWallTimeToSpendInMs);
     // Under heavy starvation, max wall time could be anything, so don't check it here.
-    assertThat(spawnResult.getUserTimeInMs()).isNotNull();
     assertThat(spawnResult.getUserTimeInMs()).isAtLeast(minimumUserTimeToSpendInMs);
     assertThat(spawnResult.getUserTimeInMs()).isAtMost(maximumUserTimeToSpendInMs);
-    assertThat(spawnResult.getSystemTimeInMs()).isNotNull();
     assertThat(spawnResult.getSystemTimeInMs()).isAtLeast(minimumSystemTimeToSpendInMs);
     assertThat(spawnResult.getSystemTimeInMs()).isAtMost(maximumSystemTimeToSpendInMs);
     assertThat(spawnResult.getNumBlockOutputOperations()).isAtLeast(0L);
