@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.rules.cpp.IncludeScannable;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue.ArchivedRepresentation;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.util.ClassName;
 import com.google.devtools.build.lib.util.HashCodes;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -356,7 +357,8 @@ public abstract class ActionExecutionValue implements SkyValue {
   }
 
   /** The result of an action that produces rich data. */
-  private static final class WithRichData extends SingleOutputFile {
+  @VisibleForSerialization
+  public static final class WithRichData extends SingleOutputFile {
     private final RichArtifactData richArtifactData;
 
     WithRichData(

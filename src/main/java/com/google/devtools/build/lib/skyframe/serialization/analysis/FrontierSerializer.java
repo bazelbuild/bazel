@@ -25,7 +25,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 import com.google.common.eventbus.EventBus;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionLookupData;
@@ -40,7 +39,7 @@ import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteAnalysisCaching;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteAnalysisCaching.Code;
-import com.google.devtools.build.lib.skyframe.PrecomputedValue;
+import com.google.devtools.build.lib.skyframe.ActionExecutionValue.WithRichData;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
 import com.google.devtools.build.lib.skyframe.serialization.ProfileCollector;
@@ -151,6 +150,7 @@ public final class FrontierSerializer {
             versionGetter,
             codecs,
             frontierVersion,
+            dependenciesProvider::withinActiveDirectories,
             selection,
             dependenciesProvider.getFingerprintValueService(),
             eventBus,
@@ -214,75 +214,44 @@ public final class FrontierSerializer {
   @VisibleForTesting
   enum SelectionMarking {
     /**
-     * The entry is marked as a frontier candidate.
+     * The entry is a frontier candidate.
      *
      * <p>If a node is still a frontier candidate at the end of the selection process, it is a
-     * frontier node and should be serialized.
+     * frontier node.
      */
     FRONTIER_CANDIDATE,
-    /** The node is in the active set and will not be serialized. */
+    /** The node is part of the active set. */
     ACTIVE
-  }
-
-  /**
-   * Iterates over the direct analysis deps of a node, and include them into the frontier if they've
-   * not been seen before.
-   */
-  private static void markAnalysisDirectDepsAsFrontierCandidates(
-      SkyKey key,
-      InMemoryGraph graph,
-      ConcurrentHashMap<SkyKey, SelectionMarking> selection,
-      Predicate<PackageIdentifier> matcher) {
-    graph
-        .getIfPresent(key)
-        .getDirectDeps()
-        .forEach(
-            depKey -> {
-              if (depKey instanceof ActionLookupKey alk
-                  && !matcher.test(alk.getLabel().getPackageIdentifier())) {
-                selection.putIfAbsent(depKey, FRONTIER_CANDIDATE);
-              }
-            });
-  }
-
-  private static boolean dependsOnBuildId(InMemoryNodeEntry node) {
-    // This method only checks direct dependencies because it is used to mark nodes as active in
-    // case they can't be cached and the upwards transitive closure of such nodes is marked as
-    // active anyway.
-    return Iterables.contains(node.getDirectDeps(), PrecomputedValue.BUILD_ID);
   }
 
   @VisibleForTesting
   static ImmutableMap<SkyKey, SelectionMarking> computeSelection(
       InMemoryGraph graph, Predicate<PackageIdentifier> matcher) {
-    ConcurrentHashMap<SkyKey, SelectionMarking> selection = new ConcurrentHashMap<>();
+    var selection = new ConcurrentHashMap<SkyKey, SelectionMarking>();
     graph.parallelForEach(
         node -> {
           switch (node.getKey()) {
-            case ActionLookupKey key when key.getLabel() != null -> {
-              if (matcher.test(key.getLabel().getPackageIdentifier())) {
+            case ActionLookupKey key -> {
+              Label label = key.getLabel();
+              if (label != null && matcher.test(label.getPackageIdentifier())) {
                 markActiveAndTraverseEdges(graph, key, selection);
               }
             }
             case ActionLookupData data -> {
-              if (!dependsOnBuildId(node) && data.getLabel() != null) {
-                selection.putIfAbsent(data, FRONTIER_CANDIDATE);
-              } else {
-                // If this is UnshareableActionLookupData, then its value will never be shared and
-                // the ActionExecutionFunction will be re-evaluated locally. To evaluate it locally,
-                // it will need the corresponding full ActionLookupKey's value, so that cannot be
-                // cached as well. So, mark the ActionLookupKey (and its rdeps) as active,
-                // so the deserializing build will not incorrectly cache hit on a CT/Aspect
-                // that owns such actions, which should be evaluated locally then.
-                markActiveAndTraverseEdges(graph, data.getActionLookupKey(), selection);
+              if (!data.valueIsShareable() && !(node.getValue() instanceof WithRichData)) {
+                // `valueIsShareable` is used by a different system that does not serialize
+                // RunfilesArtifactValue, but the FrontierSerializer should do so. A `WithRichData`
+                // value type can be used to distinguish this case.
+                return;
               }
+              selection.putIfAbsent(data, FRONTIER_CANDIDATE);
             }
             case Artifact artifact -> {
+              if (!artifact.valueIsShareable()) {
+                return;
+              }
               switch (artifact) {
                 case DerivedArtifact derived:
-                  if (derived.isConstantMetadata()) {
-                    return;
-                  }
                   // Artifact#key is the canonical function to produce the SkyKey that will build
                   // this artifact. We want to avoid serializing ordinary DerivedArtifacts, which
                   // are never built by Skyframe directly, and the function will return
@@ -322,41 +291,39 @@ public final class FrontierSerializer {
             // dependencies here. Those SkyValues are entirely derived from the build configuration
             // fragments, and the values themselves look relatively straightforward to serialize.
             case RegisteredExecutionPlatformsValue.Key key ->
-                markAnalysisDirectDepsAsFrontierCandidates(key, graph, selection, matcher);
+                markAnalysisDirectDepsAsFrontierCandidates(key, graph, selection);
             case RegisteredToolchainsValue.Key key ->
-                markAnalysisDirectDepsAsFrontierCandidates(key, graph, selection, matcher);
+                markAnalysisDirectDepsAsFrontierCandidates(key, graph, selection);
             case ToolchainContextKey key ->
-                markAnalysisDirectDepsAsFrontierCandidates(key, graph, selection, matcher);
+                markAnalysisDirectDepsAsFrontierCandidates(key, graph, selection);
             default -> {}
           }
         });
 
-    // Filter for ActionExecutionValues owned by active analysis nodes and skip them, because
-    // they should be evaluated locally.
+    // Marks ActionExecutionValues owned by active analysis nodes ACTIVE.
     return selection.entrySet().parallelStream()
-        .map(
-            entry -> {
-              if (!(entry.getKey() instanceof ActionLookupData ald)) {
-                return entry;
-              }
-              if (entry.getValue() == FRONTIER_CANDIDATE
-                  && selection.get(ald.getActionLookupKey()) == ACTIVE) {
-                return Map.entry(entry.getKey(), ACTIVE);
-              }
-              return entry;
-            })
-        .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
+        .collect(
+            toImmutableMap(
+                Map.Entry::getKey,
+                entry ->
+                    switch (entry.getKey()) {
+                      case ActionLookupData lookupData ->
+                          selection.get(lookupData.getActionLookupKey()) == ACTIVE
+                              ? ACTIVE
+                              : entry.getValue();
+                      case DerivedArtifact artifact ->
+                          selection.get(artifact.getArtifactOwner()) == ACTIVE
+                              ? ACTIVE
+                              : entry.getValue();
+                      default -> entry.getValue();
+                    }));
   }
 
   private static void markActiveAndTraverseEdges(
       InMemoryGraph graph,
       ActionLookupKey root,
       ConcurrentHashMap<SkyKey, SelectionMarking> selection) {
-    Label label = root.getLabel();
-    if (label == null) {
-      return;
-    }
-    if (selection.put(root, ACTIVE) == ACTIVE) {
+    if (root.getLabel() == null) {
       return;
     }
 
@@ -369,6 +336,10 @@ public final class FrontierSerializer {
       //
       // However, this node's direct deps may still be frontier candidates, but only if they are
       // reachable from another active node, and candidate selection will be handled by them.
+      return;
+    }
+
+    if (selection.put(root, ACTIVE) == ACTIVE) {
       return;
     }
 
@@ -400,6 +371,23 @@ public final class FrontierSerializer {
       // of a root in the active directories.
       markActiveAndTraverseEdges(graph, parent, selection);
     }
+  }
+
+  /**
+   * Iterates over the direct analysis deps of a node, and include them into the frontier if they've
+   * not been seen before.
+   */
+  private static void markAnalysisDirectDepsAsFrontierCandidates(
+      SkyKey key, InMemoryGraph graph, ConcurrentHashMap<SkyKey, SelectionMarking> selection) {
+    graph
+        .getIfPresent(key)
+        .getDirectDeps()
+        .forEach(
+            depKey -> {
+              if (depKey instanceof ActionLookupKey) {
+                selection.putIfAbsent(depKey, FRONTIER_CANDIDATE);
+              }
+            });
   }
 
   /** Stopwatch that resets upon reporting the time via {@link #toString}. */

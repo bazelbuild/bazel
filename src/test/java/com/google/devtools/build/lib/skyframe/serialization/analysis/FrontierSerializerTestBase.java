@@ -304,8 +304,7 @@ project = {
 
     // TODO: b/367287783 - RemoteConfiguredTargetValue cannot be deserialized successfully with
     // Bazel yet. Return early.
-    assumeTrue(
-        Ascii.equalsIgnoreCase(getCommandEnvironment().getRuntime().getProductName(), "blaze"));
+    assumeTrue(isBlaze());
 
     var barOneKey =
         ConfiguredTargetKey.builder()
@@ -460,8 +459,7 @@ project = {
 
     // TODO: b/367287783 - RemoteConfiguredTargetValue cannot be deserialized successfully with
     // Bazel yet. Return early.
-    assumeTrue(
-        Ascii.equalsIgnoreCase(getCommandEnvironment().getRuntime().getProductName(), "blaze"));
+    assumeTrue(isBlaze());
 
     // Reset the graph.
     getCommandEnvironment().getSkyframeExecutor().resetEvaluator();
@@ -493,8 +491,7 @@ project = {
 
     // TODO: b/367287783 - RemoteConfiguredTargetValue cannot be deserialized successfully with
     // Bazel yet. Return early.
-    assumeTrue(
-        Ascii.equalsIgnoreCase(getCommandEnvironment().getRuntime().getProductName(), "blaze"));
+    assumeTrue(isBlaze());
 
     // Reset the graph.
     getCommandEnvironment().getSkyframeExecutor().resetEvaluator();
@@ -566,11 +563,11 @@ filegroup(name = "G")                                # unchanged.
 
     // This will pass only if FrontierSerializer only processes nodes that have finished evaluating.
     buildTarget("//foo:A");
-    // //bar:H is not serialized because it was only reachable from //foo:D, so we expect
-    // exactly one fewer serialized CT.
+    // There are 2 fewer configured targets. //bar:D is not serialized, as explained above. //bar:H
+    // is also not serialized because it is only reached via //bar:D.
     assertThat(
             getCommandEnvironment().getRemoteAnalysisCachingEventListener().getSkyfunctionCounts())
-        .hasCount(SkyFunctions.CONFIGURED_TARGET, serializedConfiguredTargetCount - 1);
+        .hasCount(SkyFunctions.CONFIGURED_TARGET, serializedConfiguredTargetCount - 2);
   }
 
   @Test
@@ -595,8 +592,7 @@ project = {
 
     // TODO: b/367287783 - RemoteConfiguredTargetValue cannot be deserialized successfully with
     // Bazel yet. Return early.
-    assumeTrue(
-        Ascii.equalsIgnoreCase(getCommandEnvironment().getRuntime().getProductName(), "blaze"));
+    assumeTrue(isBlaze());
 
     // Reset the graph.
     getCommandEnvironment().getSkyframeExecutor().resetEvaluator();
@@ -798,7 +794,7 @@ filegroup(name = "I")
   }
 
   @Test
-  public void actionLookupKey_ownedByActiveSetAndUnderFrontier_areNotUploaded() throws Exception {
+  public void actionLookupKey_underTheFrontier_areNotUploaded() throws Exception {
     setupGenruleGraph();
     upload("//A");
     var serializedKeys =
@@ -806,7 +802,7 @@ filegroup(name = "I")
     ImmutableSet<Label> labels = getLabels(filterKeys(serializedKeys, ActionLookupKey.class));
 
     // Active set
-    assertThat(labels).doesNotContain(parseCanonicalUnchecked("//A"));
+    assertThat(labels).contains(parseCanonicalUnchecked("//A"));
 
     // Frontier
     assertThat(labels)
@@ -842,9 +838,11 @@ filegroup(name = "I")
     ImmutableSet<Label> labels = getLabels(filterKeys(serializedKeys, ActionLookupKey.class));
 
     // Active set
-    assertThat(labels).doesNotContain(parseCanonicalUnchecked("//A"));
-    assertThat(labels).doesNotContain(parseCanonicalUnchecked("//A:copy_of_A"));
-    assertThat(labels).doesNotContain(parseCanonicalUnchecked("//A:in.txt"));
+    assertThat(labels)
+        .containsAtLeast(
+            parseCanonicalUnchecked("//A"),
+            parseCanonicalUnchecked("//A:copy_of_A"),
+            parseCanonicalUnchecked("//A:in.txt"));
 
     // Frontier
     assertThat(labels)
@@ -903,7 +901,7 @@ ACTION_EXECUTION:ActionLookupData0{actionLookupKey=ConfiguredTargetKey{label=//A
   }
 
   @Test
-  public void actionLookupData_ownedByActiveSet_areNotUploaded() throws Exception {
+  public void actionLookupData_ownedByActiveSet_areUploaded() throws Exception {
     setupGenruleGraph();
     upload("//A");
     var serializedKeys =
@@ -912,7 +910,7 @@ ACTION_EXECUTION:ActionLookupData0{actionLookupKey=ConfiguredTargetKey{label=//A
     var owningLabels = getOwningLabels(actionLookupDatas);
 
     // Active set
-    assertThat(owningLabels).doesNotContain(parseCanonicalUnchecked("//A"));
+    assertThat(owningLabels).contains(parseCanonicalUnchecked("//A"));
 
     // Frontier
     assertThat(owningLabels)
@@ -934,6 +932,63 @@ ACTION_EXECUTION:ActionLookupData0{actionLookupKey=ConfiguredTargetKey{label=//A
 project = { "actual": "//A:PROJECT.scl" }
 """);
     upload("//A", "//B");
+  }
+
+  @Test
+  public void activeToInactiveToActiveGraph_roundTrips() throws Exception {
+    // In this test case, a depends on b depends on c. Crucially, a depends on c's output,
+    // transitively. Furthermore, both a and c are in the active directories, while b is outside.
+    //
+    // This test guards against the serialization of b's ActionLookupValue. If b is serialized, when
+    // a requests b, it'll get b from cache during analysis, without ever analyzing c (which can't
+    // be fetched from the remote cache because it's in the active directories). Thus, at execution,
+    // when a requests c's output, it'll trigger c's analysis, causing a Not-yet-present artifact
+    // owner exception.
+    //
+    // TODO: b/364831651 - this test case remains salient with granular invalidation, but the
+    // mechanism changes and the comment should be updated.
+    write(
+        "pkg_c/BUILD",
+"""
+genrule(
+    name = "c",
+    outs = ["c.out"],
+    cmd = "echo 'C contents' > $@",
+)
+""");
+    write(
+        "pkg_b/BUILD",
+"""
+filegroup(
+    name = "b",
+    srcs = ["//pkg_c:c"], # Depends on c, collects its default outputs.
+)
+""");
+    write(
+        "pkg_a/BUILD",
+"""
+genrule(
+    name = "a",
+    srcs = ["//pkg_b:b"],
+    outs = ["a.out"],
+    # This command reads the content of the file(s) provided by target B. Since B wraps C's output,
+    # this effectively reads C's output via B.
+    cmd = "echo 'A received this via B:' > $@ && cat $(locations //pkg_b:b) >> $@",
+)
+""");
+    write(
+        "pkg_a/PROJECT.scl",
+"""
+project = { "active_directories": {"default": ["pkg_a", "pkg_c"]}}
+""");
+    upload("//pkg_a:a");
+
+    // TODO: b/367287783 - RemoteConfiguredTargetValue cannot be deserialized successfully with
+    // Bazel yet. Return early.
+    assumeTrue(isBlaze());
+
+    getSkyframeExecutor().resetEvaluator();
+    download("//pkg_a:a");
   }
 
   protected final void setupGenruleGraph() throws IOException {
@@ -1071,6 +1126,10 @@ project = { "active_directories": {"default": ["A"]} }
       builder.addBlazeModule(new SyscallCacheInjectingModule());
     }
     return builder;
+  }
+
+  boolean isBlaze() {
+    return Ascii.equalsIgnoreCase(getCommandEnvironment().getRuntime().getProductName(), "blaze");
   }
 
   boolean testUsesSyscallCacheClearCount() {
