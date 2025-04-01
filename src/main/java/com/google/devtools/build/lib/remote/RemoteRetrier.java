@@ -20,6 +20,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
+import com.google.devtools.build.lib.remote.Retrier.ResultClassifier.Result;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
@@ -27,7 +28,6 @@ import java.io.IOException;
 import java.time.Duration;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ThreadLocalRandom;
-import java.util.function.Predicate;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
@@ -44,93 +44,62 @@ public class RemoteRetrier extends Retrier {
     return null;
   }
 
-  public static final Predicate<? super Exception> RETRIABLE_GRPC_ERRORS =
+  public static final ResultClassifier<? super Exception> GRPC_ERRORS =
       e -> {
         Status s = fromException(e);
         if (s == null) {
           // It's not a gRPC error.
-          return false;
+          return Result.PERMANENT_FAILURE;
         }
         return switch (s.getCode()) {
-          case CANCELLED -> !Thread.currentThread().isInterrupted();
+          case CANCELLED ->
+            !Thread.currentThread().isInterrupted() ? Result.TRANSIENT_FAILURE : Result.PERMANENT_FAILURE;
+          case INVALID_ARGUMENT, NOT_FOUND, ALREADY_EXISTS, OUT_OF_RANGE ->
+            Result.SUCCESS;
           case UNKNOWN, DEADLINE_EXCEEDED, ABORTED, INTERNAL, UNAVAILABLE, RESOURCE_EXHAUSTED ->
-              true;
-          default -> false;
+            Result.TRANSIENT_FAILURE;
+          default -> Result.PERMANENT_FAILURE;
         };
       };
 
-  public static final Predicate<? super Exception> RETRIABLE_GRPC_EXEC_ERRORS =
+  public static final ResultClassifier<? super Exception> GRPC_EXEC_ERRORS =
       e -> {
-        if (RETRIABLE_GRPC_ERRORS.test(e)) {
-          return true;
-        }
-        return RemoteRetrierUtils.causedByStatus(e, Status.Code.NOT_FOUND);
-      };
-
-  public static final Predicate<? super Exception> GRPC_SUCCESS_CODES =
-      e -> {
-        Status s = fromException(e);
-        if (s == null) {
-          // It's not a gRPC error.
-          return false;
-        }
-        switch (s.getCode()) {
-          case INVALID_ARGUMENT:
-          case NOT_FOUND:
-          case ALREADY_EXISTS:
-          case OUT_OF_RANGE:
-            return true;
-          default:
-            return false;
-        }
+        Result r = GRPC_ERRORS.test(e);
+        return !r.equals(Result.TRANSIENT_FAILURE) && RemoteRetrierUtils.causedByStatus(e, Status.Code.NOT_FOUND)
+            ? Result.TRANSIENT_FAILURE
+            : r;
       };
 
   public RemoteRetrier(
       RemoteOptions options,
-      Predicate<? super Exception> shouldRetry,
+      ResultClassifier<? super Exception> resultClassifier,
       ListeningScheduledExecutorService retryScheduler,
       CircuitBreaker circuitBreaker) {
-    super(
+    this(
         options.remoteMaxRetryAttempts > 0
             ? () -> new ExponentialBackoff(options)
             : () -> RETRIES_DISABLED,
-        shouldRetry,
+        resultClassifier,
         retryScheduler,
         circuitBreaker);
   }
 
   public RemoteRetrier(
-      RemoteOptions options,
-      Predicate<? super Exception> shouldRetry,
-      ListeningScheduledExecutorService retryScheduler,
-      CircuitBreaker circuitBreaker,
-      Predicate<? super Exception> isSuccess) {
-    super(
-        options.remoteMaxRetryAttempts > 0
-            ? () -> new ExponentialBackoff(options)
-            : () -> RETRIES_DISABLED,
-        shouldRetry,
-        retryScheduler,
-        circuitBreaker,
-        isSuccess);
-  }
-
-  public RemoteRetrier(
       Supplier<Backoff> backoff,
-      Predicate<? super Exception> shouldRetry,
+      ResultClassifier<? super Exception> resultClassifier,
       ListeningScheduledExecutorService retryScheduler,
       CircuitBreaker circuitBreaker) {
-    super(backoff, shouldRetry, retryScheduler, circuitBreaker);
+    super(backoff, resultClassifier, retryScheduler, circuitBreaker);
   }
 
   @VisibleForTesting
   public RemoteRetrier(
       Supplier<Backoff> backoff,
-      Predicate<? super Exception> shouldRetry,
+      ResultClassifier<? super Exception> resultClassifier,
       ListeningScheduledExecutorService retryScheduler,
       CircuitBreaker circuitBreaker,
       Sleeper sleeper) {
-    super(backoff, shouldRetry, retryScheduler, circuitBreaker, sleeper);
+    super(backoff, resultClassifier, retryScheduler, circuitBreaker, sleeper);
   }
 
   /**
