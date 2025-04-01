@@ -118,7 +118,7 @@ def _compute_public_headers(
             headers = public_headers_artifacts + non_module_map_headers,
             module_map_headers = public_headers_artifacts,
             virtual_include_path = None,
-            virtual_to_original_headers = depset(),
+            virtual_to_original_headers = [],
         )
 
     module_map_headers = []
@@ -154,7 +154,7 @@ def _compute_public_headers(
         headers = virtual_headers,
         module_map_headers = module_map_headers,
         virtual_include_path = paths.join(binfiles_dir, virtual_include_dir),
-        virtual_to_original_headers = depset(virtual_to_original_headers_list),
+        virtual_to_original_headers = virtual_to_original_headers_list,
     )
 
 def _generates_header_module(feature_configuration, public_headers, private_headers, generate_action):
@@ -434,15 +434,32 @@ def _init_cc_compilation_context(
         else:
             include_dirs_for_context.append(public_headers.virtual_include_path)
 
+    textual_headers = _compute_public_headers(
+        actions,
+        config,
+        public_textual_headers,
+        include_prefix,
+        strip_include_prefix,
+        label,
+        binfiles_dir,
+        non_module_map_headers,
+        sibling_repo_layout,
+    )
+    if textual_headers.virtual_include_path:
+        if external:
+            external_include_dirs.append(textual_headers.virtual_include_path)
+        else:
+            include_dirs_for_context.append(textual_headers.virtual_include_path)
+
     if config.coverage_enabled:
         # Populate the map only when code coverage collection is enabled, to report the actual
         # source file name in the coverage output file.
-        virtual_to_original_headers = public_headers.virtual_to_original_headers
+        virtual_to_original_headers = public_headers.virtual_to_original_headers + textual_headers.virtual_to_original_headers
     else:
-        virtual_to_original_headers = depset()
+        virtual_to_original_headers = []
 
     declared_include_srcs.extend(public_headers.headers)
-    declared_include_srcs.extend(public_textual_headers)
+    declared_include_srcs.extend(textual_headers.headers)
     declared_include_srcs.extend(private_headers_artifacts)
     declared_include_srcs.extend(additional_inputs)
 
@@ -560,7 +577,7 @@ def _init_cc_compilation_context(
         external_includes = depset(external_include_dirs),
         system_includes = depset(system_include_dirs_for_context),
         includes = depset(include_dirs_for_context),
-        virtual_to_original_headers = virtual_to_original_headers,
+        virtual_to_original_headers = depset(virtual_to_original_headers),
         dependent_cc_compilation_contexts = dependent_cc_compilation_contexts,
         non_code_inputs = additional_inputs,
         defines = depset(defines),
@@ -568,7 +585,7 @@ def _init_cc_compilation_context(
         headers = depset(declared_include_srcs),
         direct_public_headers = public_headers.headers,
         direct_private_headers = private_headers_artifacts,
-        direct_textual_headers = public_textual_headers,
+        direct_textual_headers = textual_headers.headers,
         module_map = module_map,
         pic_header_module = pic_header_module,
         header_module = header_module,
@@ -586,7 +603,7 @@ def _init_cc_compilation_context(
             external_includes = depset(external_include_dirs),
             system_includes = depset(system_include_dirs_for_context),
             includes = depset(include_dirs_for_context),
-            virtual_to_original_headers = virtual_to_original_headers,
+            virtual_to_original_headers = depset(virtual_to_original_headers),
             dependent_cc_compilation_contexts = dependent_cc_compilation_contexts + implementation_deps,
             non_code_inputs = additional_inputs,
             defines = depset(defines),
@@ -594,7 +611,7 @@ def _init_cc_compilation_context(
             headers = depset(declared_include_srcs),
             direct_public_headers = public_headers.headers,
             direct_private_headers = private_headers_artifacts,
-            direct_textual_headers = public_textual_headers,
+            direct_textual_headers = textual_headers.headers,
             module_map = module_map,
             pic_header_module = pic_header_module,
             header_module = header_module,
