@@ -149,7 +149,12 @@ public final class CompletionContext {
   }
 
   private void visitFileset(Artifact filesetArtifact, ArtifactReceiver receiver) {
-    FilesetOutputTree filesetOutput = filesets.get(filesetArtifact);
+    FilesetOutputTree filesetOutput =
+        checkNotNull(
+            filesets.get(filesetArtifact),
+            "Missing %s, available filesets: %s",
+            filesetArtifact,
+            filesets);
     for (FilesetOutputSymlink link : filesetOutput.symlinks()) {
       receiver.acceptFilesetMapping(filesetArtifact, link.name(), link.target().getPath());
     }

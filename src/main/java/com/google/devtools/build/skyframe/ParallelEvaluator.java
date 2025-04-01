@@ -404,11 +404,12 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
               ImmutableSet.of(),
               evaluatorContext);
       externalInterrupt = externalInterrupt || Thread.currentThread().isInterrupted();
+      SkyValue resultForDebugging = null;
       boolean completedRun = false;
       try {
         // This build is only to check if the parent node can give us a better error. We don't
-        // care about a return value.
-        skyFunction.compute(parent, env);
+        // care about a return value except for debugging information.
+        resultForDebugging = skyFunction.compute(parent, env);
         completedRun = true;
       } catch (InterruptedException interruptedException) {
         logger.atInfo().withCause(interruptedException).log("Interrupted during %s eval", parent);
@@ -462,14 +463,26 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
             "Skyfunction did not encounter error: %s via %s, %s (%s)",
             errorKey, childErrorKey, error, bubbleErrorInfo);
       }
-      // Builder didn't throw its own exception, so just propagate this one up.
-      NestedSet<Reportable> events =
-          env.reportEventsAndGetEventsToStore(parentEntry, /*expectDoneDeps=*/ false);
-      ValueWithMetadata valueWithMetadata =
-          ValueWithMetadata.error(
-              ErrorInfo.fromChildErrors(errorKey, ImmutableSet.of(error)), events);
-      replay(events);
-      bubbleErrorInfo.put(errorKey, valueWithMetadata);
+      try {
+        // Builder didn't throw its own exception, so just propagate this one up.
+        NestedSet<Reportable> events =
+            env.reportEventsAndGetEventsToStore(parentEntry, /* expectDoneDeps= */ false);
+        ValueWithMetadata valueWithMetadata =
+            ValueWithMetadata.error(
+                ErrorInfo.fromChildErrors(errorKey, ImmutableSet.of(error)), events);
+        replay(events);
+        bubbleErrorInfo.put(errorKey, valueWithMetadata);
+      } catch (RuntimeException e) {
+        logger.atSevere().log(
+            """
+            Exception thrown while reporting events during error bubbling:
+            errorKey=%s
+            completedRun=%s
+            resultForDebugging=%s\
+            """,
+            errorKey, completedRun, resultForDebugging);
+        throw e;
+      }
     }
 
     // Reset the interrupt bit if there was an interrupt from outside this evaluator interrupt.
