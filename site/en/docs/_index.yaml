@@ -206,5 +206,3 @@ landing_page:
       path: /migrate/maven
     - heading: Xcode to Bazel
       path: /migrate/xcode
-    - heading: CocoaPods Dependencies
-      path: /migrate/cocoapods
