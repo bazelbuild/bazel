@@ -61,7 +61,7 @@ if [[ $PLATFORM == "darwin" ]] && \
 fi
 
 if [[ $PLATFORM == "windows" ]]; then
-  EXTRA_BAZEL_ARGS="${EXTRA_BAZEL_ARGS-} --cxxopt=/std:c++17 --host_cxxopt=/std:c++17"
+  EXTRA_BAZEL_ARGS="${EXTRA_BAZEL_ARGS-} --cxxopt=/std:c++17 --host_cxxopt=/std:c++17 --copt=/external:W0 --host_copt=/external:W0"
 fi
 
 source scripts/bootstrap/bootstrap.sh
