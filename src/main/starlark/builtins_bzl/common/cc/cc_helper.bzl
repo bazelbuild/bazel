@@ -1062,13 +1062,13 @@ def _package_source_root(repository, package, sibling_repository_layout):
         repository = repository[1:]
     return paths.get_relative(paths.get_relative("external", repository), package)
 
-def _system_include_dirs(ctx, additional_make_variable_substitutions):
+def _include_dirs(ctx, additional_make_variable_substitutions, *, attr):
     result = []
     sibling_repository_layout = ctx.configuration.is_sibling_repository_layout()
     package = ctx.label.package
     package_exec_path = _package_exec_path(ctx, package, sibling_repository_layout)
     package_source_root = _package_source_root(ctx.label.workspace_name, package, sibling_repository_layout)
-    for include in ctx.attr.includes:
+    for include in getattr(ctx.attr, attr, []):
         includes_attr = _expand(ctx, include, additional_make_variable_substitutions)
         if includes_attr.startswith("/"):
             continue
@@ -1264,7 +1264,7 @@ cc_helper = struct(
     get_private_hdrs = _get_private_hdrs,
     get_public_hdrs = _get_public_hdrs,
     report_invalid_options = _report_invalid_options,
-    system_include_dirs = _system_include_dirs,
+    include_dirs = _include_dirs,
     get_coverage_environment = _get_coverage_environment,
     create_cc_instrumented_files_info = _create_cc_instrumented_files_info,
     linkopts = _linkopts,

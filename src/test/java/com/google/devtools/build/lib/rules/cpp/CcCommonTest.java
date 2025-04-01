@@ -645,6 +645,60 @@ public class CcCommonTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testSystemAndNormalIncludes() throws Exception {
+    scratch.file(
+        "BUILD",
+        """
+        cc_library(
+            name = "no_includes",
+            srcs = ["no_includes.cc"],
+        )
+
+        cc_library(
+            name = "lib",
+            srcs = ["lib.cc"],
+            includes = ["normal-includes"],
+            system_includes = ["system-includes"],
+        )
+        cc_library(
+            name = "bin",
+            srcs = ["bin.cc"],
+            includes = ["normal-includes"],
+            system_includes = ["system-includes"],
+        )
+        """);
+    ConfiguredTarget noIncludes = getConfiguredTarget("//:no_includes");
+    ConfiguredTarget lib = getConfiguredTarget("//:lib");
+    ConfiguredTarget bin = getConfiguredTarget("//:bin");
+
+    String systemRoot = "system-includes";
+    List<PathFragment> expectedSystem =
+        new ImmutableList.Builder<PathFragment>()
+            .addAll(
+                noIncludes.get(CcInfo.PROVIDER).getCcCompilationContext().getSystemIncludeDirs())
+            .add(PathFragment.create(systemRoot))
+            .add(targetConfig.getBinFragment(RepositoryName.MAIN).getRelative(systemRoot))
+            .build();
+    assertThat(lib.get(CcInfo.PROVIDER).getCcCompilationContext().getSystemIncludeDirs())
+        .containsExactlyElementsIn(expectedSystem);
+    assertThat(bin.get(CcInfo.PROVIDER).getCcCompilationContext().getSystemIncludeDirs())
+        .containsExactlyElementsIn(expectedSystem);
+
+    String normalRoot = "normal-includes";
+    List<PathFragment> expectedNormalIncludes =
+        new ImmutableList.Builder<PathFragment>()
+            .addAll(
+                noIncludes.get(CcInfo.PROVIDER).getCcCompilationContext().getSystemIncludeDirs())
+            .add(PathFragment.create(normalRoot))
+            .add(targetConfig.getBinFragment(RepositoryName.MAIN).getRelative(normalRoot))
+            .build();
+    assertThat(lib.get(CcInfo.PROVIDER).getCcCompilationContext().getIncludeDirs())
+        .containsExactlyElementsIn(expectedNormalIncludes);
+    assertThat(bin.get(CcInfo.PROVIDER).getCcCompilationContext().getIncludeDirs())
+        .containsExactlyElementsIn(expectedNormalIncludes);
+  }
+
+  @Test
   public void testCcTestDisallowsAlwaysLink() throws Exception {
     scratch.file(
         "cc/common/BUILD",

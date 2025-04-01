@@ -1381,6 +1381,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
             name = "cc_lib",
             srcs = ["a.cc"],
             includes = ["foo/bar"],
+            system_includes = ["baz/qux"],
         )
 
         objc_library(
@@ -1397,6 +1398,14 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
             Iterables.concat(
                 Iterables.transform(
                     rootedIncludePaths("package/foo/bar"),
+                    element -> ImmutableList.of("-I" + element)))));
+
+    assertContainsSublist(
+        removeConfigFragment(removeConfigFragment(compileAction.getArguments())),
+        ImmutableList.copyOf(
+            Iterables.concat(
+                Iterables.transform(
+                    rootedIncludePaths("package/baz/qux"),
                     element -> ImmutableList.of("-isystem", element)))));
   }
 

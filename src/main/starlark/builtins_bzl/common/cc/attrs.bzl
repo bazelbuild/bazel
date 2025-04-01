@@ -132,6 +132,22 @@ Subject to <a href="${link make-variables}">"Make variable"</a> substitution.
 Each string is prepended with the package path and passed to the C++ toolchain for
 expansion via the "include_paths" CROSSTOOL feature. A toolchain running on a POSIX system
 with typical feature definitions will produce
+<code>-iquote path_to_package/include_entry</code>.
+Unlike <a href="#cc_binary.copts">COPTS</a>, these flags are added for this rule
+and every rule that depends on it. (Note: not the rules it depends upon!) Be
+very careful, since this may have far-reaching effects.  When in doubt, add
+"-I" flags to <a href="#cc_binary.copts">COPTS</a> instead.
+<p>
+The added <code>include</code> paths will include generated files as well as
+files in the source tree.
+</p>
+"""),
+    "system_includes": attr.string_list(doc = """
+List of include dirs to be added to the compile line.
+Subject to <a href="${link make-variables}">"Make variable"</a> substitution.
+Each string is prepended with the package path and passed to the C++ toolchain for
+expansion via the "include_paths" CROSSTOOL feature. A toolchain running on a POSIX system
+with typical feature definitions will produce
 <code>-isystem path_to_package/include_entry</code>.
 This should only be used for third-party libraries that
 do not conform to the Google style of writing #include statements.
