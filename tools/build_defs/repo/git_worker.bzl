@@ -76,12 +76,14 @@ def git_repo(ctx, directory):
         reset_ref = "origin/" + ctx.attr.branch
         fetch_ref = ctx.attr.branch + ":origin/" + ctx.attr.branch
 
+    remote_with_absolute_filepaths = _remote_with_absolute_filepaths(ctx)
+
     git_repo = _GitRepoInfo(
         directory = ctx.path(directory),
         shallow = shallow,
         reset_ref = reset_ref,
         fetch_ref = fetch_ref,
-        remote = str(ctx.attr.remote),
+        remote = remote_with_absolute_filepaths,
         init_submodules = ctx.attr.init_submodules,
         recursive_init_submodules = ctx.attr.recursive_init_submodules,
     )
@@ -102,6 +104,30 @@ def git_repo(ctx, directory):
 
     return struct(commit = actual_commit, shallow_since = shallow_date)
 
+def _remote_with_absolute_filepaths(ctx):
+    remote = str(ctx.attr.remote)
+
+    file_uri_parts = _file_uri_parts(remote)
+    if file_uri_parts == None:
+        return remote
+
+    (protocol, path) = file_uri_parts
+    # Don't change absolute paths
+    if path.startswith('/'):
+        return remote
+    # Replace the current directory with the current working directory
+    elif path == '.':
+        return protocol + str(ctx.workspace_root)
+    # Anything else must be relative subdirectories, prefix with the current working directory
+    else:
+        return protocol + str(ctx.workspace_root) + '/' + path
+
+def _file_uri_parts(path):
+    if '://' not in path:
+        return ('', path)
+    elif path.startswith("file://"):
+        return ("file://", path[len("file://"):])
+
 def _report_progress(ctx, git_repo, *, shallow_failed = False):
     warning = ""
     if shallow_failed:
@@ -112,7 +138,7 @@ def _update(ctx, git_repo):
     ctx.delete(git_repo.directory)
 
     init(ctx, git_repo)
-    add_origin(ctx, git_repo, ctx.attr.remote)
+    add_origin(ctx, git_repo)
     fetch(ctx, git_repo)
     reset(ctx, git_repo)
     clean(ctx, git_repo)
@@ -130,8 +156,8 @@ def init(ctx, git_repo):
     if st.return_code != 0:
         _error(ctx.name, cl, st.stderr)
 
-def add_origin(ctx, git_repo, remote):
-    _git(ctx, git_repo, "remote", "add", "origin", remote)
+def add_origin(ctx, git_repo):
+    _git(ctx, git_repo, "remote", "add", "origin", git_repo.remote)
 
 def fetch(ctx, git_repo):
     args = ["fetch", "origin", git_repo.fetch_ref]

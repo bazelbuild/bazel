@@ -14,6 +14,7 @@ filegroup(
         "pluto-repo.tar.gz",
         "refetch-repo.tar.gz",
         "strip-prefix-repo.tar.gz",
+        "soup-of-the-day.tar.gz",
     ],
     visibility = ["//src/test/shell/bazel:__pkg__"],
 )

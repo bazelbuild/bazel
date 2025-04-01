@@ -1,0 +1,39 @@
+commit 5713bfd36b7a5dbdf2b2c309347520f7a2645373 (HEAD -> mushroom)
+Author: Bazel Test <bazel@example.com>
+Date:   Mon Mar 31 22:19:47 2025 +0100
+
+    soup of the day is mushroom
+
+diff --git a/soup-of-the-day.sh b/soup-of-the-day.sh
+index c15d588..8a3ddbf 100755
+--- a/soup-of-the-day.sh
++++ b/soup-of-the-day.sh
+@@ -1,2 +1,2 @@
+ #!/bin/bash
+-echo soup of the day is tomato
++echo soup of the day is mushroom
+
+commit e9523223a4f24f74a90ea75b97ad18526b3524b2 (tomato)
+Author: Bazel Test <test@example.com>
+Date:   Mon Mar 31 22:19:11 2025 +0100
+
+    soup of the day is tomato
+
+diff --git a/BUILD b/BUILD
+new file mode 100644
+index 0000000..96b7f7a
+--- /dev/null
++++ b/BUILD
+@@ -0,0 +1,4 @@
++sh_binary(
++  name = "soup_of_the_day",
++  srcs = ["soup-of-the-day.sh"]
++)
+diff --git a/soup-of-the-day.sh b/soup-of-the-day.sh
+new file mode 100755
+index 0000000..c15d588
+--- /dev/null
++++ b/soup-of-the-day.sh
+@@ -0,0 +1,2 @@
++#!/bin/bash
++echo soup of the day is tomato
