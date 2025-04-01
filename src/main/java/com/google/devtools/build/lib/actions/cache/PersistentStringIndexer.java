@@ -22,8 +22,8 @@ import com.google.devtools.build.lib.util.MapCodec;
 import com.google.devtools.build.lib.util.PersistentMap;
 import com.google.devtools.build.lib.util.StringIndexer;
 import com.google.devtools.build.lib.vfs.Path;
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
+import java.io.DataInput;
+import java.io.DataOutput;
 import java.io.IOException;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -187,7 +187,7 @@ final class PersistentStringIndexer implements StringIndexer {
   private static final MapCodec<String, Integer> CODEC =
       new MapCodec<String, Integer>() {
         @Override
-        protected String readKey(DataInputStream in) throws IOException {
+        protected String readKey(DataInput in) throws IOException {
           int length = in.readInt();
           if (length < 0) {
             throw new IOException("corrupt key length: " + length);
@@ -198,19 +198,19 @@ final class PersistentStringIndexer implements StringIndexer {
         }
 
         @Override
-        protected Integer readValue(DataInputStream in) throws IOException {
+        protected Integer readValue(DataInput in) throws IOException {
           return in.readInt();
         }
 
         @Override
-        protected void writeKey(String key, DataOutputStream out) throws IOException {
+        protected void writeKey(String key, DataOutput out) throws IOException {
           byte[] content = key.getBytes(UTF_8);
           out.writeInt(content.length);
           out.write(content);
         }
 
         @Override
-        protected void writeValue(Integer value, DataOutputStream out) throws IOException {
+        protected void writeValue(Integer value, DataOutput out) throws IOException {
           out.writeInt(value);
         }
       };

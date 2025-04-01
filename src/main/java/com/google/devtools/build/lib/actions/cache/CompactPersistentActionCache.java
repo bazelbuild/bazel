@@ -41,8 +41,8 @@ import com.google.devtools.build.lib.vfs.DigestUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.ByteArrayOutputStream;
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
+import java.io.DataInput;
+import java.io.DataOutput;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.nio.BufferUnderflowException;
@@ -82,12 +82,12 @@ public class CompactPersistentActionCache implements ActionCache {
   private static final MapCodec<Integer, byte[]> CODEC =
       new MapCodec<Integer, byte[]>() {
         @Override
-        protected Integer readKey(DataInputStream in) throws IOException {
+        protected Integer readKey(DataInput in) throws IOException {
           return in.readInt();
         }
 
         @Override
-        protected byte[] readValue(DataInputStream in) throws IOException {
+        protected byte[] readValue(DataInput in) throws IOException {
           int size = in.readInt();
           if (size < 0) {
             throw new IOException("found negative array size: " + size);
@@ -98,12 +98,12 @@ public class CompactPersistentActionCache implements ActionCache {
         }
 
         @Override
-        protected void writeKey(Integer key, DataOutputStream out) throws IOException {
+        protected void writeKey(Integer key, DataOutput out) throws IOException {
           out.writeInt(key);
         }
 
         @Override
-        protected void writeValue(byte[] value, DataOutputStream out) throws IOException {
+        protected void writeValue(byte[] value, DataOutput out) throws IOException {
           out.writeInt(value.length);
           out.write(value);
         }

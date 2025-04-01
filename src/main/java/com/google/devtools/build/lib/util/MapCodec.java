@@ -16,7 +16,9 @@ package com.google.devtools.build.lib.util;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.BufferedOutputStream;
 import java.io.ByteArrayInputStream;
+import java.io.DataInput;
 import java.io.DataInputStream;
+import java.io.DataOutput;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -36,17 +38,17 @@ public abstract class MapCodec<K, V> {
   private static final int MAX_ARRAY_SIZE = Integer.MAX_VALUE - 8;
   private static final int ENTRY_MAGIC = 0xfe;
 
-  /** Reads a key from a {@link DataInputStream}. */
-  protected abstract K readKey(DataInputStream in) throws IOException;
+  /** Reads a key from a {@link DataInput}. */
+  protected abstract K readKey(DataInput in) throws IOException;
 
-  /** Reads a value from a {@link DataInputStream}. */
-  protected abstract V readValue(DataInputStream in) throws IOException;
+  /** Reads a value from a {@link DataInput}. */
+  protected abstract V readValue(DataInput in) throws IOException;
 
-  /** Writes a key into a {@link DataOutputStream}. */
-  protected abstract void writeKey(K key, DataOutputStream out) throws IOException;
+  /** Writes a key into a {@link DataOutput}. */
+  protected abstract void writeKey(K key, DataOutput out) throws IOException;
 
-  /** Writes a value into a {@link DataOutputStream}. */
-  protected abstract void writeValue(V value, DataOutputStream out) throws IOException;
+  /** Writes a value into a {@link DataOutput}. */
+  protected abstract void writeValue(V value, DataOutput out) throws IOException;
 
   /**
    * A key/value pair representing the presence or absence of a map entry.

@@ -22,8 +22,8 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
+import java.io.DataInput;
+import java.io.DataOutput;
 import java.io.IOException;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -39,22 +39,22 @@ public final class MapCodecTest {
   private static final MapCodec<Integer, Integer> TEST_CODEC =
       new MapCodec<Integer, Integer>() {
         @Override
-        protected Integer readKey(DataInputStream in) throws IOException {
+        protected Integer readKey(DataInput in) throws IOException {
           return in.readInt();
         }
 
         @Override
-        protected Integer readValue(DataInputStream in) throws IOException {
+        protected Integer readValue(DataInput in) throws IOException {
           return in.readInt();
         }
 
         @Override
-        protected void writeKey(Integer key, DataOutputStream out) throws IOException {
+        protected void writeKey(Integer key, DataOutput out) throws IOException {
           out.writeInt(key);
         }
 
         @Override
-        protected void writeValue(Integer value, DataOutputStream out) throws IOException {
+        protected void writeValue(Integer value, DataOutput out) throws IOException {
           out.writeInt(value);
         }
       };

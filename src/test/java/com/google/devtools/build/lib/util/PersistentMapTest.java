@@ -19,8 +19,8 @@ import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.testutil.TestThread;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.vfs.Path;
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
+import java.io.DataInput;
+import java.io.DataOutput;
 import java.io.IOException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -39,22 +39,22 @@ public final class PersistentMapTest {
     private static final MapCodec<String, String> CODEC =
         new MapCodec<String, String>() {
           @Override
-          protected String readKey(DataInputStream in) throws IOException {
+          protected String readKey(DataInput in) throws IOException {
             return in.readUTF();
           }
 
           @Override
-          protected String readValue(DataInputStream in) throws IOException {
+          protected String readValue(DataInput in) throws IOException {
             return in.readUTF();
           }
 
           @Override
-          protected void writeKey(String key, DataOutputStream out) throws IOException {
+          protected void writeKey(String key, DataOutput out) throws IOException {
             out.writeUTF(key);
           }
 
           @Override
-          protected void writeValue(String value, DataOutputStream out) throws IOException {
+          protected void writeValue(String value, DataOutput out) throws IOException {
             out.writeUTF(value);
           }
         };
