@@ -18,6 +18,6 @@ jobs:
           egress-policy: audit
 
       - name: Run helper
-        uses: bazelbuild/continuous-integration/actions/release-helper@c2b610a28bee0a80395574f671af8730ce2ffb1b # master
+        uses: bazelbuild/continuous-integration/actions/release-helper@355e4f58d2c190548c1eb55f038f200c14899906 # master
         with:
           token: ${{ secrets.BAZEL_IO_TOKEN }}
