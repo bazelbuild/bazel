@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.util;
 
+import com.google.devtools.build.lib.util.io.RecordOutputStream;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.BufferedOutputStream;
 import java.io.ByteArrayInputStream;
@@ -22,6 +23,7 @@ import java.io.DataOutput;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import javax.annotation.Nullable;
 
 /** Converts map entries between their in-memory and on-disk representations. */
@@ -143,35 +145,44 @@ public abstract class MapCodec<K, V> {
    * @throws IOException if an I/O error occurs
    */
   public Writer createWriter(Path path, int version, boolean overwrite) throws IOException {
-    DataOutputStream out;
-    if (!overwrite && path.exists()) {
-      out =
-          new DataOutputStream(new BufferedOutputStream(path.getOutputStream(/* append= */ true)));
-    } else {
-      out = new DataOutputStream(new BufferedOutputStream(path.getOutputStream()));
-      out.writeLong(MAGIC);
-      out.writeLong(version);
+    boolean append = !overwrite && path.exists();
+    RecordOutputStream recordOut = new RecordOutputStream(path.getOutputStream(append));
+    DataOutputStream dataOut = new DataOutputStream(recordOut);
+    if (!append) {
+      dataOut.writeLong(MAGIC);
+      dataOut.writeLong(version);
+      recordOut.finishRecord();
     }
-    return new Writer(out);
+    return new Writer(recordOut, dataOut);
   }
 
-  /** Writes key/value pairs to a {@link DataOutputStream}. */
+  /**
+   * Writes key/value pairs to a {@link DataOutputStream} backed by a {@link RecordOutputStream}.
+   *
+   * <p>In a best-effort attempt to prevent data corruption in the event of an abrupt exit, use a
+   * {@link RecordOutputStream} instead of a {@link BufferedOutputStream} to ensure that only
+   * complete records are ever written to the underlying unbuffered {@link OutputStream}. While this
+   * can still be defeated by partial writes, experiments suggest they're rather unlikely for small
+   * buffer sizes.
+   */
   public final class Writer implements AutoCloseable {
-    private final DataOutputStream out;
+    private final RecordOutputStream recordOut;
+    private final DataOutputStream dataOut;
 
-    private Writer(DataOutputStream out) {
-      this.out = out;
+    private Writer(RecordOutputStream recordOut, DataOutputStream dataOut) {
+      this.recordOut = recordOut;
+      this.dataOut = dataOut;
     }
 
     /** Flushes the writer, forcing any pending writes to be written to disk. */
     public void flush() throws IOException {
-      out.flush();
+      recordOut.flush();
     }
 
     /** Closes the writer, releasing associated resources and rendering it unusable. */
     @Override
     public void close() throws IOException {
-      out.close();
+      recordOut.close();
     }
 
     /**
@@ -181,13 +192,14 @@ public abstract class MapCodec<K, V> {
      * @param value the value to write, or null to write a tombstone.
      */
     public void writeEntry(K key, @Nullable V value) throws IOException {
-      out.writeByte(ENTRY_MAGIC);
-      writeKey(key, out);
+      dataOut.writeByte(ENTRY_MAGIC);
+      writeKey(key, dataOut);
       boolean hasValue = value != null;
-      out.writeBoolean(hasValue);
+      dataOut.writeBoolean(hasValue);
       if (hasValue) {
-        writeValue(value, out);
+        writeValue(value, dataOut);
       }
+      recordOut.finishRecord();
     }
   }
 }
