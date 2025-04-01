@@ -22,19 +22,19 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.remote.Retrier.CircuitBreaker.State;
+import com.google.devtools.build.lib.remote.Retrier.ResultClassifier.Result;
 import java.io.IOException;
 import java.util.Objects;
 import java.util.concurrent.Callable;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Predicate;
 import java.util.function.Supplier;
 import javax.annotation.concurrent.ThreadSafe;
 
 /**
  * Supports retrying the execution of a {@link Callable} in case of failure.
  *
- * <p>The errors that are retried are configurable via a {@link Predicate<? super Exception>}. The
+ * <p>The errors that are retried are configurable via a {@link ResultClassifier}. The
  * delay between executions is specified by a {@link Backoff}. Additionally, the retrier supports
  * circuit breaking to stop execution in case of high failure rates.
  */
@@ -114,6 +114,26 @@ public class Retrier {
     }
   }
 
+  /* Determines if result of a call execution is success, retriable failure or permanent failure. */
+  @FunctionalInterface
+  public interface ResultClassifier<T> {
+
+    /** The result of a call execution. */
+    enum Result {
+      /** A call is executed successfully. */
+      SUCCESS,
+
+      /** A call execution is failed with retriable error. */
+      TRANSIENT_FAILURE,
+
+      /** A call execution is failed with permanent error. */
+      PERMANENT_FAILURE
+    }
+
+    /** Returns the {@link Result} of the call execution. */
+    Result test(T t);
+  }
+
   /**
    * {@link Sleeper#sleep(long)} is called to pause between synchronous retries ({@link
    * #execute(Callable)}.
@@ -176,55 +196,33 @@ public class Retrier {
     }
   }
 
-  /* Treating all retriable errors as successful api call. */
-  public static final Predicate<? super Exception> ALWAYS_SUCCESS =
-      e -> {
-        return true;
-      };
-
   private final Supplier<Backoff> backoffSupplier;
-  private final Predicate<? super Exception> shouldRetry;
+  private final ResultClassifier resultClassifier;
   private final CircuitBreaker circuitBreaker;
   private final ListeningScheduledExecutorService retryService;
   private final Sleeper sleeper;
-  private final Predicate<? super Exception> isSuccess;
 
   public Retrier(
       Supplier<Backoff> backoffSupplier,
-      Predicate<? super Exception> shouldRetry,
+      ResultClassifier resultClassifier,
       ListeningScheduledExecutorService retryScheduler,
       CircuitBreaker circuitBreaker) {
     this(
-        backoffSupplier, shouldRetry, retryScheduler, circuitBreaker, TimeUnit.MILLISECONDS::sleep);
-  }
-
-  public Retrier(
-      Supplier<Backoff> backoffSupplier,
-      Predicate<? super Exception> shouldRetry,
-      ListeningScheduledExecutorService retryScheduler,
-      CircuitBreaker circuitBreaker,
-      Predicate<? super Exception> isSuccess) {
-    this.backoffSupplier = backoffSupplier;
-    this.shouldRetry = shouldRetry;
-    this.retryService = retryScheduler;
-    this.circuitBreaker = circuitBreaker;
-    this.sleeper = TimeUnit.MILLISECONDS::sleep;
-    this.isSuccess = isSuccess;
+        backoffSupplier, resultClassifier, retryScheduler, circuitBreaker, TimeUnit.MILLISECONDS::sleep);
   }
 
   @VisibleForTesting
   Retrier(
       Supplier<Backoff> backoffSupplier,
-      Predicate<? super Exception> shouldRetry,
+      ResultClassifier resultClassifier,
       ListeningScheduledExecutorService retryService,
       CircuitBreaker circuitBreaker,
       Sleeper sleeper) {
     this.backoffSupplier = backoffSupplier;
-    this.shouldRetry = shouldRetry;
+    this.resultClassifier = resultClassifier;
     this.retryService = retryService;
     this.circuitBreaker = circuitBreaker;
     this.sleeper = sleeper;
-    this.isSuccess = ALWAYS_SUCCESS;
   }
 
   ListeningScheduledExecutorService getRetryService() {
@@ -232,22 +230,22 @@ public class Retrier {
   }
 
   /**
-   * Execute a {@link Callable}, retrying execution in case of failure and returning the result in
-   * case of success.
+   * Execute a {@link Callable}, retrying execution in case of transient failure and returning the
+   * result in case of success.
    */
   public <T> T execute(Callable<T> call) throws Exception {
     return execute(call, newBackoff());
   }
 
   /**
-   * Execute a {@link Callable}, retrying execution in case of failure and returning the result in
-   * case of success with give {@link Backoff}.
+   * Execute a {@link Callable}, retrying execution in case of transient failure and returning the
+   * result in case of success with give {@link Backoff}.
    *
    * <p>{@link InterruptedException} is not retried.
    *
    * @param call the {@link Callable} to execute.
    * @throws Exception if the {@code call} didn't succeed within the framework specified by {@code
-   *     backoffSupplier} and {@code shouldRetry}.
+   *     backoffSupplier} and {@code resultClassifier}.
    * @throws CircuitBreakerException in case a call was rejected because the circuit breaker
    *     tripped.
    * @throws InterruptedException if the {@code call} throws an {@link InterruptedException} or the
@@ -269,9 +267,9 @@ public class Retrier {
         return r;
       } catch (Exception e) {
         Throwables.throwIfInstanceOf(e, InterruptedException.class);
-        if (!shouldRetry.test(e)) {
-          // A non-retriable error may represent either success or server failure.
-          if (isSuccess.test(e)) {
+        Result r = resultClassifier.test(e);
+        if (!r.equals(Result.TRANSIENT_FAILURE)) {
+          if (r.equals(Result.SUCCESS)) {
             circuitBreaker.recordSuccess();
           } else {
             circuitBreaker.recordFailure();
@@ -291,14 +289,14 @@ public class Retrier {
     }
   }
 
-  /** Executes an {@link AsyncCallable}, retrying execution in case of failure. */
+  /** Executes an {@link AsyncCallable}, retrying execution in case of transient failure. */
   public <T> ListenableFuture<T> executeAsync(AsyncCallable<T> call) {
     return executeAsync(call, newBackoff());
   }
 
   /**
-   * Executes an {@link AsyncCallable}, retrying execution in case of failure with the given
-   * backoff.
+   * Executes an {@link AsyncCallable}, retrying execution in case of transient failure with
+   * the given backoff.
    */
   public <T> ListenableFuture<T> executeAsync(AsyncCallable<T> call, Backoff backoff) {
     final State circuitState = circuitBreaker.state();
@@ -326,7 +324,8 @@ public class Retrier {
 
   private <T> ListenableFuture<T> onExecuteAsyncFailure(
       Exception t, AsyncCallable<T> call, Backoff backoff, State circuitState) {
-    if (isRetriable(t)) {
+    Result r = resultClassifier.test(t);
+    if (r.equals(Result.TRANSIENT_FAILURE)) {
       circuitBreaker.recordFailure();
       if (circuitState.equals(State.TRIAL_CALL)) {
         return Futures.immediateFailedFuture(t);
@@ -344,10 +343,7 @@ public class Retrier {
         return Futures.immediateFailedFuture(t);
       }
     } else {
-      // gRPC Errors NOT_FOUND, OUT_OF_RANGE, ALREADY_EXISTS etc. are non-retriable error, and they
-      // don't represent an
-      // issue in Server. So treating these errors as successful api call.
-      if (isSuccess.test(t)) {
+      if (r.equals(Result.SUCCESS)) {
         circuitBreaker.recordSuccess();
       } else {
         circuitBreaker.recordFailure();
@@ -361,7 +357,7 @@ public class Retrier {
   }
 
   public boolean isRetriable(Exception e) {
-    return shouldRetry.test(e);
+    return resultClassifier.test(e).equals(Result.TRANSIENT_FAILURE);
   }
 
   CircuitBreaker getCircuitBreaker() {
