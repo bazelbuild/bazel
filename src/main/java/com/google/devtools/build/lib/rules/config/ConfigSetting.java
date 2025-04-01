@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptionDetails;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.platform.ConstraintCollection;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
@@ -325,6 +326,20 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
       RuleContext ruleContext,
       String optionName,
       String expectedRawValue) {
+
+    ImmutableList<String> disabledSelectOptions =
+        ruleContext.getConfiguration().getOptions().get(CoreOptions.class).disabledSelectOptions;
+    if (disabledSelectOptions.contains(optionName)) {
+      ruleContext.attributeError(
+          ConfigSettingRule.SETTINGS_ATTRIBUTE,
+          String.format(
+              PARSE_ERROR_MESSAGE
+                  + "select() on %s is not allowed. Use platform constraints instead:"
+                  + " https://bazel.build/docs/configurable-attributes#platforms.",
+              optionName));
+      return false;
+    }
+
     if (DEPRECATED_FLAGS.contains(optionName)) {
       ruleContext.ruleWarning(
           String.format(

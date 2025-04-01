@@ -260,6 +260,8 @@ public class ExecutionTransitionFactory
           options.underlying().get(CoreOptions.class).executionInfoModifier;
       coreOptions.overrideNamePlatformInOutputDirEntries =
           options.underlying().get(CoreOptions.class).overrideNamePlatformInOutputDirEntries;
+      coreOptions.disabledSelectOptions =
+          options.underlying().get(CoreOptions.class).disabledSelectOptions;
       return result;
     }
   }

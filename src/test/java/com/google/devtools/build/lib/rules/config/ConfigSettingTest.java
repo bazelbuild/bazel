@@ -2954,4 +2954,27 @@ public class ConfigSettingTest extends BuildViewTestCase {
     assertContainsEvent(
         "select() on %s is deprecated. Use platform constraints instead".formatted(flag));
   }
+
+  @Test
+  @TestParameters({"{flag: cpu}", "{flag: host_cpu}", "{flag: crosstool_top}"})
+  public void selectOnDisabledFlagFails(String flag) throws Exception {
+    scratch.file(
+        "test/BUILD",
+        """
+        config_setting(
+            name = "match",
+            values = {
+              "%s": "//foo",
+            },
+        )
+        """
+            .formatted(flag));
+    useConfiguration("--incompatible_disable_select_on=%s".formatted(flag));
+    reporter.removeHandler(failFastHandler);
+    assertThat(getConfiguredTarget("//test:match")).isNull();
+    assertContainsEvent(
+        "in values attribute of config_setting rule //test:match: error while parsing configuration"
+            + " settings: select() on %s is not allowed. Use platform constraints instead"
+                .formatted(flag));
+  }
 }

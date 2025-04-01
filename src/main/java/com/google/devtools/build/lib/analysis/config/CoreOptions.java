@@ -93,6 +93,16 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   public String starlarkExecConfig;
 
   @Option(
+      name = "incompatible_disable_select_on",
+      defaultValue = "",
+      converter = CommaSeparatedOptionSetConverter.class,
+      documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help = "List of flags for which the use in select() is disabled.")
+  public ImmutableList<String> disabledSelectOptions;
+
+  @Option(
       name = "experimental_propagate_custom_flag",
       defaultValue = "null",
       allowMultiple = true,
