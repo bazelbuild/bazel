@@ -76,11 +76,13 @@ function set_up() {
   cp "$(rlocation io_bazel/src/test/shell/bazel/testdata/outer-planets-repo.tar.gz)" $repos_dir
   cp "$(rlocation io_bazel/src/test/shell/bazel/testdata/refetch-repo.tar.gz)" $repos_dir
   cp "$(rlocation io_bazel/src/test/shell/bazel/testdata/strip-prefix-repo.tar.gz)" $repos_dir
+  cp "$(rlocation io_bazel/src/test/shell/bazel/testdata/soup-of-the-day.tar.gz)" $repos_dir
   cd $repos_dir
   tar zxf pluto-repo.tar.gz
   tar zxf outer-planets-repo.tar.gz
   tar zxf refetch-repo.tar.gz
   tar zxf strip-prefix-repo.tar.gz
+  tar zxf soup-of-the-day.tar.gz
 
   setup_module_dot_bazel
 
@@ -435,6 +437,23 @@ EOF
     || echo "Expected build/run to succeed"
   expect_log "Neptune is a planet"
   expect_log "Pluto is a planet"
+}
+
+
+# Test cloning a different tag of the current repository
+function test_git_repository_depending_on_alternate_branch() {
+  cd $TEST_TMPDIR/repos/soup-of-the-day
+
+  cat >> MODULE.bazel <<EOF
+git_repository = use_repo_rule('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
+git_repository(name='tomato_branch', remote='.', branch='tomato', verbose=True)
+EOF
+
+  bazel run //:soup_of_the_day >& $TEST_log
+  expect_log "soup of the day is mushroom"
+
+  bazel run @tomato_branch//:soup_of_the_day >& $TEST_log
+  expect_log "soup of the day is tomato"
 }
 
 function test_git_repository_not_refetched_on_server_restart() {

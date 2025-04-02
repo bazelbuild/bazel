@@ -11,6 +11,7 @@ The following archives contain test Git repositories used by
 * pluto-repo.tar.gz
 * refetch-repo.tar.gz
 * strip-prefix.tar.gz
+* soup-of-the-day.tar.gz
 
 For reference, the following files contain the output of `git log -p --decorate`
 for the four repositories:
@@ -19,6 +20,7 @@ for the four repositories:
 * pluto.git_log
 * refetch.git_log
 * strip-prefix.git_log
+* soup-of-the-day.git_log
 
 These files were created by manually creating a git repository and tarring up
 the result using `tar -zcvf`.
