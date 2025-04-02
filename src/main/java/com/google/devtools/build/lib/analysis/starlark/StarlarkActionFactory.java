@@ -787,6 +787,27 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
             getSemantics().getBool(BuildLanguageOptions.INCOMPATIBLE_ALLOW_TAGS_PROPAGATION));
     builder.setExecutionInfo(executionInfo);
 
+    String execGroup = determineExecGroup(ruleContext, execGroupUnchecked, toolchainUnchecked);
+    builder.setExecGroup(execGroup);
+
+    if (shadowedActionUnchecked != Starlark.NONE) {
+      builder.setShadowedAction(Optional.of((Action) shadowedActionUnchecked));
+    }
+
+    if (resourceSetUnchecked != Starlark.NONE) {
+      validateResourceSetBuilder(resourceSetUnchecked);
+      builder.setResources(
+          StarlarkActionResourceSetBuilder.create(
+              (StarlarkCallable) resourceSetUnchecked, mnemonic, getSemantics()));
+    }
+
+    // Always register the action
+    registerAction(builder.build(ruleContext));
+  }
+
+  public static String determineExecGroup(
+      RuleContext ruleContext, Object execGroupUnchecked, Object toolchainUnchecked)
+      throws EvalException {
     Label toolchainLabel = null;
     if (toolchainUnchecked instanceof Label label) {
       toolchainLabel = label;
@@ -806,7 +827,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       checkValidGroupName(execGroup);
 
       // If toolchain and exec_groups are both defined, verify they are compatible.
-      if (useAutoExecGroups && toolchainLabel != null) {
+      if (ruleContext.useAutoExecGroups() && toolchainLabel != null) {
         if (ruleContext.getExecGroups().getExecGroup(execGroup).toolchainTypes().stream()
             .map(ToolchainTypeRequirement::toolchainType)
             .noneMatch(toolchainLabel::equals)) {
@@ -817,27 +838,13 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
         }
       }
 
-      builder.setExecGroup(execGroup);
-    } else if (useAutoExecGroups && toolchainLabel != null) {
+      return execGroup;
+    } else if (ruleContext.useAutoExecGroups() && toolchainLabel != null) {
       verifyAutomaticExecGroupExists(toolchainLabel.toString(), ruleContext);
-      builder.setExecGroup(toolchainLabel.toString());
-    } else {
-      builder.setExecGroup(DeclaredExecGroup.DEFAULT_EXEC_GROUP_NAME);
+      return toolchainLabel.toString();
     }
 
-    if (shadowedActionUnchecked != Starlark.NONE) {
-      builder.setShadowedAction(Optional.of((Action) shadowedActionUnchecked));
-    }
-
-    if (resourceSetUnchecked != Starlark.NONE) {
-      validateResourceSetBuilder(resourceSetUnchecked);
-      builder.setResources(
-          StarlarkActionResourceSetBuilder.create(
-              (StarlarkCallable) resourceSetUnchecked, mnemonic, getSemantics()));
-    }
-
-    // Always register the action
-    registerAction(builder.build(ruleContext));
+    return DeclaredExecGroup.DEFAULT_EXEC_GROUP_NAME;
   }
 
   private static class StarlarkActionResourceSetBuilder implements ResourceSetOrBuilder {
