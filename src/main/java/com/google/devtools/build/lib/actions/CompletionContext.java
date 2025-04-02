@@ -154,7 +154,7 @@ public final class CompletionContext {
             filesets.get(filesetArtifact),
             "Missing %s, available filesets: %s",
             filesetArtifact,
-            filesets);
+            filesets.keySet());
     for (FilesetOutputSymlink link : filesetOutput.symlinks()) {
       receiver.acceptFilesetMapping(filesetArtifact, link.name(), link.target().getPath());
     }
