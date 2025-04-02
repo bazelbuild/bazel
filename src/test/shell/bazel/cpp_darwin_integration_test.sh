@@ -185,7 +185,7 @@ EOF
 
 function test_cc_test_with_explicit_install_name_apple_support() {
   cat > MODULE.bazel <<EOF
-bazel_dep(name = "apple_support", version = "1.16.0")
+bazel_dep(name = "apple_support", version = "1.21.0")
 EOF
 
   mkdir -p cpp
