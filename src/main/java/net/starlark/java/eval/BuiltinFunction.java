@@ -41,27 +41,11 @@ public final class BuiltinFunction implements StarlarkCallable {
 
   private final Object obj;
   private final String methodName;
-  @Nullable private final MethodDescriptor desc;
-
-  /**
-   * Constructs a BuiltinFunction for a StarlarkMethod-annotated method of the given name (as seen
-   * by Starlark, not Java).
-   */
-  BuiltinFunction(Object obj, String methodName) {
-    this.obj = obj;
-    this.methodName = methodName;
-    this.desc = null; // computed later
-  }
+  private final MethodDescriptor desc;
 
   /**
    * Constructs a BuiltinFunction for a StarlarkMethod-annotated method (not field) of the given
    * name (as seen by Starlark, not Java).
-   *
-   * <p>This constructor should be used only for ephemeral BuiltinFunction values created
-   * transiently during a call such as {@code x.f()}, when the caller has already looked up the
-   * MethodDescriptor using the same semantics as the thread that will be used in the call. Use the
-   * other (slower) constructor if there is any possibility that the semantics of the {@code x.f}
-   * operation differ from those of the thread used in the call.
    */
   BuiltinFunction(Object obj, String methodName, MethodDescriptor desc) {
     Preconditions.checkArgument(!desc.isStructField());
@@ -74,7 +58,7 @@ public final class BuiltinFunction implements StarlarkCallable {
   @Override
   public Object fastcall(StarlarkThread thread, Object[] positional, Object[] named)
       throws EvalException, InterruptedException {
-    MethodDescriptor desc = getMethodDescriptor(thread.getSemantics());
+    desc.checkEnabled(thread);
     Object[] vector = getArgumentVector(thread, desc, positional, named);
     return desc.call(
         obj instanceof String ? StringModule.INSTANCE : obj, vector, thread.mutability());
@@ -83,7 +67,7 @@ public final class BuiltinFunction implements StarlarkCallable {
   @Override
   public Object positionalOnlyCall(StarlarkThread thread, Object... positional)
       throws EvalException, InterruptedException {
-    MethodDescriptor desc = getMethodDescriptor(thread.getSemantics());
+    desc.checkEnabled(thread);
     Object[] vector;
     if (desc.isPositionalsReusableAsJavaArgsVectorIfArgumentCountValid()
         && positional.length == desc.getParameters().length) {
@@ -196,22 +180,11 @@ public final class BuiltinFunction implements StarlarkCallable {
     return vector;
   }
 
-  private MethodDescriptor getMethodDescriptor(StarlarkSemantics semantics) {
-    MethodDescriptor desc = this.desc;
-    if (desc == null) {
-      desc = CallUtils.getAnnotatedMethods(semantics, obj.getClass()).get(methodName);
-      Preconditions.checkArgument(
-          !desc.isStructField(),
-          "BuiltinFunction constructed for MethodDescriptor(structField=True)");
-    }
-    return desc;
-  }
-
   /**
    * Returns the StarlarkMethod annotation of this Starlark-callable Java method.
    */
   public StarlarkMethod getAnnotation() {
-    return getMethodDescriptor(StarlarkSemantics.DEFAULT).getAnnotation();
+    return desc.getAnnotation();
   }
 
   @Override
@@ -239,8 +212,9 @@ public final class BuiltinFunction implements StarlarkCallable {
   }
 
   @Override
-  public StarlarkCallable.ArgumentProcessor requestArgumentProcessor(StarlarkThread thread) {
-    return new ArgumentProcessor(this, thread, getMethodDescriptor(thread.getSemantics()));
+  public StarlarkCallable.ArgumentProcessor requestArgumentProcessor(StarlarkThread thread)
+      throws EvalException {
+    return new ArgumentProcessor(this, thread, desc);
   }
 
   /**
@@ -282,11 +256,14 @@ public final class BuiltinFunction implements StarlarkCallable {
      *
      * @param thread the Starlark thread for the call
      * @param desc descriptor for the StarlarkMethod-annotated method
+     * @throws EvalException if the method is disabled
      */
-    ArgumentProcessor(BuiltinFunction owner, StarlarkThread thread, MethodDescriptor desc) {
+    ArgumentProcessor(BuiltinFunction owner, StarlarkThread thread, MethodDescriptor desc)
+        throws EvalException {
       super(thread);
       this.owner = owner;
       this.desc = desc;
+      desc.checkEnabled(thread);
       this.parameters = desc.getParameters();
       varArgs = null;
       kwargs = null;
