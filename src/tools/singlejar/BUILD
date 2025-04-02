@@ -56,7 +56,6 @@ release_archive(
     ],
     deps = [
         ":singlejar_zip",
-        "//src:zlib_zip",
         "//src/main/cpp/util:cpp_util_with_deps_zip",
         "//src/main/protobuf:desugar_deps_zip",
     ],

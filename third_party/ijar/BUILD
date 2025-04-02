@@ -126,7 +126,6 @@ genrule(
     name = "ijar_transitive_srcs_zip",
     srcs = [
         ":ijar_srcs_zip",
-        "//src:zlib_zip",
         "//src/main/cpp/util:cpp_util_with_deps_zip",
     ],
     outs = ["ijar_srcs_with_deps.zip"],
