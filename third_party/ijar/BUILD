@@ -51,7 +51,7 @@ cc_library(
         "common.h",
         "zlib_client.h",
     ],
-    deps = ["//third_party/zlib"],
+    deps = ["@zlib"],
 )
 
 cc_library(

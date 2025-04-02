@@ -40,7 +40,6 @@ filegroup(
     srcs = SOURCES + [
         "//src/main/cpp/util:embedded_java_tools",
         "//src/main/protobuf:desugar_deps_filegroup",
-        "//third_party/zlib:embedded_tools",
     ],
     visibility = [
         "//src:__pkg__",
@@ -93,7 +92,7 @@ cc_binary(
         ":combiners",
         ":options",
         ":output_jar",
-        "//third_party/zlib",
+        "@zlib",
     ],
 )
 
@@ -114,7 +113,7 @@ cc_binary(
         ":desugar_checking",
         ":options",
         ":output_jar",
-        "//third_party/zlib",
+        "@zlib",
     ],
 )
 
@@ -135,7 +134,7 @@ cc_test(
         ":combiners",
         ":input_jar",
         ":test_util",
-        "//third_party/zlib",
+        "@zlib",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -168,7 +167,7 @@ cc_test(
         ":combiners",
         ":desugar_checking",
         ":input_jar",
-        "//third_party/zlib",
+        "@zlib",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -339,7 +338,7 @@ cc_test(
     deps = [
         ":input_jar",
         ":test_util",
-        "//third_party/zlib",
+        "@zlib",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -363,7 +362,7 @@ cc_test(
         ":zlib_interface",
     ],
     deps = [
-        "//third_party/zlib",
+        "@zlib",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -395,7 +394,7 @@ cc_library(
         "log4j2_plugin_dat_combiner.h",
     ],
     deps = [
-        "//third_party/zlib",
+        "@zlib",
     ],
 )
 
@@ -480,7 +479,7 @@ cc_library(
         ":options",
         ":port",
         "//src/main/cpp/util",
-        "//third_party/zlib",
+        "@zlib",
     ],
 )
 

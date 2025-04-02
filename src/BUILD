@@ -108,7 +108,6 @@ JAVA_TOOLS = [
                "//third_party/ijar:embedded_zipper_sources",
                "//third_party/ijar:zipper",
                "//third_party/py/abseil:srcs",
-               "//third_party/zlib:embedded_tools",
                "//tools:embedded_tools_srcs",
            ] + select({
                "//src/conditions:darwin": [
@@ -623,17 +622,6 @@ sh_binary(
     }),
     data = [":java_tools_prebuilt_zip"],
     deps = ["@bazel_tools//tools/bash/runfiles"],
-)
-
-# Part of the Java tools remote archive. Not embedded or used in Bazel.
-release_archive(
-    name = "zlib_zip",
-    srcs = ["//third_party/zlib:embedded_tools"],
-    package_dir = "zlib",
-    visibility = [
-        "//src/tools/singlejar:__pkg__",
-        "//third_party/ijar:__pkg__",
-    ],
 )
 
 JDK_VERSIONS = [
