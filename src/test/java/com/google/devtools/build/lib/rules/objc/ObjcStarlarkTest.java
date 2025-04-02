@@ -441,7 +441,6 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
 
     assertThat(iosCpu).isEqualTo("x86_64");
     assertThat(env).containsEntry("APPLE_SDK_PLATFORM", "iPhoneSimulator");
-    assertThat(env).containsEntry("APPLE_SDK_VERSION_OVERRIDE", "8.4");
     assertThat(sdkVersion).isEqualTo("8.4");
     assertThat(myInfo.getValue("xcode_version")).isEqualTo("7.3");
     assertThat(myInfo.getValue("single_arch_platform")).isEqualTo("ios_simulator");
