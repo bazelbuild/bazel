@@ -77,7 +77,7 @@ public class CompactPersistentActionCache implements ActionCache {
 
   private static final int NO_INPUT_DISCOVERY_COUNT = -1;
 
-  private static final int VERSION = 18;
+  private static final int VERSION = 19;
 
   private static final MapCodec<Integer, byte[]> CODEC =
       new MapCodec<Integer, byte[]>() {
@@ -602,6 +602,7 @@ public class CompactPersistentActionCache implements ActionCache {
     // + 5 bytes max for the file list length
     // + 5 bytes max for each file id
     // + 32 bytes for the environment digest
+    // + 1 byte for archived tree artifacts flag
     // + max bytes for output files
     // + max bytes for output trees
     int maxSize =
@@ -611,6 +612,7 @@ public class CompactPersistentActionCache implements ActionCache {
             + VarInt.MAX_VARINT_SIZE
             + files.size() * VarInt.MAX_VARINT_SIZE
             + DigestUtils.ESTIMATED_SIZE
+            + 1
             + maxOutputFilesSize
             + maxOutputTreesSize;
     ByteArrayOutputStream sink = new ByteArrayOutputStream(maxSize);
@@ -626,6 +628,8 @@ public class CompactPersistentActionCache implements ActionCache {
     }
 
     MetadataDigestUtils.write(entry.getActionPropertiesDigest(), sink);
+
+    VarInt.putVarInt(entry.useArchivedTreeArtifacts() ? 1 : 0, sink);
 
     VarInt.putVarInt(entry.getOutputFiles().size(), sink);
     for (Map.Entry<String, FileArtifactValue> file : entry.getOutputFiles().entrySet()) {
@@ -712,6 +716,8 @@ public class CompactPersistentActionCache implements ActionCache {
 
       byte[] usedClientEnvDigest = MetadataDigestUtils.read(source);
 
+      boolean useArchivedTreeArtifacts = VarInt.getVarInt(source) != 0;
+
       int numOutputFiles = VarInt.getVarInt(source);
       Map<String, FileArtifactValue> outputFiles = Maps.newHashMapWithExpectedSize(numOutputFiles);
       for (int i = 0; i < numOutputFiles; i++) {
@@ -764,7 +770,13 @@ public class CompactPersistentActionCache implements ActionCache {
         throw new IOException("serialized entry data has not been fully decoded");
       }
       return new ActionCache.Entry(
-          actionKey, usedClientEnvDigest, files, digest, outputFiles, outputTrees);
+          actionKey,
+          usedClientEnvDigest,
+          files,
+          digest,
+          outputFiles,
+          outputTrees,
+          useArchivedTreeArtifacts);
     } catch (BufferUnderflowException e) {
       throw new IOException("encoded entry data is incomplete", e);
     }

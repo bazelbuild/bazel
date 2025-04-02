@@ -94,7 +94,7 @@ public interface ActionCache {
 
     /** Unique instance to represent a corrupted cache entry. */
     public static final ActionCache.Entry CORRUPTED =
-        new ActionCache.Entry(null, ImmutableMap.of(), false, OutputPermissions.READONLY);
+        new ActionCache.Entry(null, ImmutableMap.of(), false, OutputPermissions.READONLY, false);
 
     // If null, the entry is corrupted.
     @Nullable private final String actionKey;
@@ -108,6 +108,12 @@ public interface ActionCache {
     private final byte[] actionPropertiesDigest;
     private final Map<String, FileArtifactValue> outputFileMetadata;
     private final Map<String, SerializableTreeArtifactValue> outputTreeMetadata;
+
+    // Whether archived tree artifacts were enabled at the time this action was executed. We must
+    // track this separately, even when output metadata is available: the presence of an archived
+    // representation on the output metadata depends on the execution strategy, so it can't reliably
+    // tell us whether archived tree artifacts were enabled at the time the action was executed.
+    private final boolean useArchivedTreeArtifacts;
 
     /**
      * The metadata for output tree that can be serialized.
@@ -171,13 +177,15 @@ public interface ActionCache {
         String key,
         Map<String, String> usedClientEnv,
         boolean discoversInputs,
-        OutputPermissions outputPermissions) {
+        OutputPermissions outputPermissions,
+        boolean useArchivedTreeArtifacts) {
       actionKey = key;
       this.actionPropertiesDigest = digestActionProperties(usedClientEnv, outputPermissions);
       files = discoversInputs ? new ArrayList<>() : null;
       mdMap = new HashMap<>();
       outputFileMetadata = new HashMap<>();
       outputTreeMetadata = new HashMap<>();
+      this.useArchivedTreeArtifacts = useArchivedTreeArtifacts;
     }
 
     public Entry(
@@ -186,7 +194,8 @@ public interface ActionCache {
         @Nullable List<String> files,
         byte[] digest,
         Map<String, FileArtifactValue> outputFileMetadata,
-        Map<String, SerializableTreeArtifactValue> outputTreeMetadata) {
+        Map<String, SerializableTreeArtifactValue> outputTreeMetadata,
+        boolean useArchivedTreeArtifacts) {
       actionKey = key;
       this.actionPropertiesDigest = actionPropertiesDigest;
       this.files = files;
@@ -194,6 +203,7 @@ public interface ActionCache {
       mdMap = null;
       this.outputFileMetadata = outputFileMetadata;
       this.outputTreeMetadata = outputTreeMetadata;
+      this.useArchivedTreeArtifacts = useArchivedTreeArtifacts;
     }
 
     /**
@@ -265,19 +275,24 @@ public interface ActionCache {
       mdMap.put(execPath, metadata.getMetadata());
     }
 
-    /** Gets metadata of an output tree */
+    /** Gets metadata of an output tree. */
     @Nullable
     public SerializableTreeArtifactValue getOutputTree(SpecialArtifact output) {
       checkState(!isCorrupted());
       return outputTreeMetadata.get(output.getExecPathString());
     }
 
-    /** Gets metadata of all output trees */
+    /** Gets metadata of all output trees. */
     public Map<String, SerializableTreeArtifactValue> getOutputTrees() {
       return outputTreeMetadata;
     }
 
-    /** Adds metadata of an input file */
+    /** Returns whether archived tree artifacts were enabled for this action. */
+    public boolean useArchivedTreeArtifacts() {
+      return useArchivedTreeArtifacts;
+    }
+
+    /** Adds metadata of an input file. */
     public void addInputFile(
         PathFragment relativePath, FileArtifactValue md, boolean saveExecPath) {
       checkState(mdMap != null);

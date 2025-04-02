@@ -335,12 +335,6 @@ final class ActionOutputMetadataStore implements OutputMetadataStore {
   public void injectTree(SpecialArtifact output, TreeArtifactValue tree) {
     checkArgument(isKnownOutput(output), "%s is not a declared output of this action", output);
     checkArgument(output.isTreeArtifact(), "Output must be a tree artifact: %s", output);
-    checkArgument(
-        archivedTreeArtifactsEnabled == tree.getArchivedRepresentation().isPresent(),
-        "Archived representation presence mismatched for: %s with archivedTreeArtifactsEnabled: %s",
-        tree,
-        archivedTreeArtifactsEnabled);
-
     treeArtifactData.put(output, tree);
   }
 

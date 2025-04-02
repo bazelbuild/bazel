@@ -492,7 +492,8 @@ public class ActionCacheChecker {
       InputMetadataProvider inputMetadataProvider,
       OutputMetadataStore outputMetadataStore,
       Map<String, String> remoteDefaultPlatformProperties,
-      @Nullable OutputChecker outputChecker)
+      @Nullable OutputChecker outputChecker,
+      boolean useArchivedTreeArtifacts)
       throws InterruptedException {
     // TODO(bazel-team): (2010) For RunfilesAction/SymlinkAction and similar actions that
     // produce only symlinks we should not check whether inputs are valid at all - all that matters
@@ -542,7 +543,8 @@ public class ActionCacheChecker {
         outputPermissions,
         remoteDefaultPlatformProperties,
         cachedOutputMetadata,
-        outputChecker)) {
+        outputChecker,
+        useArchivedTreeArtifacts)) {
       if (entry != null) {
         removeCacheEntry(action);
       }
@@ -574,7 +576,8 @@ public class ActionCacheChecker {
       OutputPermissions outputPermissions,
       Map<String, String> remoteDefaultPlatformProperties,
       @Nullable CachedOutputMetadata cachedOutputMetadata,
-      @Nullable OutputChecker outputChecker)
+      @Nullable OutputChecker outputChecker,
+      boolean useArchivedTreeArtifacts)
       throws InterruptedException {
     // Unconditional execution can be applied only for actions that are allowed to be executed.
     if (unconditionalExecution(action)) {
@@ -593,6 +596,11 @@ public class ActionCacheChecker {
     if (entry.isCorrupted()) {
       reportCorruptedCacheEntry(handler, action);
       actionCache.accountMiss(MissReason.CORRUPTED_CACHE_ENTRY);
+      return true;
+    }
+
+    if (entry.useArchivedTreeArtifacts() != useArchivedTreeArtifacts) {
+      // Invalidate cache entries produced with a different archived tree artifacts setting.
       return true;
     }
 
@@ -692,7 +700,8 @@ public class ActionCacheChecker {
       OutputMetadataStore outputMetadataStore,
       Map<String, String> clientEnv,
       OutputPermissions outputPermissions,
-      Map<String, String> remoteDefaultPlatformProperties)
+      Map<String, String> remoteDefaultPlatformProperties,
+      boolean useArchivedTreeArtifacts)
       throws IOException, InterruptedException {
     checkState(cacheConfig.enabled(), "cache unexpectedly disabled, action: %s", action);
     Preconditions.checkArgument(token != null, "token unexpectedly null, action: %s", action);
@@ -714,7 +723,12 @@ public class ActionCacheChecker {
 
     ActionCache.Entry entry =
         new ActionCache.Entry(
-            actionKey, usedEnvironment, action.discoversInputs(), outputPermissions);
+            actionKey,
+            usedEnvironment,
+            action.discoversInputs(),
+            outputPermissions,
+            useArchivedTreeArtifacts);
+
     for (Artifact output : action.getOutputs()) {
       // Remove old records from the cache if they used different key.
       String execPath = output.getExecPathString();
@@ -752,7 +766,10 @@ public class ActionCacheChecker {
           getInputMetadataMaybe(inputMetadataProvider, input),
           /* saveExecPath= */ !excludePathsFromActionCache.contains(input));
     }
+
+    // Call getFileDigest() for the side effect of compressing the entry and making it immutable.
     entry.getFileDigest();
+
     actionCache.put(key, entry);
   }
 
@@ -833,7 +850,8 @@ public class ActionCacheChecker {
       InputMetadataProvider inputMetadataProvider,
       OutputMetadataStore outputMetadataStore,
       Map<String, String> remoteDefaultPlatformProperties,
-      @Nullable OutputChecker outputChecker)
+      @Nullable OutputChecker outputChecker,
+      boolean useArchivedTreeArtifacts)
       throws InterruptedException {
     if (action != null) {
       removeCacheEntry(action);
@@ -847,7 +865,8 @@ public class ActionCacheChecker {
         inputMetadataProvider,
         outputMetadataStore,
         remoteDefaultPlatformProperties,
-        outputChecker);
+        outputChecker,
+        useArchivedTreeArtifacts);
   }
 
   /**

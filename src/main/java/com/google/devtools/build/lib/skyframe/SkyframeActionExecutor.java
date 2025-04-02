@@ -385,10 +385,26 @@ public final class SkyframeActionExecutor {
   }
 
   boolean useArchivedTreeArtifacts(ActionAnalysisMetadata action) {
+    // Check that the action produces at least one tree artifact to simplify downstream logic: we
+    // don't need to take archived tree artifacts into account if the action doesn't produce at
+    // least one of them.
+    return archivedTreeArtifactsEnabledForMnemonic(action) && hasTreeArtifactOutputs(action);
+  }
+
+  private boolean archivedTreeArtifactsEnabledForMnemonic(ActionAnalysisMetadata action) {
     return options
         .getOptions(CoreOptions.class)
         .archivedArtifactsMnemonicsFilter
         .test(action.getMnemonic());
+  }
+
+  private boolean hasTreeArtifactOutputs(ActionAnalysisMetadata action) {
+    for (Artifact output : action.getOutputs()) {
+      if (output.isTreeArtifact()) {
+        return true;
+      }
+    }
+    return false;
   }
 
   boolean publishTargetSummaries() {
@@ -706,7 +722,8 @@ public final class SkyframeActionExecutor {
               inputMetadataProvider,
               outputMetadataStore,
               remoteDefaultProperties,
-              outputChecker);
+              outputChecker,
+              useArchivedTreeArtifacts(action));
 
       if (token == null) {
         boolean eventPosted = false;
@@ -747,7 +764,8 @@ public final class SkyframeActionExecutor {
                     inputMetadataProvider,
                     outputMetadataStore,
                     remoteDefaultProperties,
-                    outputChecker);
+                    outputChecker,
+                    useArchivedTreeArtifacts(action));
           }
         }
 
@@ -804,7 +822,8 @@ public final class SkyframeActionExecutor {
           outputMetadataStore,
           clientEnv,
           getOutputPermissions(),
-          remoteDefaultProperties);
+          remoteDefaultProperties,
+          useArchivedTreeArtifacts(action));
     } catch (IOException e) {
       // Skyframe has already done all the filesystem access needed for outputs and swallows
       // IOExceptions for inputs. So an IOException is impossible here.
