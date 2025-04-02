@@ -652,10 +652,16 @@ public class LegacyIncludeScanner implements IncludeScanner {
       new ErrorClassifier() {
         @Override
         protected ErrorClassification classifyException(Exception e) {
-          return e instanceof ExecRuntimeException
-                  && e.getCause() instanceof LostInputsExecException
-              ? ErrorClassification.NOT_CRITICAL_HIGHER_PRIORITY
-              : ErrorClassification.NOT_CRITICAL;
+          return switch (e) {
+            case ExecRuntimeException exec ->
+                e.getCause() instanceof LostInputsExecException
+                    ? ErrorClassification.NOT_CRITICAL_HIGHER_PRIORITY
+                    : ErrorClassification.NOT_CRITICAL;
+            case UncheckedIOException io -> ErrorClassification.NOT_CRITICAL;
+            case InterruptedRuntimeException interrupt -> ErrorClassification.NOT_CRITICAL;
+            case RuntimeException runtime -> ErrorClassification.CRITICAL; // Probably a crash.
+            default -> ErrorClassification.NOT_CRITICAL;
+          };
         }
       };
 
