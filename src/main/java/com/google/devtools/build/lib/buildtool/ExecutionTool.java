@@ -19,6 +19,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Predicate;
 import com.google.common.base.Stopwatch;
 import com.google.common.base.Throwables;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -100,6 +101,7 @@ import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.SomeExecutionStartedEvent;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.vfs.BulkDeleter;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.Path;
@@ -294,7 +296,7 @@ public class ExecutionTool {
     if (localActionsSupported) {
       // Must be created after the output path is created above.
       try (SilentCloseable c = Profiler.instance().profile("createActionLogDirectory")) {
-        createActionLogDirectory();
+        createActionLogDirectory(outputService.bulkDeleter());
       }
     }
 
@@ -391,7 +393,7 @@ public class ExecutionTool {
 
     if (outputService.actionFileSystemType().shouldDoTopLevelOutputSetup()) {
       // Must be created after the output path is created above.
-      createActionLogDirectory();
+      createActionLogDirectory(outputService.bulkDeleter());
     }
 
     buildResult.setConvenienceSymlinks(
@@ -678,11 +680,16 @@ public class ExecutionTool {
     }
   }
 
-  private void createActionLogDirectory() throws AbruptExitException {
+  private void createActionLogDirectory(@Nullable BulkDeleter bulkDeleter)
+      throws AbruptExitException, InterruptedException {
     Path directory = env.getActionTempsDirectory();
     if (directory.exists()) {
       try (SilentCloseable c = Profiler.instance().profile("directory.deleteTree")) {
-        directory.deleteTree();
+        if (bulkDeleter != null) {
+          bulkDeleter.bulkDelete(ImmutableList.of(directory.relativeTo(getExecRoot())));
+        } else {
+          directory.deleteTree();
+        }
       } catch (IOException e) {
         // TODO(b/140567980): Remove when we determine the cause of occasional deleteTree() failure.
         logDeleteTreeFailure(directory, "action output directory", e);
