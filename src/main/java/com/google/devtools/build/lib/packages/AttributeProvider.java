@@ -379,8 +379,6 @@ public class AttributeProvider {
                   : targetDefinitionContext.getPartialPackageArgs().license(),
               /* explicit= */ false);
 
-        } else if (attr.getName().equals("distribs") && attr.getType() == BuildType.DISTRIBUTIONS) {
-          ruleInstance.setAttributeValue(attr, License.DEFAULT_DISTRIB, /* explicit= */ false);
         }
         // Don't store default values, querying materializes them at read time.
       }

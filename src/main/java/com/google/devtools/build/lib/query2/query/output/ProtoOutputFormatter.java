@@ -562,7 +562,6 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
         || attrType == BuildType.NODEP_LABEL_LIST
         || attrType == BuildType.DORMANT_LABEL_LIST
         || attrType == BuildType.OUTPUT_LIST
-        || attrType == BuildType.DISTRIBUTIONS
         || attrType == Types.INTEGER_LIST) {
       ImmutableList.Builder<Object> builder = ImmutableList.builder();
       for (Object possibleValue : possibleValues) {

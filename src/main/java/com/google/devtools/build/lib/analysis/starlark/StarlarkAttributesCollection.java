@@ -222,7 +222,7 @@ public class StarlarkAttributesCollection implements StarlarkAttributesCollectio
 
       // Some legacy native attribute types do not have a valid Starlark type. Avoid exposing
       // these to Starlark.
-      if (type == BuildType.DISTRIBUTIONS || type == BuildType.TRISTATE) {
+      if (type == BuildType.TRISTATE) {
         return true;
       }
 

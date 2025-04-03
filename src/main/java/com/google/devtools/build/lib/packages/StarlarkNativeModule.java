@@ -696,15 +696,6 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
       // Do not expose hidden or implicit attributes.
       return false;
     }
-    if (attributeName.equals("distribs")) {
-      Attribute attr = ruleClass.getAttributeProvider().getAttributeByName(attributeName);
-      if (attr != null && attr.getType() == BuildType.DISTRIBUTIONS) {
-        // "distribs" attribute (a Set<License.DistributionType> value) is not a StarlarkValue. Note
-        // that we cannot check for a Set<License.DistributionType> directly because generic type
-        // info is erased at runime.
-        return false;
-      }
-    }
     return true;
   }
 

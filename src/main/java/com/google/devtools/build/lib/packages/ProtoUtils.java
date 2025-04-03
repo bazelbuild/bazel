@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.packages;
 
-import static com.google.devtools.build.lib.packages.BuildType.DISTRIBUTIONS;
 import static com.google.devtools.build.lib.packages.BuildType.DORMANT_LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.DORMANT_LABEL_LIST;
 import static com.google.devtools.build.lib.packages.BuildType.GENQUERY_SCOPE_TYPE;
@@ -49,7 +48,6 @@ public class ProtoUtils {
   private static final ImmutableMap<Type<?>, Discriminator> TYPE_MAP =
       new ImmutableMap.Builder<Type<?>, Discriminator>()
           .put(INTEGER, Discriminator.INTEGER)
-          .put(DISTRIBUTIONS, Discriminator.DISTRIBUTION_SET)
           .put(LABEL, Discriminator.LABEL)
           // NODEP_LABEL attributes are not really strings. This is implemented
           // this way for the sake of backward compatibility.

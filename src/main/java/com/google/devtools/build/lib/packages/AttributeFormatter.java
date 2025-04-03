@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages;
 
-import static com.google.devtools.build.lib.packages.BuildType.DISTRIBUTIONS;
 import static com.google.devtools.build.lib.packages.BuildType.DORMANT_LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.DORMANT_LABEL_LIST;
 import static com.google.devtools.build.lib.packages.BuildType.GENQUERY_SCOPE_TYPE;
@@ -71,8 +70,7 @@ public class AttributeFormatter {
           LABEL_LIST,
           LABEL_DICT_UNARY,
           LABEL_KEYED_STRING_DICT,
-          OUTPUT_LIST,
-          DISTRIBUTIONS);
+          OUTPUT_LIST);
 
   private static final ImmutableSet<Type<?>> noDepTypes =
       ImmutableSet.of(NODEP_LABEL_LIST, NODEP_LABEL);
@@ -220,7 +218,7 @@ public class AttributeFormatter {
         || type == GENQUERY_SCOPE_TYPE
         || type == DORMANT_LABEL) {
       builder.setStringValue(internalToUnicode(labelPrinter.toString((Label) value)));
-    } else if (type == STRING_LIST || type == DISTRIBUTIONS) {
+    } else if (type == STRING_LIST) {
       for (Object entry : (Collection<?>) value) {
         builder.addStringListValue(internalToUnicode(entry.toString()));
       }

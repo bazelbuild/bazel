@@ -354,7 +354,7 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
         licenseTypes.setAttribute("name", "license-types");
         elem.appendChild(licenseTypes);
       }
-    } else { // INTEGER STRING LABEL DISTRIBUTION OUTPUT
+    } else { // INTEGER STRING LABEL OUTPUT
       elem = createSingleValueElement(doc, type.toString(), hasMultipleValues);
       if (!hasMultipleValues && !Iterables.isEmpty(values)) {
         Object value = Iterables.getOnlyElement(values);

@@ -170,9 +170,6 @@ public final class BuildLanguageInfoItem extends InfoItem {
     } else if (t == BuildType.LICENSE) {
       // TODO(adonovan): need dual function of parseLicense.
       // Treat as empty list for now.
-    } else if (t == BuildType.DISTRIBUTIONS) {
-      // TODO(adonovan): need dual function of parseDistributions.
-      // Treat as empty list for now.
     } else if (t == Type.STRING) {
       b.setString(StringEncoding.internalToUnicode((String) v));
     } else if (t == Type.INTEGER) {

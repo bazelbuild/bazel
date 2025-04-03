@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.analysis;
 
 import static com.google.devtools.build.lib.packages.Attribute.attr;
-import static com.google.devtools.build.lib.packages.BuildType.DISTRIBUTIONS;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.BuildType.LICENSE;
@@ -61,9 +60,7 @@ import com.google.devtools.build.lib.util.FileTypeSet;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.StarlarkInt;
 
-/**
- * Rule class definitions used by (almost) every rule.
- */
+/** Rule class definitions used by (almost) every rule. */
 public class BaseRuleClasses {
 
   private BaseRuleClasses() {}
@@ -208,9 +205,7 @@ public class BaseRuleClasses {
             return config.getRunUnder() instanceof LabelRunUnder runUnder ? runUnder.label() : null;
           });
 
-  /**
-   * A base rule for all test rules.
-   */
+  /** A base rule for all test rules. */
   public static final class TestBaseRule implements RuleDefinition {
     @Override
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
@@ -463,8 +458,8 @@ public class BaseRuleClasses {
               attr("licenses", LICENSE)
                   .nonconfigurable("Used in core loading phase logic with no access to configs"))
           .add(
-              attr("distribs", DISTRIBUTIONS)
-                  .nonconfigurable("Used in core loading phase logic with no access to configs"))
+              // TODO: b/148549967 - Remove for Bazel 9.0
+              attr("distribs", STRING_LIST).nonconfigurable("deprecated - no op"))
           // Any rule that provides its own meaning for the "target_compatible_with" attribute
           // has to be excluded in `IncompatibleTargetChecker`.
           .add(
@@ -487,9 +482,7 @@ public class BaseRuleClasses {
     }
   }
 
-  /**
-   * A rule that contains a {@code variables=} attribute to allow referencing Make variables.
-   */
+  /** A rule that contains a {@code variables=} attribute to allow referencing Make variables. */
   public static final class MakeVariableExpandingRule implements RuleDefinition {
     @Override
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {

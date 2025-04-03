@@ -344,8 +344,7 @@ public final class MacroClass {
     return attr.hasComputedDefault()
         || attr.isLateBound()
         || attr.isMaterializing()
-        || attr.getType() == BuildType.LICENSE
-        || attr.getType() == BuildType.DISTRIBUTIONS;
+        || attr.getType() == BuildType.LICENSE;
   }
 
   /**

@@ -88,50 +88,6 @@ public final class License implements LicenseApi {
   public static final License NO_LICENSE =
       new License(ImmutableSet.of(LicenseType.NONE), ImmutableSet.of());
 
-  /**
-   * A default instance of Distributions which is used for packages which
-   * have no "distribs" declaration. If nothing is declared, we opt for the
-   * most permissive kind of distribution, which is the internal-only distrib.
-   */
-  public static final Set<DistributionType> DEFAULT_DISTRIB =
-      Collections.singleton(DistributionType.INTERNAL);
-
-  /**
-   * The types of distribution that are supported.
-   */
-  public enum DistributionType {
-    INTERNAL,
-    WEB,
-    CLIENT,
-    EMBEDDED
-  }
-
-  /**
-   * Parses a set of strings declaring distribution types.
-   *
-   * @param distStrings strings containing distribution declarations from BUILD
-   *        files
-   * @return a new, unmodifiable set of DistributionTypes
-   * @throws LicenseParsingException
-   */
-  public static Set<DistributionType> parseDistributions(Collection<String> distStrings)
-      throws LicenseParsingException {
-    if (distStrings.isEmpty()) {
-      return Collections.unmodifiableSet(EnumSet.of(DistributionType.INTERNAL));
-    } else {
-      Set<DistributionType> result = EnumSet.noneOf(DistributionType.class);
-      for (String distStr : distStrings) {
-        try {
-          DistributionType dist = DistributionType.valueOf(distStr.toUpperCase(Locale.ENGLISH));
-          result.add(dist);
-        } catch (IllegalArgumentException e) {
-          throw new LicenseParsingException("Invalid distribution type '" + distStr + "'");
-        }
-      }
-      return Collections.unmodifiableSet(result);
-    }
-  }
-
   private License(ImmutableSet<LicenseType> licenseTypes, ImmutableSet<Label> exceptions) {
     // Defensive copy is done in .of()
     this.licenseTypes = licenseTypes;
