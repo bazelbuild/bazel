@@ -708,55 +708,25 @@ public class FileSystemUtils {
     asByteSink(outputFile).write(content);
   }
 
-  /**
-   * Writes lines to file using the given encoding, ending every line with a system specific line
-   * break character.
-   */
+  /** Writes lines to file using the given encoding, ending every line with '\n'. */
   @ThreadSafe // but not atomic
   public static void writeLinesAs(Path file, Charset charset, String... lines) throws IOException {
     writeLinesAs(file, charset, Arrays.asList(lines));
   }
 
-  /**
-   * Writes lines to file using the given encoding, ending every line with a system specific line
-   * break character.
-   */
+  /** Writes lines to file using the given encoding, ending every line with '\n'. */
   @ThreadSafe // but not atomic
   public static void writeLinesAs(Path file, Charset charset, Iterable<String> lines)
       throws IOException {
     file.getParentDirectory().createDirectoryAndParents();
-    asByteSink(file).asCharSink(charset).writeLines(lines);
+    asByteSink(file).asCharSink(charset).writeLines(lines, "\n");
   }
 
-  /**
-   * Writes lines to file using the given encoding, ending every line with a given line break
-   * character.
-   */
-  @ThreadSafe // but not atomic
-  public static void writeLinesAs(
-      Path file, Charset charset, Iterable<String> lines, String lineBreak) throws IOException {
-    file.getParentDirectory().createDirectoryAndParents();
-    asByteSink(file).asCharSink(charset).writeLines(lines, lineBreak);
-  }
-
-  /**
-   * Appends lines to file using the given encoding, ending every line with a system specific line
-   * break character.
-   */
+  /** Appends lines to file using the given encoding, ending every line with '\n'. */
   @ThreadSafe // but not atomic
   public static void appendLinesAs(Path file, Charset charset, String... lines) throws IOException {
-    appendLinesAs(file, charset, Arrays.asList(lines));
-  }
-
-  /**
-   * Appends lines to file using the given encoding, ending every line with a system specific line
-   * break character.
-   */
-  @ThreadSafe // but not atomic
-  public static void appendLinesAs(Path file, Charset charset, Iterable<String> lines)
-      throws IOException {
     file.getParentDirectory().createDirectoryAndParents();
-    asByteSink(file, true).asCharSink(charset).writeLines(lines);
+    asByteSink(file, true).asCharSink(charset).writeLines(Arrays.asList(lines), "\n");
   }
 
   /**
