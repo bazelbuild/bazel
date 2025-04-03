@@ -419,7 +419,9 @@ public class RewindingTestsHelper {
     var e = assertThrows(BuildFailedException.class, () -> testCase.buildTarget("//foo:top"));
     assertThat(e.getDetailedExitCode().getFailureDetail().getActionRewinding().getCode())
         .isEqualTo(ActionRewinding.Code.LOST_INPUT_REWINDING_DISABLED);
-    testCase.assertContainsError("Executing genrule //foo:top failed: lost inputs with digests");
+    testCase.assertContainsError(
+        "Executing genrule //foo:top failed: Unexpected lost inputs (pass"
+            + " --rewind_lost_inputs to enable recovery): foo/dep.out");
   }
 
   /**

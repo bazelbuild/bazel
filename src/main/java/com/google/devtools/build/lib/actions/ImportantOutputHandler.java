@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.time.Duration;
 import java.util.Collection;
 import java.util.Map;
+import java.util.Optional;
 
 /** Context to be informed of top-level outputs and their runfiles. */
 public interface ImportantOutputHandler extends ActionContext {
@@ -107,9 +108,16 @@ public interface ImportantOutputHandler extends ActionContext {
   Duration LOG_THRESHOLD = Duration.ofMillis(100);
 
   /**
-   * Represents artifacts that need to be regenerated via action rewinding, along with their owners.
+   * Represents artifacts that need to be regenerated via action rewinding, optionally along with
+   * their owners if known. If {@code owners} is present, the ownership information must be
+   * complete.
    */
-  record LostArtifacts(ImmutableMap<String, ActionInput> byDigest, LostInputOwners owners) {
+  record LostArtifacts(
+      ImmutableMap<String, ActionInput> byDigest, Optional<LostInputOwners> owners) {
+
+    /** An empty instance of {@link LostArtifacts}. */
+    public static final LostArtifacts EMPTY =
+        new LostArtifacts(ImmutableMap.of(), Optional.of(new LostInputOwners()));
 
     public LostArtifacts {
       checkNotNull(byDigest);
@@ -118,6 +126,13 @@ public interface ImportantOutputHandler extends ActionContext {
 
     public boolean isEmpty() {
       return byDigest.isEmpty();
+    }
+
+    /** Throws {@link LostInputsExecException} if this instance is not empty. */
+    public void throwIfNotEmpty() throws LostInputsExecException {
+      if (!isEmpty()) {
+        throw new LostInputsExecException(byDigest, owners, /* cause= */ null);
+      }
     }
   }
 

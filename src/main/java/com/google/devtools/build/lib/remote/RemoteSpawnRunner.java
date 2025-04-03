@@ -34,13 +34,11 @@ import build.bazel.remote.execution.v2.ExecutionStage.Value;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.CommandLines.ParamFileActionInput;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
-import com.google.devtools.build.lib.actions.LostInputsExecException;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.SpawnResult;
@@ -596,11 +594,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
     // remotely, try to regenerate the lost inputs. This doesn't make sense for outputs of the
     // current action.
     if (reason == FailureReason.UPLOAD && cause instanceof BulkTransferException e) {
-      ImmutableMap<String, ActionInput> lostInputs =
-          e.getLostInputs(context.getInputMetadataProvider()::getInput);
-      if (!lostInputs.isEmpty()) {
-        throw new LostInputsExecException(lostInputs);
-      }
+      e.getLostArtifacts(context.getInputMetadataProvider()::getInput).throwIfNotEmpty();
     }
     if (remoteOptions.remoteLocalFallback && !RemoteRetrierUtils.causedByExecTimeout(cause)) {
       return execLocallyAndUpload(action, spawn, context, uploadLocalResults);

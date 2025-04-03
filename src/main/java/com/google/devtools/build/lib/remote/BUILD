@@ -39,6 +39,7 @@ java_library(
             "LeaseService.java",
             "Scrubber.java",
             "Store.java",
+            "RemoteImportantOutputHandler.java",
         ],
     ),
     exports = [
@@ -52,6 +53,7 @@ java_library(
         ":Retrier",
         ":abstract_action_input_prefetcher",
         ":lease_service",
+        ":remote_important_output_handler",
         ":remote_output_checker",
         ":scrubber",
         ":store",
@@ -67,6 +69,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
         "//src/main/java/com/google/devtools/build/lib/actions:fileset_output_tree",
         "//src/main/java/com/google/devtools/build/lib/actions:forbidden_action_input_exception",
+        "//src/main/java/com/google/devtools/build/lib/actions:important_output_handler",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
@@ -112,6 +115,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/remote/zstd",
         "//src/main/java/com/google/devtools/build/lib/skyframe:action_execution_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_cluster",
         "//src/main/java/com/google/devtools/build/lib/skyframe:tree_artifact_value",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
@@ -286,4 +290,23 @@ java_library(
 java_library(
     name = "store",
     srcs = ["Store.java"],
+)
+
+java_library(
+    name = "remote_important_output_handler",
+    srcs = ["RemoteImportantOutputHandler.java"],
+    deps = [
+        ":remote_output_checker",
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
+        "//src/main/java/com/google/devtools/build/lib/actions:important_output_handler",
+        "//src/main/java/com/google/devtools/build/lib/remote/common:bulk_transfer_exception",
+        "//src/main/java/com/google/devtools/build/lib/remote/util",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/java/com/google/devtools/build/skyframe",
+        "//src/main/protobuf:failure_details_java_proto",
+        "//third_party:guava",
+    ],
 )

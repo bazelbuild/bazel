@@ -23,6 +23,7 @@ import com.google.common.collect.Iterators;
 import com.google.common.escape.Escaper;
 import com.google.common.escape.Escapers;
 import com.google.common.flogger.GoogleLogger;
+import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.vfs.OsPathPolicy;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -181,7 +182,7 @@ public final class Actions {
   }
 
   private static void verifyGeneratingActionKeys(
-      Artifact.DerivedArtifact output,
+      DerivedArtifact output,
       ActionLookupData otherKey,
       boolean allowSharedAction,
       ActionKeyContext actionKeyContext,
@@ -218,7 +219,7 @@ public final class Actions {
       ActionLookupKey actionLookupKey,
       boolean allowSharedAction)
       throws ActionConflictException, InterruptedException, ArtifactGeneratedByOtherRuleException {
-    Map<PathFragment, Artifact.DerivedArtifact> seenArtifacts = new HashMap<>();
+    Map<PathFragment, DerivedArtifact> seenArtifacts = new HashMap<>();
     // Loop over the actions, looking at all outputs for conflicts.
     int actionIndex = 0;
     for (ActionAnalysisMetadata action : actions) {
@@ -236,10 +237,9 @@ public final class Actions {
             artifact,
             generatingActionKey,
             action);
-        Artifact.DerivedArtifact output = (Artifact.DerivedArtifact) artifact;
+        DerivedArtifact output = (DerivedArtifact) artifact;
         // Has an artifact with this execPath been seen before?
-        Artifact.DerivedArtifact equalOutput =
-            seenArtifacts.putIfAbsent(output.getExecPath(), output);
+        DerivedArtifact equalOutput = seenArtifacts.putIfAbsent(output.getExecPath(), output);
         if (equalOutput != null) {
           // Yes: assert that its generating action and this artifact's are compatible.
           verifyGeneratingActionKeys(
@@ -412,7 +412,13 @@ public final class Actions {
       return null;
     }
 
-    return getAction(graph, ((Artifact.DerivedArtifact) artifact).getGeneratingActionKey());
+    return getGeneratingAction(graph, (DerivedArtifact) artifact);
+  }
+
+  @Nullable
+  public static ActionAnalysisMetadata getGeneratingAction(
+      WalkableGraph graph, DerivedArtifact artifact) throws InterruptedException {
+    return getAction(graph, artifact.getGeneratingActionKey());
   }
 
   public static ActionAnalysisMetadata getAction(

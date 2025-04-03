@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.remote;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
 import static com.google.devtools.build.lib.remote.util.Utils.waitForBulkTransfer;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
@@ -72,7 +73,6 @@ import com.google.devtools.common.options.Options;
 import com.google.protobuf.ByteString;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.nio.charset.StandardCharsets;
 import java.util.Deque;
 import java.util.Map;
 import java.util.SortedMap;
@@ -228,7 +228,7 @@ public class CombinedCacheTest {
     final ConcurrentMap<Digest, byte[]> cas = new ConcurrentHashMap<>();
 
     Digest helloDigest = digestUtil.computeAsUtf8("hello-contents");
-    cas.put(helloDigest, "hello-contents".getBytes(StandardCharsets.UTF_8));
+    cas.put(helloDigest, "hello-contents".getBytes(UTF_8));
 
     Path file = fs.getPath("/execroot/symlink-to-file");
     RemoteOptions options = Options.getDefaults(RemoteOptions.class);
@@ -364,7 +364,7 @@ public class CombinedCacheTest {
                     ImmutableMap.of(),
                     false,
                     new RemotePathResolver.DefaultRemotePathResolver(execRoot)));
-    assertThat(e.getLostInputs(ActionInputHelper::fromPath))
+    assertThat(e.getLostArtifacts(ActionInputHelper::fromPath).byDigest())
         .containsExactly(
             DigestUtil.toString(digestUtil.computeAsUtf8("bar")),
             ActionInputHelper.fromPath("foo"));
