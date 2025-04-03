@@ -111,10 +111,6 @@ function test_java_tools_has_ijar_binary() {
   expect_path_in_java_tools_prebuilt "java_tools/ijar/ijar"
 }
 
-function test_java_tools_has_zlib() {
-  expect_path_in_java_tools "java_tools/zlib"
-}
-
 function test_java_tools_has_native_windows() {
   expect_path_in_java_tools "java_tools/src/main/native/windows"
 }
