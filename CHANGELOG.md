@@ -1,3 +1,18 @@
+## Release 9.0.0-pre.20250327.3 (2025-04-03)
+
+```
+Baseline: c0dd034180b6e1d0d91497d51c9b537f0965e1bb
+
+Cherry picks:
+
+   + fa6b1b7ec8deb727d437cd6f7f0324bfc7a6d6b8:
+     Reverse a RAM regression introduced by
+     https://github.com/bazelbuild/bazel/commit/7e538803d775929beb3c9a
+     f1cd2e87667d373bbe
+```
+
+This release contains contributions from many people at Google, as well as Fabian Meumertzheim, Jon Shea, Keith Smiley, Pelikan.B, Roman Salvador, Yannic.
+
 ## Release 7.6.1 (2025-03-31)
 
 ```
