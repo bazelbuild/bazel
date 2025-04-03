@@ -165,7 +165,6 @@ public final class LinuxSandboxedSpawnRunnerTest extends SandboxedSpawnRunnerTes
 
   @Test
   public void hermeticTmp_tmpCreatedAndMounted() throws Exception {
-    runtimeWrapper.addOptions("--incompatible_sandbox_hermetic_tmp");
     CommandEnvironment commandEnvironment = createCommandEnvironment();
     LinuxSandboxedSpawnRunner runner = setupSandboxAndCreateRunner(commandEnvironment);
     Spawn spawn = new SpawnBuilder().build();
@@ -184,7 +183,7 @@ public final class LinuxSandboxedSpawnRunnerTest extends SandboxedSpawnRunnerTes
 
   @Test
   public void hermeticTmp_sandboxTmpfsOnTmp_tmpNotCreatedOrMounted() throws Exception {
-    runtimeWrapper.addOptions("--incompatible_sandbox_hermetic_tmp", "--sandbox_tmpfs_path=/tmp");
+    runtimeWrapper.addOptions("--sandbox_tmpfs_path=/tmp");
     CommandEnvironment commandEnvironment = createCommandEnvironment();
     LinuxSandboxedSpawnRunner runner = setupSandboxAndCreateRunner(commandEnvironment);
     Spawn spawn = new SpawnBuilder().build();
