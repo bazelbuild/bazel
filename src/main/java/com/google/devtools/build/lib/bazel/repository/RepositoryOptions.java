@@ -215,7 +215,7 @@ public class RepositoryOptions extends OptionsBase {
               + "by either a host name (for `allow` and `block`) or two patterns, one to match "
               + "against, and one to use as a substitute URL, with back-references starting from "
               + "`$1`. It is possible for multiple `rewrite` directives for the same URL to be "
-              + "give, and in this case multiple URLs will be returned.")
+              + "given, and in this case multiple URLs will be returned.")
   public PathFragment downloaderConfig;
 
   /** See {@link #workerForRepoFetching}. */
