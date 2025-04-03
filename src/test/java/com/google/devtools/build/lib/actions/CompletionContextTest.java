@@ -115,8 +115,12 @@ public final class CompletionContextTest {
     ArtifactReceiver receiver = mock(ArtifactReceiver.class);
     ctx.visitArtifacts(ImmutableList.of(fileset), receiver);
     InOrder inOrder = inOrder(receiver);
-    inOrder.verify(receiver).acceptFilesetMapping(fileset, PathFragment.create("a1"), b1.getPath());
-    inOrder.verify(receiver).acceptFilesetMapping(fileset, PathFragment.create("a2"), b2.getPath());
+    inOrder
+        .verify(receiver)
+        .acceptFilesetMapping(fileset, PathFragment.create("a1"), b1.getPath(), DUMMY_METADATA);
+    inOrder
+        .verify(receiver)
+        .acceptFilesetMapping(fileset, PathFragment.create("a2"), b2.getPath(), DUMMY_METADATA);
   }
 
   private static List<Artifact> visit(CompletionContext ctx, Artifact artifact) {
@@ -131,7 +135,7 @@ public final class CompletionContextTest {
 
           @Override
           public void acceptFilesetMapping(
-              Artifact fileset, PathFragment relName, Path targetFile) {
+              Artifact fileset, PathFragment relName, Path targetFile, FileArtifactValue metadata) {
             throw new AssertionError(fileset);
           }
         });

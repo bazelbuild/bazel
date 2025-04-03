@@ -156,7 +156,8 @@ public final class CompletionContext {
             filesetArtifact,
             filesets.keySet());
     for (FilesetOutputSymlink link : filesetOutput.symlinks()) {
-      receiver.acceptFilesetMapping(filesetArtifact, link.name(), link.target().getPath());
+      receiver.acceptFilesetMapping(
+          filesetArtifact, link.name(), link.target().getPath(), link.metadata());
     }
   }
 
@@ -164,7 +165,8 @@ public final class CompletionContext {
   public interface ArtifactReceiver {
     void accept(Artifact artifact);
 
-    void acceptFilesetMapping(Artifact fileset, PathFragment relName, Path targetFile);
+    void acceptFilesetMapping(
+        Artifact fileset, PathFragment relName, Path targetFile, FileArtifactValue metadata);
   }
 
   /** A factory for {@link ArtifactPathResolver}. */

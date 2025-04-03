@@ -346,7 +346,10 @@ public final class TargetCompleteEvent
 
           @Override
           public void acceptFilesetMapping(
-              Artifact fileset, PathFragment relativePath, Path targetFile) {
+              Artifact fileset,
+              PathFragment relativePath,
+              Path targetFile,
+              FileArtifactValue metadata) {
             throw new IllegalStateException(fileset + " should have been filtered out");
           }
         });
@@ -422,7 +425,10 @@ public final class TargetCompleteEvent
 
               @Override
               public void acceptFilesetMapping(
-                  Artifact fileset, PathFragment name, Path targetFile) {
+                  Artifact fileset,
+                  PathFragment name,
+                  Path targetFile,
+                  FileArtifactValue metadata) {
                 throw new IllegalStateException(fileset + " should have been filtered out");
               }
             });
