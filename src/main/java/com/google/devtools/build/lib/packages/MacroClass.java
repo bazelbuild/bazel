@@ -193,7 +193,9 @@ public final class MacroClass {
   // TODO(#19922): Consider reporting multiple events instead of failing on the first one. See
   // analogous implementation in RuleClass#populateDefinedRuleAttributeValues.
   private MacroInstance instantiateMacro(
-      TargetDefinitionContext targetDefinitionContext, Map<String, Object> kwargs)
+      TargetDefinitionContext targetDefinitionContext,
+      Map<String, Object> kwargs,
+      ImmutableList<StarlarkThread.CallStackEntry> parentThreadCallStack)
       throws LabelSyntaxException,
           EvalException,
           InterruptedException,
@@ -322,7 +324,9 @@ public final class MacroClass {
 
     BuildLangTypedAttributeValuesMap attributeValues =
         new BuildLangTypedAttributeValuesMap(attrValues.buildImmutable());
-    MacroInstance macroInstance = targetDefinitionContext.createMacro(this, name, sameNameDepth);
+
+    MacroInstance macroInstance =
+        targetDefinitionContext.createMacro(this, name, sameNameDepth, parentThreadCallStack);
     attributeProvider.populateRuleAttributeValues(
         macroInstance,
         targetDefinitionContext,
@@ -356,12 +360,18 @@ public final class MacroClass {
    * @param kwargs A map from attribute name to its given Starlark value, such as passed in a BUILD
    *     file (i.e., prior to attribute type conversion, {@code select()} promotion, default value
    *     substitution, or even validation that the attribute exists).
+   * @param parentThreadCallStack The call stack of the Starlark thread in whose context the macro
+   *     instance is being constructed. This is *not* the thread that will execute the macro's
+   *     implementation function.
    */
   public MacroInstance instantiateAndAddMacro(
-      TargetDefinitionContext targetDefinitionContext, Map<String, Object> kwargs)
+      TargetDefinitionContext targetDefinitionContext,
+      Map<String, Object> kwargs,
+      ImmutableList<StarlarkThread.CallStackEntry> parentThreadCallStack)
       throws EvalException, InterruptedException {
     try {
-      MacroInstance macroInstance = instantiateMacro(targetDefinitionContext, kwargs);
+      MacroInstance macroInstance =
+          instantiateMacro(targetDefinitionContext, kwargs, parentThreadCallStack);
       targetDefinitionContext.addMacro(macroInstance);
       return macroInstance;
     } catch (LabelSyntaxException | NameConflictException | CannotPrecomputeDefaultsException e) {

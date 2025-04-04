@@ -269,17 +269,20 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
         """);
 
     Rule withMacro = getRuleForTarget("macro_target");
+    assertThat(withMacro.isRuleCreatedInMacro()).isTrue();
     assertThat(withMacro.getAttr("generator_name")).isEqualTo("macro_target");
     assertThat(withMacro.getAttr("generator_function")).isEqualTo("macro");
     assertThat(withMacro.getAttr("generator_location")).isEqualTo("test/starlark/BUILD:3:11");
 
     // Attributes are only set when the rule was created by a macro
     Rule noMacro = getRuleForTarget("no_macro_target");
+    assertThat(noMacro.isRuleCreatedInMacro()).isFalse();
     assertThat(noMacro.getAttr("generator_name")).isEqualTo("");
     assertThat(noMacro.getAttr("generator_function")).isEqualTo("");
     assertThat(noMacro.getAttr("generator_location")).isEqualTo("");
 
     Rule nativeMacro = getRuleForTarget("native_macro_target_suffix");
+    assertThat(nativeMacro.isRuleCreatedInMacro()).isTrue();
     assertThat(nativeMacro.getAttr("generator_name")).isEqualTo("native_macro_target");
     assertThat(nativeMacro.getAttr("generator_function")).isEqualTo("native_macro");
     assertThat(nativeMacro.getAttr("generator_location")).isEqualTo("test/starlark/BUILD:5:18");

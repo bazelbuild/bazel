@@ -1495,7 +1495,8 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
         throw Starlark.errorf("unexpected positional arguments");
       }
 
-      MacroInstance macroInstance = macroClass.instantiateAndAddMacro(pkgBuilder, kwargs);
+      MacroInstance macroInstance =
+          macroClass.instantiateAndAddMacro(pkgBuilder, kwargs, thread.getCallStack());
 
       // Evaluate the macro now, if it's not a finalizer. Finalizer evaluation will be deferred to
       // the end of the BUILD file evaluation.

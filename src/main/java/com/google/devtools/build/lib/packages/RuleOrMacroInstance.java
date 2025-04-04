@@ -304,10 +304,11 @@ public abstract class RuleOrMacroInstance implements DependencyFilter.AttributeI
     if (attrName.equals(NAME)) {
       return true;
     }
-    if (attrName.equals(GENERATOR_FUNCTION)
-        || attrName.equals(GENERATOR_LOCATION)
-        || attrName.equals(GENERATOR_NAME)) {
-      return isRuleCreatedInLegacyMacro();
+    if ((attrName.equals(GENERATOR_FUNCTION)
+            || attrName.equals(GENERATOR_LOCATION)
+            || attrName.equals(GENERATOR_NAME))
+        && isRuleInstance()) {
+      return isRuleCreatedInMacro();
     }
     Integer attrIndex = getAttributeProvider().getAttributeIndex(attrName);
     if (attrIndex == null) {
@@ -326,10 +327,10 @@ public abstract class RuleOrMacroInstance implements DependencyFilter.AttributeI
   public abstract boolean isRuleInstance();
 
   /**
-   * Returns whether this is a rule (v. macro) that was created by a legacy (not symbolic) macro.
+   * Returns whether this is a rule (v. macro) that was created by a legacy or symbolic macro.
    * Always false for macro instances; sometimes true for rules.
    */
-  public abstract boolean isRuleCreatedInLegacyMacro();
+  public abstract boolean isRuleCreatedInMacro();
 
   /** Returns index into {@link #attrBytes} for {@code attrIndex}, or -1 if not found */
   int binarySearchAttrBytes(int start, int attrIndex, int mask) {

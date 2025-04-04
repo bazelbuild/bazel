@@ -39,6 +39,8 @@ import com.google.testing.junit.testparameterinjector.TestParameters;
 import java.util.ArrayList;
 import java.util.List;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.syntax.Location;
 import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -1986,6 +1988,165 @@ my_macro = macro(
     assertContainsEvent(
         "a rule or macro callable must be assigned to a global variable in a .bzl file before it"
             + " can be inherited from");
+  }
+
+  @Test
+  public void generatorInfoAndCallStack_atTopLevel() throws Exception {
+    // cc_binary_legacy_macro is a legacy macro instantiating a cc_binary rule.
+    scratch.file(
+        "pkg/inner_legacy_macro.bzl",
+        """
+        def inner_legacy_macro(name, **kwargs):
+              native.cc_binary(name = name, **kwargs)
+        """);
+    // my_macro is a symbolic macro that instantiates 2 cc_binary rules: one directly, and one
+    // wrapped by cc_binary_legacy_macro.
+    scratch.file(
+        "pkg/my_macro.bzl",
+        """
+        load(":inner_legacy_macro.bzl", "inner_legacy_macro")
+
+        def _impl(name, visibility, **kwargs):
+            native.cc_binary(name = name + "_lib")
+            inner_legacy_macro(name  = name + "_legacy_macro_lib")
+
+        my_macro = macro(implementation = _impl)
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load(":my_macro.bzl", "my_macro")
+
+        my_macro(name = "foo")
+        """);
+
+    Package pkg = getPackage("pkg");
+    assertPackageNotInError(pkg);
+    MacroInstance foo = getMacroById(pkg, "foo:1");
+    assertThat(foo.getBuildFileLocation())
+        .isEqualTo(Location.fromFileLineColumn("/workspace/pkg/BUILD", 3, 9));
+    assertThat(foo.reconstructParentCallStack())
+        .containsExactly(
+            StarlarkThread.callStackEntry(StarlarkThread.TOP_LEVEL, foo.getBuildFileLocation()),
+            StarlarkThread.callStackEntry("my_macro", Location.BUILTIN))
+        .inOrder();
+
+    Rule fooLib = pkg.getRule("foo_lib");
+    assertThat(fooLib.isRuleCreatedInMacro()).isTrue();
+    assertThat(fooLib.getLocation()).isEqualTo(foo.getBuildFileLocation());
+    assertThat(fooLib.getAttr("generator_name", Type.STRING)).isEqualTo("foo");
+    assertThat(fooLib.getAttr("generator_function", Type.STRING)).isEqualTo("my_macro");
+    assertThat(fooLib.getAttr("generator_location", Type.STRING)).isEqualTo("pkg/BUILD:3:9");
+    assertThat(fooLib.reconstructCallStack())
+        .isEqualTo(
+            ImmutableList.builder()
+                .addAll(foo.reconstructParentCallStack())
+                .add(
+                    StarlarkThread.callStackEntry(
+                        "_impl", Location.fromFileLineColumn("/workspace/pkg/my_macro.bzl", 4, 21)))
+                .build());
+
+    Rule fooLegacyLib = pkg.getRule("foo_legacy_macro_lib");
+    assertThat(fooLegacyLib.isRuleCreatedInMacro()).isTrue();
+    assertThat(fooLegacyLib.getLocation()).isEqualTo(foo.getBuildFileLocation());
+    assertThat(fooLegacyLib.getAttr("generator_name", Type.STRING)).isEqualTo("foo");
+    assertThat(fooLegacyLib.getAttr("generator_function", Type.STRING)).isEqualTo("my_macro");
+    assertThat(fooLegacyLib.getAttr("generator_location", Type.STRING)).isEqualTo("pkg/BUILD:3:9");
+    assertThat(fooLegacyLib.reconstructCallStack())
+        .isEqualTo(
+            ImmutableList.builder()
+                .addAll(foo.reconstructParentCallStack())
+                .add(
+                    StarlarkThread.callStackEntry(
+                        "_impl", Location.fromFileLineColumn("/workspace/pkg/my_macro.bzl", 5, 23)))
+                .add(
+                    StarlarkThread.callStackEntry(
+                        "inner_legacy_macro",
+                        Location.fromFileLineColumn(
+                            "/workspace/pkg/inner_legacy_macro.bzl", 2, 23)))
+                .build());
+  }
+
+  @Test
+  public void generatorInfoAndCallStack_nestedMacros() throws Exception {
+    // inner_legacy_wrapper is a legacy macro wrapper around inner_macro, which is a symbolic macro
+    // that instantiates a cc_binary rule.
+    scratch.file(
+        "pkg/inner.bzl",
+        """
+        def _inner_impl(name, visibility, **kwargs):
+            native.cc_binary(name = name, **kwargs)
+
+        inner_macro = macro(implementation = _inner_impl)
+
+        def inner_legacy_wrapper(name, **kwargs):
+            inner_macro(name = name, **kwargs)
+        """);
+    // outer_legacy_wrapper is a legacy wrapper around outer_macro, which is a symbolic macro that
+    // invokes inner_legacy_wrapper.
+    scratch.file(
+        "pkg/outer.bzl",
+        """
+        load(":inner.bzl", "inner_legacy_wrapper")
+
+        def _outer_impl(name, visibility, **kwargs):
+            inner_legacy_wrapper(name  = name + "_inner", **kwargs)
+
+        outer_macro = macro(implementation = _outer_impl)
+
+        def outer_legacy_wrapper(name, **kwargs):
+            outer_macro(name = name, **kwargs)
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load(":outer.bzl", "outer_legacy_wrapper")
+
+        outer_legacy_wrapper(name = "foo")
+        """);
+
+    Package pkg = getPackage("pkg");
+    assertPackageNotInError(pkg);
+    MacroInstance foo = getMacroById(pkg, "foo:1");
+    assertThat(foo.getBuildFileLocation())
+        .isEqualTo(Location.fromFileLineColumn("/workspace/pkg/BUILD", 3, 21));
+    assertThat(foo.reconstructParentCallStack())
+        .containsExactly(
+            StarlarkThread.callStackEntry(StarlarkThread.TOP_LEVEL, foo.getBuildFileLocation()),
+            StarlarkThread.callStackEntry(
+                "outer_legacy_wrapper",
+                Location.fromFileLineColumn("/workspace/pkg/outer.bzl", 9, 16)),
+            StarlarkThread.callStackEntry("outer_macro", Location.BUILTIN))
+        .inOrder();
+
+    MacroInstance fooInner = getMacroById(pkg, "foo_inner:1");
+    assertThat(fooInner.getBuildFileLocation()).isEqualTo(foo.getBuildFileLocation());
+    assertThat(fooInner.reconstructParentCallStack())
+        .containsExactly(
+            StarlarkThread.callStackEntry(
+                "_outer_impl", Location.fromFileLineColumn("/workspace/pkg/outer.bzl", 4, 25)),
+            StarlarkThread.callStackEntry(
+                "inner_legacy_wrapper",
+                Location.fromFileLineColumn("/workspace/pkg/inner.bzl", 7, 16)),
+            StarlarkThread.callStackEntry("inner_macro", Location.BUILTIN))
+        .inOrder();
+
+    Rule fooLib = pkg.getRule("foo_inner");
+    assertThat(fooLib.isRuleCreatedInMacro()).isTrue();
+    assertThat(fooLib.getLocation()).isEqualTo(foo.getBuildFileLocation());
+    assertThat(fooLib.getAttr("generator_name", Type.STRING)).isEqualTo("foo");
+    assertThat(fooLib.getAttr("generator_function", Type.STRING)).isEqualTo("outer_legacy_wrapper");
+    assertThat(fooLib.getAttr("generator_location", Type.STRING)).isEqualTo("pkg/BUILD:3:21");
+    assertThat(fooLib.reconstructCallStack())
+        .isEqualTo(
+            ImmutableList.builder()
+                .addAll(foo.reconstructParentCallStack())
+                .addAll(fooInner.reconstructParentCallStack())
+                .add(
+                    StarlarkThread.callStackEntry(
+                        "_inner_impl",
+                        Location.fromFileLineColumn("/workspace/pkg/inner.bzl", 2, 21)))
+                .build());
   }
 
   private void assertMacroHasAttributes(MacroInstance macro, ImmutableList<String> attributeNames) {

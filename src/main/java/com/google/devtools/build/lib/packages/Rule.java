@@ -399,7 +399,8 @@ public class Rule extends RuleOrMacroInstance implements Target {
   }
 
   @Override
-  public boolean isRuleCreatedInLegacyMacro() {
+  public boolean isRuleCreatedInMacro() {
+    // TODO(bazel-team): do we really need the `hasStringAttribute(GENERATOR_NAME)` check?
     return interiorCallStack != null || hasStringAttribute(GENERATOR_NAME);
   }
 
