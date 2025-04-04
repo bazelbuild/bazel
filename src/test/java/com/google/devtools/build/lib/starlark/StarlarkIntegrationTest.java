@@ -704,7 +704,6 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
 
   @Test
   public void testCannotSpecifyRunfilesWithDataOrDefaultRunfiles_struct() throws Exception {
-    setBuildLanguageOptions("--incompatible_disallow_struct_provider_syntax=false");
     scratch.file(
         "test/starlark/extension.bzl",
         """
@@ -930,15 +929,15 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
 
   @Test
   public void testInstrumentedFilesProviderWithCodeCoverageDisabled() throws Exception {
-    setBuildLanguageOptions("--incompatible_disallow_struct_provider_syntax=false");
     scratch.file(
         "test/starlark/extension.bzl",
         """
         def custom_rule_impl(ctx):
-          return struct(instrumented_files=struct(
+          return coverage_common.instrumented_files_info(
+              ctx = ctx,
               extensions = ['txt'],
               source_attributes = ['attr1'],
-              dependency_attributes = ['attr2']))
+              dependency_attributes = ['attr2'])
 
         custom_rule = rule(implementation = custom_rule_impl,
           attrs = {
@@ -968,15 +967,15 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
 
   @Test
   public void testInstrumentedFilesProviderWithCodeCoverageEnabled() throws Exception {
-    setBuildLanguageOptions("--incompatible_disallow_struct_provider_syntax=false");
     scratch.file(
         "test/starlark/extension.bzl",
         """
         def custom_rule_impl(ctx):
-          return struct(instrumented_files=struct(
+          return coverage_common.instrumented_files_info(
+              ctx = ctx,
               extensions = ['txt'],
               source_attributes = ['attr1'],
-              dependency_attributes = ['attr2']))
+              dependency_attributes = ['attr2'])
 
         custom_rule = rule(implementation = custom_rule_impl,
           attrs = {
@@ -1007,15 +1006,15 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
 
   @Test
   public void testInstrumentedFilesInfo_coverageDisabled() throws Exception {
-    setBuildLanguageOptions("--incompatible_disallow_struct_provider_syntax=false");
     scratch.file(
         "test/starlark/extension.bzl",
         """
         def custom_rule_impl(ctx):
-          return struct(instrumented_files=struct(
+          return coverage_common.instrumented_files_info(
+              ctx = ctx,
               extensions = ['txt'],
               source_attributes = ['attr1'],
-              dependency_attributes = ['attr2']))
+              dependency_attributes = ['attr2'])
 
         custom_rule = rule(implementation = custom_rule_impl,
           attrs = {
@@ -3565,7 +3564,6 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
 
   @Test
   public void testDisallowStructProviderSyntax() throws Exception {
-    setBuildLanguageOptions("--incompatible_disallow_struct_provider_syntax=true");
     scratch.file(
         "test/starlark/extension.bzl",
         """
@@ -3584,17 +3582,12 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
 
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test/starlark:cr");
-    assertContainsEvent(
-        "Returning a struct from a rule implementation function is deprecated and will be "
-            + "removed soon. It may be temporarily re-enabled by setting "
-            + "--incompatible_disallow_struct_provider_syntax=false");
+    assertContainsEvent("Returning a struct from a rule implementation function is deprecated.");
   }
 
   @Test
   public void testDisableTargetProviderFields() throws Exception {
-    setBuildLanguageOptions(
-        "--incompatible_disable_target_provider_fields=true",
-        "--incompatible_disallow_struct_provider_syntax=false");
+    setBuildLanguageOptions("--incompatible_disable_target_provider_fields=true");
     scratch.file(
         "test/starlark/rule.bzl",
         """
@@ -3634,9 +3627,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
   // --incompatible_disable_target_provider_fields.
   @Test
   public void testDisableTargetProviderFields_actionsField() throws Exception {
-    setBuildLanguageOptions(
-        "--incompatible_disable_target_provider_fields=true",
-        "--incompatible_disallow_struct_provider_syntax=false");
+    setBuildLanguageOptions("--incompatible_disable_target_provider_fields=true");
     scratch.file(
         "test/starlark/rule.bzl",
         """
@@ -3647,40 +3638,6 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
         def _dep_rule_impl(ctx):
           my_info = MyProvider(foo = 'bar')
           return [my_info]
-        my_rule = rule(
-          implementation = _my_rule_impl,
-          attrs = {
-            'dep':  attr.label(),
-          })
-        dep_rule = rule(implementation = _dep_rule_impl)
-        """);
-    scratch.file(
-        "test/starlark/BUILD",
-        """
-        load(':rule.bzl', 'my_rule', 'dep_rule')
-
-        my_rule(name = 'r', dep = ':d')
-        dep_rule(name = 'd')
-        """);
-
-    assertThat(getConfiguredTarget("//test/starlark:r")).isNotNull();
-  }
-
-  @Test
-  public void testDisableTargetProviderFields_disabled() throws Exception {
-    setBuildLanguageOptions(
-        "--incompatible_disable_target_provider_fields=false",
-        "--incompatible_disallow_struct_provider_syntax=false");
-    scratch.file(
-        "test/starlark/rule.bzl",
-        """
-        MyProvider = provider()
-
-        def _my_rule_impl(ctx):
-          print(ctx.attr.dep.my_info)
-        def _dep_rule_impl(ctx):
-          my_info = MyProvider(foo = 'bar')
-          return struct(my_info = my_info, providers = [my_info])  # intentional
         my_rule = rule(
           implementation = _my_rule_impl,
           attrs = {
@@ -3731,7 +3688,6 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
 
   @Test
   public void testExecutableNotInRunfiles() throws Exception {
-    setBuildLanguageOptions("--incompatible_disallow_struct_provider_syntax=false");
     scratch.file(
         "test/starlark/test_rule.bzl",
         """

@@ -30,10 +30,16 @@ import net.starlark.java.syntax.Location;
 @Immutable
 public abstract class DefaultInfo extends NativeInfo implements DefaultInfoApi {
 
-  /**
-   * Singleton instance of the provider type for {@link DefaultInfo}.
-   */
+  /** Singleton instance of the provider type for {@link DefaultInfo}. */
   public static final DefaultInfoProvider PROVIDER = new DefaultInfoProvider();
+
+  /**
+   * @deprecated Temporary, don't use it.
+   */
+  @Deprecated // TODO(b/308767456): remove it
+  public static DefaultInfo createEmpty(Location location) {
+    return new DefaultDefaultInfo(location, null, null, null, null, null, null);
+  }
 
   @Override
   public DefaultInfoProvider getProvider() {

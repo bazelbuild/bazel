@@ -470,17 +470,6 @@ public final class BuildLanguageOptions extends OptionsBase {
   public boolean incompatibleDisallowEmptyGlob;
 
   @Option(
-      name = "incompatible_disallow_struct_provider_syntax",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
-      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          "If set to true, rule implementation functions may not return a struct. They must "
-              + "instead return a list of provider instances.")
-  public boolean incompatibleDisallowStructProviderSyntax;
-
-  @Option(
       name = "incompatible_package_group_has_public_syntax",
       defaultValue = FlagConstants.DEFAULT_INCOMPATIBLE_PACKAGE_GROUP_HAS_PUBLIC_SYNTAX,
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -883,9 +872,6 @@ public final class BuildLanguageOptions extends OptionsBase {
                 INCOMPATIBLE_ALWAYS_CHECK_DEPSET_ELEMENTS, incompatibleAlwaysCheckDepsetElements)
             .setBool(INCOMPATIBLE_DISALLOW_EMPTY_GLOB, incompatibleDisallowEmptyGlob)
             .setBool(
-                INCOMPATIBLE_DISALLOW_STRUCT_PROVIDER_SYNTAX,
-                incompatibleDisallowStructProviderSyntax)
-            .setBool(
                 INCOMPATIBLE_PACKAGE_GROUP_HAS_PUBLIC_SYNTAX,
                 incompatiblePackageGroupHasPublicSyntax)
             .setBool(
@@ -1000,8 +986,6 @@ public final class BuildLanguageOptions extends OptionsBase {
       "-incompatible_disable_target_provider_fields";
   // Note that INCOMPATIBLE_DISALLOW_EMPTY_GLOB differs in Google and in OSS Bazel.
   public static final String INCOMPATIBLE_DISALLOW_EMPTY_GLOB = "+incompatible_disallow_empty_glob";
-  public static final String INCOMPATIBLE_DISALLOW_STRUCT_PROVIDER_SYNTAX =
-      "+incompatible_disallow_struct_provider_syntax";
   public static final String INCOMPATIBLE_PACKAGE_GROUP_HAS_PUBLIC_SYNTAX =
       FlagConstants.INCOMPATIBLE_PACKAGE_GROUP_HAS_PUBLIC_SYNTAX;
   public static final String INCOMPATIBLE_FIX_PACKAGE_GROUP_REPOROOT_SYNTAX =
