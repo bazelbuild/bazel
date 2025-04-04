@@ -398,6 +398,14 @@ public abstract class BuildIntegrationTestCase {
 
   @After
   public final void cleanUp() throws Exception {
+    try {
+      doCleanup();
+    } finally {
+      getRuntime().getBlazeModules().forEach(BlazeModule::blazeShutdown);
+    }
+  }
+
+  private void doCleanup() throws Exception {
     if (subscriberException.getException() != null) {
       throwIfUnchecked(subscriberException.getException());
       throw new RuntimeException(subscriberException.getException());

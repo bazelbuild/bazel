@@ -390,6 +390,10 @@ public abstract class BlazeModule {
    *
    * <p>If you are also implementing {@link #blazeShutdownOnCrash}, consider putting the common
    * shutdown code in the latter and calling that other hook from here.
+   *
+   * <p>This is also called after each test case in {@link
+   * com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase} and can be used to avoid
+   * leaking resources when this module instance is thrown away between tests.
    */
   public void blazeShutdown() {}
 
