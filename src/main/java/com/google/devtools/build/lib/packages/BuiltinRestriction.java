@@ -60,8 +60,8 @@ public final class BuiltinRestriction {
               BuiltinRestriction.allowlistEntry("rules_cc", ""),
 
               // Java rules
-              BuiltinRestriction.allowlistEntry("", "third_party/bazel_rules/rules_java"),
-              BuiltinRestriction.allowlistEntry("rules_java", ""),
+              BuiltinRestriction.allowlistEntry("", "third_party/bazel_rules/rules_java/java"),
+              BuiltinRestriction.allowlistEntry("rules_java", "java"),
 
               // Rust rules
               BuiltinRestriction.allowlistEntry(
