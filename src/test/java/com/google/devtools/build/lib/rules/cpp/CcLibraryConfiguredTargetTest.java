@@ -1196,18 +1196,12 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     assertContainsSublist(
         action.getCompilerOptions(),
         ImmutableList.of(
-            "-isystem",
-            "foo/foo",
-            "-isystem",
-            genfilesDir + "/foo/foo",
-            "-isystem",
-            binDir + "/foo/foo",
-            "-isystem",
-            "foo/bar",
-            "-isystem",
-            genfilesDir + "/foo/bar",
-            "-isystem",
-            binDir + "/foo/bar"));
+            "-Ifoo/foo",
+            "-I" + genfilesDir + "/foo/foo",
+            "-I" + binDir + "/foo/foo",
+            "-Ifoo/bar",
+            "-I" + genfilesDir + "/foo/bar",
+            "-I" + binDir + "/foo/bar"));
   }
 
   @Test
@@ -1911,10 +1905,12 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     assertThat(artifactsToStrings(libCompilationContext.getDeclaredIncludeSrcs()))
         .doesNotContain("src foo/implementation_dep.h");
 
-    assertThat(pathfragmentsToStrings(libCompilationContext.getSystemIncludeDirs()))
+    assertThat(pathfragmentsToStrings(libCompilationContext.getIncludeDirs()))
         .contains("foo/public_dep");
-    assertThat(pathfragmentsToStrings(libCompilationContext.getSystemIncludeDirs()))
+    assertThat(pathfragmentsToStrings(libCompilationContext.getIncludeDirs()))
         .contains("foo/interface_dep");
+    assertThat(pathfragmentsToStrings(libCompilationContext.getIncludeDirs()))
+        .doesNotContain("foo/implementation_dep");
     assertThat(pathfragmentsToStrings(libCompilationContext.getSystemIncludeDirs()))
         .doesNotContain("foo/implementation_dep");
 
@@ -1922,11 +1918,11 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         getCppCompileAction("//foo:public_dep").getCcCompilationContext();
     assertThat(artifactsToStrings(publicDepCompilationContext.getDeclaredIncludeSrcs()))
         .contains("src foo/interface_dep.h");
-    assertThat(pathfragmentsToStrings(publicDepCompilationContext.getSystemIncludeDirs()))
+    assertThat(pathfragmentsToStrings(publicDepCompilationContext.getIncludeDirs()))
         .contains("foo/interface_dep");
     assertThat(artifactsToStrings(publicDepCompilationContext.getDeclaredIncludeSrcs()))
         .contains("src foo/implementation_dep.h");
-    assertThat(pathfragmentsToStrings(publicDepCompilationContext.getSystemIncludeDirs()))
+    assertThat(pathfragmentsToStrings(publicDepCompilationContext.getIncludeDirs()))
         .contains("foo/implementation_dep");
   }
 
