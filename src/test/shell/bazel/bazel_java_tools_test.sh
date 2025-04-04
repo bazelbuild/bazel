@@ -85,6 +85,7 @@ EOF
   add_rules_java "MODULE.bazel"
   add_protobuf "MODULE.bazel"
   add_rules_license "MODULE.bazel"
+  add_zlib "MODULE.bazel"
 }
 
 function expect_path_in_java_tools() {
