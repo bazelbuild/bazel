@@ -153,7 +153,10 @@ import javax.annotation.Nullable;
  * <p>Lifespan: 1 invocation.
  */
 public class BuildView {
+
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
+  public static final String UPLOAD_BUILDS_MUST_BE_COLD =
+      "'--experimental_remote_analysis_cache_mode=upload' builds must be cold";
 
   private final BlazeDirectories directories;
 
@@ -254,7 +257,16 @@ public class BuildView {
     BuildConfigurationValue topLevelConfig;
     String topLevelConfigurationTrimmedOfTestOptionsChecksum;
     boolean shouldDiscardAnalysisCache;
-
+    if (skyframeExecutor.getAndIncrementAnalysisCount() != 0
+        && remoteAnalysisCachingDependenciesProvider.mode() == RemoteAnalysisCacheMode.UPLOAD) {
+      throw new AbruptExitException(
+          DetailedExitCode.of(
+              FailureDetail.newBuilder()
+                  .setMessage(UPLOAD_BUILDS_MUST_BE_COLD)
+                  .setSkyfocus(
+                      Skyfocus.newBuilder().setCode(Skyfocus.Code.CONFIGURATION_CHANGE).build())
+                  .build()));
+    }
     // Configuration creation.
     // TODO(gregce): Consider dropping this phase and passing on-the-fly target / exec configs as
     // needed. This requires cleaning up the invalidation in SkyframeBuildView.setConfigurations.

@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.analysis.BuildView;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -45,6 +46,7 @@ import com.google.devtools.build.lib.skyframe.RemoteConfiguredTargetValue;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService;
 import com.google.devtools.build.lib.testutil.TestUtils;
+import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.io.RecordingOutErr;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
@@ -528,7 +530,7 @@ project = {
   }
 
   @Test
-  public void undoneNodesFromIncrementalChanges_ignoredForSerialization() throws Exception {
+  public void errorOnWarmSkyframeUploadBuilds() throws Exception {
     setupScenarioWithConfiguredTargets();
 
     write(
@@ -540,34 +542,8 @@ project = {
 """);
 
     upload("//foo:A");
-
-    var serializedConfiguredTargetCount =
-        getCommandEnvironment()
-            .getRemoteAnalysisCachingEventListener()
-            .getSkyfunctionCounts()
-            .count(SkyFunctions.CONFIGURED_TARGET);
-
-    // Make a small change to the //foo:A's dep graph by cutting the dep on //foo:D.
-    // By changing this file, //foo:D will be invalidated as a transitive reverse dependency, but
-    // because evaluating //foo:A no longer needs //foo:D's value, it will remain as an un-done
-    // value. FrontierSerializer will try to mark //foo:D as active because it's in 'foo', but
-    // realizes that it's not done, so it will be ignored.
-    write(
-        "foo/BUILD",
-"""
-filegroup(name = "A", srcs = [":B", "//bar:C"])      # unchanged.
-filegroup(name = "B", srcs = ["//bar:E", "//bar:F"]) # changed: cut dep on D.
-filegroup(name = "D", srcs = ["//bar:H"])            # unchanged.
-filegroup(name = "G")                                # unchanged.
-""");
-
-    // This will pass only if FrontierSerializer only processes nodes that have finished evaluating.
-    buildTarget("//foo:A");
-    // There are 2 fewer configured targets. //bar:D is not serialized, as explained above. //bar:H
-    // is also not serialized because it is only reached via //bar:D.
-    assertThat(
-            getCommandEnvironment().getRemoteAnalysisCachingEventListener().getSkyfunctionCounts())
-        .hasCount(SkyFunctions.CONFIGURED_TARGET, serializedConfiguredTargetCount - 2);
+    var exception = assertThrows(AbruptExitException.class, () -> buildTarget("//foo:A"));
+    assertThat(exception).hasMessageThat().contains(BuildView.UPLOAD_BUILDS_MUST_BE_COLD);
   }
 
   @Test

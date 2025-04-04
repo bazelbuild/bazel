@@ -22,6 +22,7 @@ import static com.google.devtools.build.lib.util.TestType.isInTest;
 import static java.util.concurrent.ForkJoinPool.commonPool;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -328,16 +329,10 @@ public final class FrontierSerializer {
     }
 
     InMemoryNodeEntry node = checkNotNull(graph.getIfPresent(root), root);
-    if (!node.isDone()) {
-      // This node was marked dirty or changed in the most recent build, but its value was not
-      // necessary by any node in that evaluation, so it was never evaluated. Because this node was
-      // never evaluated, it doesn't need to be added to the active set -- it is essentially
-      // disconnected from the current graph evaluation.
-      //
-      // However, this node's direct deps may still be frontier candidates, but only if they are
-      // reachable from another active node, and candidate selection will be handled by them.
-      return;
-    }
+    // If this node is present in the graph but it's not done it means that it wasn't needed by any
+    // node in the evaluation. This can only happen if we ran in upload mode with a warm Skyframe
+    // which is not supported and should have thrown an error at the beginning of analysis.
+    Preconditions.checkState(node.isDone());
 
     if (selection.put(root, ACTIVE) == ACTIVE) {
       return;
