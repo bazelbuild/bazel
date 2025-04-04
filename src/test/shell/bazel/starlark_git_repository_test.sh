@@ -717,4 +717,83 @@ EOF
   bazel build //:all >& $TEST_log || fail "Expect bazel build to succeed."
 }
 
+# Message printed by the rule to indicate that the Git executable does not support sparse checkout,
+# and that it is falling back to a full checkout.
+sparse_checkout_fallback_message="WARNING: Sparse checkout is not supported\. Doing a full checkout\."
+
+function test_git_repository_with_sparse_checkout_patterns() {
+  local pluto_repo_dir=$(get_pluto_repo)
+
+  # Use sparse-checkout to only checkout the BUILD and WORKSPACE files.
+  cat >> MODULE.bazel <<EOF
+git_repository = use_repo_rule('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
+git_repository(
+    name = "pluto",
+    remote = "$pluto_repo_dir",
+    tag = "1-build",
+    sparse_checkout_patterns = ["BUILD", "WORKSPACE"],
+)
+EOF
+  bazel fetch --noshow_progress @pluto >& $TEST_log
+
+  repo_dir=$(bazel info output_base)/external/+_repo_rules+pluto
+  assert_exists "$repo_dir/BUILD"
+  assert_exists "$repo_dir/WORKSPACE"
+  # If the Git executable does not support sparse checkout, then the implementation will fall back
+  # to a full checkout.
+  if grep -sq -- "$sparse_checkout_fallback_message" $TEST_log; then
+    assert_exists "$repo_dir/info"
+  else
+    assert_not_exists "$repo_dir/info"
+  fi
+}
+
+function test_git_repository_with_sparse_checkout_file() {
+  local pluto_repo_dir=$(get_pluto_repo)
+
+  # Use sparse-checkout to checkout everything but the `info` file
+  cat >> pluto-sparse-checkout.txt <<EOF
+/*
+!/info
+EOF
+  touch BUILD
+
+  cat >> MODULE.bazel <<EOF
+git_repository = use_repo_rule('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
+git_repository(
+    name = "pluto",
+    remote = "$pluto_repo_dir",
+    tag = "1-build",
+    sparse_checkout_file = "pluto-sparse-checkout.txt",
+)
+EOF
+  bazel fetch --noshow_progress @pluto >& $TEST_log
+
+  repo_dir=$(bazel info output_base)/external/+_repo_rules+pluto
+  assert_exists "$repo_dir/BUILD"
+  assert_exists "$repo_dir/WORKSPACE"
+  # If the Git executable does not support sparse checkout, then the implementation will fall back
+  # to a full checkout.
+  if grep -sq -- "$sparse_checkout_fallback_message" $TEST_log; then
+    assert_exists "$repo_dir/info"
+  else
+    assert_not_exists "$repo_dir/info"
+  fi
+}
+
+function test_git_repository_with_sparse_checkout_patterns_and_file_fails() {
+  cat >> MODULE.bazel <<EOF
+git_repository = use_repo_rule('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
+git_repository(
+    name = "pluto",
+    remote = "does-not-matter",
+    tag = "1-build",
+    sparse_checkout_file = "foobar",
+    sparse_checkout_patterns = ["foo", "bar"],
+)
+EOF
+  bazel fetch @pluto >& $TEST_log && fail "Fetch succeeded"
+  expect_log "Only one of sparse_checkout_patterns and sparse_checkout_file can be provided."
+}
+
 run_suite "Starlark git_repository tests"
