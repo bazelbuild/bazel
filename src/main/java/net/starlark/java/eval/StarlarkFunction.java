@@ -25,6 +25,7 @@ import net.starlark.java.eval.StarlarkThread.Frame;
 import net.starlark.java.spelling.SpellChecker;
 import net.starlark.java.syntax.Location;
 import net.starlark.java.syntax.Resolver;
+import net.starlark.java.types.Types.CallableType;
 
 /** A StarlarkFunction is a function value created by a Starlark {@code def} statement. */
 @StarlarkBuiltin(
@@ -88,6 +89,10 @@ public final class StarlarkFunction implements StarlarkCallable {
   /** Whether this function is defined at the top level of a file. */
   public boolean isGlobal() {
     return module.getGlobal(getName()) == this;
+  }
+
+  public CallableType getStarlarkType() {
+    return rfn.getFunctionType();
   }
 
   // TODO(adonovan): many functions would be simpler if

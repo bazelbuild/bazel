@@ -568,6 +568,8 @@ final class Eval {
         return ((StringLiteral) expr).getValue();
       case UNARY_OPERATOR:
         return evalUnaryOperator(fr, (UnaryOperatorExpression) expr);
+      case TYPE_APPLICATION:
+        // fall through
     }
     throw new IllegalArgumentException("unexpected expression: " + expr.kind());
   }

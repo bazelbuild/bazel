@@ -109,6 +109,7 @@ filegroup(
         "//src/main/java/net/starlark/java/annot/processor:srcs",
         "//src/main/java/net/starlark/java/eval:srcs",
         "//src/main/java/net/starlark/java/syntax:srcs",
+        "//src/main/java/net/starlark/java/types:srcs",
     ],
     visibility = [
         "//src:__pkg__",
