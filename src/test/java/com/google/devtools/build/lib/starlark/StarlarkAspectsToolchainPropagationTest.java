@@ -2331,7 +2331,7 @@ public final class StarlarkAspectsToolchainPropagationTest extends AnalysisTestC
         """);
     scratch.file(
         "test/BUILD",
-        """
+"""
 load('//test:defs.bzl', 'r1', 'var_supplier')
 r1(
     name = 't1',
@@ -2547,7 +2547,7 @@ var_supplier(
         AspectInfo = provider()
 
         def _toolchain_aspects(ctx):
-          return ['@:']
+          return [Label('@:')]
 
         def _impl(target, ctx):
           return []
@@ -2579,7 +2579,48 @@ var_supplier(
     assertThrows(
         ViewCreationFailedException.class,
         () -> update(ImmutableList.of("//test:defs.bzl%toolchain_aspect"), "//test:t1"));
-    assertContainsEvent("Unable to parse label '@:' in attribute 'toolchains_aspects'");
+    assertContainsEvent("invalid label in Label(): invalid repository name ':'");
+  }
+
+  @Test
+  public void toolchainTypesFunc_invalidReturnValue_fails() throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        """
+        AspectInfo = provider()
+
+        def _toolchains_aspects(ctx):
+          return ['//rule:toolchain_type_1']
+
+        def _impl(target, ctx):
+          return []
+
+        toolchain_aspect = aspect(
+          implementation = _impl,
+          toolchains_aspects = _toolchains_aspects,
+        )
+
+        def _rule_impl(ctx):
+          pass
+
+        r1 = rule(
+          implementation = _rule_impl,
+          toolchains = ['//rule:toolchain_type_1'],
+        )
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load('//test:defs.bzl', 'r1')
+        r1(name = 't1')
+        """);
+    useConfiguration("--extra_toolchains=//toolchain:foo_toolchain");
+
+    reporter.removeHandler(failFastHandler);
+    assertThrows(
+        ViewCreationFailedException.class,
+        () -> update(ImmutableList.of("//test:defs.bzl%toolchain_aspect"), "//test:t1"));
+    assertContainsEvent("at index 0 of toolchains_aspects, got element of type string, want Label");
   }
 
   @Test
@@ -2592,9 +2633,9 @@ var_supplier(
 
         def _toolchains_aspects(ctx):
           if ctx.rule.label == Label('//test:t1'):
-            return ['//rule:toolchain_type_1']
+            return [Label('//rule:toolchain_type_1')]
           elif ctx.rule.label == Label('//test:t2'):
-            return ['//rule:toolchain_type_2']
+            return [Label('//rule:toolchain_type_2')]
           return []
 
         def _impl(target, ctx):

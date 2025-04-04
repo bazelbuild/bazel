@@ -152,19 +152,20 @@ public sealed interface AspectPropagationEdgesSupplier<T> {
 
   /** A function supplier for {@code toolchains_aspects}. */
   public static final class ToolchainsAspectsFunctionSupplier extends FunctionSupplier<Label> {
-    private final LabelConverter labelConverter;
-
     private ToolchainsAspectsFunctionSupplier(
-        StarlarkFunction function, StarlarkSemantics semantics, LabelConverter labelConverter) {
+        StarlarkFunction function, StarlarkSemantics semantics) {
       super(function, semantics);
-      this.labelConverter = labelConverter;
     }
 
     @Override
     public ImmutableSet<Label> computeList(
         StarlarkAspectPropagationContextApi context, ExtendedEventHandler eventHandler)
         throws InterruptedException, EvalException {
-      return parseToolchainsAspects(runFunction(context, eventHandler), labelConverter);
+      StarlarkList<?> listResult = runFunction(context, eventHandler);
+      if (listResult == null || listResult.isEmpty()) {
+        return ImmutableSet.of();
+      }
+      return ImmutableSet.copyOf(Sequence.cast(listResult, Label.class, "toolchains_aspects"));
     }
   }
 
@@ -182,7 +183,7 @@ public sealed interface AspectPropagationEdgesSupplier<T> {
       throws EvalException {
     if (rawToolchainsAspects instanceof StarlarkFunction toolchainsAspectsFunction) {
       return new ToolchainsAspectsFunctionSupplier(
-          toolchainsAspectsFunction, thread.getSemantics(), labelConverter);
+          toolchainsAspectsFunction, thread.getSemantics());
     } else {
       return new FixedListSupplier<>(parseToolchainsAspects(rawToolchainsAspects, labelConverter));
     }
