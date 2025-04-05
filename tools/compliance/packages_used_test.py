@@ -42,10 +42,7 @@ class PackagesUsedTest(unittest.TestCase):
         found_top_level_license = True
       if l["label"] == "//third_party/bazel:license":
         found_top_level_license = True
-      if l["label"] == "//third_party/zlib:license":
-        found_zlib = True
     self.assertTrue(found_top_level_license)
-    self.assertTrue(found_zlib)
 
   def test_found_remote_packages(self):
     if os.getenv("TEST_WORKSPACE") != "bazel":

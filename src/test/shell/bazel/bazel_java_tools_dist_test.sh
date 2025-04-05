@@ -70,10 +70,6 @@ function test_java_tools_has_ijar() {
   expect_path_in_java_tools "third_party/ijar"
 }
 
-function test_java_tools_has_zlib() {
-  expect_path_in_java_tools "third_party/zlib"
-}
-
 function test_java_tools_has_native_windows() {
   expect_path_in_java_tools "src/main/native/windows"
 }
