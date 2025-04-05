@@ -158,7 +158,9 @@ def add_origin(ctx, git_repo, remote):
 def fetch(ctx, git_repo):
     args = ["fetch", "origin", git_repo.fetch_ref]
 
-    sparse_checkout_patterns_or_file = ctx.attr.sparse_checkout_patterns or ctx.attr.sparse_checkout_file
+    sparse_checkout_patterns_or_file = \
+        getattr(ctx.attr, "sparse_checkout_patterns", None) or \
+        getattr(ctx.attr, "sparse_checkout_file", None)
     if sparse_checkout_patterns_or_file:
         if _git_sparse_checkout_config(ctx, git_repo):
             # Use filter to disable downloading file contents until we set the `sparse-checkout` patterns.
