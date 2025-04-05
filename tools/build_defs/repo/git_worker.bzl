@@ -25,16 +25,16 @@ _GitRepoInfo = provider(
     doc = "Provider to organize precomputed arguments for calling git.",
     fields = {
         "directory": "Working directory path",
-        "shallow": "Defines the depth of a fetch. Either empty, --depth=1, or --shallow-since=<>",
-        "reset_ref": """Reference to use for resetting the git repository.
-Either commit hash, tag or branch.""",
         "fetch_ref": """Reference for fetching.
 Either commit hash, tag or branch.""",
-        "remote": "URL of the git repository to fetch from.",
         "init_submodules": """If True, submodules update command will be called after fetching
 and resetting to the specified reference.""",
         "recursive_init_submodules": """if True, all submodules will be updated recursively
 after fetching and resetting the repo to the specified instance.""",
+        "remote": "URL of the git repository to fetch from.",
+        "reset_ref": """Reference to use for resetting the git repository.
+Either commit hash, tag or branch.""",
+        "shallow": "Defines the depth of a fetch. Either empty, --depth=1, or --shallow-since=<>",
     },
 )
 
@@ -158,7 +158,9 @@ def add_origin(ctx, git_repo, remote):
 def fetch(ctx, git_repo):
     args = ["fetch", "origin", git_repo.fetch_ref]
 
-    sparse_checkout_patterns_or_file = ctx.attr.sparse_checkout_patterns or ctx.attr.sparse_checkout_file
+    sparse_checkout_patterns_or_file = \
+        getattr(ctx.attr, "sparse_checkout_patterns", None) or \
+        getattr(ctx.attr, "sparse_checkout_file", None)
     if sparse_checkout_patterns_or_file:
         if _git_sparse_checkout_config(ctx, git_repo):
             # Use filter to disable downloading file contents until we set the `sparse-checkout` patterns.
@@ -284,21 +286,21 @@ def _git_sparse_checkout(ctx, git_repo, sparse_checkout_patterns_or_file):
 # This list is taken from the output of `git rev-parse --local-env-vars`
 _GIT_LOCAL_ENV_VARS = {
     "GIT_ALTERNATE_OBJECT_DIRECTORIES": None,
-    "GIT_CONFIG": None,
-    "GIT_CONFIG_PARAMETERS": None,
-    "GIT_CONFIG_COUNT": None,
-    "GIT_OBJECT_DIRECTORY": None,
-    "GIT_DIR": None,
-    "GIT_WORK_TREE": None,
-    "GIT_IMPLICIT_WORK_TREE": None,
-    "GIT_GRAFT_FILE": None,
-    "GIT_INDEX_FILE": None,
-    "GIT_NO_REPLACE_OBJECTS": None,
-    "GIT_REPLACE_REF_BASE": None,
-    "GIT_PREFIX": None,
-    "GIT_INTERNAL_SUPER_PREFIX": None,
-    "GIT_SHALLOW_FILE": None,
     "GIT_COMMON_DIR": None,
+    "GIT_CONFIG": None,
+    "GIT_CONFIG_COUNT": None,
+    "GIT_CONFIG_PARAMETERS": None,
+    "GIT_DIR": None,
+    "GIT_GRAFT_FILE": None,
+    "GIT_IMPLICIT_WORK_TREE": None,
+    "GIT_INDEX_FILE": None,
+    "GIT_INTERNAL_SUPER_PREFIX": None,
+    "GIT_NO_REPLACE_OBJECTS": None,
+    "GIT_OBJECT_DIRECTORY": None,
+    "GIT_PREFIX": None,
+    "GIT_REPLACE_REF_BASE": None,
+    "GIT_SHALLOW_FILE": None,
+    "GIT_WORK_TREE": None,
 }
 
 def _execute(ctx, git_repo, args):
