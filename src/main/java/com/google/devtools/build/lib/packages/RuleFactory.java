@@ -50,6 +50,10 @@ public class RuleFactory {
    *
    * <p>It is the caller's responsibility to add the rule to the package (the caller may choose not
    * to do so if, for example, the rule has errors).
+   *
+   * @param callstack the stack of the Starlark thread where the rule is created. In the case of
+   *     rules instantiated by a symbolic macro, this is the inner macro's stack, and does not
+   *     include frames for enclosing macros or the BUILD file.
    */
   public static Rule createRule(
       Package.Builder pkgBuilder,
@@ -227,26 +231,28 @@ public class RuleFactory {
    * (and which are not also within a symbolic macro). Its value is the name argument of the
    * top-level macro on the call stack, if its value can be determined statically (see {@link
    * PackageFactory#checkBuildSyntax}), or just the name of the target otherwise.
+   *
+   * @param callstack the stack of the Starlark thread where the rule is created. In the case of
+   *     rules instantiated by a symbolic macro, this is the inner macro's stack, and does not
+   *     include frames for enclosing macros or the BUILD file.
    */
-  // TODO: #19922 - Should we set generator_name on targets created by a symbolic macro instantiated
-  // within a legacy macro? Otherwise tooling may think those targets were not created in a macro.
   @Nullable
   private static String getGeneratorName(
       Package.Builder pkgBuilder,
       BuildLangTypedAttributeValuesMap args,
-      ImmutableList<CallStackEntry> stack) {
-    // The "generator" of a rule is the function outermost in the call stack (regardless of whether
-    // or not it was passed a "name" parameter). For rules with generators, the stack must contain
-    // at least two entries:
-    //   0: the outermost function (e.g. a BUILD file),
-    //   1: the function called by it (e.g. a "macro" in a .bzl file).
-    // optionally followed by other Starlark or built-in functions, and finally the rule
-    // instantiation function.
-    if (stack.size() < 2 || !stack.get(1).location.file().endsWith(".bzl")) {
-      // Not instantiated by a legacy macro.
-      // TODO: #19922 - This stack inspection logic doesn't work for symbolic macros, where it will
-      // likely incorrectly discriminate between targets created in the implementation function
-      // directly and targets created in a helper function called from the implementation function.
+      ImmutableList<CallStackEntry> callstack) {
+    @Nullable MacroInstance macro = pkgBuilder.currentMacro();
+    // The "generator" of a rule is the function outermost in the BUILD file thread's call stack
+    // (regardless of whether or not it was passed a "name" parameter). For rules with generators,
+    // the BUILD file thread's call stack must contain at least two entries:
+    //   0: the outermost function (BUILD file top level),
+    //   1: the function called by it (e.g. a macro in a .bzl file),
+    // optionally followed by other Starlark or built-in functions, and finally - if the rule is
+    // instantiated in the BUILD file thread - the rule instantiation function.
+    if (macro == null
+        && (callstack.size() < 2 || !callstack.get(1).location.file().endsWith(".bzl"))) {
+      // We are in a BUILD file thread, and the rule is being instantiated directly at the top
+      // level of the BUILD file.
       // TODO(bazel-team): Tolerate ".scl" extension in the above if? An .scl file can instantiate a
       // rule if the rule function is passed as an argument.
       return null;
@@ -258,7 +264,9 @@ public class RuleFactory {
       return null;
     }
 
-    String generatorName = pkgBuilder.getGeneratorNameByLocation(stack.get(0).location);
+    String generatorName =
+        pkgBuilder.getGeneratorNameByLocation(
+            macro != null ? macro.getBuildFileLocation() : callstack.get(0).location);
     if (generatorName == null) {
       // Fall back on target name (meh).
       generatorName = (String) args.getAttributeValue("name");

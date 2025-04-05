@@ -18,6 +18,8 @@ import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.HashCodes;
+import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.List;
 import java.util.Objects;
 import javax.annotation.Nullable;
@@ -124,19 +126,51 @@ final class CallStack {
   private static final Interner<Node> nodeInterner = BlazeInterners.newWeakInterner();
 
   /**
-   * Returns a compact representation of the <em>interior</em> of the given call stack.
+   * Returns a compact representation of the given call stack, optionally ignoring the outermost
+   * frame.
    *
-   * <p>The outermost frame of the call stack is not reflected in the compact representation because
-   * it is already stored as {@link Rule#getLocation}.
-   *
-   * <p>Returns {@code null} for call stacks with fewer than two frames.
+   * @param start index of frame at which to start; in other words, skip this many outermost frames.
+   *     This is useful for skipping the outermost frame in BUILD file thread stacks, since the
+   *     BUILD file location is already stored in {@link Rule#getLocation} and {@link
+   *     MacroInstance#getBuildFileLocation}.
+   * @return {@code null} for call stacks with fewer than two frames.
    */
   @Nullable
-  static Node compactInterior(List<StarlarkThread.CallStackEntry> stack) {
+  static Node compact(List<StarlarkThread.CallStackEntry> stack, int start) {
     Node node = null;
-    for (int i = stack.size() - 1; i > 0; i--) {
+    for (int i = stack.size() - 1; i >= start; i--) {
       StarlarkThread.CallStackEntry entry = stack.get(i);
       node = nodeInterner.intern(new Node(entry.name, entry.location, node));
+    }
+    return node;
+  }
+
+  /**
+   * Returns a concatenation of two compact call stacks.
+   *
+   * <p>The result will contain {@code inner} stack appended unmodified to a new copy of the {@code
+   * outer} stack.
+   *
+   * @return {@code null} if both of the inputs are {@code null} - in other words, if both of the
+   *     inputs are empty stacks.
+   */
+  @Nullable
+  static Node concatenate(@Nullable Node outer, @Nullable Node inner) {
+    Deque<Node> outerReversed = new ArrayDeque<>();
+    while (outer != null) {
+      outerReversed.addFirst(outer);
+      outer = outer.next();
+    }
+    Node node = inner;
+    for (Node origOuterNode : outerReversed) {
+      node =
+          nodeInterner.intern(
+              new Node(
+                  origOuterNode.name,
+                  origOuterNode.file,
+                  origOuterNode.line,
+                  origOuterNode.col,
+                  node));
     }
     return node;
   }

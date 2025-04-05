@@ -375,6 +375,8 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/analysis:test/analysis_failure_info",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/net/starlark/java/eval",
+        "//src/main/java/net/starlark/java/syntax",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//third_party:error_prone_annotations",
         "//third_party:guava",
