@@ -15,7 +15,7 @@ package com.google.devtools.build.lib.skyframe;
 
 import static com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.configurationIdMessage;
 import static com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil.configurationIdMessage;
-import static com.google.devtools.build.lib.skyframe.SkyValueRetrieverUtils.maybeFetchSkyValueRemotely;
+import static com.google.devtools.build.lib.skyframe.SkyValueRetrieverUtils.fetchRemoteSkyValue;
 import static com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.INITIAL_STATE;
 
 import com.google.common.base.Preconditions;
@@ -269,15 +269,19 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               /* postFetch= */ () -> maybeAcquireSemaphoreWithLogging(key));
     }
 
-    switch (maybeFetchSkyValueRemotely(
-        configuredTargetKey, env, cachingDependenciesSupplier.get(), stateSupplier)) {
-      case SkyValueRetriever.Restart unused:
-        return null;
-      case SkyValueRetriever.RetrievedValue v:
-        analysisProgress.doneDownloadedConfiguredTarget();
-        return v.value();
-      case SkyValueRetriever.NoCachedData unused:
-        break;
+    RemoteAnalysisCachingDependenciesProvider remoteCachingDependencies =
+        cachingDependenciesSupplier.get();
+    if (remoteCachingDependencies.isRemoteFetchEnabled()) {
+      switch (fetchRemoteSkyValue(
+          configuredTargetKey, env, remoteCachingDependencies, stateSupplier)) {
+        case SkyValueRetriever.Restart unused:
+          return null;
+        case SkyValueRetriever.RetrievedValue v:
+          analysisProgress.doneDownloadedConfiguredTarget();
+          return v.value();
+        case SkyValueRetriever.NoCachedData unused:
+          break;
+      }
     }
 
     State state = env.getState(stateSupplier);
@@ -373,7 +377,8 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               prereqs.getConfigConditions(),
               toolchainContexts,
               computeDependenciesState.execGroupCollectionBuilder,
-              state.computeDependenciesState.transitivePackages());
+              state.computeDependenciesState.transitivePackages(),
+              /* crashIfExecutionPhase= */ !remoteCachingDependencies.isRemoteFetchEnabled());
       if (ans != null && analysisProgress != null) {
         analysisProgress.doneConfigureTarget();
       }
@@ -419,7 +424,8 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       ConfigConditions configConditions,
       @Nullable ToolchainCollection<ResolvedToolchainContext> toolchainContexts,
       ExecGroupCollection.Builder execGroupCollectionBuilder,
-      @Nullable NestedSet<Package.Metadata> transitivePackages)
+      @Nullable NestedSet<Package.Metadata> transitivePackages,
+      boolean crashIfExecutionPhase)
       throws ConfiguredValueCreationException, InterruptedException, ActionConflictException {
     Target target = ctgValue.getTarget();
     BuildConfigurationValue configuration = ctgValue.getConfiguration();
@@ -449,7 +455,8 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               configConditions,
               toolchainContexts,
               transitivePackages,
-              execGroupCollectionBuilder);
+              execGroupCollectionBuilder,
+              crashIfExecutionPhase);
     } catch (MissingDepException e) {
       Preconditions.checkState(env.valuesMissing(), e.getMessage());
       return null;

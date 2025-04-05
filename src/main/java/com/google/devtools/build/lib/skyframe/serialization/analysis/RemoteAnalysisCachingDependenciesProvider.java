@@ -31,6 +31,10 @@ public interface RemoteAnalysisCachingDependenciesProvider {
 
   RemoteAnalysisCacheMode mode();
 
+  default boolean isRemoteFetchEnabled() {
+    return mode() == RemoteAnalysisCacheMode.DOWNLOAD;
+  }
+
   /** Value of RemoteAnalysisCachingOptions#serializedFrontierProfile. */
   String serializedFrontierProfile();
 

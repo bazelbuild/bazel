@@ -15,7 +15,7 @@ package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.devtools.build.lib.skyframe.DependencyResolver.getPrioritizedDetailedExitCode;
-import static com.google.devtools.build.lib.skyframe.SkyValueRetrieverUtils.maybeFetchSkyValueRemotely;
+import static com.google.devtools.build.lib.skyframe.SkyValueRetrieverUtils.fetchRemoteSkyValue;
 import static com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.INITIAL_STATE;
 
 import com.google.common.base.Preconditions;
@@ -267,15 +267,18 @@ final class AspectFunction implements SkyFunction {
     java.util.function.Supplier<State> stateSupplier =
         () -> new State(storeTransitivePackages, prerequisitePackages);
 
-    switch (maybeFetchSkyValueRemotely(
-        key, env, cachingDependenciesSupplier.get(), stateSupplier)) {
-      case SkyValueRetriever.Restart unused:
-        return null;
-      case SkyValueRetriever.RetrievedValue v:
-        analysisProgressReceiver.doneDownloadedConfiguredAspect();
-        return v.value();
-      case SkyValueRetriever.NoCachedData unused:
-        break;
+    RemoteAnalysisCachingDependenciesProvider remoteCachingDependencies =
+        cachingDependenciesSupplier.get();
+    if (remoteCachingDependencies.isRemoteFetchEnabled()) {
+      switch (fetchRemoteSkyValue(key, env, remoteCachingDependencies, stateSupplier)) {
+        case SkyValueRetriever.Restart unused:
+          return null;
+        case SkyValueRetriever.RetrievedValue v:
+          analysisProgressReceiver.doneDownloadedConfiguredAspect();
+          return v.value();
+        case SkyValueRetriever.NoCachedData unused:
+          break;
+      }
     }
 
     State state = env.getState(stateSupplier);

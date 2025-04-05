@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import static com.google.devtools.build.lib.skyframe.SkyValueRetrieverUtils.maybeFetchSkyValueRemotely;
+import static com.google.devtools.build.lib.skyframe.SkyValueRetrieverUtils.fetchRemoteSkyValue;
 import static com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.INITIAL_STATE;
 
 import com.google.common.base.MoreObjects;
@@ -42,7 +42,6 @@ import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalFuncti
 import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalValue.ResolvedFile;
 import com.google.devtools.build.lib.skyframe.TraversalRequest.DirectTraversalRoot;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever;
-import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievalResult;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.SerializableSkyKeyComputeState;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.SerializationState;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingDependenciesProvider;
@@ -136,10 +135,10 @@ public final class ArtifactFunction implements SkyFunction {
       return createSourceValue(artifact, env);
     }
 
-    if (artifact.getArtifactOwner().getLabel() != null) {
-      RetrievalResult retrievalResult =
-          maybeFetchSkyValueRemotely(artifact, env, cachingDependenciesSupplier.get(), State::new);
-      switch (retrievalResult) {
+    RemoteAnalysisCachingDependenciesProvider remoteCachingDependencies =
+        cachingDependenciesSupplier.get();
+    if (remoteCachingDependencies.isRemoteFetchEnabled()) {
+      switch (fetchRemoteSkyValue(artifact, env, remoteCachingDependencies, State::new)) {
         case SkyValueRetriever.Restart unused:
           return null;
         case SkyValueRetriever.RetrievedValue v:
@@ -152,7 +151,10 @@ public final class ArtifactFunction implements SkyFunction {
     Artifact.DerivedArtifact derivedArtifact = (DerivedArtifact) artifact;
 
     ArtifactDependencies artifactDependencies =
-        ArtifactDependencies.discoverDependencies(derivedArtifact, env);
+        ArtifactDependencies.discoverDependencies(
+            derivedArtifact,
+            env,
+            /* crashIfActionOwnerMissing= */ !remoteCachingDependencies.isRemoteFetchEnabled());
     if (artifactDependencies == null) {
       return null;
     }
@@ -374,11 +376,14 @@ public final class ArtifactFunction implements SkyFunction {
 
   @Nullable
   static ActionLookupValue getActionLookupValue(
-      ActionLookupKey actionLookupKey, SkyFunction.Environment env) throws InterruptedException {
+      ActionLookupKey actionLookupKey,
+      SkyFunction.Environment env,
+      boolean crashIfActionOwnerMissing)
+      throws InterruptedException {
     ActionLookupValue value = (ActionLookupValue) env.getValue(actionLookupKey);
     if (value == null) {
       Preconditions.checkState(
-          actionLookupKey == CoverageReportValue.COVERAGE_REPORT_KEY,
+          actionLookupKey == CoverageReportValue.COVERAGE_REPORT_KEY || !crashIfActionOwnerMissing,
           "Not-yet-present artifact owner: %s",
           actionLookupKey.getCanonicalName());
       return null;
@@ -446,12 +451,15 @@ public final class ArtifactFunction implements SkyFunction {
      */
     @Nullable
     public static ArtifactDependencies discoverDependencies(
-        Artifact.DerivedArtifact derivedArtifact, SkyFunction.Environment env)
+        Artifact.DerivedArtifact derivedArtifact,
+        SkyFunction.Environment env,
+        boolean crashIfActionOwnerMissing)
         throws InterruptedException {
 
       ActionLookupData generatingActionKey = derivedArtifact.getGeneratingActionKey();
       ActionLookupValue actionLookupValue =
-          ArtifactFunction.getActionLookupValue(generatingActionKey.getActionLookupKey(), env);
+          ArtifactFunction.getActionLookupValue(
+              generatingActionKey.getActionLookupKey(), env, crashIfActionOwnerMissing);
       if (actionLookupValue == null) {
         return null;
       }

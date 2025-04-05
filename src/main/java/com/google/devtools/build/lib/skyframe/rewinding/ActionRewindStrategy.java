@@ -624,7 +624,9 @@ public final class ActionRewindStrategy {
       for (ActionLookupData actionLookupData : newlyDiscoveredActions) {
         Action additionalAction =
             checkNotNull(
-                ActionUtils.getActionForLookupData(env, actionLookupData), actionLookupData);
+                ActionUtils.getActionForLookupData(
+                    env, actionLookupData, /* crashIfActionOwnerMissing= */ true),
+                actionLookupData);
         depsToRewind.add(additionalAction);
         uncheckedActions.add(ActionAndLookupData.create(actionLookupData, additionalAction));
       }
@@ -739,7 +741,10 @@ public final class ActionRewindStrategy {
     Map<ActionLookupData, Action> actions =
         Maps.newHashMapWithExpectedSize(actionExecutionDeps.size());
     for (ActionLookupData dep : actionExecutionDeps) {
-      actions.put(dep, checkNotNull(ActionUtils.getActionForLookupData(env, dep)));
+      actions.put(
+          dep,
+          checkNotNull(
+              ActionUtils.getActionForLookupData(env, dep, /* crashIfActionOwnerMissing= */ true)));
     }
     return actions;
   }
@@ -755,7 +760,8 @@ public final class ActionRewindStrategy {
       return ImmutableSet.of(lostInput.getGeneratingActionKey());
     }
     ArtifactDependencies artifactDependencies =
-        ArtifactDependencies.discoverDependencies(lostInput, env);
+        ArtifactDependencies.discoverDependencies(
+            lostInput, env, /* crashIfActionOwnerMissing= */ true);
     if (artifactDependencies == null) {
       return null;
     }

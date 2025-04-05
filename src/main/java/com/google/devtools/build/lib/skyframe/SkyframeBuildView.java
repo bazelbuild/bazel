@@ -1366,14 +1366,18 @@ public final class SkyframeBuildView {
       ConfigConditions configConditions,
       @Nullable ToolchainCollection<ResolvedToolchainContext> toolchainContexts,
       @Nullable NestedSet<Package.Metadata> transitivePackages,
-      ExecGroupCollection.Builder execGroupCollectionBuilder)
+      ExecGroupCollection.Builder execGroupCollectionBuilder,
+      boolean crashIfExecutionPhase)
       throws InterruptedException,
           ActionConflictException,
           InvalidExecGroupException,
           AnalysisFailurePropagationException,
           StarlarkExecTransitionLoadingException {
     Preconditions.checkState(
-        enableAnalysis, "Already in execution phase %s %s", target, configuration);
+        enableAnalysis || !crashIfExecutionPhase,
+        "Already in execution phase %s %s",
+        target,
+        configuration);
     Preconditions.checkNotNull(analysisEnvironment);
     Preconditions.checkNotNull(target);
     Preconditions.checkNotNull(prerequisiteMap);
