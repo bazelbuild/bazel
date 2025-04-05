@@ -38,8 +38,10 @@ import org.junit.runners.JUnit4;
 public final class CallStackTest {
 
   @Test
-  public void emptyCallStack_nullInterior() {
-    assertThat(CallStack.compactInterior(ImmutableList.of())).isNull();
+  public void emptyCallStack_null() {
+    assertThat(CallStack.compact(ImmutableList.of(), 0)).isNull();
+    assertThat(CallStack.compact(ImmutableList.of(), 1)).isNull();
+    assertThat(CallStack.compact(ImmutableList.of(), 42)).isNull();
   }
 
   @Test
@@ -47,7 +49,11 @@ public final class CallStackTest {
     ImmutableList<StarlarkThread.CallStackEntry> stack =
         ImmutableList.of(entryFromNameAndLocation(StarlarkThread.TOP_LEVEL, "BUILD", 10, 20));
 
-    assertThat(CallStack.compactInterior(stack)).isNull();
+    CallStack.Node compacted = CallStack.compact(stack, 0);
+    assertThat(compacted).isNotNull();
+    assertThat(compacted.next()).isNull();
+    assertThat(CallStack.compact(stack, 1)).isNull();
+    assertThat(CallStack.compact(stack, 42)).isNull();
   }
 
   @Test
@@ -57,7 +63,13 @@ public final class CallStackTest {
             entryFromNameAndLocation(StarlarkThread.TOP_LEVEL, "BUILD", 10, 20),
             entryFromNameAndLocation("func", "file.bzl", 20, 30));
 
-    assertCallStackContents(CallStack.compactInterior(stack), stack);
+    CallStack.Node compacted0 = CallStack.compact(stack, 0);
+    CallStack.Node compacted1 = CallStack.compact(stack, 1);
+    assertThat(compacted0.next()).isEqualTo(compacted1);
+    assertThat(compacted1.next()).isNull();
+    assertCallStackContents(compacted0, stack, 0);
+    assertCallStackContents(compacted1, stack, 1);
+    assertThat(CallStack.compact(stack, 2)).isNull();
   }
 
   @Test
@@ -75,7 +87,7 @@ public final class CallStackTest {
             loopEntry1,
             loopEntry2);
 
-    assertCallStackContents(CallStack.compactInterior(stack), stack);
+    assertCallStackContents(CallStack.compact(stack, 1), stack, 1);
   }
 
   @Test
@@ -89,8 +101,8 @@ public final class CallStackTest {
     ImmutableList<StarlarkThread.CallStackEntry> stack2 =
         stackBuilder.add(entryFromNameAndLocation("h1", "h.bzl", 4, 5)).build();
 
-    assertCallStackContents(CallStack.compactInterior(stack1), stack1);
-    assertCallStackContents(CallStack.compactInterior(stack2), stack2);
+    assertCallStackContents(CallStack.compact(stack1, 1), stack1, 1);
+    assertCallStackContents(CallStack.compact(stack2, 1), stack2, 1);
   }
 
   @Test
@@ -106,13 +118,19 @@ public final class CallStackTest {
             entryFromNameAndLocation("java_library_macro", "java_library_macro.bzl", 2, 3),
             entryFromNameAndLocation("java_library", "java_library.bzl", 4, 5));
 
-    CallStack.Node optimizedStack1 = CallStack.compactInterior(stack1);
-    CallStack.Node optimizedStack2 = CallStack.compactInterior(stack2);
+    CallStack.Node optimizedInteriorStack1 = CallStack.compact(stack1, 1);
+    CallStack.Node optimizedInteriorStack2 = CallStack.compact(stack2, 1);
+    CallStack.Node optimizedFullStack1 = CallStack.compact(stack1, 0);
+    CallStack.Node optimizedFullStack2 = CallStack.compact(stack2, 0);
 
-    assertCallStackContents(optimizedStack1, stack1);
-    assertCallStackContents(optimizedStack2, stack2);
-    assertThat(optimizedStack1.next()).isSameInstanceAs(optimizedStack2.next());
-    assertThat(optimizedStack1.next().next()).isSameInstanceAs(optimizedStack2.next().next());
+    assertCallStackContents(optimizedInteriorStack1, stack1, 1);
+    assertCallStackContents(optimizedInteriorStack2, stack2, 1);
+    assertCallStackContents(optimizedFullStack1, stack1, 0);
+    assertCallStackContents(optimizedFullStack2, stack2, 0);
+    assertThat(optimizedInteriorStack2.next().next())
+        .isSameInstanceAs(optimizedInteriorStack2.next().next());
+    assertThat(optimizedFullStack1.next()).isSameInstanceAs(optimizedFullStack2.next());
+    assertThat(optimizedFullStack1.next()).isSameInstanceAs(optimizedInteriorStack1);
   }
 
   @Test
@@ -128,8 +146,8 @@ public final class CallStackTest {
     ImmutableList<StarlarkThread.CallStackEntry> stackEntries2 =
         ImmutableList.of(entryFromNameAndLocation(StarlarkThread.TOP_LEVEL, "BUILD", 9, 10));
 
-    CallStack.Node interiorStack1 = CallStack.compactInterior(stackEntries1);
-    CallStack.Node interiorStack2 = CallStack.compactInterior(stackEntries2);
+    CallStack.Node interiorStack1 = CallStack.compact(stackEntries1, 1);
+    CallStack.Node interiorStack2 = CallStack.compact(stackEntries2, 1);
     Rule rule1 =
         new Rule(
             mock(Package.class),
@@ -161,28 +179,54 @@ public final class CallStackTest {
 
     CallStack.Node deserializedCallStack1 = deserializer.deserialize(codedIn);
     assertThat(deserializedCallStack1.toLocation()).isEqualTo(rule1.getLocation());
-    assertCallStackContents(deserializedCallStack1.next(), stackEntries1);
+    assertCallStackContents(deserializedCallStack1.next(), stackEntries1, 1);
 
     CallStack.Node deserializedCallStack2 = deserializer.deserialize(codedIn);
     assertThat(deserializedCallStack2.toLocation()).isEqualTo(rule2.getLocation());
-    assertCallStackContents(deserializedCallStack2.next(), stackEntries2);
+    assertCallStackContents(deserializedCallStack2.next(), stackEntries2, 1);
 
     CallStack.Node deserializedCallStack1Again = deserializer.deserialize(codedIn);
     assertThat(deserializedCallStack1Again.toLocation()).isEqualTo(rule1.getLocation());
-    assertCallStackContents(deserializedCallStack1Again.next(), stackEntries1);
+    assertCallStackContents(deserializedCallStack1Again.next(), stackEntries1, 1);
+  }
+
+  @Test
+  public void concatenate() {
+    ImmutableList<StarlarkThread.CallStackEntry> outerStack =
+        ImmutableList.of(
+            entryFromNameAndLocation(StarlarkThread.TOP_LEVEL, "BUILD", 10, 20),
+            entryFromNameAndLocation("foo", "f.bzl", 1, 2),
+            entryFromNameAndLocation("bar", "g.bzl", 3, 4));
+    ImmutableList<StarlarkThread.CallStackEntry> innerStack =
+        ImmutableList.of(
+            entryFromNameAndLocation("baz", "h.bzl", 5, 6),
+            entryFromNameAndLocation("qux", "g.bzl", 7, 8));
+
+    assertThat(CallStack.concatenate(null, null)).isNull();
+    assertCallStackContents(
+        CallStack.concatenate(CallStack.compact(outerStack, 1), null), outerStack, 1);
+    assertCallStackContents(
+        CallStack.concatenate(null, CallStack.compact(innerStack, 0)), innerStack, 0);
+    assertCallStackContents(
+        CallStack.concatenate(CallStack.compact(outerStack, 1), CallStack.compact(innerStack, 0)),
+        ImmutableList.<StarlarkThread.CallStackEntry>builder()
+            .addAll(outerStack)
+            .addAll(innerStack)
+            .build(),
+        1);
   }
 
   /**
-   * Asserts the provided {@link CallStack.Node} faithfully represents the interior of the expected
-   * stack.
+   * Asserts the provided {@link CallStack.Node} faithfully represents the expected stack, ignoring
+   * {@code expectedStart} of the expected stack's outer frames.
    */
   private static void assertCallStackContents(
-      CallStack.Node compacted, List<StarlarkThread.CallStackEntry> expected) {
+      CallStack.Node compacted, List<StarlarkThread.CallStackEntry> expected, int expectedStart) {
     List<StarlarkThread.CallStackEntry> reconstituted = new ArrayList<>();
     for (CallStack.Node node = compacted; node != null; node = node.next()) {
       reconstituted.add(node.toCallStackEntry());
     }
-    assertThat(reconstituted).isEqualTo(expected.subList(1, expected.size()));
+    assertThat(reconstituted).isEqualTo(expected.subList(expectedStart, expected.size()));
   }
 
   private static StarlarkThread.CallStackEntry entryFromNameAndLocation(

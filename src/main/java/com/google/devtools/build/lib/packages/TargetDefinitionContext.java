@@ -364,13 +364,27 @@ public abstract class TargetDefinitionContext extends StarlarkThreadContext {
    *
    * <p>The created {@link Rule} will have no output files and therefore will be in an invalid
    * state.
+   *
+   * @param threadCallStack the call stack of the thread that created the rule. Call stacks for
+   *     threads of enclosing symbolic macros (if any) will be prepended to it automatically to form
+   *     the rule's full call stack.
    */
-  Rule createRule(Label label, RuleClass ruleClass, List<StarlarkThread.CallStackEntry> callstack) {
-    return createRule(
-        label,
-        ruleClass,
-        callstack.isEmpty() ? Location.BUILTIN : callstack.get(0).location,
-        CallStack.compactInterior(callstack));
+  Rule createRule(
+      Label label, RuleClass ruleClass, List<StarlarkThread.CallStackEntry> threadCallStack) {
+    CallStack.Node fullInteriorCallStack;
+    final Location location;
+    if (currentMacro() != null) {
+      location = currentMacro().getBuildFileLocation();
+      fullInteriorCallStack = CallStack.compact(threadCallStack, /* start= */ 0);
+      for (MacroInstance macro = currentMacro(); macro != null; macro = macro.getParent()) {
+        fullInteriorCallStack =
+            CallStack.concatenate(macro.getParentCallStack(), fullInteriorCallStack);
+      }
+    } else {
+      location = threadCallStack.isEmpty() ? Location.BUILTIN : threadCallStack.get(0).location;
+      fullInteriorCallStack = CallStack.compact(threadCallStack, /* start= */ 1);
+    }
+    return createRule(label, ruleClass, location, fullInteriorCallStack);
   }
 
   Rule createRule(
@@ -386,10 +400,23 @@ public abstract class TargetDefinitionContext extends StarlarkThreadContext {
    * Package} associated with this {@link Builder}.
    */
   MacroInstance createMacro(
-      MacroClass macroClass, Map<String, Object> attrValues, int sameNameDepth)
+      MacroClass macroClass,
+      Map<String, Object> attrValues,
+      int sameNameDepth,
+      List<StarlarkThread.CallStackEntry> parentCallStack)
       throws EvalException {
     MacroInstance parent = currentMacro();
-    return new MacroInstance(pkg, parent, macroClass, attrValues, sameNameDepth);
+    final Location location;
+    final CallStack.Node compactParentCallStack;
+    if (parent != null) {
+      location = parent.getBuildFileLocation();
+      compactParentCallStack = CallStack.compact(parentCallStack, /* start= */ 0);
+    } else {
+      location = parentCallStack.isEmpty() ? Location.BUILTIN : parentCallStack.get(0).location;
+      compactParentCallStack = CallStack.compact(parentCallStack, /* start= */ 1);
+    }
+    return new MacroInstance(
+        pkg, parent, location, compactParentCallStack, macroClass, attrValues, sameNameDepth);
   }
 
   @Nullable
