@@ -83,10 +83,14 @@ def _xcode_version_info_init(
     dotted_watchos_sdk = _apple_common.dotted_version(watchos_sdk_version)
     dotted_macos_sdk = _apple_common.dotted_version(macos_sdk_version)
 
-    if xcode_version:
-        dotted_xcode_version = _apple_common.dotted_version(xcode_version)
-    else:
-        dotted_xcode_version = None
+    def _xcode_version(xcode_version):
+        if not xcode_version:
+            return None
+        if xcode_version.startswith("/"):
+            # Versions that represent a path on disk should be propagated as-is since they will
+            # be used directly as DEVELOPER_DIR
+            return xcode_version
+        return _apple_common.dotted_version(xcode_version)
 
     def _minimum_os_for_platform_type(platform_type):
         if platform_type in (platform_type_struct.ios, platform_type_struct.catalyst):
@@ -136,7 +140,7 @@ def _xcode_version_info_init(
     # APIs as functions, not fields. This is atypical for Starlark providers,
     # but the built-in Starlark provider must provide the same API.
     return {
-        "xcode_version": lambda: dotted_xcode_version,
+        "xcode_version": lambda: _xcode_version(xcode_version),
         "minimum_os_for_platform_type": _minimum_os_for_platform_type,
         "sdk_version_for_platform": _sdk_version_for_platform,
         "availability": lambda: availability.lower(),
