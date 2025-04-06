@@ -46,7 +46,7 @@ public final class MemoryPressureModule extends BlazeModule {
     memoryPressureListener.initForInvocation(
         eventBus,
         GcThrashingDetector.createForCommand(options),
-        GcChurningDetector.createForCommand());
+        GcChurningDetector.createForCommand(options));
     highWaterMarkLimiter =
         new HighWaterMarkLimiter(env.getSkyframeExecutor(), env.getSyscallCache(), options);
     eventBus.register(this);

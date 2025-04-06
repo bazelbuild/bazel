@@ -356,6 +356,12 @@ message Crash {
     //
     // See --gc_thrashing_threshold and --gc_thrashing_limits.
     GC_THRASHING = 3;
+
+    // Blaze gave up and pretended it OOM'd because it has spent too much of the
+    // invocation wall time doing full GCs.
+    //
+    // See --gc_churning_threshold.
+    GC_CHURNING = 4;
   }
 
   // If Blaze OOM'd (code = CRASH_OOM), the category of cause of that OOM.
