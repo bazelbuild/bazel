@@ -20,11 +20,12 @@ import com.google.devtools.build.lib.starlarkdebugging.StarlarkDebuggingProtos;
 import com.google.devtools.build.lib.starlarkdebugging.StarlarkDebuggingProtos.Value;
 import java.lang.reflect.Array;
 import java.util.Map;
-import java.util.Set;
 import net.starlark.java.eval.Debug;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkInt;
+import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkValue;
 import net.starlark.java.eval.Structure;
@@ -126,11 +127,9 @@ final class DebuggerSerialization {
   private static ImmutableList<Value> getChildren(
       ThreadObjectMap objectMap, StarlarkValue starlarkValue) {
     StarlarkSemantics semantics = StarlarkSemantics.DEFAULT; // TODO(adonovan): obtain from thread.
-    // TODO(adonovan): would the debugger be content with Starlark.{dir,getattr}
-    // instead of getAnnotatedField{,Names}, if we filtered out BuiltinCallables?
-    Set<String> fieldNames;
+    StarlarkList<String> fieldNames;
     try {
-      fieldNames = Starlark.getAnnotatedFieldNames(semantics, starlarkValue);
+      fieldNames = Starlark.dir(Mutability.IMMUTABLE, semantics, starlarkValue);
     } catch (IllegalArgumentException e) {
       // silently return no children
       return ImmutableList.of();
@@ -142,7 +141,7 @@ final class DebuggerSerialization {
             getValueProto(
                 objectMap,
                 fieldName,
-                Starlark.getAnnotatedField(semantics, starlarkValue, fieldName)));
+                Starlark.getattr(Mutability.IMMUTABLE, semantics, starlarkValue, fieldName, null)));
       } catch (EvalException | InterruptedException | IllegalArgumentException e) {
         // silently ignore errors
       }
