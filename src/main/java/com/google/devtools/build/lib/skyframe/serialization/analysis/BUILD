@@ -51,6 +51,7 @@ java_library(
         ":dependencies_provider",
         ":event_listener",
         ":frontier_violation_event",
+        ":options",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_data",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_key",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",

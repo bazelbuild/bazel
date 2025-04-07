@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.server.FailureDetails.Skyfocus.Code;
 import com.google.devtools.build.lib.skyframe.SkyfocusOptions.FrontierViolationCheck;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.FrontierViolationEvent.Level;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingDependenciesProvider.DisabledDependenciesProvider;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions.RemoteAnalysisCacheMode;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.LoggingUtil;
@@ -48,6 +49,9 @@ import java.util.concurrent.atomic.AtomicInteger;
  * the active directories.
  */
 public final class FrontierViolationChecker {
+
+  public static final String UPLOAD_BUILDS_DIRTY_WORKSPACE_ERROR =
+      "Cannot perform upload builds with a dirty workspace";
 
   /** Accumulator of cache hit counts that persists between invocations. */
   private static final AtomicInteger accumulatedCacheHits = new AtomicInteger(0);
@@ -118,16 +122,28 @@ public final class FrontierViolationChecker {
       }
     }
 
+    boolean modifiedWithinFrontier = false;
     Set<String> violations = new TreeSet<>();
     for (PathFragment modified : modifiedFileSet.modifiedSourceFiles()) {
       if (modified.segmentCount() == 1 && modified.getPathString().startsWith(productName + "-")) {
         // hacky way to bypass checks for workspace convenience symlinks
         continue;
       }
-      if (!provider.withinActiveDirectories(
+      if (provider.withinActiveDirectories(
           PackageIdentifier.createInMainRepo(modified.getParentDirectory()))) {
+        modifiedWithinFrontier = true;
+      } else {
         violations.add(modified.getPathString());
       }
+    }
+
+    if (provider.mode() == RemoteAnalysisCacheMode.UPLOAD && modifiedWithinFrontier) {
+      throw new AbruptExitException(
+          DetailedExitCode.of(
+              FailureDetail.newBuilder()
+                  .setMessage(UPLOAD_BUILDS_DIRTY_WORKSPACE_ERROR)
+                  .setSkyfocus(Skyfocus.newBuilder().setCode(Code.NON_WORKING_SET_CHANGE).build())
+                  .build()));
     }
 
     if (violations.isEmpty()) {
