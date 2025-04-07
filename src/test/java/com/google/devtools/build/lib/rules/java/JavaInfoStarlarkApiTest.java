@@ -222,9 +222,8 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
         """);
     JavaOutput nativeOutput =
         JavaOutput.builder().setClassJar(createArtifact("native.jar")).build();
-    StarlarkList<?> starlarkOutputs =
-        JavaInfo.getJavaInfo(getConfiguredTarget("//foo:my_starlark_rule"))
-            .getValue("java_outputs", StarlarkList.class);
+    ImmutableList<JavaOutput> starlarkOutputs =
+        JavaInfo.getJavaInfo(getConfiguredTarget("//foo:my_starlark_rule")).getJavaOutputs();
 
     Depset depset =
         Depset.fromDirectAndTransitive(

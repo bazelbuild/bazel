@@ -14,14 +14,13 @@
 
 package com.google.devtools.build.lib.analysis.platform;
 
-import com.google.common.collect.ImmutableCollection;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.analysis.ResolvedToolchainData;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
-import com.google.devtools.build.lib.packages.NativeInfo;
+import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.starlarkbuildapi.platform.ToolchainInfoApi;
 import java.util.Map;
@@ -39,7 +38,7 @@ import net.starlark.java.syntax.Location;
  * additional fields to Starlark code. Also, these are not disjoint.
  */
 @Immutable
-public final class ToolchainInfo extends NativeInfo
+public final class ToolchainInfo extends StructImpl
     implements ToolchainInfoApi, ResolvedToolchainData {
 
   /** Name used in Starlark for accessing this provider. */
@@ -62,15 +61,12 @@ public final class ToolchainInfo extends NativeInfo
   }
 
   @VisibleForSerialization final ImmutableSortedMap<String, Object> values;
-  private ImmutableSet<String> fieldNames; // initialized lazily (with monitor synchronization)
+
+  private final Location location;
 
   /** Constructs a ToolchainInfo. The {@code values} map itself is not retained. */
   protected ToolchainInfo(Map<String, Object> values, Location location) {
-    super(location);
-    this.values = copyValues(values);
-  }
-
-  public ToolchainInfo(Map<String, Object> values) {
+    this.location = location;
     this.values = copyValues(values);
   }
 
@@ -95,19 +91,16 @@ public final class ToolchainInfo extends NativeInfo
 
   @Override
   public Object getValue(String name) throws EvalException {
-    Object x = values.get(name);
-    return x != null ? x : super.getValue(name);
+    return values.get(name);
   }
 
   @Override
-  public synchronized ImmutableCollection<String> getFieldNames() {
-    if (fieldNames == null) {
-      fieldNames =
-          ImmutableSet.<String>builder()
-              .addAll(values.keySet())
-              .addAll(super.getFieldNames())
-              .build();
-    }
-    return fieldNames;
+  public ImmutableSortedSet<String> getFieldNames() {
+    return values.keySet();
+  }
+
+  @Override
+  public Location getCreationLocation() {
+    return location;
   }
 }

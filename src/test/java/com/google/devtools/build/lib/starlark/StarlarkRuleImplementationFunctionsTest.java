@@ -1267,7 +1267,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
 
     Object provider = myInfo.getValue("provider");
     assertThat(provider).isInstanceOf(DefaultInfo.class);
-    assertThat(((StructImpl) provider).getProvider().getKey())
+    assertThat(((DefaultInfo) provider).getProvider().getKey())
         .isEqualTo(DefaultInfo.PROVIDER.getKey());
 
     assertThat(myInfo.getValue("dir"))
@@ -1351,7 +1351,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
 
     Object provider = myInfo.getValue("provider");
     assertThat(provider).isInstanceOf(DefaultInfo.class);
-    assertThat(((StructImpl) provider).getProvider().getKey())
+    assertThat(((DefaultInfo) provider).getProvider().getKey())
         .isEqualTo(DefaultInfo.PROVIDER.getKey());
 
     assertThat(myInfo.getValue("dir"))
@@ -1414,7 +1414,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
 
     Object provider = myInfo.getValue("provider");
     assertThat(provider).isInstanceOf(DefaultInfo.class);
-    assertThat(((StructImpl) provider).getProvider().getKey())
+    assertThat(((DefaultInfo) provider).getProvider().getKey())
         .isEqualTo(DefaultInfo.PROVIDER.getKey());
 
     assertThat(myInfo.getValue("dir"))
@@ -1480,7 +1480,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
     ConfiguredTarget configuredTarget = getConfiguredTarget("//test:my_rule");
     Object provider = getMyInfoFromTarget(configuredTarget).getValue("default");
     assertThat(provider).isInstanceOf(DefaultInfo.class);
-    assertThat(((StructImpl) provider).getProvider().getKey())
+    assertThat(((DefaultInfo) provider).getProvider().getKey())
         .isEqualTo(DefaultInfo.PROVIDER.getKey());
   }
 

@@ -18,12 +18,15 @@ import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.nio.charset.StandardCharsets.UTF_16;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import com.google.common.collect.Ordering;
+import com.google.devtools.build.lib.packages.NativeInfo;
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
 import java.nio.charset.CharacterCodingException;
 import java.nio.charset.CharsetEncoder;
 import java.nio.charset.CodingErrorAction;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
@@ -32,6 +35,7 @@ import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkCallable;
 import net.starlark.java.eval.StarlarkFloat;
 import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkIterable;
@@ -100,7 +104,7 @@ public final class Json implements StarlarkValue {
               + "An application-defined type may define its own JSON encoding.\n"
               + "Encoding any other value yields an error.\n",
       parameters = {@Param(name = "x")})
-  public String encode(Object x) throws EvalException {
+  public String encode(Object x) throws EvalException, InterruptedException {
     Encoder enc = new Encoder();
     try {
       enc.encode(x);
@@ -114,7 +118,7 @@ public final class Json implements StarlarkValue {
 
     private final StringBuilder out = new StringBuilder();
 
-    private void encode(Object x) throws EvalException {
+    private void encode(Object x) throws EvalException, InterruptedException {
       if (x == Starlark.NONE) {
         out.append("null");
         return;
@@ -196,10 +200,11 @@ public final class Json implements StarlarkValue {
       }
 
       // e.g. struct
-      if (x instanceof Structure obj) {
+      if (x instanceof Structure || x instanceof NativeInfo) {
         // Sort keys for determinism.
-        String[] fields = obj.getFieldNames().toArray(new String[0]);
-        Arrays.sort(fields);
+        List<String> fields =
+            Ordering.natural()
+                .sortedCopy(Starlark.dir(Mutability.IMMUTABLE, StarlarkSemantics.DEFAULT, x));
 
         out.append('{');
         String sep = "";
@@ -209,7 +214,18 @@ public final class Json implements StarlarkValue {
           appendQuoted(field);
           out.append(":");
           try {
-            Object v = obj.getValue(field); // may fail (field not defined)
+            Object v =
+                Starlark.getattr(
+                    Mutability.IMMUTABLE,
+                    StarlarkSemantics.DEFAULT,
+                    x,
+                    field,
+                    null); // may fail (field not defined)
+            // This preserves legacy behavior where only struct_fields from NativeInfo were emitted
+            // When serializing non NativeInfo, just let it fail on functions
+            if (x instanceof NativeInfo && v instanceof StarlarkCallable) {
+              continue;
+            }
             encode(v); // may fail (unexpected type)
           } catch (EvalException ex) {
             throw Starlark.errorf("in %s field .%s: %s", Starlark.type(x), field, ex.getMessage());
@@ -678,7 +694,7 @@ public final class Json implements StarlarkValue {
       },
       useStarlarkThread = true)
   public String encodeIndent(Object x, String prefix, String indent, StarlarkThread starlarkThread)
-      throws EvalException {
+      throws EvalException, InterruptedException {
     return indent(encode(x), prefix, indent);
   }
 
