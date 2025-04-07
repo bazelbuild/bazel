@@ -19,6 +19,7 @@ Used for C++ compiling.
 
 cc_common_internal = _builtins.internal.cc_common
 
+# LINT.IfChange(compile_api)
 EMPTY_DICT = {}
 LANGUAGE_CPP = "c++"
 
@@ -134,6 +135,9 @@ def compile(
 
     Returns tuple of  (<code>CompilationContext</code>, <code>CcCompilationOutputs</code>).
     """
+
+    # LINT.ThenChange(//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/cpp/CcModuleApi.java:compile_api)
+    # LINT.IfChange(compile)
     cc_common_internal.validate_starlark_compile_api_call(
         actions = actions,
         include_prefix = include_prefix,
@@ -182,3 +186,4 @@ def compile(
         module_interfaces = module_interfaces,
         non_compilation_additional_inputs = non_compilation_additional_inputs,
     )
+    # LINT.ThenChange(//src/main/java/com/google/devtools/build/lib/rules/cpp/CcModule.java:compile)

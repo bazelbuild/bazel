@@ -2074,6 +2074,7 @@ public abstract class CcModule
             2); // stackDepth = 2 is the caller of Starlark implemented cc_common.compile().
   }
 
+  // LINT.IfChange(compile)
   @Override
   @SuppressWarnings("unchecked")
   public Tuple compile(
@@ -2311,6 +2312,8 @@ public abstract class CcModule
     return Sequence.cast(
         additionalIncludeScanningRoots, Artifact.class, "additional_include_scanning_roots");
   }
+
+  // LINT.ThenChange(//src/main/starlark/builtins_bzl/common/cc/compile/compile.bzl:compile)
 
   // LINT.IfChange
   @Override

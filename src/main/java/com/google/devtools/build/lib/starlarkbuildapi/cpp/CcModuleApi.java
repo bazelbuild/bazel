@@ -82,6 +82,7 @@ public interface CcModuleApi<
       structField = true)
   default void compilerFlagExists() {}
 
+  // LINT.IfChange(compile_api)
   @StarlarkMethod(
       name = "compile",
       doc =
@@ -431,6 +432,8 @@ public interface CcModuleApi<
       Object nonCompilationAdditionalInputsObject,
       StarlarkThread thread)
       throws EvalException, InterruptedException;
+
+  // LINT.ThenChange(//src/main/starlark/builtins_bzl/common/cc/compile/compile.bzl:compile_api)
 
   @StarlarkMethod(
       name = "link",
