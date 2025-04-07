@@ -14,7 +14,9 @@
 package com.google.devtools.build.lib.runtime;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.devtools.build.lib.buildtool.BuildRequestOptions.MAX_JOBS;
 import static com.google.devtools.build.lib.concurrent.NamedForkJoinPool.newNamedPool;
+import static java.lang.Math.min;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.analysis.AnalysisOptions;
@@ -24,10 +26,10 @@ import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor.ExceptionHa
 import com.google.devtools.build.lib.concurrent.MultiExecutorQueueVisitor;
 import com.google.devtools.build.lib.concurrent.QuiescingExecutor;
 import com.google.devtools.build.lib.concurrent.QuiescingExecutors;
+import com.google.devtools.build.lib.concurrent.WorkStealingThreadPoolExecutor;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.skyframe.ParallelEvaluatorErrorClassifier;
 import com.google.devtools.common.options.OptionsProvider;
-import java.util.concurrent.Executors;
 
 /**
  * Encapsulates thread pool options used by parallel evaluation.
@@ -44,6 +46,7 @@ public final class QuiescingExecutorsImpl implements QuiescingExecutors {
   private int executionParallelism;
   private int globbingParallelism;
   private boolean useAsyncExecution;
+  private int asyncExecutionMaxConcurrentActions;
 
   /**
    * The size of the thread pool for CPU-heavy tasks set by
@@ -96,6 +99,10 @@ public final class QuiescingExecutorsImpl implements QuiescingExecutors {
     var buildRequestOptions = options.getOptions(BuildRequestOptions.class);
     this.executionParallelism = buildRequestOptions != null ? buildRequestOptions.jobs : 0;
     this.useAsyncExecution = buildRequestOptions != null && buildRequestOptions.useAsyncExecution;
+    this.asyncExecutionMaxConcurrentActions =
+        buildRequestOptions != null
+            ? min(MAX_JOBS, buildRequestOptions.asyncExecutionMaxConcurrentActions)
+            : 0;
     var packageOptions = options.getOptions(PackageOptions.class);
     this.globbingParallelism = packageOptions != null ? packageOptions.globbingThreads : 0;
     var analysisOptions = options.getOptions(AnalysisOptions.class);
@@ -145,7 +152,8 @@ public final class QuiescingExecutorsImpl implements QuiescingExecutors {
         AbstractQueueVisitor.createExecutorService(
             /* parallelism= */ cpuHeavySkyKeysThreadPoolSize, SKYFRAME_EVALUATOR_CPU_HEAVY),
         useAsyncExecution
-            ? Executors.newThreadPerTaskExecutor(
+            ? new WorkStealingThreadPoolExecutor(
+                asyncExecutionMaxConcurrentActions,
                 Thread.ofVirtual().name(SKYFRAME_EVALUATOR_EXECUTION + "-", 0).factory())
             : AbstractQueueVisitor.createExecutorService(
                 /* parallelism= */ executionParallelism, SKYFRAME_EVALUATOR_EXECUTION),

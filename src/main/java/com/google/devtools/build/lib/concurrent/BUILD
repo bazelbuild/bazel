@@ -19,6 +19,7 @@ java_library(
         exclude = ["SettableFutureKeyedValue.java"],
     ),
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/unsafe:unsafe-provider",
         "//third_party:flogger",
         "//third_party:guava",

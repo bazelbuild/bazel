@@ -17,7 +17,6 @@ java_library(
     name = "logging",
     srcs = ["LoggingUtil.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
