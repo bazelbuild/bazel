@@ -367,7 +367,7 @@ cc_library(
     copts = SUPRESSED_WARNINGS,
     include_prefix = "third_party",
     strip_include_prefix = "java_tools",
-    deps = ["//java_tools/zlib"],
+    deps = ["@zlib"],
 )
 
 ##################### singlejar
@@ -390,7 +390,7 @@ cc_library(
         ":diag",
         ":options",
         ":output_jar",
-        "//java_tools/zlib",
+        "@zlib",
     ],
     alwayslink = 1,
 )
@@ -420,7 +420,7 @@ cc_binary(
         ":desugar_checking",
         ":options",
         ":output_jar",
-        "//java_tools/zlib",
+        "@zlib",
     ],
 )
 
@@ -438,7 +438,7 @@ cc_library(
     copts = SUPRESSED_WARNINGS,
     strip_include_prefix = "java_tools",
     deps = [
-        "//java_tools/zlib",
+        "@zlib",
     ],
 )
 
@@ -548,7 +548,7 @@ cc_library(
         ":mapped_file",
         ":options",
         ":singlejar_port",
-        "//java_tools/zlib",
+        "@zlib",
     ],
 )
 

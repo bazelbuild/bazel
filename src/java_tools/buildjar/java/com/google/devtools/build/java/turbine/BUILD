@@ -116,7 +116,7 @@ native_image(
         "//conditions:default": [],
     }),
     # This provides libz.a on Linux instead of the host system.
-    static_zlib = "//third_party/zlib",
+    static_zlib = "@zlib",
     deps = [":turbine_deps"],
 )
 

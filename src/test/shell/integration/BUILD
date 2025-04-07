@@ -375,8 +375,8 @@ sh_test(
     data = [
         ":protobuf_stanza.txt",
         ":test-deps",
-        "//third_party/zlib",
         "@bazel_tools//tools/bash/runfiles",
+        "@zlib",
     ],
     tags = ["requires-network"],  # Allow this test to access internet to fetch protobuf dependencies.
 )
