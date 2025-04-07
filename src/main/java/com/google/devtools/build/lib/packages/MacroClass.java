@@ -178,7 +178,10 @@ public final class MacroClass {
    */
   // TODO(#19922): Consider reporting multiple events instead of failing on the first one. See
   // analogous implementation in RuleClass#populateDefinedRuleAttributeValues.
-  private MacroInstance instantiateMacro(Package.Builder pkgBuilder, Map<String, Object> kwargs)
+  private MacroInstance instantiateMacro(
+      Package.Builder pkgBuilder,
+      Map<String, Object> kwargs,
+      ImmutableList<StarlarkThread.CallStackEntry> parentThreadCallStack)
       throws EvalException {
     // A word on edge cases:
     //   - If an attr is implicit but does not have a default specified, its value is just the
@@ -319,7 +322,7 @@ public final class MacroClass {
             ? 1
             : parentMacroFrame.macroInstance.getSameNameDepth() + 1;
 
-    return pkgBuilder.createMacro(this, attrValues, sameNameDepth);
+    return pkgBuilder.createMacro(this, attrValues, sameNameDepth, parentThreadCallStack);
   }
 
   /**
@@ -346,10 +349,16 @@ public final class MacroClass {
    * @param kwargs A map from attribute name to its given Starlark value, such as passed in a BUILD
    *     file (i.e., prior to attribute type conversion, {@code select()} promotion, default value
    *     substitution, or even validation that the attribute exists).
+   * @param parentThreadCallStack The call stack of the Starlark thread in whose context the macro
+   *     instance is being constructed. This is *not* the thread that will execute the macro's
+   *     implementation function.
    */
   public MacroInstance instantiateAndAddMacro(
-      Package.Builder pkgBuilder, Map<String, Object> kwargs) throws EvalException {
-    MacroInstance macroInstance = instantiateMacro(pkgBuilder, kwargs);
+      Package.Builder pkgBuilder,
+      Map<String, Object> kwargs,
+      ImmutableList<StarlarkThread.CallStackEntry> parentThreadCallStack)
+      throws EvalException {
+    MacroInstance macroInstance = instantiateMacro(pkgBuilder, kwargs, parentThreadCallStack);
     try {
       pkgBuilder.addMacro(macroInstance);
     } catch (NameConflictException e) {

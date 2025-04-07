@@ -826,6 +826,7 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
    * Returns whether this rule was created by a macro.
    */
   public boolean wasCreatedByMacro() {
+    // TODO(bazel-team): do we really need the `hasStringAttribute(GENERATOR_NAME)` check?
     return interiorCallStack != null || hasStringAttribute(GENERATOR_NAME);
   }
 

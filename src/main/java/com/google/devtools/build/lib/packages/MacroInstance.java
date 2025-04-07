@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.packages;
 
 import static java.util.Objects.requireNonNull;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -29,6 +30,8 @@ import java.util.function.Consumer;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.syntax.Location;
 
 /**
  * Represents a use of a symbolic macro in a package.
@@ -47,6 +50,10 @@ public final class MacroInstance {
   private final Package pkg;
 
   @Nullable private final MacroInstance parent;
+
+  private final Location buildFileLocation;
+
+  private final CallStack.Node parentCallStack;
 
   private final MacroClass macroClass;
 
@@ -80,12 +87,16 @@ public final class MacroInstance {
   public MacroInstance(
       Package pkg,
       @Nullable MacroInstance parent,
+      Location buildFileLocation,
+      CallStack.Node parentCallStack,
       MacroClass macroClass,
       Map<String, Object> attrValues,
       int sameNameDepth)
       throws EvalException {
     this.pkg = pkg;
     this.parent = parent;
+    this.buildFileLocation = buildFileLocation;
+    this.parentCallStack = parentCallStack;
     this.macroClass = macroClass;
     this.attrValues = ImmutableMap.copyOf(attrValues);
     Preconditions.checkArgument(sameNameDepth > 0);
@@ -105,6 +116,44 @@ public final class MacroInstance {
   @Nullable
   public MacroInstance getParent() {
     return parent;
+  }
+
+  /**
+   * Returns the location in the BUILD file at which this macro was created or its outermost
+   * enclosing symbolic or legacy macro was called.
+   */
+  @VisibleForTesting
+  public Location getBuildFileLocation() {
+    return buildFileLocation;
+  }
+
+  /**
+   * Returns the call stack of the Starlark thread that created this macro instance.
+   *
+   * <p>If this macro was instantiated in a BUILD file thread (as contrasted with a symbolic macro
+   * thread), the call stack does not include the frame for the BUILD file top level, since it's
+   * redundant with {@link #getBuildFileLocation}.
+   */
+  CallStack.Node getParentCallStack() {
+    return parentCallStack;
+  }
+
+  /**
+   * Returns the call stack of the Starlark thread that created this macro instance.
+   *
+   * <p>Requires reconstructing the call stack from a compact representation, so should only be
+   * called when the full call stack is needed.
+   */
+  @VisibleForTesting
+  public ImmutableList<StarlarkThread.CallStackEntry> reconstructParentCallStack() {
+    ImmutableList.Builder<StarlarkThread.CallStackEntry> stack = ImmutableList.builder();
+    if (parent == null) {
+      stack.add(StarlarkThread.callStackEntry(StarlarkThread.TOP_LEVEL, buildFileLocation));
+    }
+    for (CallStack.Node node = parentCallStack; node != null; node = node.next()) {
+      stack.add(node.toCallStackEntry());
+    }
+    return stack.build();
   }
 
   /** Returns the {@link MacroClass} (i.e. schema info) that this instance parameterizes. */
