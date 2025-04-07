@@ -85,6 +85,7 @@ EOF
   add_rules_java "MODULE.bazel"
   add_protobuf "MODULE.bazel"
   add_rules_license "MODULE.bazel"
+  add_zlib "MODULE.bazel"
 }
 
 function expect_path_in_java_tools() {
@@ -109,10 +110,6 @@ function test_java_tools_has_ijar() {
 
 function test_java_tools_has_ijar_binary() {
   expect_path_in_java_tools_prebuilt "java_tools/ijar/ijar"
-}
-
-function test_java_tools_has_zlib() {
-  expect_path_in_java_tools "java_tools/zlib"
 }
 
 function test_java_tools_has_native_windows() {

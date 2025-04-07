@@ -64,7 +64,7 @@ native_image(
     }),
     main_class = _TURBINE_MAIN_CLASS,
     # This provides libz.a on Linux instead of the host system.
-    static_zlib = "//third_party/zlib",
+    static_zlib = "@zlib",
     deps = [":turbine_deps"],
 )
 

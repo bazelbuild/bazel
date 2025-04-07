@@ -110,7 +110,6 @@ JAVA_TOOLS = [
                "//third_party/java/j2objc:embedded_tools_srcs",
                "//third_party/py/abseil:srcs",
                "//third_party/py/six:srcs",
-               "//third_party/zlib:embedded_tools",
                "//tools:embedded_tools_srcs",
            ] + select({
                "//src/conditions:darwin": [
@@ -145,7 +144,7 @@ rule_size_test(
     # WARNING: Only adjust the number in `expect` if you are intentionally
     # adding or removing embedded tools. Know that the more embedded tools there
     # are in Bazel, the bigger the binary becomes and the slower Bazel starts.
-    expect = 375,
+    expect = 327,
     margin = 5,  # percentage
 )
 
@@ -618,17 +617,6 @@ sh_binary(
     }),
     data = [":java_tools_prebuilt_zip"],
     deps = ["@bazel_tools//tools/bash/runfiles"],
-)
-
-# Part of the Java tools remote archive. Not embedded or used in Bazel.
-release_archive(
-    name = "zlib_zip",
-    srcs = ["//third_party/zlib:embedded_tools"],
-    package_dir = "zlib",
-    visibility = [
-        "//src/tools/singlejar:__pkg__",
-        "//third_party/ijar:__pkg__",
-    ],
 )
 
 JDK_VERSIONS = [

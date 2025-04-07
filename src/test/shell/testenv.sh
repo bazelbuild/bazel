@@ -587,6 +587,10 @@ function add_rules_license() {
   add_bazel_dep "rules_license" "$1"
 }
 
+function add_zlib() {
+  add_bazel_dep "zlib" "$1"
+}
+
 function add_protobuf() {
   version=$(get_version_from_default_lock_file "protobuf")
   cat >> "$1" <<EOF
