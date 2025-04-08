@@ -2425,8 +2425,10 @@ public abstract class CcModule
       throw Starlark.errorf("Either PIC or no PIC actions have to be created.");
     }
 
-    SourceCategory sourceCategory =
-        (language == Language.CPP) ? SourceCategory.CC : SourceCategory.CC_AND_OBJC;
+    CcStaticCompilationHelper.SourceCategory sourceCategory =
+        (language == Language.CPP)
+            ? CcStaticCompilationHelper.SourceCategory.CC
+            : CcStaticCompilationHelper.SourceCategory.CC_AND_OBJC;
     CcCommon common = new CcCommon(actions.getRuleContext());
     BuildConfigurationValue configuration = actions.getRuleContext().getConfiguration();
     List<String> includes =
@@ -2434,8 +2436,8 @@ public abstract class CcModule
             ? Depset.cast(starlarkIncludes, String.class, "includes").toList()
             : Sequence.cast(starlarkIncludes, String.class, "includes");
 
-    CcCompilationHelper compilationHelper =
-        new CcCompilationHelper(
+    CcStaticCompilationHelper compilationHelper =
+        new CcStaticCompilationHelper(
             actions.getRuleContext(),
             label,
             getSemantics(language),
@@ -2533,7 +2535,8 @@ public abstract class CcModule
 
     try {
       RuleContext ruleContext = actions.getRuleContext();
-      CompilationInfo compilationInfo = compilationHelper.compile(ruleContext);
+      CcStaticCompilationHelper.CompilationInfo compilationInfo =
+          compilationHelper.compile(ruleContext);
       return Tuple.of(
           compilationInfo.getCcCompilationContext(), compilationInfo.getCcCompilationOutputs());
     } catch (RuleErrorException e) {

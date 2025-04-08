@@ -64,7 +64,6 @@ import net.starlark.java.eval.StarlarkFunction;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.Tuple;
 
-// LINT.IfChange()
 /**
  * A class to create C/C++ compile actions in a way that is consistent with cc_library. Rules that
  * generate source files and emulate cc_library on top of that should use this class instead of the
@@ -74,7 +73,7 @@ import net.starlark.java.eval.Tuple;
  * the STL, and so on. Optionally, they can also have copts, and malloc attributes, but note that
  * these require explicit calls to the corresponding setter methods.
  */
-public final class CcCompilationHelper {
+public final class CcStaticCompilationHelper {
   /**
    * Configures a compile action builder by setting up command line options and auxiliary inputs
    * according to the FDO configuration. This method does nothing If FDO is disabled.
@@ -309,7 +308,7 @@ public final class CcCompilationHelper {
   private final Label label;
 
   /** Creates a CcCompilationHelper that outputs artifacts in a given configuration. */
-  public CcCompilationHelper(
+  public CcStaticCompilationHelper(
       ActionConstructionContext actionConstructionContext,
       Label label,
       CppSemantics semantics,
@@ -350,7 +349,7 @@ public final class CcCompilationHelper {
    * collectPerFileCopts() which in turn supports the --per_file_copt flag.
    */
   @CanIgnoreReturnValue
-  public CcCompilationHelper addPublicHeaders(Sequence<?> headers) throws EvalException {
+  public CcStaticCompilationHelper addPublicHeaders(Sequence<?> headers) throws EvalException {
     for (Object header : headers) {
       if (header instanceof Artifact headerArtifact) {
         addHeader(headerArtifact, label);
@@ -374,7 +373,7 @@ public final class CcCompilationHelper {
    * <p>THIS IS AN EXPERIMENTAL FACILITY THAT MIGHT GO AWAY.
    */
   @CanIgnoreReturnValue
-  public CcCompilationHelper addSeparateModuleHeaders(Collection<Artifact> headers) {
+  public CcStaticCompilationHelper addSeparateModuleHeaders(Collection<Artifact> headers) {
     separateModuleHeaders.addAll(headers);
     return this;
   }
@@ -384,7 +383,7 @@ public final class CcCompilationHelper {
    * are made visible as includes to dependent rules in module maps.
    */
   @CanIgnoreReturnValue
-  public CcCompilationHelper addAdditionalExportedHeaders(
+  public CcStaticCompilationHelper addAdditionalExportedHeaders(
       Iterable<PathFragment> additionalExportedHeaders) {
     Iterables.addAll(this.additionalExportedHeaders, additionalExportedHeaders);
     return this;
@@ -395,7 +394,7 @@ public final class CcCompilationHelper {
    * into a target's header module, but will be made visible as textual includes to dependent rules.
    */
   @CanIgnoreReturnValue
-  public CcCompilationHelper addPublicTextualHeaders(List<Artifact> textualHeaders) {
+  public CcStaticCompilationHelper addPublicTextualHeaders(List<Artifact> textualHeaders) {
     Iterables.addAll(this.publicTextualHeaders, textualHeaders);
     for (Artifact header : textualHeaders) {
       this.additionalExportedHeaders.add(header.getExecPath());
@@ -412,7 +411,7 @@ public final class CcCompilationHelper {
    * collectPerFileCopts() which in turn supports the --per_file_copt flag.
    */
   @CanIgnoreReturnValue
-  public CcCompilationHelper addPrivateHeaders(Sequence<?> headers) throws EvalException {
+  public CcStaticCompilationHelper addPrivateHeaders(Sequence<?> headers) throws EvalException {
     for (Object header : headers) {
       if (header instanceof Artifact headerArtifact) {
         addPrivateHeader(headerArtifact, label);
@@ -426,7 +425,7 @@ public final class CcCompilationHelper {
   }
 
   @CanIgnoreReturnValue
-  private CcCompilationHelper addPrivateHeader(Artifact privateHeader, Label label) {
+  private CcStaticCompilationHelper addPrivateHeader(Artifact privateHeader, Label label) {
     boolean isHeader =
         CppFileTypes.CPP_HEADER.matches(privateHeader.getExecPath())
             || privateHeader.isTreeArtifact();
@@ -453,7 +452,7 @@ public final class CcCompilationHelper {
    * collectPerFileCopts() which in turn supports the --per_file_copt flag.
    */
   @CanIgnoreReturnValue
-  public CcCompilationHelper addSources(Sequence<?> sources) throws EvalException {
+  public CcStaticCompilationHelper addSources(Sequence<?> sources) throws EvalException {
     for (Object source : sources) {
       if (source instanceof Artifact sourceArtifact) {
         addSource(sourceArtifact, label);
@@ -473,7 +472,7 @@ public final class CcCompilationHelper {
    * collectPerFileCopts() which in turn supports the --per_file_copt flag.
    */
   @CanIgnoreReturnValue
-  public CcCompilationHelper addModuleInterfaceSources(Sequence<?> sources) throws EvalException {
+  public CcStaticCompilationHelper addModuleInterfaceSources(Sequence<?> sources) throws EvalException {
     for (Object source : sources) {
       if (source instanceof Artifact sourceArtifact) {
         addModuleInterfaceSource(sourceArtifact, label);
@@ -493,7 +492,7 @@ public final class CcCompilationHelper {
 
   /** Add the corresponding files as non-header, non-source input files. */
   @CanIgnoreReturnValue
-  public CcCompilationHelper addAdditionalInputs(Collection<Artifact> inputs) {
+  public CcStaticCompilationHelper addAdditionalInputs(Collection<Artifact> inputs) {
     Iterables.addAll(additionalInputs, inputs);
     return this;
   }
@@ -556,7 +555,7 @@ public final class CcCompilationHelper {
   }
 
   @CanIgnoreReturnValue
-  public CcCompilationHelper setCopts(ImmutableList<String> copts) {
+  public CcStaticCompilationHelper setCopts(ImmutableList<String> copts) {
     this.copts = Preconditions.checkNotNull(copts);
     return this;
   }
@@ -567,13 +566,13 @@ public final class CcCompilationHelper {
   }
 
   @CanIgnoreReturnValue
-  public CcCompilationHelper setConlyopts(ImmutableList<String> copts) {
+  public CcStaticCompilationHelper setConlyopts(ImmutableList<String> copts) {
     this.conlyopts = Preconditions.checkNotNull(copts);
     return this;
   }
 
   @CanIgnoreReturnValue
-  public CcCompilationHelper setCxxopts(ImmutableList<String> copts) {
+  public CcStaticCompilationHelper setCxxopts(ImmutableList<String> copts) {
     this.cxxopts = Preconditions.checkNotNull(copts);
     return this;
   }
@@ -583,7 +582,7 @@ public final class CcCompilationHelper {
    * targets.
    */
   @CanIgnoreReturnValue
-  public CcCompilationHelper addDefines(Iterable<String> defines) {
+  public CcStaticCompilationHelper addDefines(Iterable<String> defines) {
     Iterables.addAll(this.defines, defines);
     return this;
   }
@@ -593,14 +592,14 @@ public final class CcCompilationHelper {
    * transitively to the dependent targets.
    */
   @CanIgnoreReturnValue
-  public CcCompilationHelper addNonTransitiveDefines(Iterable<String> defines) {
+  public CcStaticCompilationHelper addNonTransitiveDefines(Iterable<String> defines) {
     Iterables.addAll(this.localDefines, defines);
     return this;
   }
 
   /** For adding CC compilation infos that affect compilation, for example from dependencies. */
   @CanIgnoreReturnValue
-  public CcCompilationHelper addCcCompilationContexts(
+  public CcStaticCompilationHelper addCcCompilationContexts(
       Iterable<CcCompilationContext> ccCompilationContexts) {
     Iterables.addAll(this.deps, Preconditions.checkNotNull(ccCompilationContexts));
     return this;
@@ -611,7 +610,7 @@ public final class CcCompilationHelper {
    * dependencies.
    */
   @CanIgnoreReturnValue
-  public CcCompilationHelper addImplementationDepsCcCompilationContexts(
+  public CcStaticCompilationHelper addImplementationDepsCcCompilationContexts(
       Iterable<CcCompilationContext> ccCompileActionCompilationContexts) {
     Iterables.addAll(
         this.implementationDeps, Preconditions.checkNotNull(ccCompileActionCompilationContexts));
@@ -623,7 +622,7 @@ public final class CcCompilationHelper {
    * "-isystem"} to the compiler); these are also passed to dependent rules.
    */
   @CanIgnoreReturnValue
-  public CcCompilationHelper addSystemIncludeDirs(Iterable<PathFragment> systemIncludeDirs) {
+  public CcStaticCompilationHelper addSystemIncludeDirs(Iterable<PathFragment> systemIncludeDirs) {
     Iterables.addAll(this.systemIncludeDirs, systemIncludeDirs);
     return this;
   }
@@ -633,7 +632,7 @@ public final class CcCompilationHelper {
    * "-iquote"} to the compiler); these are also passed to dependent rules.
    */
   @CanIgnoreReturnValue
-  public CcCompilationHelper addQuoteIncludeDirs(Iterable<PathFragment> quoteIncludeDirs) {
+  public CcStaticCompilationHelper addQuoteIncludeDirs(Iterable<PathFragment> quoteIncludeDirs) {
     Iterables.addAll(this.quoteIncludeDirs, quoteIncludeDirs);
     return this;
   }
@@ -643,7 +642,7 @@ public final class CcCompilationHelper {
    * compiler); these are also passed to dependent rules.
    */
   @CanIgnoreReturnValue
-  public CcCompilationHelper addIncludeDirs(Iterable<PathFragment> includeDirs) {
+  public CcStaticCompilationHelper addIncludeDirs(Iterable<PathFragment> includeDirs) {
     Iterables.addAll(this.includeDirs, includeDirs);
     return this;
   }
@@ -653,14 +652,14 @@ public final class CcCompilationHelper {
    * "-F"} to the compiler); these are also passed to dependent rules.
    */
   @CanIgnoreReturnValue
-  public CcCompilationHelper addFrameworkIncludeDirs(Iterable<PathFragment> frameworkIncludeDirs) {
+  public CcStaticCompilationHelper addFrameworkIncludeDirs(Iterable<PathFragment> frameworkIncludeDirs) {
     Iterables.addAll(this.frameworkIncludeDirs, frameworkIncludeDirs);
     return this;
   }
 
   /** Adds a variableExtension to template the crosstool. */
   @CanIgnoreReturnValue
-  public CcCompilationHelper addVariableExtension(VariablesExtension variableExtension) {
+  public CcStaticCompilationHelper addVariableExtension(VariablesExtension variableExtension) {
     Preconditions.checkNotNull(variableExtension);
     this.variablesExtensions.add(variableExtension);
     return this;
@@ -668,7 +667,7 @@ public final class CcCompilationHelper {
 
   /** Sets a module map artifact for this build. */
   @CanIgnoreReturnValue
-  public CcCompilationHelper setCppModuleMap(CppModuleMap cppModuleMap) {
+  public CcStaticCompilationHelper setCppModuleMap(CppModuleMap cppModuleMap) {
     Preconditions.checkNotNull(cppModuleMap);
     this.cppModuleMap = cppModuleMap;
     return this;
@@ -676,28 +675,28 @@ public final class CcCompilationHelper {
 
   /** Signals that this target's module map should not be an input to c++ compile actions. */
   @CanIgnoreReturnValue
-  public CcCompilationHelper setPropagateModuleMapToCompileAction(boolean propagatesModuleMap) {
+  public CcStaticCompilationHelper setPropagateModuleMapToCompileAction(boolean propagatesModuleMap) {
     this.propagateModuleMapToCompileAction = propagatesModuleMap;
     return this;
   }
 
   /** Whether to generate no-PIC actions. */
   @CanIgnoreReturnValue
-  public CcCompilationHelper setGenerateNoPicAction(boolean generateNoPicAction) {
+  public CcStaticCompilationHelper setGenerateNoPicAction(boolean generateNoPicAction) {
     this.generateNoPicAction = generateNoPicAction;
     return this;
   }
 
   /** Whether to generate PIC actions. */
   @CanIgnoreReturnValue
-  public CcCompilationHelper setGeneratePicAction(boolean generatePicAction) {
+  public CcStaticCompilationHelper setGeneratePicAction(boolean generatePicAction) {
     this.generatePicAction = generatePicAction;
     return this;
   }
 
   /** Adds mandatory inputs for the compilation action. */
   @CanIgnoreReturnValue
-  public CcCompilationHelper addAdditionalCompilationInputs(
+  public CcStaticCompilationHelper addAdditionalCompilationInputs(
       Collection<Artifact> compilationMandatoryInputs) {
     this.additionalCompilationInputs.addAll(compilationMandatoryInputs);
     return this;
@@ -707,7 +706,7 @@ public final class CcCompilationHelper {
   // TODO(plf): This is only needed for CLIF. Investigate whether this is strictly necessary or
   // there is a way to avoid include scanning for CLIF rules.
   @CanIgnoreReturnValue
-  public CcCompilationHelper addAdditionalIncludeScanningRoots(
+  public CcStaticCompilationHelper addAdditionalIncludeScanningRoots(
       Collection<Artifact> additionalIncludeScanningRoots) {
     this.additionalIncludeScanningRoots.addAll(additionalIncludeScanningRoots);
     return this;
@@ -715,20 +714,20 @@ public final class CcCompilationHelper {
 
   /** Sets the include prefix to append to the public headers. */
   @CanIgnoreReturnValue
-  public CcCompilationHelper setIncludePrefix(@Nullable String includePrefix) {
+  public CcStaticCompilationHelper setIncludePrefix(@Nullable String includePrefix) {
     this.includePrefix = includePrefix;
     return this;
   }
 
   /** Sets the include prefix to remove from the public headers. */
   @CanIgnoreReturnValue
-  public CcCompilationHelper setStripIncludePrefix(@Nullable String stripIncludePrefix) {
+  public CcStaticCompilationHelper setStripIncludePrefix(@Nullable String stripIncludePrefix) {
     this.stripIncludePrefix = stripIncludePrefix;
     return this;
   }
 
   @CanIgnoreReturnValue
-  public CcCompilationHelper setCodeCoverageEnabled(boolean codeCoverageEnabled) {
+  public CcStaticCompilationHelper setCodeCoverageEnabled(boolean codeCoverageEnabled) {
     this.isCodeCoverageEnabled = codeCoverageEnabled;
     return this;
   }
@@ -845,7 +844,7 @@ public final class CcCompilationHelper {
 
   /** Don't generate a module map for this target if a custom module map is provided. */
   @CanIgnoreReturnValue
-  public CcCompilationHelper doNotGenerateModuleMap() {
+  public CcStaticCompilationHelper doNotGenerateModuleMap() {
     generateModuleMap = false;
     return this;
   }
@@ -857,7 +856,7 @@ public final class CcCompilationHelper {
    *     compilation.
    */
   @CanIgnoreReturnValue
-  public CcCompilationHelper setPurpose(String purpose) {
+  public CcStaticCompilationHelper setPurpose(String purpose) {
     this.purpose = Preconditions.checkNotNull(purpose);
     return this;
   }
@@ -1806,4 +1805,3 @@ public final class CcCompilationHelper {
     return ImmutableList.of(dAction.getPrimaryOutput(), sdAction.getPrimaryOutput());
   }
 }
-// LINT.ThenChange(//third_party/bazel/src/main/java/com/google/devtools/build/lib/rules/cpp/CcStaticCompilationHelper.java)
