@@ -120,7 +120,7 @@ public final class ProfilerTest {
         new CollectLocalResourceUsage(
             BugReporter.defaultInstance(),
             WorkerProcessMetricsCollector.instance(),
-            ResourceManager.instance(),
+            new ResourceManager(),
             InMemoryGraph.create(),
             /* collectWorkerDataInProfiler= */ false,
             /* collectLoadAverage= */ false,
@@ -149,7 +149,7 @@ public final class ProfilerTest {
         new CollectLocalResourceUsage(
             BugReporter.defaultInstance(),
             WorkerProcessMetricsCollector.instance(),
-            ResourceManager.instance(),
+            new ResourceManager(),
             InMemoryGraph.create(),
             /* collectWorkerDataInProfiler= */ false,
             /* collectLoadAverage= */ false,
@@ -263,7 +263,7 @@ public final class ProfilerTest {
         new CollectLocalResourceUsage(
             BugReporter.defaultInstance(),
             WorkerProcessMetricsCollector.instance(),
-            ResourceManager.instance(),
+            new ResourceManager(),
             InMemoryGraph.create(),
             /* collectWorkerDataInProfiler= */ false,
             /* collectLoadAverage= */ false,
@@ -361,7 +361,7 @@ public final class ProfilerTest {
         new CollectLocalResourceUsage(
             BugReporter.defaultInstance(),
             workerProcessMetricsCollector,
-            ResourceManager.instance(),
+            new ResourceManager(),
             InMemoryGraph.create(),
             /* collectWorkerDataInProfiler= */ true,
             /* collectLoadAverage= */ false,
@@ -407,7 +407,7 @@ public final class ProfilerTest {
         new CollectLocalResourceUsage(
             BugReporter.defaultInstance(),
             WorkerProcessMetricsCollector.instance(),
-            ResourceManager.instance(),
+            new ResourceManager(),
             InMemoryGraph.create(),
             /* collectWorkerDataInProfiler= */ false,
             /* collectLoadAverage= */ false,
@@ -541,7 +541,7 @@ public final class ProfilerTest {
         new CollectLocalResourceUsage(
             BugReporter.defaultInstance(),
             WorkerProcessMetricsCollector.instance(),
-            ResourceManager.instance(),
+            new ResourceManager(),
             InMemoryGraph.create(),
             /* collectWorkerDataInProfiler= */ false,
             /* collectLoadAverage= */ false,
@@ -748,7 +748,7 @@ public final class ProfilerTest {
         new CollectLocalResourceUsage(
             BugReporter.defaultInstance(),
             WorkerProcessMetricsCollector.instance(),
-            ResourceManager.instance(),
+            new ResourceManager(),
             InMemoryGraph.create(),
             /* collectWorkerDataInProfiler= */ false,
             /* collectLoadAverage= */ false,
@@ -803,7 +803,7 @@ public final class ProfilerTest {
         new CollectLocalResourceUsage(
             BugReporter.defaultInstance(),
             WorkerProcessMetricsCollector.instance(),
-            ResourceManager.instance(),
+            new ResourceManager(),
             InMemoryGraph.create(),
             /* collectWorkerDataInProfiler= */ false,
             /* collectLoadAverage= */ false,
@@ -843,7 +843,7 @@ public final class ProfilerTest {
         new CollectLocalResourceUsage(
             BugReporter.defaultInstance(),
             WorkerProcessMetricsCollector.instance(),
-            ResourceManager.instance(),
+            new ResourceManager(),
             InMemoryGraph.create(),
             /* collectWorkerDataInProfiler= */ false,
             /* collectLoadAverage= */ false,
@@ -878,7 +878,7 @@ public final class ProfilerTest {
         new CollectLocalResourceUsage(
             BugReporter.defaultInstance(),
             WorkerProcessMetricsCollector.instance(),
-            ResourceManager.instance(),
+            new ResourceManager(),
             InMemoryGraph.create(),
             /* collectWorkerDataInProfiler= */ false,
             /* collectLoadAverage= */ false,
@@ -928,7 +928,7 @@ public final class ProfilerTest {
         new CollectLocalResourceUsage(
             BugReporter.defaultInstance(),
             WorkerProcessMetricsCollector.instance(),
-            ResourceManager.instance(),
+            new ResourceManager(),
             InMemoryGraph.create(),
             /* collectWorkerDataInProfiler= */ false,
             /* collectLoadAverage= */ false,
@@ -978,7 +978,7 @@ public final class ProfilerTest {
         new CollectLocalResourceUsage(
             BugReporter.defaultInstance(),
             WorkerProcessMetricsCollector.instance(),
-            ResourceManager.instance(),
+            new ResourceManager(),
             InMemoryGraph.create(),
             /* collectWorkerDataInProfiler= */ false,
             /* collectLoadAverage= */ false,
@@ -1021,7 +1021,7 @@ public final class ProfilerTest {
         new CollectLocalResourceUsage(
             BugReporter.defaultInstance(),
             WorkerProcessMetricsCollector.instance(),
-            ResourceManager.instance(),
+            new ResourceManager(),
             InMemoryGraph.create(),
             /* collectWorkerDataInProfiler= */ false,
             /* collectLoadAverage= */ false,

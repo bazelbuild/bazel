@@ -20,6 +20,7 @@ import static org.mockito.Mockito.verify;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.eventbus.EventBus;
+import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.exec.BinTools;
@@ -259,7 +260,8 @@ public class BlazeRuntimeTest {
         NO_OP_COMMAND_EXTENSION_REPORTER,
         /* attemptNumber= */ 1,
         /* buildRequestIdOverride= */ null,
-        ConfigFlagDefinitions.NONE);
+        ConfigFlagDefinitions.NONE,
+        new ResourceManager());
   }
 
   private static class FooCommandModule extends BlazeModule {

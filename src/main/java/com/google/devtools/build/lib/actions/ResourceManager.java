@@ -165,16 +165,6 @@ public class ResourceManager implements ResourceEstimator {
     DYNAMIC_STANDALONE();
   }
 
-  /** Singleton reference defined in a separate class to ensure thread-safe lazy initialization. */
-  private static class Singleton {
-    static final ResourceManager instance = new ResourceManager();
-  }
-
-  /** Returns singleton instance of the resource manager. */
-  public static ResourceManager instance() {
-    return Singleton.instance;
-  }
-
   /** Returns prediction of RAM in Mb used by registered actions. */
   @Override
   public double getUsedMemoryInMb() {
@@ -290,11 +280,6 @@ public class ResourceManager implements ResourceEstimator {
     windowRequestIds.clear();
     windowEstimationCpu = 0.0;
     processAllWaitingRequests();
-  }
-
-  @VisibleForTesting
-  public static ResourceManager instanceForTestingOnly() {
-    return new ResourceManager();
   }
 
   /**

@@ -72,9 +72,7 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 import org.mockito.Mockito;
 
-/**
- * Test StandaloneSpawnStrategy.
- */
+/** Test StandaloneSpawnStrategy. */
 @RunWith(JUnit4.class)
 public class StandaloneSpawnStrategyTest {
   private static final String WINDOWS_SYSTEM_DRIVE = "C:";
@@ -130,7 +128,7 @@ public class StandaloneSpawnStrategyTest {
     optionsParser.parse("--verbose_failures");
     LocalExecutionOptions localExecutionOptions = Options.getDefaults(LocalExecutionOptions.class);
 
-    ResourceManager resourceManager = ResourceManager.instanceForTestingOnly();
+    ResourceManager resourceManager = new ResourceManager();
     resourceManager.setAvailableResources(
         ResourceSet.create(/* memoryMb= */ 1, /* cpu= */ 1, /* localTestCount= */ 1));
     Path execRoot = directories.getExecRoot(TestConstants.WORKSPACE_NAME);
@@ -169,6 +167,7 @@ public class StandaloneSpawnStrategyTest {
   private String out() {
     return outErr.outAsLatin1();
   }
+
   private String err() {
     return outErr.errAsLatin1();
   }
@@ -269,10 +268,10 @@ public class StandaloneSpawnStrategyTest {
             OS.getCurrent() == OS.WINDOWS
                 ? ImmutableList.of(CMD_EXE, "/c", "set")
                 : ImmutableList.of("/usr/bin/env"),
-            /*environment=*/ ImmutableMap.of("foo", "bar", "baz", "boo"),
-            /*executionInfo=*/ ImmutableMap.of(),
-            /*inputs=*/ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-            /*outputs=*/ ImmutableSet.of(),
+            /* environment= */ ImmutableMap.of("foo", "bar", "baz", "boo"),
+            /* executionInfo= */ ImmutableMap.of(),
+            /* inputs= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+            /* outputs= */ ImmutableSet.of(),
             ResourceSet.ZERO);
     run(spawn);
     HashSet<String> environment = Sets.newHashSet(out().split(System.lineSeparator()));

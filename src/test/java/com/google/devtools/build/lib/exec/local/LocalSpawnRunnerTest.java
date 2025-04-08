@@ -212,7 +212,7 @@ public class LocalSpawnRunnerTest {
     }
   }
 
-  private final ResourceManager resourceManager = ResourceManager.instanceForTestingOnly();
+  private final ResourceManager resourceManager = new ResourceManager();
 
   private static ImmutableMap<String, String> keepLocalEnvUnchanged(
       Map<String, String> env, BinTools binTools, String fallbackTmpDir) {
@@ -412,7 +412,7 @@ public class LocalSpawnRunnerTest {
             fs.getPath("/execroot"),
             options,
             resourceManager,
-            /*processWrapper=*/ null,
+            /* processWrapper= */ null,
             LocalSpawnRunnerTest::keepLocalEnvUnchanged);
 
     FileOutErr fileOutErr = new FileOutErr(fs.getPath("/out/stdout"), fs.getPath("/out/stderr"));
@@ -846,7 +846,7 @@ public class LocalSpawnRunnerTest {
     // TODO(b/62588075) Currently no process-wrapper or execution statistics support in Windows.
     assumeTrue(OS.getCurrent() != OS.WINDOWS);
 
-    FileSystem fs = new UnixFileSystem(DigestHashFunction.SHA256, /*hashAttributeName=*/ "");
+    FileSystem fs = new UnixFileSystem(DigestHashFunction.SHA256, /* hashAttributeName= */ "");
 
     LocalExecutionOptions options = Options.getDefaults(LocalExecutionOptions.class);
 
@@ -934,7 +934,7 @@ public class LocalSpawnRunnerTest {
             fs.getPath("/execroot"),
             Options.getDefaults(LocalExecutionOptions.class),
             resourceManager,
-            /*processWrapper=*/ null,
+            /* processWrapper= */ null,
             LocalSpawnRunnerTest::keepLocalEnvUnchanged);
 
     FileOutErr fileOutErr = new FileOutErr(fs.getPath("/out/stdout"), fs.getPath("/out/stderr"));

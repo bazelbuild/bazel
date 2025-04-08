@@ -68,7 +68,7 @@ public final class ResourceManagerTest {
 
   private final FileSystem fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
   private final ActionExecutionMetadata resourceOwner = new ResourceOwnerStub();
-  private final ResourceManager manager = ResourceManager.instanceForTestingOnly();
+  private final ResourceManager manager = new ResourceManager();
   private Worker worker;
   private WorkerProcessStatus workerStatus;
   private AtomicInteger counter;

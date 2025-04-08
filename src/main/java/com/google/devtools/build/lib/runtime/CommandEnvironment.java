@@ -137,6 +137,7 @@ public class CommandEnvironment {
   private final DelegatingDownloader delegatingDownloader;
   private final RemoteAnalysisCachingEventListener remoteAnalysisCachingEventListener;
   private final ImmutableList.Builder<IdleTask> idleTasks = ImmutableList.builder();
+  private final ResourceManager resourceManager;
 
   private boolean mergedAnalysisAndExecution;
 
@@ -233,7 +234,8 @@ public class CommandEnvironment {
       CommandExtensionReporter commandExtensionReporter,
       int attemptNumber,
       @Nullable String buildRequestIdOverride,
-      ConfigFlagDefinitions configFlagDefinitions) {
+      ConfigFlagDefinitions configFlagDefinitions,
+      ResourceManager resourceManager) {
     checkArgument(attemptNumber >= 1);
 
     this.runtime = runtime;
@@ -254,6 +256,7 @@ public class CommandEnvironment {
     this.timestampGranularityMonitor = new TimestampGranularityMonitor(runtime.getClock());
     this.attemptNumber = attemptNumber;
     this.configFlagDefinitions = configFlagDefinitions;
+    this.resourceManager = resourceManager;
 
     // Record the command's starting time again, for use by
     // TimestampGranularityMonitor.waitForTimestampGranularity().
@@ -712,7 +715,7 @@ public class CommandEnvironment {
   }
 
   public ResourceManager getLocalResourceManager() {
-    return ResourceManager.instance();
+    return resourceManager;
   }
 
   /**

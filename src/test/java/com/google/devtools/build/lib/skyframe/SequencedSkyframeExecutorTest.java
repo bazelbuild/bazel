@@ -878,7 +878,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     var unused =
         skyframeExecutor.buildArtifacts(
             reporter,
-            ResourceManager.instanceForTestingOnly(),
+            new ResourceManager(),
             new DummyExecutor(fileSystem, rootDirectory),
             ImmutableSet.of(),
             ImmutableSet.of(),
@@ -986,7 +986,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     var unused =
         skyframeExecutor.buildArtifacts(
             reporter,
-            ResourceManager.instanceForTestingOnly(),
+            new ResourceManager(),
             new DummyExecutor(fileSystem, rootDirectory),
             ImmutableSet.of(),
             ImmutableSet.of(),
@@ -1134,7 +1134,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     var unused =
         skyframeExecutor.buildArtifacts(
             reporter,
-            ResourceManager.instanceForTestingOnly(),
+            new ResourceManager(),
             new DummyExecutor(fileSystem, rootDirectory),
             ImmutableSet.of(),
             ImmutableSet.of(),
@@ -1225,7 +1225,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     var unused =
         skyframeExecutor.buildArtifacts(
             reporter,
-            ResourceManager.instanceForTestingOnly(),
+            new ResourceManager(),
             new DummyExecutor(fileSystem, rootDirectory),
             ImmutableSet.of(),
             ImmutableSet.of(),
@@ -1346,7 +1346,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     var unused =
         skyframeExecutor.buildArtifacts(
             reporter,
-            ResourceManager.instanceForTestingOnly(),
+            new ResourceManager(),
             new DummyExecutor(fileSystem, rootDirectory),
             ImmutableSet.of(),
             ImmutableSet.of(),
@@ -1568,7 +1568,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     var unused =
         skyframeExecutor.buildArtifacts(
             reporter,
-            ResourceManager.instanceForTestingOnly(),
+            new ResourceManager(),
             new DummyExecutor(fileSystem, rootDirectory),
             ImmutableSet.of(),
             ImmutableSet.of(),
@@ -1672,7 +1672,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     var unused =
         skyframeExecutor.buildArtifacts(
             reporter,
-            ResourceManager.instanceForTestingOnly(),
+            new ResourceManager(),
             new DummyExecutor(fileSystem, rootDirectory),
             ImmutableSet.of(),
             ImmutableSet.of(),
@@ -1792,7 +1792,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     var unused =
         skyframeExecutor.buildArtifacts(
             reporter,
-            ResourceManager.instanceForTestingOnly(),
+            new ResourceManager(),
             new DummyExecutor(fileSystem, rootDirectory),
             ImmutableSet.of(),
             ImmutableSet.of(),
@@ -1977,7 +1977,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     Builder builder =
         new SkyframeBuilder(
             skyframeExecutor,
-            ResourceManager.instanceForTestingOnly(),
+            new ResourceManager(),
             NULL_CHECKER,
             ModifiedFileSet.EVERYTHING_MODIFIED,
             /* fileCache= */ null,
@@ -2117,7 +2117,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     Builder builder =
         new SkyframeBuilder(
             skyframeExecutor,
-            ResourceManager.instanceForTestingOnly(),
+            new ResourceManager(),
             NULL_CHECKER,
             ModifiedFileSet.EVERYTHING_MODIFIED,
             /* fileCache= */ null,
@@ -2241,7 +2241,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     Builder builder =
         new SkyframeBuilder(
             skyframeExecutor,
-            ResourceManager.instanceForTestingOnly(),
+            new ResourceManager(),
             NULL_CHECKER,
             ModifiedFileSet.EVERYTHING_MODIFIED,
             /* fileCache= */ null,
@@ -2362,7 +2362,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     Builder builder =
         new SkyframeBuilder(
             skyframeExecutor,
-            ResourceManager.instanceForTestingOnly(),
+            new ResourceManager(),
             NULL_CHECKER,
             ModifiedFileSet.EVERYTHING_MODIFIED,
             /* fileCache= */ null,
@@ -2473,7 +2473,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     Builder builder =
         new SkyframeBuilder(
             skyframeExecutor,
-            ResourceManager.instanceForTestingOnly(),
+            new ResourceManager(),
             NULL_CHECKER,
             ModifiedFileSet.EVERYTHING_MODIFIED,
             /* fileCache= */ null,
@@ -2570,7 +2570,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     Builder builder =
         new SkyframeBuilder(
             skyframeExecutor,
-            ResourceManager.instanceForTestingOnly(),
+            new ResourceManager(),
             NULL_CHECKER,
             ModifiedFileSet.EVERYTHING_MODIFIED,
             /* fileCache= */ null,
@@ -2652,7 +2652,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     Builder builder =
         new SkyframeBuilder(
             skyframeExecutor,
-            ResourceManager.instanceForTestingOnly(),
+            new ResourceManager(),
             NULL_CHECKER,
             ModifiedFileSet.EVERYTHING_MODIFIED,
             /* fileCache= */ null,
