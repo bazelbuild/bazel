@@ -191,6 +191,8 @@ class StartupOptions {
 
   int oom_more_eagerly_threshold;
 
+  // TODO: b/231429363 - Remove this after the 6 month compatibility window ends
+  //   in October 2025.
   bool write_command_log;
 
   // No-op.

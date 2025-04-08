@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.Objects;
 import javax.annotation.Nullable;
 
 /** This module logs complete stdout / stderr output of Bazel to a local file. */
@@ -64,7 +65,8 @@ public class CommandLogModule extends BlazeModule {
     }
 
     try {
-      if (writeCommandLog(env) && !"clean".equals(env.getCommandName())) {
+      CommonCommandOptions commandOptions = env.getOptions().getOptions(CommonCommandOptions.class);
+      if (commandOptions.writeCommandLog && !Objects.equals(env.getCommandName(), "clean")) {
         InstrumentationOutput commandLogOutput =
             env.getRuntime()
                 .getInstrumentationOutputFactory()
@@ -84,16 +86,6 @@ public class CommandLogModule extends BlazeModule {
           .handle(Event.warn("Unable to open command log: " + ioException.getMessage()));
     }
     return null;
-  }
-
-  static boolean writeCommandLog(CommandEnvironment env) {
-    // We are migrating --write_command_log from a startup option to a command option. In the
-    // progress of this process, both values are respected.
-    // TODO: b/231429363 - Remove respecting the startup flag.
-    OptionsParsingResult startupOptionsProvider = env.getRuntime().getStartupOptionsProvider();
-    CommonCommandOptions commandOptions = env.getOptions().getOptions(CommonCommandOptions.class);
-    return startupOptionsProvider.getOptions(BlazeServerStartupOptions.class).writeCommandLog
-        || commandOptions.writeCommandLog;
   }
 
   /** For a given output_base directory, returns the command log file path. */

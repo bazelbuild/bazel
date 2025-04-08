@@ -68,8 +68,8 @@ function test_client_debug_change_does_not_restart_server() {
 }
 
 function test_server_restart_due_to_startup_options() {
-  local server_pid1=$(bazel --write_command_log info server_pid 2>$TEST_log)
-  local server_pid2=$(bazel --nowrite_command_log info server_pid 2>$TEST_log)
+  local server_pid1=$(bazel --idle_server_tasks info server_pid 2>$TEST_log)
+  local server_pid2=$(bazel --noidle_server_tasks info server_pid 2>$TEST_log)
   assert_not_equals "$server_pid1" "$server_pid2" # pid changed.
   expect_log "WARNING.* Running B\\(azel\\|laze\\) server needs to be killed"
 }
@@ -171,14 +171,14 @@ function test_shutdown_different_options() {
 function test_server_restart_due_to_startup_options_with_client_debug_information() {
   # Using --write_command_log for no particular reason, if that flag is removed, another startup
   # option will do just fine.
-  local server_pid1=$(bazel --client_debug --write_command_log info server_pid 2>$TEST_log)
-  local server_pid2=$(bazel --client_debug --nowrite_command_log info server_pid 2>$TEST_log)
+  local server_pid1=$(bazel --client_debug --idle_server_tasks info server_pid 2>$TEST_log)
+  local server_pid2=$(bazel --client_debug --noidle_server_tasks info server_pid 2>$TEST_log)
   assert_not_equals "$server_pid1" "$server_pid2" # pid changed.
   expect_log "\\[WARNING .*\\] Running B\\(azel\\|laze\\) server needs to be killed"
   expect_log "\\[INFO .*\\] Args from the running server that are not included in the current request:"
-  expect_log "\\[INFO .*\\]   --write_command_log"
+  expect_log "\\[INFO .*\\]   --idle_server_tasks"
   expect_log "\\[INFO .*\\] Args from the current request that were not included when creating the server:"
-  expect_log "\\[INFO .*\\]   --nowrite_command_log"
+  expect_log "\\[INFO .*\\]   --noidle_server_tasks"
 }
 
 function test_exit_code() {

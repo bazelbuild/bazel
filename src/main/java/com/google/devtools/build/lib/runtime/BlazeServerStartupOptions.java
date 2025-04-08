@@ -357,14 +357,16 @@ public class BlazeServerStartupOptions extends OptionsBase {
               + "messages and logging")
   public String productName;
 
-  // TODO: b/231429363 - Make this startup option default off before safely removing all its
-  // references from the depot in six months.
+  // TODO: b/231429363 - Remove this option definition when deleting it from the cpp launcher in six
+  // months.
   @Option(
       name = "write_command_log",
       defaultValue = "true", // NOTE: only for documentation, value is always passed by the client.
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOSES_INCREMENTAL_STATE},
-      help = "Whether or not to write the command.log file")
+      help =
+          "WARNING: This option is deprecated and will be removed soon. Please use the command"
+              + " option instead.")
   public boolean writeCommandLog;
 
   @Option(
