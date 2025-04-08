@@ -328,11 +328,12 @@ static void MoveToCgroup(pid_t pid, const char* cgroup_path) {
       char* procs_path;
       asprintf(&procs_path, "%s%s/cgroup.procs", fs_file, cgroup_path);
       FILE* procs = fopen(procs_path, "w");
-      if (procs != NULL) {
-        fprintf(procs, "%d", pid);
-        fclose(procs);
-      } else {
-        PRINT_DEBUG("Failed to move server to cgroup %s", procs_path);
+      if (procs == NULL) {
+        PRINT_DEBUG("Failed to open %s. Falling back to running without cgroups", procs_path);
+      } else if (fprintf(procs, "%d", pid) < 0) {
+        PRINT_DEBUG("Failed to write %s. Falling back to running without cgroups", procs_path);
+      } else if (fclose(procs) < 0) {
+        PRINT_DEBUG("Failed to close %s. Falling back to running without cgroups", procs_path);
       }
       free(procs_path);
     }
