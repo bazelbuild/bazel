@@ -357,9 +357,7 @@ public final class JavaCompilationHelper {
     }
     ImmutableMap.Builder<String, String> executionInfo = ImmutableMap.builder();
     executionInfo.putAll(
-        getConfiguration()
-            .modifiedExecutionInfo(
-                modifiableExecutionInfo.buildOrThrow(), JavaCompileActionBuilder.MNEMONIC));
+        getConfiguration().modifiedExecutionInfo(modifiableExecutionInfo.buildOrThrow(), "Javac"));
     executionInfo.putAll(
         TargetUtils.getExecutionInfo(ruleContext.getRule(), ruleContext.isAllowTagsPropagation()));
 

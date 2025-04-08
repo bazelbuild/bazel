@@ -21,7 +21,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
@@ -52,13 +51,6 @@ public final class JavaCompileActionBuilder {
 
   private static final String JACOCO_INSTRUMENTATION_PROCESSOR = "jacoco";
   private static final String PROGRESS_MESSAGE_PREFIX = "Building";
-
-  static final String MNEMONIC = "Javac";
-
-  /** Returns true if this is a Java compile action. */
-  public static boolean isJavaCompileAction(ActionAnalysisMetadata action) {
-    return action != null && action.getMnemonic().equals(MNEMONIC);
-  }
 
   @ThreadCompatible
   @Immutable
