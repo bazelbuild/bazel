@@ -206,7 +206,8 @@ final class SandboxedWorker extends SingleplexWorker {
   }
 
   @Override
-  public void finishExecution(Path execRoot, SandboxOutputs outputs) throws IOException {
+  public void finishExecution(Path execRoot, SandboxOutputs outputs)
+      throws IOException, InterruptedException {
     super.finishExecution(execRoot, outputs);
     if (cgroup != null && cgroup.exists()) {
       // This is only to not leave too much behind in the cgroups tree, can ignore errors.
