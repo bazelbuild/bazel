@@ -1865,9 +1865,13 @@ public class RemoteExecutionService {
                   cacheResource -> {
                     Profiler.instance()
                         .completeTask(startTime.get(), ProfilerTask.UPLOAD_TIME, "upload outputs");
-                    backgroundTaskPhaser.arriveAndDeregister();
                     onUploadComplete.run();
+                    // Release the cache first before arriving the backgroundTaskPhaser. Otherwise,
+                    // the release here could make the reference count reach zero and close the
+                    // cache, resulting in a deadlock when using HTTP cache.
+                    // See https://github.com/bazelbuild/bazel/issues/25232.
                     cacheResource.release();
+                    backgroundTaskPhaser.arriveAndDeregister();
                   },
                   /* eager= */ false)
               .subscribeOn(scheduler)
