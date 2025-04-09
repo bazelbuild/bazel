@@ -1398,6 +1398,9 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
     // Initially null, then non-null once exported.
     @Nullable private MacroClass macroClass = null;
 
+    // Initially null, then non-null once exported.
+    @Nullable private Location exportedLocation = null;
+
     /** A token used for equality that may be mutated by {@link #export}. */
     private Symbol<BzlLoadValue.Key> identityToken;
 
@@ -1415,6 +1418,11 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
     @Override
     public String getName() {
       return macroClass != null ? macroClass.getName() : "unexported macro";
+    }
+
+    @Override
+    public Location getLocation() {
+      return exportedLocation != null ? exportedLocation : Location.BUILTIN;
     }
 
     /**
@@ -1495,7 +1503,8 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
 
     /** Export a MacroFunction from a Starlark file with a given name. */
     @Override
-    public void export(EventHandler handler, Label starlarkLabel, String exportedName) {
+    public void export(
+        EventHandler handler, Label starlarkLabel, String exportedName, Location exportedLocation) {
       checkState(builder != null && macroClass == null);
       builder.setName(exportedName);
       builder.setDefiningBzlLabel(starlarkLabel);
@@ -1508,6 +1517,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
           starlarkLabel,
           exportedName);
       this.identityToken = identityToken.exportAs(exportedName);
+      this.exportedLocation = exportedLocation;
     }
 
     /**
@@ -1755,8 +1765,13 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
     }
 
     /** Export a RuleFunction from a Starlark file with a given name. */
+    // TODO(bazel-team): use exportedLocation as the callable symbol's location.
     @Override
-    public void export(EventHandler handler, Label starlarkLabel, String ruleClassName) {
+    public void export(
+        EventHandler handler,
+        Label starlarkLabel,
+        String ruleClassName,
+        Location exportedLocation) {
       checkState(ruleClass == null && builder != null);
       var symbolToken = (Symbol<?>) identityToken; // always a Symbol before export
       this.identityToken =

@@ -42,6 +42,7 @@ import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkCallable;
 import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.SymbolGenerator.Symbol;
+import net.starlark.java.syntax.Location;
 
 /** A Starlark value that is a result of an 'aspect(..)' function call. */
 public final class StarlarkDefinedAspect implements StarlarkExportable, StarlarkAspect {
@@ -168,8 +169,10 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
     return paramAttributes;
   }
 
+  // TODO(bazel-team): use exportedLocation as the callable symbol's location.
   @Override
-  public void export(EventHandler handler, Label extensionLabel, String name) {
+  public void export(
+      EventHandler handler, Label extensionLabel, String name, Location exportedLocation) {
     Preconditions.checkArgument(!isExported());
     @SuppressWarnings("unchecked")
     var identityToken = (Symbol<BzlLoadValue.Key>) aspectClassOrIdentityToken;
