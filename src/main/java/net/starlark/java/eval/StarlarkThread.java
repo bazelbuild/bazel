@@ -475,7 +475,7 @@ public final class StarlarkThread {
   /** A hook for notifications of assignments at top level. */
   @FunctionalInterface
   public interface PostAssignHook {
-    void assign(String name, Object value);
+    void assign(String name, Location nameStartLocation, Object value);
   }
 
   public StarlarkSemantics getSemantics() {

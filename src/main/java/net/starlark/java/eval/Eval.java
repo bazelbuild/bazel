@@ -95,7 +95,7 @@ final class Eval {
               // identifier when available. This enables an name-based lookup on deserialization.
               func.export(fr.thread, id.getName());
             } else {
-              fr.thread.postAssignHook.assign(id.getName(), value);
+              fr.thread.postAssignHook.assign(id.getName(), id.getStartLocation(), value);
             }
           }
         } else if (stmt instanceof DefStatement def) {

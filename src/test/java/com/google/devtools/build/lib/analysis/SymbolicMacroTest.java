@@ -2073,7 +2073,8 @@ my_macro = macro(
     assertThat(foo.reconstructParentCallStack())
         .containsExactly(
             StarlarkThread.callStackEntry(StarlarkThread.TOP_LEVEL, foo.getBuildFileLocation()),
-            StarlarkThread.callStackEntry("my_macro", Location.BUILTIN))
+            StarlarkThread.callStackEntry(
+                "my_macro", Location.fromFileLineColumn("/workspace/pkg/my_macro.bzl", 7, 1)))
         .inOrder();
 
     Rule fooLib = pkg.getRule("foo_lib");
@@ -2161,7 +2162,8 @@ my_macro = macro(
             StarlarkThread.callStackEntry(
                 "outer_legacy_wrapper",
                 Location.fromFileLineColumn("/workspace/pkg/outer.bzl", 9, 16)),
-            StarlarkThread.callStackEntry("outer_macro", Location.BUILTIN))
+            StarlarkThread.callStackEntry(
+                "outer_macro", Location.fromFileLineColumn("/workspace/pkg/outer.bzl", 6, 1)))
         .inOrder();
 
     MacroInstance fooInner = getMacroById(pkg, "foo_inner:1");
@@ -2173,7 +2175,8 @@ my_macro = macro(
             StarlarkThread.callStackEntry(
                 "inner_legacy_wrapper",
                 Location.fromFileLineColumn("/workspace/pkg/inner.bzl", 7, 16)),
-            StarlarkThread.callStackEntry("inner_macro", Location.BUILTIN))
+            StarlarkThread.callStackEntry(
+                "inner_macro", Location.fromFileLineColumn("/workspace/pkg/inner.bzl", 4, 1)))
         .inOrder();
 
     Rule fooLib = pkg.getRule("foo_inner");

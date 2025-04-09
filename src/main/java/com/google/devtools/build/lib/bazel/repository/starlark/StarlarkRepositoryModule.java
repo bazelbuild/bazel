@@ -56,6 +56,7 @@ import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkCallable;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.Tuple;
+import net.starlark.java.syntax.Location;
 
 /**
  * The Starlark module containing the definition of {@code repository_rule} function to define a
@@ -138,7 +139,7 @@ public class StarlarkRepositoryModule implements RepositoryModuleApi {
       name = "repository_rule",
       category = DocCategory.BUILTIN,
       doc =
-          """
+"""
 A callable value that may be invoked during evaluation of the WORKSPACE file or within \
 the implementation function of a module extension to instantiate and return a repository \
 rule. Created by \
@@ -191,8 +192,13 @@ rule. Created by \
       return true;
     }
 
+    // TODO(bazel-team): use exportedLocation as the callable symbol's location.
     @Override
-    public void export(EventHandler handler, Label extensionLabel, String exportedName) {
+    public void export(
+        EventHandler handler,
+        Label extensionLabel,
+        String exportedName,
+        Location exportedLocation) {
       this.extensionLabel = extensionLabel;
       this.exportedName = exportedName;
     }

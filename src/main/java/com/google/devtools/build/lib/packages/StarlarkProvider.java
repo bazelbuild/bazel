@@ -467,8 +467,10 @@ public final class StarlarkProvider implements StarlarkCallable, StarlarkExporta
         "'%s' value has no field or method '%s'", isExported() ? getName() : "struct", name);
   }
 
+  // TODO(bazel-team): use exportedLocation as the callable symbol's location.
   @Override
-  public void export(EventHandler handler, Label extensionLabel, String exportedName) {
+  public void export(
+      EventHandler handler, Label extensionLabel, String exportedName, Location exportedLocation) {
     Preconditions.checkState(!isExported());
     SymbolGenerator.Symbol<?> identifier = (SymbolGenerator.Symbol<?>) keyOrIdentityToken;
     if (identifier.getOwner() instanceof BzlLoadValue.Key bzlKey) {

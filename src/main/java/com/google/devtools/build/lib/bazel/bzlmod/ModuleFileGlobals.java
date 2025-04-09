@@ -52,6 +52,7 @@ import net.starlark.java.eval.StarlarkValue;
 import net.starlark.java.eval.Structure;
 import net.starlark.java.eval.Tuple;
 import net.starlark.java.syntax.Identifier;
+import net.starlark.java.syntax.Location;
 
 /** A collection of global Starlark build API functions that apply to MODULE.bazel files. */
 @GlobalMethods(environment = Environment.MODULE)
@@ -623,7 +624,8 @@ public class ModuleFileGlobals {
     }
 
     @Override
-    public void export(EventHandler handler, Label bzlFileLabel, String name) {
+    public void export(
+        EventHandler handler, Label bzlFileLabel, String name, Location exportedLocation) {
       proxyBuilder.setProxyName(name);
     }
   }

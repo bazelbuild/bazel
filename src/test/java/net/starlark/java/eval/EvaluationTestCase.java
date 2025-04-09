@@ -94,7 +94,7 @@ class EvaluationTestCase {
           StarlarkThread.create(
               mu, semantics, /* contextDescription= */ "", SymbolGenerator.create("test"));
       // Sets a post-assign hook to enable global export of StarlarkFunction Symbols.
-      this.thread.setPostAssignHook((unusedName, unusedValue) -> {});
+      this.thread.setPostAssignHook((unusedName, unusedLocation, unusedValue) -> {});
     }
     return this.thread;
   }
