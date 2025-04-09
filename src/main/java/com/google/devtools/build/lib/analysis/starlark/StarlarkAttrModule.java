@@ -949,7 +949,7 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
       Sequence<?> aspects,
       StarlarkThread thread)
       throws EvalException {
-    checkContext(thread, "attr.label_keyed_string_dict()");
+    checkContext(thread, "attr.string_keyed_label_dict()");
     Map<String, Object> kwargs =
         optionMap(
             CONFIGURABLE_ARG,
