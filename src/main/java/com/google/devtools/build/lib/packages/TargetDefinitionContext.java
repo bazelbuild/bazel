@@ -216,6 +216,10 @@ public abstract class TargetDefinitionContext extends StarlarkThreadContext {
             pkg, buildFileLabel, Location.fromFile(metadata.buildFilename().asPath().toString())));
   }
 
+  public Metadata getMetadata() {
+    return metadata;
+  }
+
   SymbolGenerator<?> getSymbolGenerator() {
     return symbolGenerator;
   }
