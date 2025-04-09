@@ -137,6 +137,51 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
   }
 
   @Test
+  public void macroCanBeDefinedUsingFactory() throws Exception {
+    scratch.file(
+        "pkg/foo.bzl",
+        """
+        def _impl(name, visibility):
+            pass
+
+        def macro_factory():
+            return macro(implementation=_impl)
+
+        my_macro = macro_factory()
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load(":foo.bzl", "my_macro")
+        my_macro(name = "abc")
+        """);
+
+    assertPackageNotInError(getPackage("pkg"));
+  }
+
+  // Regression test for b/409532322
+  @Test
+  public void macroCannotBeDefinedInBuildFileThread() throws Exception {
+    scratch.file(
+        "pkg/foo.bzl",
+        """
+        def _impl(name, visibility):
+            pass
+
+        def macro_factory():
+            return macro(implementation=_impl)
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load(":foo.bzl", "macro_factory")
+        my_macro = macro_factory()
+        """);
+
+    assertGetPackageFailsWithEvent("pkg", "macro() can only be used during .bzl initialization");
+  }
+
+  @Test
   public void implementationIsInvokedWithNameParam() throws Exception {
     scratch.file(
         "pkg/foo.bzl",

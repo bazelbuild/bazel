@@ -388,6 +388,8 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
         .getBool(BuildLanguageOptions.EXPERIMENTAL_ENABLE_FIRST_CLASS_MACROS)) {
       throw Starlark.errorf("Use of `macro()` requires --experimental_enable_first_class_macros");
     }
+    // Ensure we're initializing a .bzl file.
+    BzlInitThreadContext.fromOrFail(thread, "macro()");
 
     MacroClass.Builder builder = new MacroClass.Builder(implementation);
     for (Map.Entry<?, ?> uncheckedEntry : attrs.entrySet()) {
@@ -1208,6 +1210,8 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       Sequence<?> subrulesUnchecked,
       StarlarkThread thread)
       throws EvalException {
+    // Ensure we're initializing a .bzl file.
+    BzlInitThreadContext.fromOrFail(thread, "aspect()");
     LabelConverter labelConverter = LabelConverter.forBzlEvaluatingThread(thread);
 
     ImmutableList<Pair<String, StarlarkAttrModule.Descriptor>> descriptors =

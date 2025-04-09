@@ -109,6 +109,55 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   }
 
   @Test
+  public void aspectCanBeDefinedUsingFactory() throws Exception {
+    scratch.file(
+        "pkg/foo.bzl",
+        """
+        def _impl(target, ctx):
+            return []
+
+        def aspect_factory():
+            return aspect(implementation=_impl)
+
+        my_aspect = aspect_factory()
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        cc_library(name = "abc")
+        """);
+
+    AnalysisResult analysisResult = update(ImmutableList.of("pkg/foo.bzl%my_aspect"), "//pkg:abc");
+    assertThat(getLabelsToBuild(analysisResult)).containsExactly("//pkg:abc");
+    assertThat(getAspectDescriptions(analysisResult))
+        .containsExactly("//pkg:foo.bzl%my_aspect(//pkg:abc)");
+  }
+
+  // Regression test for b/409532322
+  @Test
+  public void aspectCannotBeDefinedInBuildFileThread() throws Exception {
+    scratch.file(
+        "pkg/foo.bzl",
+        """
+        def _impl(target, ctx):
+            return []
+
+        def aspect_factory():
+            return aspect(implementation=_impl)
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load(":foo.bzl", "aspect_factory")
+        my_aspect = aspect_factory()
+        """);
+
+    reporter.removeHandler(failFastHandler);
+    assertThrows(TargetParsingException.class, () -> update("//pkg:BUILD"));
+    assertContainsEvent("aspect() can only be used during .bzl initialization");
+  }
+
+  @Test
   public void aspectWithSingleDeclaredProvider() throws Exception {
     scratch.file(
         "test/aspect.bzl",
@@ -305,7 +354,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void aspectPropagating() throws Exception {
     scratch.file(
         "test/aspect.bzl",
-        """
+"""
 Info = provider()
 def _impl(target, ctx):
    s = depset([target.label], transitive = [i[Info].target_labels for i in ctx.rule.attr.deps])
@@ -550,7 +599,7 @@ MyAspect = aspect(
   public void aspectsFromStarlarkRules() throws Exception {
     scratch.file(
         "test/aspect.bzl",
-        """
+"""
 AspectInfo = provider()
 def _aspect_impl(target, ctx):
    s = depset([target.label], transitive =
@@ -2670,7 +2719,7 @@ my_rule = rule(
   public void aspectDescriptions() throws Exception {
     scratch.file(
         "test/aspect.bzl",
-        """
+"""
 AspectInfo = provider()
 def _a_impl(target,ctx):
   s = str(target.label) + str(ctx.aspect_ids) + '='
