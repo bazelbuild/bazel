@@ -309,6 +309,14 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         help = "No-op.")
     public String hostCrosstoolTop;
+
+    @Option(
+        name = "experimental_use_semaphore_for_jobs",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op.")
+    public boolean useSemaphoreForJobs;
   }
 
   /** This is where deprecated Bazel-specific options only used by the build command go to die. */

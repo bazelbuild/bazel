@@ -251,16 +251,16 @@ public final class SkyframeActionExecutor {
   @Nullable private Semaphore cacheHitSemaphore;
 
   /**
-   * If not null, we use this meter to limit the number of concurrent actions.
+   * Meter used to limit the number of concurrent actions.
    *
-   * <p>With internal changes in JDK19, ForkJoinPool can spawn additional threads (work-stealing)
-   * which means we couldn't rely on it if we want the number of concurrent actions to be exactly
-   * equal to --jobs.
+   * <p>With internal changes in JDK19, ForkJoinPool can spawn more threads than requested
+   * parallelism which means we couldn't rely on it if we want the number of concurrent actions to
+   * be exactly equal to {@code --jobs}.
    *
-   * <p>When async exec is enabled, we execute actions with virtual threads, so there is no thread
-   * pool. Thus, this meter is used to limit the number of concurrent actions.
+   * <p>When async exec is enabled, we execute actions with virtual threads and this meter is used
+   * to limit the number of concurrent actions.
    */
-  @Nullable private ActionConcurrencyMeter actionConcurrencyMeter;
+  private ActionConcurrencyMeter actionConcurrencyMeter;
 
   SkyframeActionExecutor(
       ActionKeyContext actionKeyContext,
@@ -342,15 +342,13 @@ public final class SkyframeActionExecutor {
             ? new Semaphore(ResourceUsage.getAvailableProcessors())
             : null;
 
-    if (buildRequestOptions.useSemaphoreForJobs || useAsyncExecution) {
-      var minActiveAction = buildRequestOptions.jobs;
-      var maxActiveAction =
-          useAsyncExecution
-              ? min(MAX_JOBS, buildRequestOptions.asyncExecutionMaxConcurrentActions)
-              : buildRequestOptions.jobs;
-      this.actionConcurrencyMeter =
-          new ActionConcurrencyMeter(minActiveAction, max(minActiveAction, maxActiveAction));
-    }
+    var minActiveAction = buildRequestOptions.jobs;
+    var maxActiveAction =
+        useAsyncExecution
+            ? min(MAX_JOBS, buildRequestOptions.asyncExecutionMaxConcurrentActions)
+            : minActiveAction;
+    this.actionConcurrencyMeter =
+        new ActionConcurrencyMeter(minActiveAction, max(minActiveAction, maxActiveAction));
   }
 
   public void setActionLogBufferPathGenerator(
@@ -466,10 +464,8 @@ public final class SkyframeActionExecutor {
     this.rewoundActions = null;
     this.actionCacheChecker = null;
     this.outputDirectoryHelper = null;
-    if (this.actionConcurrencyMeter != null) {
-      this.actionConcurrencyMeter.stop();
-      this.actionConcurrencyMeter = null;
-    }
+    this.actionConcurrencyMeter.stop();
+    this.actionConcurrencyMeter = null;
   }
 
   /**
@@ -558,11 +554,7 @@ public final class SkyframeActionExecutor {
 
     ActionExecutionContext actionExecutionContext =
         getContext(
-            action,
-            inputMetadataProvider,
-            outputMetadataStore,
-            actionFileSystem,
-            actionLookupData);
+            action, inputMetadataProvider, outputMetadataStore, actionFileSystem, actionLookupData);
 
     if (actionCacheChecker.isActionExecutionProhibited(action)) {
       // We can't execute an action (e.g. because --check_???_up_to_date option was used). Fail the
@@ -611,18 +603,14 @@ public final class SkyframeActionExecutor {
     return result;
   }
 
-  void maybeAcquireActionExecutionSemaphore() {
-    if (actionConcurrencyMeter != null) {
-      // Acquire uninterruptibly because ActionExecutionFunction is not expected to check for
-      // interrupts. See test SequencedSkyframeExecutorTest#testThreeSharedActionsRacing.
-      actionConcurrencyMeter.acquireUninterruptibly();
-    }
+  void acquireActionExecutionSemaphore() {
+    // Acquire uninterruptibly because ActionExecutionFunction is not expected to check for
+    // interrupts. See test SequencedSkyframeExecutorTest#testThreeSharedActionsRacing.
+    actionConcurrencyMeter.acquireUninterruptibly();
   }
 
-  void maybeReleaseActionExecutionSemaphore() {
-    if (actionConcurrencyMeter != null) {
-      actionConcurrencyMeter.release();
-    }
+  void releaseActionExecutionSemaphore() {
+    actionConcurrencyMeter.release();
   }
 
   private ExtendedEventHandler selectEventHandler(Action action) {

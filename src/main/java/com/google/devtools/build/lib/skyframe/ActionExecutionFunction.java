@@ -332,7 +332,7 @@ public final class ActionExecutionFunction implements SkyFunction {
       }
     }
 
-    skyframeActionExecutor.maybeAcquireActionExecutionSemaphore();
+    skyframeActionExecutor.acquireActionExecutionSemaphore();
     long actionStartTime = BlazeClock.nanoTime();
     ActionExecutionValue result;
     try {
@@ -359,7 +359,7 @@ public final class ActionExecutionFunction implements SkyFunction {
       // action. Label can be null in the case of, e.g., the SystemActionOwner (for build-info.txt).
       throw new ActionExecutionFunctionException(new AlreadyReportedActionExecutionException(e));
     } finally {
-      skyframeActionExecutor.maybeReleaseActionExecutionSemaphore();
+      skyframeActionExecutor.releaseActionExecutionSemaphore();
     }
 
     if (env.valuesMissing()) {
