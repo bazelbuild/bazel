@@ -20,7 +20,6 @@ import static java.lang.Math.min;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
 import com.google.errorprone.annotations.CheckReturnValue;
@@ -1035,27 +1034,6 @@ public final class Starlark {
   }
 
   // --- methods related to StarlarkMethod-annotated classes ---
-
-  /**
-   * Returns the value of the named field of Starlark value {@code x}, as defined by a Java method
-   * with a {@code StarlarkMethod(structField=true)} annotation.
-   *
-   * <p>Most callers should use {@link #getattr} instead.
-   */
-  public static Object getAnnotatedField(StarlarkSemantics semantics, Object x, String name)
-      throws EvalException, InterruptedException {
-    return CallUtils.getAnnotatedField(semantics, x, name);
-  }
-
-  /**
-   * Returns the names of the fields of Starlark value {@code x}, as defined by Java methods with
-   * {@code StarlarkMethod(structField=true)} annotations under the specified semantics.
-   *
-   * <p>Most callers should use {@link #dir} instead.
-   */
-  public static ImmutableSet<String> getAnnotatedFieldNames(StarlarkSemantics semantics, Object x) {
-    return CallUtils.getAnnotatedFieldNames(semantics, x);
-  }
 
   /**
    * Returns a map of Java methods and corresponding StarlarkMethod annotations for each annotated

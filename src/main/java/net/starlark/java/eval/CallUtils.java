@@ -15,18 +15,15 @@
 package net.starlark.java.eval;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.Comparator;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkAnnotations;
 import net.starlark.java.annot.StarlarkMethod;
 
-/** Helper functions for {@link StarlarkMethod}-annotated fields and methods. */
+/** Helper functions for {@link StarlarkMethod}-annotated methods. */
 final class CallUtils {
 
   private CallUtils() {} // uninstantiable
@@ -106,11 +103,6 @@ final class CallUtils {
      * true}, sorted by Java method name.
      */
     ImmutableMap<String, MethodDescriptor> methods;
-    /**
-     * Submap of {@link #methods} for which {@code structField() == true}, sorted by Java method
-     * name.
-     */
-    ImmutableMap<String, MethodDescriptor> fields;
   }
 
   /**
@@ -125,7 +117,6 @@ final class CallUtils {
       StarlarkSemantics semantics, Class<?> clazz) {
     MethodDescriptor selfCall = null;
     ImmutableMap.Builder<String, MethodDescriptor> methods = ImmutableMap.builder();
-    Map<String, MethodDescriptor> fields = new HashMap<>();
 
     // Sort methods by Java name, for determinism.
     Method[] classMethods = clazz.getMethods();
@@ -162,21 +153,11 @@ final class CallUtils {
 
       // regular method
       methods.put(callable.name(), descriptor);
-
-      // field method?
-      if (descriptor.isStructField() && fields.put(callable.name(), descriptor) != null) {
-        // TODO(b/72113542): Validate with annotation processor instead of at runtime.
-        throw new IllegalArgumentException(
-            String.format(
-                "Class %s declares two structField methods named %s",
-                clazz.getName(), callable.name()));
-      }
     }
 
     StarlarkClassDescriptor starlarkClassDescriptor = new StarlarkClassDescriptor();
     starlarkClassDescriptor.selfCall = selfCall;
     starlarkClassDescriptor.methods = methods.buildOrThrow();
-    starlarkClassDescriptor.fields = ImmutableMap.copyOf(fields);
     return starlarkClassDescriptor;
   }
 
@@ -187,25 +168,6 @@ final class CallUtils {
   static ImmutableMap<String, MethodDescriptor> getAnnotatedMethods(
       StarlarkSemantics semantics, Class<?> objClass) {
     return getStarlarkClassDescriptor(semantics, objClass).methods;
-  }
-
-  /**
-   * Returns the value of the Starlark field of {@code x}, implemented by a Java method with a
-   * {@code StarlarkMethod(structField=true)} annotation.
-   */
-  static Object getAnnotatedField(StarlarkSemantics semantics, Object x, String fieldName)
-      throws EvalException, InterruptedException {
-    MethodDescriptor desc =
-        getStarlarkClassDescriptor(semantics, x.getClass()).fields.get(fieldName);
-    if (desc == null) {
-      throw Starlark.errorf("value of type %s has no .%s field", Starlark.type(x), fieldName);
-    }
-    return desc.callField(x, semantics, /* mu= */ null);
-  }
-
-  /** Returns the names of the Starlark fields of {@code x} under the specified semantics. */
-  static ImmutableSet<String> getAnnotatedFieldNames(StarlarkSemantics semantics, Object x) {
-    return getStarlarkClassDescriptor(semantics, x.getClass()).fields.keySet();
   }
 
   /**
