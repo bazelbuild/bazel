@@ -30,8 +30,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ConditionallyThreadSafe;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.profiler.AutoProfiler;
-import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
 import com.google.devtools.build.lib.util.MapCodec;
 import com.google.devtools.build.lib.util.MapCodec.IncompatibleFormatException;
 import com.google.devtools.build.lib.util.PersistentMap;
@@ -67,8 +65,6 @@ import javax.annotation.Nullable;
 public class CompactPersistentActionCache implements ActionCache {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
   private static final Duration SAVE_INTERVAL = Duration.ofSeconds(3);
-  // Log if periodically saving the action cache incurs more than 5% overhead.
-  private static final Duration MIN_TIME_FOR_LOGGING = SAVE_INTERVAL.dividedBy(20);
 
   // Key of the action cache record that holds information used to verify referential integrity
   // between action cache and string indexer. Must be < 0 to avoid conflict with real action
@@ -130,7 +126,7 @@ public class CompactPersistentActionCache implements ActionCache {
     }
 
     @Override
-    protected boolean updateJournal() {
+    protected boolean shouldFlushJournal() {
       // Use nanoTime() instead of currentTimeMillis() to get monotonic time, not wall time.
       long currentTimeNanos = clock.nanoTime();
       if (currentTimeNanos > nextUpdateNanos) {
@@ -145,17 +141,9 @@ public class CompactPersistentActionCache implements ActionCache {
     }
 
     @Override
-    protected void markAsDirty() {
-      try (AutoProfiler p =
-          GoogleAutoProfilerUtils.logged("slow write to journal", MIN_TIME_FOR_LOGGING)) {
-        super.markAsDirty();
-      }
-    }
-
-    @Override
-    protected boolean keepJournal() {
+    protected boolean shouldKeepJournal() {
       // We must first flush the journal to get an accurate measure of its size.
-      forceFlush();
+      flushJournal();
       try {
         return journalSize() * 100 < cacheSize();
       } catch (IOException e) {

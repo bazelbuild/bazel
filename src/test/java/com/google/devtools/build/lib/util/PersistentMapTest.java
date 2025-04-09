@@ -33,7 +33,7 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public final class PersistentMapTest {
   private static class PersistentStringMap extends PersistentMap<String, String> {
-    boolean updateJournal = true;
+    boolean flushJournal = true;
     boolean keepJournal = false;
 
     private static final MapCodec<String, String> CODEC =
@@ -66,11 +66,12 @@ public final class PersistentMapTest {
     }
 
     @Override
-    protected boolean updateJournal() {
-      return updateJournal;
+    protected boolean shouldFlushJournal() {
+      return flushJournal;
     }
+
     @Override
-    protected boolean keepJournal() {
+    protected boolean shouldKeepJournal() {
       return keepJournal;
     }
   }
@@ -168,14 +169,14 @@ public final class PersistentMapTest {
   }
 
   @Test
-  public void noUpdateJournal() throws Exception {
+  public void noFlushJournal() throws Exception {
     createMap();
     map.put("foo", "bar");
     map.put("baz", "bang");
     map.save();
     assertThat(journalFile.exists()).isFalse();
-    // prevent updating the journal
-    map.updateJournal = false;
+    // prevent flushing the journal
+    map.flushJournal = false;
     // remove an entry
     map.remove("foo");
     assertThat(map).hasSize(1);
@@ -195,7 +196,7 @@ public final class PersistentMapTest {
     assertThat(journalFile.exists()).isFalse();
 
     // Keep the journal through the save.
-    map.updateJournal = false;
+    map.flushJournal = false;
     map.keepJournal = true;
 
     // remove an entry
@@ -206,7 +207,7 @@ public final class PersistentMapTest {
 
     long size = map.save();
     assertThat(map).hasSize(1);
-    // The journal must be serialzed on save(), even if !updateJournal.
+    // The journal must be serialized on save(), even if !flushJournal.
     assertThat(journalFile.exists()).isTrue();
     assertThat(size).isEqualTo(journalFile.getFileSize() + mapFile.getFileSize());
 
@@ -229,7 +230,7 @@ public final class PersistentMapTest {
     map.put("foo", "bar");
     map.put("baz", "bang");
     map.save();
-    map.updateJournal = false;
+    map.flushJournal = false;
     map.keepJournal = true;
     map.remove("foo");
     assertThat(map).hasSize(1);

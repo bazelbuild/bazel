@@ -234,7 +234,7 @@ final class PersistentStringIndexer implements StringIndexer {
     }
 
     @Override
-    protected boolean updateJournal() {
+    protected boolean shouldFlushJournal() {
       long time = clock.nanoTime();
       if (SAVE_INTERVAL_NS == 0L || time > nextUpdate) {
         nextUpdate = time + SAVE_INTERVAL_NS;
@@ -249,7 +249,7 @@ final class PersistentStringIndexer implements StringIndexer {
     }
 
     void flush() {
-      forceFlush();
+      flushJournal();
     }
   }
 }

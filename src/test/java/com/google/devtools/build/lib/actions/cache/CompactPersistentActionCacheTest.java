@@ -144,10 +144,10 @@ public class CompactPersistentActionCacheTest {
     assertThat(mapFile.exists()).isTrue();
     assertThat(journalFile.exists()).isFalse();
 
-    CompactPersistentActionCache newcache =
-        CompactPersistentActionCache.create(
-            cacheRoot, corruptedCacheRoot, clock, NullEventHandler.INSTANCE);
-    ActionCache.Entry readentry = newcache.get(key);
+    CompactPersistentActionCache newCache =
+        CompactPersistentActionCache.create(cacheRoot, corruptedCacheRoot, clock, eventHandler);
+    verify(eventHandler, never()).handle(any());
+    ActionCache.Entry readentry = newCache.get(key);
     assertThat(readentry).isNotNull();
     assertThat(readentry.toString()).isEqualTo(cache.get(key).toString());
   }
@@ -167,8 +167,8 @@ public class CompactPersistentActionCacheTest {
     // Make sure we have all the entries, including those in the journal,
     // after deserializing into a new cache.
     CompactPersistentActionCache newcache =
-        CompactPersistentActionCache.create(
-            cacheRoot, corruptedCacheRoot, clock, NullEventHandler.INSTANCE);
+        CompactPersistentActionCache.create(cacheRoot, corruptedCacheRoot, clock, eventHandler);
+    verify(eventHandler, never()).handle(any());
     for (int i = 0; i < 100; i++) {
       assertKeyEquals(cache, newcache, Integer.toString(i));
     }
@@ -179,8 +179,8 @@ public class CompactPersistentActionCacheTest {
 
     // Make sure we can see previous journal values after a second incremental save.
     CompactPersistentActionCache newerCache =
-        CompactPersistentActionCache.create(
-            cacheRoot, corruptedCacheRoot, clock, NullEventHandler.INSTANCE);
+        CompactPersistentActionCache.create(cacheRoot, corruptedCacheRoot, clock, eventHandler);
+    verify(eventHandler, never()).handle(any());
     for (int i = 0; i < 100; i++) {
       assertKeyEquals(cache, newerCache, Integer.toString(i));
     }
@@ -220,8 +220,8 @@ public class CompactPersistentActionCacheTest {
 
     // Make sure we get the same result after deserializing into a new cache.
     CompactPersistentActionCache newerCache =
-        CompactPersistentActionCache.create(
-            cacheRoot, corruptedCacheRoot, clock, NullEventHandler.INSTANCE);
+        CompactPersistentActionCache.create(cacheRoot, corruptedCacheRoot, clock, eventHandler);
+    verify(eventHandler, never()).handle(any());
     for (int i = 0; i < 100; i++) {
       ActionCache.Entry entry = newerCache.get(Integer.toString(i));
       if (i % 20 == 0) {
@@ -230,6 +230,27 @@ public class CompactPersistentActionCacheTest {
         assertThat(entry).isNotNull();
       }
     }
+  }
+
+  @Test
+  public void testClear() throws IOException {
+    // Add 100 entries and do a full save.
+    for (int i = 0; i < 100; i++) {
+      putKey(Integer.toString(i));
+    }
+    assertFullSave();
+
+    // Clear the cache (which implicitly saves it).
+    cache.clear();
+
+    // Check that the cache is empty.
+    assertThat(cache.size()).isEqualTo(0);
+
+    // Make sure we get the same result after deserializing into a new cache.
+    CompactPersistentActionCache newerCache =
+        CompactPersistentActionCache.create(cacheRoot, corruptedCacheRoot, clock, eventHandler);
+    verify(eventHandler, never()).handle(any());
+    assertThat(newerCache.size()).isEqualTo(0);
   }
 
   // Regression test to check that CompactActionCacheEntry.toString does not mutate the object.
