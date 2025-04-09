@@ -16,11 +16,9 @@ package com.google.devtools.build.lib.concurrent;
 import static com.google.common.base.Preconditions.checkState;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.bugreport.BugReporter;
-import com.google.devtools.build.lib.bugreport.Crash;
-import com.google.devtools.build.lib.bugreport.CrashContext;
+import java.util.ArrayList;
 import java.util.concurrent.AbstractExecutorService;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.RejectedExecutionException;
@@ -46,7 +44,9 @@ import javax.annotation.concurrent.GuardedBy;
  * VirtualThread} as worker threads.
  */
 public final class WorkStealingThreadPoolExecutor extends AbstractExecutorService {
-  private final ImmutableMap<Thread, Worker> workerMap;
+  private final ThreadFactory threadFactory;
+  private final ConcurrentHashMap<Thread, Worker> workerMap;
+
   private final ImmutableList<Worker> workers;
   private final CountDownLatch deregisteredWorkersCountDown;
   private volatile boolean isShutdown;
@@ -79,22 +79,20 @@ public final class WorkStealingThreadPoolExecutor extends AbstractExecutorServic
   public WorkStealingThreadPoolExecutor(int parallelism, ThreadFactory threadFactory) {
     checkState(parallelism > 0);
 
-    deregisteredWorkersCountDown = new CountDownLatch(parallelism);
+    this.threadFactory = threadFactory;
+    this.workerMap = new ConcurrentHashMap<>(parallelism);
+    this.deregisteredWorkersCountDown = new CountDownLatch(parallelism);
 
+    ArrayList<Thread> threads = new ArrayList<>(parallelism);
     ImmutableList.Builder<Worker> workers = ImmutableList.builderWithExpectedSize(parallelism);
-    ImmutableMap.Builder<Thread, Worker> workerMap =
-        ImmutableMap.builderWithExpectedSize(parallelism);
     for (int i = 0; i < parallelism; i++) {
       var worker = new Worker(this);
-      var thread = threadFactory.newThread(worker);
-
       workers.add(worker);
-      workerMap.put(thread, worker);
+      threads.add(threadFactory.newThread(worker));
     }
     this.workers = workers.build();
-    this.workerMap = workerMap.buildOrThrow();
 
-    for (var thread : this.workerMap.keySet()) {
+    for (var thread : threads) {
       thread.start();
     }
   }
@@ -110,19 +108,22 @@ public final class WorkStealingThreadPoolExecutor extends AbstractExecutorServic
 
     @Override
     public void run() {
+      Thread thread = Thread.currentThread();
+      pool.registerWorker(thread, this);
       try {
         Runnable task;
         while ((task = pool.pollOrStealOrWaitTask(this)) != null) {
           try {
             task.run();
           } catch (Throwable e) {
-            // Crash the JVM if task throws unhandled exceptions.
-            BugReporter.defaultInstance().handleCrash(Crash.from(e), CrashContext.halt());
-            throw new IllegalStateException(e);
+            // If the task throws an exception, let the thread exit so it gets reported to the
+            // uncaught exception handler, but create a fresh thread to fill its place.
+            pool.assignWorkerToNewThread(thread, this);
+            throw e;
           }
         }
       } finally {
-        pool.deregisterWorker();
+        pool.deregisterWorker(thread);
       }
     }
 
@@ -158,8 +159,21 @@ public final class WorkStealingThreadPoolExecutor extends AbstractExecutorServic
     }
   }
 
-  private void deregisterWorker() {
-    deregisteredWorkersCountDown.countDown();
+  private void registerWorker(Thread thread, Worker worker) {
+    workerMap.put(thread, worker);
+  }
+
+  private void assignWorkerToNewThread(Thread thread, Worker worker) {
+    var prevWorker = workerMap.remove(thread);
+    checkState(prevWorker == worker);
+    threadFactory.newThread(worker).start();
+  }
+
+  private void deregisterWorker(Thread thread) {
+    // If the worker is assigned to a different thread, do nothing.
+    if (workerMap.remove(thread) != null) {
+      deregisteredWorkersCountDown.countDown();
+    }
   }
 
   /**
@@ -282,11 +296,6 @@ public final class WorkStealingThreadPoolExecutor extends AbstractExecutorServic
     return workers.get(ThreadLocalRandom.current().nextInt(workers.size()));
   }
 
-  /**
-   * {@inheritDoc}
-   *
-   * <p>Crashes with a bug report if the {@code command} throws an unhandled exception.
-   */
   @Override
   public void execute(Runnable command) {
     if (isShutdown()) {

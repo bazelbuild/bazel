@@ -21,6 +21,7 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -118,6 +119,53 @@ public class WorkStealingThreadPoolExecutorTest {
     }
     assertThat(interrupted.get()).isFalse();
     assertThat(sum.get()).isEqualTo(numBatches * PARALLELISM);
+  }
+
+  @Test
+  public void execute_taskThrowsRuntimeException_reachParallelism() throws Exception {
+    AtomicBoolean interrupted = new AtomicBoolean(false);
+    int numBatches = 5;
+    CountDownLatch uncaughtExceptionHandlerCountDown = new CountDownLatch(numBatches * PARALLELISM);
+    AtomicReference<Throwable> errorFromUncaughtExceptionHandler = new AtomicReference<>();
+    try (var executor =
+        new WorkStealingThreadPoolExecutor(PARALLELISM, Thread.ofPlatform().factory())) {
+      for (int i = 0; i < numBatches; i++) {
+        CountDownLatch startedCountDown = new CountDownLatch(PARALLELISM);
+        CountDownLatch continueCountDown = new CountDownLatch(1);
+        for (int j = 0; j < PARALLELISM; j++) {
+          executor.execute(
+              () -> {
+                var thread = Thread.currentThread();
+                thread.setUncaughtExceptionHandler(
+                    (t, e) -> {
+                      try {
+                        assertThat(t).isEqualTo(thread);
+                        assertThat(e).isInstanceOf(IllegalStateException.class);
+                        assertThat(e).hasMessageThat().isEqualTo("test");
+                      } catch (Throwable error) {
+                        errorFromUncaughtExceptionHandler.set(error);
+                      } finally {
+                        uncaughtExceptionHandlerCountDown.countDown();
+                      }
+                    });
+                startedCountDown.countDown();
+
+                try {
+                  continueCountDown.await();
+                } catch (InterruptedException e) {
+                  interrupted.set(true);
+                }
+
+                throw new IllegalStateException("test");
+              });
+        }
+        startedCountDown.await();
+        continueCountDown.countDown();
+      }
+    }
+    uncaughtExceptionHandlerCountDown.await();
+    assertThat(interrupted.get()).isFalse();
+    assertThat(errorFromUncaughtExceptionHandler.get()).isNull();
   }
 
   @Test
