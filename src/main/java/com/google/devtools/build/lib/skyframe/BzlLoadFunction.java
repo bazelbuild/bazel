@@ -1462,10 +1462,10 @@ public class BzlLoadFunction implements SkyFunction {
     // and "export" any newly assigned exportable globals.
     // TODO(adonovan): change the semantics; see b/65374671.
     thread.setPostAssignHook(
-        (name, value) -> {
+        (name, nameStartLocation, value) -> {
           if (value instanceof StarlarkExportable exp) {
             if (!exp.isExported()) {
-              exp.export(handler, label, name);
+              exp.export(handler, label, name, nameStartLocation);
             }
           }
         });

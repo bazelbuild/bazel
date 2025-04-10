@@ -554,10 +554,10 @@ public class ModuleFileFunction implements SkyFunction {
         thread.setPrintHandler(Event.makeDebugPrintHandler(eventHandler));
       }
       thread.setPostAssignHook(
-          (name, value) -> {
+          (name, nameStartLocation, value) -> {
             if (value instanceof StarlarkExportable exportable) {
               if (!exportable.isExported()) {
-                exportable.export(eventHandler, null, name);
+                exportable.export(eventHandler, null, name, nameStartLocation);
               }
             }
           });
