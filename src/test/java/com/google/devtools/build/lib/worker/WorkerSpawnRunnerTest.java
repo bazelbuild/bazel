@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.ExecutionRequirements.WorkerProtocolFormat;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
+import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.Spawn;
@@ -103,6 +104,7 @@ public class WorkerSpawnRunnerTest {
         .registerWorker(
             anyInt(), anyLong(), any(), anyString(), anyBoolean(), anyBoolean(), anyInt(), any());
     when(spawn.getLocalResources()).thenReturn(ResourceSet.createWithRamCpu(100, 1));
+    when(spawn.getPathMapper()).thenReturn(PathMapper.NOOP);
     when(resourceManager.acquireResources(any(), any(), any())).thenReturn(resourceHandle);
     when(resourceHandle.getWorker()).thenReturn(worker);
   }
