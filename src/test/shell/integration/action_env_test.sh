@@ -27,15 +27,18 @@ source "${CURRENT_DIR}/../integration_test_setup.sh" \
 set -e
 
 function set_up() {
+  add_rules_shell "MODULE.bazel"
+
   mkdir -p pkg
   cat > pkg/BUILD <<EOF
+load("//pkg:build.bzl", "environ")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
 genrule(
   name = "showenv",
   outs = ["env.txt"],
   cmd = "env | sort > \"\$@\""
 )
-
-load("//pkg:build.bzl", "environ")
 
 environ(name = "no_default_env", env = 0)
 environ(name = "with_default_env", env = 1)

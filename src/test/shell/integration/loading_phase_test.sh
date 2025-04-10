@@ -107,13 +107,18 @@ function test_query_buildfiles_with_load() {
 # "Skyframe does not build targets that transitively depend on non-rule targets
 # that live in packages with errors".
 function test_non_error_target_in_bad_pkg() {
+    add_rules_shell "MODULE.bazel"
+
     local -r pkg="${FUNCNAME}"
     mkdir -p "$pkg" || fail "could not create \"$pkg\""
 
     mkdir -p $pkg/a || fail "mkdir $pkg/a failed"
     mkdir -p $pkg/b || fail "mkdir $pkg/b failed"
 
-    echo "sh_library(name = 'a', data = ['//$pkg/b'])" > $pkg/a/BUILD
+    cat > $pkg/a/BUILD <<EOF
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
+sh_library(name = 'a', data = ['//$pkg/b'])
+EOF
     echo "exports_files(['b'])" > $pkg/b/BUILD
     echo "genrule(name='r1', cmd = '', outs = ['conflict'])" >> $pkg/b/BUILD
     echo "genrule(name='r2', cmd = '', outs = ['conflict'])" >> $pkg/b/BUILD
@@ -281,15 +286,23 @@ function test_glob_with_subpackage2() {
 # Regression test for b/19767102 ("BzlCompileFunction has an unnoted dependency
 # on the PathPackageLocator").
 function test_incremental_deleting_package_roots() {
+  add_rules_shell "MODULE.bazel"
+
   local -r pkg="${FUNCNAME}"
   mkdir -p "$pkg" || fail "could not create \"$pkg\""
 
   local other_root=other_root/${WORKSPACE_NAME}
   mkdir -p $other_root/$pkg/a
   touch $other_root/WORKSPACE
-  echo 'sh_library(name="external")' > $other_root/$pkg/a/BUILD
+  cat > $other_root/$pkg/a/BUILD << EOF
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
+sh_library(name="external")
+EOF
   mkdir -p $pkg/a
-  echo 'sh_library(name="internal")' > $pkg/a/BUILD
+  cat > $pkg/a/BUILD <<EOF
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
+sh_library(name="internal")
+EOF
 
   bazel query --package_path=%workspace%/$other_root:. $pkg/a:all >& $TEST_log \
       || fail "Expected success"

@@ -57,9 +57,12 @@ function test_size_less_than_385MB() {
 }
 
 function test_cc() {
+  add_rules_cc "MODULE.bazel"
   local -r pkg=$FUNCNAME
   mkdir -p "$pkg" || fail "Couldn't create $pkg."
   cat > "$pkg/BUILD" <<EOF
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+
 cc_binary(
     name = "foo",
     srcs = ["foo.cc"],
@@ -75,9 +78,12 @@ EOF
 }
 
 function test_java() {
+  add_rules_java "MODULE.bazel"
   local -r pkg=$FUNCNAME
   mkdir -p "$pkg" || fail "Couldn't create $pkg."
   cat > "$pkg/BUILD" <<EOF
+load("@rules_java//java:java_binary.bzl", "java_binary")
+
 java_binary(
     name = "foo",
     srcs = ["foo.java"],
