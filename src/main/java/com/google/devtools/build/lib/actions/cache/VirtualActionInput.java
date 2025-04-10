@@ -26,6 +26,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.ByteString;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -82,11 +83,13 @@ public abstract class VirtualActionInput implements ActionInput, DeterministicWr
     try {
       byte[] digest = writeTo(tmpPath);
       try {
-      tmpPath.renameTo(outputPath);
+        tmpPath.renameTo(outputPath);
       } catch (FileAccessException e) {
-        if (OS.getCurrent() != OS.WINDOWS || !outputPath.exists()) {
-          throw e;
+        if (OS.getCurrent() == OS.WINDOWS && Arrays.equals(outputPath.getDigest(), digest)) {
+          outputPath.setExecutable(tmpPath.isExecutable());
+          return digest;
         }
+        throw e;
       }
       tmpPath = null; // Avoid unnecessary deletion attempt.
       return digest;
