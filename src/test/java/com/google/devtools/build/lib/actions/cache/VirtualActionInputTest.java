@@ -1,12 +1,12 @@
 package com.google.devtools.build.lib.actions.cache;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.vfs.DigestHashFunction.SHA256;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.unix.UnixFileSystem;
 import com.google.devtools.build.lib.util.OS;
-import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -33,12 +33,12 @@ public class VirtualActionInputTest {
 
     FileSystem getFileSystem() {
       return switch (this) {
-        case IN_MEMORY -> new InMemoryFileSystem(DigestHashFunction.SHA256);
-        case JAVA -> new JavaIoFileSystem(DigestHashFunction.SHA256);
+        case IN_MEMORY -> new InMemoryFileSystem(SHA256);
+        case JAVA -> new JavaIoFileSystem(SHA256);
         case NATIVE ->
             OS.getCurrent() == OS.WINDOWS
-                ? new WindowsFileSystem(DigestHashFunction.SHA256, /* createSymbolicLinks= */ false)
-                : new UnixFileSystem(DigestHashFunction.SHA256, "hash");
+                ? new WindowsFileSystem(SHA256, /* createSymbolicLinks= */ false)
+                : new UnixFileSystem(SHA256, "hash");
       };
     }
   }
@@ -60,9 +60,22 @@ public class VirtualActionInputTest {
         .containsExactly(new Dirent("file", Dirent.Type.FILE));
     assertThat(FileSystemUtils.readLines(outputFile, UTF_8)).containsExactly("hello");
     assertThat(outputFile.isExecutable()).isTrue();
-    assertThat(digest).isEqualTo(DigestHashFunction.SHA256.getHashFunction().hashString("hello", UTF_8).asBytes());
+    assertThat(digest).isEqualTo(SHA256.getHashFunction().hashString("hello", UTF_8).asBytes());
+  }
 
-    // Verify that the write doesn't fail even with concurrent read access to the file.
+  @Test
+  public void testAtomicallyWriteRelativeTo_concurrentRead(
+      @TestParameter FileSystemType fileSystemType) throws Exception {
+    FileSystem fs = fileSystemType.getFileSystem();
+    Path execRoot = fs.getPath(tempFolder.getRoot().getPath());
+
+    Path outputFile = execRoot.getRelative("some/file");
+    VirtualActionInput input =
+        ActionsTestUtil.createVirtualActionInput(
+            outputFile.relativeTo(execRoot).getPathString(), "hello");
+
+    input.atomicallyWriteRelativeTo(execRoot);
+    byte[] digest;
     byte[] bytes;
     try (var in = outputFile.getInputStream()) {
       digest = input.atomicallyWriteRelativeTo(execRoot);
@@ -73,7 +86,7 @@ public class VirtualActionInputTest {
         .containsExactly(new Dirent("file", Dirent.Type.FILE));
     assertThat(FileSystemUtils.readLines(outputFile, UTF_8)).containsExactly("hello");
     assertThat(outputFile.isExecutable()).isTrue();
-    assertThat(digest).isEqualTo(DigestHashFunction.SHA256.getHashFunction().hashString("hello", UTF_8).asBytes());
+    assertThat(digest).isEqualTo(SHA256.getHashFunction().hashString("hello", UTF_8).asBytes());
     assertThat(bytes).isEqualTo("hello".getBytes(UTF_8));
   }
 }
