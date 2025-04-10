@@ -52,6 +52,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.TreeMap;
 import java.util.concurrent.Semaphore;
 import javax.annotation.Nullable;
@@ -115,6 +116,9 @@ public abstract class TargetDefinitionContext extends StarlarkThreadContext {
    */
   @Nullable // Only non-null when inside PackageFunction.compute and the semaphore is enabled.
   private final Semaphore cpuBoundSemaphore;
+
+  /** Estimates the cost of this packageoid. */
+  protected final PackageOverheadEstimator packageOverheadEstimator;
 
   // TreeMap so that the iteration order of variables is consistent regardless of insertion order
   // (which may change due to serialization). This is useful so that the serialized representation
@@ -307,6 +311,7 @@ public abstract class TargetDefinitionContext extends StarlarkThreadContext {
       String workspaceName,
       RepositoryMapping mainRepositoryMapping,
       @Nullable Semaphore cpuBoundSemaphore,
+      PackageOverheadEstimator packageOverheadEstimator,
       @Nullable ImmutableMap<Location, String> generatorMap,
       @Nullable Globber globber,
       boolean enableNameConflictChecking,
@@ -320,9 +325,9 @@ public abstract class TargetDefinitionContext extends StarlarkThreadContext {
     this.labelConverter =
         new LabelConverter(metadata.packageIdentifier(), metadata.repositoryMapping());
     this.cpuBoundSemaphore = cpuBoundSemaphore;
+    this.packageOverheadEstimator = packageOverheadEstimator;
     this.generatorMap = (generatorMap == null) ? ImmutableMap.of() : generatorMap;
     this.globber = globber;
-
     this.recorder = new TargetRecorder(enableNameConflictChecking, trackFullMacroInformation);
   }
 
@@ -336,6 +341,14 @@ public abstract class TargetDefinitionContext extends StarlarkThreadContext {
 
   PackageIdentifier getPackageIdentifier() {
     return metadata.packageIdentifier();
+  }
+
+  /**
+   * Returns a short, lower-case description of the packageoid under construction, e.g. for use in
+   * logging and error messages.
+   */
+  String getShortDescription() {
+    return pkg.getShortDescription();
   }
 
   /**
@@ -779,6 +792,7 @@ public abstract class TargetDefinitionContext extends StarlarkThreadContext {
    * <p>This method is intended to be overridden by subclasses to perform packageoid-specific final
    * initialization steps.
    */
+  // Non-final only to allow subclasses to return a more specific type.
   public Packageoid finishBuild() {
     if (alreadyBuilt) {
       return pkg;
@@ -803,6 +817,20 @@ public abstract class TargetDefinitionContext extends StarlarkThreadContext {
     pkg.failureDetail = getFailureDetail();
     pkg.targets = ImmutableSortedMap.copyOf(recorder.getTargetMap());
     pkg.macros = ImmutableSortedMap.copyOf(recorder.getMacroMap());
+
+    packageoidInitializationHook();
+
+    // Overhead should be estimated after all packageoid fields have been set.
+    OptionalLong overheadEstimate = packageOverheadEstimator.estimatePackageOverhead(pkg);
+    pkg.packageOverhead = overheadEstimate.orElse(Packageoid.PACKAGE_OVERHEAD_UNSET);
+
+    // Verify that we haven't introduced new errors on the builder since the call to
+    // finalBuilderValidationHook().
+    if (containsErrors()) {
+      checkState(
+          pkg.containsErrors(), "Builder error status not propagated to package or package piece");
+    }
+
     return pkg;
   }
 
@@ -814,4 +842,15 @@ public abstract class TargetDefinitionContext extends StarlarkThreadContext {
    * the builder to the packageoid.
    */
   protected void finalBuilderValidationHook() {}
+
+  /**
+   * Sets remaining subclass-specific fields on the packageoid.
+   *
+   * <p>This method is intended to be overridden by subclasses; it is invoked by {@link
+   * #finishBuild()} after {@link #finalBuilderValidationHook()} has passed and the packageoid's
+   * base fields (such as error information, targets, and macros) have been frozen and set. This
+   * method must not call {@link #setContainsErrors()} on the builder; but it is allowed to set
+   * packageoid fields that impact overhead estimation.
+   */
+  protected void packageoidInitializationHook() {}
 }

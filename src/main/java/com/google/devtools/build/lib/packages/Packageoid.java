@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.TargetRecorder.MacroNamespaceViolationException;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import java.util.OptionalLong;
 import javax.annotation.Nullable;
 
 /**
@@ -36,6 +37,9 @@ import javax.annotation.Nullable;
  * machinery.
  */
 public abstract class Packageoid {
+  /** Sentinel value for package overhead being empty. */
+  protected static final long PACKAGE_OVERHEAD_UNSET = -1;
+
   // ==== Common metadata fields ====
 
   /**
@@ -54,6 +58,12 @@ public abstract class Packageoid {
   @Nullable protected FailureDetail failureDetail;
 
   protected long computationSteps = 0;
+
+  /**
+   * A rough approximation of the memory and general accounting costs associated with a loaded
+   * packageoid. A value of -1 means it is unset. Stored as a long to take up less memory per pkg.
+   */
+  protected long packageOverhead = PACKAGE_OVERHEAD_UNSET;
 
   // ==== Common target and macro fields ====
 
@@ -97,6 +107,21 @@ public abstract class Packageoid {
   public abstract Package.Declarations getDeclarations();
 
   /**
+   * Returns a short, lower-case description of this packageoid, e.g. for use in logging and error
+   * messages.
+   */
+  public abstract String getShortDescription();
+
+  /**
+   * Returns an (immutable, ordered) view of all the targets belonging to this packageoid. Note that
+   * if this packageoid is a package piece, this method does not search for targets in any other
+   * package pieces.
+   */
+  public ImmutableSortedMap<String, Target> getTargets() {
+    return targets;
+  }
+
+  /**
    * Returns true if errors were encountered during evaluation of this packageoid.
    *
    * <p>If a packageoid contains errors, it may be incomplete and its contents should not be relied
@@ -138,6 +163,13 @@ public abstract class Packageoid {
    */
   public long getComputationSteps() {
     return computationSteps;
+  }
+
+  /** Returns package overhead as configured by the configured {@link PackageOverheadEstimator}. */
+  public OptionalLong getPackageOverhead() {
+    return packageOverhead == PACKAGE_OVERHEAD_UNSET
+        ? OptionalLong.empty()
+        : OptionalLong.of(packageOverhead);
   }
 
   /**

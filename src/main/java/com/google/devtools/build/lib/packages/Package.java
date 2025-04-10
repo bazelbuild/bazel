@@ -72,7 +72,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
-import java.util.OptionalLong;
 import java.util.SequencedMap;
 import java.util.Set;
 import java.util.concurrent.Semaphore;
@@ -141,20 +140,11 @@ public class Package extends Packageoid {
    */
   private static final String DUMMY_WORKSPACE_NAME_FOR_BZLMOD_PACKAGES = "__dummy_workspace_bzlmod";
 
-  /** Sentinel value for package overhead being empty. */
-  private static final long PACKAGE_OVERHEAD_UNSET = -1;
-
   // ==== General package metadata fields ====
 
   private final Metadata metadata;
 
   private final Declarations declarations;
-
-  /**
-   * A rough approximation of the memory and general accounting costs associated with a loaded
-   * package. A value of -1 means it is unset. Stored as a long to take up less memory per pkg.
-   */
-  private long packageOverhead = PACKAGE_OVERHEAD_UNSET;
 
   // ==== Fields specific to external package / WORKSPACE logic ====
 
@@ -344,13 +334,6 @@ public class Package extends Packageoid {
     return ImmutableList.copyOf(loads);
   }
 
-  /** Returns package overhead as configured by the configured {@link PackageOverheadEstimator}. */
-  public OptionalLong getPackageOverhead() {
-    return packageOverhead == PACKAGE_OVERHEAD_UNSET
-        ? OptionalLong.empty()
-        : OptionalLong.of(packageOverhead);
-  }
-
   // ==== Accessors specific to external package / WORKSPACE logic ====
 
   /**
@@ -411,11 +394,6 @@ public class Package extends Packageoid {
   }
 
   // ==== Target and macro accessors ====
-
-  /** Returns an (immutable, ordered) view of all the targets belonging to this package. */
-  public ImmutableSortedMap<String, Target> getTargets() {
-    return targets;
-  }
 
   /**
    * Returns a (read-only, ordered) iterable of all the targets belonging to this package which are
@@ -610,6 +588,11 @@ public class Package extends Packageoid {
         + getName()
         + ")="
         + (targets != null ? getTargets(Rule.class) : "initializing...");
+  }
+
+  @Override
+  public String getShortDescription() {
+    return "package " + getPackageIdentifier().getCanonicalForm();
   }
 
   /**
@@ -957,6 +940,10 @@ public class Package extends Packageoid {
       packageFunctionUsed = true;
     }
 
+    public Set<Target> getTargets() {
+      return recorder.getTargets();
+    }
+
     /** Adds an environment group to the package. Not valid within symbolic macros. */
     void addEnvironmentGroup(
         String name,
@@ -1157,9 +1144,7 @@ public class Package extends Packageoid {
     }
 
     @Override
-    public Packageoid finishBuild() {
-      var unused = super.finishBuild();
-
+    protected void packageoidInitializationHook() {
       // Finish Package.Declarations construction.
       if (pkg.getDeclarations().directLoads == null
           && pkg.getDeclarations().transitiveLoads == null) {
@@ -1168,8 +1153,6 @@ public class Package extends Packageoid {
       }
       pkg.getDeclarations().workspaceName = workspaceName;
       pkg.getDeclarations().makeEnv = ImmutableMap.copyOf(makeEnv);
-
-      return pkg;
     }
 
     AbstractBuilder(
@@ -1182,6 +1165,7 @@ public class Package extends Packageoid {
         String workspaceName,
         RepositoryMapping mainRepositoryMapping,
         @Nullable Semaphore cpuBoundSemaphore,
+        PackageOverheadEstimator packageOverheadEstimator,
         @Nullable ImmutableMap<Location, String> generatorMap,
         @Nullable Globber globber,
         boolean enableNameConflictChecking,
@@ -1194,6 +1178,7 @@ public class Package extends Packageoid {
           workspaceName,
           mainRepositoryMapping,
           cpuBoundSemaphore,
+          packageOverheadEstimator,
           generatorMap,
           globber,
           enableNameConflictChecking,
@@ -1261,9 +1246,6 @@ public class Package extends Packageoid {
     private final HashMap<RepositoryName, LinkedHashMap<String, RepositoryName>>
         externalPackageRepositoryMappings = new HashMap<>();
 
-    /** Estimates the package overhead of this package. */
-    private final PackageOverheadEstimator packageOverheadEstimator;
-
     // The snapshot of {@link #targets} for use in rule finalizer macros. Contains all
     // non-finalizer-instantiated rule targets (i.e. all rule targets except for those instantiated
     // in a finalizer or in a macro called from a finalizer).
@@ -1320,11 +1302,11 @@ public class Package extends Packageoid {
           workspaceName,
           mainRepositoryMapping,
           cpuBoundSemaphore,
+          packageOverheadEstimator,
           generatorMap,
           globber,
           enableNameConflictChecking,
           trackFullMacroInformation);
-      this.packageOverheadEstimator = packageOverheadEstimator;
     }
 
     /** Retrieves this object from a Starlark thread. Returns null if not present. */
@@ -1433,10 +1415,6 @@ public class Package extends Packageoid {
     @Override
     void setComputationSteps(long n) {
       getPackage().computationSteps = n;
-    }
-
-    public Set<Target> getTargets() {
-      return recorder.getTargets();
     }
 
     void replaceTarget(Target newTarget) {
@@ -1607,7 +1585,13 @@ public class Package extends Packageoid {
 
     @Override
     public Package finishBuild() {
-      Package pkg = (Package) super.finishBuild();
+      return (Package) super.finishBuild();
+    }
+
+    @Override
+    protected void packageoidInitializationHook() {
+      super.packageoidInitializationHook();
+      Package pkg = getPackage();
       pkg.macroNamespaceViolatingTargets =
           ImmutableMap.copyOf(recorder.getMacroNamespaceViolatingTargets());
       pkg.targetsToDeclaringMacro =
@@ -1634,16 +1618,6 @@ public class Package extends Packageoid {
       externalPackageRepositoryMappings.forEach(
           (k, v) -> repositoryMappingsBuilder.put(k, ImmutableMap.copyOf(v)));
       pkg.externalPackageRepositoryMappings = repositoryMappingsBuilder.buildOrThrow();
-      OptionalLong overheadEstimate = packageOverheadEstimator.estimatePackageOverhead(pkg);
-      pkg.packageOverhead = overheadEstimate.orElse(PACKAGE_OVERHEAD_UNSET);
-
-      // Verify that we haven't introduced new errors on the builder since the call to
-      // finalBuilderValidationHook().
-      if (containsErrors()) {
-        checkState(pkg.containsErrors(), "Package.Builder error status not propagated to Package");
-      }
-
-      return pkg;
     }
 
     /** Completes package construction. Idempotent. */

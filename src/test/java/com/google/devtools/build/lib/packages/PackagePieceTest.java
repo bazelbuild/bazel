@@ -243,6 +243,7 @@ def fail_impl(name, visibility, **kwargs):
             /* repositoryMapping= */ RepositoryMapping.ALWAYS_FALLBACK,
             /* mainRepositoryMapping= */ null,
             /* cpuBoundSemaphore= */ null,
+            PackageOverheadEstimator.NOOP_ESTIMATOR,
             /* generatorMap= */ null,
             /* configSettingVisibilityPolicy= */ null,
             /* globber= */ null,
@@ -261,6 +262,7 @@ def fail_impl(name, visibility, **kwargs):
         /* repositoryMapping= */ RepositoryMapping.ALWAYS_FALLBACK,
         /* mainRepositoryMapping= */ null,
         /* cpuBoundSemaphore= */ null,
+        PackageOverheadEstimator.NOOP_ESTIMATOR,
         /* generatorMap= */ null,
         /* enableNameConflictChecking= */ true,
         /* trackFullMacroInformation= */ false);

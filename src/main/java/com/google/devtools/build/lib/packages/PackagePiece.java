@@ -20,7 +20,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -67,14 +66,6 @@ public abstract sealed class PackagePiece extends Packageoid
    * package.
    */
   public abstract PackagePiece.ForBuildFile getPackagePieceForBuildFile();
-
-  /**
-   * Returns an (immutable, ordered) view of all the targets belonging to this package piece.
-   * Doesn't search in any other package pieces.
-   */
-  public ImmutableSortedMap<String, Target> getTargets() {
-    return targets;
-  }
 
   /**
    * Returns a (read-only, ordered) iterable of all the targets belonging to this package piece
@@ -152,6 +143,11 @@ public abstract sealed class PackagePiece extends Packageoid
         + getIdentifier()
         + ")="
         + (targets != null ? getTargets(Rule.class) : "initializing...");
+  }
+
+  @Override
+  public String getShortDescription() {
+    return "package piece " + getIdentifier();
   }
 
   private PackagePiece(Identifier identifier) {
@@ -290,6 +286,7 @@ public abstract sealed class PackagePiece extends Packageoid
         RepositoryMapping repositoryMapping,
         RepositoryMapping mainRepositoryMapping,
         @Nullable Semaphore cpuBoundSemaphore,
+        PackageOverheadEstimator packageOverheadEstimator,
         @Nullable ImmutableMap<Location, String> generatorMap,
         @Nullable ConfigSettingVisibilityPolicy configSettingVisibilityPolicy,
         @Nullable Globber globber,
@@ -315,6 +312,7 @@ public abstract sealed class PackagePiece extends Packageoid
           workspaceName,
           mainRepositoryMapping,
           cpuBoundSemaphore,
+          packageOverheadEstimator,
           generatorMap,
           globber,
           enableNameConflictChecking,
@@ -370,6 +368,7 @@ public abstract sealed class PackagePiece extends Packageoid
           String workspaceName,
           RepositoryMapping mainRepositoryMapping,
           @Nullable Semaphore cpuBoundSemaphore,
+          PackageOverheadEstimator packageOverheadEstimator,
           @Nullable ImmutableMap<Location, String> generatorMap,
           @Nullable Globber globber,
           boolean enableNameConflictChecking,
@@ -384,6 +383,7 @@ public abstract sealed class PackagePiece extends Packageoid
             workspaceName,
             mainRepositoryMapping,
             cpuBoundSemaphore,
+            packageOverheadEstimator,
             generatorMap,
             globber,
             enableNameConflictChecking,
@@ -464,6 +464,7 @@ public abstract sealed class PackagePiece extends Packageoid
         RepositoryMapping repositoryMapping,
         RepositoryMapping mainRepositoryMapping,
         @Nullable Semaphore cpuBoundSemaphore,
+        PackageOverheadEstimator packageOverheadEstimator,
         @Nullable ImmutableMap<Location, String> generatorMap,
         boolean enableNameConflictChecking,
         boolean trackFullMacroInformation) {
@@ -473,6 +474,7 @@ public abstract sealed class PackagePiece extends Packageoid
           simplifyUnconditionalSelectsInRuleAttrs,
           mainRepositoryMapping,
           cpuBoundSemaphore,
+          packageOverheadEstimator,
           generatorMap,
           enableNameConflictChecking,
           trackFullMacroInformation);
@@ -542,10 +544,13 @@ public abstract sealed class PackagePiece extends Packageoid
 
       @Override
       public ForMacro finishBuild() {
-        ForMacro forMacro = (ForMacro) super.finishBuild();
-        forMacro.macroNamespaceViolations =
+        return (ForMacro) super.finishBuild();
+      }
+
+      @Override
+      protected void packageoidInitializationHook() {
+        getPackagePiece().macroNamespaceViolations =
             ImmutableSet.copyOf(recorder.getMacroNamespaceViolatingTargets().keySet());
-        return forMacro;
       }
 
       private Builder(
@@ -553,6 +558,7 @@ public abstract sealed class PackagePiece extends Packageoid
           boolean simplifyUnconditionalSelectsInRuleAttrs,
           RepositoryMapping mainRepositoryMapping,
           @Nullable Semaphore cpuBoundSemaphore,
+          PackageOverheadEstimator packageOverheadEstimator,
           @Nullable ImmutableMap<Location, String> generatorMap,
           boolean enableNameConflictChecking,
           boolean trackFullMacroInformation) {
@@ -564,6 +570,7 @@ public abstract sealed class PackagePiece extends Packageoid
             forMacro.getPackagePieceForBuildFile().getDeclarations().getWorkspaceName(),
             mainRepositoryMapping,
             cpuBoundSemaphore,
+            packageOverheadEstimator,
             generatorMap,
             /* globber= */ null,
             enableNameConflictChecking,
