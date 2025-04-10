@@ -85,6 +85,7 @@ public abstract class VirtualActionInput implements ActionInput, DeterministicWr
       try {
         tmpPath.renameTo(outputPath);
       } catch (FileAccessException e) {
+        // Moves fail on Windows if the target is accessed concurrently.
         if (OS.getCurrent() == OS.WINDOWS && Arrays.equals(outputPath.getDigest(), digest)) {
           outputPath.setExecutable(tmpPath.isExecutable());
           return digest;
