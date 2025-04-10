@@ -28,6 +28,7 @@ function set_up_jobcount() {
   # test runs.
   touch ${tmp}/counter
 
+  add_rules_shell "MODULE.bazel"
   mkdir -p dir
 
   cat <<EOF > dir/test.sh
@@ -55,6 +56,8 @@ EOF
   chmod +x dir/test.sh
 
   cat <<EOF > dir/BUILD
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
 sh_test(
   name = "test",
   srcs = [ "test.sh" ],
@@ -83,6 +86,7 @@ function test_3_local_jobs() {
 
 # TODO(#2228): Re-enable when the tmpdir creation is fixed.
 function DISABLED_test_tmpdir() {
+  add_rules_shell "MODULE.bazel"
   mkdir -p foo
   cat > foo/bar_test.sh <<'EOF'
 #!/bin/sh
@@ -90,6 +94,8 @@ echo TEST_TMPDIR=$TEST_TMPDIR
 EOF
   chmod +x foo/bar_test.sh
   cat > foo/BUILD <<EOF
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
 sh_test(
     name = "bar_test",
     srcs = ["bar_test.sh"],
@@ -119,6 +125,7 @@ EOF
 }
 
 function test_env_vars() {
+  add_rules_shell "MODULE.bazel"
   mkdir -p foo
   cat > foo/testenv.sh <<'EOF'
 #!/bin/sh
@@ -128,6 +135,8 @@ echo "ws: $TEST_WORKSPACE"
 EOF
   chmod +x foo/testenv.sh
   cat > foo/BUILD <<EOF
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
 sh_test(
     name = "foo",
     srcs = ["testenv.sh"],
@@ -141,6 +150,7 @@ EOF
 }
 
 function test_env_vars_override() {
+  add_rules_shell "MODULE.bazel"
   mkdir -p foo
   cat > foo/testenv.sh <<'EOF'
 #!/bin/sh
@@ -152,6 +162,7 @@ echo "ws: $TEST_WORKSPACE"
 EOF
   chmod +x foo/testenv.sh
   cat > foo/BUILD <<EOF
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 sh_test(
     name = "foo",
     srcs = ["testenv.sh"],
@@ -207,6 +218,7 @@ function test_runfiles_python_runfiles_merges_env_vars() {
 
 # Usage: runfiles_merges_runfiles_env_vars overridden unchanged
 function runfiles_merges_runfiles_env_vars() {
+  add_rules_shell "MODULE.bazel"
   local -r overridden=$1
   local -r unchanged=$2
   mkdir -p foo
@@ -216,7 +228,10 @@ echo "JAVA_RUNFILES: ${JAVA_RUNFILES}"
 echo "PYTHON_RUNFILES: ${PYTHON_RUNFILES}"
 EOF
   chmod +x foo/foo.sh
-  echo 'sh_test(name = "foo", srcs = ["foo.sh"])' > foo/BUILD
+  cat > foo/BUILD <<EOF
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+sh_test(name = "foo", srcs = ["foo.sh"])
+EOF
 
   bazel test --test_env="${overridden}"=override --test_output=all \
       //foo >& "${TEST_log}" || fail "Test failed"
@@ -228,6 +243,7 @@ EOF
 function test_run_under_external_label_with_options() {
   mkdir -p testing run || fail "mkdir testing run failed"
   cat <<EOF > run/BUILD
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 sh_binary(
   name='under', srcs=['under.sh'],
   visibility=["//visibility:public"],
@@ -249,6 +265,7 @@ EOF
   chmod u+x testing/passing_test.sh
 
   cat <<EOF > testing/BUILD
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 sh_test(
   name = "passing_test" ,
   srcs = [ "passing_test.sh" ])
@@ -261,6 +278,7 @@ local_repository(
     path = "./run",
 )
 EOF
+  add_rules_shell "MODULE.bazel"
 
   bazel test //testing:passing_test --run_under='@run//:under -c' \
     --test_output=all >& $TEST_log || fail "Expected success"
@@ -271,8 +289,10 @@ EOF
 }
 
 function test_run_under_label_with_options() {
+  add_rules_shell "MODULE.bazel"
   mkdir -p testing run || fail "mkdir testing run failed"
   cat <<EOF > run/BUILD
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 sh_binary(
   name='under', srcs=['under.sh'],
   visibility=["//visibility:public"],
@@ -292,6 +312,7 @@ EOF
   chmod u+x testing/passing_test.sh
 
   cat <<EOF > testing/BUILD
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 sh_test(
   name = "passing_test" ,
   srcs = [ "passing_test.sh" ])
@@ -307,8 +328,12 @@ EOF
 # This test uses "--ignore_all_rc_files" since outside .bazelrc files can pollute
 # this environment. Just "--bazelrc=/dev/null" is not sufficient to fix.
 function test_run_under_path() {
+  add_rules_shell "MODULE.bazel"
   mkdir -p testing || fail "mkdir testing failed"
-  echo "sh_test(name='t1', srcs=['t1.sh'])" > testing/BUILD
+  cat > testing/BUILD <<EOF
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+sh_test(name='t1', srcs=['t1.sh'])
+EOF
   cat <<EOF > testing/t1.sh
 #!/bin/sh
 exit 0
@@ -372,10 +397,12 @@ local_repository(
     path = "../run",
 )
 EOF
+  add_rules_shell "MODULE.bazel"
 
   mkdir -p testing || fail "mkdir testing failed"
 
   cat <<EOF > testing/BUILD
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 sh_test(
   name = "passing_test" ,
   srcs = [ "passing_test.sh" ])
@@ -396,6 +423,7 @@ EOF
 }
 
 function test_test_timeout() {
+  add_rules_shell "MODULE.bazel"
   mkdir -p dir
 
   cat <<EOF > dir/test.sh
@@ -408,6 +436,8 @@ EOF
   chmod +x dir/test.sh
 
   cat <<EOF > dir/BUILD
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
 sh_test(
     name = "test",
     timeout = "short",
@@ -430,6 +460,7 @@ function test_runs_per_test_detects_flakes() {
   # Directory for counters
   local COUNTER_DIR="${TEST_TMPDIR}/counter_dir"
   mkdir -p "${COUNTER_DIR}"
+  add_rules_shell "MODULE.bazel"
 
   for (( i = 1 ; i <= 5 ; i++ )); do
 
@@ -448,6 +479,8 @@ exit \$((i != $i))
 EOF
     chmod +x test$i.sh
     cat <<EOF > BUILD
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
 sh_test(name = "test$i", srcs = [ "test$i.sh" ])
 EOF
     bazel test --spawn_strategy=standalone \
@@ -462,7 +495,7 @@ EOF
 # Tests that the test.xml is extracted from the sandbox correctly.
 function test_xml_is_present() {
   mkdir -p dir
-
+  add_rules_shell "MODULE.bazel"
   cat <<'EOF' > dir/test.sh
 #!/bin/sh
 echo HELLO > $XML_OUTPUT_FILE
@@ -472,6 +505,8 @@ EOF
   chmod +x dir/test.sh
 
   cat <<'EOF' > dir/BUILD
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
 sh_test(
     name = "test",
     srcs = [ "test.sh" ],
@@ -486,6 +521,7 @@ EOF
 
 function write_test_xml_timeout_files() {
   mkdir -p dir
+  add_rules_shell "MODULE.bazel"
 
   cat <<'EOF' > dir/test.sh
 #!/bin/bash
@@ -504,6 +540,8 @@ EOF
   chmod +x dir/test.sh
 
   cat <<'EOF' > dir/BUILD
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
 sh_test(
     name = "test",
     srcs = [ "test.sh" ],
@@ -560,6 +598,7 @@ function test_xml_is_present_when_timingout_split_xml() {
 # Tests that the test.xml and test.log are correct and the test does not
 # hang when the test launches a subprocess.
 function test_subprocess_non_timeout() {
+  add_rules_shell "MODULE.bazel"
   mkdir -p dir
 
   cat <<'EOF' > dir/test.sh
@@ -572,6 +611,8 @@ EOF
   chmod +x dir/test.sh
 
   cat <<'EOF' > dir/BUILD
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
 sh_test(
     name = "test",
     timeout = "short",
@@ -594,6 +635,7 @@ EOF
 
 # Check that fallback xml output is correctly generated for sharded tests.
 function test_xml_fallback_for_sharded_test() {
+  add_rules_shell "MODULE.bazel"
   mkdir -p dir
 
   cat <<'EOF' > dir/test.sh
@@ -605,6 +647,8 @@ EOF
   chmod +x dir/test.sh
 
   cat <<EOF > dir/BUILD
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
 sh_test(
   name = "test",
   srcs = [ "test.sh" ],
@@ -649,6 +693,7 @@ EOF
 
 function test_always_xml_output() {
   mkdir -p dir
+  add_rules_shell "MODULE.bazel"
 
   cat <<EOF > dir/success.sh
 #!/bin/sh
@@ -662,6 +707,8 @@ EOF
   chmod +x dir/{success,fail}.sh
 
   cat <<EOF > dir/BUILD
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
 sh_test(
     name = "success",
     srcs = [ "success.sh" ],
@@ -731,7 +778,9 @@ function test_detailed_test_summary_for_passed_test() {
 # This test uses "--ignore_all_rc_files" since outside .bazelrc files can pollute
 # this environment. Just "--bazelrc=/dev/null" is not sufficient to fix.
 function test_flaky_test() {
+  add_rules_shell "MODULE.bazel"
   cat >BUILD <<EOF
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 sh_test(name = "flaky", flaky = True, srcs = ["flaky.sh"])
 sh_test(name = "pass", flaky = True, srcs = ["true.sh"])
 sh_test(name = "fail", flaky = True, srcs = ["false.sh"])
@@ -807,6 +856,7 @@ EOF
 
 function setup_undeclared_outputs_test() {
   mkdir -p dir
+  add_rules_shell "MODULE.bazel"
 
   cat <<'EOF' > dir/test.sh
 #!/bin/bash
@@ -829,6 +879,7 @@ EOF
   chmod +x dir/test.sh
 
   cat <<'EOF' > dir/BUILD
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 sh_test(
   name = "test",
   srcs = ["test.sh"],
@@ -973,6 +1024,7 @@ function test_undeclared_outputs_unzipped_then_zipped() {
 
 function test_undeclared_outputs_annotations_are_added() {
   mkdir -p dir
+  add_rules_shell "MODULE.bazel"
 
   cat <<'EOF' > dir/test.sh
 #!/bin/sh
@@ -985,6 +1037,8 @@ EOF
   chmod +x dir/test.sh
 
   cat <<'EOF' > dir/BUILD
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
 sh_test(
     name = "test",
     srcs = [ "test.sh" ],
@@ -1009,6 +1063,7 @@ diff expected_annotations "$annotations" > d || fail "$annotations differs from 
 
 function test_no_zip_annotation_manifest_when_no_undeclared_outputs() {
   mkdir -p dir
+  add_rules_shell "MODULE.bazel"
 
   cat <<'EOF' > dir/test.sh
 #!/bin/sh
@@ -1019,6 +1074,8 @@ EOF
   chmod +x dir/test.sh
 
   cat <<'EOF' > dir/BUILD
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
 sh_test(
     name = "test",
     srcs = [ "test.sh" ],
@@ -1038,10 +1095,12 @@ EOF
 
 function test_test_with_nobuild_runfile_manifests() {
   mkdir -p dir
+  add_rules_shell "MODULE.bazel"
 
   touch dir/test.sh
   chmod u+x dir/test.sh
   cat <<'EOF' > dir/BUILD
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 sh_test(
     name = 'test',
     srcs = ['test.sh'],
@@ -1059,10 +1118,12 @@ local_repository(
     path = "./a",
 )
 EOF
+  add_rules_python "MODULE.bazel"
 
   mkdir -p a
   touch a/REPO.bazel
   cat <<'EOF' > a/BUILD
+load("@rules_python//python:py_test.bzl", "py_test")
 py_test(
     name = 'x',
     srcs = ['x.py'],
@@ -1079,7 +1140,10 @@ EOF
 }
 
 function test_xml_output_format() {
+  add_rules_python "MODULE.bazel"
+
   cat <<'EOF' > BUILD
+load("@rules_python//python:py_test.bzl", "py_test")
 py_test(
     name = 'x',
     srcs = ['x.py'],
@@ -1096,7 +1160,10 @@ EOF
 }
 
 function test_shard_status_file_checked() {
+  add_rules_shell "MODULE.bazel"
   cat <<'EOF' > BUILD
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
 sh_test(
     name = 'x',
     srcs = ['x.sh'],
@@ -1118,7 +1185,9 @@ EOF
 }
 
 function test_premature_exit_file_checked() {
+  add_rules_shell "MODULE.bazel"
   cat <<'EOF' > BUILD
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 sh_test(
     name = 'x',
     srcs = ['x.sh'],

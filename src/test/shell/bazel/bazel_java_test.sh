@@ -94,6 +94,8 @@ function set_up() {
 function write_hello_library_files() {
   mkdir -p java/main
   cat >java/main/BUILD <<EOF
+load("@rules_java//java:java_binary.bzl", "java_binary")
+
 java_binary(name = 'main',
     deps = ['//java/hello_library'],
     srcs = ['Main.java'],
@@ -113,6 +115,8 @@ EOF
 
   mkdir -p java/hello_library
   cat >java/hello_library/BUILD <<EOF
+load("@rules_java//java:java_library.bzl", "java_library")
+
 package(default_visibility=['//visibility:public'])
 java_library(name = 'hello_library',
              srcs = ['HelloLibrary.java']);
@@ -141,6 +145,8 @@ function write_files_for_java_provider_in_attr() {
 
   cat > java/com/google/sandwich/BUILD <<EOF
 load(':java_custom_library.bzl', 'java_custom_library')
+load("@rules_java//java:java_binary.bzl", "java_binary")
+load("@rules_java//java:$rule_type.bzl", "$rule_type")
 
 java_binary(
   name = "Main",
@@ -379,6 +385,8 @@ function test_build_with_deploy_env() {
   # Overwrite java/main to add deploy_env customizations and remove the
   # compile-time hello_library dependency.
   cat >java/main/BUILD <<EOF
+load("@rules_java//java:java_binary.bzl", "java_binary")
+
 java_binary(name = 'env', runtime_deps = ['//java/hello_library'])
 java_binary(name = 'main',
     runtime_deps = ['//java/hello_library'],
@@ -422,6 +430,8 @@ public class B {
 EOF
 
   cat >g/BUILD <<'EOF'
+load("@rules_java//java:java_library.bzl", "java_library")
+
 genrule(
   name = "stub",
   srcs = ["B.java"],
@@ -623,6 +633,8 @@ public class HelloLibrary {
 EOF
   # Disable error-prone for this target, though.
   cat >java/hello_library/BUILD <<EOF
+load("@rules_java//java:java_library.bzl", "java_library")
+
 package(default_visibility=['//visibility:public'])
 java_library(name = 'hello_library',
              srcs = ['HelloLibrary.java'],
@@ -667,6 +679,9 @@ public class Tests {
 EOF
 
   cat > java/testrunners/BUILD <<EOF
+load("@rules_java//java:java_library.bzl", "java_library")
+load("@rules_java//java:java_test.bzl", "java_test")
+
 java_library(name = "test_runner",
              srcs = ['TestRunner.java'],
              deps = ['@bazel_tools//tools/jdk:TestRunner'],
@@ -690,6 +705,8 @@ function test_basic_java_sandwich() {
 
   cat > java/com/google/sandwich/BUILD << EOF
 load(':java_custom_library.bzl', 'java_custom_library')
+load("@rules_java//java:java_library.bzl", "java_library")
+load("@rules_java//java:java_binary.bzl", "java_binary")
 
 java_binary(
   name = "Main",
@@ -805,6 +822,8 @@ function test_java_binary_deps_java_sandwich() {
 
   cat > java/com/google/sandwich/BUILD << EOF
 load(':java_custom_library.bzl', 'java_custom_library')
+load("@rules_java//java:java_binary.bzl", "java_binary")
+load("@rules_java//java:java_library.bzl", "java_library")
 
 java_binary(
   name = "Main",
@@ -868,6 +887,8 @@ function test_java_binary_runtime_deps_java_sandwich() {
 
   cat > java/com/google/sandwich/BUILD << EOF
 load(':java_custom_library.bzl', 'java_custom_library')
+load("@rules_java//java:java_binary.bzl", "java_binary")
+load("@rules_java//java:java_library.bzl", "java_library")
 
 java_binary(
   name = "Main",
@@ -921,6 +942,8 @@ function test_java_test_java_sandwich() {
 
   cat > java/com/google/sandwich/BUILD << EOF
 load(':java_custom_library.bzl', 'java_custom_library')
+load("@rules_java//java:java_library.bzl", "java_library")
+load("@rules_java//java:java_test.bzl", "java_test")
 
 java_test(
   name = "MainTest",
@@ -1016,6 +1039,8 @@ EOF
 
   # With explicit_java_test_deps, we fail without explicitly specifying the JUnit deps.
   cat > java/testrunners/BUILD <<EOF
+load("@rules_java//java:java_test.bzl", "java_test")
+
 java_test(name = "Tests",
           srcs = ['Tests.java'],
 )
@@ -1026,6 +1051,8 @@ EOF
 
   # We start passing again with explicit_java_test_deps once we explicitly specify the deps.
   cat > java/testrunners/BUILD <<EOF
+load("@rules_java//java:java_test.bzl", "java_test")
+
 java_test(name = "Tests",
           srcs = ['Tests.java'],
           deps = ['//third_party:junit4'],
@@ -1093,6 +1120,7 @@ function test_basic_java_sandwich_with_exports() {
 
   cat > java/com/google/sandwich/BUILD << EOF
 load(':java_custom_library.bzl', 'java_custom_library')
+load("@rules_java//java:java_binary.bzl", "java_binary")
 
 java_binary(
   name = "Main",
@@ -1171,6 +1199,8 @@ function test_basic_java_sandwich_with_exports_and_java_library() {
 
   cat > java/com/google/sandwich/BUILD << EOF
 load(':java_custom_library.bzl', 'java_custom_library')
+load("@rules_java//java:java_binary.bzl", "java_binary")
+load("@rules_java//java:java_library.bzl", "java_library")
 
 java_binary(
   name = "Main",
@@ -1268,6 +1298,8 @@ function test_basic_java_sandwich_with_transitive_deps_and_java_library_should_f
 
   cat > java/com/google/sandwich/BUILD << EOF
 load(':java_custom_library.bzl', 'java_custom_library')
+load("@rules_java//java:java_library.bzl", "java_library")
+load("@rules_java//java:java_binary.bzl", "java_binary")
 
 java_binary(
   name = "Main",
@@ -1343,6 +1375,7 @@ function test_basic_java_sandwich_with_deps_should_fail() {
 
   cat > java/com/google/sandwich/BUILD << EOF
 load(':java_custom_library.bzl', 'java_custom_library')
+load("@rules_java//java:java_binary.bzl", "java_binary")
 
 java_binary(
   name = "Main",
@@ -1417,6 +1450,7 @@ function test_java_merge_outputs() {
 
   cat > java/com/google/sandwich/BUILD << EOF
 load(':java_custom_library.bzl', 'java_custom_library')
+load("@rules_java//java:java_library.bzl", "java_library")
 
 java_custom_library(
   name = "custom",
@@ -1562,6 +1596,8 @@ public class Hello {
 }
 EOF
   cat > BUILD <<'EOF'
+load("@rules_java//java:java_binary.bzl", "java_binary")
+
 java_binary(
   name = "a",
   srcs = ["Hello.java"],
@@ -1593,12 +1629,15 @@ function test_current_host_java_runtime_runfiles() {
   if "$is_windows"; then
     echo "Skipping test on Windows" && return
   fi
+  add_rules_shell "MODULE.bazel"
   local -r pkg="${FUNCNAME[0]}"
   mkdir "${pkg}" || fail "Expected success"
 
   touch "${pkg}"/BUILD "${pkg}"/run.sh
 
   cat > "${pkg}"/BUILD <<EOF
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
 sh_test(
     name = "bar",
     args = ["\$(JAVA)"],
@@ -1647,9 +1686,14 @@ local_repository(
   path="./$repo",
 )
 EOF
+    add_rules_java MODULE.bazel
   fi
+  add_rules_cc MODULE.bazel
   mkdir -p ${repo}/jni
   cat > $repo/jni/BUILD <<EOF
+load("@rules_java//java:java_library.bzl", "java_library")
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+
 java_library(
   name = "lib",
   srcs = ["App.java"],
@@ -1683,6 +1727,8 @@ EOF
 
   mkdir -p test/
   cat > test/BUILD <<EOF
+load("@rules_java//java:java_binary.bzl", "java_binary")
+
 java_binary(
   name = "app",
   main_class = 'foo.App',
@@ -1745,6 +1791,9 @@ function test_jni_external_repo_no_legacy_external_runfiles() {
 function test_java15_plugins() {
   mkdir -p java/main
   cat >java/main/BUILD <<EOF
+load("@rules_java//java:java_library.bzl", "java_library")
+load("@rules_java//java:java_plugin.bzl", "java_plugin")
+
 java_library(
     name = "Anno",
     srcs = ["Anno.java"],
@@ -1852,6 +1901,10 @@ EOF
 
   mkdir -p pkg
   cat > pkg/BUILD.bazel <<'EOF'
+load("@rules_java//java:java_library.bzl", "java_library")
+load("@rules_java//java:java_binary.bzl", "java_binary")
+load("@rules_java//java:java_test.bzl", "java_test")
+
 java_library(
   name = "library",
   srcs = ["Library.java"],
@@ -1935,6 +1988,10 @@ EOF
 
   mkdir -p other_repo/pkg
   cat > other_repo/pkg/BUILD.bazel <<'EOF'
+load("@rules_java//java:java_library.bzl", "java_library")
+load("@rules_java//java:java_binary.bzl", "java_binary")
+load("@rules_java//java:java_test.bzl", "java_test")
+
 java_library(
   name = "library2",
   srcs = ["Library2.java"],
@@ -2031,6 +2088,8 @@ EOF
 function test_header_compiler_direct_supports_release() {
   mkdir -p pkg
   cat << 'EOF' > pkg/BUILD
+load("@rules_java//java:java_library.bzl", "java_library")
+
 java_library(name = "a", srcs = ["A.java"], deps = [":b"])
 java_library(name = "b", srcs = ["B.java"], javacopts = ["--release", "11"])
 EOF
@@ -2065,6 +2124,8 @@ function test_header_compiler_direct_supports_unicode() {
   local -r unicode="äöüÄÖÜß🌱"
   mkdir -p pkg
   cat << EOF > pkg/BUILD
+load("@rules_java//java:java_library.bzl", "java_library")
+
 java_library(name = "a", srcs = ["A.java"], deps = [":b"])
 java_library(name = "b", srcs = ["${unicode}.java"])
 EOF
@@ -2081,6 +2142,7 @@ EOF
 function test_sandboxed_multiplexing() {
   mkdir -p pkg
   cat << 'EOF' > pkg/BUILD
+load("@rules_java//java:java_library.bzl", "java_library")
 load("@bazel_tools//tools/jdk:default_java_toolchain.bzl", "default_java_toolchain")
 default_java_toolchain(
     name = "java_toolchain",
@@ -2109,6 +2171,8 @@ function test_sandboxed_multiplexing_hermetic_paths_in_diagnostics() {
   mkdir -p pkg
   cat << 'EOF' > pkg/BUILD
 load("@bazel_tools//tools/jdk:default_java_toolchain.bzl", "default_java_toolchain")
+load("@rules_java//java:java_library.bzl", "java_library")
+
 default_java_toolchain(
     name = "java_toolchain",
     source_version = "17",
@@ -2146,9 +2210,12 @@ local_path_override(
     path = "lib_c",
 )
 EOF
+  add_rules_java "MODULE.bazel"
 
   mkdir -p pkg
   cat << 'EOF' > pkg/BUILD
+load("@rules_java//java:java_library.bzl", "java_library")
+
 java_library(name = "a", srcs = ["A.java"], deps = [":b"])
 java_library(name = "b", srcs = ["B.java"], deps = ["@c"])
 EOF
@@ -2163,7 +2230,11 @@ EOF
   cat << 'EOF' > lib_c/MODULE.bazel
 module(name = "lib_c")
 EOF
+  add_rules_java "lib_c/MODULE.bazel"
   cat << 'EOF' > lib_c/BUILD
+load("@rules_java//java:java_library.bzl", "java_library")
+load("@rules_java//java:java_import.bzl", "java_import")
+
 java_library(name = "c_pregen", srcs = ["C.java"])
 java_import(name = "c", jars = ["libc_pregen.jar"], visibility = ["//visibility:public"])
 EOF
@@ -2186,9 +2257,13 @@ local_path_override(
     path = "lib_c",
 )
 EOF
+  add_rules_java "MODULE.bazel"
 
   mkdir -p pkg
   cat << 'EOF' > pkg/BUILD
+load("@rules_java//java:java_library.bzl", "java_library")
+load("@rules_java//java:java_binary.bzl", "java_binary")
+
 java_binary(name = "Main", srcs = ["Main.java"], deps = [":a"])
 java_library(name = "a", srcs = ["A.java"], deps = [":b"])
 java_library(name = "b", srcs = ["B.java"], deps = ["@c"])
@@ -2207,7 +2282,10 @@ EOF
   cat << 'EOF' > lib_c/MODULE.bazel
 module(name = "lib_c")
 EOF
+  add_rules_java lib_c/MODULE.bazel
   cat << 'EOF' > lib_c/BUILD
+load("@rules_java//java:java_library.bzl", "java_library")
+
 java_library(name = "c", srcs = ["C.java"], visibility = ["//visibility:public"])
 EOF
   cat << 'EOF' > lib_c/C.java
@@ -2229,9 +2307,12 @@ local_path_override(
     path = "lib_c",
 )
 EOF
+  add_rules_java "MODULE.bazel"
 
   mkdir -p pkg
   cat << 'EOF' > pkg/BUILD
+load("@rules_java//java:java_library.bzl", "java_library")
+
 java_library(name = "a", srcs = ["A.java"], deps = [":b"])
 java_library(name = "b", srcs = ["B.java"], deps = ["@c"])
 EOF
@@ -2250,7 +2331,10 @@ EOF
   cat << 'EOF' > lib_c/MODULE.bazel
 module(name = "lib_c")
 EOF
+  add_rules_java lib_c/MODULE.bazel
   cat << 'EOF' > lib_c/BUILD
+load("@rules_java//java:java_library.bzl", "java_library")
+
 java_library(name = "c", srcs = ["C.java"], visibility = ["//visibility:public"])
 EOF
   cat << 'EOF' > lib_c/C.java
@@ -2264,6 +2348,8 @@ EOF
 function test_one_version() {
   mkdir -p pkg
   cat << 'EOF' > pkg/BUILD
+load("@rules_java//java:java_binary.bzl", "java_binary")
+
 java_binary(
     name = "a",
     srcs = ["A.java"],
@@ -2283,6 +2369,8 @@ public class A extends B {
 EOF
   mkdir -p pkg/b1
   cat << 'EOF' > pkg/b1/BUILD
+load("@rules_java//java:java_library.bzl", "java_library")
+
 java_library(
     name = "b1",
     srcs = ["B.java"],
@@ -2296,6 +2384,8 @@ public class B {
 EOF
   mkdir -p pkg/b2
   cat << 'EOF' > pkg/b2/BUILD
+load("@rules_java//java:java_library.bzl", "java_library")
+
 java_library(
     name = "b2",
     srcs = ["B.java"],
@@ -2320,6 +2410,7 @@ function test_one_version_allowlist() {
   mkdir -p pkg
   cat << 'EOF' > pkg/BUILD
 load("@bazel_tools//tools/jdk:default_java_toolchain.bzl", "default_java_toolchain")
+load("@rules_java//java:java_binary.bzl", "java_binary")
 
 default_java_toolchain(
     name = "java_toolchain",
@@ -2350,6 +2441,8 @@ public class A extends B {
 EOF
   mkdir -p pkg/b1
   cat << 'EOF' > pkg/b1/BUILD
+load("@rules_java//java:java_library.bzl", "java_library")
+
 java_library(
     name = "b1",
     srcs = ["B.java"],
@@ -2365,6 +2458,8 @@ public class B {
 EOF
   mkdir -p pkg/b2
   cat << 'EOF' > pkg/b2/BUILD
+load("@rules_java//java:java_library.bzl", "java_library")
+
 java_library(
     name = "b2",
     srcs = ["B.java"],
@@ -2402,6 +2497,8 @@ EOF
 function test_single_jar_does_not_create_empty_log4JPlugins_file() {
   mkdir -p pkg
   cat << 'EOF' > pkg/BUILD
+load("@rules_java//java:java_library.bzl", "java_library")
+
 java_library(
     name = "b",
     resources = ["foo.txt"],

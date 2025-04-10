@@ -476,6 +476,8 @@ function setup_javatest_support() {
   setup_javatest_common
   grep -q 'name = "junit4"' third_party/BUILD \
     || cat <<EOF >>third_party/BUILD
+load("@rules_java//java:java_import.bzl", "java_import")
+
 java_import(
     name = "junit4",
     jars = [
