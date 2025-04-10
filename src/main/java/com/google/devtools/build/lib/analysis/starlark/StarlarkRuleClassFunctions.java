@@ -1480,23 +1480,13 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
           TargetDefinitionContext.fromOrFailDisallowWorkspace(
               thread, "a symbolic macro", "instantiated");
 
-      Package.Builder pkgBuilder = Package.Builder.fromOrNull(thread);
-      if (pkgBuilder == null) {
-        throw Starlark.errorf(
-            // TODO: #19922 - Clarify error. Maybe we weren't called during .bzl loading but at some
-            // other bad time. Also, it's ambiguous to the user whether, strictly speaking,
-            // evaluating a symbolic macro happens while evaluating a BUILD file.
-            "Cannot instantiate a macro when loading a .bzl file. "
-                + "Macros may only be instantiated while evaluating a BUILD file.");
-      }
-
       if (macroClass == null) {
         throw Starlark.errorf(
             "Cannot instantiate a macro that has not been exported (assign it to a global variable"
                 + " in the .bzl where it's defined)");
       }
 
-      if (macroClass.isFinalizer() && pkgBuilder.currentlyInNonFinalizerMacro()) {
+      if (macroClass.isFinalizer() && targetDefinitionContext.currentlyInNonFinalizerMacro()) {
         throw Starlark.errorf(
             "Cannot instantiate a rule finalizer within a non-finalizer symbolic macro. Rule"
                 + " finalizers may only be instantiated while evaluating a BUILD file, a legacy"
@@ -1508,7 +1498,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       }
 
       MacroInstance macroInstance =
-          macroClass.instantiateAndAddMacro(pkgBuilder, kwargs, thread.getCallStack());
+          macroClass.instantiateAndAddMacro(targetDefinitionContext, kwargs, thread.getCallStack());
 
       // Evaluate the macro now, if it's not a finalizer. Finalizer evaluation will be deferred to
       // the end of the BUILD file evaluation.
@@ -1527,7 +1517,8 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
         // isn't too big. Maybe this is unnecessary since we don't permit recursion. But in theory,
         // a big stack can crash under eager evaluation (where evaluation is on the Java call stack)
         // but not deferred evaluation, leading to a semantic difference.
-        MacroClass.executeMacroImplementation(macroInstance, pkgBuilder, thread.getSemantics());
+        MacroClass.executeMacroImplementation(
+            macroInstance, targetDefinitionContext, thread.getSemantics());
       }
 
       return Starlark.NONE;
