@@ -49,9 +49,8 @@ public abstract class VirtualActionInput implements ActionInput, DeterministicWr
    * by the local and remote branches.
    *
    * <p>This implementation works by first creating a temporary file with a unique name and then
-   * renaming it into place, relying on the atomicity of {@link FileSystem#renameTo} (which is
-   * guaranteed for Unix filesystems, but possibly not for Windows). Subclasses may provide a more
-   * efficient implementation.
+   * renaming it into place, relying on the atomicity of {@link FileSystem#renameTo}. Subclasses may
+   * provide a more efficient implementation.
    *
    * @param execRoot the path that this input should be written inside, typically the execroot
    * @return digest of written virtual input
