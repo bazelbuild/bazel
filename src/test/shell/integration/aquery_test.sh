@@ -383,6 +383,8 @@ EOF
 }
 
 function test_unused_inputs() {
+  add_rules_shell "MODULE.bazel"
+
   local pkg="${FUNCNAME[0]}"
   mkdir -p "$pkg" || fail "mkdir -p $pkg"
   cat > "$pkg/defs.bzl" <<EOF
@@ -408,6 +410,8 @@ foo = rule(
 EOF
   cat > "$pkg/BUILD" <<'EOF'
 load(":defs.bzl", "foo")
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+
 sh_binary(
     name = "tool",
     srcs = ["tool.sh"],
@@ -2013,10 +2017,12 @@ EOF
 }
 
 function test_source_symlink_manifest() {
+  add_rules_shell "MODULE.bazel"
   local pkg="${FUNCNAME[0]}"
   mkdir -p "$pkg" || fail "mkdir -p $pkg"
   touch "$pkg/foo.sh"
   cat > "$pkg/BUILD" <<'EOF'
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 sh_binary(name = "foo",
           srcs = ["foo.sh"],
 )

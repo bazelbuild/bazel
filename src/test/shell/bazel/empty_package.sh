@@ -23,7 +23,10 @@ source "${CURRENT_DIR}/../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
 function test_empty_package() {
+  add_rules_java "MODULE.bazel"
   cat > BUILD <<EOF
+load("@rules_java//java:java_binary.bzl", "java_binary")
+
 java_binary(
     name = "noise",
     main_class = "Noise",

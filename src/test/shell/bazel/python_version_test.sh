@@ -58,6 +58,10 @@ msys*)
   ;;
 esac
 
+function set_up {
+  add_rules_python "MODULE.bazel"
+}
+
 #### TESTS #############################################################
 
 # Check that our environment setup works.
@@ -65,6 +69,8 @@ function test_can_run_py_binaries() {
   mkdir -p test
 
   cat > test/BUILD << EOF
+load("@rules_python//python:py_binary.bzl", "py_binary")
+
 py_binary(
     name = "main3",
     python_version = "PY3",
@@ -89,6 +95,8 @@ function test_pure_bzlmod_can_build_py_binary() {
   mkdir -p test
 
   cat > test/BUILD << EOF
+load("@rules_python//python:py_binary.bzl", "py_binary")
+
 py_binary(
     name = "main3",
     python_version = "PY3",
@@ -109,6 +117,8 @@ function test_can_access_runfiles() {
   mkdir -p test
 
   cat > test/BUILD << EOF
+load("@rules_python//python:py_binary.bzl", "py_binary")
+
 py_binary(
   name = "main",
   srcs = ["main.py"],
@@ -165,6 +175,7 @@ EOF
   cat > test/BUILD << EOF
 load("@rules_python//python:py_runtime.bzl", "py_runtime")
 load("@rules_python//python:py_runtime_pair.bzl", "py_runtime_pair")
+load("@rules_python//python:py_binary.bzl", "py_binary")
 
 py_binary(
     name = "pybin",
@@ -219,6 +230,8 @@ bazel_dep(name = "rules_python", version = "0.19.0")
 EOF
   mkdir test
   cat > test/BUILD << EOF
+load("@rules_python//python:py_binary.bzl", "py_binary")
+
 py_binary(
   name = "pybin",
   srcs = ["pybin.py"],
@@ -247,6 +260,8 @@ function test_build_python_zip_cleans_up_temporary_module_space() {
 
   mkdir test
   cat > test/BUILD << EOF
+load("@rules_python//python:py_binary.bzl", "py_binary")
+
 py_binary(
   name = "pybin",
   srcs = ["pybin.py"],
@@ -274,6 +289,8 @@ EOF
 function test_get_python_zip_file_via_output_group() {
   touch foo.py
   cat > BUILD <<'EOF'
+load("@rules_python//python:py_binary.bzl", "py_binary")
+
 py_binary(
   name = 'foo',
   srcs = ['foo.py'],
@@ -294,6 +311,9 @@ function test_source_file_does_not_override_standard_library() {
   mkdir -p test
 
   cat > test/BUILD << EOF
+load("@rules_python//python:py_binary.bzl", "py_binary")
+load("@rules_python//python:py_library.bzl", "py_library")
+
 py_binary(
     name = "main",
     srcs = ["main.py"],
@@ -379,6 +399,7 @@ function test_py_binary_with_autodetecting_toolchain_usable_as_tool() {
 
   cat > test/BUILD << 'EOF'
 load(":tooluser.bzl", "tooluser_rule")
+load("@rules_python//python:py_binary.bzl", "py_binary")
 
 py_binary(
     name = "tool",
@@ -442,6 +463,8 @@ EOF
 
   mkdir py
   cat > py/BUILD <<EOF
+load("@rules_python//python:py_binary.bzl", "py_binary")
+
 py_binary(
   name = "foo", srcs=["foo.py"],
   data = ["@repo2//:r2files"],
@@ -481,9 +504,12 @@ function test_incompatible_python_disallow_native_rules_external_repos() {
   cat > $external_repo/MODULE.bazel <<EOF
 module(name="external_repo")
 EOF
+  add_rules_python $external_repo/MODULE.bazel
 
   # There's special logic to handle targets at the root.
   cat > $external_repo/BUILD <<EOF
+load("@rules_python//python:py_library.bzl", "py_library")
+
 py_library(
     name = "root",
     visibility = ["//visibility:public"],
@@ -491,6 +517,8 @@ py_library(
 EOF
   mkdir $external_repo/pkg
   cat > $external_repo/pkg/BUILD <<EOF
+load("@rules_python//python:py_library.bzl", "py_library")
+
 py_library(
     name = "pkg",
     visibility = ["//visibility:public"],

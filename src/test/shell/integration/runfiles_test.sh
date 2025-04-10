@@ -148,6 +148,7 @@ EOF
 
 function test_foo_runfiles() {
   add_rules_python "MODULE.bazel"
+  add_rules_shell "MODULE.bazel"
   local WORKSPACE_NAME=$TEST_WORKSPACE
   local -r pkg=$FUNCNAME
   create_pkg $pkg
@@ -160,6 +161,7 @@ py_library(name = "root",
 EOF
 cat > $pkg/BUILD << EOF
 load("@rules_python//python:py_binary.bzl", "py_binary")
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 
 sh_binary(name = "foo",
           srcs = [ "x/y/z.sh" ],
@@ -280,6 +282,7 @@ EOF
   # Rebuild the same target with a new dependency.
   cd "$workspace_root"
 cat > $pkg/BUILD << EOF
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 sh_binary(name = "foo",
           srcs = [ "x/y/z.sh" ],
           data = [ "e/f" ])
@@ -411,6 +414,7 @@ EOF
 }
 
 function test_manifest_action_reruns_on_output_base_change() {
+  add_rules_shell "MODULE.bazel"
   CURRENT_DIRECTORY=$(pwd)
   if $is_windows; then
     CURRENT_DIRECTORY=$(cygpath -m "${CURRENT_DIRECTORY}")
@@ -431,6 +435,7 @@ function test_manifest_action_reruns_on_output_base_change() {
   mkdir -p "${TEST_FOLDER_2}"
 
   cat > BUILD <<EOF
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 sh_binary(
     name = "hello_world",
     srcs = ["hello_world.sh"],
@@ -458,7 +463,9 @@ EOF
 }
 
 function test_removal_of_old_tempfiles() {
+  add_rules_shell "MODULE.bazel"
   cat > BUILD << EOF
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 sh_binary(
     name = "foo",
     srcs = ["foo.sh"],
@@ -548,6 +555,7 @@ EOF
 }
 
 function setup_special_chars_in_runfiles_source_paths() {
+  add_rules_shell "MODULE.bazel"
   mkdir -p pkg
   if "$is_windows"; then
     cat > pkg/constants.bzl <<'EOF'
@@ -576,6 +584,8 @@ spaces = rule(
 EOF
   cat > pkg/BUILD <<'EOF'
 load(":defs.bzl", "spaces")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
 spaces(name = "spaces")
 sh_test(
     name = "foo",
@@ -610,6 +620,7 @@ function test_special_chars_in_runfiles_source_paths_out_of_process() {
     //pkg:foo $EXTRA_BUILD_FLAGS >&$TEST_log || fail "test failed"
 }
 
+<<<<<<< HEAD
 function test_special_chars_in_runfiles_source_paths_in_process() {
   setup_special_chars_in_runfiles_source_paths
   bazel test --experimental_inprocess_symlink_creation \
@@ -618,6 +629,10 @@ function test_special_chars_in_runfiles_source_paths_in_process() {
 }
 
 function setup_special_chars_in_runfiles_target_paths() {
+=======
+function test_special_chars_in_runfiles_target_paths() {
+  add_rules_shell "MODULE.bazel"
+>>>>>>> 8513ef399b (Add loads to integration tests 2)
   mkdir -p pkg
   if "$is_windows"; then
     cat > pkg/constants.bzl <<'EOF'
@@ -646,6 +661,8 @@ spaces = rule(
 EOF
   cat > pkg/BUILD <<'EOF'
 load(":defs.bzl", "spaces")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
 spaces(name = "spaces")
 sh_test(
     name = "foo",
@@ -670,6 +687,7 @@ function test_special_chars_in_runfiles_target_paths_out_of_process() {
     //pkg:foo $EXTRA_BUILD_FLAGS >&$TEST_log || fail "test failed"
 }
 
+<<<<<<< HEAD
 function test_special_chars_in_runfiles_target_paths_in_process() {
   setup_special_chars_in_runfiles_target_paths
   bazel test --experimental_inprocess_symlink_creation \
@@ -678,6 +696,10 @@ function test_special_chars_in_runfiles_target_paths_in_process() {
 }
 
 function setup_special_chars_in_runfiles_source_and_target_paths() {
+=======
+function test_special_chars_in_runfiles_source_and_target_paths() {
+  add_rules_shell "MODULE.bazel"
+>>>>>>> 8513ef399b (Add loads to integration tests 2)
   mkdir -p pkg
   if "$is_windows"; then
     cat > pkg/constants.bzl <<'EOF'
@@ -701,6 +723,8 @@ spaces = rule(
 EOF
   cat > pkg/BUILD <<'EOF'
 load(":defs.bzl", "spaces")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
 spaces(name = "spaces")
 sh_test(
     name = "foo",
@@ -758,9 +782,11 @@ function test_compatibility_with_bash_runfiles_library_snippet() {
   cat > MODULE.bazel <<'EOF'
 module(name = "my_module")
 EOF
-
+  add_rules_shell "MODULE.bazel"
   mkdir pkg
   cat > pkg/BUILD <<'EOF'
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+
 sh_binary(
     name = "tool",
     srcs = ["tool.sh"],

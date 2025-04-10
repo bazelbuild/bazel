@@ -1967,6 +1967,7 @@ EOF
 # Catch the error when a target platform requires a configuration which contains the same target platform.
 # This can only happen when the target platform is not actually a platform.
 function test_target_platform_cycle() {
+  add_rules_shell "MODULE.bazel"
   local -r pkg="${FUNCNAME[0]}"
   mkdir -p "${pkg}"
   cat > "${pkg}/hello.sh" <<EOF
@@ -1980,6 +1981,8 @@ EOF
   chmod +x "${pkg}/hello.sh"
   chmod +x "${pkg}/target.sh"
   cat > "${pkg}/BUILD" <<EOF
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+
 package(default_visibility = ["//visibility:public"])
 
 sh_binary(
@@ -2693,6 +2696,8 @@ foo_toolchain = rule(
 EOF
   mkdir -p "${pkg}/external"/rules_foo/foo_tools
   cat > "${pkg}/external/rules_foo/foo_tools/BUILD" <<EOF
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+
 package(default_visibility = ["//visibility:public"])
 
 sh_binary(
@@ -2728,6 +2733,7 @@ register_toolchains(
   "@rules_foo//toolchain:foo_default_toolchain",
 )
 EOF
+  add_rules_shell "$TOOLCHAIN_REGISTRATION_FILE"
 
   # Test the build.
   bazel build \
@@ -3012,6 +3018,7 @@ EOF
 function write_exec_platform_required_setting {
   local pkg="$1"
 
+  add_rules_shell "MODULE.bazel"
   # Add test platforms.
   mkdir -p "${pkg}/platforms"
   cat > "${pkg}/platforms/BUILD" <<EOF
@@ -3042,6 +3049,8 @@ echo hello
 EOF
   chmod +x "${pkg}/demo/hello.sh"
   cat > "${pkg}/demo/BUILD" <<EOF
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+
 sh_binary(
   name = 'sample',
   srcs = ["hello.sh"],
@@ -3081,6 +3090,7 @@ function test_exec_platform_required_setting {
 function test_exec_platform_required_setting_cycle {
   local -r pkg="${FUNCNAME[0]}"
 
+  add_rules_shell "MODULE.bazel"
   # Add test platforms.
   mkdir -p "${pkg}/platforms"
   cat > "${pkg}/platforms/BUILD" <<EOF
@@ -3112,6 +3122,8 @@ echo hello
 EOF
   chmod +x "${pkg}/demo/hello.sh"
   cat > "${pkg}/demo/BUILD" <<EOF
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+
 sh_binary(
   name = 'sample',
   srcs = ["hello.sh"],
