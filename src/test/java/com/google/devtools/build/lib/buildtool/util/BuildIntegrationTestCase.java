@@ -65,7 +65,6 @@ import com.google.devtools.build.lib.bugreport.Crash;
 import com.google.devtools.build.lib.bugreport.CrashContext;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.BuildResult;
-import com.google.devtools.build.lib.buildtool.BuildTool;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildStartingEvent;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -861,14 +860,14 @@ public abstract class BuildIntegrationTestCase {
   protected void info() throws Exception {
     events.setOutErr(outErr);
     runtimeWrapper.newCommand(InfoCommand.class);
-    runtimeWrapper.executeNonBuildCommand();
+    runtimeWrapper.executeCustomCommand();
   }
 
   /** Runs the {@code clean} command. */
   public void clean() throws Exception {
     events.setOutErr(outErr);
     runtimeWrapper.newCommand(CleanCommand.class);
-    runtimeWrapper.executeNonBuildCommand();
+    runtimeWrapper.executeCustomCommand();
   }
 
   /** Utility function: parse a string as a label. */

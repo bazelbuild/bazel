@@ -76,6 +76,7 @@ import com.google.devtools.common.options.InvocationPolicyEnforcer;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.Any;
 import com.google.protobuf.Message;
 import java.util.ArrayList;
@@ -172,19 +173,25 @@ public class BlazeRuntimeWrapper {
 
   /**
    * Creates a new command environment with additional proto extensions as if they were passed to
-   * the blaze server.
+   * the Blaze server.
+   *
+   * @param command the command instance for which to create a new environment.
+   * @param extensions additional proto extensions to pass to the command.
+   * @return the new command environment.
    */
-  public final CommandEnvironment newCommandWithExtensions(
-      Class<? extends BlazeCommand> command, List<Message> extensions) throws Exception {
+  @CanIgnoreReturnValue
+  public final CommandEnvironment newCustomCommandWithExtensions(
+      BlazeCommand command, List<Message> extensions) throws Exception {
     Command commandAnnotation =
         checkNotNull(
-            command.getAnnotation(Command.class),
+            command.getClass().getAnnotation(Command.class),
             "BlazeCommand %s missing command annotation",
-            command);
-    this.command = command.getDeclaredConstructor().newInstance();
+            command.getClass());
+    this.command = command;
+
     additionalOptionsClasses.addAll(
         BlazeCommandUtils.getOptions(
-            command, runtime.getBlazeModules(), runtime.getRuleClassProvider()));
+            command.getClass(), runtime.getBlazeModules(), runtime.getRuleClassProvider()));
     initializeOptionsParser(commandAnnotation);
 
     checkNotNull(
@@ -212,6 +219,22 @@ public class BlazeRuntimeWrapper {
   }
 
   /**
+   * Creates a new command environment with additional proto extensions as if they were passed to
+   * the Blaze server. This method creates a new instance of the provided command class via its
+   * default constructor. For command classes with constructor parameters, use {@link
+   * #newCustomCommandWithExtensions} and pass in a pre-existing {@link BlazeCommand} instance.
+   *
+   * @param command the command class for which to create a new environment. This class must have a
+   *     default constructor or this method will throw an exception.
+   * @param extensions additional proto extensions to pass to the command.
+   */
+  public final CommandEnvironment newCommandWithExtensions(
+      Class<? extends BlazeCommand> command, List<Message> extensions) throws Exception {
+    return newCustomCommandWithExtensions(
+        command.getDeclaredConstructor().newInstance(), extensions);
+  }
+
+  /**
    * Returns the command environment. You must call {@link #newCommand()} before calling this
    * method.
    */
@@ -234,6 +257,14 @@ public class BlazeRuntimeWrapper {
 
   public void addOptions(List<String> args) {
     optionsToParse.addAll(args);
+  }
+
+  public void setOptionsParserResidue(List<String> residue, List<String> postDoubleDashResidue) {
+    optionsParser.setResidue(residue, postDoubleDashResidue);
+  }
+
+  public void setConfiguration(BuildConfigurationValue configuration) {
+    this.configuration = configuration;
   }
 
   public void addStarlarkOption(String label, Object value) {
@@ -319,10 +350,10 @@ public class BlazeRuntimeWrapper {
     return OptionsParser.builder().optionsClasses(options).ignoreUserOptions().build();
   }
 
-  void executeNonBuildCommand() throws Exception {
+  public void executeCustomCommand() throws Exception {
     checkNotNull(command, "No command created, try calling newCommand()");
     checkState(
-        env.getCommand().buildPhase() == NONE,
+        env.getCommand().buildPhase() == NONE || env.getCommandName().equals("run"),
         "%s is a build command, did you mean to call executeBuild()?",
         env.getCommandName());
 
@@ -337,6 +368,11 @@ public class BlazeRuntimeWrapper {
       try {
         Crash crash = null;
         try {
+          if (env.getCommandName().equals("run")) {
+            try (SilentCloseable c = Profiler.instance().profile("syncPackageLoading")) {
+              env.syncPackageLoading(optionsParser);
+            }
+          }
           result = command.exec(env, optionsParser);
         } catch (RuntimeException | Error e) {
           crash = Crash.from(e);
