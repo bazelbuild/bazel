@@ -54,17 +54,26 @@ public class VirtualActionInputTest {
         ActionsTestUtil.createVirtualActionInput(
             outputFile.relativeTo(execRoot).getPathString(), "hello");
 
-    input.atomicallyWriteRelativeTo(execRoot);
+    var digest = input.atomicallyWriteRelativeTo(execRoot);
 
     assertThat(outputFile.getParentDirectory().readdir(Symlinks.NOFOLLOW))
         .containsExactly(new Dirent("file", Dirent.Type.FILE));
     assertThat(FileSystemUtils.readLines(outputFile, UTF_8)).containsExactly("hello");
     assertThat(outputFile.isExecutable()).isTrue();
+    assertThat(digest).isEqualTo(DigestHashFunction.SHA256.getHashFunction().hashString("hello", UTF_8).asBytes());
 
-    // Verify that the write succeeds even with concurrent read access to the file.
+    // Verify that the write doesn't fail even with concurrent read access to the file.
+    byte[] bytes;
     try (var in = outputFile.getInputStream()) {
-      input.atomicallyWriteRelativeTo(execRoot);
-      assertThat(in.readAllBytes()).isEqualTo("hello".getBytes(UTF_8));
+      digest = input.atomicallyWriteRelativeTo(execRoot);
+      bytes = in.readAllBytes();
     }
+
+    assertThat(outputFile.getParentDirectory().readdir(Symlinks.NOFOLLOW))
+        .containsExactly(new Dirent("file", Dirent.Type.FILE));
+    assertThat(FileSystemUtils.readLines(outputFile, UTF_8)).containsExactly("hello");
+    assertThat(outputFile.isExecutable()).isTrue();
+    assertThat(digest).isEqualTo(DigestHashFunction.SHA256.getHashFunction().hashString("hello", UTF_8).asBytes());
+    assertThat(bytes).isEqualTo("hello".getBytes(UTF_8));
   }
 }

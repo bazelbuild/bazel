@@ -17,6 +17,8 @@ import com.google.common.hash.HashingOutputStream;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.util.DeterministicWriter;
+import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.vfs.FileAccessException;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -79,7 +81,13 @@ public abstract class VirtualActionInput implements ActionInput, DeterministicWr
     tmpPath.delete();
     try {
       byte[] digest = writeTo(tmpPath);
+      try {
       tmpPath.renameTo(outputPath);
+      } catch (FileAccessException e) {
+        if (OS.getCurrent() != OS.WINDOWS || !outputPath.exists()) {
+          throw e;
+        }
+      }
       tmpPath = null; // Avoid unnecessary deletion attempt.
       return digest;
     } finally {
