@@ -432,7 +432,18 @@ EOF
   bazel build --extra_execution_platforms="${pkg}:my_platform" ${pkg}:a --execution_log_json_file out.txt || fail "Build failed"
   grep "platform_key" out.txt || fail "Did not find the platform key"
   grep "override_value" out.txt || fail "Did not find the overriding value"
-  grep "default_value" out.txt && fail "Used the default value"
+  # If we could do json parsing, we would check that override_value is used for
+  # the cc_test and default_value is used for all other targets.
+  # Instead, just check that the number of grep matches is the same.
+  assert_equals \
+    "$(grep -c override_value out.txt)" \
+    "$(grep -c "targetLabel.*${pkg}:a" out.txt)" \
+    "Used override_value the wrong number of times"
+  # Note: `grep -c` should not fail if there are no matches.
+  assert_equals \
+    "$(grep -c default_value out.txt || true)" \
+    "$(grep targetLabel out.txt | (grep -cv "${pkg}:a" || true))" \
+    "Used default_value the wrong number of times"
 
   bazel test --extra_execution_platforms="${pkg}:my_platform" ${pkg}:a --execution_log_json_file out.txt || fail "Test failed"
   grep "platform_key" out.txt || fail "Did not find the platform key"
@@ -510,7 +521,18 @@ EOF
   bazel build --extra_execution_platforms="${pkg}:my_platform" ${pkg}:a --execution_log_json_file out.txt || fail "Build failed"
   grep "platform_key" out.txt || fail "Did not find the platform key"
   grep "override_value" out.txt || fail "Did not find the overriding value"
-  grep "default_value" out.txt && fail "Used the default value"
+  # If we could do json parsing, we would check that override_value is used for
+  # the cc_test and default_value is used for all other targets.
+  # Instead, just check that the number of grep matches is the same.
+  assert_equals \
+    "$(grep -c override_value out.txt)" \
+    "$(grep -c "targetLabel.*${pkg}:a" out.txt)" \
+    "Used override_value the wrong number of times"
+  # Note: `grep -c` should not fail if there are no matches.
+  assert_equals \
+    "$(grep -c default_value out.txt || true)" \
+    "$(grep targetLabel out.txt | (grep -cv "${pkg}:a" || true))" \
+    "Used default_value the wrong number of times"
 
   bazel test --extra_execution_platforms="${pkg}:my_platform" ${pkg}:a --execution_log_json_file out.txt || fail "Test failed"
   grep "platform_key" out.txt || fail "Did not find the platform key"

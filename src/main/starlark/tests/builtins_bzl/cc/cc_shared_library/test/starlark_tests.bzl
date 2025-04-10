@@ -54,7 +54,14 @@ def _linking_order_test_impl(env, target):
                 break
 
         args = target_action.argv
-        user_libs = [paths.basename(arg) for arg in args if arg.endswith(".o")]
+
+        # Exclude implicitly added runtimes libraries by restricting to objects
+        # in or under the current package.
+        user_libs = [
+            paths.basename(arg)
+            for arg in args
+            if arg.endswith(".o") and env.ctx.label.package in arg
+        ]
 
         env.expect.that_collection(user_libs).contains_at_least_predicates([
             matching.contains("foo.pic.o"),
