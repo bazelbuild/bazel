@@ -1274,7 +1274,8 @@ public class BuildTool {
     public ModifiedFileSet getDiffFromEvaluatingVersion() {
       return checkNotNull(
           diffFromEvaluatingVersion,
-          String.format("expected to be not null when the mode is upload or download: %s", mode));
+          "expected to be not null when the mode is upload or download: %s",
+          mode);
     }
   }
 
