@@ -63,6 +63,7 @@ public final class SkyValueRetrieverUtils {
               new DefaultDependOnFutureShim(env),
               analysisCachingDeps.getObjectCodecs(),
               analysisCachingDeps.getFingerprintValueService(),
+              /* analysisCacheClient= */ null,
               key,
               state,
               /* frontierNodeVersion= */ analysisCachingDeps.getSkyValueVersion());
