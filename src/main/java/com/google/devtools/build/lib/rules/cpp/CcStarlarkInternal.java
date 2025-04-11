@@ -27,9 +27,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.CommandLines.CommandLineAndParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
-import com.google.devtools.build.lib.analysis.LicensesProvider;
-import com.google.devtools.build.lib.analysis.LicensesProvider.TargetLicense;
-import com.google.devtools.build.lib.analysis.LicensesProviderImpl;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.PathMappers;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
@@ -41,13 +38,9 @@ import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.Info;
-import com.google.devtools.build.lib.packages.License;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
@@ -483,19 +476,8 @@ public class CcStarlarkInternal implements StarlarkValue {
       },
       allowReturnNones = true)
   @Nullable
-  public LicensesProvider getLicenses(StarlarkRuleContext starlarkRuleContext) {
-    RuleContext ruleContext = starlarkRuleContext.getRuleContext();
-    final License outputLicense =
-        ruleContext.getRule().getToolOutputLicense(ruleContext.attributes());
-    if (outputLicense != null && !outputLicense.equals(License.NO_LICENSE)) {
-      final NestedSet<TargetLicense> license =
-          NestedSetBuilder.create(
-              Order.STABLE_ORDER, new TargetLicense(ruleContext.getLabel(), outputLicense));
-      return new LicensesProviderImpl(
-          license, new TargetLicense(ruleContext.getLabel(), outputLicense));
-    } else {
-      return null;
-    }
+  public StarlarkList<String> getLicenses(StarlarkRuleContext starlarkRuleContext) {
+    return null;
   }
 
   @StarlarkMethod(

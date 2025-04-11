@@ -21,7 +21,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.LicensesProvider;
-import com.google.devtools.build.lib.analysis.LicensesProviderImpl;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.RequiredConfigFragmentsProvider;
 import com.google.devtools.build.lib.analysis.TargetContext;
@@ -101,10 +100,6 @@ public final class OutputFileConfiguredTarget extends FileConfiguredTarget {
     // The following Starlark providers do not implement TransitiveInfoProvider and thus may only be
     // requested via this method using a Provider.Key, not via getProvider(Class) above.
 
-    if (providerKey.equals(LicensesProvider.PROVIDER.getKey())) {
-      return generatingRule.get(LicensesProvider.PROVIDER);
-    }
-
     if (providerKey.equals(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR.getKey())) {
       return firstNonNull(
           generatingRule.get(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR),
@@ -148,25 +143,6 @@ public final class OutputFileConfiguredTarget extends FileConfiguredTarget {
     if (provider != null) {
       tryAddProviderForQuery(dict, providerClass, provider);
     }
-  }
-
-  @Override
-  public NestedSet<TargetLicense> getTransitiveLicenses() {
-    return getLicencesProviderFromGeneratingRule().getTransitiveLicenses();
-  }
-
-  @Override
-  public TargetLicense getOutputLicenses() {
-    return getLicencesProviderFromGeneratingRule().getOutputLicenses();
-  }
-
-  @Override
-  public boolean hasOutputLicenses() {
-    return getLicencesProviderFromGeneratingRule().hasOutputLicenses();
-  }
-
-  private LicensesProvider getLicencesProviderFromGeneratingRule() {
-    return firstNonNull(generatingRule.get(LicensesProvider.PROVIDER), LicensesProviderImpl.EMPTY);
   }
 
   @Override
