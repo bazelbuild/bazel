@@ -16,6 +16,7 @@
 
 load("@rules_license//rules:license.bzl", "license")
 load("//tools/distributions:distribution_rules.bzl", "distrib_cc_binary", "distrib_jar_filegroup")
+load("@rules_java//java:java_library.bzl", "java_library")
 
 package(
     default_applicable_licenses = [":license"],
