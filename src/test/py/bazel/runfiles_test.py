@@ -15,6 +15,7 @@
 
 import os
 from absl.testing import absltest
+
 from src.test.py.bazel import test_base
 
 
@@ -263,10 +264,13 @@ class RunfilesTest(test_base.TestBase):
     self.ScratchFile("A/p/BUILD", ["exports_files(['foo.txt'])"])
     self.ScratchFile("A/p/foo.txt", ["Hello, World!"])
     self.ScratchFile("MODULE.bazel", [
-        'local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")',  # pylint: disable=line-too-long
+        'bazel_dep(name = "rules_python", version = "0.40.0")',
+        'local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")',
+        # pylint: disable=line-too-long
         'local_repository(name = "A", path = "A")',
     ])
     self.ScratchFile("pkg/BUILD", [
+        'load("@rules_python//python:py_binary.bzl", "py_binary")',
         "py_binary(",
         "  name = 'bin',",
         "  srcs = ['bin.py'],",
@@ -296,10 +300,12 @@ class RunfilesTest(test_base.TestBase):
     self.assertEqual(stdout[1], "Hello, World!")
 
   def setUpRunfilesDirectoryIncrementalityTest(self):
-    self.ScratchFile("MODULE.bazel")
+    self.ScratchFile('MODULE.bazel',
+                     ['bazel_dep(name = "rules_shell", version = "0.3.0")'])
     self.ScratchFile(
         "BUILD",
         [
+            'load("@rules_shell//shell:sh_test.bzl", "sh_test")',
             "sh_test(",
             "  name = 'test',",
             "  srcs = ['test.sh'],",
@@ -418,10 +424,12 @@ class RunfilesTest(test_base.TestBase):
     self.assertNotEqual(exit_code, 0)
 
   def testTestsRunWithNoBuildRunfileLinksAndNoEnableRunfiles(self):
-    self.ScratchFile("MODULE.bazel")
+    self.ScratchFile('MODULE.bazel',
+                     ['bazel_dep(name = "rules_shell", version = "0.3.0")'])
     self.ScratchFile(
         "BUILD",
         [
+            'load("@rules_shell//shell:sh_test.bzl", "sh_test")',
             "sh_test(",
             "  name = 'test',",
             "  srcs = ['test.sh'],",
@@ -436,10 +444,12 @@ class RunfilesTest(test_base.TestBase):
 
   def testWrappedShBinary(self):
     self.writeWrapperRule()
-    self.ScratchFile("MODULE.bazel")
+    self.ScratchFile('MODULE.bazel',
+                     ['bazel_dep(name = "rules_shell", version = "0.3.0")'])
     self.ScratchFile(
         "BUILD",
         [
+            'load("@rules_shell//shell:sh_binary.bzl", "sh_binary")',
             "sh_binary(",
             "  name = 'binary',",
             "  srcs = ['binary.sh'],",
@@ -466,6 +476,7 @@ class RunfilesTest(test_base.TestBase):
     self.ScratchFile(
         "BUILD",
         [
+            'load("@rules_python//python:py_binary.bzl", "py_binary")',
             "py_binary(",
             "  name = 'binary',",
             "  srcs = ['binary.py'],",
@@ -485,10 +496,12 @@ class RunfilesTest(test_base.TestBase):
 
   def testWrappedJavaBinary(self):
     self.writeWrapperRule()
-    self.ScratchFile("MODULE.bazel")
+    self.ScratchFile('MODULE.bazel',
+                     ['bazel_dep(name = "rules_java", version = "8.11.0")'])
     self.ScratchFile(
         "BUILD",
         [
+            'load("@rules_java//java:java_binary.bzl", "java_binary")',
             "java_binary(",
             "  name = 'binary',",
             "  srcs = ['Binary.java'],",
@@ -518,26 +531,16 @@ class RunfilesTest(test_base.TestBase):
         [
             "def _wrapper_impl(ctx):",
             "    target = ctx.attr.target",
-            (
-                "    original_executable ="
-                " target[DefaultInfo].files_to_run.executable"
-            ),
-            (
-                "    executable ="
-                " ctx.actions.declare_file(original_executable.basename)"
-            ),
-            (
-                "    ctx.actions.symlink(output = executable, target_file ="
-                " original_executable)"
-            ),
-            (
-                "    data_runfiles ="
-                " ctx.runfiles([executable]).merge(target[DefaultInfo].data_runfiles)"
-            ),
-            (
-                "    default_runfiles ="
-                " ctx.runfiles([executable]).merge(target[DefaultInfo].default_runfiles)"
-            ),
+            "    original_executable = (",
+            "       target[DefaultInfo].files_to_run.executable)",
+            "    executable = ctx.actions.declare_file("
+            "       original_executable.basename)",
+            "    ctx.actions.symlink(output = executable,",
+            "       target_file = original_executable)",
+            "    data_runfiles = ctx.runfiles([executable]).merge(",
+            "       target[DefaultInfo].data_runfiles)",
+            "    default_runfiles = ctx.runfiles([executable]).merge(",
+            "       target[DefaultInfo].default_runfiles)",
             "    return [",
             "        DefaultInfo(",
             "            executable = executable,",

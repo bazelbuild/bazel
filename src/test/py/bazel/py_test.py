@@ -15,6 +15,7 @@
 import os
 import zipfile
 from absl.testing import absltest
+
 from src.test.py.bazel import test_base
 
 
@@ -26,6 +27,8 @@ class PyTest(test_base.TestBase):
     self.ScratchFile(
         'a/BUILD',
         [
+            'load("@rules_python//python:py_binary.bzl", "py_binary")',
+            'load("@rules_python//python:py_library.bzl", "py_library")',
             'py_binary(name="a", srcs=["a.py"], deps=[":b"])',
             'py_library(name="b", srcs=["b.py"], imports=["."])',
         ],
@@ -44,6 +47,11 @@ class PyTest(test_base.TestBase):
             'def Hello():',
             '    print("Hello, World")',
         ])
+
+  def setUp(self):
+    test_base.TestBase.setUp(self)
+    self.ScratchFile('MODULE.bazel',
+                     ['bazel_dep(name = "rules_python", version = "0.40.0")'])
 
   def testSmoke(self):
     self.createSimpleFiles()
@@ -67,10 +75,16 @@ class PyTest(test_base.TestBase):
 
 
 class TestInitPyFiles(test_base.TestBase):
+  def setUp(self):
+    test_base.TestBase.setUp(self)
+    self.ScratchFile('MODULE.bazel',
+                     ['bazel_dep(name = "rules_python", version = "0.40.0")'])
 
   def createSimpleFiles(self, create_init=True):
 
     self.ScratchFile('src/a/BUILD', [
+        'load("@rules_python//python:py_library.bzl", "py_library")',
+        'load("@rules_python//python:py_binary.bzl", "py_binary")',
         'py_binary(name="a", srcs=["a.py"], deps=[":b"], legacy_create_init=%s)'
         % create_init,
         'py_library(name="b", srcs=["b.py"])',
@@ -117,6 +131,7 @@ class TestInitPyFiles(test_base.TestBase):
   # Regression test for https://github.com/bazelbuild/bazel/pull/10119
   def testBuildingZipFileWithTargetNameWithDot(self):
     self.ScratchFile('BUILD', [
+        'load("@rules_python//python:py_binary.bzl", "py_binary")',
         'py_binary(',
         '  name = "bin.v1",  # .v1 should not be treated as extension and removed accidentally',
         '  srcs = ["bin.py"],',
@@ -151,6 +166,8 @@ class PyRemoteTest(test_base.TestBase):
 
   def setUp(self):
     test_base.TestBase.setUp(self)
+    self.ScratchFile('MODULE.bazel',
+                     ['bazel_dep(name = "rules_python", version = "0.40.0")'])
     self._worker_port = self.StartRemoteWorker()
 
   def tearDown(self):
@@ -159,6 +176,7 @@ class PyRemoteTest(test_base.TestBase):
 
   def testPyTestRunsRemotely(self):
     self.ScratchFile('foo/BUILD', [
+        'load("@rules_python//python:py_test.bzl", "py_test")',
         'py_test(',
         '  name = "foo_test",',
         '  srcs = ["foo_test.py"],',
@@ -177,6 +195,8 @@ class PyRemoteTest(test_base.TestBase):
   # Regression test for https://github.com/bazelbuild/bazel/issues/9239
   def testPyTestWithStdlibCollisionRunsRemotely(self):
     self.ScratchFile('foo/BUILD', [
+        'load("@rules_python//python:py_library.bzl", "py_library")',
+        'load("@rules_python//python:py_test.bzl", "py_test")',
         'py_library(',
         '  name = "io",',
         '  srcs = ["io.py"],',
@@ -209,16 +229,18 @@ class PyRunfilesLibraryTest(test_base.TestBase):
     self.ScratchFile(
         'MODULE.bazel',
         [
-            (
-                'local_repository ='
-                ' use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl",'
-                ' "local_repository")'
-            ),
+            'bazel_dep(name = "rules_python", version = "0.40.0")',
+            'local_repository = use_repo_rule(',
+            '    "@bazel_tools//tools/build_defs/repo:local.bzl",',
+            '    "local_repository")',
             'local_repository(name = "other_repo", path = "other_repo_path")',
         ],
     )
 
     self.ScratchFile('pkg/BUILD.bazel', [
+        'load("@rules_python//python:py_library.bzl", "py_library")',
+        'load("@rules_python//python:py_binary.bzl", "py_binary")',
+        'load("@rules_python//python:py_test.bzl", "py_test")',
         'py_library(',
         '  name = "library",',
         '  srcs = ["library.py"],',
@@ -266,6 +288,8 @@ class PyRunfilesLibraryTest(test_base.TestBase):
     self.ScratchFile(
         'other_repo_path/other_pkg/BUILD.bazel',
         [
+            'load("@rules_python//python:py_binary.bzl", "py_binary")',
+            'load("@rules_python//python:py_test.bzl", "py_test")',
             'py_binary(',
             '  name = "binary",',
             '  srcs = ["binary.py"],',
