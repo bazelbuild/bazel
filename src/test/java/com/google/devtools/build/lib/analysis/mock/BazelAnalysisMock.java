@@ -316,7 +316,7 @@ launcher_flag_alias(
 
         bool_flag(
             name = "incompatible_use_default_test_toolchain",
-            build_setting_default = False,
+            build_setting_default = True,
             visibility = ["//visibility:private"],
         )
 
