@@ -358,6 +358,9 @@ public class CommandEnvironment {
         value = clientEnv.get(name);
       }
       if (value != null) {
+        if (workspace.getWorkspace() != null) {
+          value = value.replace("%bazel_workspace%", workspace.getWorkspace().getPathString());
+        }
         repoEnv.put(name, value);
         repoEnvFromOptions.put(name, value);
       }
