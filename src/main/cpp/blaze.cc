@@ -227,6 +227,7 @@ class BlazeServer final {
   // Disconnects and kills an existing server. Only call this when this object
   // is in connected state.
   void KillRunningServer();
+  static std::unordered_multiset<string> runningServerArgumentsNew;
 
   // Cancel the currently running command. If there is no command currently
   // running, the result is unspecified. When called, this object must be in
@@ -983,6 +984,21 @@ static bool IsVolatileArg(const string &arg) {
   return volatile_startup_options.count(stripped_arg);
 }
 
+// Returns a string of startup options that are different.
+// Facts and implications:
+// (a) This string is called after checking areStartupOptionsDifferent boolean
+// (b) Startup options come from .bazelrc and also from command line
+// (c) runningServerArgumentsNew is assigned when old_args is not empty in AreStartupOptionsDifferent
+static String runningStartupOptionsString(){
+  std::ostringstream appendArgumentsWithSpaces;
+  for (const string &a : runningServerArgumentsNew) {
+    appendArgumentsWithSpaces << a << " ";
+  }
+  std::string arguments = appendArgumentsWithSpaces.str()
+  arguments.pop_back(); //Remove trailing space
+  return arguments
+}
+
 // Returns true if the server needs to be restarted to accommodate changes
 // between the two argument lists.
 static bool AreStartupOptionsDifferent(
@@ -1029,8 +1045,9 @@ static bool AreStartupOptionsDifferent(
       }
     }
   }
-
   if (!old_args.empty()) {
+    //Assign to glob var that later prints out new running server startup options
+    runningServerArgumentsNew = old_args;
     BAZEL_LOG(INFO) << "Args from the running server that are not "
                        "included in the current request:";
     for (const string &a : old_args) {
@@ -1076,7 +1093,7 @@ static bool KillRunningServerIfDifferentStartupOptions(
     logging_info->restart_reason = NEW_OPTIONS;
     BAZEL_LOG(WARNING) << "Running " << startup_options.product_name
                        << " server needs to be killed, because the startup "
-                          "options are different.";
+                          "options " << runningStartupOptionsString << " are different.";
     server->KillRunningServer();
     return true;
   }
