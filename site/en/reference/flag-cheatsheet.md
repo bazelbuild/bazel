@@ -523,7 +523,7 @@ The value to pass as <code>instance_name</code> in the remote execution API.
 
   <tr>
     <td>
-    <h3 id="flag-show-timestamps" data-text="show-timestamps"><code><a href="https://bazel.build/docs/user-manual#show-timestamps">--show-timestamps</a></code></h3>
+    <h3 id="flag-show-timestamps" data-text="show-timestamps"><code><a href="https://bazel.build/docs/user-manual#show-timestamps">--show_timestamps</a></code></h3>
     </td>
     <td>
 
