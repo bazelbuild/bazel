@@ -69,11 +69,13 @@ import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.Spawns;
+import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.analysis.constraints.ConstraintConstants;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformUtils;
@@ -104,6 +106,7 @@ import com.google.devtools.build.lib.remote.common.RemoteExecutionClient;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
+import com.google.devtools.build.lib.remote.options.RemoteOptions.ConcurrentChangesCheckLevel;
 import com.google.devtools.build.lib.remote.salt.CacheSalt;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
@@ -1833,7 +1836,11 @@ public class RemoteExecutionService {
   }
 
   /** Upload outputs of a remote action which was executed locally to remote cache. */
-  public void uploadOutputs(RemoteAction action, SpawnResult spawnResult, Runnable onUploadComplete)
+  public void uploadOutputs(
+      RemoteAction action,
+      SpawnResult spawnResult,
+      Runnable onUploadComplete,
+      ConcurrentChangesCheckLevel concurrentChangesCheckLevel)
       throws InterruptedException, ExecException {
     checkState(!shutdown.get(), "shutdown");
     checkState(
@@ -1842,6 +1849,19 @@ public class RemoteExecutionService {
     checkState(
         SpawnResult.Status.SUCCESS.equals(spawnResult.status()) && spawnResult.exitCode() == 0,
         "shouldn't upload outputs of failed local action");
+
+    try (SilentCloseable c = Profiler.instance().profile("checkForConcurrentModifications")) {
+      checkForConcurrentModifications(action, concurrentChangesCheckLevel);
+    } catch (IOException | ForbiddenActionInputException e) {
+      report(
+          Event.warn(
+              String.format(
+                  "%s: Skipping uploading outputs because of concurrent modifications with"
+                      + " --guard_against_concurrent_changes enabled: %s",
+                  action.getSpawn().getTargetLabel(), e.getMessage())));
+      onUploadComplete.run();
+      return;
+    }
 
     if (remoteOptions.remoteCacheAsync
         && !action.getSpawn().getResourceOwner().mayModifySpawnOutputsAfterExecution()) {
@@ -1886,6 +1906,41 @@ public class RemoteExecutionService {
         reportUploadError(e);
       } finally {
         onUploadComplete.run();
+      }
+    }
+  }
+
+  private void checkForConcurrentModifications(
+      RemoteAction action, ConcurrentChangesCheckLevel level)
+      throws IOException, ForbiddenActionInputException {
+    if (level == ConcurrentChangesCheckLevel.OFF) {
+      return;
+    }
+
+    // As this check runs after the action has been executed, we can reuse the input map if it
+    // has already been created with willAccessRepeatedly = true, but do not need to force its
+    // retention.
+    for (ActionInput input : action.getInputMap(/* willAccessRepeatedly= */ false).values()) {
+      // In lite mode, only check source artifacts in the main repository for modifications.
+      // Non-source artifacts are made read-only after execution, and external repositories are
+      // rarely modified, with local_repository being the notable exception.
+      // TODO: Find a way to include repositories that are symlinks to source directories.
+      // On Bazel itself, this reduces the number of wasModifiedSinceDigest calls by 99% compared to
+      // the full check. By not checking output files, this mode also avoids spurious false
+      // positives (see https://github.com/bazelbuild/bazel/issues/3360).
+      if (level == ConcurrentChangesCheckLevel.LITE
+          && !(input instanceof Artifact artifact
+              && artifact.isSourceArtifact()
+              && !artifact.getRoot().isExternal())) {
+        continue;
+      } else if (input instanceof VirtualActionInput) {
+        continue;
+      }
+      FileArtifactValue metadata =
+          action.getSpawnExecutionContext().getInputMetadataProvider().getInputMetadata(input);
+      Path path = execRoot.getRelative(input.getExecPath());
+      if (metadata.wasModifiedSinceDigest(path)) {
+        throw new IOException(path + " was modified during execution");
       }
     }
   }
