@@ -13,6 +13,7 @@
 # limitations under the License.
 
 from absl.testing import absltest
+
 from src.test.py.bazel import test_base
 
 
@@ -46,7 +47,11 @@ class FirstTimeUseTest(test_base.TestBase):
 
   def testNoBashRequiredForSimpleBazelRun(self):
     """Regression test for https://github.com/bazelbuild/bazel/issues/8229."""
+    self.ScratchFile(
+        'MODULE.bazel', ["bazel_dep(name = 'rules_python', version = '0.40.0')"]
+    )
     self.ScratchFile('foo/BUILD', [
+        'load("@rules_python//python:py_binary.bzl", "py_binary")',
         'py_binary(',
         '    name = "x",'
         '    srcs = ["x.py"],',

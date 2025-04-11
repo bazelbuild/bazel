@@ -579,6 +579,10 @@ function add_rules_cc() {
   add_bazel_dep "rules_cc" "$1"
 }
 
+function add_rules_shell() {
+  add_bazel_dep "rules_shell" "$1"
+}
+
 function add_rules_java() {
   add_bazel_dep "rules_java" "$1"
 }
@@ -796,6 +800,7 @@ function use_fake_python_runtimes_for_testsuite() {
   cat > tools/python/BUILD << EOF
 load("@rules_python//python:py_runtime.bzl", "py_runtime")
 load("@rules_python//python:py_runtime_pair.bzl", "py_runtime_pair")
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 
 package(default_visibility=["//visibility:public"])
 

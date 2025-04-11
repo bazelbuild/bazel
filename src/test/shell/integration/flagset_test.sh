@@ -102,6 +102,7 @@ function test_scl_config_plus_expanded_command_line_flag_fails(){
 
 
 function test_scl_config_plus_test_suite_tests_outside_project_passes(){
+  add_rules_shell "MODULE.bazel"
   mkdir -p test
   # Make the project file warn mode so we don't fail due to our fake global rc
   # file in tests
@@ -118,6 +119,8 @@ EOF
 
     mkdir -p other
   cat > other/BUILD <<EOF
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
 sh_test(name='other', srcs=['other.sh'])
 EOF
 
@@ -132,6 +135,7 @@ EOF
 }
 
 function test_scl_config_plus_external_target_in_test_suite_fails(){
+  add_rules_shell "MODULE.bazel"
   mkdir -p test
   # This failure kicks in as soon as there's a valid project file, even if it
   # doesn't contain any configs.
@@ -149,6 +153,7 @@ EOF
 
     mkdir -p other
   cat > other/BUILD <<EOF
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 sh_test(name='other', srcs=['other.sh'])
 EOF
 

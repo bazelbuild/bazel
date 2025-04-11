@@ -27,6 +27,7 @@ set -e
 
 function set_up() {
   add_bazel_skylib "MODULE.bazel"
+  add_rules_shell "MODULE.bazel"
 
   mkdir -p pkg
   touch pkg/somesourcefile
@@ -50,6 +51,8 @@ EOF
   chmod 755 pkg/slowtest.sh
   touch pkg/sourcefileA pkg/sourcefileB pkg/sourcefileC
   cat > pkg/BUILD <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
 exports_files(["somesourcefile"])
 sh_test(
   name = "true",
@@ -550,8 +553,10 @@ base=$TEST_UNDECLARED_OUTPUTS_ANNOTATIONS_DIR
 echo "some information" > $base/something.part
 EOF
   chmod u+x undeclared_annotations/undeclared_annotations_test.sh
-  echo "sh_test(name='bep_undeclared_test', srcs=['undeclared_annotations_test.sh'], tags=['local'])" \
-    > undeclared_annotations/BUILD
+  cat > undeclared_annotations/BUILD <<EOF
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+sh_test(name='bep_undeclared_test', srcs=['undeclared_annotations_test.sh'], tags=['local'])
+EOF
   bazel test  --build_event_text_file="${TEST_log}" //undeclared_annotations:bep_undeclared_test || fail "Expected success"
   expect_log 'test_result'
   expect_log 'test.outputs_manifest__ANNOTATIONS'
@@ -570,8 +575,11 @@ base=$TEST_UNDECLARED_OUTPUTS_ANNOTATIONS_DIR
 echo "some information" > $base/something.pb
 EOF
   chmod u+x undeclared_annotations/undeclared_annotations_test.sh
-  echo "sh_test(name='bep_undeclared_pb_test', srcs=['undeclared_annotations_test.sh'], tags=['local'])" \
-    > undeclared_annotations/BUILD
+  cat > undeclared_annotations/BUILD <<EOF
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+sh_test(name='bep_undeclared_pb_test', srcs=['undeclared_annotations_test.sh'], tags=['local'])
+EOF
+
   bazel test --build_event_text_file="${TEST_log}" //undeclared_annotations:bep_undeclared_pb_test || fail "Expected success"
   expect_log 'test_result'
   expect_log 'test.outputs_manifest__ANNOTATIONS.pb'
@@ -1286,6 +1294,8 @@ function test_circular_dep() {
   touch test.sh
   chmod u+x test.sh
   cat > BUILD <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
 sh_test(
   name = "circular",
   srcs = ["test.sh"],
@@ -1528,6 +1538,8 @@ function test_skyframe_stats() {
 function test_build_metrics() {
   mkdir -p a
   cat > a/BUILD <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
 sh_test(name="a", srcs=["a.sh"])
 EOF
 
@@ -1551,6 +1563,7 @@ EOF
 function test_packages_loaded_contains_only_successfully_loaded_packages() {
   mkdir just-to-get-packages-needed-for-toolchain-resolution
   cat > just-to-get-packages-needed-for-toolchain-resolution/BUILD <<'EOF'
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
 sh_library(name = 'whatever')
 EOF
   # Do an initial invocation to get Bazel to load packages necessary for
@@ -1567,12 +1580,14 @@ EOF
     unsuccessful-because-of-BUILD-file-syntax-error \
     unsuccessful-because-of-BUILD-file-evaluation-error
   cat > successful/BUILD <<'EOF'
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
 sh_library(
   name = 'successful',
   deps = ['//dep-of-successful:dep'],
 )
 EOF
   cat > dep-of-successful/BUILD <<'EOF'
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
 sh_library(name = 'dep', visibility = ['//visibility:public'])
 EOF
   # We use 3 different sorts of package loading errors to exercise different

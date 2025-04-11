@@ -17,6 +17,7 @@
 """Bazel Python integration test framework."""
 
 import os
+import runfiles
 import shutil
 import socket
 import stat
@@ -24,7 +25,6 @@ import subprocess
 import sys
 import tempfile
 from absl.testing import absltest
-import runfiles
 
 
 class Error(Exception):
@@ -75,6 +75,7 @@ class TestBase(absltest.TestCase):
     self._test_bazelrc = os.path.join(self._temp, 'test_bazelrc')
     with open(self._test_bazelrc, 'wt') as f:
       f.write('common --nolegacy_external_runfiles\n')
+      f.write('common --java_runtime_version=remotejdk_21\n')  # DO_NOT_SUBMIT
       shared_install_base = os.environ.get('TEST_INSTALL_BASE')
       if shared_install_base:
         f.write('startup --install_base={}\n'.format(shared_install_base))

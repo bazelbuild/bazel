@@ -37,12 +37,15 @@ fi
 function set_up() {
   add_rules_java "MODULE.bazel"
   add_rules_python "MODULE.bazel"
+  add_rules_shell "MODULE.bazel"
   mkdir -p pkg pkg/java
   cat > pkg/BUILD << 'EOF'
 load("@rules_java//java:java_binary.bzl", "java_binary")
 load("@rules_java//java:java_test.bzl", "java_test")
 load("@rules_python//python:py_binary.bzl", "py_binary")
 load("@rules_python//python:py_test.bzl", "py_test")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 
 java_binary(name = "javabin",
             main_class = "test.ExitZero",

@@ -56,6 +56,7 @@ esac
 add_to_bazelrc "build --terminal_columns=6"
 
 function create_pkg() {
+  add_rules_shell "MODULE.bazel"
   local -r pkg=$1
   mkdir -p $pkg
   # have test with a long name, to be able to test line breaking in the output
@@ -65,6 +66,7 @@ exit 0
 EOF
   chmod 755 $pkg/xxxxxxxxxxxxxxxxxxxxxxxxxtrue.sh
   cat > $pkg/BUILD <<EOF
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 sh_test(
   name = "xxxxxxxxxxxxxxxxxxxxxxxxxtrue",
   srcs = ["xxxxxxxxxxxxxxxxxxxxxxxxxtrue.sh"],

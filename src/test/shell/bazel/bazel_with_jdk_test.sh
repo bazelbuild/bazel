@@ -83,8 +83,11 @@ function set_up() {
     setup_bazelrc
   fi
 
+  add_rules_java "MODULE.bazel"
+
   mkdir -p java/main
   cat >java/main/BUILD <<EOF
+load("@rules_java//java:java_binary.bzl", "java_binary")
 java_binary(
     name = 'JavaExample',
     srcs = ['JavaExample.java'],
@@ -279,7 +282,6 @@ EOF
 
 # Bazel shall provide Java compilation toolchains that use local JDK.
 function test_bazel_compiles_with_localjdk() {
-  add_rules_java "MODULE.bazel"
   cat >> MODULE.bazel <<EOF
 java_toolchains = use_extension("@rules_java//java:extensions.bzl", "toolchains")
 use_repo(java_toolchains, "local_jdk")

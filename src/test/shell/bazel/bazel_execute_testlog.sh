@@ -23,6 +23,7 @@ source "${CURRENT_DIR}/../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
 function test_execute_testlog() {
+  add_rules_shell "MODULE.bazel"
   mkdir dir
   cat <<EOF > dir/test.sh
 #!/bin/sh
@@ -33,6 +34,7 @@ EOF
   chmod +x dir/test.sh
 
   cat <<EOF > dir/BUILD
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 sh_test(
   name = "test",
   srcs = [ "test.sh" ],

@@ -330,9 +330,11 @@ EOF
 }
 
 function test_sandboxed_genrule_with_tools() {
+  add_rules_shell "MODULE.bazel"
   mkdir -p examples/genrule
 
   cat << 'EOF' > examples/genrule/BUILD
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 sh_binary(
     name = "tool",
     srcs = ["tool.sh"],
@@ -597,13 +599,14 @@ function test_requires_root() {
     echo "Skipping test: fake usernames not supported in this system" 1>&2
     return 0
   fi
-
+  add_rules_shell "MODULE.bazel"
   cat > test.sh <<'EOF'
 #!/bin/sh
 ([ $(id -u) = "0" ] && [ $(id -g) = "0" ]) || exit 1
 EOF
   chmod +x test.sh
   cat > BUILD <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 sh_test(
   name = "test",
   srcs = ["test.sh"],
@@ -703,8 +706,10 @@ function test_read_non_hermetic_tmp {
   temp_dir=$(mktemp -d /tmp/test.XXXXXX)
   trap 'rm -rf ${temp_dir}' EXIT
 
+  add_rules_shell "MODULE.bazel"
   mkdir -p pkg
   cat > pkg/BUILD <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 sh_test(
   name = "tmp_test",
   srcs = ["tmp_test.sh"],
@@ -731,8 +736,10 @@ function test_read_hermetic_tmp {
   temp_dir=$(mktemp -d /tmp/test.XXXXXX)
   trap 'rm -rf ${temp_dir}' EXIT
 
+  add_rules_shell "MODULE.bazel"
   mkdir -p pkg
   cat > pkg/BUILD <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 sh_test(
   name = "tmp_test",
   srcs = ["tmp_test.sh"],
@@ -758,8 +765,10 @@ function test_read_hermetic_tmp_user_override {
   temp_dir=$(mktemp -d /tmp/test.XXXXXX)
   trap 'rm -rf ${temp_dir}' EXIT
 
+  add_rules_shell "MODULE.bazel"
   mkdir -p pkg
   cat > pkg/BUILD <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 sh_test(
   name = "tmp_test",
   srcs = ["tmp_test.sh"],
@@ -780,8 +789,10 @@ function test_write_non_hermetic_tmp {
   temp_dir=$(mktemp -d /tmp/test.XXXXXX)
   trap 'rm -rf ${temp_dir}' EXIT
 
+  add_rules_shell "MODULE.bazel"
   mkdir -p pkg
   cat > pkg/BUILD <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 sh_test(
   name = "tmp_test",
   srcs = ["tmp_test.sh"],
@@ -808,8 +819,10 @@ function test_write_hermetic_tmp {
   temp_dir=$(mktemp -d /tmp/test.XXXXXX)
   trap 'rm -rf ${temp_dir}' EXIT
 
+  add_rules_shell "MODULE.bazel"
   mkdir -p pkg
   cat > pkg/BUILD <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 sh_test(
   name = "tmp_test",
   srcs = ["tmp_test.sh"],
@@ -836,8 +849,10 @@ function test_write_hermetic_tmp_user_override {
   temp_dir=$(mktemp -d /tmp/test.XXXXXX)
   trap 'rm -rf ${temp_dir}' EXIT
 
+  add_rules_shell "MODULE.bazel"
   mkdir -p pkg
   cat > pkg/BUILD <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 sh_test(
   name = "tmp_test",
   srcs = ["tmp_test.sh"],

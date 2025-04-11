@@ -695,6 +695,7 @@ function test_non_test_toplevel_targets_minimal() {
 function test_downloads_minimal_bep() {
   # Test that when using --remote_download_minimal all URI's in the BEP
   # are rewritten as bytestream://..
+  add_rules_shell "MODULE.bazel"
   mkdir -p a
   cat > a/success.sh <<'EOF'
 #!/bin/sh
@@ -702,6 +703,7 @@ exit 0
 EOF
   chmod 755 a/success.sh
   cat > a/BUILD <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 sh_test(
   name = "success_test",
   srcs = ["success.sh"],
@@ -729,6 +731,7 @@ function test_bytestream_uri_prefix() {
   # Test that when --remote_bytestream_uri_prefix is set, bytestream://
   # URIs do not contain the hostname that's part of --remote_executor.
   # They should use a fixed value instead.
+  add_rules_shell "MODULE.bazel"
   mkdir -p a
   cat > a/success.sh <<'EOF'
 #!/bin/sh
@@ -736,6 +739,7 @@ exit 0
 EOF
   chmod 755 a/success.sh
   cat > a/BUILD <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 sh_test(
   name = "success_test",
   srcs = ["success.sh"],
@@ -763,8 +767,10 @@ EOF
 function test_undeclared_test_outputs_unzipped_bep() {
   # Test that when using --remote_download_minimal, undeclared outputs in a test
   # are reported by BEP
+  add_rules_shell "MODULE.bazel"
   mkdir -p a
   cat > a/BUILD <<EOF
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 sh_test(
   name = "foo",
   srcs = ["foo.sh"],
@@ -791,8 +797,10 @@ EOF
 function test_undeclared_test_outputs_zipped_bep() {
   # Test that when using --remote_download_minimal, undeclared outputs in a test
   # are reported by BEP
+  add_rules_shell "MODULE.bazel"
   mkdir -p a
   cat > a/BUILD <<EOF
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 sh_test(
   name = "foo",
   srcs = ["foo.sh"],
@@ -818,6 +826,7 @@ EOF
 }
 
 function test_undeclared_test_outputs_unzipped() {
+  add_rules_shell "MODULE.bazel"
   mkdir -p a
   cat > a/test.sh << 'EOF'
 #!/bin/sh
@@ -826,6 +835,7 @@ EOF
   chmod +x a/test.sh
 
   cat > a/BUILD <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 sh_test(
   name = "foo",
   srcs = ["test.sh"],
@@ -843,6 +853,7 @@ EOF
 }
 
 function test_undeclared_test_outputs_zipped() {
+  add_rules_shell "MODULE.bazel"
   mkdir -p a
   cat > a/test.sh << 'EOF'
 #!/bin/sh
@@ -851,6 +862,7 @@ EOF
   chmod +x a/test.sh
 
   cat > a/BUILD <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 sh_test(
   name = "foo",
   srcs = ["test.sh"],
@@ -869,10 +881,12 @@ EOF
 }
 
 function test_multiple_test_attempts() {
+  add_rules_shell "MODULE.bazel"
   # Test that test logs of multiple test attempts can be renamed and reported by
   # BEP.
   mkdir -p a
   cat > a/BUILD <<EOF
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 sh_test(
   name = "foo",
   srcs = ["foo.sh"],
@@ -1057,6 +1071,7 @@ EOF
 function test_testxml_download_toplevel() {
   # Test that a test action generating its own test.xml file works with
   # --remote_download_toplevel.
+  add_rules_shell "MODULE.bazel"
   mkdir -p a
 
   cat > a/test.sh <<'EOF'
@@ -1077,6 +1092,7 @@ EOF
   chmod +x a/test.sh
 
   cat > a/BUILD <<EOF
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 sh_test(
   name = 'test',
   srcs = [ 'test.sh' ],
@@ -1332,9 +1348,11 @@ function do_test_prefetcher_recreate_dir() {
 }
 
 function test_prefetcher_recreate_non_tree_dir() {
+  add_rules_shell "MODULE.bazel"
   # Test that the prefetcher recreates a non-tree directory when fetching a
   # remotely stored output into an externally modified output tree.
   cat > BUILD <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 genrule(
   name = "gen",
   outs = ["some/nested/file"],
@@ -1357,6 +1375,7 @@ EOF
 function test_prefetcher_recreate_tree_dir() {
   # Test that the prefetcher recreates a tree directory when fetching a
   # remotely stored output into an externally modified output tree.
+  add_rules_shell "MODULE.bazel"
   cat > defs.bzl <<'EOF'
 def _impl(ctx):
   d = ctx.actions.declare_directory("some")
@@ -1371,6 +1390,7 @@ tree = rule(_impl)
 EOF
   cat > BUILD <<'EOF'
 load(":defs.bzl", "tree")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 
 tree(
   name = "gen",
@@ -1428,6 +1448,7 @@ function test_remote_download_toplevel_with_non_toplevel_unused_inputs_list() {
   # unused_inputs_list for starlark action. See #11732.
 
   touch WORKSPACE
+  add_rules_shell "MODULE.bazel"
 
   cat > test.bzl <<'EOF'
 def _test_rule_impl(ctx):
@@ -1459,6 +1480,7 @@ EOF
 
   cat > BUILD <<'EOF'
 load(":test.bzl", "test_rule")
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 
 test_rule(
     name = "test_non_toplevel",
@@ -1512,9 +1534,15 @@ EOF
 # regenerate the test.xml if the action actually produced it. See
 # https://github.com/bazelbuild/bazel/issues/12554
 function test_remote_download_minimal_with_test_xml_generation() {
+  add_rules_shell "MODULE.bazel"
+  add_rules_java "MODULE.bazel"
+
   mkdir -p a
 
   cat > a/BUILD <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+load("@rules_java//java:java_test.bzl", "java_test")
+
 sh_test(
     name = "test0",
     srcs = ["test.sh"],
@@ -1782,9 +1810,13 @@ EOF
 }
 
 function test_remote_download_regex() {
+  add_rules_java "MODULE.bazel"
   mkdir -p a
 
   cat > a/BUILD <<'EOF'
+load("@rules_java//java:java_test.bzl", "java_test")
+load("@rules_java//java:java_library.bzl", "java_library")
+
 java_library(
     name = "lib",
     srcs = ["Library.java"],
@@ -1878,9 +1910,13 @@ function test_java_rbe_coverage_produces_report() {
   JAVA_TOOLS_ZIP="released"
   COVERAGE_GENERATOR_DIR="released"
 
+  add_rules_java "MODULE.bazel"
   cd java/factorial
 
   cat > BUILD <<'EOF'
+load("@rules_java//java:java_library.bzl", "java_library")
+load("@rules_java//java:java_test.bzl", "java_test")
+
 java_library(
     name = "fact",
     srcs = ["Factorial.java"],
@@ -2096,9 +2132,13 @@ EOF
 }
 
 function test_remote_cache_eviction_retries_jdeps() {
+  add_rules_java "MODULE.bazel"
   mkdir -p a
 
   cat > a/BUILD <<'EOF'
+load("@rules_java//java:java_library.bzl", "java_library")
+load("@rules_java//java:java_binary.bzl", "java_binary")
+
 java_library(
   name = "lib",
   srcs = ["Library.java"],
@@ -2377,7 +2417,9 @@ EOF
 
 function test_incremental_run_command_with_no_check_output_files() {
   # Regression test for https://github.com/bazelbuild/bazel/issues/20843.
+  add_rules_shell "MODULE.bazel"
   cat > BUILD <<'EOF'
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 genrule(
   name = "gen",
   outs = ["out.txt"],
