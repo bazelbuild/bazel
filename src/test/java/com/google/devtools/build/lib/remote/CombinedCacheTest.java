@@ -54,7 +54,8 @@ import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.Blob;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver;
-import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
+import com.google.devtools.build.lib.remote.merkletree.v2.MerkleTreeComputer;
+import com.google.devtools.build.lib.remote.merkletree.v2.MerkleTreeComputer.MerkleTree;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.InMemoryCacheClient;
@@ -104,6 +105,7 @@ public class CombinedCacheTest {
   ArtifactRoot artifactRoot;
   private final DigestUtil digestUtil =
       new DigestUtil(SyscallCache.NO_CACHE, DigestHashFunction.SHA256);
+  private final MerkleTreeComputer merkleTreeComputer = new MerkleTreeComputer(digestUtil);
   private FakeActionInputFileCache fakeFileCache;
 
   private ListeningScheduledExecutorService retryService;
@@ -351,7 +353,7 @@ public class CombinedCacheTest {
     FileSystemUtils.writeContentAsLatin1(path, "bar");
     SortedMap<PathFragment, Path> inputs = new TreeMap<>();
     inputs.put(PathFragment.create("foo"), path);
-    MerkleTree merkleTree = MerkleTree.build(inputs, digestUtil);
+    MerkleTree merkleTree = merkleTreeComputer.buildForFiles(inputs);
     path.delete();
 
     var e =
@@ -402,7 +404,7 @@ public class CombinedCacheTest {
     FileSystemUtils.writeContentAsLatin1(path, "bar");
     SortedMap<PathFragment, Path> inputs = new TreeMap<>();
     inputs.put(PathFragment.create("foo"), path);
-    MerkleTree merkleTree = MerkleTree.build(inputs, digestUtil);
+    MerkleTree merkleTree = merkleTreeComputer.buildForFiles(inputs);
 
     CountDownLatch ensureInputsPresentReturned = new CountDownLatch(1);
     Thread thread =
@@ -481,7 +483,7 @@ public class CombinedCacheTest {
     FileSystemUtils.writeContentAsLatin1(path, "bar");
     SortedMap<PathFragment, Path> inputs = new TreeMap<>();
     inputs.put(PathFragment.create("foo"), path);
-    MerkleTree merkleTree = MerkleTree.build(inputs, digestUtil);
+    MerkleTree merkleTree = merkleTreeComputer.buildForFiles(inputs);
 
     CountDownLatch ensureInputsPresentReturned = new CountDownLatch(2);
     CountDownLatch ensureInterrupted = new CountDownLatch(1);
@@ -511,7 +513,7 @@ public class CombinedCacheTest {
     // act
     thread1.interrupt();
     ensureInterrupted.await();
-    findMissingDigestsFuture.set(ImmutableSet.copyOf(merkleTree.getAllDigests()));
+    findMissingDigestsFuture.set(ImmutableSet.copyOf(merkleTree.blobs().keySet()));
 
     uploadBlobCalls.await();
     assertThat(futures).hasSize(2);
@@ -573,12 +575,12 @@ public class CombinedCacheTest {
     SortedMap<PathFragment, Path> input1 = new TreeMap<>();
     input1.put(PathFragment.create("foo"), foo);
     input1.put(PathFragment.create("bar"), bar);
-    MerkleTree merkleTree1 = MerkleTree.build(input1, digestUtil);
+    MerkleTree merkleTree1 = merkleTreeComputer.buildForFiles(input1);
 
     SortedMap<PathFragment, Path> input2 = new TreeMap<>();
     input2.put(PathFragment.create("bar"), bar);
     input2.put(PathFragment.create("qux"), qux);
-    MerkleTree merkleTree2 = MerkleTree.build(input2, digestUtil);
+    MerkleTree merkleTree2 = merkleTreeComputer.buildForFiles(input2);
 
     CountDownLatch ensureInputsPresentReturned = new CountDownLatch(2);
     CountDownLatch ensureInterrupted = new CountDownLatch(1);
@@ -666,7 +668,7 @@ public class CombinedCacheTest {
     Path path = execRoot.getRelative("foo");
     FileSystemUtils.writeContentAsLatin1(path, "bar");
     SortedMap<PathFragment, Path> inputs = ImmutableSortedMap.of(PathFragment.create("foo"), path);
-    MerkleTree merkleTree = MerkleTree.build(inputs, digestUtil);
+    MerkleTree merkleTree = merkleTreeComputer.buildForFiles(inputs);
 
     IOException e =
         assertThrows(
