@@ -33,6 +33,9 @@ fi
 # collect code coverage. The sources are a.cc, a.h and t.cc.
 function setup_a_cc_lib_and_t_cc_test() {
   cat << EOF > BUILD
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
 cc_library(
     name = "a",
     srcs = ["a.cc"],
@@ -137,6 +140,9 @@ function test_cc_test_coverage_gcov_virtual_includes() {
  ########### Setup source files and BUILD file ###########
   mkdir -p examples/cpp
  cat << EOF > examples/cpp/BUILD
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
 cc_library(
     name = "a_header",
     hdrs = ["foo/bar/baz/a_header.h"],
@@ -279,6 +285,9 @@ function test_cc_test_gcov_multiple_headers() {
   ############## Setting up the test sources and BUILD file ##############
   mkdir -p "coverage_srcs/"
   cat << EOF > BUILD
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
 cc_library(
   name = "a",
   srcs = ["coverage_srcs/a.cc"],
@@ -383,6 +392,9 @@ function test_cc_test_gcov_multiple_headers_instrument_test_target() {
   ############## Setting up the test sources and BUILD file ##############
   mkdir -p "coverage_srcs/"
   cat << EOF > BUILD
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
 cc_library(
   name = "a",
   srcs = ["coverage_srcs/a.cc"],
@@ -492,6 +504,9 @@ function test_cc_test_gcov_same_header_different_libs() {
   ############## Setting up the test sources and BUILD file ##############
   mkdir -p "coverage_srcs/"
   cat << EOF > BUILD
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
 cc_library(
   name = "a",
   srcs = ["coverage_srcs/a.cc"],
@@ -654,6 +669,9 @@ function test_cc_test_gcov_same_header_different_libs_multiple_exec() {
   ############## Setting up the test sources and BUILD file ##############
   mkdir -p "coverage_srcs/"
   cat << EOF > BUILD
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
 cc_library(
   name = "a",
   srcs = ["coverage_srcs/a.cc"],
@@ -845,6 +863,9 @@ function test_failed_coverage() {
   fi
 
   cat << EOF > BUILD
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
 cc_library(
     name = "a",
     srcs = ["a.cc"],
@@ -924,6 +945,8 @@ function test_coverage_doesnt_fail_on_empty_output() {
 }
 EOF
      cat << EOF > empty_cov/BUILD
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
 cc_test(
     name = "empty-cov-test",
     srcs = ["t.cc"]
@@ -945,6 +968,8 @@ local_repository(
 EOF
 
   cat > BUILD <<'EOF'
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
 cc_library(
     name = "b",
     srcs = ["b.cc"],
@@ -971,6 +996,9 @@ EOF
   touch other_repo/REPO.bazel
 
   cat > other_repo/BUILD <<'EOF'
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
 cc_library(
     name = "a",
     srcs = ["a.cc"],
