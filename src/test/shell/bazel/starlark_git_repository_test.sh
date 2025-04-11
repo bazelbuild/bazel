@@ -147,8 +147,11 @@ git_repository(
     $shallow_since
 )
 EOF
+  add_rules_shell "MODULE.bazel"
   mkdir -p planets
   cat > planets/BUILD <<EOF
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+
 sh_binary(
     name = "planet-info",
     srcs = ["planet_info.sh"],
@@ -272,9 +275,12 @@ filegroup(
 )
 EOF
   fi
+  add_rules_shell "MODULE.bazel"
 
   mkdir -p planets
   cat > planets/BUILD <<EOF
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+
 sh_binary(
     name = "planet-info",
     srcs = ["planet_info.sh"],
@@ -337,6 +343,7 @@ new_git_repository(
     build_file = "//:outer_planets.BUILD",
 )
 EOF
+  add_rules_shell "MODULE.bazel"
 
   cat > BUILD <<EOF
 exports_files(['outer_planets.BUILD'])
@@ -357,6 +364,8 @@ EOF
 
   mkdir -p planets
   cat > planets/BUILD <<EOF
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+
 sh_binary(
     name = "planet-info",
     srcs = ["planet_info.sh"],
@@ -394,6 +403,7 @@ new_git_repository(
     build_file = "//:outer_planets.BUILD",
 )
 EOF
+  add_rules_shell "MODULE.bazel"
 
   cat > BUILD <<EOF
 exports_files(['outer_planets.BUILD'])
@@ -414,6 +424,8 @@ EOF
 
   mkdir -p planets
   cat > planets/BUILD <<EOF
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+
 sh_binary(
     name = "planet-info",
     srcs = ["planet_info.sh"],
@@ -576,6 +588,7 @@ EOF
 #     planet_info.sh
 #     BUILD
 function setup_error_test() {
+  add_rules_shell "MODULE.bazel"
   mkdir -p planets
   cat > planets/planet_info.sh <<EOF
 #!/bin/sh
@@ -583,6 +596,8 @@ cat external/+git_repository+pluto/info
 EOF
 
   cat > planets/BUILD <<EOF
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+
 sh_binary(
     name = "planet-info",
     srcs = ["planet_info.sh"],

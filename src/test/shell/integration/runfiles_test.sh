@@ -148,6 +148,7 @@ EOF
 
 function test_foo_runfiles() {
   add_rules_python "MODULE.bazel"
+  add_rules_shell "MODULE.bazel"
   local WORKSPACE_NAME=$TEST_WORKSPACE
   local -r pkg=$FUNCNAME
   create_pkg $pkg
@@ -160,6 +161,7 @@ py_library(name = "root",
 EOF
 cat > $pkg/BUILD << EOF
 load("@rules_python//python:py_binary.bzl", "py_binary")
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 
 sh_binary(name = "foo",
           srcs = [ "x/y/z.sh" ],
@@ -280,6 +282,7 @@ EOF
   # Rebuild the same target with a new dependency.
   cd "$workspace_root"
 cat > $pkg/BUILD << EOF
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 sh_binary(name = "foo",
           srcs = [ "x/y/z.sh" ],
           data = [ "e/f" ])
@@ -411,6 +414,7 @@ EOF
 }
 
 function test_manifest_action_reruns_on_output_base_change() {
+  add_rules_shell "MODULE.bazel"
   CURRENT_DIRECTORY=$(pwd)
   if $is_windows; then
     CURRENT_DIRECTORY=$(cygpath -m "${CURRENT_DIRECTORY}")
@@ -431,6 +435,7 @@ function test_manifest_action_reruns_on_output_base_change() {
   mkdir -p "${TEST_FOLDER_2}"
 
   cat > BUILD <<EOF
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 sh_binary(
     name = "hello_world",
     srcs = ["hello_world.sh"],
@@ -458,7 +463,9 @@ EOF
 }
 
 function test_removal_of_old_tempfiles() {
+  add_rules_shell "MODULE.bazel"
   cat > BUILD << EOF
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 sh_binary(
     name = "foo",
     srcs = ["foo.sh"],
@@ -548,6 +555,8 @@ EOF
 }
 
 function test_special_chars_in_runfiles_source_paths() {
+  add_rules_shell "MODULE.bazel"
+
   mkdir -p pkg
   if "$is_windows"; then
     cat > pkg/constants.bzl <<'EOF'
@@ -576,6 +585,8 @@ spaces = rule(
 EOF
   cat > pkg/BUILD <<'EOF'
 load(":defs.bzl", "spaces")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
 spaces(name = "spaces")
 sh_test(
     name = "foo",
@@ -656,6 +667,7 @@ EOF
 }
 
 function test_special_chars_in_runfiles_source_and_target_paths() {
+  add_rules_shell "MODULE.bazel"
   mkdir -p pkg
   if "$is_windows"; then
     cat > pkg/constants.bzl <<'EOF'
@@ -718,6 +730,7 @@ function test_compatibility_with_bash_runfiles_library_snippet() {
     return
   fi
   # Create a workspace path with a space.
+  add_rules_shell "MODULE.bazel"
   WORKSPACE="$(mktemp -d jar_manifest.XXXXXXXX)/my w\orkspace"
   trap "rm -fr '$WORKSPACE'" EXIT
   mkdir -p "$WORKSPACE"
@@ -725,9 +738,11 @@ function test_compatibility_with_bash_runfiles_library_snippet() {
   cat > MODULE.bazel <<'EOF'
 module(name = "my_module")
 EOF
-
+  add_rules_shell "MODULE.bazel"
   mkdir pkg
   cat > pkg/BUILD <<'EOF'
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+
 sh_binary(
     name = "tool",
     srcs = ["tool.sh"],

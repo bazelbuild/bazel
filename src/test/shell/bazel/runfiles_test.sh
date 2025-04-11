@@ -26,9 +26,12 @@ function test_runfiles_bzlmod() {
   cat > MODULE.bazel <<EOF
 module(name="blep")
 EOF
+  add_rules_java "MODULE.bazel"
 
   mkdir foo
   cat > foo/BUILD <<EOF
+load("@rules_java//java:java_test.bzl", "java_test")
+
 java_test(
     name = "foo",
     srcs = ["Noise.java"],
@@ -58,7 +61,11 @@ new_local_repository(
     build_file = "//:BUILD",
 )
 EOF
+  add_rules_cc "MODULE.bazel"
+
   cat > BUILD <<EOF
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+
 exports_files(glob(["*"]))
 
 cc_binary(
@@ -93,7 +100,11 @@ function test_enable_runfiles_change() {
   touch bin.sh
   chmod 755 bin.sh
 
+  add_rules_shell "MODULE.bazel"
+
   cat > BUILD <<'EOF'
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+
 sh_binary(
   name = "bin",
   srcs = ["bin.sh"],
@@ -130,7 +141,10 @@ EOF
 
   chmod 755 test.sh
 
+  add_rules_shell "MODULE.bazel"
   cat > BUILD <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
 sh_test(
   name = "test",
   srcs = ["test.sh"],
@@ -176,7 +190,10 @@ EOF
 
   chmod 755 hello.sh world.sh
 
+  add_rules_shell "MODULE.bazel"
   cat > BUILD <<'EOF'
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+
 sh_binary(
   name = "hello",
   srcs = ["hello.sh"],
@@ -208,9 +225,12 @@ EOF
 }
 
 function test_switch_runfiles_from_enabled_to_disabled {
+    add_rules_shell "MODULE.bazel"
     echo '#!/bin/bash' > cmd.sh
     chmod 755 cmd.sh
     cat > BUILD <<'EOF'
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+
 sh_binary(
   name = "cmd",
   srcs = ["cmd.sh"],

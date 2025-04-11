@@ -925,7 +925,7 @@ sh_test(
 
 sh_test(
     name = "empty_package_test",
-    srcs = ["empty_package.sh"],
+    srcs = ["empty_package_test.sh"],
     data = [":test-deps"],
     tags = ["no_windows"],
 )

@@ -169,10 +169,13 @@ function test_utf8_source_artifact_in_bep() {
 }
 
 function test_utf8_filename_in_java_test() {
+  add_rules_java "MODULE.bazel"
   touch WORKSPACE
   mkdir pkg
 
   cat >pkg/BUILD <<'EOF'
+load("@rules_java//java:java_test.bzl", "java_test")
+
 java_test(
     name = "Test",
     srcs = ["Test.java"],

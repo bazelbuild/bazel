@@ -184,8 +184,12 @@ function test_script_file_generation {
     # TODO(laszlocsomor): fix this test on Windows, and enable it.
     return
   fi
+  add_rules_shell "MODULE.bazel"
   mkdir -p fubar || fail "mkdir fubar failed"
-  echo 'sh_binary(name = "fubar", srcs = ["fubar.sh"])' > fubar/BUILD
+  cat > fubar/BUILD <<EOF
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+sh_binary(name = "fubar", srcs = ["fubar.sh"])
+EOF
   echo 'for t in "$@"; do echo "arg: $t"; done' > fubar/fubar.sh
   chmod +x fubar/fubar.sh
 
@@ -203,9 +207,15 @@ function test_script_file_generation {
 function test_consistent_command_line_encoding {
   local -r arg="äöüÄÖÜß🌱"
 
+  add_rules_shell "MODULE.bazel"
   mkdir -p foo || fail "mkdir foo failed"
-  echo 'sh_binary(name = "foo", srcs = ["foo.sh"])' > foo/BUILD
-  echo 'sh_test(name = "foo_test", srcs = ["foo.sh"])' >> foo/BUILD
+  cat > foo/BUILD <<EOF
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
+sh_binary(name = "foo", srcs = ["foo.sh"])
+sh_test(name = "foo_test", srcs = ["foo.sh"])
+EOF
   cat > foo/foo.sh <<EOF
 echo "got : \$1"
 echo "want: $arg"
@@ -229,8 +239,10 @@ EOF
 function test_consistent_env_var_encoding {
   local -r env="äöüÄÖÜß🌱"
 
+  add_rules_shell "MODULE.bazel"
   mkdir -p foo || fail "mkdir foo failed"
   cat > foo/BUILD <<EOF
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 sh_test(
     name = "foo_test",
     srcs = ["foo_test.sh"],
@@ -270,8 +282,11 @@ EOF
 function test_consistent_working_directory_encoding {
   local -r unicode_string="äöüÄÖÜß🌱"
 
+  add_rules_shell "MODULE.bazel"
   mkdir -p foo || fail "mkdir foo failed"
   cat > foo/BUILD <<EOF
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+
 sh_binary(
     name = "foo",
     srcs = ["foo.sh"],
@@ -388,8 +403,11 @@ EOF
 
 # Test for $(location) in args list of sh_binary
 function test_location_in_args() {
+  add_rules_shell "MODULE.bazel"
   mkdir -p some/testing
   cat > some/testing/BUILD <<'EOF'
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+
 genrule(
     name = "generated",
     cmd = "echo 2 > $@",
@@ -424,8 +442,10 @@ EOF
 }
 
 function test_run_for_alias() {
+  add_rules_shell "MODULE.bazel"
   mkdir -p a
   cat > a/BUILD <<EOF
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 sh_binary(name='a', srcs=['a.sh'])
 alias(name='b', actual='a')
 EOF
@@ -497,8 +517,12 @@ function test_run_a_test_and_a_binary_rule_with_input_from_stdin() {
     # TODO(laszlocsomor): fix this test on Windows, and enable it.
     return
   fi
+  add_rules_shell "MODULE.bazel"
   mkdir -p a
   cat > a/BUILD <<'eof'
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
 sh_test(name = "x", srcs = ["x.sh"])
 sh_binary(name = "control", srcs = ["x.sh"])
 eof
@@ -516,11 +540,14 @@ eof
 
 function test_default_test_tmpdir() {
   local -r pkg="pkg${LINENO}"
+  add_rules_shell "MODULE.bazel"
   mkdir -p ${pkg}
   echo "echo \${TEST_TMPDIR} > ${TEST_TMPDIR}/tmpdir_value" > ${pkg}/write.sh
   chmod +x ${pkg}/write.sh
 
   cat > ${pkg}/BUILD <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
 sh_test(name="a", srcs=["write.sh"])
 EOF
 
@@ -549,10 +576,13 @@ function test_blaze_run_with_custom_test_tmpdir() {
   if [[ "${tmpdir}" == "${TEST_TMPDIR}"* ]]; then
     fail "Temp folder potentially overlaps with the exec root"
   fi
+  add_rules_shell "MODULE.bazel"
   echo "echo \${TEST_TMPDIR} > ${TEST_TMPDIR}/tmpdir_value" > ${pkg}/write.sh
   chmod +x ${pkg}/write.sh
 
   cat > ${pkg}/BUILD <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
 sh_test(name="a", srcs=["write.sh"])
 EOF
 
@@ -561,9 +591,12 @@ EOF
 }
 
 function test_run_binary_with_env_attribute() {
+  add_rules_shell "MODULE.bazel"
   local -r pkg="pkg${LINENO}"
   mkdir -p ${pkg}
   cat > $pkg/BUILD <<'EOF'
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+
 sh_binary(
   name = 't',
   srcs = [':t.sh'],
@@ -592,9 +625,12 @@ EOF
 }
 
 function test_run_under_script() {
+  add_rules_shell "MODULE.bazel"
   local -r pkg="pkg${LINENO}"
   mkdir -p ${pkg}
   cat > $pkg/BUILD <<'EOF'
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+
 sh_binary(
   name = 'greetings',
   srcs = [':greetings.sh'],
@@ -616,9 +652,12 @@ function test_run_under_script_script_path() {
     # paths under windows.
     return
   fi
+  add_rules_shell "MODULE.bazel"
   local -r pkg="pkg${LINENO}"
   mkdir -p "$pkg"
   cat > $pkg/BUILD <<'EOF'
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+
 sh_binary(
   name = 'greetings',
   srcs = [':greetings.sh'],
@@ -638,9 +677,12 @@ EOF
 }
 
 function test_run_under_label() {
+  add_rules_shell "MODULE.bazel"
   local -r pkg="pkg${LINENO}"
   mkdir -p "${pkg}"
   cat > "$pkg/BUILD" <<'EOF'
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+
 sh_binary(
   name = 'greetings',
   srcs = ['greetings.sh'],
@@ -719,9 +761,12 @@ EOF
 }
 
 function test_build_id_env_var() {
+  add_rules_shell "MODULE.bazel"
   local -r pkg="pkg${LINENO}"
   mkdir -p "${pkg}"
   cat > "$pkg/BUILD" <<'EOF'
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+
 sh_binary(
   name = "foo",
   srcs = ["foo.sh"],
@@ -743,9 +788,12 @@ EOF
 }
 
 function test_execroot_env_var() {
+  add_rules_shell "MODULE.bazel"
   local -r pkg="pkg${LINENO}"
   mkdir -p "${pkg}"
   cat > "$pkg/BUILD" <<'EOF'
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+
 sh_binary(
   name = "foo",
   srcs = ["foo.sh"],
@@ -767,9 +815,12 @@ EOF
 }
 
 function test_run_env() {
+  add_rules_shell "MODULE.bazel"
   local -r pkg="pkg${LINENO}"
   mkdir -p "${pkg}"
   cat > "$pkg/BUILD" <<'EOF'
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+
 sh_binary(
   name = "foo",
   srcs = ["foo.sh"],
@@ -799,9 +850,12 @@ EOF
 }
 
 function test_run_env_script_path() {
+  add_rules_shell "MODULE.bazel"
   local -r pkg="pkg${LINENO}"
   mkdir -p "${pkg}"
   cat > "$pkg/BUILD" <<'EOF'
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+
 sh_binary(
   name = "foo",
   srcs = ["foo.sh"],

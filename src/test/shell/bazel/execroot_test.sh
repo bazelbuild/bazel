@@ -179,8 +179,10 @@ EOF
 }
 
 function test_java_smoke_with_new_layouts() {
+  add_rules_java "MODULE.bazel"
   mkdir -p external/java/a
   cat > external/java/a/BUILD <<EOF
+load("@rules_java//java:java_binary.bzl", "java_binary")
 java_binary(name='a', srcs=['A.java'])
 EOF
 

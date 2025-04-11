@@ -58,8 +58,12 @@ esac
 function set_up() {
   start_worker
 
+  add_rules_java "MODULE.bazel"
   mkdir -p src/main/java/com/example
   cat > src/main/java/com/example/BUILD <<'EOF'
+load("@rules_java//java:java_binary.bzl", "java_binary")
+load("@rules_java//java:java_library.bzl", "java_library")
+
 java_binary(
     name = "Main",
     srcs = ["Main.java"],
@@ -212,7 +216,6 @@ function test_path_stripping_generated_multiplex_worker() {
   fi
 
   cat >> MODULE.bazel <<'EOF'
-bazel_dep(name = "rules_java", version = "8.1.0")
 toolchains = use_extension("@rules_java//java:extensions.bzl", "toolchains")
 use_repo(toolchains, "remote_java_tools")
 EOF
@@ -349,6 +352,9 @@ EOF
   mkdir -p src/main/java/com/example
   cat > src/main/java/com/example/BUILD <<'EOF'
 load("//rules:defs.bzl", "bazelcon_greeting")
+load("@rules_java//java:java_library.bzl", "java_library")
+load("@rules_java//java:java_binary.bzl", "java_binary")
+
 java_binary(
     name = "Main",
     srcs = ["Main.java"],
@@ -452,10 +458,12 @@ function test_path_stripping_cc_remote() {
   cat > MODULE.bazel <<EOF
 bazel_dep(name = "apple_support", version = "1.21.0")
 EOF
+  add_rules_cc "MODULE.bazel"
 
   mkdir -p "$pkg"
   cat > "$pkg/BUILD" <<EOF
 load("//$pkg/common/utils:defs.bzl", "gen_cc", "transition_wrapper")
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 
 cc_binary(
     name = "main",
@@ -502,6 +510,7 @@ EOF
   mkdir -p "$pkg"/lib1
   cat > "$pkg/lib1/BUILD" <<EOF
 load("//$pkg/common/utils:defs.bzl", "gen_h", "transition_wrapper")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 
 cc_library(
     name = "lib1",
@@ -539,6 +548,7 @@ EOF
 
   mkdir -p "$pkg"/lib2
   cat > "$pkg/lib2/BUILD" <<EOF
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 genrule(
     name = "gen_header",
     srcs = ["lib2.h.tpl"],
@@ -582,6 +592,7 @@ EOF
   mkdir -p "$pkg"/common/utils
   cat > "$pkg/common/utils/BUILD" <<'EOF'
 load(":defs.bzl", "greeting_setting")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 
 greeting_setting(
     name = "greeting",
