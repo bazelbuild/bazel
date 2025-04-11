@@ -199,12 +199,13 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     scratch.file(
         "test/macros.bzl",
         """
+        SomeInfo = provider()
         def _impl(ctx):
           return
         starlark_rule = rule(
           implementation = _impl,
           attrs = {
-            'deps': attr.label_list(providers = ['some_provider'], allow_files=True)
+            'deps': attr.label_list(providers = [SomeInfo], allow_files=True)
           }
         )
         def macro_native_rule(name, deps):
@@ -235,7 +236,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     assertContainsEvent(
         "ERROR /workspace/test/BUILD:5:20: in deps attribute of starlark_rule rule "
             + "//test:m_starlark: '//test:jlib' does not have mandatory providers:"
-            + " 'some_provider'. "
+            + " 'SomeInfo'. "
             + "Since this rule was created by the macro 'macro_starlark_rule', the error might "
             + "have been caused by the macro implementation");
   }
@@ -257,7 +258,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     assertContainsEvent(
         "ERROR /workspace/test/BUILD:11:14: in deps attribute of "
             + "starlark_rule rule //test:skyrule: '//test:jlib' does not have mandatory providers: "
-            + "'some_provider'");
+            + "'SomeInfo'");
   }
 
   @Test
@@ -1404,12 +1405,13 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     scratch.file(
         "my_rule.bzl",
         """
+        MyInfo = provider()
         def _impl(ctx):
           return
         my_rule = rule(
           implementation = _impl,
           attrs = {
-            'label_dict': attr.label_keyed_string_dict(providers=[['my_provider']]),
+            'label_dict': attr.label_keyed_string_dict(providers=[[MyInfo]]),
           }
         )
         def _dep_impl(ctx):
@@ -1431,7 +1433,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     getConfiguredTarget("//:r");
     assertContainsEvent(
         "in label_dict attribute of my_rule rule //:r: "
-            + "'//:dep' does not have mandatory providers: 'my_provider'");
+            + "'//:dep' does not have mandatory providers: 'MyInfo'");
   }
 
   @Test

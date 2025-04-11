@@ -985,8 +985,7 @@ my_rule = rule(
       // expect to fail.
     }
     assertContainsEvent(
-        "Aspect implementation should return a struct, a list, or a provider "
-            + "instance, but got int");
+        "Aspect implementation should return a list, or a provider instance, but got int");
   }
 
   @Test
@@ -2808,9 +2807,10 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     scratch.file(
         "test/aspect.bzl",
         """
+        MyInfo = provider()
         def _impl(target, ctx):
            return []
-        my_aspect = aspect(_impl, provides = ['foo'])
+        my_aspect = aspect(_impl, provides = [MyInfo])
         a_dict = { 'foo' : attr.label_list(aspects = [my_aspect]) }
         """);
     scratch.file(
@@ -2829,7 +2829,7 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     }
     assertContainsEvent(
         "Aspect '//test:aspect.bzl%my_aspect', applied to '//test:xxx', "
-            + "does not provide advertised provider 'foo'");
+            + "does not provide advertised provider 'MyInfo'");
   }
 
   @Test

@@ -428,7 +428,7 @@ public final class BuildLanguageOptions extends OptionsBase {
   public boolean incompatibleAlwaysCheckDepsetElements;
 
   @Option(
-      name = "incompatible_disable_target_provider_fields",
+      name = "incompatible_disable_target_default_provider_fields",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
@@ -438,20 +438,6 @@ public final class BuildLanguageOptions extends OptionsBase {
               + "syntax. Use provider-key syntax instead. For example, instead of using "
               + "`ctx.attr.dep.files` to access `files`, utilize `ctx.attr.dep[DefaultInfo].files "
               + "See "
-              + "https://github.com/bazelbuild/bazel/issues/9014 for details.")
-  public boolean incompatibleDisableTargetProviderFields;
-
-  @Option(
-      name = "incompatible_disable_target_default_provider_fields",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
-      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          "If set to true, disable the ability to access providers on 'target' objects via field "
-              + "syntax. Use provider-key syntax instead. For example, instead of using "
-              + "`ctx.attr.dep.my_info` to access `my_info` from inside a rule implementation "
-              + "function, use `ctx.attr.dep[MyInfo]`. See "
               + "https://github.com/bazelbuild/bazel/issues/9014 for details.")
   public boolean incompatibleDisableTargetDefaultProviderFields;
 
@@ -865,9 +851,6 @@ public final class BuildLanguageOptions extends OptionsBase {
             .setBool(EXPERIMENTAL_REPO_REMOTE_EXEC, experimentalRepoRemoteExec)
             .setBool(EXPERIMENTAL_DISABLE_EXTERNAL_PACKAGE, experimentalDisableExternalPackage)
             .setBool(EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT, experimentalSiblingRepositoryLayout)
-            .setBool(
-                INCOMPATIBLE_DISABLE_TARGET_PROVIDER_FIELDS,
-                incompatibleDisableTargetProviderFields)
             .setBool(
                 INCOMPATIBLE_ALWAYS_CHECK_DEPSET_ELEMENTS, incompatibleAlwaysCheckDepsetElements)
             .setBool(INCOMPATIBLE_DISALLOW_EMPTY_GLOB, incompatibleDisallowEmptyGlob)

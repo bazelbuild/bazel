@@ -997,15 +997,6 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
         FunctionSplitTransitionAllowlist.ATTRIBUTE_NAME,
         FunctionSplitTransitionAllowlist.LABEL);
 
-    for (Object o : providesArg) {
-      if (!StarlarkAttrModule.isProvider(o)) {
-        throw Starlark.errorf(
-            "Illegal argument: element in 'provides' is of unexpected type. "
-                + "Should be list of providers, but got item of type %s.",
-            Starlark.type(o));
-      }
-    }
-
     if (dependencyResolutionRule) {
       if (!subrules.isEmpty()) {
         throw Starlark.errorf("Rules that can be required for materializers cannot have subrules");
@@ -1029,7 +1020,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
     }
 
     for (StarlarkProviderIdentifier starlarkProvider :
-        StarlarkAttrModule.getStarlarkProviderIdentifiers(providesArg)) {
+        StarlarkAttrModule.getStarlarkProviderIdentifiers(providesArg, "provides")) {
       builder.advertiseStarlarkProvider(starlarkProvider);
     }
 
@@ -1317,15 +1308,6 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       attributes.add(attribute);
     }
 
-    for (Object o : providesArg) {
-      if (!StarlarkAttrModule.isProvider(o)) {
-        throw Starlark.errorf(
-            "Illegal argument: element in 'provides' is of unexpected type. "
-                + "Should be list of providers, but got item of type %s. ",
-            Starlark.type(o));
-      }
-    }
-
     if (applyToGeneratingRules && !requiredProvidersArg.isEmpty()) {
       throw Starlark.errorf(
           "An aspect cannot simultaneously have required providers and apply to generating rules.");
@@ -1381,7 +1363,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
         StarlarkAttrModule.buildProviderPredicate(requiredProvidersArg, "required_providers"),
         StarlarkAttrModule.buildProviderPredicate(
             requiredAspectProvidersArg, "required_aspect_providers"),
-        StarlarkAttrModule.getStarlarkProviderIdentifiers(providesArg),
+        StarlarkAttrModule.getStarlarkProviderIdentifiers(providesArg, "provides"),
         requiredParams.build(),
         ImmutableSet.copyOf(Sequence.cast(requiredAspects, StarlarkAspect.class, "requires")),
         propagationPredicate,

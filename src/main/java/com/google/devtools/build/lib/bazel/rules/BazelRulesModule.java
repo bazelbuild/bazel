@@ -465,6 +465,15 @@ public final class BazelRulesModule extends BlazeModule {
    */
   public static final class AllCommandGraveyardOptions extends OptionsBase {
     @Option(
+        name = "incompatible_disable_target_provider_fields",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+        help = "No-op")
+    public boolean incompatibleDisableTargetProviderFields;
+
+    @Option(
         name = "incompatible_disallow_struct_provider_syntax",
         defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
