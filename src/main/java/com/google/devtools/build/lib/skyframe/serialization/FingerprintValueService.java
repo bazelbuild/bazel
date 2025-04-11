@@ -19,7 +19,6 @@ import static java.util.concurrent.Executors.newSingleThreadExecutor;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.WriteStatus;
-import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.protobuf.ByteString;
 import java.io.IOException;
 import java.util.concurrent.Executor;
@@ -30,13 +29,6 @@ import javax.annotation.Nullable;
  * the cache and the hash function for computing fingerprints.
  */
 public final class FingerprintValueService {
-
-  /** A factory interface that create {@link FingerprintValueService}. */
-  public interface Factory {
-
-    /** Constructs a {@link FingerprintValueService} using the build request's options. */
-    FingerprintValueService create(OptionsParsingResult options);
-  }
 
   /** Injectable implementation of the fingerprint function. */
   public interface Fingerprinter {

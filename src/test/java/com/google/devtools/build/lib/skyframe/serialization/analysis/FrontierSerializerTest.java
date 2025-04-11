@@ -14,9 +14,11 @@
 package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.devtools.build.lib.skyframe.serialization.analysis.LongVersionGetterTestInjection.injectVersionGetterForTesting;
 import static org.mockito.Mockito.mock;
 
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService;
@@ -37,11 +39,22 @@ public final class FrontierSerializerTest extends FrontierSerializerTestBase {
   }
 
   private class ModuleWithOverrides extends SerializationModule {
+    @Override
+    protected RemoteAnalysisCachingServicesSupplier getAnalysisCachingServicesSupplier() {
+      return new TestServicesSupplier(service);
+    }
+  }
+
+  private static class TestServicesSupplier implements RemoteAnalysisCachingServicesSupplier {
+    private final ListenableFuture<FingerprintValueService> wrappedService;
+
+    private TestServicesSupplier(FingerprintValueService fingerprintValueService) {
+      this.wrappedService = immediateFuture(fingerprintValueService);
+    }
 
     @Override
-    protected FingerprintValueService.Factory getFingerprintValueServiceFactory() {
-      // service is re-instantiated for each test case with a @Before setup step.
-      return (unused) -> service;
+    public ListenableFuture<FingerprintValueService> getFingerprintValueService() {
+      return wrappedService;
     }
   }
 

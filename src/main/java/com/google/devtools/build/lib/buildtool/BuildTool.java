@@ -19,6 +19,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.buildtool.AnalysisPhaseRunner.evaluateProjectFile;
 import static com.google.devtools.common.options.OptionsParser.STARLARK_SKIPPED_PREFIXES;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ascii;
@@ -111,6 +112,7 @@ import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnaly
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingEventListener;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions.RemoteAnalysisCacheMode;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingServicesSupplier;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.CrashFailureDetails;
 import com.google.devtools.build.lib.util.DetailedExitCode;
@@ -134,9 +136,9 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintStream;
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeoutException;
 import javax.annotation.Nullable;
 
 /**
@@ -1061,6 +1063,8 @@ public class BuildTool {
 
   private static final class RemoteAnalysisCachingDependenciesProviderImpl
       implements RemoteAnalysisCachingDependenciesProvider {
+    private static final long CLIENT_LOOKUP_TIMEOUT_SEC = 20;
+
     private final RemoteAnalysisCacheMode mode;
     private final String serializedFrontierProfile;
     private final Supplier<ObjectCodecs> analysisObjectCodecsSupplier;
@@ -1139,12 +1143,7 @@ public class BuildTool {
                       env.getRuntime().getRuleClassProvider(),
                       env.getBlazeWorkspace().getSkyframeExecutor(),
                       env.getDirectories()));
-      this.fingerprintValueServiceFuture =
-          CompletableFuture.supplyAsync(
-              () ->
-                  env.getBlazeWorkspace()
-                      .getFingerprintValueServiceFactory()
-                      .create(env.getOptions()));
+
       this.activeDirectoriesMatcher = activeDirectoriesMatcher;
       this.listener = env.getRemoteAnalysisCachingEventListener();
       if (env.getSkyframeBuildView().getBuildConfiguration() != null) {
@@ -1166,6 +1165,12 @@ public class BuildTool {
         this.evaluatingVersion = workspaceInfoFromDiff.getEvaluatingVersion();
         this.snapshot = workspaceInfoFromDiff.getSnapshot();
       }
+      RemoteAnalysisCachingServicesSupplier servicesSupplier =
+          env.getBlazeWorkspace().remoteAnalysisCachingServicesSupplier();
+      servicesSupplier.configure(
+          env.getOptions().getOptions(RemoteAnalysisCachingOptions.class),
+          this.snapshot.orElse(null));
+      this.fingerprintValueServiceFuture = servicesSupplier.getFingerprintValueService();
     }
 
     private static ObjectCodecs initAnalysisObjectCodecs(
@@ -1249,8 +1254,8 @@ public class BuildTool {
     @Override
     public FingerprintValueService getFingerprintValueService() {
       try {
-        return fingerprintValueServiceFuture.get();
-      } catch (InterruptedException | ExecutionException e) {
+        return fingerprintValueServiceFuture.get(CLIENT_LOOKUP_TIMEOUT_SEC, SECONDS);
+      } catch (InterruptedException | ExecutionException | TimeoutException e) {
         throw new IllegalStateException("Unable to initialize fingerprint value service", e);
       }
     }

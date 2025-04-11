@@ -38,8 +38,8 @@ import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.memory.AllocationTracker;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
-import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecRegistry;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingServicesSupplier;
 import com.google.devtools.build.lib.util.io.CommandExtensionReporter;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -82,7 +82,8 @@ public final class BlazeWorkspace {
    * Null only during tests; should be created by a BlazeModule#workspaceInit hook for regular
    * operations.
    */
-  @Nullable private final FingerprintValueService.Factory fingerprintValueServiceFactory;
+  @Nullable
+  private final RemoteAnalysisCachingServicesSupplier remoteAnalysisCachingServicesSupplier;
 
   /**
    * Loaded lazily on the first build command that enables the action cache. Cleared on a build
@@ -107,7 +108,7 @@ public final class BlazeWorkspace {
       @Nullable AllocationTracker allocationTracker,
       SyscallCache syscallCache,
       Supplier<ObjectCodecRegistry> analysisCodecRegistrySupplier,
-      @Nullable FingerprintValueService.Factory fingerprintValueServiceFactory,
+      @Nullable RemoteAnalysisCachingServicesSupplier remoteAnalysisCachingServicesSupplier,
       boolean allowExternalRepositories) {
     this.runtime = runtime;
     this.eventBusExceptionHandler = Preconditions.checkNotNull(eventBusExceptionHandler);
@@ -122,7 +123,7 @@ public final class BlazeWorkspace {
     this.allowExternalRepositories = allowExternalRepositories;
     this.virtualPackageLocator = createPackageLocatorIfVirtual(directories, skyframeExecutor);
     this.analysisCodecRegistrySupplier = analysisCodecRegistrySupplier;
-    this.fingerprintValueServiceFactory = fingerprintValueServiceFactory;
+    this.remoteAnalysisCachingServicesSupplier = remoteAnalysisCachingServicesSupplier;
 
     if (directories.inWorkspace()) {
       writeOutputBaseReadmeFile();
@@ -391,11 +392,8 @@ public final class BlazeWorkspace {
     return analysisCodecRegistrySupplier;
   }
 
-  public FingerprintValueService.Factory getFingerprintValueServiceFactory() {
-    if (fingerprintValueServiceFactory == null) {
-      return (unused) -> FingerprintValueService.createForTesting();
-    }
-    return fingerprintValueServiceFactory;
+  public RemoteAnalysisCachingServicesSupplier remoteAnalysisCachingServicesSupplier() {
+    return remoteAnalysisCachingServicesSupplier;
   }
 
   @Nullable

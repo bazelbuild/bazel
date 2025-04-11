@@ -76,16 +76,18 @@ import org.junit.rules.TestName;
 public abstract class FrontierSerializerTestBase extends BuildIntegrationTestCase {
   @Rule public TestName testName = new TestName();
 
-  protected FingerprintValueService service;
+  /**
+   * A unique instance of the fingerprint value service per test case.
+   *
+   * <p>This ensures that test cases don't share state. The instance will then last the lifetime of
+   * the test case, regardless of the number of command invocations.
+   */
+  protected FingerprintValueService service = createFingerprintValueService();
+
   private final ClearCountingSyscallCache syscallCache = new ClearCountingSyscallCache();
 
   @Before
   public void setup() {
-    // Give each test case a unique instance of the fingerprint value service, so that test cases
-    // don't share state. This instance will then last the lifetime of the test case, regardless
-    // of the number of command invocations.
-    service = createFingerprintValueService();
-
     // TODO: b/367284400 - replace this with a barebones diffawareness check that works in Bazel
     // integration tests (e.g. making LocalDiffAwareness supported and not return
     // EVERYTHING_MODIFIED) for baseline diffs.
