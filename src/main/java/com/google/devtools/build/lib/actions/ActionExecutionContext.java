@@ -435,9 +435,9 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
   public void setRichArtifactData(RichArtifactData richArtifactData) {
     Preconditions.checkState(
         this.richArtifactData == null,
-        String.format(
-            "rich artifact data was set twice, old=%s, new=%s",
-            this.richArtifactData, richArtifactData));
+        "rich artifact data was set twice, old=%s, new=%s",
+        this.richArtifactData,
+        richArtifactData);
     this.richArtifactData = richArtifactData;
   }
 
