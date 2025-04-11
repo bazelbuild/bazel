@@ -53,6 +53,7 @@ import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.remote.ByteStreamUploaderTest.FixedBackoff;
 import com.google.devtools.build.lib.remote.ByteStreamUploaderTest.MaybeFailOnceUploadService;
+import com.google.devtools.build.lib.remote.Retrier.ResultClassifier.Result;
 import com.google.devtools.build.lib.remote.common.MissingDigestsFinder;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.options.RemoteBuildEventUploadMode;
@@ -176,7 +177,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
     serviceRegistry.addService(new MaybeFailOnceUploadService(blobsByHash));
 
     RemoteRetrier retrier =
-        TestUtils.newRemoteRetrier(() -> new FixedBackoff(1, 0), (e) -> true, retryService);
+        TestUtils.newRemoteRetrier(() -> new FixedBackoff(1, 0), (e) -> Result.TRANSIENT_FAILURE, retryService);
     ReferenceCountedChannel refCntChannel = new ReferenceCountedChannel(channelConnectionFactory);
     CombinedCache combinedCache = newCombinedCache(refCntChannel, retrier);
     ByteStreamBuildEventArtifactUploader artifactUploader = newArtifactUploader(combinedCache);
@@ -217,7 +218,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
     serviceRegistry.addService(new MaybeFailOnceUploadService(blobsByHash));
 
     RemoteRetrier retrier =
-        TestUtils.newRemoteRetrier(() -> new FixedBackoff(1, 0), (e) -> true, retryService);
+        TestUtils.newRemoteRetrier(() -> new FixedBackoff(1, 0), (e) -> Result.TRANSIENT_FAILURE, retryService);
     ReferenceCountedChannel refCntChannel = new ReferenceCountedChannel(channelConnectionFactory);
     // number of permits is less than number of uploads to affirm permit is released
     CombinedCache combinedCache = newCombinedCache(refCntChannel, retrier);
@@ -245,7 +246,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
     filesToUpload.put(
         dir, new LocalFile(dir, LocalFileType.OUTPUT_DIRECTORY, /* artifactMetadata= */ null));
     RemoteRetrier retrier =
-        TestUtils.newRemoteRetrier(() -> new FixedBackoff(1, 0), (e) -> true, retryService);
+        TestUtils.newRemoteRetrier(() -> new FixedBackoff(1, 0), (e) -> Result.TRANSIENT_FAILURE, retryService);
     ReferenceCountedChannel refCntChannel = new ReferenceCountedChannel(channelConnectionFactory);
     CombinedCache combinedCache = newCombinedCache(refCntChannel, retrier);
     ByteStreamBuildEventArtifactUploader artifactUploader = newArtifactUploader(combinedCache);
@@ -262,7 +263,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
     filesToUpload.put(
         sym, new LocalFile(sym, LocalFileType.OUTPUT_SYMLINK, /* artifactMetadata= */ null));
     RemoteRetrier retrier =
-        TestUtils.newRemoteRetrier(() -> new FixedBackoff(1, 0), (e) -> true, retryService);
+        TestUtils.newRemoteRetrier(() -> new FixedBackoff(1, 0), (e) -> Result.TRANSIENT_FAILURE, retryService);
     ReferenceCountedChannel refCntChannel = new ReferenceCountedChannel(channelConnectionFactory);
     CombinedCache combinedCache = newCombinedCache(refCntChannel, retrier);
     ByteStreamBuildEventArtifactUploader artifactUploader = newArtifactUploader(combinedCache);
@@ -280,7 +281,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
     filesToUpload.put(
         file, new LocalFile(file, LocalFileType.OUTPUT, /* artifactMetadata= */ null));
     RemoteRetrier retrier =
-        TestUtils.newRemoteRetrier(() -> new FixedBackoff(1, 0), (e) -> true, retryService);
+        TestUtils.newRemoteRetrier(() -> new FixedBackoff(1, 0), (e) -> Result.TRANSIENT_FAILURE, retryService);
     ReferenceCountedChannel refCntChannel = new ReferenceCountedChannel(channelConnectionFactory);
     CombinedCache combinedCache = newCombinedCache(refCntChannel, retrier);
     ByteStreamBuildEventArtifactUploader artifactUploader = newArtifactUploader(combinedCache);
@@ -304,7 +305,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
     filesToUpload.put(
         file, new LocalFile(file, LocalFileType.OUTPUT, /* artifactMetadata= */ null));
     RemoteRetrier retrier =
-        TestUtils.newRemoteRetrier(() -> new FixedBackoff(1, 0), (e) -> true, retryService);
+        TestUtils.newRemoteRetrier(() -> new FixedBackoff(1, 0), (e) -> Result.TRANSIENT_FAILURE, retryService);
     ReferenceCountedChannel refCntChannel = new ReferenceCountedChannel(channelConnectionFactory);
     CombinedCache combinedCache = newCombinedCache(refCntChannel, retrier);
     ByteStreamBuildEventArtifactUploader artifactUploader = newArtifactUploader(combinedCache);
@@ -337,7 +338,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
             new LocalFile(
                 failedTest, LocalFileType.FAILED_TEST_OUTPUT, /* artifactMetadata= */ null));
     RemoteRetrier retrier =
-        TestUtils.newRemoteRetrier(() -> new FixedBackoff(1, 0), (e) -> true, retryService);
+        TestUtils.newRemoteRetrier(() -> new FixedBackoff(1, 0), (e) -> Result.TRANSIENT_FAILURE, retryService);
     ReferenceCountedChannel refCntChannel = new ReferenceCountedChannel(channelConnectionFactory);
     CombinedCache combinedCache = newCombinedCache(refCntChannel, retrier);
     ByteStreamBuildEventArtifactUploader artifactUploader = newArtifactUploader(combinedCache);
@@ -408,7 +409,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
         });
 
     RemoteRetrier retrier =
-        TestUtils.newRemoteRetrier(() -> new FixedBackoff(1, 0), (e) -> true, retryService);
+        TestUtils.newRemoteRetrier(() -> new FixedBackoff(1, 0), (e) -> Result.TRANSIENT_FAILURE, retryService);
     ReferenceCountedChannel refCntChannel = new ReferenceCountedChannel(channelConnectionFactory);
     CombinedCache combinedCache = newCombinedCache(refCntChannel, retrier);
     ByteStreamBuildEventArtifactUploader artifactUploader = newArtifactUploader(combinedCache);
@@ -433,7 +434,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
     // arrange
 
     RemoteRetrier retrier =
-        TestUtils.newRemoteRetrier(() -> new FixedBackoff(1, 0), (e) -> true, retryService);
+        TestUtils.newRemoteRetrier(() -> new FixedBackoff(1, 0), (e) -> Result.TRANSIENT_FAILURE, retryService);
     ReferenceCountedChannel refCntChannel = new ReferenceCountedChannel(channelConnectionFactory);
     CombinedCache combinedCache = spy(newCombinedCache(refCntChannel, retrier));
     RemoteActionInputFetcher actionInputFetcher = mock(RemoteActionInputFetcher.class);
@@ -491,7 +492,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
     StaticMissingDigestsFinder digestQuerier =
         Mockito.spy(new StaticMissingDigestsFinder(ImmutableSet.of(remoteDigest)));
     RemoteRetrier retrier =
-        TestUtils.newRemoteRetrier(() -> new FixedBackoff(1, 0), (e) -> true, retryService);
+        TestUtils.newRemoteRetrier(() -> new FixedBackoff(1, 0), (e) -> Result.TRANSIENT_FAILURE, retryService);
     ReferenceCountedChannel refCntChannel = new ReferenceCountedChannel(channelConnectionFactory);
     CombinedCache combinedCache = spy(newCombinedCache(refCntChannel, retrier, digestQuerier));
     doAnswer(invocationOnMock -> Futures.immediateFuture(null))
