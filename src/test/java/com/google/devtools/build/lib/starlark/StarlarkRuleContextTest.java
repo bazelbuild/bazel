@@ -2940,14 +2940,15 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     for (String attribute : attributes) {
       scratch.overwriteFile(
           "test/rules.bzl",
+          "MyInfo = provider()",
           "def _rule_impl(ctx):",
           "  pass",
           "def _aspect_impl(target, ctx):",
           "  if ctx.rule.attr.deps:",
           "    dep = ctx.rule.attr.deps[0]",
           "    file = ctx.actions.declare_file('file.txt')",
-          "    foo = dep." + (attribute.startsWith("rule.") ? "" : "ctx.") + attribute,
-          "  return struct(ctx = ctx, rule=ctx.rule)",
+          "    foo = dep[MyInfo]." + (attribute.startsWith("rule.") ? "" : "ctx.") + attribute,
+          "  return MyInfo(ctx = ctx, rule=ctx.rule)",
           "MyAspect = aspect(implementation=_aspect_impl)",
           "my_rule = rule(",
           "  implementation = _rule_impl,",
