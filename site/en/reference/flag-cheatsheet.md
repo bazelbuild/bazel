@@ -157,7 +157,7 @@ builds by default and what gets sandboxed, see our
   <b>Tip:</b> If you think the error might be caused by sandboxing,
   try turning sandboxing off temporarily.
 
-  <p>To do this, add <code>--spawn_strategy=<strong>standalone</strong></code>
+  <p>To do this, add <code>--spawn_strategy=<strong>local</strong></code>
   to your command.</p>
 
 </aside>
