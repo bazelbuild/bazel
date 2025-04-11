@@ -377,10 +377,7 @@ public class RemoteSpawnCacheTest {
     verify(service)
         .downloadOutputs(
             any(), eq(RemoteActionResult.createFromCache(CachedActionResult.remote(actionResult))));
-    RemoteExecutionService remoteExecutionService = verify(service, never());
-    RemoteAction action = any();
-    SpawnResult spawnResult = any();
-    remoteExecutionService.uploadOutputs(action, spawnResult, any(), any());
+    verify(service, never()).uploadOutputs(any(), any(), any(), any());
     assertThat(result.getDigest())
         .isEqualTo(digestUtil.asSpawnLogProto(actionKeyCaptor.getValue()));
     assertThat(result.setupSuccess()).isTrue();
@@ -414,15 +411,9 @@ public class RemoteSpawnCacheTest {
             .setStatus(Status.SUCCESS)
             .setRunnerName("test")
             .build();
-    RemoteExecutionService remoteExecutionService1 = doNothing().when(service);
-    RemoteAction action1 = any();
-    SpawnResult spawnResult1 = any();
-    remoteExecutionService1.uploadOutputs(action1, spawnResult1, any(), any());
+    doNothing().when(service).uploadOutputs(any(), any(), any(), any());
     entry.store(result);
-    RemoteExecutionService remoteExecutionService = verify(service);
-    RemoteAction action = any();
-    SpawnResult spawnResult = any();
-    remoteExecutionService.uploadOutputs(action, spawnResult, any(), any());
+    verify(service).uploadOutputs(any(), any(), any(), any());
   }
 
   @Test
@@ -628,10 +619,7 @@ public class RemoteSpawnCacheTest {
             .setRunnerName("test")
             .build();
     entry.store(result);
-    RemoteExecutionService remoteExecutionService = verify(service, never());
-    RemoteAction action = any();
-    SpawnResult spawnResult = any();
-    remoteExecutionService.uploadOutputs(action, spawnResult, any(), any());
+    verify(service, never()).uploadOutputs(any(), any(), any(), any());
   }
 
   @Test
@@ -655,15 +643,9 @@ public class RemoteSpawnCacheTest {
             .setRunnerName("test")
             .build();
 
-    RemoteExecutionService remoteExecutionService1 = doNothing().when(service);
-    RemoteAction action1 = any();
-    SpawnResult spawnResult1 = any();
-    remoteExecutionService1.uploadOutputs(action1, spawnResult1, any(), any());
+    doNothing().when(service).uploadOutputs(any(), any(), any(), any());
     entry.store(result);
-    RemoteExecutionService remoteExecutionService = verify(service);
-    RemoteAction action = any();
-    SpawnResult spawnResult = eq(result);
-    remoteExecutionService.uploadOutputs(action, spawnResult, any(), any());
+    verify(service).uploadOutputs(any(), eq(result), any(), any());
 
     assertThat(eventHandler.getEvents()).hasSize(1);
     Event evt = eventHandler.getEvents().get(0);
@@ -710,15 +692,9 @@ public class RemoteSpawnCacheTest {
             .setRunnerName("test")
             .build();
 
-    RemoteExecutionService remoteExecutionService1 = doNothing().when(service);
-    RemoteAction action1 = any();
-    SpawnResult spawnResult1 = any();
-    remoteExecutionService1.uploadOutputs(action1, spawnResult1, any(), any());
+    doNothing().when(service).uploadOutputs(any(), any(), any(), any());
     entry.store(result);
-    RemoteExecutionService remoteExecutionService = verify(service);
-    RemoteAction action = any();
-    SpawnResult spawnResult = eq(result);
-    remoteExecutionService.uploadOutputs(action, spawnResult, any(), any());
+    verify(service).uploadOutputs(any(), eq(result), any(), any());
     assertThat(eventHandler.getEvents()).isEmpty(); // no warning is printed.
   }
 
@@ -823,14 +799,13 @@ public class RemoteSpawnCacheTest {
     // deduplicated rather than a cache hit. This is a slight hack, but also avoid introducing
     // concurrency to this test.
     AtomicReference<Runnable> onUploadComplete = new AtomicReference<>();
-    RemoteExecutionService remoteExecutionService1 = doAnswer(
-        invocationOnMock -> {
-          onUploadComplete.set(invocationOnMock.getArgument(2));
-          return null;
-        }).when(remoteExecutionService);
-    RemoteAction action = any();
-    SpawnResult spawnResult = any();
-    remoteExecutionService1.uploadOutputs(action, spawnResult, any(), any());
+    Mockito.doAnswer(
+            invocationOnMock -> {
+              onUploadComplete.set(invocationOnMock.getArgument(2));
+              return null;
+            })
+        .when(remoteExecutionService)
+        .uploadOutputs(any(), any(), any(), any());
 
     // act
     try (CacheHandle firstCacheHandle = cache.lookup(firstSpawn, firstPolicy)) {
@@ -999,14 +974,13 @@ public class RemoteSpawnCacheTest {
     // deduplicated rather than a cache hit. This is a slight hack, but also avoid introducing
     // concurrency to this test.
     AtomicReference<Runnable> onUploadComplete = new AtomicReference<>();
-    RemoteExecutionService remoteExecutionService1 = doAnswer(
+    Mockito.doAnswer(
             invocationOnMock -> {
               onUploadComplete.set(invocationOnMock.getArgument(2));
               return null;
-            }).when(remoteExecutionService);
-    RemoteAction action = any();
-    SpawnResult spawnResult = any();
-    remoteExecutionService1.uploadOutputs(action, spawnResult, any(), any());
+            })
+        .when(remoteExecutionService)
+        .uploadOutputs(any(), any(), any(), any());
 
     // act
     try (CacheHandle firstCacheHandle = cache.lookup(firstSpawn, firstPolicy)) {
@@ -1104,14 +1078,13 @@ public class RemoteSpawnCacheTest {
     // deduplicated rather than a cache hit. This is a slight hack, but also avoid introducing
     // concurrency to this test.
     AtomicReference<Runnable> onUploadComplete = new AtomicReference<>();
-    RemoteExecutionService remoteExecutionService1 = doAnswer(
+    Mockito.doAnswer(
             invocationOnMock -> {
               onUploadComplete.set(invocationOnMock.getArgument(2));
               return null;
-            }).when(remoteExecutionService);
-    RemoteAction action = any();
-    SpawnResult spawnResult = any();
-    remoteExecutionService1.uploadOutputs(action, spawnResult, any(), any());
+            })
+        .when(remoteExecutionService)
+        .uploadOutputs(any(), any(), any(), any());
 
     // act
     try (CacheHandle firstCacheHandle = cache.lookup(firstSpawn, firstPolicy)) {

@@ -256,10 +256,7 @@ public class RemoteSpawnRunnerTest {
     // TODO(olaola): verify that the uploaded action has the doNotCache set.
 
     verify(service, never()).lookupCache(any());
-    RemoteExecutionService remoteExecutionService = verify(service, never());
-    RemoteAction action = any();
-    SpawnResult spawnResult = any();
-    remoteExecutionService.uploadOutputs(action, spawnResult, any(), any());
+    verify(service, never()).uploadOutputs(any(), any(), any(), any());
     verifyNoMoreInteractions(localRunner);
   }
 
@@ -337,10 +334,7 @@ public class RemoteSpawnRunnerTest {
 
     RemoteSpawnRunner runner = spy(newSpawnRunner());
     RemoteExecutionService service = runner.getRemoteExecutionService();
-    RemoteExecutionService remoteExecutionService1 = doNothing().when(service);
-    RemoteAction action1 = any();
-    SpawnResult spawnResult1 = any();
-    remoteExecutionService1.uploadOutputs(action1, spawnResult1, any(), any());
+    doNothing().when(service).uploadOutputs(any(), any(), any(), any());
 
     // Throw an IOException to trigger the local fallback.
     when(executor.executeRemotely(
@@ -366,10 +360,7 @@ public class RemoteSpawnRunnerTest {
     verify(localRunner).exec(eq(spawn), eq(policy));
     verify(runner)
         .execLocallyAndUpload(any(), eq(spawn), eq(policy), /* uploadLocalResults= */ eq(true));
-    RemoteExecutionService remoteExecutionService = verify(service);
-    RemoteAction action = any();
-    SpawnResult spawnResult = eq(res);
-    remoteExecutionService.uploadOutputs(action, spawnResult, any(), any());
+    verify(service).uploadOutputs(any(), eq(res), any(), any());
   }
 
   @Test
@@ -402,10 +393,7 @@ public class RemoteSpawnRunnerTest {
     verify(localRunner).exec(eq(spawn), eq(policy));
     verify(runner)
         .execLocallyAndUpload(any(), eq(spawn), eq(policy), /* uploadLocalResults= */ eq(true));
-    RemoteExecutionService remoteExecutionService = verify(service, never());
-    RemoteAction action = any();
-    SpawnResult spawnResult = any();
-    remoteExecutionService.uploadOutputs(action, spawnResult, any(), any());
+    verify(service, never()).uploadOutputs(any(), any(), any(), any());
   }
 
   @Test
@@ -433,10 +421,7 @@ public class RemoteSpawnRunnerTest {
             any(ExecuteRequest.class),
             any(OperationObserver.class)))
         .thenThrow(IOException.class);
-    RemoteExecutionService remoteExecutionService1 = doNothing().when(service);
-    RemoteAction action1 = any();
-    SpawnResult spawnResult1 = any();
-    remoteExecutionService1.uploadOutputs(action1, spawnResult1, any(), any());
+    doNothing().when(service).uploadOutputs(any(), any(), any(), any());
 
     Spawn spawn = newSimpleSpawn();
     SpawnExecutionContext policy = getSpawnContext(spawn);
@@ -454,10 +439,7 @@ public class RemoteSpawnRunnerTest {
     verify(localRunner).exec(eq(spawn), eq(policy));
     verify(runner)
         .execLocallyAndUpload(any(), eq(spawn), eq(policy), /* uploadLocalResults= */ eq(true));
-    RemoteExecutionService remoteExecutionService = verify(service);
-    RemoteAction action = any();
-    SpawnResult spawnResult = eq(result);
-    remoteExecutionService.uploadOutputs(action, spawnResult, any(), any());
+    verify(service).uploadOutputs(any(), eq(result), any(), any());
     verify(service, never()).downloadOutputs(any(), any());
   }
 
