@@ -75,6 +75,8 @@ EOF
 
   mkdir java
   cat << EOF > java/BUILD
+load("@rules_java//java:java_library.bzl", "java_library")
+
 java_library(
     name = "javalib",
     srcs = ["HelloWorld.java"],
@@ -106,8 +108,12 @@ EOF
 # compatibility between JDK and Javabuilder, and ability to compile desired source.
 # Testing: Javabuilder in target configuration.
 function test_toolchain_java_runtime_set_from_toolchain() {
+  add_rules_java "MODULE.bazel"
+
   mkdir java
   cat << EOF > java/BUILD
+load("@rules_java//java:java_library.bzl", "java_library")
+
 java_library(
     name = "javalib",
     srcs = ["HelloWorld.java"],
@@ -167,6 +173,7 @@ EOF
 
   cat << EOF > java/BUILD
 load(":rule.bzl", "sample_rule")
+load("@rules_java//java:java_library.bzl", "java_library")
 
 java_library(
     name = "javalib",
@@ -250,6 +257,8 @@ EOF
 
   mkdir java
   cat << EOF > java/BUILD
+load("@rules_java//java:java_binary.bzl", "java_binary")
+
 java_binary(
     name = "javabin",
     srcs = ["HelloWorld.java"],
@@ -273,6 +282,8 @@ EOF
 function write_javabase_files() {
   mkdir -p javabase_test
   cat << EOF > javabase_test/BUILD
+load("@rules_java//java:java_binary.bzl", "java_binary")
+
 java_binary(
     name = "a",
     srcs = ["A.java"],
@@ -367,7 +378,7 @@ EOF
 
   mkdir -p foo/bin bar/bin
   cat << EOF > BUILD
-
+load("@rules_java//java/toolchains:java_runtime.bzl", "java_runtime")
 
 java_runtime(
     name = "bar_runtime",

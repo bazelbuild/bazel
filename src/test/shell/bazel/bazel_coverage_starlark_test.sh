@@ -108,7 +108,7 @@ EOF
 
 
 function test_starlark_rule_with_custom_lcov_merger() {
-
+    add_rules_shell "MODULE.bazel"
     cat <<EOF > lcov_merger.sh
 for var in "\$@"
 do
@@ -139,6 +139,7 @@ EOF
 
     cat <<EOF > BUILD
 load(":rules.bzl", "custom_test")
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 
 sh_binary(
     name = "lcov_merger",
@@ -157,7 +158,7 @@ EOF
 }
 
 function test_starlark_rule_with_configuration_field_lcov_merger_coverage_enabled() {
-
+    add_rules_shell "MODULE.bazel"
     cat <<EOF > lcov_merger.sh
 for var in "\$@"
 do
@@ -192,6 +193,7 @@ EOF
 
     cat <<EOF > BUILD
 load(":rules.bzl", "custom_test")
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 
 sh_binary(
     name = "lcov_merger",

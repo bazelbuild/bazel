@@ -49,6 +49,7 @@ msys*|mingw*|cygwin*)
 esac
 
 function setup_test_project() {
+  add_rules_shell "MODULE.bazel"
   mkdir -p validation_actions
 
   cat > validation_actions/defs.bzl <<'EOF'
@@ -109,6 +110,7 @@ load(
     ":defs.bzl",
     "rule_with_implicit_outs_and_validation",
     "rule_with_implicit_and_host_deps")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 
 rule_with_implicit_outs_and_validation(name = "foo0", visibility = ["//visibility:public"])
 rule_with_implicit_outs_and_validation(name = "foo1", visibility = ["//visibility:public"])

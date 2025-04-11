@@ -466,6 +466,7 @@ EOF
 }
 
 function test_test_command_runs_skyfocus() {
+  add_rules_shell "MODULE.bazel"
   local -r pkg=${FUNCNAME[0]}
   mkdir -p ${pkg}
   cat > ${pkg}/in.sh <<EOF
@@ -473,6 +474,7 @@ exit 0
 EOF
   chmod +x ${pkg}/in.sh
   cat > ${pkg}/BUILD <<EOF
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 sh_test(
   name = "g",
   srcs = ["in.sh"],
@@ -486,6 +488,7 @@ EOF
 }
 
 function test_disallowed_commands_after_focus() {
+  add_rules_shell "MODULE.bazel"
   local -r pkg=${FUNCNAME[0]}
   mkdir -p ${pkg}
   cat > ${pkg}/in.sh <<EOF
@@ -493,6 +496,7 @@ exit 0
 EOF
   chmod +x ${pkg}/in.sh
   cat > ${pkg}/BUILD <<EOF
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 sh_test(
   name = "g",
   srcs = ["in.sh"],

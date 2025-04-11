@@ -416,8 +416,10 @@ function test_multiple_commands_different_output_base() {
   # Make sure it runs locally even if Bazel is configured to run actions
   # remotely (which is the case when this test is run at Google), because it
   # must be able to synchronize through the FIFO.
+  add_rules_shell "MODULE.bazel"
   mkdir -p x
   cat > x/BUILD <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 sh_test(name = "x", srcs = ["x.sh"], local = True)
 EOF
 

@@ -130,8 +130,15 @@ EOF
 }
 
 function test_tree_artifact_headers_are_invalidated() {
+  add_rules_shell "MODULE.bazel"
+  add_rules_cc "MODULE.bazel"
+
   mkdir -p "ta_headers"
   cat > "ta_headers/BUILD" <<EOF
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
 load(":mygen.bzl", "mygen")
 
 sh_binary(
@@ -1970,8 +1977,15 @@ EOF
 }
 
 function test_tree_artifact_sources_in_no_deps_library() {
+  add_rules_shell "MODULE.bazel"
+  add_rules_cc "MODULE.bazel"
+
   mkdir -p pkg
   cat > pkg/BUILD <<'EOF'
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
 load("generate.bzl", "generate_source")
 sh_binary(
     name = "generate_tool",
