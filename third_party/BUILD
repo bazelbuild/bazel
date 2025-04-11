@@ -355,7 +355,6 @@ java_library(
     name = "error_prone_annotations",
     exports = [
         "@maven//:com_google_errorprone_error_prone_annotations",
-        "@maven//:com_google_errorprone_error_prone_type_annotations",
     ],
 )
 
