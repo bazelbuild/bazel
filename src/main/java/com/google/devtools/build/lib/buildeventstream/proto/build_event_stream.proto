@@ -174,10 +174,10 @@ message BuildEventId {
   // actions are reported, only the ones that can be considered important;
   // this includes all failed actions).
   message ActionCompletedId {
-    string primary_output = 1;
-    // Optional, the label of the owner of the action, for reference.
-    string label = 2;
-    // Optional, the id of the configuration of the action owner.
+    optional string primary_output = 1;
+    // The label of the owner of the action, for reference.
+    optional string label = 2;
+    // The id of the configuration of the action owner.
     ConfigurationId configuration = 3;
   }
 
