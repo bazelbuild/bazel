@@ -117,6 +117,7 @@ import com.google.devtools.build.lib.remote.util.RxNoGlobalErrorsRule;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.remote.util.Utils.InMemoryOutput;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.TempPathGenerator;
@@ -2325,16 +2326,28 @@ public class RemoteExecutionServiceTest {
   }
 
   @Test
-  public void buildRemoteActionForRemotePersistentWorkers() throws Exception {
+  public void buildRemoteActionForRemotePersistentWorkers(@TestParameter boolean enablePathMapping)
+      throws Exception {
     var input = ActionsTestUtil.createArtifact(artifactRoot, "input");
     fakeFileCache.createScratchInput(input, "value");
     var toolInput = ActionsTestUtil.createArtifact(artifactRoot, "worker_input");
     fakeFileCache.createScratchInput(toolInput, "worker value");
+
+    Artifact toolDat = ActionsTestUtil.createArtifact(artifactRoot, "tool.dat");
+    fakeFileCache.createScratchInput(toolDat, "tool.dat");
+    RunfilesTree runfilesTree =
+        createRunfilesTree("outputs/worker_input.runfiles", ImmutableList.of(toolDat));
+    ActionInput runfilesArtifact =
+        ActionsTestUtil.createRunfilesArtifact(artifactRoot, "outputs/worker_input.runfiles");
+    fakeFileCache.addRunfilesTree(runfilesArtifact, runfilesTree);
+
     Spawn spawn =
         new SpawnBuilder("@flagfile")
             .withExecutionInfo(ExecutionRequirements.SUPPORTS_WORKERS, "1")
-            .withInputs(input, toolInput)
-            .withTool(toolInput)
+            .withInputs(input, toolInput, runfilesArtifact)
+            .withTools(toolInput, runfilesArtifact)
+            .setPathMapper(
+                enablePathMapping ? path -> PathFragment.create("mapped_" + path) : PathMapper.NOOP)
             .build();
     FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
     remoteOptions.markToolInputs = true;
@@ -2350,7 +2363,9 @@ public class RemoteExecutionServiceTest {
                     Platform.Property.newBuilder()
                         .setName("persistentWorkerKey")
                         .setValue(
-                            "628637504c26bb74fb6bb3f60fb7132b3aa574b866db4181770774882a8853e5"))
+                            enablePathMapping
+                                ? "85e3ad12f36ccb7b5eddbfe8f6bc28f57004634c537faac32d33a30b8d456bb8"
+                                : "5b1f31685d47bab5267d65bf671a682a486240ae351d74130a12d452190bd5f3"))
                 .build());
     var merkleTree = remoteAction.getMerkleTree();
     var outputDirectory =
@@ -2374,8 +2389,55 @@ public class RemoteExecutionServiceTest {
             .setNodeProperties(
                 NodeProperties.newBuilder()
                     .addProperties(NodeProperty.newBuilder().setName("bazel_tool_input")));
+    var toolRunfilesDirectoryDigest =
+        Digest.newBuilder()
+            .setHash("d5cf7403c6b6c97f7b404c829a3d70c618412411c4554ed29b0f59815c53d952")
+            .setSizeBytes(79)
+            .build();
+    var toolRunfilesDirectory =
+        DirectoryNode.newBuilder()
+            .setName("worker_input.runfiles")
+            .setDigest(toolRunfilesDirectoryDigest);
     assertThat(outputDirectory)
-        .isEqualTo(Directory.newBuilder().addFiles(inputFile).addFiles(toolFile).build());
+        .isEqualTo(
+            Directory.newBuilder()
+                .addFiles(inputFile)
+                .addFiles(toolFile)
+                .addDirectories(toolRunfilesDirectory)
+                .build());
+    var runfilesDirectory = merkleTree.getDirectoryByDigest(toolRunfilesDirectoryDigest);
+    var runfilesSubdirectoryDigest =
+        Digest.newBuilder()
+            .setHash("2773ed2d89aed9db55b83230eb8c66f56a02884e151009a3b070164bb6800cc8")
+            .setSizeBytes(106)
+            .build();
+    assertThat(runfilesDirectory)
+        .isEqualTo(
+            Directory.newBuilder()
+                .addDirectories(
+                    DirectoryNode.newBuilder()
+                        .setName(TestConstants.WORKSPACE_NAME)
+                        .setDigest(runfilesSubdirectoryDigest))
+                .build());
+    var runfilesSubdirectory = merkleTree.getDirectoryByDigest(runfilesSubdirectoryDigest);
+    assertThat(runfilesSubdirectory)
+        .isEqualTo(
+            Directory.newBuilder()
+                .addFiles(
+                    FileNode.newBuilder()
+                        .setName("tool.dat")
+                        .setDigest(
+                            Digest.newBuilder()
+                                .setHash(
+                                    "968b7e2e112917824f4ea807dbc3adeebc00de2836f98c68418f525295f9a0c1")
+                                .setSizeBytes(8))
+                        .setIsExecutable(true)
+                        .setNodeProperties(
+                            NodeProperties.newBuilder()
+                                .addProperties(
+                                    NodeProperty.newBuilder().setName("bazel_tool_input")))
+                        .build())
+                .build());
 
     // Check that if an non-tool input changes, the persistent worker key does not change.
     fakeFileCache.createScratchInput(input, "value2");
@@ -2386,7 +2448,9 @@ public class RemoteExecutionServiceTest {
                     Platform.Property.newBuilder()
                         .setName("persistentWorkerKey")
                         .setValue(
-                            "628637504c26bb74fb6bb3f60fb7132b3aa574b866db4181770774882a8853e5"))
+                            enablePathMapping
+                                ? "85e3ad12f36ccb7b5eddbfe8f6bc28f57004634c537faac32d33a30b8d456bb8"
+                                : "5b1f31685d47bab5267d65bf671a682a486240ae351d74130a12d452190bd5f3"))
                 .build());
 
     // Check that if a tool input changes, the persistent worker key changes.
@@ -2398,7 +2462,9 @@ public class RemoteExecutionServiceTest {
                     Platform.Property.newBuilder()
                         .setName("persistentWorkerKey")
                         .setValue(
-                            "98e07ff5afc8f4d127e93d326c87c132f89cfd009517422671e6abec2fe05e2b"))
+                            enablePathMapping
+                                ? "6667700b8ff75e77f50c0d6b471e9052c856a21648c8204f0772fc455df6d6dc"
+                                : "63335231cbbf2ff838acdd19da768ce6524e929c4dcedcdce77c822a480fa49b"))
                 .build());
   }
 
@@ -2682,7 +2748,13 @@ public class RemoteExecutionServiceTest {
 
       @Override
       public Map<PathFragment, Artifact> getMapping() {
-        return artifacts.stream().collect(toImmutableMap(Artifact::getExecPath, a -> a));
+        return artifacts.stream()
+            .collect(
+                toImmutableMap(
+                    a ->
+                        PathFragment.create(TestConstants.WORKSPACE_NAME)
+                            .getRelative(a.getRunfilesPath()),
+                    a -> a));
       }
 
       @Override
