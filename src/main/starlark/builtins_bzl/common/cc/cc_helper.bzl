@@ -14,6 +14,7 @@
 
 """Utility functions for C++ rules."""
 
+load(":common/cc/action_names.bzl", "ACTION_NAMES")
 load(":common/cc/cc_common.bzl", "cc_common")
 load(
     ":common/cc/cc_helper_internal.bzl",
@@ -506,23 +507,36 @@ def _get_compilation_contexts_from_deps(deps):
             compilation_contexts.append(dep[CcInfo].compilation_context)
     return compilation_contexts
 
-def _tool_path(cc_toolchain, tool):
-    return cc_toolchain._tool_paths.get(tool, None)
+_TOOL_NAMES_TO_ACTION_NAMES = {
+    "ar": ACTION_NAMES.cpp_link_static_library,
+    "gcc": ACTION_NAMES.c_compile,
+    "ld": ACTION_NAMES.cpp_link_executable,
+    "objcopy": ACTION_NAMES.objcopy_embed_data,
+    "strip": ACTION_NAMES.strip,
+}
 
-def _get_toolchain_global_make_variables(cc_toolchain):
+def _tool_or_action_path(cc_toolchain, feature_configuration, tool):
+    action_name = _TOOL_NAMES_TO_ACTION_NAMES.get(tool, "")
+    if cc_common.action_is_enabled(feature_configuration = feature_configuration, action_name = action_name):
+        return cc_common.get_tool_for_action(feature_configuration = feature_configuration, action_name = action_name)
+    else:
+        return cc_toolchain._tool_paths.get(tool, None)
+
+def _get_toolchain_global_make_variables(feature_configuration, cc_toolchain):
     result = {
-        "CC": _tool_path(cc_toolchain, "gcc"),
-        "AR": _tool_path(cc_toolchain, "ar"),
-        "NM": _tool_path(cc_toolchain, "nm"),
-        "LD": _tool_path(cc_toolchain, "ld"),
-        "STRIP": _tool_path(cc_toolchain, "strip"),
+        "CC": _tool_or_action_path(cc_toolchain, feature_configuration, "gcc"),
+        "AR": _tool_or_action_path(cc_toolchain, feature_configuration, "ar"),
+        "NM": _tool_or_action_path(cc_toolchain, feature_configuration, "nm"),
+        "LD": _tool_or_action_path(cc_toolchain, feature_configuration, "ld"),
+        "STRIP": _tool_or_action_path(cc_toolchain, feature_configuration, "strip"),
         "C_COMPILER": cc_toolchain.compiler,
     }
-    obj_copy_tool = _tool_path(cc_toolchain, "objcopy")
+
+    obj_copy_tool = _tool_or_action_path(cc_toolchain, feature_configuration, "objcopy")
     if obj_copy_tool != None:
         # objcopy is optional in Crostool.
         result["OBJCOPY"] = obj_copy_tool
-    gcov_tool = _tool_path(cc_toolchain, "gcov-tool")
+    gcov_tool = _tool_or_action_path(cc_toolchain, feature_configuration, "gcov-tool")
     if gcov_tool != None:
         # gcovtool is optional in Crostool.
         result["GCOVTOOL"] = gcov_tool
@@ -543,6 +557,7 @@ def _get_toolchain_global_make_variables(cc_toolchain):
         result["ABI"] = abi
 
     result["CROSSTOOLTOP"] = cc_toolchain._crosstool_top_path
+
     return result
 
 _SHARED_LIBRARY_EXTENSIONS = ["so", "dll", "dylib", "wasm"]
@@ -1021,6 +1036,9 @@ def _get_public_hdrs(ctx):
 def _report_invalid_options(cc_toolchain, cpp_config):
     if cpp_config.grte_top() != None and cc_toolchain.sysroot == None:
         fail("The selected toolchain does not support setting --grte_top (it doesn't specify builtin_sysroot).")
+
+def _tool_path(cc_toolchain, tool):
+    return cc_toolchain._tool_paths.get(tool, None)
 
 def _get_coverage_environment(ctx, cc_config, cc_toolchain):
     if not ctx.configuration.coverage_enabled:

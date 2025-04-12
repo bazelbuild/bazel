@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
@@ -29,6 +30,8 @@ import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
 import com.google.devtools.build.lib.packages.util.MockCcSupport;
 import com.google.devtools.build.lib.packages.util.ResourceLoader;
+import com.google.devtools.build.lib.rules.cpp.CcCommon.Language;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.Pair;
 import net.starlark.java.eval.Dict;
@@ -191,7 +194,7 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
         .isEqualTo("toolchain/some/cpp");
   }
 
-  private ImmutableMap<String, String> getMakeVariables(CcToolchainProvider ccToolchainProvider)
+  private ImmutableMap<String, String> getMakeVariables(FeatureConfiguration featureConfiguration, CcToolchainProvider ccToolchainProvider)
       throws Exception {
     StarlarkFunction getMakeVariables =
         (StarlarkFunction)
@@ -202,7 +205,7 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
       StarlarkThread thread = StarlarkThread.createTransient(mu, StarlarkSemantics.DEFAULT);
       Dict<?, ?> makeVarsDict =
           (Dict<?, ?>)
-              Starlark.positionalOnlyCall(thread, getMakeVariables, ccToolchainProvider.getValue());
+              Starlark.positionalOnlyCall(thread, getMakeVariables, FeatureConfigurationForStarlark.from(featureConfiguration), ccToolchainProvider.getValue());
       return ImmutableMap.copyOf(
           Dict.cast(makeVarsDict, String.class, String.class, "make_vars_for_test"));
     }
@@ -250,9 +253,19 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
         "a/cc_toolchain_config.bzl",
         ResourceLoader.readFromResources(
             "com/google/devtools/build/lib/analysis/mock/cc_toolchain_config.bzl"));
-    CcToolchainProvider ccToolchainProvider =
-        getConfiguredTarget("//a:b").get(CcToolchainProvider.PROVIDER);
-    assertThat(getMakeVariables(ccToolchainProvider)).doesNotContainKey("GCOVTOOL");
+
+
+    ConfiguredTarget target = getConfiguredTarget("//a:b");
+    CcToolchainProvider ccToolchainProvider = target.get(CcToolchainProvider.PROVIDER);
+    CppConfiguration cppConfiguration = getRuleContext(target).getFragment(CppConfiguration.class);
+    FeatureConfiguration featureConfiguration =
+        CcCommon.configureFeaturesOrThrowEvalException(
+            /* requestedFeatures= */ ImmutableSet.of(),
+            /* unsupportedFeatures= */ ImmutableSet.of(),
+            Language.CPP,
+            ccToolchainProvider,
+            cppConfiguration);
+    assertThat(getMakeVariables(featureConfiguration, ccToolchainProvider)).doesNotContainKey("GCOVTOOL");
   }
 
   @Test
@@ -297,9 +310,17 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
     useConfiguration(
         "--platforms=" + TestConstants.PLATFORM_LABEL,
         "--host_platform=" + TestConstants.PLATFORM_LABEL);
-    CcToolchainProvider ccToolchainProvider =
-        getConfiguredTarget("//a:b").get(CcToolchainProvider.PROVIDER);
-    assertThat(getMakeVariables(ccToolchainProvider)).containsKey("GCOVTOOL");
+    ConfiguredTarget target = getConfiguredTarget("//a:b");
+    CcToolchainProvider ccToolchainProvider = target.get(CcToolchainProvider.PROVIDER);
+    CppConfiguration cppConfiguration = getRuleContext(target).getFragment(CppConfiguration.class);
+    FeatureConfiguration featureConfiguration =
+        CcCommon.configureFeaturesOrThrowEvalException(
+            /* requestedFeatures= */ ImmutableSet.of(),
+            /* unsupportedFeatures= */ ImmutableSet.of(),
+            Language.CPP,
+            ccToolchainProvider,
+            cppConfiguration);
+    assertThat(getMakeVariables(featureConfiguration, ccToolchainProvider)).containsKey("GCOVTOOL");
   }
 
   @Test
@@ -350,6 +371,139 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
 
     assertThat(instrumentedFilesInfo.getCoverageEnvironment())
         .doesNotContainKey("COVERAGE_GCOV_PATH");
+  }
+
+  /*
+   * Crosstools should define make variables using paths from action_configs if they exist
+   * then fallback to tool_paths
+   */
+  @Test
+  public void testActionConfigMakeVariable() throws Exception {
+    // Crosstool with gcov-tool
+    scratch.file(
+        "a/BUILD",
+        "load(':cc_toolchain_config.bzl', 'cc_toolchain_config')",
+        "filegroup(",
+        "   name='empty')",
+        "cc_toolchain(",
+        "    name = 'b',",
+        "    all_files = ':empty',",
+        "    ar_files = ':empty',",
+        "    as_files = ':empty',",
+        "    compiler_files = ':empty',",
+        "    dwp_files = ':empty',",
+        "    linker_files = ':empty',",
+        "    strip_files = ':empty',",
+        "    objcopy_files = ':empty',",
+        "    toolchain_identifier = 'banana',",
+        "    toolchain_config = ':k8-compiler_config',",
+        ")",
+        CcToolchainConfig.builder()
+            .withToolPaths(
+                Pair.of("gcc", "path-to-gcc-tool"),
+                Pair.of("ar", "ar"),
+                Pair.of("cpp", "cpp"),
+                Pair.of("gcov", "gcov"),
+                Pair.of("ld", "ld"),
+                Pair.of("nm", "nm"),
+                Pair.of("objdump", "objdump"),
+                Pair.of("strip", "strip"))
+            .withActionConfigs(
+                CppActionNames.C_COMPILE,
+                CppActionNames.CPP_LINK_STATIC_LIBRARY,
+                CppActionNames.CPP_LINK_EXECUTABLE,
+                CppActionNames.OBJ_COPY,
+                CppActionNames.STRIP)
+            .build()
+            .getCcToolchainConfigRule());
+    analysisMock.ccSupport().setupCcToolchainConfig(mockToolsConfig, CcToolchainConfig.builder());
+    mockToolsConfig.create(
+        "a/cc_toolchain_config.bzl",
+        ResourceLoader.readFromResources(
+            "com/google/devtools/build/lib/analysis/mock/cc_toolchain_config.bzl"));
+
+
+    ConfiguredTarget target = getConfiguredTarget("//a:b");
+    CcToolchainProvider ccToolchainProvider = target.get(CcToolchainProvider.PROVIDER);
+    CppConfiguration cppConfiguration = getRuleContext(target).getFragment(CppConfiguration.class);
+    FeatureConfiguration featureConfiguration =
+        CcCommon.configureFeaturesOrThrowEvalException(
+            /* requestedFeatures= */ ImmutableSet.of(),
+            /* unsupportedFeatures= */ ImmutableSet.of(),
+            Language.CPP,
+            ccToolchainProvider,
+            cppConfiguration);
+
+    ImmutableMap<String, String> makeVariables = getMakeVariables(featureConfiguration, ccToolchainProvider);
+    // The toolchain will fill in paths for action_configs we ask for with DUMMY_TOOL
+    assertThat(makeVariables).containsEntry("CC", "a/DUMMY_TOOL");
+    assertThat(makeVariables).containsEntry("AR", "a/DUMMY_TOOL");
+    assertThat(makeVariables).containsEntry("LD", "a/DUMMY_TOOL");
+    assertThat(makeVariables).containsEntry("STRIP", "a/DUMMY_TOOL");
+    // The toolchain has a special tool path for OBJCOPY if we ask for that action_config: objcopy_embed_data_tool
+    assertThat(makeVariables).containsEntry("OBJCOPY", "a/objcopy_embed_data_tool");
+  }
+  
+  @Test
+  public void testNoActionConfigMakeVariable() throws Exception {
+    // Crosstool with gcov-tool
+    scratch.file(
+        "a/BUILD",
+        "load(':cc_toolchain_config.bzl', 'cc_toolchain_config')",
+        "filegroup(",
+        "   name='empty')",
+        "cc_toolchain(",
+        "    name = 'b',",
+        "    all_files = ':empty',",
+        "    ar_files = ':empty',",
+        "    as_files = ':empty',",
+        "    compiler_files = ':empty',",
+        "    dwp_files = ':empty',",
+        "    linker_files = ':empty',",
+        "    strip_files = ':empty',",
+        "    objcopy_files = ':empty',",
+        "    toolchain_identifier = 'banana',",
+        "    toolchain_config = ':k8-compiler_config',",
+        ")",
+        CcToolchainConfig.builder()
+            .withToolPaths(
+                Pair.of("gcc", "path-to-gcc-tool"),
+                Pair.of("ar", "ar"),
+                Pair.of("cpp", "cpp"),
+                Pair.of("gcov", "gcov"),
+                Pair.of("ld", "ld"),
+                Pair.of("nm", "nm"),
+                Pair.of("objdump", "objdump"),
+                Pair.of("strip", "strip"))
+            .build()
+            .getCcToolchainConfigRule());
+    analysisMock.ccSupport().setupCcToolchainConfig(mockToolsConfig, CcToolchainConfig.builder());
+    mockToolsConfig.create(
+        "a/cc_toolchain_config.bzl",
+        ResourceLoader.readFromResources(
+            "com/google/devtools/build/lib/analysis/mock/cc_toolchain_config.bzl"));
+
+
+    ConfiguredTarget target = getConfiguredTarget("//a:b");
+    CcToolchainProvider ccToolchainProvider = target.get(CcToolchainProvider.PROVIDER);
+    CppConfiguration cppConfiguration = getRuleContext(target).getFragment(CppConfiguration.class);
+    FeatureConfiguration featureConfiguration =
+        CcCommon.configureFeaturesOrThrowEvalException(
+            /* requestedFeatures= */ ImmutableSet.of(),
+            /* unsupportedFeatures= */ ImmutableSet.of(),
+            Language.CPP,
+            ccToolchainProvider,
+            cppConfiguration);
+
+    ImmutableMap<String, String> makeVariables = getMakeVariables(featureConfiguration, ccToolchainProvider);
+    // We did not define any action_configs so we expect these paths to match the tool_paths
+    assertThat(makeVariables).containsEntry("CC", "a/path-to-gcc-tool");
+    assertThat(makeVariables).containsEntry("AR", "a/ar");
+    assertThat(makeVariables).containsEntry("LD", "a/path-to-gcc-tool");
+    assertThat(makeVariables).containsEntry("STRIP", "a/strip");
+    // objcopy is an optional action_config / tool, and we haven't defined it in the config,
+    // so we don't expect to see the associated environment variable
+    assertThat(makeVariables).doesNotContainKey("OBJCOPY");
   }
 
   // regression test for b/319501294
