@@ -49,8 +49,10 @@ import com.google.devtools.build.lib.exec.util.FakeActionInputFileCache;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import java.io.IOException;
 import net.starlark.java.eval.Module;
 import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.Starlark;
@@ -61,6 +63,7 @@ import net.starlark.java.eval.Tuple;
 import net.starlark.java.syntax.FileOptions;
 import net.starlark.java.syntax.Location;
 import net.starlark.java.syntax.ParserInput;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -69,12 +72,7 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public final class StarlarkCustomCommandLineTest {
 
-  private final ArtifactRoot derivedRoot =
-      ArtifactRoot.asDerivedRoot(
-          new InMemoryFileSystem(DigestHashFunction.SHA256).getPath("/execroot"),
-          RootType.Output,
-          "bin");
-
+  private ArtifactRoot derivedRoot;
   private DerivedArtifact artifact1;
   private DerivedArtifact artifact2;
   private DerivedArtifact artifact3;
@@ -85,7 +83,7 @@ public final class StarlarkCustomCommandLineTest {
 
   @Before
   public void createArtifacts() throws IOException {
-    execRoot = scratch.dir("execroot");
+    Path execRoot = new InMemoryFileSystem(DigestHashFunction.SHA256).getPath("/execroot");
     derivedRoot = ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "bin");
 
     ArtifactRoot derivedRoot2 =
