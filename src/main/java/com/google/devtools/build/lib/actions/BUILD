@@ -138,7 +138,6 @@ java_library(
     deps = [
         ":action_lookup_data",
         ":action_lookup_key",
-        ":arg_chunk",
         ":artifact_owner",
         ":artifacts",
         ":commandline_item",
