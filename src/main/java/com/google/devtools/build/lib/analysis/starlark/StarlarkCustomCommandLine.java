@@ -99,7 +99,8 @@ import net.starlark.java.syntax.Location;
  * function, the string representation is still its {@link Artifact#getExecPathString}, which is not
  * a novel string instance - it is already stored in the {@link Artifact}. This is crucial because
  * for param files (the longest command lines), the preprocessed representation is retained
- * throughout the action's execution.
+ * throughout the action's execution. If {@code map_each} is used, path mapping affects the result
+ * of the callback and thus needs to be applied eagerly.
  *
  * <p>Finally, string formatting and path mapping are applied lazily during iteration over a {@link
  * PreprocessedCommandLine}. When there is no param file, this happens up front during {@link
@@ -122,7 +123,9 @@ import net.starlark.java.syntax.Location;
  * set is flattened and {@link Artifact#expandToCommandLine} is called for each element, but this
  * returns an exec path string instance already stored inside the artifact. {@code format_each} is
  * not yet applied, so no new strings are created. {@link SingleStringArgFormatter#format} is only
- * called during iteration over the {@link PreprocessedCommandLine#arguments}.
+ * called during iteration over the {@link PreprocessedCommandLine#arguments}. If path mapping is
+ * used, the artifact instances are kept around instead and the mapped exec paths strings are only
+ * created during iteration, together with the formatted strings.
  */
 public class StarlarkCustomCommandLine extends CommandLine {
 
