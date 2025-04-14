@@ -68,6 +68,11 @@ public class TypeCheckTest {
         "  x = lambda y: 1",
         "  x(1)",
         "f(None)");
+    ev.exec(
+        "def f(a: None):", //
+        "  x = lambda y=42: 1",
+        "  x(1)",
+        "f(None)");
   }
 
   private <T extends Throwable> StringSubject assertExecThrows(
