@@ -712,7 +712,7 @@ cc_library(
     deps = ["//third_party/llvm/llvm/tools/clang:frontend"],
     # alwayslink as we want to be able to call things in this library at
     # debug time, even if they aren't used anywhere in the code.
-    alwayslink = 1,
+    alwayslink = True,
 )
 </code></pre>
 
