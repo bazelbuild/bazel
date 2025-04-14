@@ -55,6 +55,8 @@ function set_up() {
 module(name="io_bazel")
 EOF
   add_rules_java "MODULE.bazel"
+  add_rules_python "MODULE.bazel"
+  add_rules_shell "MODULE.bazel"
 }
 
 #

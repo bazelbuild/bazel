@@ -38,6 +38,11 @@ public class PythonBlackBoxTest extends AbstractBlackBoxTest {
 
   @Test
   public void testCompileAndRunHelloWorldStub() throws Exception {
+    context()
+        .write(
+            MODULE_DOT_BAZEL,
+            "bazel_dep(name = 'rules_python', version = '0.40.0')");
+
     writeHelloWorldFiles();
 
     BuilderRunner bazel = context().bazel();
@@ -51,7 +56,9 @@ public class PythonBlackBoxTest extends AbstractBlackBoxTest {
   }
 
   private void writeHelloWorldFiles() throws IOException {
-    context().write("python/hello/BUILD", "py_binary(name = 'hello', srcs = ['hello.py'])");
+    context().write("python/hello/BUILD",
+        "load('@rules_python//python:py_binary.bzl', 'py_binary')",
+        "py_binary(name = 'hello', srcs = ['hello.py'])");
     context().write("python/hello/hello.py", String.format("print ('%s')", HELLO));
   }
 }
