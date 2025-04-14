@@ -1,3 +1,175 @@
+## Release 8.2.0 (2025-04-14)
+
+```
+
+Release Notes:
+
+```
+
+## Release 9.0.0-pre.20250402.1 (2025-04-09)
+
+```
+Baseline: 37f66573e0a9716afd5d54e58aaf1692e0dccb11
+```
+
+Important changes:
+
+  - The `config` command now reports which configurations have had
+    the test configuration trimmed.
+  - Stop documenting the vestigial `distribs` attribute.
+
+This release contains contributions from many people at Google, as well as Alberto Cavalcante, Fabian Meumertzheim, Farid Zakaria.
+
+## Release 9.0.0-pre.20250327.3 (2025-04-03)
+
+```
+Baseline: c0dd034180b6e1d0d91497d51c9b537f0965e1bb
+
+Cherry picks:
+
+   + fa6b1b7ec8deb727d437cd6f7f0324bfc7a6d6b8:
+     Reverse a RAM regression introduced by
+     https://github.com/bazelbuild/bazel/commit/7e538803d775929beb3c9a
+     f1cd2e87667d373bbe
+```
+
+This release contains contributions from many people at Google, as well as Fabian Meumertzheim, Jon Shea, Keith Smiley, Pelikan.B, Roman Salvador, Yannic.
+
+## Release 7.6.1 (2025-03-31)
+
+```
+
+Release Notes:
+
+```
+
+## Release 9.0.0-pre.20250324.2 (2025-03-28)
+
+```
+Baseline: 7e538803d775929beb3c9af1cd2e87667d373bbe
+
+Cherry picks:
+
+   + fa6b1b7ec8deb727d437cd6f7f0324bfc7a6d6b8:
+     Reverse a RAM regression introduced by
+     https://github.com/bazelbuild/bazel/commit/7e538803d775929beb3c9a
+     f1cd2e87667d373bbe
+```
+
+Important changes:
+
+  - The new
+    `--@bazel_tools//tools/test:incompatible_use_default_test_toolchai
+    n` flag can be used to have test actions select an execution
+    platform that has all the constraints provided by the target
+    platform instead of always selecting the first available
+    execution platform. This supersedes the
+    `--use_target_platform_for_tests` flag.
+  - `--experimental_downloader_config` is now no longer experimental,
+    and has been renamed to `--downloader_config`. The old flag name
+    can still be used.
+
+This release contains contributions from many people at Google, as well as Benjamin Peterson, Fabian Meumertzheim, Kevin Bernal, Lszl Csomor, tfrench.
+
+## Release 9.0.0-pre.20250317.2 (2025-03-27)
+
+```
+Baseline: 528c2c5e2e7341f9bf538f35077d29dd41988a71
+
+Cherry picks:
+
+   + d02f003a4b818ed2936bc6719204b884aa71e1ff:
+     Prevent concurrent use of the same `CharsetEncoder` in
+     `json.decode`
+```
+
+This release contains contributions from many people at Google, as well as Benjamin Peterson, Fabian Meumertzheim, Zachary Kipping.
+
+## Release 7.6.0 (2025-03-24)
+
+```
+
+Release Notes:
+
+```
+
+## Release 9.0.0-pre.20250311.1 (2025-03-19)
+
+```
+Baseline: c422744caa072c66311a937049504901bc674b7d
+```
+
+This release contains contributions from many people at Google, as well as Fabian Meumertzheim.
+
+## Release 9.0.0-pre.20250307.1 (2025-03-14)
+
+```
+Baseline: 8dbfcfae924b014366a0b47cd26632c5076b51a2
+```
+
+Incompatible changes:
+
+  - The canonical names of repos created with `use_repo_rule` have
+    changed, which may require updating command-line flags such as
+    `--override_repository`.
+
+Important changes:
+
+  - Add `no_toolchain_error` to the `platform` rule, to customize
+    error messages when a required toolchain type cannot be found for
+    that platform.
+  - Flag `--incompatible_remote_use_new_exit_code_for_lost_inputs` is
+    deleted.
+  - None:
+
+This release contains contributions from many people at Google, as well as Aaron Sky, Benjamin Peterson, dependabot[bot], Dmitry Ivankov, Fabian Meumertzheim, jjudd, kxxt, Tobias Werth.
+
+## Release 8.1.1 (2025-02-25)
+
+```
+
+Release Notes:
+
+```
+
+## Release 9.0.0-pre.20250210.1 (2025-02-19)
+
+```
+Baseline: f6cb2fb25c1deee9776eda976be151c598597b35
+```
+
+Incompatible changes:
+
+  - Constraints and toolchain requirements added to the default exec
+    group, for example via the toolchains parameter of the rule
+    function or the exec_compatible_with attribute on all rules, no
+    longer apply to the test exec group, which contains the test
+    action on test rules. Instead, use exec_group_compatible_with to
+    apply constraints and/or define an explicit test exec group with
+    toolchain requirements on test rules that require it.
+
+Important changes:
+
+  - The new exec_group_compatible_with attribute on all rules accepts
+    a dictionary mapping exec group names to lists of additional
+    constraints to request from the exec group's execution platform.
+  - Removes the `--incompatible_enable_cc_test_feature` flag.  The
+    functionality this was intended for was never completed, and is
+    no longer needed.
+  - Added `repository_ctx.original_name`, which contains the original
+    value of the `name` attribute as specified at the repo rule call
+    site.
+  - The new `no_match_error` attribute on `toolchain_type` can be
+    used to show a custom message when no matching toolchain is found
+    for that type, but one is required.
+  - Adds `ctx.rule.var` to allow aspects to get rule-specific
+    variables, and removes rule-specific variables from an aspect's
+    `ctx.var` dict.
+  - LCOV parsing does not break on FN lines including an end line
+    number.
+
+This release contains contributions from many people at Google, as well as Benjamin Peterson, dependabot[bot], Fabian Meumertzheim, Jordan Mele, Jordan Mele, Keith Smiley, Spencer Putt.
+
 ## Release 8.1.0 (2025-02-13)
 
 ```
