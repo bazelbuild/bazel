@@ -75,6 +75,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/packages:configured_attribute_mapper",
         "//src/main/java/com/google/devtools/build/lib/packages:declared_exec_group",
         "//src/main/java/com/google/devtools/build/lib/packages:globber",
+        "//src/main/java/com/google/devtools/build/lib/packages:package_piece_identifier",
         "//src/main/java/com/google/devtools/build/lib/packages:package_specification",
         "//src/main/java/com/google/devtools/build/lib/packages/semantics",
         "//src/main/java/com/google/devtools/build/lib/pkgcache",

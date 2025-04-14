@@ -107,35 +107,35 @@ def fail_impl(name, visibility, **kwargs):
 
     new EqualsTester()
         .addEqualityGroup(
-            new PackagePiece.Identifier(
+            new PackagePieceIdentifier.ForBuildFile(
                 PackageIdentifier.createInMainRepo("test_pkg"),
                 Label.parseCanonical("//test_pkg:BUILD")),
-            new PackagePiece.Identifier(
+            new PackagePieceIdentifier.ForBuildFile(
                 PackageIdentifier.createInMainRepo("test_pkg"),
                 Label.parseCanonical("//test_pkg:BUILD")))
         .addEqualityGroup(
-            new PackagePiece.Identifier(
+            new PackagePieceIdentifier.ForBuildFile(
                 PackageIdentifier.parse("@repo//test_pkg"),
                 Label.parseCanonical("@repo//test_pkg:BUILD")))
         .addEqualityGroup(
-            new PackagePiece.ForMacro.Identifier(
+            new PackagePieceIdentifier.ForMacro(
                 PackageIdentifier.createInMainRepo("test_pkg"),
                 Label.parseCanonical("//test_pkg:my_macro.bzl"),
                 "my_macro",
                 "foo"),
-            new PackagePiece.ForMacro.Identifier(
+            new PackagePieceIdentifier.ForMacro(
                 PackageIdentifier.createInMainRepo("test_pkg"),
                 Label.parseCanonical("//test_pkg:my_macro.bzl"),
                 "my_macro",
                 "foo"))
         .addEqualityGroup(
-            new PackagePiece.ForMacro.Identifier(
+            new PackagePieceIdentifier.ForMacro(
                 PackageIdentifier.createInMainRepo("test_pkg"),
                 Label.parseCanonical("//test_pkg:my_macro.bzl"),
                 "other_macro",
                 "foo"))
         .addEqualityGroup(
-            new PackagePiece.ForMacro.Identifier(
+            new PackagePieceIdentifier.ForMacro(
                 PackageIdentifier.createInMainRepo("test_pkg"),
                 Label.parseCanonical("//test_pkg:my_macro.bzl"),
                 "my_macro",

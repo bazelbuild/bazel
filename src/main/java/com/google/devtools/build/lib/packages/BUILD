@@ -54,6 +54,7 @@ java_library(
             "Globber.java",
             "GlobberUtils.java",
             "LabelPrinter.java",
+            "PackagePieceIdentifier.java",
             "PackageSpecification.java",
             "RuleClassUtils.java",
         ],
@@ -64,6 +65,7 @@ java_library(
         ":globber",
         ":globber_utils",
         ":label_printer",
+        ":package_piece_identifier",
         ":package_specification",
         "//src/main/java/com/google/devtools/build/docgen/annot",
         "//src/main/java/com/google/devtools/build/lib/actions:execution_requirements",
@@ -206,6 +208,16 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/net/starlark/java/eval",
+    ],
+)
+
+java_library(
+    name = "package_piece_identifier",
+    srcs = ["PackagePieceIdentifier.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/util:hash_codes",
+        "//third_party:guava",
     ],
 )
 
