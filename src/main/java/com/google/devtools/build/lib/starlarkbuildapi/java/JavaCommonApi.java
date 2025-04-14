@@ -358,8 +358,7 @@ public interface JavaCommonApi<
                 "Deprecated: You can drop this parameter (host_javabase is provided with "
                     + "java_toolchain)",
             defaultValue = "None",
-            disableWithFlag = BuildLanguageOptions.INCOMPATIBLE_JAVA_COMMON_PARAMETERS,
-            valueWhenDisabled = "None"),
+            disableWithFlag = BuildLanguageOptions.INCOMPATIBLE_JAVA_COMMON_PARAMETERS),
         @Param(
             name = "sourcepath",
             positional = false,
