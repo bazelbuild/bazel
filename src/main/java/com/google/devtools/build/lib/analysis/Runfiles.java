@@ -51,6 +51,7 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.UUID;
 import java.util.function.BiConsumer;
@@ -345,7 +346,7 @@ public final class Runfiles implements RunfilesApi {
    *     entries and elements that live outside the source tree. Null values represent empty input
    *     files.
    */
-  public Map<PathFragment, Artifact> getRunfilesInputs(Artifact repoMappingManifest) {
+  public SortedMap<PathFragment, Artifact> getRunfilesInputs(Artifact repoMappingManifest) {
     return getRunfilesInputs(EnumSet.noneOf(ConflictType.class), null, repoMappingManifest);
   }
 
@@ -358,12 +359,6 @@ public final class Runfiles implements RunfilesApi {
             case NESTED_RUNFILES_TREE -> EventKind.ERROR;
             case PREFIX_CONFLICT ->
                 conflictPolicy == ConflictPolicy.ERROR ? EventKind.ERROR : EventKind.WARNING;
-            default ->
-                switch (conflictPolicy) {
-                  case IGNORE -> throw new IllegalStateException();
-                  default ->
-                      conflictPolicy == ConflictPolicy.ERROR ? EventKind.ERROR : EventKind.WARNING;
-                };
           };
 
       eventHandler.handle(Event.of(kind, location, message));
@@ -380,7 +375,7 @@ public final class Runfiles implements RunfilesApi {
    * @return Map<PathFragment, Artifact> path fragment to artifact, of normal source tree entries
    *     and elements that live outside the source tree. Null values represent empty input files.
    */
-  public Map<PathFragment, Artifact> getRunfilesInputs(
+  public SortedMap<PathFragment, Artifact> getRunfilesInputs(
       BiConsumer<ConflictType, String> receiver, @Nullable Artifact repoMappingManifest) {
     EnumSet<ConflictType> conflictsToReport =
         conflictPolicy == ConflictPolicy.IGNORE
@@ -392,7 +387,7 @@ public final class Runfiles implements RunfilesApi {
     return getRunfilesInputs(conflictsToReport, receiver, repoMappingManifest);
   }
 
-  private Map<PathFragment, Artifact> getRunfilesInputs(
+  private SortedMap<PathFragment, Artifact> getRunfilesInputs(
       EnumSet<ConflictType> conflictSet,
       BiConsumer<ConflictType, String> receiver,
       @Nullable Artifact repoMappingManifest) {
@@ -437,7 +432,7 @@ public final class Runfiles implements RunfilesApi {
   @VisibleForTesting
   static final class ManifestBuilder {
     // Manifest of paths to artifacts. Path fragments are relative to the .runfiles directory.
-    private final Map<PathFragment, Artifact> manifest;
+    private final SortedMap<PathFragment, Artifact> manifest;
     private final PathFragment workspaceName;
     private final boolean legacyExternalRunfiles;
     // Whether we saw the local workspace name in the runfiles. If legacyExternalRunfiles is true,
@@ -477,10 +472,8 @@ public final class Runfiles implements RunfilesApi {
       }
     }
 
-    /**
-     * Returns the manifest, adding the workspaceName directory if it is not already present.
-     */
-    public Map<PathFragment, Artifact> build() {
+    /** Returns the manifest, adding the workspaceName directory if it is not already present. */
+    public SortedMap<PathFragment, Artifact> build() {
       if (!sawWorkspaceName) {
         // If we haven't seen it and we have seen other files, add the workspace name directory.
         // It might not be there if all of the runfiles are from other repos (and then running from

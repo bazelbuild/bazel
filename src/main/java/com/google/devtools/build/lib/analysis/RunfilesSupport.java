@@ -49,6 +49,7 @@ import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.SortedMap;
 import java.util.TreeMap;
 import javax.annotation.Nullable;
 
@@ -87,7 +88,7 @@ public final class RunfilesSupport {
   @VisibleForTesting
   public static class RunfilesTreeImpl implements RunfilesTree {
 
-    private static final WeakReference<Map<PathFragment, Artifact>> NOT_YET_COMPUTED =
+    private static final WeakReference<SortedMap<PathFragment, Artifact>> NOT_YET_COMPUTED =
         new WeakReference<>(null);
 
     private final PathFragment execPath;
@@ -108,7 +109,7 @@ public final class RunfilesSupport {
      * com.google.devtools.build.lib.runtime.GcThrashingDetector} may throw a manual OOM before all
      * soft references are collected. See b/322474776.
      */
-    @Nullable private volatile WeakReference<Map<PathFragment, Artifact>> cachedMapping;
+    @Nullable private volatile WeakReference<SortedMap<PathFragment, Artifact>> cachedMapping;
 
     private final boolean buildRunfileLinks;
     private final RunfileSymlinksMode runfileSymlinksMode;
@@ -145,12 +146,12 @@ public final class RunfilesSupport {
     }
 
     @Override
-    public Map<PathFragment, Artifact> getMapping() {
+    public SortedMap<PathFragment, Artifact> getMapping() {
       if (cachedMapping == null) {
         return runfiles.getRunfilesInputs(repoMappingManifest);
       }
 
-      Map<PathFragment, Artifact> result = cachedMapping.get();
+      SortedMap<PathFragment, Artifact> result = cachedMapping.get();
       if (result != null) {
         return result;
       }

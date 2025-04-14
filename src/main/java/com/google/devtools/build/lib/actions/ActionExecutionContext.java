@@ -43,6 +43,7 @@ import com.google.devtools.common.options.OptionsProvider;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.Map;
+import java.util.SortedMap;
 import javax.annotation.Nullable;
 
 /** A class that groups services in the scope of the action. Like the FileOutErr object. */
@@ -67,7 +68,7 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
     }
 
     @Override
-    public Map<PathFragment, Artifact> getMapping() {
+    public SortedMap<PathFragment, Artifact> getMapping() {
       return wrapped.getMapping();
     }
 
