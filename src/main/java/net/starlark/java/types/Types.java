@@ -59,10 +59,22 @@ public final class Types {
     return env.buildOrThrow();
   }
 
+  // hashCode and equals implementation is a workaround for serialization code that may duplicate
+  // otherwise singletons
   private static final class Any extends StarlarkType {
     @Override
     public String toString() {
       return "Any";
+    }
+
+    @Override
+    public int hashCode() {
+      return Any.class.hashCode();
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      return obj instanceof Any;
     }
   }
 
@@ -71,12 +83,32 @@ public final class Types {
     public String toString() {
       return "None";
     }
+
+    @Override
+    public int hashCode() {
+      return None.class.hashCode();
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      return obj instanceof None;
+    }
   }
 
   private static final class Bool extends StarlarkType {
     @Override
     public String toString() {
       return "bool";
+    }
+
+    @Override
+    public int hashCode() {
+      return Bool.class.hashCode();
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      return obj instanceof Bool;
     }
   }
 
@@ -85,6 +117,16 @@ public final class Types {
     public String toString() {
       return "int";
     }
+
+    @Override
+    public int hashCode() {
+      return Int.class.hashCode();
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      return obj instanceof Int;
+    }
   }
 
   private static final class FloatType extends StarlarkType { // Float clashes with java.lang.Float
@@ -92,12 +134,32 @@ public final class Types {
     public String toString() {
       return "float";
     }
+
+    @Override
+    public int hashCode() {
+      return FloatType.class.hashCode();
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      return obj instanceof Float;
+    }
   }
 
   private static final class Str extends StarlarkType {
     @Override
     public String toString() {
       return "str";
+    }
+
+    @Override
+    public int hashCode() {
+      return Str.class.hashCode();
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      return obj instanceof Str;
     }
   }
 

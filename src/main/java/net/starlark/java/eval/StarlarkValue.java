@@ -14,8 +14,14 @@
 
 package net.starlark.java.eval;
 
+import net.starlark.java.types.StarlarkType;
+import net.starlark.java.types.Types;
+
 /** Base interface for all Starlark values besides boxed Java primitives. */
 public interface StarlarkValue {
+  default StarlarkType getStarlarkType() {
+    return Types.ANY;
+  }
 
   /**
    * Prints an official representation of object x.

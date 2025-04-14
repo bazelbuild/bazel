@@ -60,6 +60,7 @@ java_library(
         "Structure.java",
         "SymbolGenerator.java",
         "Tuple.java",
+        "TypeChecker.java",
     ],
     visibility = ["//src/main/java/net/starlark/java:clients"],
     deps = [

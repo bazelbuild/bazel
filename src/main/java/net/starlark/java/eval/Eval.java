@@ -49,6 +49,7 @@ import net.starlark.java.syntax.Statement;
 import net.starlark.java.syntax.StringLiteral;
 import net.starlark.java.syntax.TokenKind;
 import net.starlark.java.syntax.UnaryOperatorExpression;
+import net.starlark.java.types.StarlarkType;
 
 final class Eval {
 
@@ -174,8 +175,19 @@ final class Eval {
       if (defaults == null) {
         defaults = new Object[nparams - i];
       }
-      defaults[i - (nparams - defaults.length)] =
-          expr == null ? StarlarkFunction.MANDATORY : eval(fr, expr);
+      Object defaultValue = expr == null ? StarlarkFunction.MANDATORY : eval(fr, expr);
+      defaults[i - (nparams - defaults.length)] = defaultValue;
+
+      // Typecheck the default value
+      StarlarkType parameterType = rfn.getFunctionType().getParameterTypeByPos(i);
+      if (!TypeChecker.isValueSubtypeOf(defaultValue, parameterType)) {
+        throw Starlark.errorf(
+            "%s(): parameter '%s' has default value of type '%s', declares '%s'",
+            rfn.getName(),
+            rfn.getParameterNames().get(i),
+            TypeChecker.type(defaultValue),
+            parameterType);
+      }
     }
     if (defaults == null) {
       defaults = EMPTY;
