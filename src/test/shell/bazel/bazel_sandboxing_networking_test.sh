@@ -242,6 +242,7 @@ function test_sandbox_network_access_with_block_network() {
 }
 
 function test_sandbox_can_resolve_own_hostname() {
+  add_rules_java "MODULE.bazel"
   setup_javatest_support
   mkdir -p src/test/java/com/example
   cat > src/test/java/com/example/HostNameTest.java <<'EOF'
@@ -279,6 +280,7 @@ function test_hostname_inside_sandbox_is_localhost_when_using_sandbox_fake_hostn
     return 0
   fi
 
+  add_rules_java "MODULE.bazel"
   setup_javatest_support
   mkdir -p src/test/java/com/example
   cat > src/test/java/com/example/HostNameIsLocalhostTest.java <<'EOF'

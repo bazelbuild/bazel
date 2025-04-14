@@ -55,16 +55,16 @@ esac
 # Java source files version shall match --java_language_version_flag version.
 # Output class files shall be created in corresponding version (JDK 8, class version is 52).
 function test_default_java_toolchain_target_version() {
+  add_rules_java "MODULE.bazel"
   mkdir -p java/main
   cat >java/main/BUILD <<EOF
+load("@rules_java//java:java_binary.bzl", "java_binary")
+load("@bazel_tools//tools/jdk:default_java_toolchain.bzl", "default_java_toolchain")
+
 java_binary(
     name = 'JavaBinary',
     srcs = ['JavaBinary.java'],
     main_class = 'JavaBinary',
-)
-load(
-    "@bazel_tools//tools/jdk:default_java_toolchain.bzl",
-    "default_java_toolchain",
 )
 default_java_toolchain(
   name = "default_toolchain",
@@ -95,8 +95,10 @@ EOF
 # Java source files version shall match --java_language_version_flag version.
 # Output class files shall be created in corresponding version (JDK 11, class version is 55).
 function test_java_language_version_output_classes() {
+  add_rules_java "MODULE.bazel"
   mkdir -p java/main
   cat >java/main/BUILD <<EOF
+load("@rules_java//java:java_binary.bzl", "java_binary")
 java_binary(
     name = 'JavaBinary',
     srcs = ['JavaBinary.java'],
@@ -130,17 +132,18 @@ EOF
 
 # When coverage is requested with no Jacoco configured, an error shall be reported.
 function test_tools_jdk_toolchain_nojacocorunner() {
+  add_rules_java "MODULE.bazel"
   mkdir -p java/main
   cat >java/main/BUILD <<EOF
+load("@rules_java//java:java_binary.bzl", "java_binary")
+load("@bazel_tools//tools/jdk:default_java_toolchain.bzl", "default_java_toolchain")
+
 java_binary(
     name = 'JavaBinary',
     srcs = ['JavaBinary.java'],
     main_class = 'JavaBinary',
 )
-load(
-    "@bazel_tools//tools/jdk:default_java_toolchain.bzl",
-    "default_java_toolchain",
-)
+
 default_java_toolchain(
   name = "default_toolchain",
   jacocorunner = None,
@@ -251,11 +254,15 @@ register_toolchains(
   "//pkg:bootstrap_runtime",
 )
 EOF
+  add_rules_cc "MODULE.bazel"
   mkdir -p pkg
 # Choose a platform with a registered JDK, but for which no registered C++ toolchain can compile, to
 # verify that java_binary doesn't have a mandatory dependency on a C++ toolchain. The particular
 # architecture of the fake registered JDK doesn't matter as it won't be executed.
   cat > pkg/BUILD.bazel <<'EOF'
+load("@rules_java//java:java_binary.bzl", "java_binary")
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+
 constraint_setting(
   name = "exotic_constraint",
 )
@@ -307,8 +314,11 @@ EOF
 }
 
 function test_java_library_compiles_for_any_platform_with_local_jdk() {
+  add_rules_java "MODULE.bazel"
   mkdir -p pkg
   cat > pkg/BUILD.bazel <<'EOF'
+load("@rules_java//java:java_library.bzl", "java_library")
+
 platform(name = "exotic_platform")
 java_library(
   name = "foo",
@@ -330,8 +340,11 @@ EOF
 }
 
 function test_java_library_compiles_for_any_platform_with_remote_jdk() {
+  add_rules_java "MODULE.bazel"
   mkdir -p pkg
   cat > pkg/BUILD.bazel <<'EOF'
+load("@rules_java//java:java_library.bzl", "java_library")
+
 platform(name = "exotic_platform")
 java_library(
   name = "foo",
@@ -353,8 +366,10 @@ EOF
 }
 
 function test_non_executable_java_binary_compiles_for_any_platform_with_local_jdk() {
+  add_rules_java "MODULE.bazel"
   mkdir -p pkg
   cat > pkg/BUILD.bazel <<'EOF'
+load("@rules_java//java:java_binary.bzl", "java_binary")
 platform(name = "exotic_platform")
 java_binary(
   name = "foo",
@@ -379,8 +394,10 @@ EOF
 }
 
 function test_non_executable_java_binary_compiles_for_any_platform_with_remote_jdk() {
+  add_rules_java "MODULE.bazel"
   mkdir -p pkg
   cat > pkg/BUILD.bazel <<'EOF'
+load("@rules_java//java:java_binary.bzl", "java_binary")
 platform(name = "exotic_platform")
 java_binary(
   name = "foo",
@@ -406,8 +423,11 @@ EOF
 }
 
 function test_executable_java_binary_fails_without_runtime_with_local_jdk() {
+  add_rules_java "MODULE.bazel"
   mkdir -p pkg
   cat > pkg/BUILD.bazel <<'EOF'
+load("@rules_java//java:java_binary.bzl", "java_binary")
+
 platform(name = "exotic_platform")
 java_binary(
   name = "foo",
@@ -437,8 +457,11 @@ EOF
 }
 
 function test_executable_java_binary_fails_without_runtime_with_remote_jdk() {
+  add_rules_java "MODULE.bazel"
   mkdir -p pkg
   cat > pkg/BUILD.bazel <<'EOF'
+load("@rules_java//java:java_binary.bzl", "java_binary")
+
 platform(name = "exotic_platform")
 java_binary(
   name = "foo",
