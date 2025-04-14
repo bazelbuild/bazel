@@ -953,6 +953,10 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   // target.
   @Option(
       name = "use_target_platform_for_tests",
+      deprecationWarning =
+          "Tests select an execution platform matching all constraints of the target platform by"
+              + " default. Instead of using this flag, make sure that all test target platform are"
+              + " registered as execution platforms.",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
       effectTags = {OptionEffectTag.EXECUTION},

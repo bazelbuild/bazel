@@ -128,7 +128,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
         """);
     config.create(
         "embedded_tools/tools/jdk/BUILD",
-        """
+"""
 load("@rules_java//java:defs.bzl",
   "java_binary", "java_import", "java_toolchain", "java_runtime")
 load(
@@ -316,7 +316,7 @@ launcher_flag_alias(
 
         bool_flag(
             name = "incompatible_use_default_test_toolchain",
-            build_setting_default = False,
+            build_setting_default = True,
             visibility = ["//visibility:private"],
         )
 
