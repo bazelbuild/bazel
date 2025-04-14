@@ -67,6 +67,8 @@ public class TypeCheckTest {
         "def f(a: None):", //
         "  x = lambda y: 1",
         "  x(1)",
+        "  y = lambda y = 1: 1",
+        "  y(1)",
         "f(None)");
   }
 
