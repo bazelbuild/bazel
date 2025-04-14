@@ -5,7 +5,7 @@ Book: /_book.yaml
 
 {% include "_buttons.html" %}
 
-Bzlmod discovers dependencies by requesting their information from Bazel
+Bazel discovers dependencies by requesting their information from Bazel
 *registries*: databases of Bazel modules. Bazel only supports one type of
 registries — [*index registries*](#index_registry) — local directories or static
 HTTP servers following a specific format.

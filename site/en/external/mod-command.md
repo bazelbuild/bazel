@@ -6,12 +6,11 @@ keywords: Bzlmod
 
 {% include "_buttons.html" %}
 
-The `mod` command, introduced in Bazel 6.3.0, provides a range of tools to help
-the user understand their external dependency graph when Bzlmod is enabled. It
-lets you visualize the dependency graph, find out why a certain module or a
-version of a module is present in the graph, view the repo definitions backing
-modules, inspect usages of module extensions and repos they generate, among
-other functions.
+The `mod` command provides a range of tools to help the user understand their
+external dependency graph. It lets you visualize the dependency graph, find out
+why a certain module or a version of a module is present in the graph, view the
+repo definitions backing modules, inspect usages of module extensions and repos
+they generate, among other functions.
 
 ## Syntax {:#syntax}
 
