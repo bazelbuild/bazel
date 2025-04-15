@@ -17,7 +17,6 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.BuildFailedException;
-import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -205,9 +204,7 @@ public final class SourceDirectoryIntegrationTest extends BuildIntegrationTestCa
   @Test
   public void crossingPackageBoundary_fails() throws Exception {
     FileSystemUtils.touchFile(sourceDir.getRelative("subdir/BUILD"));
-    // TODO(#25834): This should not crash Bazel.
-    assertThrows(IllegalStateException.class, () -> buildTarget("//foo"));
-    BugReport.getAndResetLastCrashingThrowableIfInTest();
+    assertThrows(BuildFailedException.class, () -> buildTarget("//foo"));
     assertContainsEvent(
         "Directory artifact foo/dir crosses package boundary into package rooted at foo/dir/subdir");
   }
