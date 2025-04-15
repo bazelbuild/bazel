@@ -567,20 +567,17 @@ public final class ModCommand implements BlazeCommand {
     }
 
     try (var stdin = CharSource.wrap(buildozerInput).asByteSource(UTF_8).openStream()) {
-      if (write) {
-        new CommandBuilder()
+      var cmd = new CommandBuilder()
             .setWorkingDir(env.getWorkspace())
-            .addArg(modTidyValue.buildozer().getPathString())
-            .addArg("-f")
-            .addArg("-")
-            .build()
-            .executeAsync(stdin, /* killSubprocessOnInterrupt= */ true)
-            .get();
+            .addArg(modTidyValue.buildozer().getPathString());
+      if (write) {
+        cmd.addArg("-f")
+          .addArg("-")
+          .build()
+          .executeAsync(stdin, /* killSubprocessOnInterrupt= */ true)
+          .get();
       } else {
-        var out = new CommandBuilder()
-          .setWorkingDir(env.getWorkspace())
-          .addArg(modTidyValue.buildozer().getPathString())
-          .addArg("-stdout")
+        var out = cmd.addArg("-stdout")
           .addArg("-f")
           .addArg("-")
           .build()
@@ -611,7 +608,7 @@ public final class ModCommand implements BlazeCommand {
 
     return reportAndCreateTidyResult(env, modTidyValue);
   }
-  
+
   private static ImmutableList<String> compareOutputWithFiles(CommandEnvironment env, BazelModTidyValue modTidyValue, String out) {
     ImmutableList<String> filesNeedingFormat = ImmutableList.of();
     Path rootString = env.getWorkspace();
@@ -641,13 +638,12 @@ public final class ModCommand implements BlazeCommand {
       if (!modTidyValue.fixups().isEmpty()) {
         lintErrors += String.format("Files with errors:\n%s",
           modTidyValue.fixups().stream()
-            .map(fixup -> {
-              String extensionId = 
+            .flatMap(fixup -> {
+              String extensionId =
                 fixup.usage().getExtensionBzlFile() + "%" + fixup.usage().getExtensionName();
               return fixup.usage().getProxies().stream()
-                .map(p -> String.format("  %s: %s", p.getLocation().toString(), extensionId))
-                .collect(joining("\n"));
-            }).collect(joining("\n"))) + "\n";
+                .map(p -> String.format("  %s: %s", p.getLocation().toString(), extensionId));
+            }).collect(joining("\n", "", "\n")));
       }
       if (!filesNeedingFormat.isEmpty()) {
         lintErrors += String.format("Files needing format:\n  %s",
