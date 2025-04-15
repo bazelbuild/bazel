@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableSet;
@@ -195,10 +196,18 @@ public final class SourceDirectoryIntegrationTest extends BuildIntegrationTestCa
   }
 
   @Test
-  @Ignore("TODO(#25834)")
   public void danglingSymlinkModified_invalidatesAction() throws Exception {
     FileSystemUtils.ensureSymbolicLink(
         sourceDir.getRelative("dangling_symlink"), PathFragment.create("still_does_not_exist"));
+    assertInvalidatedByBuild();
+  }
+
+  @Test
+  public void danglingSymlinkReplacedWithFile_invalidatesAction() throws Exception {
+    Path danglingSymlink = sourceDir.getRelative("dangling_symlink");
+    String target = danglingSymlink.readSymbolicLink().getPathString();
+    danglingSymlink.delete();
+    FileSystemUtils.writeContent(danglingSymlink, ISO_8859_1, target);
     assertInvalidatedByBuild();
   }
 
