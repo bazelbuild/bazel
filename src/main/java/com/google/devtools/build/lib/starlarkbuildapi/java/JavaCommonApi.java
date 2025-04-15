@@ -90,8 +90,7 @@ public interface JavaCommonApi<
                 "Deprecated: The output jar of the rule. Used to name the resulting source jar. "
                     + "The parameter sets output_source_jar parameter to `{output_jar}-src.jar`."
                     + "Use output_source_jar parameter directly instead.",
-            disableWithFlag = BuildLanguageOptions.INCOMPATIBLE_JAVA_COMMON_PARAMETERS,
-            valueWhenDisabled = "None"),
+            disableWithFlag = BuildLanguageOptions.INCOMPATIBLE_JAVA_COMMON_PARAMETERS),
         @Param(
             name = "output_source_jar",
             positional = false,
@@ -129,8 +128,7 @@ public interface JavaCommonApi<
                 "Deprecated: You can drop this parameter (host_javabase is provided with "
                     + "java_toolchain)",
             defaultValue = "None",
-            disableWithFlag = BuildLanguageOptions.INCOMPATIBLE_JAVA_COMMON_PARAMETERS,
-            valueWhenDisabled = "None"),
+            disableWithFlag = BuildLanguageOptions.INCOMPATIBLE_JAVA_COMMON_PARAMETERS),
       })
   default FileApi packSources(
       StarlarkActionFactoryT actions,
@@ -360,8 +358,7 @@ public interface JavaCommonApi<
                 "Deprecated: You can drop this parameter (host_javabase is provided with "
                     + "java_toolchain)",
             defaultValue = "None",
-            disableWithFlag = BuildLanguageOptions.INCOMPATIBLE_JAVA_COMMON_PARAMETERS,
-            valueWhenDisabled = "None"),
+            disableWithFlag = BuildLanguageOptions.INCOMPATIBLE_JAVA_COMMON_PARAMETERS),
         @Param(
             name = "sourcepath",
             positional = false,

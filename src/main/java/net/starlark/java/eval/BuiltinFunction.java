@@ -41,27 +41,11 @@ public final class BuiltinFunction implements StarlarkCallable {
 
   private final Object obj;
   private final String methodName;
-  @Nullable private final MethodDescriptor desc;
-
-  /**
-   * Constructs a BuiltinFunction for a StarlarkMethod-annotated method of the given name (as seen
-   * by Starlark, not Java).
-   */
-  BuiltinFunction(Object obj, String methodName) {
-    this.obj = obj;
-    this.methodName = methodName;
-    this.desc = null; // computed later
-  }
+  private final MethodDescriptor desc;
 
   /**
    * Constructs a BuiltinFunction for a StarlarkMethod-annotated method (not field) of the given
    * name (as seen by Starlark, not Java).
-   *
-   * <p>This constructor should be used only for ephemeral BuiltinFunction values created
-   * transiently during a call such as {@code x.f()}, when the caller has already looked up the
-   * MethodDescriptor using the same semantics as the thread that will be used in the call. Use the
-   * other (slower) constructor if there is any possibility that the semantics of the {@code x.f}
-   * operation differ from those of the thread used in the call.
    */
   BuiltinFunction(Object obj, String methodName, MethodDescriptor desc) {
     Preconditions.checkArgument(!desc.isStructField());
@@ -73,28 +57,17 @@ public final class BuiltinFunction implements StarlarkCallable {
   @Override
   public Object fastcall(StarlarkThread thread, Object[] positional, Object[] named)
       throws EvalException, InterruptedException {
-    MethodDescriptor desc = getMethodDescriptor(thread.getSemantics());
+    desc.checkEnabled(thread);
     Object[] vector = getArgumentVector(thread, desc, positional, named);
     return desc.call(
         obj instanceof String ? StringModule.INSTANCE : obj, vector, thread.mutability());
-  }
-
-  private MethodDescriptor getMethodDescriptor(StarlarkSemantics semantics) {
-    MethodDescriptor desc = this.desc;
-    if (desc == null) {
-      desc = CallUtils.getAnnotatedMethods(semantics, obj.getClass()).get(methodName);
-      Preconditions.checkArgument(
-          !desc.isStructField(),
-          "BuiltinFunction constructed for MethodDescriptor(structField=True)");
-    }
-    return desc;
   }
 
   /**
    * Returns the StarlarkMethod annotation of this Starlark-callable Java method.
    */
   public StarlarkMethod getAnnotation() {
-    return getMethodDescriptor(StarlarkSemantics.DEFAULT).getAnnotation();
+    return desc.getAnnotation();
   }
 
   @Override
@@ -126,7 +99,6 @@ public final class BuiltinFunction implements StarlarkCallable {
    * StarlarkMethod-annotated Java method.
    *
    * @param thread the Starlark thread for the call
-   * @param loc the location of the call expression, or BUILTIN for calls from Java
    * @param desc descriptor for the StarlarkMethod-annotated method
    * @param positional an array of positional arguments; as an optimization, in simple cases, this
    *     array may be reused as the method's return value
@@ -196,7 +168,7 @@ public final class BuiltinFunction implements StarlarkCallable {
       }
 
       // disabled?
-      if (param.disabledByFlag() != null) {
+      if (!param.isEnabled(thread)) {
         // Skip disabled parameter as if not present at all.
         // The default value will be filled in below.
         continue;
@@ -269,13 +241,12 @@ public final class BuiltinFunction implements StarlarkCallable {
       }
 
       // disabled?
-      String flag = param.disabledByFlag();
-      if (flag != null) {
+      if (!param.isEnabled(thread)) {
         // spill to **kwargs
         if (kwargs == null) {
           throw Starlark.errorf(
               "in call to %s(), parameter '%s' is %s",
-              methodName, param.getName(), disabled(flag, thread.getSemantics()));
+              methodName, param.getName(), param.getDisabledErrorMessage());
         }
 
         // duplicate named argument?
@@ -373,23 +344,6 @@ public final class BuiltinFunction implements StarlarkCallable {
       throw Starlark.errorf(
           "in call to %s(), parameter '%s' got value of type '%s', want '%s'",
           methodName, param.getName(), Starlark.type(value), param.getTypeErrorMessage());
-    }
-  }
-
-  // Returns a phrase meaning "disabled" appropriate to the specified flag.
-  private static String disabled(String flag, StarlarkSemantics semantics) {
-    // If the flag is True, it must be a deprecation flag. Otherwise it's an experimental flag.
-    // TODO(adonovan): is that assumption sound?
-    if (semantics.getBool(flag)) {
-      return String.format(
-          "deprecated and will be removed soon. It may be temporarily re-enabled by setting"
-              + " --%s=false",
-          flag.substring(1)); // remove [+-] prefix
-    } else {
-      return String.format(
-          "experimental and thus unavailable with the current flags. It may be enabled by setting"
-              + " --%s",
-          flag.substring(1)); // remove [+-] prefix
     }
   }
 }
