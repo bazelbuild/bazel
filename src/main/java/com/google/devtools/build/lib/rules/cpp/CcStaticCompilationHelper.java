@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
-
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -78,8 +77,13 @@ public final class CcStaticCompilationHelper {
    * Configures a compile action builder by setting up command line options and auxiliary inputs
    * according to the FDO configuration. This method does nothing If FDO is disabled.
    */
-  private void configureFdoBuildVariables(
-      Map<String, String> variablesBuilder, String fdoInstrument, String csFdoInstrument)
+  private static void configureFdoBuildVariables(
+      CcToolchainProvider ccToolchain,
+      FdoContext fdoContext,
+      FeatureConfiguration featureConfiguration,
+      Map<String, String> variablesBuilder,
+      String fdoInstrument,
+      String csFdoInstrument)
       throws EvalException {
     if (featureConfiguration.isEnabled(CppRuleClasses.FDO_INSTRUMENT)) {
       variablesBuilder.put(
@@ -102,7 +106,7 @@ public final class CcStaticCompilationHelper {
           fdoContext.getPrefetchHintsArtifact().getExecPathString());
     }
 
-    if (shouldPassPropellerProfiles()) {
+    if (shouldPassPropellerProfiles(ccToolchain, fdoContext, featureConfiguration)) {
       if (fdoContext.getPropellerOptimizeInputFile().getCcArtifact() != null) {
         variablesBuilder.put(
             CompileBuildVariables.PROPELLER_OPTIMIZE_CC_PATH.getVariableName(),
@@ -125,7 +129,7 @@ public final class CcStaticCompilationHelper {
     FdoContext.BranchFdoProfile branchFdoProfile = fdoContext.getBranchFdoProfile();
     // Optimization phase
     if (branchFdoProfile != null) {
-      if (!getAuxiliaryFdoInputs().isEmpty()) {
+      if (!getAuxiliaryFdoInputs(ccToolchain, fdoContext, featureConfiguration).isEmpty()) {
         if (featureConfiguration.isEnabled(CppRuleClasses.AUTOFDO)
             || featureConfiguration.isEnabled(CppRuleClasses.XBINARYFDO)) {
           variablesBuilder.put(
@@ -144,7 +148,11 @@ public final class CcStaticCompilationHelper {
   }
 
   /** Returns whether Propeller profiles should be passed to a compile action. */
-  private boolean shouldPassPropellerProfiles() throws EvalException {
+  private static boolean shouldPassPropellerProfiles(
+      CcToolchainProvider ccToolchain,
+      FdoContext fdoContext,
+      FeatureConfiguration featureConfiguration)
+      throws EvalException {
     if (ccToolchain.isToolConfiguration()) {
       // Propeller doesn't make much sense for host builds.
       return false;
@@ -161,13 +169,17 @@ public final class CcStaticCompilationHelper {
   }
 
   /** Returns the auxiliary files that need to be added to the {@link CppCompileAction}. */
-  private NestedSet<Artifact> getAuxiliaryFdoInputs() throws EvalException {
+  private static NestedSet<Artifact> getAuxiliaryFdoInputs(
+      CcToolchainProvider ccToolchain,
+      FdoContext fdoContext,
+      FeatureConfiguration featureConfiguration)
+      throws EvalException {
     NestedSetBuilder<Artifact> auxiliaryInputs = NestedSetBuilder.stableOrder();
 
     if (fdoContext.getPrefetchHintsArtifact() != null) {
       auxiliaryInputs.add(fdoContext.getPrefetchHintsArtifact());
     }
-    if (shouldPassPropellerProfiles()) {
+    if (shouldPassPropellerProfiles(ccToolchain, fdoContext, featureConfiguration)) {
       if (fdoContext.getPropellerOptimizeInputFile().getCcArtifact() != null) {
         auxiliaryInputs.add(fdoContext.getPropellerOptimizeInputFile().getCcArtifact());
       }
@@ -472,7 +484,8 @@ public final class CcStaticCompilationHelper {
    * collectPerFileCopts() which in turn supports the --per_file_copt flag.
    */
   @CanIgnoreReturnValue
-  public CcStaticCompilationHelper addModuleInterfaceSources(Sequence<?> sources) throws EvalException {
+  public CcStaticCompilationHelper addModuleInterfaceSources(Sequence<?> sources)
+      throws EvalException {
     for (Object source : sources) {
       if (source instanceof Artifact sourceArtifact) {
         addModuleInterfaceSource(sourceArtifact, label);
@@ -652,7 +665,8 @@ public final class CcStaticCompilationHelper {
    * "-F"} to the compiler); these are also passed to dependent rules.
    */
   @CanIgnoreReturnValue
-  public CcStaticCompilationHelper addFrameworkIncludeDirs(Iterable<PathFragment> frameworkIncludeDirs) {
+  public CcStaticCompilationHelper addFrameworkIncludeDirs(
+      Iterable<PathFragment> frameworkIncludeDirs) {
     Iterables.addAll(this.frameworkIncludeDirs, frameworkIncludeDirs);
     return this;
   }
@@ -675,7 +689,8 @@ public final class CcStaticCompilationHelper {
 
   /** Signals that this target's module map should not be an input to c++ compile actions. */
   @CanIgnoreReturnValue
-  public CcStaticCompilationHelper setPropagateModuleMapToCompileAction(boolean propagatesModuleMap) {
+  public CcStaticCompilationHelper setPropagateModuleMapToCompileAction(
+      boolean propagatesModuleMap) {
     this.propagateModuleMapToCompileAction = propagatesModuleMap;
     return this;
   }
@@ -861,7 +876,9 @@ public final class CcStaticCompilationHelper {
     return this;
   }
 
-  /** @return whether we want to provide header modules for the current target. */
+  /**
+   * @return whether we want to provide header modules for the current target.
+   */
   private boolean shouldProvideHeaderModules() {
     return featureConfiguration.isEnabled(CppRuleClasses.HEADER_MODULES)
         && (!publicHeaders.isEmpty() || !privateHeaders.isEmpty());
@@ -1168,7 +1185,10 @@ public final class CcStaticCompilationHelper {
     if (bitcodeOutput) {
       Label sourceLabel = source.getLabel();
       result.addLtoBitcodeFile(
-          outputFiles, ltoIndexTreeArtifact, getCopts(sourceArtifact, sourceLabel));
+          outputFiles,
+          ltoIndexTreeArtifact,
+          getCopts(
+              conlyopts, copts, cppConfiguration, cxxopts, semantics, sourceArtifact, sourceLabel));
     }
 
     ActionOwner actionOwner = null;
@@ -1228,7 +1248,14 @@ public final class CcStaticCompilationHelper {
     return flagsBuilder.build();
   }
 
-  private ImmutableList<String> getCopts(Artifact sourceFile, Label sourceLabel) {
+  private static ImmutableList<String> getCopts(
+      ImmutableList<String> conlyopts,
+      ImmutableList<String> copts,
+      CppConfiguration cppConfiguration,
+      ImmutableList<String> cxxopts,
+      CppSemantics semantics,
+      Artifact sourceFile,
+      Label sourceLabel) {
     ImmutableList.Builder<String> coptsList = ImmutableList.builder();
     String sourceFilename = sourceFile.getExecPathString();
     coptsList.addAll(getCoptsFromOptions(cppConfiguration, semantics, sourceFilename));
@@ -1247,7 +1274,7 @@ public final class CcStaticCompilationHelper {
     }
 
     if (sourceFile != null && sourceLabel != null) {
-      coptsList.addAll(collectPerFileCopts(sourceFile, sourceLabel));
+      coptsList.addAll(collectPerFileCopts(cppConfiguration, sourceFile, sourceLabel));
     }
     return coptsList.build();
   }
@@ -1269,7 +1296,8 @@ public final class CcStaticCompilationHelper {
     if (needsFdoBuildVariables && fdoContext.hasArtifacts()) {
       // This modifies the passed-in builder, which is a surprising side-effect, and makes it unsafe
       // to call this method multiple times for the same builder.
-      builder.addMandatoryInputs(getAuxiliaryFdoInputs());
+      builder.addMandatoryInputs(
+          getAuxiliaryFdoInputs(ccToolchain, fdoContext, featureConfiguration));
     }
     CcToolchainVariables parent = needsFdoBuildVariables ? prebuiltParentWithFdo : prebuiltParent;
     // We use the prebuilt parent variables if and only if the passed in cppModuleMap is the
@@ -1289,6 +1317,9 @@ public final class CcStaticCompilationHelper {
       Map<String, String> genericAdditionalBuildVariables = new LinkedHashMap<>();
       if (needsFdoBuildVariables) {
         configureFdoBuildVariables(
+            ccToolchain,
+            fdoContext,
+            featureConfiguration,
             genericAdditionalBuildVariables,
             cppConfiguration.getFdoInstrument(),
             cppConfiguration.getCSFdoInstrument());
@@ -1346,7 +1377,14 @@ public final class CcStaticCompilationHelper {
         dwoFile,
         isUsingFission,
         ltoIndexingFile,
-        getCopts(builder.getSourceFile(), sourceLabel),
+        getCopts(
+            conlyopts,
+            copts,
+            cppConfiguration,
+            cxxopts,
+            semantics,
+            builder.getSourceFile(),
+            sourceLabel),
         builder.getDotdFile(),
         builder.getDiagnosticsFile(),
         usePic,
@@ -1588,12 +1626,12 @@ public final class CcStaticCompilationHelper {
         ruleErrorConsumer,
         label,
         outputCategory,
-        getOutputNameBaseWith(outputName, usePic));
+        getOutputNameBaseWith(ccToolchain, outputName, usePic));
     String gcnoFileName =
         CppHelper.getArtifactNameForCategory(
             ccToolchain,
             ArtifactCategory.COVERAGE_DATA_FILE,
-            getOutputNameBaseWith(outputName, usePic));
+            getOutputNameBaseWith(ccToolchain, outputName, usePic));
 
     Artifact gcnoFile =
         enableCoverage && !cppConfiguration.useLLVMCoverageMapFormat()
@@ -1654,12 +1692,17 @@ public final class CcStaticCompilationHelper {
       }
     }
     if (addObject && bitcodeOutput) {
-      result.addLtoBitcodeFile(objectFile, ltoIndexingFile, getCopts(sourceArtifact, sourceLabel));
+      result.addLtoBitcodeFile(
+          objectFile,
+          ltoIndexingFile,
+          getCopts(
+              conlyopts, copts, cppConfiguration, cxxopts, semantics, sourceArtifact, sourceLabel));
     }
     return objectFile;
   }
 
-  String getOutputNameBaseWith(String base, boolean usePic) throws RuleErrorException {
+  static String getOutputNameBaseWith(CcToolchainProvider ccToolchain, String base, boolean usePic)
+      throws RuleErrorException {
     return usePic
         ? CppHelper.getArtifactNameForCategory(ccToolchain, ArtifactCategory.PIC_FILE, base)
         : base;
@@ -1700,7 +1743,8 @@ public final class CcStaticCompilationHelper {
     return false;
   }
 
-  private ImmutableList<String> collectPerFileCopts(Artifact sourceFile, Label sourceLabel) {
+  private static ImmutableList<String> collectPerFileCopts(
+      CppConfiguration cppConfiguration, Artifact sourceFile, Label sourceLabel) {
     return cppConfiguration.getPerFileCopts().stream()
         .filter(
             perLabelOptions ->
@@ -1752,7 +1796,7 @@ public final class CcStaticCompilationHelper {
     ArtifactCategory category =
         isCFile ? ArtifactCategory.PREPROCESSED_C_SOURCE : ArtifactCategory.PREPROCESSED_CPP_SOURCE;
 
-    String outputArtifactNameBase = getOutputNameBaseWith(outputName, usePic);
+    String outputArtifactNameBase = getOutputNameBaseWith(ccToolchain, outputName, usePic);
 
     CppCompileActionBuilder dBuilder = new CppCompileActionBuilder(builder);
     dBuilder.setOutputs(
