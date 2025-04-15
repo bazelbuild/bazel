@@ -299,7 +299,10 @@ public class MobileInstallCommand implements BlazeCommand {
     }
 
     Path workingDir =
-        env.getDirectories().getOutputPath(env.getWorkspaceName()).getParentDirectory();
+        env.getDirectories()
+            .getOutputPath(env.getWorkspaceName())
+            .getParentDirectory()
+            .devirtualize();
 
     if (mobileInstallOptions.runInClient) {
       deployerRequestRef.set(createExecRequest(env, workingDir, cmdLine.build()));
