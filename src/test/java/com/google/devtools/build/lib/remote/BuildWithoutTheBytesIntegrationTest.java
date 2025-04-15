@@ -414,8 +414,7 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
     var error = assertThrows(BuildFailedException.class, () -> buildTarget("//a:bar"));
 
     // Assert: Exit code is 39
-    assertThat(error).hasMessageThat().contains("Lost inputs no longer available remotely");
-    assertThat(error).hasMessageThat().contains("a/symlinked_foo");
+    assertThat(error).hasMessageThat().contains("lost inputs with digests");
     assertThat(error).hasMessageThat().contains(String.format("%s/%s", hashCode, bytes.length));
     assertThat(error.getDetailedExitCode().getExitCode().getNumericExitCode()).isEqualTo(39);
   }
