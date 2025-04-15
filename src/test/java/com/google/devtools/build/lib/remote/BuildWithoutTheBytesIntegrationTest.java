@@ -358,6 +358,68 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
   }
 
   @Test
+  public void remoteCacheEvictBlobs_whenPrefetchingSymlinkedInput_exitWithCode39()
+      throws Exception {
+    // Arrange: Prepare workspace and populate remote cache
+    writeSymlinkRule();
+    write(
+        "a/BUILD",
+        """
+        load("//:symlink.bzl", "symlink")
+
+        genrule(
+            name = "foo",
+            srcs = ["foo.in"],
+            outs = ["foo.out"],
+            cmd = "cat $(SRCS) > $@",
+        )
+
+        symlink(
+            name = "symlinked_foo",
+            target_artifact = ":foo.out",
+        )
+
+        genrule(
+            name = "bar",
+            srcs = [
+                ":symlinked_foo",
+                "bar.in",
+            ],
+            outs = ["bar.out"],
+            cmd = "cat $(SRCS) > $@",
+            tags = ["no-remote-exec"],
+        )
+        """);
+    write("a/foo.in", "foo");
+    write("a/bar.in", "bar");
+
+    // Populate remote cache
+    buildTarget("//a:bar");
+    var bytes = readContent(getOutputPath("a/foo.out"));
+    var hashCode = getDigestHashFunction().getHashFunction().hashBytes(bytes);
+    getOnlyElement(getArtifacts("//a:symlinked_foo")).getPath().delete();
+    getOutputPath("a/foo.out").delete();
+    getOutputPath("a/bar.out").delete();
+    getOutputBase().getRelative("action_cache").deleteTreesBelow();
+    restartServer();
+
+    // Clean build, foo.out isn't downloaded
+    buildTarget("//a:bar");
+    assertOutputDoesNotExist("a/foo.out");
+    assertOutputsDoNotExist("//a:symlinked_foo");
+
+    // Act: Evict blobs from remote cache and do an incremental build
+    evictAllBlobs();
+    write("a/bar.in", "updated bar");
+    var error = assertThrows(BuildFailedException.class, () -> buildTarget("//a:bar"));
+
+    // Assert: Exit code is 39
+    assertThat(error).hasMessageThat().contains("lost inputs with digests");
+    assertThat(error).hasMessageThat().contains(String.format("%s/%s", hashCode, bytes.length));
+    assertThat(error.getDetailedExitCode().getExitCode().getNumericExitCode()).isEqualTo(39);
+  }
+
+  @Test
   public void remoteCacheEvictBlobs_whenUploadingInput_exitWithCode39() throws Exception {
     // Arrange: Prepare workspace and populate remote cache
     write(
