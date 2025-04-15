@@ -997,7 +997,7 @@ public interface CcModuleApi<
             allowedTypes = {@ParamType(type = Boolean.class)},
             defaultValue = "unbound"),
       })
-  LinkingOutputsT link(
+  default LinkingOutputsT link(
       StarlarkActionFactoryT starlarkActionFactoryApi,
       String name,
       FeatureConfigurationT starlarkFeatureConfiguration,
@@ -1026,7 +1026,9 @@ public interface CcModuleApi<
       Object buildConfig,
       Object emitInterfaceSharedLibrary,
       StarlarkThread thread)
-      throws InterruptedException, EvalException;
+      throws InterruptedException, EvalException {
+    throw new UnsupportedOperationException();
+  }
 
   @StarlarkMethod(
       name = "configure_features",
@@ -2481,7 +2483,7 @@ public interface CcModuleApi<
             allowedTypes = {@ParamType(type = Boolean.class)},
             defaultValue = "unbound"),
       })
-  Tuple createLinkingContextFromCompilationOutputs(
+  default Tuple createLinkingContextFromCompilationOutputs(
       StarlarkActionFactoryT starlarkActionFactoryApi,
       String name,
       FeatureConfigurationT starlarkFeatureConfiguration,
@@ -2499,7 +2501,9 @@ public interface CcModuleApi<
       Object linkedDllNameSuffix,
       Object testOnlyTarget,
       StarlarkThread thread)
-      throws InterruptedException, EvalException;
+      throws InterruptedException, EvalException {
+    throw new UnsupportedOperationException();
+  }
 
   @StarlarkMethod(
       name = "create_debug_context",

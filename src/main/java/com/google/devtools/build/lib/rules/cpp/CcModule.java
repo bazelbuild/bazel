@@ -49,7 +49,6 @@ import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.
 import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.TargetUtils;
-import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.CoptsFilter;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.Language;
@@ -61,7 +60,6 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ActionConfig;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.EnvEntry;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.EnvSet;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Feature;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Flag;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FlagGroup;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FlagSet;
@@ -71,8 +69,6 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.Expandable;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.StringValueParser;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariablesExtension;
 import com.google.devtools.build.lib.rules.cpp.CppActionConfigs.CppPlatform;
-import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
-import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcModuleApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.ExtraLinkTimeLibraryApi;
 import com.google.devtools.build.lib.util.FileTypeSet;
@@ -96,7 +92,6 @@ import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkCallable;
 import net.starlark.java.eval.StarlarkFunction;
-import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.Structure;
@@ -131,9 +126,6 @@ public abstract class CcModule
         CcDebugInfoContext,
         CppModuleMap,
         CcLinkingOutputs> {
-
-  private static final ImmutableList<String> SUPPORTED_OUTPUT_TYPES =
-      ImmutableList.of("executable", "dynamic_library", "archive");
 
   // TODO(bazel-team): This only makes sense for the parameter in cc_common.compile()
   //  additional_include_scanning_roots which is technical debt and should go away.
@@ -1837,103 +1829,6 @@ public abstract class CcModule
     return object != Starlark.NONE ? type.cast(object) : null;
   }
 
-  // LINT.IfChange
-  @Override
-  public Tuple createLinkingContextFromCompilationOutputs(
-      StarlarkActionFactory starlarkActionFactoryApi,
-      String name,
-      FeatureConfigurationForStarlark starlarkFeatureConfiguration,
-      Info starlarkCcToolchainProvider,
-      String language,
-      boolean disallowStaticLibraries,
-      boolean disallowDynamicLibraries,
-      CcCompilationOutputs compilationOutputs,
-      Sequence<?> linkingContextsObjects,
-      Sequence<?> userLinkFlags, // <String> expected
-      // <CcLinkingContext> expected
-      boolean alwayslink,
-      Sequence<?> additionalInputs, // <Artifact> expected
-      Object variablesExtension,
-      Object stamp,
-      Object linkedDllNameSuffix,
-      Object testOnlyTargetObject,
-      StarlarkThread thread)
-      throws InterruptedException, EvalException {
-    isCalledFromStarlarkCcCommon(thread);
-    StarlarkActionFactory actions = starlarkActionFactoryApi;
-    int stampInt = 0;
-    if (stamp != Starlark.UNBOUND) {
-      stampInt = Starlark.toInt(stamp, "stamp");
-    }
-    boolean isStampingEnabled =
-        isStampingEnabled(stampInt, actions.getRuleContext().getConfiguration());
-    CcToolchainProvider ccToolchainProvider =
-        CcToolchainProvider.PROVIDER.wrapOrThrowEvalException(starlarkCcToolchainProvider);
-    FeatureConfigurationForStarlark featureConfiguration =
-        convertFromNoneable(starlarkFeatureConfiguration, null);
-    FdoContext fdoContext = ccToolchainProvider.getFdoContext();
-    LinkTargetType staticLinkTargetType = null;
-    if (alwayslink && !actions.getRuleContext().getRule().getRuleClass().equals("swift_library")) {
-      // TODO(b/202252560): Fix for swift_library's implicit output.
-      staticLinkTargetType = LinkTargetType.ALWAYS_LINK_STATIC_LIBRARY;
-    } else {
-      staticLinkTargetType = LinkTargetType.STATIC_LIBRARY;
-    }
-    List<CcLinkingContext> ccLinkingContexts =
-        Sequence.cast(linkingContextsObjects, CcLinkingContext.class, "linking_contexts");
-    CcLinkingHelper linkingHelper =
-        new CcLinkingHelper(
-                name,
-                CppLinkActionBuilder.newActionConstruction(actions.getRuleContext()),
-                getSemantics(Language.CPP),
-                featureConfiguration.getFeatureConfiguration(),
-                ccToolchainProvider,
-                fdoContext,
-                thread.getSymbolGenerator(),
-                TargetUtils.getExecutionInfo(
-                    actions.getRuleContext().getRule(),
-                    actions.getRuleContext().isAllowTagsPropagation()))
-            .addNonCodeLinkerInputs(
-                Sequence.cast(additionalInputs, Artifact.class, "additional_inputs"))
-            .setShouldCreateStaticLibraries(!disallowStaticLibraries)
-            .addCcLinkingContexts(ccLinkingContexts)
-            .setShouldCreateDynamicLibrary(!disallowDynamicLibraries)
-            .setStaticLinkType(staticLinkTargetType)
-            .setDynamicLinkType(LinkTargetType.NODEPS_DYNAMIC_LIBRARY)
-            .emitInterfaceSharedLibraries(true)
-            .setLinkedDLLNameSuffix(
-                convertFromNoneable(linkedDllNameSuffix, /* defaultValue= */ ""))
-            .setIsStampingEnabled(isStampingEnabled)
-            .setTestOrTestOnlyTarget(convertFromNoneable(testOnlyTargetObject, false))
-            .addLinkopts(Sequence.cast(userLinkFlags, String.class, "user_link_flags"));
-    if (!asDict(variablesExtension).isEmpty()) {
-      linkingHelper.addVariableExtension(new UserVariablesExtension(asDict(variablesExtension)));
-    }
-    try {
-      ImmutableList<LibraryToLink> libraryToLink = ImmutableList.of();
-      CcLinkingOutputs ccLinkingOutputs = linkingHelper.link(compilationOutputs);
-      if (!ccLinkingOutputs.isEmpty()) {
-        LibraryToLink rewrappedForAlwaysLink =
-            ccLinkingOutputs.getLibraryToLink().toBuilder().setAlwayslink(alwayslink).build();
-        ccLinkingOutputs =
-            CcLinkingOutputs.builder()
-                .setExecutable(ccLinkingOutputs.getExecutable())
-                .setLibraryToLink(rewrappedForAlwaysLink)
-                .addAllLtoArtifacts(ccLinkingOutputs.getAllLtoArtifacts())
-                .build();
-        libraryToLink = ImmutableList.of(rewrappedForAlwaysLink);
-      }
-      CcLinkingContext linkingContext =
-          linkingHelper.buildCcLinkingContextFromLibrariesToLink(
-              libraryToLink, CcCompilationContext.EMPTY);
-      return Tuple.of(linkingContext, ccLinkingOutputs);
-    } catch (RuleErrorException e) {
-      throw Starlark.errorf("%s", e.getMessage());
-    }
-  }
-
-  // LINT.ThenChange(//src/main/starlark/builtins_bzl/common/cc/link/create_linking_context_from_compilation_outputs.bzl)
-
   @Override
   public CcDebugInfoContext createCcDebugInfoFromStarlark(
       CcCompilationOutputs ccCompilationOutputs, StarlarkThread thread) throws EvalException {
@@ -2009,22 +1904,6 @@ public abstract class CcModule
     } catch (IllegalArgumentException e) {
       throw Starlark.errorf("%s", e.getMessage());
     }
-  }
-
-  protected void validateOutputType(String outputType) throws EvalException {
-    if (!SUPPORTED_OUTPUT_TYPES.contains(outputType)) {
-      throw Starlark.errorf("Output type '%s' is not supported", outputType);
-    }
-  }
-
-  private static boolean isStampingEnabled(int stamp, BuildConfigurationValue config)
-      throws EvalException {
-    if (stamp == 0 || stamp == 1 || stamp == -1) {
-      return AnalysisUtils.isStampingEnabled(TriState.fromInt(stamp), config);
-    }
-    throw Starlark.errorf(
-        "stamp value %d is not supported, must be 0 (disabled), 1 (enabled), or -1 (default)",
-        stamp);
   }
 
   protected Label getCallerLabel(StarlarkActionFactory actions, String name) throws EvalException {
@@ -2545,148 +2424,6 @@ public abstract class CcModule
   }
 
   // LINT.ThenChange(//src/main/starlark/builtins_bzl/common/cc/compile/compile.bzl:compile)
-
-  // LINT.IfChange
-  @Override
-  public CcLinkingOutputs link(
-      StarlarkActionFactory actions,
-      String name,
-      FeatureConfigurationForStarlark starlarkFeatureConfiguration,
-      Info starlarkCcToolchainProvider,
-      String languageString,
-      String outputType,
-      boolean linkDepsStatically,
-      Object compilationOutputsObject,
-      Sequence<?> linkingContexts,
-      Sequence<?> userLinkFlags,
-      StarlarkInt stamp,
-      Object additionalInputs,
-      Object linkerOutputsObject,
-      Object variablesExtension,
-      Object useTestOnlyFlags,
-      Object neverLinkObject,
-      Object testOnlyTargetObject,
-      Object nativeDepsObject,
-      Object wholeArchiveObject,
-      Object additionalLinkstampDefines,
-      Object alwaysLinkObject,
-      Object onlyForDynamicLibsObject,
-      Object linkedArtifactNameSuffixObject,
-      Object mainOutputObject,
-      Object useShareableArtifactFactory,
-      Object buildConfig,
-      Object emitInterfaceSharedLibrary,
-      StarlarkThread thread)
-      throws InterruptedException, EvalException {
-    // TODO(bazel-team): Rename always_link to alwayslink before delisting. Also it looks like the
-    //  suffix parameter can be removed since we can use `name` for the same thing.
-    isCalledFromStarlarkCcCommon(thread);
-    Language language = parseLanguage(languageString);
-    validateOutputType(outputType);
-    boolean isStampingEnabled =
-        isStampingEnabled(stamp.toInt("stamp"), actions.getRuleContext().getConfiguration());
-    CcToolchainProvider ccToolchainProvider =
-        CcToolchainProvider.PROVIDER.wrapOrThrowEvalException(starlarkCcToolchainProvider);
-    FeatureConfigurationForStarlark featureConfiguration =
-        convertFromNoneable(starlarkFeatureConfiguration, null);
-    Artifact mainOutput = convertFromNoneable(mainOutputObject, null);
-    FdoContext fdoContext = ccToolchainProvider.getFdoContext();
-    LinkTargetType dynamicLinkTargetType = null;
-    LinkTargetType staticLinkTargetType = null;
-    if (language == Language.CPP) {
-      switch (outputType) {
-        case "executable":
-          dynamicLinkTargetType = LinkTargetType.EXECUTABLE;
-          break;
-        case "dynamic_library":
-          dynamicLinkTargetType = LinkTargetType.DYNAMIC_LIBRARY;
-          break;
-        case "archive":
-          throw Starlark.errorf("Language 'c++' does not support 'archive'");
-        default:
-          // fall through
-      }
-    } else if (language == Language.OBJC && outputType.equals("executable")) {
-      dynamicLinkTargetType = LinkTargetType.OBJC_EXECUTABLE;
-    } else if (language == Language.OBJCPP && outputType.equals("executable")) {
-      dynamicLinkTargetType = LinkTargetType.OBJC_EXECUTABLE;
-    } else if (language == Language.OBJC && outputType.equals("archive")) {
-      staticLinkTargetType = LinkTargetType.OBJC_FULLY_LINKED_ARCHIVE;
-    } else {
-      throw Starlark.errorf("Language '%s' does not support %s", language, outputType);
-    }
-    NestedSet<Artifact> additionalInputsSet =
-        additionalInputs instanceof Depset
-            ? Depset.cast(additionalInputs, Artifact.class, "additional_inputs")
-            : NestedSetBuilder.<Artifact>compileOrder()
-                .addAll(Sequence.cast(additionalInputs, Artifact.class, "additional_inputs"))
-                .build();
-    FeatureConfiguration actualFeatureConfiguration =
-        featureConfiguration.getFeatureConfiguration();
-    BuildConfigurationValue buildConfiguration =
-        convertFromNoneable(buildConfig, actions.getRuleContext().getConfiguration());
-    ImmutableList<Artifact> linkerOutputs = asClassImmutableList(linkerOutputsObject);
-    boolean shareableArtifacts = convertFromNoneable(useShareableArtifactFactory, false);
-
-    CcLinkingHelper linkingHelper =
-        new CcLinkingHelper(
-                name,
-                CppLinkActionBuilder.newActionConstruction(
-                    actions.getRuleContext(), buildConfiguration, shareableArtifacts),
-                getSemantics(language),
-                actualFeatureConfiguration,
-                ccToolchainProvider,
-                fdoContext,
-                thread.getSymbolGenerator(),
-                TargetUtils.getExecutionInfo(
-                    actions.getRuleContext().getRule(),
-                    actions.getRuleContext().isAllowTagsPropagation()))
-            .setLinkingMode(linkDepsStatically ? LinkingMode.STATIC : LinkingMode.DYNAMIC)
-            .setIsStampingEnabled(isStampingEnabled)
-            .addTransitiveAdditionalLinkerInputs(additionalInputsSet)
-            .addCcLinkingContexts(
-                Sequence.cast(linkingContexts, CcLinkingContext.class, "linking_contexts"))
-            .addLinkopts(Sequence.cast(userLinkFlags, String.class, "user_link_flags"))
-            .setLinkedArtifactNameSuffix(convertFromNoneable(linkedArtifactNameSuffixObject, ""))
-            .setNeverLink(convertFromNoneable(neverLinkObject, false))
-            // setAlwayslink may be deprecated but we're trying to replicate CcBinary as closely as
-            // possible for the moment.
-            .setAlwayslink(convertFromNoneable(alwaysLinkObject, false))
-            .setTestOrTestOnlyTarget(convertFromNoneable(testOnlyTargetObject, false))
-            .setNativeDeps(convertFromNoneable(nativeDepsObject, false))
-            .setWholeArchive(convertFromNoneable(wholeArchiveObject, false))
-            .addAdditionalLinkstampDefines(asStringImmutableList(additionalLinkstampDefines))
-            .setWillOnlyBeLinkedIntoDynamicLibraries(
-                convertFromNoneable(onlyForDynamicLibsObject, false))
-            .emitInterfaceSharedLibraries(
-                dynamicLinkTargetType == LinkTargetType.DYNAMIC_LIBRARY
-                    && (convertFromNoneable(emitInterfaceSharedLibrary, false)
-                        || actualFeatureConfiguration.isEnabled(CppRuleClasses.TARGETS_WINDOWS))
-                    && CppHelper.useInterfaceSharedLibraries(
-                        ccToolchainProvider.getCppConfiguration(), actualFeatureConfiguration))
-            .setLinkerOutputArtifact(convertFromNoneable(mainOutput, null))
-            .setUseTestOnlyFlags(convertFromNoneable(useTestOnlyFlags, false))
-            .addLinkerOutputs(linkerOutputs);
-    if (staticLinkTargetType != null) {
-      linkingHelper.setShouldCreateDynamicLibrary(false).setStaticLinkType(staticLinkTargetType);
-    } else {
-      linkingHelper.setShouldCreateStaticLibraries(false).setDynamicLinkType(dynamicLinkTargetType);
-    }
-    if (!asDict(variablesExtension).isEmpty()) {
-      linkingHelper.addVariableExtension(new UserVariablesExtension(asDict(variablesExtension)));
-    }
-
-    CcCompilationOutputs compilationOutputs =
-        convertFromNoneable(compilationOutputsObject, /* defaultValue= */ null);
-    try {
-      return linkingHelper.link(
-          compilationOutputs != null ? compilationOutputs : CcCompilationOutputs.EMPTY);
-    } catch (RuleErrorException e) {
-      throw Starlark.errorf("%s", e.getMessage());
-    }
-  }
-
-  // LINT.ThenChange(//src/main/starlark/builtins_bzl/common/cc/link/link.bzl)
 
   @Override
   @SuppressWarnings("unchecked")

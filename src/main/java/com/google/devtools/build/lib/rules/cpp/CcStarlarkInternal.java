@@ -18,6 +18,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 
 import com.google.common.base.Ascii;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -38,6 +39,7 @@ import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.Info;
@@ -709,18 +711,71 @@ public class CcStarlarkInternal implements StarlarkValue {
         @Param(name = "supports_dynamic_linker")
       })
   public StarlarkList<LibraryInput> convertLibraryToLinkListToLinkerInputList(
-      Depset librariesToLink,
+      Depset librariesToLinkDepset,
       boolean staticMode,
       boolean forDynamicLibrary,
       boolean supportsDynamicLinker)
       throws TypeException {
-    return StarlarkList.copyOf(
-        Mutability.IMMUTABLE,
-        CcLinkingHelper.convertLibraryToLinkListToLinkerInputList(
-            librariesToLink.getSet(LibraryToLink.class),
-            staticMode,
-            forDynamicLibrary,
-            supportsDynamicLinker));
+    // LINT.IfChange
+    NestedSet<LibraryToLink> librariesToLink = librariesToLinkDepset.getSet(LibraryToLink.class);
+
+    ImmutableList.Builder<LibraryInput> libraryInputsBuilder = ImmutableList.builder();
+    for (LibraryToLink libraryToLink : librariesToLink.toList()) {
+      LibraryInput staticLibraryInput =
+          libraryToLink.getStaticLibrary() == null ? null : libraryToLink.getStaticLibraryInput();
+      LibraryInput picStaticLibraryInput =
+          libraryToLink.getPicStaticLibrary() == null
+              ? null
+              : libraryToLink.getPicStaticLibraryInput();
+      LibraryInput libraryInputToUse = null;
+      if (staticMode) {
+        if (forDynamicLibrary) {
+          if (picStaticLibraryInput != null) {
+            libraryInputToUse = picStaticLibraryInput;
+          } else if (staticLibraryInput != null) {
+            libraryInputToUse = staticLibraryInput;
+          }
+        } else {
+          if (staticLibraryInput != null) {
+            libraryInputToUse = staticLibraryInput;
+          } else if (picStaticLibraryInput != null) {
+            libraryInputToUse = picStaticLibraryInput;
+          }
+        }
+        if (libraryInputToUse == null) {
+          if (libraryToLink.getInterfaceLibrary() != null) {
+            libraryInputToUse = libraryToLink.getInterfaceLibraryInput();
+          } else if (libraryToLink.getDynamicLibrary() != null) {
+            libraryInputToUse = libraryToLink.getDynamicLibraryInput();
+          }
+        }
+      } else {
+        if (libraryToLink.getInterfaceLibrary() != null) {
+          libraryInputToUse = libraryToLink.getInterfaceLibraryInput();
+        } else if (libraryToLink.getDynamicLibrary() != null) {
+          libraryInputToUse = libraryToLink.getDynamicLibraryInput();
+        }
+        if (libraryInputToUse == null || !supportsDynamicLinker) {
+          if (forDynamicLibrary) {
+            if (picStaticLibraryInput != null) {
+              libraryInputToUse = picStaticLibraryInput;
+            } else if (staticLibraryInput != null) {
+              libraryInputToUse = staticLibraryInput;
+            }
+          } else {
+            if (staticLibraryInput != null) {
+              libraryInputToUse = staticLibraryInput;
+            } else if (picStaticLibraryInput != null) {
+              libraryInputToUse = picStaticLibraryInput;
+            }
+          }
+        }
+      }
+      Preconditions.checkNotNull(libraryInputToUse);
+      libraryInputsBuilder.add(libraryInputToUse);
+    }
+    return StarlarkList.copyOf(Mutability.IMMUTABLE, libraryInputsBuilder.build());
+    // LINT.ThenChange(//src/main/starlark/builtins_bzl/common/cc/link/convert_linker_inputs.bzl)
   }
 
   @StarlarkMethod(

@@ -129,11 +129,7 @@ def _link(
     if emit_interface_shared_library == _UNBOUND:
         emit_interface_shared_library = False
 
-    if cc_toolchain._cpp_configuration.experimental_starlark_linking():
-        link_func = link
-    else:
-        link_func = cc_common_internal.link
-    return link_func(
+    return link(
         actions = actions,
         name = name,
         feature_configuration = feature_configuration,
@@ -577,11 +573,7 @@ def _create_linking_context_from_compilation_outputs(
     if test_only_target == _UNBOUND:
         test_only_target = False
 
-    if cc_toolchain._cpp_configuration.experimental_starlark_linking():
-        linking_func = create_linking_context_from_compilation_outputs
-    else:
-        linking_func = cc_common_internal.create_linking_context_from_compilation_outputs
-    return linking_func(
+    return create_linking_context_from_compilation_outputs(
         actions = actions,
         name = name,
         feature_configuration = feature_configuration,

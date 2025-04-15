@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
-import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.exec.util.FakeActionInputFileCache;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.LibraryToLinkValue;
@@ -50,7 +49,7 @@ import org.junit.runners.JUnit4;
  * presence of certain build variables.
  */
 @RunWith(JUnit4.class)
-public final class LinkCommandLineTest extends BuildViewTestCase {
+public final class LinkCommandLineTest extends LinkBuildVariablesTestCase {
 
   private static CcToolchainVariables.Builder getMockBuildVariables() {
     return getMockBuildVariables(ImmutableList.of());

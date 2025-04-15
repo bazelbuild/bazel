@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.devtools.build.lib.rules.cpp.LinkBuildVariables.LINKER_PARAM_FILE;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -42,6 +41,7 @@ import net.starlark.java.eval.Starlark;
  */
 @Immutable
 public final class LinkCommandLine extends AbstractCommandLine {
+  private static final String LINKER_PARAM_FILE = "linker_param_file";
   private final String actionName;
   private final String forcedToolPath;
   private final CcToolchainVariables variables;
@@ -94,12 +94,12 @@ public final class LinkCommandLine extends AbstractCommandLine {
       throws CommandLineExpansionException {
     ImmutableList.Builder<String> argv = ImmutableList.builder();
     try {
-      if (variables.isAvailable(LINKER_PARAM_FILE.getVariableName())) {
+      if (variables.isAvailable(LINKER_PARAM_FILE)) {
         // Filter out linker_param_file
         String linkerParamFile =
             variables
-                .getVariable(LINKER_PARAM_FILE.getVariableName(), pathMapper)
-                .getStringValue(LINKER_PARAM_FILE.getVariableName(), pathMapper);
+                .getVariable(LINKER_PARAM_FILE, pathMapper)
+                .getStringValue(LINKER_PARAM_FILE, pathMapper);
         argv.addAll(
             featureConfiguration
                 .getCommandLine(actionName, variables, inputMetadataProvider, pathMapper)

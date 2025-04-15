@@ -17,18 +17,13 @@ package com.google.devtools.build.lib.rules.cpp;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.base.Joiner;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.primitives.Ints;
-import com.google.devtools.build.lib.actions.Action;
-import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
-import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.CommandLineLimits;
 import com.google.devtools.build.lib.actions.CommandLines.CommandLineAndParamFileInfo;
 import com.google.devtools.build.lib.actions.CommandLines.ExpandedCommandLines;
@@ -39,31 +34,19 @@ import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.ResourceSetOrBuilder;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
-import com.google.devtools.build.lib.analysis.util.ActionTester;
-import com.google.devtools.build.lib.analysis.util.ActionTester.ActionCombinationFactory;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.exec.util.FakeActionInputFileCache;
-import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
 import com.google.devtools.build.lib.packages.util.MockObjcSupport;
 import com.google.devtools.build.lib.packages.util.ResourceLoader;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
-import com.google.devtools.build.lib.rules.cpp.CppActionConfigs.CppPlatform;
-import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.OS;
-import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
-import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain.EnvEntry;
 import java.io.IOException;
 import java.util.List;
-import net.starlark.java.eval.EvalException;
-import net.starlark.java.eval.StarlarkSemantics;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -80,110 +63,6 @@ public final class CppLinkActionTest extends BuildViewTestCase {
         ResourceLoader.readFromResources(
             TestConstants.RULES_CC_REPOSITORY_EXECROOT + "cc/cc_toolchain_config_lib.bzl"));
     scratch.appendFile("tools/cpp/BUILD");
-  }
-
-  private RuleContext createDummyRuleContext() throws Exception {
-    return view.getRuleContextForTesting(
-        reporter,
-        scratchConfiguredTarget(
-            "dummyRuleContext",
-            "dummyRuleContext",
-            // CppLinkAction creation requires a CcToolchainProvider.
-            "cc_library(name = 'dummyRuleContext')"),
-        new StubAnalysisEnvironment() {
-          @Override
-          public void registerAction(ActionAnalysisMetadata action) {
-            // No-op.
-          }
-
-          @Override
-          public StarlarkSemantics getStarlarkSemantics() {
-            return StarlarkSemantics.DEFAULT;
-          }
-
-          @Override
-          public Artifact.DerivedArtifact getDerivedArtifact(
-              PathFragment rootRelativePath, ArtifactRoot root) {
-            return CppLinkActionTest.this.getDerivedArtifact(
-                rootRelativePath, root, ActionsTestUtil.NULL_ARTIFACT_OWNER);
-          }
-
-          @Override
-          public Artifact.DerivedArtifact getDerivedArtifact(
-              PathFragment rootRelativePath, ArtifactRoot root, boolean contentBasedPaths) {
-            Preconditions.checkArgument(
-                !contentBasedPaths, "C++ tests don't use content-based outputs");
-            return getDerivedArtifact(rootRelativePath, root);
-          }
-        });
-  }
-
-  private static FeatureConfiguration getMockFeatureConfiguration(
-      ImmutableMap<String, String> envVars) {
-    CToolchain.FlagGroup flagGroup =
-        CToolchain.FlagGroup.newBuilder().addFlag("-lcpp_standard_library").build();
-    CToolchain.FlagSet flagSet =
-        CToolchain.FlagSet.newBuilder()
-            .addAction("c++-link-executable")
-            .addFlagGroup(flagGroup)
-            .build();
-    CToolchain.EnvSet.Builder envSet =
-        CToolchain.EnvSet.newBuilder()
-            .addAction("c++-link-executable")
-            .addAction("c++-link-static-library")
-            .addAction("c++-link-dynamic-library")
-            .addAction("c++-link-nodeps-dynamic-library");
-    envVars.forEach(
-        (var, val) -> envSet.addEnvEntry(EnvEntry.newBuilder().setKey(var).setValue(val).build()));
-
-    CToolchain.Feature linkCppStandardLibrary =
-        CToolchain.Feature.newBuilder()
-            .setName("link_cpp_standard_library")
-            .setEnabled(true)
-            .addFlagSet(flagSet)
-            .addEnvSet(envSet.build())
-            .build();
-    CToolchain.Feature archiveParamFile =
-        CToolchain.Feature.newBuilder()
-            .setName(CppRuleClasses.ARCHIVE_PARAM_FILE)
-            .setEnabled(true)
-            .build();
-    ImmutableList<CToolchain.Feature> features =
-        new ImmutableList.Builder<CToolchain.Feature>()
-            .addAll(
-                CppActionConfigs.getLegacyFeatures(
-                    CppPlatform.LINUX,
-                    ImmutableSet.of(),
-                    "dynamic_library_linker_tool",
-                    /* supportsEmbeddedRuntimes= */ true,
-                    /* supportsInterfaceSharedLibraries= */ false))
-            .addAll(CppActionConfigs.getFeaturesToAppearLastInFeaturesList(ImmutableSet.of()))
-            .add(linkCppStandardLibrary)
-            .add(archiveParamFile)
-            .build();
-
-    ImmutableList<CToolchain.ActionConfig> actionConfigs =
-        CppActionConfigs.getLegacyActionConfigs(
-            CppPlatform.LINUX,
-            "gcc_tool",
-            "ar_tool",
-            "strip_tool",
-            /* supportsInterfaceSharedLibraries= */ false,
-            /* existingActionConfigNames= */ ImmutableSet.of());
-
-    try {
-      return CcToolchainTestHelper.buildFeatures(features, actionConfigs)
-          .getFeatureConfiguration(
-              ImmutableSet.of(
-                  "link_cpp_standard_library",
-                  CppRuleClasses.ARCHIVE_PARAM_FILE,
-                  LinkTargetType.EXECUTABLE.getActionName(),
-                  LinkTargetType.NODEPS_DYNAMIC_LIBRARY.getActionName(),
-                  LinkTargetType.DYNAMIC_LIBRARY.getActionName(),
-                  LinkTargetType.STATIC_LIBRARY.getActionName()));
-    } catch (Exception e) {
-      throw new RuntimeException(e);
-    }
   }
 
   public void registerToolchainWithConfig(String... config) throws IOException {
@@ -222,7 +101,7 @@ public final class CppLinkActionTest extends BuildViewTestCase {
         """);
     scratch.file(
         "toolchain/BUILD",
-        """
+"""
 load(":crosstool_rule.bzl", "cc_toolchain_config_rule")
 cc_toolchain_config_rule(name = "toolchain_config")
 filegroup(name = "empty")
@@ -271,7 +150,7 @@ toolchain(name = "toolchain", toolchain = ":cc_toolchain", toolchain_type = '\
             action_name = "c++-link-executable",
             tools = [tool(
                 path = "DUMMY_TOOL",
-                execution_requirements = ["dummy-exec-requirement"],
+                execution_requirements = ["supports-exec-requirement"],
             )],
         )]
         """);
@@ -279,7 +158,7 @@ toolchain(name = "toolchain", toolchain = ":cc_toolchain", toolchain_type = '\
     scratch.file("foo/BUILD", "cc_binary(name = 'foo')");
 
     SpawnAction linkAction = (SpawnAction) Iterables.getOnlyElement(getActions("//foo", "CppLink"));
-    assertThat(linkAction.getExecutionInfo()).containsEntry("dummy-exec-requirement", "");
+    assertThat(linkAction.getExecutionInfo()).containsEntry("supports-exec-requirement", "");
   }
 
   @Test
@@ -478,59 +357,6 @@ toolchain(name = "toolchain", toolchain = ":cc_toolchain", toolchain_type = '\
 
     SpawnAction linkAction = (SpawnAction) Iterables.getOnlyElement(getActions("//foo", "CppLink"));
     assertThat(linkAction.getEffectiveEnvironment(ImmutableMap.of())).containsEntry("foo", "bar");
-  }
-
-  private enum StaticKeyAttributes {
-    OUTPUT_FILE,
-    ENVIRONMENT,
-  }
-
-  /**
-   * This mainly checks that static library links don't have identical keys, and it also compares
-   * them with simple dynamic library links.
-   */
-  @Test
-  public void testComputeKeyStatic() throws Exception {
-    final RuleContext ruleContext = createDummyRuleContext();
-    final PathFragment staticOutputPath = PathFragment.create("dummyRuleContext/output/path.a");
-    final PathFragment dynamicOutputPath = PathFragment.create("dummyRuleContext/output/path.so");
-    final Artifact staticOutputFile = getBinArtifactWithNoOwner(staticOutputPath.getPathString());
-    final Artifact dynamicOutputFile = getBinArtifactWithNoOwner(dynamicOutputPath.getPathString());
-
-    ActionTester.runTest(
-        StaticKeyAttributes.class,
-        new ActionCombinationFactory<StaticKeyAttributes>() {
-
-          @Override
-          public Action generate(ImmutableSet<StaticKeyAttributes> attributes)
-              throws RuleErrorException {
-            try {
-              CcToolchainProvider toolchain = CppHelper.getToolchain(ruleContext);
-              CppLinkActionBuilder builder =
-                  new CppLinkActionBuilder(
-                      CppLinkActionBuilder.newActionConstruction(ruleContext),
-                      attributes.contains(StaticKeyAttributes.OUTPUT_FILE)
-                          ? staticOutputFile
-                          : dynamicOutputFile,
-                      toolchain,
-                      toolchain.getFdoContext(),
-                      getMockFeatureConfiguration(
-                          attributes.contains(StaticKeyAttributes.ENVIRONMENT)
-                              ? ImmutableMap.of("var", "value")
-                              : ImmutableMap.of()),
-                      MockCppSemantics.INSTANCE);
-              builder.setLinkType(
-                  attributes.contains(StaticKeyAttributes.OUTPUT_FILE)
-                      ? LinkTargetType.STATIC_LIBRARY
-                      : LinkTargetType.NODEPS_DYNAMIC_LIBRARY);
-              builder.setLibraryIdentifier("foo");
-              return builder.build();
-            } catch (EvalException | InterruptedException e) {
-              throw new RuleErrorException(e.getMessage());
-            }
-          }
-        },
-        actionKeyContext);
   }
 
   @Test
@@ -743,9 +569,7 @@ toolchain(name = "toolchain", toolchain = ":cc_toolchain", toolchain_type = '\
         MockObjcSupport.darwinX86_64().withFeatures(CppRuleClasses.ARCHIVE_PARAM_FILE));
     invalidatePackages();
     useConfiguration(
-        "--features=archive_param_file",
-        "--platforms=" + MockObjcSupport.DARWIN_X86_64,
-        "--experimental_starlark_linking");
+        "--features=archive_param_file", "--platforms=" + MockObjcSupport.DARWIN_X86_64);
     scratch.file("foo/BUILD", "objc_library(name = 'foo', srcs = ['foo.m'])");
 
     SpawnAction archiveAction =
@@ -802,7 +626,7 @@ toolchain(name = "toolchain", toolchain = ":cc_toolchain", toolchain_type = '\
   @Test
   public void testInterfaceOutputForDynamicLibraryLegacy() throws Exception {
     registerToolchainWithConfig(
-        """
+"""
 features = [
     feature(name = "supports_dynamic_linker", enabled = True),
     feature(name = "supports_interface_shared_libraries", enabled = True),
@@ -859,11 +683,10 @@ action_configs = [action_config(
         .setupCcToolchainConfig(
             mockToolsConfig,
             CcToolchainConfig.builder().withActionConfigs(CppActionNames.OBJC_FULLY_LINK));
-    useConfiguration("--experimental_starlark_linking");
     scratch.file("bazel_internal/test_rules/cc/BUILD");
     scratch.file(
         "bazel_internal/test_rules/cc/link_rule.bzl",
-        """
+"""
 load("@rules_cc//cc:find_cc_toolchain.bzl", "find_cc_toolchain", "use_cc_toolchain")
 def _impl(ctx):
     cc_toolchain = find_cc_toolchain(ctx)
@@ -905,11 +728,10 @@ cc_link_rule = rule(
         .setupCcToolchainConfig(
             mockToolsConfig,
             CcToolchainConfig.builder().withActionConfigs(CppActionNames.OBJC_FULLY_LINK));
-    useConfiguration("--experimental_starlark_linking");
     scratch.file("bazel_internal/test_rules/cc/BUILD");
     scratch.file(
         "bazel_internal/test_rules/cc/link_rule.bzl",
-        """
+"""
 load("@rules_cc//cc:find_cc_toolchain.bzl", "find_cc_toolchain", "use_cc_toolchain")
 def _impl(ctx):
     cc_toolchain = find_cc_toolchain(ctx)
@@ -957,7 +779,7 @@ cc_link_rule = rule(
     scratch.file("bazel_internal/test_rules/cc/BUILD");
     scratch.file(
         "bazel_internal/test_rules/cc/foo.bzl",
-        """
+"""
 load("@rules_cc//cc:find_cc_toolchain.bzl", "find_cc_toolchain", "use_cc_toolchain")
 def _impl(ctx):
     cc_toolchain = find_cc_toolchain(ctx)
@@ -987,7 +809,7 @@ cc_link_rule = rule(
 """);
     scratch.file(
         "foo/BUILD",
-        """
+"""
 load("//bazel_internal/test_rules/cc:foo.bzl", "cc_link_rule")
 cc_link_rule(name = "foo")
 cc_binary(name = "tool")
