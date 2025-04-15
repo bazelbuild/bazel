@@ -217,10 +217,18 @@ public final class SourceDirectoryIntegrationTest extends BuildIntegrationTestCa
   }
 
   @Test
-  @Ignore("TODO(#25834)")
   public void danglingSymlinkModified_invalidatesAction() throws Exception {
     ensureSymbolicLink(
         sourceDir.getRelative("dangling_symlink"), PathFragment.create("still_does_not_exist"));
+    assertInvalidatedByBuild();
+  }
+
+  @Test
+  public void danglingSymlinkReplacedWithFile_invalidatesAction() throws Exception {
+    Path danglingSymlink = sourceDir.getRelative("dangling_symlink");
+    String target = danglingSymlink.readSymbolicLink().getPathString();
+    danglingSymlink.delete();
+    FileSystemUtils.writeContent(danglingSymlink, ISO_8859_1, target);
     assertInvalidatedByBuild();
   }
 

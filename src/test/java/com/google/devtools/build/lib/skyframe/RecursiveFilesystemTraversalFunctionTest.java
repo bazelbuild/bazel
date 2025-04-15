@@ -830,8 +830,7 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
     PathFragment linkTarget = PathFragment.create("non_existent");
     parentOf(link).asPath().createDirectory();
     link.asPath().createSymbolicLink(linkTarget);
-    traverseAndAssertFiles(
-        fileLikeRoot(linkArtifact), danglingSymlink(link, linkTarget, EMPTY_METADATA));
+    traverseAndAssertFiles(fileLikeRoot(linkArtifact), danglingSymlink(link, linkTarget));
   }
 
   @Test
@@ -845,7 +844,7 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
     traverseAndAssertFiles(
         fileLikeRoot(dirArtifact),
         regularFile(file, EMPTY_METADATA),
-        danglingSymlink(link, linkTarget, EMPTY_METADATA));
+        danglingSymlink(link, linkTarget));
   }
 
   @Test
