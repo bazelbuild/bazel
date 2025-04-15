@@ -413,10 +413,12 @@ EOF
   cat > java/proto/my_rule_with_aspect.bzl <<EOF
 load("@rules_java//java/common:java_common.bzl", "java_common")
 load("@rules_java//java/common:java_info.bzl", "JavaInfo")
+
+MyInfo = provider()
 def _my_rule_impl(ctx):
   aspect_java_infos = []
   for dep in ctx.attr.deps:
-    aspect_java_infos += dep.my_aspect_providers
+    aspect_java_infos += dep[MyInfo].my_aspect_providers
   merged_java_info = java_common.merge(aspect_java_infos)
   for jar in merged_java_info.transitive_runtime_jars.to_list():
     print('Transitive runtime jar', jar)
@@ -424,11 +426,9 @@ def _my_rule_impl(ctx):
 def _my_aspect_impl(target, ctx):
   aspect_java_infos = []
   for dep in ctx.rule.attr.deps:
-    aspect_java_infos += dep.my_aspect_providers
+    aspect_java_infos += dep[MyInfo].my_aspect_providers
   aspect_java_infos.append(target[JavaInfo])
-  return struct(
-    my_aspect_providers = aspect_java_infos
-  )
+  return MyInfo(my_aspect_providers = aspect_java_infos)
 
 my_aspect = aspect(
   attr_aspects = ['deps'],

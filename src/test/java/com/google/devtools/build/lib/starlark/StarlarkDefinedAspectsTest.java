@@ -985,8 +985,7 @@ my_rule = rule(
       // expect to fail.
     }
     assertContainsEvent(
-        "Aspect implementation should return a struct, a list, or a provider "
-            + "instance, but got int");
+        "Aspect implementation should return a list, or a provider instance, but got int");
   }
 
   @Test
