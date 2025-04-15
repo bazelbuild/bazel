@@ -167,7 +167,7 @@ public final class ParameterFileWriteAction extends AbstractFileWriteAction {
 
     @Override
     public void writeTo(OutputStream out) throws IOException {
-      ParameterFile.writeParameterFile(out, arguments.arguments(), type);
+      ParameterFile.writeParameterFile(out, arguments.arguments(PathMapper.NOOP), type);
     }
   }
 

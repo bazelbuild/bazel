@@ -138,7 +138,6 @@ java_library(
     deps = [
         ":action_lookup_data",
         ":action_lookup_key",
-        ":arg_chunk",
         ":artifact_owner",
         ":artifacts",
         ":commandline_item",
@@ -168,8 +167,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/java/com/google/devtools/build/lib/profiler",
-        "//src/main/java/com/google/devtools/build/lib/profiler:google-auto-profiler-utils",
         "//src/main/java/com/google/devtools/build/lib/remote:store",
         "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/java/com/google/devtools/build/lib/skyframe:detailed_exceptions",
@@ -211,11 +208,6 @@ java_library(
         "@com_google_protobuf//:protobuf_java",
         "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
     ],
-)
-
-java_library(
-    name = "arg_chunk",
-    srcs = ["ArgChunk.java"],
 )
 
 java_library(
@@ -299,6 +291,7 @@ java_library(
     srcs = [
         "ActionInput.java",
         "ActionKeyContext.java",
+        "ArgChunk.java",
         "Artifact.java",
         "ArtifactCodecs.java",
         "ArtifactFactory.java",
@@ -312,7 +305,6 @@ java_library(
     deps = [
         ":action_lookup_data",
         ":action_lookup_key",
-        ":arg_chunk",
         ":artifact_owner",
         ":commandline_item",
         ":package_roots",
