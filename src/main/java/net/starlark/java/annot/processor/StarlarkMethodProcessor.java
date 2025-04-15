@@ -381,13 +381,10 @@ public class StarlarkMethodProcessor extends AbstractProcessor {
       }
       hasFlag = true;
     }
-    if (hasFlag == paramAnnot.valueWhenDisabled().isEmpty()) {
+    if (hasFlag && paramAnnot.defaultValue().isEmpty()) {
       errorf(
           param,
-          hasFlag
-              ? "Parameter '%s' may be disabled by semantic flag, thus valueWhenDisabled must be"
-                  + " set"
-              : "Parameter '%s' has valueWhenDisabled set, but is always enabled",
+          "Parameter '%s' may be disabled by semantic flag, thus defaultValue must be" + " set",
           paramAnnot.name());
     }
 

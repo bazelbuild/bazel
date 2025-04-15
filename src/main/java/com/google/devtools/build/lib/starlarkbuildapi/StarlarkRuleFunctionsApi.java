@@ -493,7 +493,6 @@ declared.
             named = true,
             positional = false,
             defaultValue = "None",
-            valueWhenDisabled = "None",
             disableWithFlag = BuildLanguageOptions.INCOMPATIBLE_NO_RULE_OUTPUTS_PARAM,
             doc =
                 "This parameter has been deprecated. Migrate rules to use"
