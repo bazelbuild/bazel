@@ -104,4 +104,12 @@ public class RemoteAnalysisCachingOptions extends OptionsBase {
       converter = DurationConverter.class,
       help = "Deadline to use for remote analysis cache operations.")
   public Duration deadline;
+
+  @Option(
+      name = "experimental_analysis_cache_service",
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      help = "Locator for the AnalysisCacheService instance.")
+  public String analysisCacheService;
 }

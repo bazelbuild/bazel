@@ -47,6 +47,7 @@ public interface RemoteAnalysisCachingServicesSupplier {
    *
    * <p>This may entail I/O so it is wrapped in a future.
    */
+  @Nullable // null if remote analysis caching is not enabled
   ListenableFuture<FingerprintValueService> getFingerprintValueService();
 
   /**

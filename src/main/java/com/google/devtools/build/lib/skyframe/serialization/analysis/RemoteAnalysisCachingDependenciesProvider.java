@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.concurrent.RequestBatcher;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
@@ -22,6 +23,7 @@ import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.Re
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions.RemoteAnalysisCacheMode;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.skyframe.SkyKey;
+import com.google.protobuf.ByteString;
 
 /**
  * An interface providing the functionalities used for analysis caching serialization and
@@ -56,6 +58,8 @@ public interface RemoteAnalysisCachingDependenciesProvider {
 
   /** Returns the {@link FingerprintValueService} implementation. */
   FingerprintValueService getFingerprintValueService();
+
+  RequestBatcher<ByteString, ByteString> getAnalysisCacheClient();
 
   void recordRetrievalResult(RetrievalResult retrievalResult, SkyKey key);
 
@@ -99,6 +103,11 @@ public interface RemoteAnalysisCachingDependenciesProvider {
 
     @Override
     public FingerprintValueService getFingerprintValueService() {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public RequestBatcher<ByteString, ByteString> getAnalysisCacheClient() {
       throw new UnsupportedOperationException();
     }
 

@@ -63,6 +63,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.collect.PathFragmentPrefixTrie;
+import com.google.devtools.build.lib.concurrent.RequestBatcher;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.OutputFilter;
@@ -131,6 +132,7 @@ import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.devtools.common.options.RegexPatternOption;
+import com.google.protobuf.ByteString;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -1079,6 +1081,8 @@ public class BuildTool {
     /** Cache lookup parameter requiring integration with external version control. */
     private final Optional<ClientId> snapshot;
 
+    @Nullable private final Future<RequestBatcher<ByteString, ByteString>> analysisCacheClient;
+
     // Non-final because the top level BuildConfigurationValue is determined just before analysis
     // begins in BuildView for the download/deserialization pass, which is later than when this
     // object was created in BuildTool.
@@ -1171,6 +1175,7 @@ public class BuildTool {
           env.getOptions().getOptions(RemoteAnalysisCachingOptions.class),
           this.snapshot.orElse(null));
       this.fingerprintValueServiceFuture = servicesSupplier.getFingerprintValueService();
+      this.analysisCacheClient = servicesSupplier.getAnalysisCacheClient();
     }
 
     private static ObjectCodecs initAnalysisObjectCodecs(
@@ -1257,6 +1262,19 @@ public class BuildTool {
         return fingerprintValueServiceFuture.get(CLIENT_LOOKUP_TIMEOUT_SEC, SECONDS);
       } catch (InterruptedException | ExecutionException | TimeoutException e) {
         throw new IllegalStateException("Unable to initialize fingerprint value service", e);
+      }
+    }
+
+    @Override
+    @Nullable
+    public RequestBatcher<ByteString, ByteString> getAnalysisCacheClient() {
+      if (analysisCacheClient == null) {
+        return null;
+      }
+      try {
+        return analysisCacheClient.get(CLIENT_LOOKUP_TIMEOUT_SEC, SECONDS);
+      } catch (InterruptedException | ExecutionException | TimeoutException e) {
+        throw new IllegalStateException("Unable to initialize analysis cache service", e);
       }
     }
 
