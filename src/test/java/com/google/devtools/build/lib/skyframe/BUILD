@@ -1922,6 +1922,25 @@ java_test(
 )
 
 java_test(
+    name = "SourceDirectoryIntegrationTest",
+    srcs = ["SourceDirectoryIntegrationTest.java"],
+    jvm_flags = [
+        "-DBAZEL_TRACK_SOURCE_DIRECTORIES=1",
+    ],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib:runtime",
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/test/java/com/google/devtools/build/lib/buildtool/util",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
     name = "FileArtifactValueTest",
     timeout = "short",
     srcs = ["FileArtifactValueTest.java"],
