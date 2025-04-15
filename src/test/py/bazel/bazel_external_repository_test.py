@@ -66,23 +66,20 @@ class BazelExternalRepositoryTest(test_base.TestBase):
   def testNewHttpArchive(self):
     ip, port = self._http_server.server_address
     rule_definition = [
-        (
-            'http_archive ='
-            ' use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl",'
-            ' "http_archive")'
-        ),
+        'bazel_dep(name = "rules_python", version = "0.40.0")',
+        'http_archive = use_repo_rule(',
+        '   "@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")',
         'http_archive(',
         '    name = "hello_archive",',
         '    urls = ["http://%s:%s/hello-1.0.0.tar.gz"],' % (ip, port),
-        (
-            '    sha256 = '
-            '"154740b327bcfee5669ef2ce0a04bf0904227a3bfe0fee08a5aaca96ea5a601a",'
-        ),
+        '    sha256 = ',
+        '  "154740b327bcfee5669ef2ce0a04bf0904227a3bfe0fee08a5aaca96ea5a601a",',
         '    strip_prefix = "hello-1.0.0",',
         '    build_file = "@//third_party:hello.BUILD",',
         ')',
     ]
     build_file = [
+        'load("@rules_python//python:py_library.bzl", "py_library")',
         'py_library(',
         '  name = "hello",',
         '  srcs = ["hello.py"],',
@@ -189,20 +186,16 @@ class BazelExternalRepositoryTest(test_base.TestBase):
 
     ip, port = self._http_server.server_address
     rule_definition = [
-        (
-            'http_archive ='
-            ' use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl",'
-            ' "http_archive")'
-        ),
+        'bazel_dep(name = "rules_python", version = "0.40.0")',
+        'http_archive = use_repo_rule(',
+        '   "@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")',
         'http_archive(',
         '    name = "sparse_archive",',
         '    urls = ["http://%s:%s/sparse_archive.tar"],' % (ip, port),
         '    build_file = "@//:sparse_archive.BUILD",',
         '    sha256 = ',
-        (
-            '  "a1a2b2ce4acd51a8cc1ab80adce6f134ac73e885219911a960a42000e312bb65",'
-            ')'
-        ),
+        '  "a1a2b2ce4acd51a8cc1ab80adce6f134ac73e885219911a960a42000e312bb65",',
+        ')',
     ]
     self.ScratchFile('MODULE.bazel', rule_definition)
     self.ScratchFile(
@@ -224,13 +217,12 @@ class BazelExternalRepositoryTest(test_base.TestBase):
     self.ScratchFile(
         'BUILD',
         [
+            'load("@rules_python//python:py_test.bzl", "py_test")',
             'py_test(',
             '    name = "test",',
             '    srcs = ["test.py"],',
-            (
-                '    args = ["$(rlocationpath @sparse_archive//:sparse_file)"],'
-                '    data = ['
-            ),
+            '    args = ["$(rlocationpath @sparse_archive//:sparse_file)"],',
+            '    data = [',
             '        "@sparse_archive//:sparse_file",',
             '        "@bazel_tools//tools/python/runfiles",',
             '    ],)',
@@ -260,10 +252,11 @@ class BazelExternalRepositoryTest(test_base.TestBase):
   def testNewLocalRepositoryNoticesFileChangeInRepoRoot(self):
     """Regression test for https://github.com/bazelbuild/bazel/issues/7063."""
     rule_definition = [
+        'bazel_dep(name = "rules_python", version = "0.40.0")',
+        'new_local_repository = use_repo_rule(',
         (
-            'new_local_repository ='
-            ' use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl",'
-            ' "new_local_repository")'
+            '   "@bazel_tools//tools/build_defs/repo:local.bzl",'
+            '   "new_local_repository")'
         ),
         'new_local_repository(',
         '    name = "r",',
@@ -273,11 +266,15 @@ class BazelExternalRepositoryTest(test_base.TestBase):
     ]
     self.ScratchFile('MODULE.bazel', rule_definition)
     self._CreatePyWritingStarlarkRule('hello!')
-    self.ScratchFile('BUILD', [
-        'load("@r//:foo.bzl", "gen_py")',
-        'gen_py(name = "gen")',
-        'py_binary(name = "bin", srcs = [":gen"], main = "gen.py")',
-    ])
+    self.ScratchFile(
+        'BUILD',
+        [
+            'load("@r//:foo.bzl", "gen_py")',
+            'load("@rules_python//python:py_binary.bzl", "py_binary")',
+            'gen_py(name = "gen")',
+            'py_binary(name = "bin", srcs = [":gen"], main = "gen.py")',
+        ],
+    )
 
     _, stdout, _ = self.RunBazel(['run', '//:bin'])
     self.assertIn('hello!', os.linesep.join(stdout))
@@ -294,11 +291,9 @@ class BazelExternalRepositoryTest(test_base.TestBase):
     self.ScratchFile(
         'my_repo/MODULE.bazel',
         [
-            (
-                'local_repository ='
-                ' use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl",'
-                ' "local_repository")'
-            ),
+            'local_repository = use_repo_rule(',
+            '    "@bazel_tools//tools/build_defs/repo:local.bzl",',
+            '    "local_repository")',
             'local_repository(name = "other_repo", path="../other_repo")',
         ],
     )

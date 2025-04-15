@@ -185,8 +185,10 @@ EOF
 }
 
 function test_residue_in_run_bep(){
+  add_rules_shell "MODULE.bazel"
   mkdir -p a
   cat > a/BUILD <<'EOF'
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 sh_binary(
     name = 'arg',
     srcs = ['arg.sh'],
@@ -221,8 +223,10 @@ EOF
 }
 
 function test_no_residue_in_run_bep(){
+  add_rules_shell "MODULE.bazel"
   mkdir -p a
   cat > a/BUILD <<'EOF'
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 sh_binary(
     name = 'arg',
     srcs = ['arg.sh'],
@@ -261,8 +265,10 @@ EOF
 
 
 function test_residue_in_run_test_bep(){
+  add_rules_shell "MODULE.bazel"
   mkdir -p a
   cat > a/BUILD <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 sh_test(
     name = 'arg',
     srcs = ['arg_test.sh'],
@@ -297,8 +303,10 @@ EOF
 }
 
 function test_no_residue_in_run_test_bep(){
+  add_rules_shell "MODULE.bazel"
   mkdir -p a
   cat > a/BUILD <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 sh_test(
     name = 'arg',
     srcs = ['arg_test.sh'],

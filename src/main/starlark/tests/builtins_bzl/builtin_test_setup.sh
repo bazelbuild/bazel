@@ -23,6 +23,7 @@ function setup_tests() {
   add_bazel_skylib "MODULE.bazel"
   add_rules_python "MODULE.bazel"
   add_platforms "MODULE.bazel"
+  add_rules_shell "MODULE.bazel"
   src=$(get_runfiles_dir $1)
   dest="${2:-$1}"
   if [ ! -e "$src" ]; then

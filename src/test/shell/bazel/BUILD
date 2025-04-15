@@ -1,4 +1,6 @@
 load("@bazel_skylib//rules:write_file.bzl", "write_file")
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 load("//:workspace_deps.bzl", "gen_workspace_stanza")
 load("//src/tools/bzlmod:utils.bzl", "get_canonical_repo_name")
 
