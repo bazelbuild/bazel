@@ -15,12 +15,10 @@
 package com.google.devtools.build.lib.rules.proto;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.prettyArtifactNames;
 
 import com.google.common.truth.Correspondence;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.packages.util.MockProtoSupport;
@@ -93,7 +91,7 @@ public class BazelProtoCommonTest extends BuildViewTestCase {
 
     scratch.file(
         "foo/generate.bzl",
-        """
+"""
 load("@com_google_protobuf//bazel/common:proto_info.bzl", "ProtoInfo")
 load("@com_google_protobuf//bazel/common:proto_common.bzl", "proto_common")
 load("@com_google_protobuf//bazel/common:proto_lang_toolchain_info.bzl", "ProtoLangToolchainInfo")
@@ -141,51 +139,8 @@ compile_rule = rule(_impl,
 """);
 
     scratch.file(
-        "foo/should_generate.bzl",
-        """
-load("@com_google_protobuf//bazel/common:proto_info.bzl", "ProtoInfo")
-load("@com_google_protobuf//bazel/common:proto_common.bzl", "proto_common")
-load("@com_google_protobuf//bazel/common:proto_lang_toolchain_info.bzl", "ProtoLangToolchainInfo")
-BoolProvider = provider()
-def _impl(ctx):
-  result = proto_common.experimental_should_generate_code(
-    ctx.attr.proto_dep[ProtoInfo],
-    ctx.attr.toolchain[ProtoLangToolchainInfo],
-    'MyRule',
-    ctx.attr.proto_dep.label)
-  return [BoolProvider(value = result)]
-should_compile_rule = rule(_impl,
-  attrs = {
-     'proto_dep': attr.label(),
-     'toolchain': attr.label(default = '//foo:toolchain'),
-  })
-""");
-
-    scratch.file(
-        "foo/declare_generated_files.bzl",
-        """
-        load("@com_google_protobuf//bazel/common:proto_info.bzl", "ProtoInfo")
-        load("@com_google_protobuf//bazel/common:proto_common.bzl", "proto_common")
-        def _impl(ctx):
-          files = proto_common.declare_generated_files(
-            ctx.actions,
-            ctx.attr.proto_dep[ProtoInfo],
-            ctx.attr.extension,
-            (lambda s: s.replace('-','_').replace('.','/')) if ctx.attr.python_names else None)
-          for f in files:
-            ctx.actions.write(f, '')
-          return [DefaultInfo(files = depset(files))]
-        declare_generated_files = rule(_impl,
-          attrs = {
-             'proto_dep': attr.label(),
-             'extension': attr.string(),
-             'python_names': attr.bool(default = False),
-          })
-        """);
-
-    scratch.file(
         "foo/check_collocated.bzl",
-        """
+"""
 load("@com_google_protobuf//bazel/common:proto_info.bzl", "ProtoInfo")
 load("@com_google_protobuf//bazel/common:proto_common.bzl", "proto_common")
 load("@com_google_protobuf//bazel/common:proto_lang_toolchain_info.bzl", "ProtoLangToolchainInfo")
@@ -308,38 +263,6 @@ check_collocated = rule(_impl,
     assertThat(spawnAction.getProgressMessage()).isEqualTo("My //bar:simple");
   }
 
-  /** Verifies <code>proto_common.declare_generated_files</code> call. */
-  @Test
-  public void declareGenerateFiles_basic() throws Exception {
-    scratch.file(
-        "bar/BUILD",
-        "load('@com_google_protobuf//bazel:proto_library.bzl', 'proto_library')",
-        "load('//foo:declare_generated_files.bzl', 'declare_generated_files')",
-        "proto_library(name = 'proto', srcs = ['A.proto', 'b/B.proto'])",
-        "declare_generated_files(name = 'simple', proto_dep = ':proto', extension = '.cc')");
-
-    ConfiguredTarget target = getConfiguredTarget("//bar:simple");
-
-    assertThat(prettyArtifactNames(target.getProvider(FileProvider.class).getFilesToBuild()))
-        .containsExactly("bar/A.cc", "bar/b/B.cc");
-  }
-
-  /** Verifies <code>proto_common.declare_generated_files</code> call for Python. */
-  @Test
-  public void declareGenerateFiles_pythonc() throws Exception {
-    scratch.file(
-        "bar/BUILD",
-        "load('@com_google_protobuf//bazel:proto_library.bzl', 'proto_library')",
-        "load('//foo:declare_generated_files.bzl', 'declare_generated_files')",
-        "proto_library(name = 'proto', srcs = ['my-proto.gen.proto'])",
-        "declare_generated_files(name = 'simple', proto_dep = ':proto', extension = '_pb2.py',",
-        "  python_names = True)");
-
-    ConfiguredTarget target = getConfiguredTarget("//bar:simple");
-
-    assertThat(prettyArtifactNames(target.getProvider(FileProvider.class).getFilesToBuild()))
-        .containsExactly("bar/my_proto/gen_pb2.py");
-  }
 
   @Test
   public void langProtoLibrary_inDifferentPackage_allowed() throws Exception {
