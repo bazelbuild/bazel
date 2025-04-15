@@ -1,5 +1,6 @@
 load("@bazel_pip_dev_deps//:requirements.bzl", "requirement")
 load("@rules_python//python:defs.bzl", "py_library", "py_test")
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
 load("//:workspace_deps.bzl", "gen_workspace_stanza")
 
 package(default_visibility = ["//visibility:private"])
@@ -10,7 +11,7 @@ filegroup(
     visibility = ["//src:__pkg__"],
 )
 
-filegroup(
+sh_library(
     name = "test-deps",
     testonly = 1,
     srcs = ["//src:bazel"],
