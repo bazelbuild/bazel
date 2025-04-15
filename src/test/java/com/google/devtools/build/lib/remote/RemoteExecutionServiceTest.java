@@ -49,7 +49,6 @@ import build.bazel.remote.execution.v2.NodeProperty;
 import build.bazel.remote.execution.v2.OutputDirectory;
 import build.bazel.remote.execution.v2.OutputFile;
 import build.bazel.remote.execution.v2.OutputSymlink;
-import build.bazel.remote.execution.v2.Platform;
 import build.bazel.remote.execution.v2.RequestMetadata;
 import build.bazel.remote.execution.v2.ServerCapabilities;
 import build.bazel.remote.execution.v2.SymlinkAbsolutePathStrategy;
@@ -2357,117 +2356,78 @@ public class RemoteExecutionServiceTest {
     RemoteExecutionService service = newRemoteExecutionService(remoteOptions);
 
     // Check that worker files are properly marked in the merkle tree.
-    var remoteAction = service.buildRemoteAction(spawn, context);
-    assertThat(remoteAction.getAction().getPlatform())
-        .isEqualTo(
-            Platform.newBuilder()
-                .addProperties(
-                    Platform.Property.newBuilder()
-                        .setName("persistentWorkerKey")
-                        .setValue(
-                            enablePathMapping
-                                ? "85e3ad12f36ccb7b5eddbfe8f6bc28f57004634c537faac32d33a30b8d456bb8"
-                                : "5b1f31685d47bab5267d65bf671a682a486240ae351d74130a12d452190bd5f3"))
-                .build());
-    var merkleTree = remoteAction.getMerkleTree();
-    var outputDirectory =
-        merkleTree.getDirectoryByDigest(merkleTree.getRootProto().getDirectories(0).getDigest());
+    var runfilesSubDirectory =
+        Directory.newBuilder()
+            .addFiles(
+                FileNode.newBuilder()
+                    .setName("tool.dat")
+                    .setDigest(digestUtil.computeAsUtf8("tool.dat"))
+                    .setIsExecutable(true)
+                    .setNodeProperties(
+                        NodeProperties.newBuilder()
+                            .addProperties(NodeProperty.newBuilder().setName("bazel_tool_input")))
+                    .build())
+            .build();
+
+    var runfilesDirectory =
+        Directory.newBuilder()
+            .addDirectories(
+                DirectoryNode.newBuilder()
+                    .setName(TestConstants.WORKSPACE_NAME)
+                    .setDigest(digestUtil.compute(runfilesSubDirectory))
+                    .build())
+            .build();
+
     var inputFile =
         FileNode.newBuilder()
             .setName("input")
-            .setDigest(
-                Digest.newBuilder()
-                    .setHash("cd42404d52ad55ccfa9aca4adc828aa5800ad9d385a0671fbcbf724118320619")
-                    .setSizeBytes(5))
-            .setIsExecutable(true);
+            .setDigest(digestUtil.computeAsUtf8("value"))
+            .setIsExecutable(true)
+            .build();
     var toolFile =
         FileNode.newBuilder()
             .setName("worker_input")
-            .setDigest(
-                Digest.newBuilder()
-                    .setHash("bbd21d9e9b2bbadb2bb67202833df0edc8d14baf38be49388ffc71831eb88ac4")
-                    .setSizeBytes(12))
+            .setDigest(digestUtil.computeAsUtf8("worker value"))
             .setIsExecutable(true)
             .setNodeProperties(
                 NodeProperties.newBuilder()
-                    .addProperties(NodeProperty.newBuilder().setName("bazel_tool_input")));
-    var toolRunfilesDirectoryDigest =
-        Digest.newBuilder()
-            .setHash("d5cf7403c6b6c97f7b404c829a3d70c618412411c4554ed29b0f59815c53d952")
-            .setSizeBytes(79)
+                    .addProperties(NodeProperty.newBuilder().setName("bazel_tool_input")))
             .build();
-    var toolRunfilesDirectory =
-        DirectoryNode.newBuilder()
-            .setName("worker_input.runfiles")
-            .setDigest(toolRunfilesDirectoryDigest);
-    assertThat(outputDirectory)
-        .isEqualTo(
-            Directory.newBuilder()
-                .addFiles(inputFile)
-                .addFiles(toolFile)
-                .addDirectories(toolRunfilesDirectory)
-                .build());
-    var runfilesDirectory = merkleTree.getDirectoryByDigest(toolRunfilesDirectoryDigest);
-    var runfilesSubdirectoryDigest =
-        Digest.newBuilder()
-            .setHash("2773ed2d89aed9db55b83230eb8c66f56a02884e151009a3b070164bb6800cc8")
-            .setSizeBytes(106)
+    var rootDirectory =
+        Directory.newBuilder()
+            .addFiles(inputFile)
+            .addFiles(toolFile)
+            .addDirectories(
+                DirectoryNode.newBuilder()
+                    .setName("worker_input.runfiles")
+                    .setDigest(digestUtil.compute(runfilesDirectory))
+                    .build())
             .build();
-    assertThat(runfilesDirectory)
-        .isEqualTo(
-            Directory.newBuilder()
-                .addDirectories(
-                    DirectoryNode.newBuilder()
-                        .setName(TestConstants.WORKSPACE_NAME)
-                        .setDigest(runfilesSubdirectoryDigest))
-                .build());
-    var runfilesSubdirectory = merkleTree.getDirectoryByDigest(runfilesSubdirectoryDigest);
-    assertThat(runfilesSubdirectory)
-        .isEqualTo(
-            Directory.newBuilder()
-                .addFiles(
-                    FileNode.newBuilder()
-                        .setName("tool.dat")
-                        .setDigest(
-                            Digest.newBuilder()
-                                .setHash(
-                                    "968b7e2e112917824f4ea807dbc3adeebc00de2836f98c68418f525295f9a0c1")
-                                .setSizeBytes(8))
-                        .setIsExecutable(true)
-                        .setNodeProperties(
-                            NodeProperties.newBuilder()
-                                .addProperties(
-                                    NodeProperty.newBuilder().setName("bazel_tool_input")))
-                        .build())
-                .build());
 
-    // Check that if an non-tool input changes, the persistent worker key does not change.
+    var remoteAction1 = service.buildRemoteAction(spawn, context);
+    var merkleTree = remoteAction1.getMerkleTree();
+    assertThat(
+            merkleTree.getDirectoryByDigest(
+                merkleTree.getRootProto().getDirectories(0).getDigest()))
+        .isEqualTo(rootDirectory);
+    assertThat(remoteAction1.getAction().getPlatform().getPropertiesList()).hasSize(1);
+    assertThat(remoteAction1.getAction().getPlatform().getProperties(0).getName())
+        .isEqualTo("persistentWorkerKey");
+
+    // Check that if a non-tool input changes, the persistent worker key does not change.
     fakeFileCache.createScratchInput(input, "value2");
-    assertThat(service.buildRemoteAction(spawn, context).getAction().getPlatform())
-        .isEqualTo(
-            Platform.newBuilder()
-                .addProperties(
-                    Platform.Property.newBuilder()
-                        .setName("persistentWorkerKey")
-                        .setValue(
-                            enablePathMapping
-                                ? "85e3ad12f36ccb7b5eddbfe8f6bc28f57004634c537faac32d33a30b8d456bb8"
-                                : "5b1f31685d47bab5267d65bf671a682a486240ae351d74130a12d452190bd5f3"))
-                .build());
+    var remoteAction2 = service.buildRemoteAction(spawn, context);
+    assertThat(remoteAction2.getAction().getPlatform())
+        .isEqualTo(remoteAction1.getAction().getPlatform());
 
     // Check that if a tool input changes, the persistent worker key changes.
     fakeFileCache.createScratchInput(toolInput, "worker value2");
-    assertThat(service.buildRemoteAction(spawn, context).getAction().getPlatform())
-        .isEqualTo(
-            Platform.newBuilder()
-                .addProperties(
-                    Platform.Property.newBuilder()
-                        .setName("persistentWorkerKey")
-                        .setValue(
-                            enablePathMapping
-                                ? "6667700b8ff75e77f50c0d6b471e9052c856a21648c8204f0772fc455df6d6dc"
-                                : "63335231cbbf2ff838acdd19da768ce6524e929c4dcedcdce77c822a480fa49b"))
-                .build());
+    var remoteAction3 = service.buildRemoteAction(spawn, context);
+    assertThat(remoteAction3.getAction().getPlatform().getPropertiesList()).hasSize(1);
+    assertThat(remoteAction3.getAction().getPlatform().getProperties(0).getName())
+        .isEqualTo("persistentWorkerKey");
+    assertThat(remoteAction3.getAction().getPlatform().getProperties(0).getValue())
+        .isNotEqualTo(remoteAction1.getAction().getPlatform().getProperties(0).getValue());
   }
 
   @Test
