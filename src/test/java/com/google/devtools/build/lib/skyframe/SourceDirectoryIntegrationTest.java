@@ -17,6 +17,7 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.BuildFailedException;
+import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -194,16 +195,6 @@ public final class SourceDirectoryIntegrationTest extends BuildIntegrationTestCa
   }
 
   @Test
-  public void infiniteSymlinkExpansion() throws Exception {
-    Path dir = sourceDir.getRelative("subdir/nested2");
-    dir.delete();
-    dir.createSymbolicLink(PathFragment.create(".."));
-    assertThrows(BuildFailedException.class, () -> buildTarget("//foo"));
-    assertContainsEvent("infinite symlink expansion detected");
-    assertContainsEvent("foo/dir/subdir/nested2");
-  }
-
-  @Test
   @Ignore("TODO(#25834)")
   public void danglingSymlinkModified_invalidatesAction() throws Exception {
     FileSystemUtils.ensureSymbolicLink(
@@ -212,10 +203,23 @@ public final class SourceDirectoryIntegrationTest extends BuildIntegrationTestCa
   }
 
   @Test
-  @Ignore("TODO(#25834)")
-  public void subPackageAdded_invalidatesAction() throws Exception {
+  public void crossingPackageBoundary_fails() throws Exception {
     FileSystemUtils.touchFile(sourceDir.getRelative("subdir/BUILD"));
-    assertInvalidatedByBuild();
+    // TODO(#25834): This should not crash Bazel.
+    assertThrows(IllegalStateException.class, () -> buildTarget("//foo"));
+    BugReport.getAndResetLastCrashingThrowableIfInTest();
+    assertContainsEvent(
+        "Directory artifact foo/dir crosses package boundary into package rooted at foo/dir/subdir");
+  }
+
+  @Test
+  public void infiniteSymlinkExpansion_fails() throws Exception {
+    Path dir = sourceDir.getRelative("subdir/nested2");
+    dir.delete();
+    dir.createSymbolicLink(PathFragment.create(".."));
+    assertThrows(BuildFailedException.class, () -> buildTarget("//foo"));
+    assertContainsEvent("infinite symlink expansion detected");
+    assertContainsEvent("foo/dir/subdir/nested2");
   }
 
   private static final String GENRULE_EVENT = "Executing genrule //foo:foo";
