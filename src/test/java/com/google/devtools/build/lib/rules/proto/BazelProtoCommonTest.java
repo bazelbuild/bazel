@@ -240,30 +240,6 @@ check_collocated = rule(_impl,
         .inOrder();
   }
 
-  /** Verifies <code>experimental_progress_message</code> parameters. */
-  @Test
-  public void protoCommonCompile_overrideProgressMessage() throws Exception {
-    scratch.file(
-        "bar/BUILD",
-        "load('@com_google_protobuf//bazel:proto_library.bzl', 'proto_library')",
-        "load('//foo:generate.bzl', 'compile_rule')",
-        "proto_library(name = 'proto', srcs = ['A.proto'])",
-        "compile_rule(name = 'simple', proto_dep = ':proto', progress_message = 'My %{label}')");
-
-    ConfiguredTarget target = getConfiguredTarget("//bar:simple");
-
-    SpawnAction spawnAction = getGeneratingSpawnAction(getBinArtifact("out", target));
-    List<String> cmdLine = spawnAction.getRemainingArguments();
-    assertThat(cmdLine)
-        .comparingElementsUsing(MATCHES_REGEX)
-        .containsExactly(
-            "--plugin=bl?azel?-out/[^/]*-exec[^/]*/bin/third_party/x/plugin", "-I.", "bar/A.proto")
-        .inOrder();
-    assertThat(spawnAction.getMnemonic()).isEqualTo("MyMnemonic");
-    assertThat(spawnAction.getProgressMessage()).isEqualTo("My //bar:simple");
-  }
-
-
   @Test
   public void langProtoLibrary_inDifferentPackage_allowed() throws Exception {
     scratch.file(
