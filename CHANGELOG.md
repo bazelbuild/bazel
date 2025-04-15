@@ -1,3 +1,45 @@
+## Release 9.0.0-pre.20250408.2 (2025-04-15)
+
+```
+Baseline: 441c563bd43cccdfad71040557a7e229970475c3
+
+Cherry picks:
+
+   + 073ade620bf105339d4be5ba2efc9982e4aedf62:
+     Lazily create string for precondition error message.
+```
+
+Important changes:
+
+  - Turn the `distribs` common attribute into a no-op. See #19369
+  - Set generator_name, generator_function, generator_location, and
+    the full
+    Starlark stack for rule targets instantiated in a symbolic macro.
+
+This release contains contributions from many people at Google, as well as Chuck Grindel, dependabot[bot], Fabian Meumertzheim, Jim Carroll, Keith Smiley.
+
+## Release 8.2.0 (2025-04-14)
+
+```
+
+Release Notes:
+
+```
+
+## Release 9.0.0-pre.20250402.1 (2025-04-09)
+
+```
+Baseline: 37f66573e0a9716afd5d54e58aaf1692e0dccb11
+```
+
+Important changes:
+
+  - The `config` command now reports which configurations have had
+    the test configuration trimmed.
+  - Stop documenting the vestigial `distribs` attribute.
+
+This release contains contributions from many people at Google, as well as Alberto Cavalcante, Fabian Meumertzheim, Farid Zakaria.
+
 ## Release 9.0.0-pre.20250327.3 (2025-04-03)
 
 ```
