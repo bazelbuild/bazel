@@ -17,8 +17,11 @@ package net.starlark.java.eval;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.truth.StringSubject;
 import net.starlark.java.syntax.FileOptions;
+import net.starlark.java.types.StarlarkType;
+import net.starlark.java.types.Types.CallableType;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -70,6 +73,26 @@ public class TypeCheckTest {
         "  y = lambda y = 1: 1",
         "  y(1)",
         "f(None)");
+  }
+
+  @Test
+  public void testStarlarkUniverseTypes() {
+    ImmutableList.Builder<String> builder = ImmutableList.builder();
+    for (var entry : Starlark.UNIVERSE.entrySet()) {
+      StarlarkType type = TypeChecker.type(entry.getValue());
+      if (type instanceof CallableType callable) {
+        builder.add(entry.getKey() + ": " + callable.toSignatureString());
+      } else {
+        builder.add(entry.getKey() + ": " + type);
+      }
+    }
+
+    assertThat(builder.build())
+        .containsAtLeast(
+            "False: bool", //
+            "True: bool",
+            "None: None",
+            "hash: (str, /) -> int");
   }
 
   private <T extends Throwable> StringSubject assertExecThrows(

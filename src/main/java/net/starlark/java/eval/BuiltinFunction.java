@@ -25,6 +25,7 @@ import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.spelling.SpellChecker;
+import net.starlark.java.types.StarlarkType;
 
 /**
  * A BuiltinFunction is a callable Starlark value that reflectively invokes a {@link
@@ -52,6 +53,11 @@ public final class BuiltinFunction implements StarlarkCallable {
     this.obj = obj;
     this.methodName = methodName;
     this.desc = desc;
+  }
+
+  @Override
+  public StarlarkType getStarlarkType() {
+    return desc.getStarlarkType();
   }
 
   @Override

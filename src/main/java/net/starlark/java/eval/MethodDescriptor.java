@@ -18,6 +18,8 @@ import static java.util.Arrays.stream;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.annotations.CheckReturnValue;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -27,6 +29,8 @@ import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkAnnotations;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.ParamDescriptor.ConditionalCheck;
+import net.starlark.java.types.StarlarkType;
+import net.starlark.java.types.Types;
 
 /**
  * A value class to store Methods with their corresponding {@link StarlarkMethod} annotation
@@ -51,6 +55,7 @@ final class MethodDescriptor {
   private final boolean useStarlarkThread;
   private final boolean useStarlarkSemantics;
   private final boolean positionalsReusableAsJavaArgsVectorIfArgumentCountValid;
+  private final StarlarkType starlarkType;
 
   @Nullable private final ConditionalCheck conditionalCheck;
 
@@ -121,6 +126,52 @@ final class MethodDescriptor {
     } else {
       conditionalCheck = null;
     }
+
+    // relies on instance state: annotation, parameters, method, extraKeywords, extraPositionals
+    starlarkType = buildStarlarkType();
+  }
+
+  private StarlarkType buildStarlarkType() {
+    if (getAnnotation().structField()) {
+      // TODO(ilist@): handle allowReturnNones once we have Optional type
+      return TypeChecker.fromJava(getMethod().getReturnType());
+    }
+
+    ParamDescriptor[] parameters = getParameters();
+    ImmutableList.Builder<String> parameterNames = ImmutableList.builder();
+    ImmutableList.Builder<StarlarkType> parameterTypes = ImmutableList.builder();
+    ImmutableSet.Builder<String> mandatoryParameters = ImmutableSet.builder();
+    boolean positional = true;
+    int numOrdinaryParameters = parameters.length;
+    for (int i = 0; i < parameters.length; i++) {
+      if (parameters[i].isPositional() != positional) { // the first keyword argument
+        positional = false;
+        numOrdinaryParameters = i;
+      }
+      if (parameters[i].isNamed()) {
+        parameterNames.add(parameters[i].getName());
+      }
+      // TODO(ilist@): handle union types once we have them
+      parameterTypes.add(
+          parameters[i].getAllowedClasses() == null || parameters[i].getAllowedClasses().size() != 1
+              ? Types.ANY
+              : TypeChecker.fromJava(parameters[i].getAllowedClasses().get(0)));
+      if (parameters[i].getDefaultValue() == null) {
+        mandatoryParameters.add(parameters[i].getName());
+      }
+    }
+    // TODO(ilist@): handle allowReturnNones once we have Optional type
+    StarlarkType returnType = TypeChecker.fromJava(getMethod().getReturnType());
+
+    return Types.callable(
+        parameterNames.build(),
+        parameterTypes.build(),
+        numOrdinaryParameters,
+        mandatoryParameters.build(),
+        // TODO(ilist@): more precise type on args and kwargs
+        acceptsExtraArgs() ? Types.ANY : null,
+        acceptsExtraKwargs() ? Types.ANY : null,
+        returnType);
   }
 
   private static boolean paramUsableAsPositionalWithoutChecks(ParamDescriptor param) {
@@ -316,6 +367,10 @@ final class MethodDescriptor {
   /** @see StarlarkMethod#selfCall() */
   boolean isSelfCall() {
     return selfCall;
+  }
+
+  public StarlarkType getStarlarkType() {
+    return starlarkType;
   }
 
   /**

@@ -14,6 +14,7 @@
 
 package net.starlark.java.eval;
 
+import java.math.BigInteger;
 import java.util.Objects;
 import net.starlark.java.types.StarlarkType;
 import net.starlark.java.types.Types;
@@ -49,6 +50,29 @@ public final class TypeChecker {
       return Types.STR;
     }
     throw new IllegalArgumentException("Expected a valid Starlark value.");
+  }
+
+  public static StarlarkType fromJava(Class<?> cls) {
+    StarlarkType t;
+    if (cls == NoneType.class || cls == void.class) {
+      t = Types.NONE;
+    } else if (cls == String.class) {
+      t = Types.STR;
+    } else if (cls == Boolean.class || cls == boolean.class) {
+      t = Types.BOOL;
+    } else if (cls == int.class
+        || cls == long.class
+        || cls == Integer.class
+        || cls == Long.class
+        || BigInteger.class.isAssignableFrom(cls)) {
+      t = Types.INT;
+    } else if (cls == double.class || cls == Double.class || cls == StarlarkFloat.class) {
+      t = Types.FLOAT;
+    } else {
+      // TODO(ilist@): handle more complex types
+      return Types.ANY;
+    }
+    return t;
   }
 
   private TypeChecker() {}
