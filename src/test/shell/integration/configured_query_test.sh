@@ -1336,7 +1336,7 @@ EOF
   # A file
   bazel cquery "//$pkg:srcfile.txt" --output=starlark --starlark:file="$pkg/outfunc.bzl" >output \
     2>"$TEST_log" || fail "Expected success"
-  assert_contains "//$pkg:srcfile.txt:providers=.*FileProvider.*FilesToRunProvider.*LicensesProvider.*VisibilityProvider" \
+  assert_contains "//$pkg:srcfile.txt:providers=.*FileProvider.*FilesToRunProvider.*VisibilityProvider" \
     output
   assert_contains "VisibilityProvider.label:@@\?//$pkg:srcfile.txt" output
 }

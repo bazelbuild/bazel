@@ -54,7 +54,6 @@ java_library(
         "ExtraActionsVisitor.java",
         "FilesToRunProvider.java",
         "FragmentCollection.java",
-        "LicensesProviderImpl.java",
         "LocationExpander.java",
         "LocationTemplateContext.java",
         "OutputGroupInfo.java",
@@ -159,7 +158,6 @@ java_library(
         ":inconsistent_aspect_order_exception",
         ":label_and_location",
         ":label_expander",
-        ":licenses_provider",
         ":make_variable_supplier",
         ":options_diff_predicate",
         ":platform_configuration",
@@ -737,17 +735,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//third_party:guava",
         "//third_party:jsr305",
-    ],
-)
-
-java_library(
-    name = "licenses_provider",
-    srcs = ["LicensesProvider.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
-        "//src/main/java/com/google/devtools/build/lib/packages",
-        "//third_party:guava",
     ],
 )
 

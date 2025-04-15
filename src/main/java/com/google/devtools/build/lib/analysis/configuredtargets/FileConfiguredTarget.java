@@ -19,7 +19,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
-import com.google.devtools.build.lib.analysis.LicensesProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.VisibilityProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -34,8 +33,7 @@ import net.starlark.java.eval.Dict;
 /** A configured target representing a source or derived / generated file. */
 @Immutable
 public abstract sealed class FileConfiguredTarget extends AbstractConfiguredTarget
-    implements FileType.HasFileType, LicensesProvider
-    permits InputFileConfiguredTarget, OutputFileConfiguredTarget {
+    implements FileType.HasFileType permits InputFileConfiguredTarget, OutputFileConfiguredTarget {
 
   private final NestedSet<Artifact> singleFile;
 
@@ -104,7 +102,6 @@ public abstract sealed class FileConfiguredTarget extends AbstractConfiguredTarg
   public Dict<String, Object> getProvidersDictForQuery() {
     Dict.Builder<String, Object> dict = Dict.builder();
     tryAddProviderForQuery(dict, VisibilityProvider.class, this);
-    tryAddProviderForQuery(dict, LicensesProvider.class, this);
     tryAddProviderForQuery(dict, FileProvider.class, createFileProvider());
     tryAddProviderForQuery(dict, FilesToRunProvider.class, createFilesToRunProvider());
     return dict.buildImmutable();

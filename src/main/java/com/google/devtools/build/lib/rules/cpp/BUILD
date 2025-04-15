@@ -61,7 +61,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/analysis:file_provider",
-        "//src/main/java/com/google/devtools/build/lib/analysis:licenses_provider",
         "//src/main/java/com/google/devtools/build/lib/analysis:make_variable_supplier",
         "//src/main/java/com/google/devtools/build/lib/analysis:rule_definition_environment",
         "//src/main/java/com/google/devtools/build/lib/analysis:rule_error_consumer",

@@ -1754,7 +1754,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
 
     getConfiguredTarget("//test/starlark:tl");
     assertContainsEvent(
-        "My Dep Providers: <target //test/starlark:d, keys:[LicenseInfo, FooInfo, BarInfo,"
+        "My Dep Providers: <target //test/starlark:d, keys:[FooInfo, BarInfo,"
             + " OutputGroupInfo]>");
   }
 

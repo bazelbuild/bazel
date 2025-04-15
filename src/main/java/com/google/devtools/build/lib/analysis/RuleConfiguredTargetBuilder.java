@@ -91,8 +91,6 @@ public final class RuleConfiguredTargetBuilder {
 
   public RuleConfiguredTargetBuilder(RuleContext ruleContext) {
     this.ruleContext = ruleContext;
-    // Avoid building validations in analysis tests (b/143988346)
-    addNativeDeclaredProvider(LicensesProviderImpl.of(ruleContext));
   }
 
   /**

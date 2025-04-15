@@ -20,7 +20,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.LicensesProvider;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.RequiredConfigFragmentsProvider;
 import com.google.devtools.build.lib.analysis.TargetContext;
@@ -28,7 +27,6 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
@@ -74,11 +72,6 @@ public final class OutputFileConfiguredTarget extends FileConfiguredTarget {
   @Override
   public boolean isCreatedInSymbolicMacro() {
     return generatingRule.isCreatedInSymbolicMacro();
-  }
-
-  @Override
-  public BuiltinProvider<LicensesProvider> getProvider() {
-    return LicensesProvider.PROVIDER;
   }
 
   @Override
