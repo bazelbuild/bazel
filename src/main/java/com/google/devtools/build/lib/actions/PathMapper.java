@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.actions;
 
 import com.google.devtools.build.docgen.annot.DocCategory;
+import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.CommandLineItem.ExceptionlessMapFn;
 import com.google.devtools.build.lib.actions.CommandLineItem.MapFn;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
@@ -106,6 +107,17 @@ public interface PathMapper {
   }
 
   /**
+   * Returns the difference {@code artifact.getExecPathString().length() -
+   * getMappedExecPathString(artifact).length()}, i.e., the unmapped path length minus the mapped
+   * path length.
+   *
+   * <p>Implementations should provide a more efficient implementation that avoids allocations.
+   */
+  default int computeExecPathLengthDiff(DerivedArtifact artifact) {
+    return artifact.getExecPathString().length() - getMappedExecPathString(artifact).length();
+  }
+
+  /**
    * We don't yet have a Starlark API for mapping paths in command lines. Simple Starlark calls like
    * {@code args.add(arg_name, file_path} are automatically handled. But calls that involve custom
    * Starlark code require deeper API support that remains a TODO.
@@ -191,6 +203,16 @@ public interface PathMapper {
         @Override
         public PathFragment map(PathFragment execPath) {
           return execPath;
+        }
+
+        @Override
+        public String getMappedExecPathString(ActionInput artifact) {
+          return artifact.getExecPathString();
+        }
+
+        @Override
+        public int computeExecPathLengthDiff(DerivedArtifact artifact) {
+          return 0;
         }
 
         @Override
