@@ -317,6 +317,7 @@ public class ResourceManager implements ResourceEstimator {
     Preconditions.checkNotNull(resources);
     resetResourceUsage();
     availableResources = resources;
+    logger.atInfo().log("Set available resources: %s", resources);
   }
 
   public synchronized void scheduleCpuLoadWindowUpdate() {
