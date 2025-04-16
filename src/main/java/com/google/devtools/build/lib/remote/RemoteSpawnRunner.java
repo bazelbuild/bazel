@@ -46,7 +46,6 @@ import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
-import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialHelperException;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.clock.BlazeClock.MillisSinceEpochToNanosConverter;
@@ -70,6 +69,7 @@ import com.google.devtools.build.lib.remote.common.BulkTransferException;
 import com.google.devtools.build.lib.remote.common.OperationObserver;
 import com.google.devtools.build.lib.remote.common.RemoteExecutionCapabilitiesException;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
+import com.google.devtools.build.lib.remote.options.RemoteOptions.ConcurrentChangesCheckLevel;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.remote.util.Utils.InMemoryOutput;
@@ -78,7 +78,6 @@ import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.longrunning.Operation;
 import com.google.protobuf.Timestamp;
 import com.google.protobuf.util.Durations;
@@ -86,9 +85,6 @@ import com.google.protobuf.util.Timestamps;
 import io.grpc.Status.Code;
 import java.io.IOException;
 import java.time.Duration;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.SortedMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
@@ -719,47 +715,16 @@ public class RemoteSpawnRunner implements SpawnRunner {
         .build();
   }
 
-  private Map<Path, Long> getInputCtimes(SortedMap<PathFragment, ActionInput> inputMap) {
-    HashMap<Path, Long> ctimes = new HashMap<>();
-    for (Map.Entry<PathFragment, ActionInput> e : inputMap.entrySet()) {
-      ActionInput input = e.getValue();
-      if (input instanceof VirtualActionInput) {
-        continue;
-      }
-      Path path = execRoot.getRelative(input.getExecPathString());
-      try {
-        ctimes.put(path, path.stat().getLastChangeTime());
-      } catch (IOException ex) {
-        // Put a token value indicating an exception; this is used so that if the exception
-        // is raised both before and after the execution, it is ignored, but if it is raised only
-        // one of the times, it triggers a remote cache upload skip.
-        ctimes.put(path, -1L);
-      }
-    }
-    return ctimes;
-  }
-
   @VisibleForTesting
   SpawnResult execLocallyAndUpload(
       RemoteAction action, Spawn spawn, SpawnExecutionContext context, boolean uploadLocalResults)
       throws ExecException, IOException, ForbiddenActionInputException, InterruptedException {
-    Map<Path, Long> ctimesBefore = getInputCtimes(action.getInputMap(true));
     SpawnResult result = execLocally(spawn, context);
-    Map<Path, Long> ctimesAfter = getInputCtimes(action.getInputMap(true));
-    uploadLocalResults =
-        uploadLocalResults && Status.SUCCESS.equals(result.status()) && result.exitCode() == 0;
-    if (!uploadLocalResults) {
-      return result;
+    if (uploadLocalResults && Status.SUCCESS.equals(result.status()) && result.exitCode() == 0) {
+      // FULL is used here to retain historic behavior.
+      remoteExecutionService.uploadOutputs(
+          action, result, () -> {}, ConcurrentChangesCheckLevel.FULL);
     }
-
-    for (Map.Entry<Path, Long> e : ctimesBefore.entrySet()) {
-      // Skip uploading to remote cache, because an input was modified during execution.
-      if (!ctimesAfter.get(e.getKey()).equals(e.getValue())) {
-        return result;
-      }
-    }
-
-    remoteExecutionService.uploadOutputs(action, result, () -> {});
     return result;
   }
 
