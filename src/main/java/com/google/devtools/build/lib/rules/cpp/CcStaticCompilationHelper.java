@@ -263,6 +263,13 @@ public final class CcStaticCompilationHelper {
     }
   }
 
+  private static class CachedCcToolchainVariables {
+    private CcToolchainVariables prebuiltParent;
+    private CcToolchainVariables prebuiltParentWithFdo;
+
+    public CachedCcToolchainVariables() {}
+  }
+
   private final CppSemantics semantics;
   private final BuildConfigurationValue configuration;
   private final ImmutableMap<String, String> executionInfo;
@@ -296,8 +303,7 @@ public final class CcStaticCompilationHelper {
 
   private final SourceCategory sourceCategory;
   private final List<VariablesExtension> variablesExtensions = new ArrayList<>();
-  private CcToolchainVariables prebuiltParent;
-  private CcToolchainVariables prebuiltParentWithFdo;
+  private final CachedCcToolchainVariables cachedCcToolchainVariables;
   @Nullable private CppModuleMap cppModuleMap;
   private boolean propagateModuleMapToCompileAction = true;
 
@@ -350,6 +356,7 @@ public final class CcStaticCompilationHelper {
     this.label = Preconditions.checkNotNull(label);
     this.executionInfo = Preconditions.checkNotNull(executionInfo);
     this.shouldProcessHeaders = shouldProcessHeaders;
+    this.cachedCcToolchainVariables = new CachedCcToolchainVariables();
   }
 
   /**
@@ -1299,7 +1306,10 @@ public final class CcStaticCompilationHelper {
       builder.addMandatoryInputs(
           getAuxiliaryFdoInputs(ccToolchain, fdoContext, featureConfiguration));
     }
-    CcToolchainVariables parent = needsFdoBuildVariables ? prebuiltParentWithFdo : prebuiltParent;
+    CcToolchainVariables parent =
+        needsFdoBuildVariables
+            ? cachedCcToolchainVariables.prebuiltParentWithFdo
+            : cachedCcToolchainVariables.prebuiltParent;
     // We use the prebuilt parent variables if and only if the passed in cppModuleMap is the
     // identical to the one returned from ccCompilationContext.getCppModuleMap(): there is exactly
     // one caller which passes in any other value (the verification module map), so this should be
@@ -1355,9 +1365,9 @@ public final class CcStaticCompilationHelper {
       if (usePrebuiltParent) {
         parent = buildVariables.build();
         if (needsFdoBuildVariables) {
-          prebuiltParentWithFdo = parent;
+          cachedCcToolchainVariables.prebuiltParentWithFdo = parent;
         } else {
-          prebuiltParent = parent;
+          cachedCcToolchainVariables.prebuiltParent = parent;
         }
         buildVariables = CcToolchainVariables.builder(parent);
       }
