@@ -100,13 +100,13 @@ public class LibrariesToLinkCollector {
    */
   public static class CollectedLibrariesToLink {
     private final SequenceBuilder librariesToLink;
-    private final NestedSet<LegacyLinkerInput> expandedLinkerInputs;
+    private final NestedSet<Artifact> expandedLinkerInputs;
     private final NestedSet<String> librarySearchDirectories;
     private final NestedSet<String> runtimeLibrarySearchDirectories;
 
     private CollectedLibrariesToLink(
         SequenceBuilder librariesToLink,
-        NestedSet<LegacyLinkerInput> expandedLinkerInputs,
+        NestedSet<Artifact> expandedLinkerInputs,
         NestedSet<String> librarySearchDirectories,
         NestedSet<String> runtimeLibrarySearchDirectories) {
       this.librariesToLink = librariesToLink;
@@ -119,8 +119,7 @@ public class LibrariesToLinkCollector {
       return librariesToLink;
     }
 
-    // TODO(b/78347840): Figure out how to make these Artifacts.
-    public NestedSet<LegacyLinkerInput> getExpandedLinkerInputs() {
+    public NestedSet<Artifact> getExpandedLinkerInputs() {
       return expandedLinkerInputs;
     }
 
@@ -398,7 +397,7 @@ public class LibrariesToLinkCollector {
   public CollectedLibrariesToLink collectLibrariesToLink() throws EvalException {
     NestedSetBuilder<String> librarySearchDirectories = NestedSetBuilder.linkOrder();
     ImmutableSet.Builder<String> rpathRootsForExplicitSoDeps = ImmutableSet.builder();
-    NestedSetBuilder<LegacyLinkerInput> expandedLinkerInputsBuilder = NestedSetBuilder.linkOrder();
+    NestedSetBuilder<Artifact> expandedLinkerInputsBuilder = NestedSetBuilder.linkOrder();
     // List of command line parameters that need to be placed *outside* of
     // --whole-archive ... --no-whole-archive.
     SequenceBuilder librariesToLink = new SequenceBuilder();
@@ -469,7 +468,7 @@ public class LibrariesToLinkCollector {
       NestedSetBuilder<String> librarySearchDirectories,
       ImmutableSet.Builder<String> rpathRootsForExplicitSoDeps,
       SequenceBuilder librariesToLink,
-      NestedSetBuilder<LegacyLinkerInput> expandedLinkerInputsBuilder)
+      NestedSetBuilder<Artifact> expandedLinkerInputsBuilder)
       throws EvalException {
     boolean includeSolibDir = false;
     boolean includeToolchainLibrariesSolibDir = false;
@@ -531,7 +530,7 @@ public class LibrariesToLinkCollector {
   private void addDynamicInputLinkOptions(
       LegacyLinkerInput input,
       SequenceBuilder librariesToLink,
-      NestedSetBuilder<LegacyLinkerInput> expandedLinkerInputsBuilder,
+      NestedSetBuilder<Artifact> expandedLinkerInputsBuilder,
       NestedSetBuilder<String> librarySearchDirectories,
       ImmutableList<String> rpathRoots,
       ImmutableSet.Builder<String> rpathRootsForExplicitSoDeps)
@@ -545,7 +544,7 @@ public class LibrariesToLinkCollector {
             CppHelper.getArchiveType(
                 ccToolchainProvider.getCppConfiguration(), featureConfiguration)));
 
-    expandedLinkerInputsBuilder.add(input);
+    expandedLinkerInputsBuilder.add(input.getArtifact());
     if (featureConfiguration.isEnabled(CppRuleClasses.TARGETS_WINDOWS)
         && CcToolchainProvider.supportsInterfaceSharedLibraries(featureConfiguration)) {
       // On Windows, dynamic library (dll) cannot be linked directly when using toolchains that
@@ -626,7 +625,7 @@ public class LibrariesToLinkCollector {
       LegacyLinkerInput input,
       Map<Artifact, Artifact> ltoMap,
       SequenceBuilder librariesToLink,
-      NestedSetBuilder<LegacyLinkerInput> expandedLinkerInputsBuilder)
+      NestedSetBuilder<Artifact> expandedLinkerInputsBuilder)
       throws EvalException {
     ArtifactCategory artifactCategory = input.getArtifactCategory();
     Preconditions.checkArgument(
@@ -672,12 +671,7 @@ public class LibrariesToLinkCollector {
 
               // Even if this object file is being skipped for exposure as a Build variable, it's
               // still an input to this action.
-              expandedLinkerInputsBuilder.add(
-                  LegacyLinkerInputs.simpleLinkerInput(
-                      a,
-                      ArtifactCategory.OBJECT_FILE,
-                      /* disableWholeArchive= */ false,
-                      a.getRootRelativePathString()));
+              expandedLinkerInputsBuilder.add(a);
               continue;
             }
             // No LTO indexing step, so use the LTO backend's generated artifact directly
@@ -685,12 +679,7 @@ public class LibrariesToLinkCollector {
             member = a;
           }
           nonLtoArchiveMembersBuilder.add(member);
-          expandedLinkerInputsBuilder.add(
-              LegacyLinkerInputs.simpleLinkerInput(
-                  member,
-                  ArtifactCategory.OBJECT_FILE,
-                  /* disableWholeArchive= */ false,
-                  member.getRootRelativePathString()));
+          expandedLinkerInputsBuilder.add(member);
         }
         ImmutableList<Artifact> nonLtoArchiveMembers = nonLtoArchiveMembersBuilder.build();
         if (!nonLtoArchiveMembers.isEmpty()) {
@@ -729,12 +718,7 @@ public class LibrariesToLinkCollector {
 
           // Even if this object file is being skipped for exposure as a build variable, it's
           // still an input to this action.
-          expandedLinkerInputsBuilder.add(
-              LegacyLinkerInputs.simpleLinkerInput(
-                  a,
-                  ArtifactCategory.OBJECT_FILE,
-                  /* disableWholeArchive= */ false,
-                  a.getRootRelativePathString()));
+          expandedLinkerInputsBuilder.add(a);
           return;
         }
         // No LTO indexing step, so use the LTO backend's generated artifact directly
@@ -753,13 +737,13 @@ public class LibrariesToLinkCollector {
                   inputArtifact.getExecPathString(), inputIsWholeArchive));
         }
         if (!input.isLinkstamp()) {
-          expandedLinkerInputsBuilder.add(input);
+          expandedLinkerInputsBuilder.add(input.getArtifact());
         }
       } else {
         librariesToLink.addValue(
             LibraryToLinkValue.forStaticLibrary(
                 inputArtifact.getExecPathString(), inputIsWholeArchive));
-        expandedLinkerInputsBuilder.add(input);
+        expandedLinkerInputsBuilder.add(input.getArtifact());
       }
     }
   }

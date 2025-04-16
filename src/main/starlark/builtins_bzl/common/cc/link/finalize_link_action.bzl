@@ -146,7 +146,7 @@ def finalize_link_action(
     )
 
     expanded_linker_artifacts = depset([
-        lto_mapping.get(li.file, li.file)
+        lto_mapping.get(li, li)
         for li in collected_libraries_to_link.expanded_linker_inputs
     ])
 

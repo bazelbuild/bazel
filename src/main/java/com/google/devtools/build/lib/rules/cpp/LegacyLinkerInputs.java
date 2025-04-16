@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.rules.cpp;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import javax.annotation.Nullable;
@@ -396,22 +395,6 @@ public abstract class LegacyLinkerInputs {
   // Public factory constructors:
   //////////////////////////////////////////////////////////////////////////////////////
 
-  /** Creates linker input objects for non-library files. */
-  public static Iterable<LegacyLinkerInput> simpleLinkerInputs(
-      Iterable<Artifact> input, final ArtifactCategory category, boolean disableWholeArchive) {
-    return Iterables.transform(
-        input,
-        artifact ->
-            simpleLinkerInput(
-                artifact, category, disableWholeArchive, artifact.getRootRelativePathString()));
-  }
-
-  public static Iterable<LegacyLinkerInput> linkstampLinkerInputs(Iterable<Artifact> input) {
-    return Iterables.transform(
-        input,
-        artifact -> new LinkstampLinkerInput(artifact, artifact.getRootRelativePathString()));
-  }
-
   public static LegacyLinkerInput linkstampLinkerInput(Artifact input) {
     return new LinkstampLinkerInput(input, input.getRootRelativePathString());
   }
@@ -435,26 +418,6 @@ public abstract class LegacyLinkerInputs {
   }
 
   /** Creates a library to link with the specified object files. */
-  public static LibraryInput newInputLibrary(
-      Artifact library,
-      ArtifactCategory category,
-      String libraryIdentifier,
-      ImmutableCollection<Artifact> objectFiles,
-      LtoCompilationContext ltoCompilationContext,
-      ImmutableMap<Artifact, LtoBackendArtifacts> sharedNonLtoBackends,
-      boolean mustKeepDebug) {
-    return newInputLibrary(
-        library,
-        category,
-        libraryIdentifier,
-        objectFiles,
-        ltoCompilationContext,
-        sharedNonLtoBackends,
-        mustKeepDebug,
-        /* disableWholeArchive= */ false);
-  }
-
-  /** Creates a library to link with the specified object files. */
   static LibraryInput newInputLibrary(
       Artifact library,
       ArtifactCategory category,
@@ -474,11 +437,5 @@ public abstract class LegacyLinkerInputs {
         /* allowArchiveTypeInAlwayslink= */ true,
         mustKeepDebug,
         disableWholeArchive);
-  }
-
-  /** Returns the linker input artifacts from a collection of {@link LegacyLinkerInput} objects. */
-  public static Iterable<Artifact> toLibraryArtifacts(
-      Iterable<? extends LegacyLinkerInput> artifacts) {
-    return Iterables.transform(artifacts, LegacyLinkerInput::getArtifact);
   }
 }

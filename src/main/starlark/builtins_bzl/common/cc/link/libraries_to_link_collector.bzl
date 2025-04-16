@@ -74,7 +74,7 @@ def collect_libraries_to_link(
 
     Returns:
       ({libraries_to_link: list[LibraryToLinkValue],
-        expanded_linker_inputs: list[LegacyLinkerInput],
+        expanded_linker_inputs: list[File],
         library_search_directories: depset[str],
         all_runtime_library_search_directories: depset[str]})
 
@@ -245,7 +245,7 @@ def _add_linker_inputs(
         allow_lto_indexing: bool) Is LTO indexing being done.
         lto_map: (dict[File, File]) Map from bitcode files to object files. Used to replace all linker inputs.
         libraries_to_link: (list[LibraryToLinkValue]) Output collecting libraries to link.
-        expanded_linker_inputs: (list[LegacyLinkerInput]) Output collecting expanded linker inputs.
+        expanded_linker_inputs: (list[File]) Output collecting expanded linker inputs.
         library_search_directories: (list[str]) Output collecting library search directories.
         rpath_roots_for_explicit_so_deps: (dict[str, None]) Output collecting rpaths.
 
@@ -348,7 +348,7 @@ def _add_dynamic_input_link_options(
         toolchain_libraries_solib_dir: (list[str])
         rpath_roots: (list[str]) rpath roots (for example solib_dir)
         libraries_to_link:  (list[LibraryToLinkValue]) Output collecting libraries to link.
-        expanded_linker_inputs:  (list[LegacyLinkerInput]) Output collecting expanded linker inputs.
+        expanded_linker_inputs:  (list[File]) Output collecting expanded linker inputs.
         library_search_directories: (list[str]) Output collecting library search directories.
         rpath_roots_for_explicit_so_deps: (list[str, None]) Output collecting rpaths.
 
@@ -359,7 +359,7 @@ def _add_dynamic_input_link_options(
     if artifact_cat not in [artifact_category.DYNAMIC_LIBRARY, artifact_category.INTERFACE_LIBRARY]:
         fail("Bad artifact category " + artifact_cat)
 
-    expanded_linker_inputs.append(input)
+    expanded_linker_inputs.append(input.file)
 
     if (feature_configuration.is_enabled("targets_windows") and
         feature_configuration.is_enabled("supports_interface_shared_libraries")):
@@ -456,7 +456,7 @@ def _add_static_input_link_options(
         lto_map: (dict[File, File]) Map from bitcode files to object files. Used to replace all linker inputs.
         allow_lto_indexing: bool) Is LTO indexing being done.
         libraries_to_link:  (list[LibraryToLinkValue]) Output collecting libraries to link.
-        expanded_linker_inputs:  (list[LegacyLinkerInput]) Output collecting expanded linker inputs.
+        expanded_linker_inputs:  (list[File]) Output collecting expanded linker inputs.
     """
     artifact_cat = input.artifact_category
     if artifact_cat not in [
@@ -498,7 +498,7 @@ def _add_static_input_link_options(
             member = lto_map.pop(archive_member, archive_member)
 
             # Object files are always (LTO or no LTO) expanded (input to the action).
-            expanded_linker_inputs.append(cc_internal.simple_linker_input(member))
+            expanded_linker_inputs.append(member)
 
             if (member != archive_member and
                 _handled_by_lto_indexing(member, allow_lto_indexing, shared_non_lto_obj_root_prefix)):
@@ -535,7 +535,7 @@ def _add_static_input_link_options(
             # still an input to this action.
             # TODO(b/331164666): simplify like in then branch above - expand the original input,
             #  instead creating a new one
-            expanded_linker_inputs.append(cc_internal.simple_linker_input(input_file))
+            expanded_linker_inputs.append(input_file)
             return
 
         # No LTO indexing step, so use the LTO backend's generated artifact directly
@@ -546,10 +546,10 @@ def _add_static_input_link_options(
             else:
                 libraries_to_link.append(cc_internal.for_object_file(input_file.path, input_is_whole_archive))
             if not input.is_linkstamp:
-                expanded_linker_inputs.append(input)
+                expanded_linker_inputs.append(input.file)
         else:
             libraries_to_link.append(cc_internal.for_static_library(input_file.path, input_is_whole_archive))
-            expanded_linker_inputs.append(input)
+            expanded_linker_inputs.append(input.file)
 
 def _handled_by_lto_indexing(file, allow_lto_indexing, shared_non_lto_obj_root_prefix):
     """Returns true if this artifact is produced from a bitcode file.
