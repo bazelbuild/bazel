@@ -24,7 +24,7 @@ public class TrackSourceDirectoriesFlag {
   private static final boolean TRACK_SOURCE_DIRECTORIES;
 
   static {
-    TRACK_SOURCE_DIRECTORIES = "1".equals(System.getProperty("BAZEL_TRACK_SOURCE_DIRECTORIES"));
+    TRACK_SOURCE_DIRECTORIES = !"0".equals(System.getProperty("BAZEL_TRACK_SOURCE_DIRECTORIES"));
   }
 
   public static boolean trackSourceDirectories() {
