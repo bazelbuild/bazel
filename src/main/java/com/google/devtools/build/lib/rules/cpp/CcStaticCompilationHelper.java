@@ -44,7 +44,7 @@ import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import java.nio.file.Paths;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -1582,14 +1582,14 @@ public final class CcStaticCompilationHelper {
     Artifact moduleMapArtifact = cppModuleMap.getArtifact();
     CppCompileActionBuilder builder = initializeCompileAction(moduleMapArtifact);
 
-    Label label = Label.parseCanonicalUnchecked(cppModuleMap.getName());
+    Label sourceLabel = Label.parseCanonicalUnchecked(cppModuleMap.getName());
 
     // A header module compile action is just like a normal compile action, but:
     // - the compiled source file is the module map
     // - it creates a header module (.pcm file).
     return createSourceAction(
-        label,
-        Paths.get(label.getName()).getFileName().toString(),
+        sourceLabel,
+        Path.of(sourceLabel.getName()).getFileName().toString(),
         result,
         moduleMapArtifact,
         builder,
