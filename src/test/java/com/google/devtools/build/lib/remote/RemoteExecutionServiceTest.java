@@ -110,6 +110,7 @@ import com.google.devtools.build.lib.remote.common.RemotePathResolver.DefaultRem
 import com.google.devtools.build.lib.remote.common.RemotePathResolver.SiblingRepositoryLayoutResolver;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
+import com.google.devtools.build.lib.remote.options.RemoteOptions.ConcurrentChangesCheckLevel;
 import com.google.devtools.build.lib.remote.salt.CacheSalt;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.FakeSpawnExecutionContext;
@@ -2797,7 +2798,7 @@ public class RemoteExecutionServiceTest {
   private static void uploadOutputsAndWait(
       RemoteExecutionService service, RemoteAction action, SpawnResult result) throws Exception {
     SettableFuture<Void> future = SettableFuture.create();
-    service.uploadOutputs(action, result, () -> future.set(null));
+    service.uploadOutputs(action, result, () -> future.set(null), ConcurrentChangesCheckLevel.OFF);
     future.get();
   }
 }
