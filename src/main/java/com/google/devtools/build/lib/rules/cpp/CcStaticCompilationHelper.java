@@ -303,7 +303,6 @@ public final class CcStaticCompilationHelper {
 
   private final SourceCategory sourceCategory;
   private final List<VariablesExtension> variablesExtensions = new ArrayList<>();
-  private final CachedCcToolchainVariables cachedCcToolchainVariables;
   @Nullable private CppModuleMap cppModuleMap;
   private boolean propagateModuleMapToCompileAction = true;
 
@@ -356,7 +355,6 @@ public final class CcStaticCompilationHelper {
     this.label = Preconditions.checkNotNull(label);
     this.executionInfo = Preconditions.checkNotNull(executionInfo);
     this.shouldProcessHeaders = shouldProcessHeaders;
-    this.cachedCcToolchainVariables = new CachedCcToolchainVariables();
   }
 
   /**
@@ -866,7 +864,6 @@ public final class CcStaticCompilationHelper {
               generatePicAction,
               isCodeCoverageEnabled,
               label,
-              cachedCcToolchainVariables,
               privateHeaders,
               publicHeaders,
               purpose,
@@ -1029,7 +1026,6 @@ public final class CcStaticCompilationHelper {
       boolean generatePicAction,
       boolean isCodeCoverageEnabled,
       Label label,
-      CachedCcToolchainVariables cachedCcToolchainVariables,
       List<Artifact> privateHeaders,
       List<Artifact> publicHeaders,
       String purpose,
@@ -1040,6 +1036,7 @@ public final class CcStaticCompilationHelper {
       throws RuleErrorException, EvalException, InterruptedException {
     CcCompilationOutputs.Builder result = CcCompilationOutputs.builder();
     Preconditions.checkNotNull(ccCompilationContext);
+    CachedCcToolchainVariables cachedCcToolchainVariables = new CachedCcToolchainVariables();
 
     if (shouldProvideHeaderModules(featureConfiguration, privateHeaders, publicHeaders)) {
       CppModuleMap cppModuleMap = ccCompilationContext.getCppModuleMap();
