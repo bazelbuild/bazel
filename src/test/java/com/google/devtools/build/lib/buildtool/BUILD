@@ -201,6 +201,7 @@ java_test(
 java_test(
     name = "DirectoryArtifactWarningTest",
     srcs = ["DirectoryArtifactWarningTest.java"],
+    jvm_flags = ["-DBAZEL_TRACK_SOURCE_DIRECTORIES=0"],
     tags = [
         "no_windows",
     ],
