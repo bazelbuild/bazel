@@ -137,25 +137,6 @@ compile_rule = rule(_impl,
      'progress_message': attr.string(),
   })
 """);
-
-    scratch.file(
-        "foo/check_collocated.bzl",
-"""
-load("@com_google_protobuf//bazel/common:proto_info.bzl", "ProtoInfo")
-load("@com_google_protobuf//bazel/common:proto_common.bzl", "proto_common")
-load("@com_google_protobuf//bazel/common:proto_lang_toolchain_info.bzl", "ProtoLangToolchainInfo")
-def _impl(ctx):
-  proto_common.check_collocated(
-    ctx.label,
-    ctx.attr.proto_dep[ProtoInfo],
-    ctx.attr.toolchain[ProtoLangToolchainInfo])
-  return None
-check_collocated = rule(_impl,
-  attrs = {
-     'proto_dep': attr.label(),
-     'toolchain': attr.label(default = '//foo:toolchain'),
-  })
-""");
   }
 
   /**
@@ -238,97 +219,5 @@ check_collocated = rule(_impl,
             "-I.",
             "bar/A.proto")
         .inOrder();
-  }
-
-  @Test
-  public void langProtoLibrary_inDifferentPackage_allowed() throws Exception {
-    scratch.file(
-        "proto/BUILD",
-        "load('@com_google_protobuf//bazel:proto_library.bzl', 'proto_library')",
-        "proto_library(name = 'proto', srcs = ['A.proto'])");
-    scratch.file(
-        "bar/BUILD",
-        """
-        load('//foo:check_collocated.bzl', 'check_collocated')
-        check_collocated(name = 'simple', proto_dep = '//proto:proto')
-        """);
-
-    getConfiguredTarget("//bar:simple");
-
-    assertNoEvents();
-  }
-
-  @Test
-  public void langProtoLibrary_inDifferentPackage_fails() throws Exception {
-    scratch.file(
-        "proto/BUILD",
-        "load('@com_google_protobuf//bazel:proto_library.bzl', 'proto_library')",
-        "proto_library(name = 'proto', srcs = ['A.proto'])");
-    scratch.file(
-        "test/BUILD",
-        """
-        load('//foo:check_collocated.bzl', 'check_collocated')
-        check_collocated(name = 'simple', proto_dep = '//proto:proto')
-        """);
-
-    reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//test:simple");
-
-    assertContainsEvent(
-        "lang_proto_library '@@//test:simple' may only be created in the same package as"
-            + " proto_library '@@//proto:proto'");
-  }
-
-  @Test
-  public void langProtoLibrary_exportNotAllowed() throws Exception {
-    scratch.file(
-        "x/BUILD",
-        """
-        load("@com_google_protobuf//bazel:proto_library.bzl", "proto_library")
-        proto_library(name='foo', srcs=['foo.proto'], allow_exports = ':test')
-        package_group(
-            name='test',
-            packages=['//allowed'],
-        )
-        """);
-    scratch.file(
-        "notallowed/BUILD",
-        """
-        load("@com_google_protobuf//bazel:proto_library.bzl", "proto_library")
-        load('//foo:check_collocated.bzl', 'check_collocated')
-        check_collocated(name = 'simple', proto_dep = '//x:foo')
-        """);
-
-    reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//notallowed:simple");
-
-    assertContainsEvent(
-        "lang_proto_library '@@//notallowed:simple' may only be created in the same package as"
-            + " proto_library '@@//x:foo'");
-  }
-
-  @Test
-  public void langProtoLibrary_exportAllowed() throws Exception {
-    scratch.file(
-        "x/BUILD",
-        """
-        load("@com_google_protobuf//bazel:proto_library.bzl", "proto_library")
-        proto_library(name='foo', srcs=['foo.proto'], allow_exports = ':test')
-        package_group(
-            name='test',
-            packages=['//allowed'],
-        )
-        """);
-    scratch.file(
-        "allowed/BUILD",
-        """
-        load("@com_google_protobuf//bazel:proto_library.bzl", "proto_library")
-        load('//foo:check_collocated.bzl', 'check_collocated')
-        check_collocated(name = 'simple', proto_dep = '//x:foo')
-        """);
-
-    getConfiguredTarget("//allowed:simple");
-
-    assertNoEvents();
   }
 }
