@@ -13,6 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.devtools.build.lib.vfs.FileSystemUtils.createEmptyFile;
+import static com.google.devtools.build.lib.vfs.FileSystemUtils.ensureSymbolicLink;
+import static com.google.devtools.build.lib.vfs.FileSystemUtils.touchFile;
+import static com.google.devtools.build.lib.vfs.FileSystemUtils.writeIsoLatin1;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableSet;
@@ -20,7 +24,6 @@ import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.events.EventKind;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import org.junit.Before;
@@ -55,9 +58,9 @@ public final class SourceDirectoryIntegrationTest extends BuildIntegrationTestCa
 
     sourceDir = getWorkspace().getRelative("foo/dir");
     sourceDir.createDirectoryAndParents();
-    FileSystemUtils.writeIsoLatin1(sourceDir.getRelative("file1"), "content");
-    FileSystemUtils.writeIsoLatin1(sourceDir.getRelative("file2"), "content");
-    FileSystemUtils.writeIsoLatin1(sourceDir.getRelative("file3"), "other content");
+    writeIsoLatin1(sourceDir.getRelative("file1"), "content");
+    writeIsoLatin1(sourceDir.getRelative("file2"), "content");
+    writeIsoLatin1(sourceDir.getRelative("file3"), "other content");
     sourceDir.getRelative("symlink").createSymbolicLink(PathFragment.create("file3"));
     sourceDir
         .getRelative("dangling_symlink")
@@ -65,9 +68,9 @@ public final class SourceDirectoryIntegrationTest extends BuildIntegrationTestCa
 
     Path subDir = sourceDir.getRelative("subdir");
     subDir.createDirectory();
-    FileSystemUtils.writeIsoLatin1(subDir.getRelative("file1"), "content");
-    FileSystemUtils.writeIsoLatin1(subDir.getRelative("file2"), "content");
-    FileSystemUtils.writeIsoLatin1(subDir.getRelative("file3"), "other content");
+    writeIsoLatin1(subDir.getRelative("file1"), "content");
+    writeIsoLatin1(subDir.getRelative("file2"), "content");
+    writeIsoLatin1(subDir.getRelative("file3"), "other content");
     subDir.getRelative("symlink").createSymbolicLink(PathFragment.create("file3"));
     subDir
         .getRelative("dangling_symlink")
@@ -76,7 +79,7 @@ public final class SourceDirectoryIntegrationTest extends BuildIntegrationTestCa
     subDir.getRelative("nested").createDirectory();
     subDir.getRelative("nested2").createDirectory();
     subDir.getRelative("nested_non_empty").createDirectory();
-    FileSystemUtils.writeIsoLatin1(subDir.getRelative("nested_non_empty/file1"), "content");
+    writeIsoLatin1(subDir.getRelative("nested_non_empty/file1"), "content");
 
     buildTarget("//foo");
     assertContainsEvent(events.collector(), "Executing genrule //foo:foo");
@@ -91,25 +94,25 @@ public final class SourceDirectoryIntegrationTest extends BuildIntegrationTestCa
 
   @Test
   public void touched_doesNotInvalidateAction() throws Exception {
-    sourceDir.setLastModifiedTime(Path.NOW_SENTINEL_TIME);
+    touchFile(sourceDir);
     assertNotInvalidatedByBuild();
   }
 
   @Test
   public void topLevelFileTouched_doesNotInvalidateAction() throws Exception {
-    sourceDir.getRelative("file1").setLastModifiedTime(Path.NOW_SENTINEL_TIME);
+    touchFile(sourceDir.getRelative("file1"));
     assertNotInvalidatedByBuild();
   }
 
   @Test
   public void topLevelDirTouched_doesNotInvalidateAction() throws Exception {
-    sourceDir.getRelative("subdir").setLastModifiedTime(Path.NOW_SENTINEL_TIME);
+    touchFile(sourceDir.getRelative("subdir"));
     assertNotInvalidatedByBuild();
   }
 
   @Test
   public void nestedFileTouched_doesNotInvalidateAction() throws Exception {
-    sourceDir.getRelative("subdir/file1").setLastModifiedTime(Path.NOW_SENTINEL_TIME);
+    touchFile(sourceDir.getRelative("subdir/file1"));
     assertNotInvalidatedByBuild();
   }
 
@@ -133,31 +136,51 @@ public final class SourceDirectoryIntegrationTest extends BuildIntegrationTestCa
 
   @Test
   public void topLevelFileModified_invalidatesAction() throws Exception {
-    FileSystemUtils.writeIsoLatin1(sourceDir.getRelative("file1"), "modified content");
+    writeIsoLatin1(sourceDir.getRelative("file1"), "modified content");
     assertInvalidatedByBuild();
   }
 
   @Test
   public void nestedFileModified_invalidatesAction() throws Exception {
-    FileSystemUtils.writeIsoLatin1(sourceDir.getRelative("subdir/file1"), "modified content");
+    writeIsoLatin1(sourceDir.getRelative("subdir/file1"), "modified content");
     assertInvalidatedByBuild();
   }
 
   @Test
   public void topLevelFileAdded_invalidatesAction() throws Exception {
-    FileSystemUtils.writeIsoLatin1(sourceDir.getRelative("new_file"), "modified content");
+    writeIsoLatin1(sourceDir.getRelative("new_file"), "modified content");
     assertInvalidatedByBuild();
   }
 
   @Test
   public void nestedFileAdded_invalidatesAction() throws Exception {
-    FileSystemUtils.writeIsoLatin1(sourceDir.getRelative("subdir/new_file"), "modified content");
+    writeIsoLatin1(sourceDir.getRelative("subdir/new_file"), "modified content");
+    assertInvalidatedByBuild();
+  }
+
+  @Test
+  public void emptyDirAdded_invalidatesAction() throws Exception {
+    sourceDir.getRelative("subdir/nested3").createDirectory();
     assertInvalidatedByBuild();
   }
 
   @Test
   public void emptyDirDeleted_invalidatesAction() throws Exception {
     sourceDir.getRelative("subdir/nested").delete();
+    assertInvalidatedByBuild();
+  }
+
+  @Test
+  public void emptyDirReplacedWithEmptyFile_invalidatesAction() throws Exception {
+    Path dir = sourceDir.getRelative("subdir/nested");
+    dir.delete();
+    createEmptyFile(dir);
+    assertInvalidatedByBuild();
+  }
+
+  @Test
+  public void fileAddedToEmptyDir_invalidatesAction() throws Exception {
+    createEmptyFile(sourceDir.getRelative("subdir/nested/file1"));
     assertInvalidatedByBuild();
   }
 
@@ -197,14 +220,14 @@ public final class SourceDirectoryIntegrationTest extends BuildIntegrationTestCa
   @Test
   @Ignore("TODO(#25834)")
   public void danglingSymlinkModified_invalidatesAction() throws Exception {
-    FileSystemUtils.ensureSymbolicLink(
+    ensureSymbolicLink(
         sourceDir.getRelative("dangling_symlink"), PathFragment.create("still_does_not_exist"));
     assertInvalidatedByBuild();
   }
 
   @Test
   public void crossingPackageBoundary_fails() throws Exception {
-    FileSystemUtils.touchFile(sourceDir.getRelative("subdir/BUILD"));
+    createEmptyFile(sourceDir.getRelative("subdir/BUILD"));
     // TODO(#25834): This should not crash Bazel.
     assertThrows(IllegalStateException.class, () -> buildTarget("//foo"));
     BugReport.getAndResetLastCrashingThrowableIfInTest();
