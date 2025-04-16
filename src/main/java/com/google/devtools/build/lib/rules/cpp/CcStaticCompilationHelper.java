@@ -1151,6 +1151,19 @@ public final class CcStaticCompilationHelper {
     builder.setOutputs(outputFiles, /* dotdFile= */ null, /* diagnosticsFile= */ null);
     builder.setVariables(
         setupCompileBuildVariables(
+            ccCompilationContext,
+            ccToolchain,
+            compilationUnitSources,
+            conlyopts,
+            copts,
+            cppConfiguration,
+            cxxopts,
+            fdoContext,
+            featureConfiguration,
+            cachedCcToolchainVariables,
+            ruleErrorConsumer,
+            semantics,
+            variablesExtensions,
             builder,
             /* sourceLabel= */ null,
             usePic,
@@ -1286,7 +1299,20 @@ public final class CcStaticCompilationHelper {
     return coptsList.build();
   }
 
-  private CcToolchainVariables setupCompileBuildVariables(
+  private static CcToolchainVariables setupCompileBuildVariables(
+      CcCompilationContext ccCompilationContext,
+      CcToolchainProvider ccToolchain,
+      Map<Artifact, CppSource> compilationUnitSources,
+      ImmutableList<String> conlyopts,
+      ImmutableList<String> copts,
+      CppConfiguration cppConfiguration,
+      ImmutableList<String> cxxopts,
+      FdoContext fdoContext,
+      FeatureConfiguration featureConfiguration,
+      CachedCcToolchainVariables cachedCcToolchainVariables,
+      RuleErrorConsumer ruleErrorConsumer,
+      CppSemantics semantics,
+      List<VariablesExtension> variablesExtensions,
       CppCompileActionBuilder builder,
       Label sourceLabel,
       boolean usePic,
@@ -1447,7 +1473,10 @@ public final class CcStaticCompilationHelper {
 
     boolean generateDwo =
         CcToolchainProvider.shouldCreatePerObjectDebugInfo(featureConfiguration, cppConfiguration);
-    Artifact dwoFile = generateDwo ? getDwoFile(builder.getOutputFile()) : null;
+    Artifact dwoFile =
+        generateDwo
+            ? getDwoFile(actionConstructionContext, configuration, builder.getOutputFile())
+            : null;
     // TODO(tejohnson): Add support for ThinLTO if needed.
     boolean bitcodeOutput =
         featureConfiguration.isEnabled(CppRuleClasses.THIN_LTO)
@@ -1456,6 +1485,19 @@ public final class CcStaticCompilationHelper {
 
     builder.setVariables(
         setupCompileBuildVariables(
+            ccCompilationContext,
+            ccToolchain,
+            compilationUnitSources,
+            conlyopts,
+            copts,
+            cppConfiguration,
+            cxxopts,
+            fdoContext,
+            featureConfiguration,
+            cachedCcToolchainVariables,
+            ruleErrorConsumer,
+            semantics,
+            variablesExtensions,
             builder,
             sourceLabel,
             /* usePic= */ pic,
@@ -1503,6 +1545,19 @@ public final class CcStaticCompilationHelper {
         .setPicMode(generatePicAction);
     builder.setVariables(
         setupCompileBuildVariables(
+            ccCompilationContext,
+            ccToolchain,
+            compilationUnitSources,
+            conlyopts,
+            copts,
+            cppConfiguration,
+            cxxopts,
+            fdoContext,
+            featureConfiguration,
+            cachedCcToolchainVariables,
+            ruleErrorConsumer,
+            semantics,
+            variablesExtensions,
             builder,
             sourceLabel,
             generatePicAction,
@@ -1570,6 +1625,22 @@ public final class CcStaticCompilationHelper {
       picBuilder.setPicMode(true);
       Artifact picOutputFile =
           createSourceActionHelper(
+              actionConstructionContext,
+              ccCompilationContext,
+              ccToolchain,
+              compilationUnitSources,
+              configuration,
+              conlyopts,
+              copts,
+              cppConfiguration,
+              cxxopts,
+              fdoContext,
+              featureConfiguration,
+              label,
+              cachedCcToolchainVariables,
+              ruleErrorConsumer,
+              semantics,
+              variablesExtensions,
               sourceLabel,
               outputName,
               result,
@@ -1593,6 +1664,22 @@ public final class CcStaticCompilationHelper {
     if (generateNoPicAction) {
       Artifact noPicOutputFile =
           createSourceActionHelper(
+              actionConstructionContext,
+              ccCompilationContext,
+              ccToolchain,
+              compilationUnitSources,
+              configuration,
+              conlyopts,
+              copts,
+              cppConfiguration,
+              cxxopts,
+              fdoContext,
+              featureConfiguration,
+              label,
+              cachedCcToolchainVariables,
+              ruleErrorConsumer,
+              semantics,
+              variablesExtensions,
               sourceLabel,
               outputName,
               result,
@@ -1615,7 +1702,23 @@ public final class CcStaticCompilationHelper {
     return directOutputs.build();
   }
 
-  private Artifact createSourceActionHelper(
+  private static Artifact createSourceActionHelper(
+      ActionConstructionContext actionConstructionContext,
+      CcCompilationContext ccCompilationContext,
+      CcToolchainProvider ccToolchain,
+      Map<Artifact, CppSource> compilationUnitSources,
+      BuildConfigurationValue configuration,
+      ImmutableList<String> conlyopts,
+      ImmutableList<String> copts,
+      CppConfiguration cppConfiguration,
+      ImmutableList<String> cxxopts,
+      FdoContext fdoContext,
+      FeatureConfiguration featureConfiguration,
+      Label label,
+      CachedCcToolchainVariables cachedCcToolchainVariables,
+      RuleErrorConsumer ruleErrorConsumer,
+      CppSemantics semantics,
+      List<VariablesExtension> variablesExtensions,
       Label sourceLabel,
       String outputName,
       CcCompilationOutputs.Builder result,
@@ -1649,11 +1752,34 @@ public final class CcStaticCompilationHelper {
                 actionConstructionContext, label, gcnoFileName, configuration)
             : null;
 
-    Artifact dwoFile = generateDwo && !bitcodeOutput ? getDwoFile(builder.getOutputFile()) : null;
-    Artifact ltoIndexingFile = bitcodeOutput ? getLtoIndexingFile(builder.getOutputFile()) : null;
+    Artifact dwoFile =
+        generateDwo && !bitcodeOutput
+            ? getDwoFile(actionConstructionContext, configuration, builder.getOutputFile())
+            : null;
+    Artifact ltoIndexingFile =
+        bitcodeOutput
+            ? getLtoIndexingFile(
+                actionConstructionContext,
+                configuration,
+                featureConfiguration,
+                builder.getOutputFile())
+            : null;
 
     builder.setVariables(
         setupCompileBuildVariables(
+            ccCompilationContext,
+            ccToolchain,
+            compilationUnitSources,
+            conlyopts,
+            copts,
+            cppConfiguration,
+            cxxopts,
+            fdoContext,
+            featureConfiguration,
+            cachedCcToolchainVariables,
+            ruleErrorConsumer,
+            semantics,
+            variablesExtensions,
             builder,
             sourceLabel,
             usePic,
@@ -1668,7 +1794,28 @@ public final class CcStaticCompilationHelper {
 
     result.addTemps(
         createTempsActions(
-            sourceArtifact, sourceLabel, outputName, builder, usePic, ccRelativeName));
+            actionConstructionContext,
+            ccCompilationContext,
+            ccToolchain,
+            compilationUnitSources,
+            configuration,
+            conlyopts,
+            copts,
+            cppConfiguration,
+            cxxopts,
+            fdoContext,
+            featureConfiguration,
+            label,
+            cachedCcToolchainVariables,
+            ruleErrorConsumer,
+            semantics,
+            variablesExtensions,
+            sourceArtifact,
+            sourceLabel,
+            outputName,
+            builder,
+            usePic,
+            ccRelativeName));
 
     builder.setGcnoFile(gcnoFile);
     builder.setDwoFile(dwoFile);
@@ -1765,13 +1912,20 @@ public final class CcStaticCompilationHelper {
         .collect(ImmutableList.toImmutableList());
   }
 
-  private Artifact getDwoFile(Artifact outputFile) {
+  private static Artifact getDwoFile(
+      ActionConstructionContext actionConstructionContext,
+      BuildConfigurationValue configuration,
+      Artifact outputFile) {
     return actionConstructionContext.getRelatedArtifact(
         outputFile.getOutputDirRelativePath(configuration.isSiblingRepositoryLayout()), ".dwo");
   }
 
   @Nullable
-  private Artifact getLtoIndexingFile(Artifact outputFile) {
+  private static Artifact getLtoIndexingFile(
+      ActionConstructionContext actionConstructionContext,
+      BuildConfigurationValue configuration,
+      FeatureConfiguration featureConfiguration,
+      Artifact outputFile) {
     if (featureConfiguration.isEnabled(CppRuleClasses.NO_USE_LTO_INDEXING_BITCODE_FILE)) {
       return null;
     }
@@ -1781,7 +1935,23 @@ public final class CcStaticCompilationHelper {
   }
 
   /** Create the actions for "--save_temps". */
-  private ImmutableList<Artifact> createTempsActions(
+  private static ImmutableList<Artifact> createTempsActions(
+      ActionConstructionContext actionConstructionContext,
+      CcCompilationContext ccCompilationContext,
+      CcToolchainProvider ccToolchain,
+      Map<Artifact, CppSource> compilationUnitSources,
+      BuildConfigurationValue configuration,
+      ImmutableList<String> conlyopts,
+      ImmutableList<String> copts,
+      CppConfiguration cppConfiguration,
+      ImmutableList<String> cxxopts,
+      FdoContext fdoContext,
+      FeatureConfiguration featureConfiguration,
+      Label label,
+      CachedCcToolchainVariables cachedCcToolchainVariables,
+      RuleErrorConsumer ruleErrorConsumer,
+      CppSemantics semantics,
+      List<VariablesExtension> variablesExtensions,
       Artifact source,
       Label sourceLabel,
       String outputName,
@@ -1813,6 +1983,19 @@ public final class CcStaticCompilationHelper {
         actionConstructionContext, ruleErrorConsumer, label, category, outputArtifactNameBase);
     dBuilder.setVariables(
         setupCompileBuildVariables(
+            ccCompilationContext,
+            ccToolchain,
+            compilationUnitSources,
+            conlyopts,
+            copts,
+            cppConfiguration,
+            cxxopts,
+            fdoContext,
+            featureConfiguration,
+            cachedCcToolchainVariables,
+            ruleErrorConsumer,
+            semantics,
+            variablesExtensions,
             dBuilder,
             sourceLabel,
             usePic,
@@ -1839,6 +2022,19 @@ public final class CcStaticCompilationHelper {
         outputArtifactNameBase);
     sdBuilder.setVariables(
         setupCompileBuildVariables(
+            ccCompilationContext,
+            ccToolchain,
+            compilationUnitSources,
+            conlyopts,
+            copts,
+            cppConfiguration,
+            cxxopts,
+            fdoContext,
+            featureConfiguration,
+            cachedCcToolchainVariables,
+            ruleErrorConsumer,
+            semantics,
+            variablesExtensions,
             sdBuilder,
             sourceLabel,
             usePic,
