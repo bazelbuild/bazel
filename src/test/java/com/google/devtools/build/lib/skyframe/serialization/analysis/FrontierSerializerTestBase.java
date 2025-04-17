@@ -18,6 +18,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.cmdline.Label.parseCanonicalUnchecked;
+import static java.util.Arrays.stream;
 import static java.util.stream.Collectors.joining;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assume.assumeTrue;
@@ -74,6 +75,14 @@ import org.junit.Test;
 import org.junit.rules.TestName;
 
 public abstract class FrontierSerializerTestBase extends BuildIntegrationTestCase {
+
+  protected static final String UPLOAD_MODE_OPTION =
+      "--experimental_remote_analysis_cache_mode=upload";
+  protected static final String DOWNLOAD_MODE_OPTION =
+      "--experimental_remote_analysis_cache_mode=download";
+  protected static final String DUMP_MANIFEST_MODE_OPTION =
+      "--experimental_remote_analysis_cache_mode=dump_upload_manifest_only";
+
   @Rule public TestName testName = new TestName();
 
   /**
@@ -106,7 +115,7 @@ public abstract class FrontierSerializerTestBase extends BuildIntegrationTestCas
         """
         package_group(name = "empty")
         """);
-    addOptions("--experimental_remote_analysis_cache_mode=upload");
+    addOptions(UPLOAD_MODE_OPTION);
     buildTarget("//foo:empty");
     events.assertContainsInfo("Disabling Skycache due to missing PROJECT.scl: [//foo:empty]");
   }
@@ -118,14 +127,9 @@ public abstract class FrontierSerializerTestBase extends BuildIntegrationTestCas
         """
         package_group(name = "empty")
         """);
-    write(
-        "foo/PROJECT.scl",
-"""
-project = {
-  "active_directories": { "default": ["foo"] },
-}
-""");
-    addOptions("--experimental_remote_analysis_cache_mode=upload");
+    writeProjectSclWithActiveDirs("foo");
+
+    addOptions(UPLOAD_MODE_OPTION);
     buildTarget("//foo:empty");
   }
 
@@ -136,28 +140,16 @@ project = {
         """
         package_group(name = "empty")
         """);
-    write(
-        "foo/PROJECT.scl",
-"""
-project = {
-  "active_directories": { "default": ["foo"] },
-}
-""");
+    writeProjectSclWithActiveDirs("foo");
 
     write(
         "bar/BUILD",
         """
         package_group(name = "empty")
         """);
-    write(
-        "bar/PROJECT.scl",
-"""
-project = {
-  "active_directories": { "default": ["bar"] },
-}
-""");
+    writeProjectSclWithActiveDirs("bar");
 
-    addOptions("--experimental_remote_analysis_cache_mode=upload");
+    addOptions(UPLOAD_MODE_OPTION);
     LoadingFailedException exception =
         assertThrows(LoadingFailedException.class, () -> buildTarget("//foo:empty", "//bar:empty"));
     assertThat(exception)
@@ -178,15 +170,9 @@ project = {
         """
         package_group(name = "empty")
         """);
-    write(
-        "foo/PROJECT.scl",
-"""
-project = {
-  "active_directories": { "default": ["foo"] },
-}
-""");
+    writeProjectSclWithActiveDirs("foo");
 
-    addOptions("--experimental_remote_analysis_cache_mode=upload");
+    addOptions(UPLOAD_MODE_OPTION);
     buildTarget("//foo:empty", "//foo/bar:empty");
   }
 
@@ -211,13 +197,7 @@ project = {
   }
 
   private void runSkymeldScenario() throws Exception {
-    write(
-        "foo/PROJECT.scl",
-"""
-project = {
-  "active_directories": { "default": ["foo"] },
-}
-""");
+    writeProjectSclWithActiveDirs("foo");
     write(
         "foo/BUILD",
         """
@@ -230,7 +210,7 @@ project = {
         genrule(name = "bar", outs = ["out"], cmd = "touch $@")
         """);
     addOptions(
-        "--experimental_remote_analysis_cache_mode=upload",
+        UPLOAD_MODE_OPTION,
         "--build", // overrides --nobuild in setup step.
         "--experimental_merged_skyframe_analysis_execution" // forces Skymeld.
         );
@@ -244,7 +224,7 @@ project = {
 
     addOptions("--serialized_frontier_profile=" + profilePath);
     setupScenarioWithAspects();
-    upload("//bar:one");
+    assertUploadSuccess("//bar:one");
 
     // The proto parses successfully from the file.
     var proto =
@@ -304,7 +284,7 @@ project = {
     // the writer, using the default roots provided by BuildIntegrationTestCase. The second setup
     // populates roots obtained upon recreating the files and mocks.
     setupScenarioWithAspects();
-    upload("//bar:one"); // Cache writing build.
+    assertUploadSuccess("//bar:one"); // Cache writing build.
 
     // TODO: b/367287783 - RemoteConfiguredTargetValue cannot be deserialized successfully with
     // Bazel yet. Return early.
@@ -333,7 +313,7 @@ project = {
     setupScenarioWithAspects();
     addOptions("--experimental_frontier_violation_check=disabled_for_testing");
 
-    download("//bar:one"); // Cache reading build.
+    assertDownloadSuccess("//bar:one"); // Cache reading build.
 
     PathFragment readerWorkspace = directories.getWorkspace().asFragment();
     // Sanity checks that recreating the directories results in a distinct workspace.
@@ -397,13 +377,7 @@ file_count_aspect = aspect(
 )
 """);
 
-    write(
-        "bar/PROJECT.scl",
-"""
-project = {
-  "active_directories": { "default": ["foo"] },
-}
-""");
+    writeProjectSclWithActiveDirs("bar", "foo");
 
     write(
         "foo/BUILD",
@@ -451,15 +425,9 @@ genrule(
   @Test
   public void buildCommand_downloadsFrontierBytesWithDownloadMode() throws Exception {
     setupScenarioWithConfiguredTargets();
-    write(
-        "foo/PROJECT.scl",
-"""
-project = {
-  "active_directories": { "default": ["foo"] },
-}
-""");
+    writeProjectSclWithActiveDirs("foo");
     // Cache-writing build.
-    upload("//foo:A");
+    assertUploadSuccess("//foo:A");
 
     // TODO: b/367287783 - RemoteConfiguredTargetValue cannot be deserialized successfully with
     // Bazel yet. Return early.
@@ -469,7 +437,7 @@ project = {
     getCommandEnvironment().getSkyframeExecutor().resetEvaluator();
 
     // Cache reading build.
-    download("//foo:A");
+    assertDownloadSuccess("//foo:A");
 
     var listener = getCommandEnvironment().getRemoteAnalysisCachingEventListener();
     // //bar:C, //bar:H, //bar:E
@@ -482,16 +450,10 @@ project = {
   public void buildCommand_downloadedFrontierContainsRemoteConfiguredTargetValues()
       throws Exception {
     setupScenarioWithConfiguredTargets();
-    write(
-        "foo/PROJECT.scl",
-"""
-project = {
-  "active_directories": { "default": ["foo"] },
-}
-""");
+    writeProjectSclWithActiveDirs("foo");
 
     // Cache-writing build.
-    upload("//foo:A");
+    assertUploadSuccess("//foo:A");
 
     // TODO: b/367287783 - RemoteConfiguredTargetValue cannot be deserialized successfully with
     // Bazel yet. Return early.
@@ -501,7 +463,7 @@ project = {
     getCommandEnvironment().getSkyframeExecutor().resetEvaluator();
 
     // Cache reading build.
-    download("//foo:A");
+    assertDownloadSuccess("//foo:A");
 
     var graph = getSkyframeExecutor().getEvaluator().getInMemoryGraph();
     Function<String, ConfiguredTargetKey> ctKeyOfLabel =
@@ -535,15 +497,9 @@ project = {
   public void errorOnWarmSkyframeUploadBuilds() throws Exception {
     setupScenarioWithConfiguredTargets();
 
-    write(
-        "foo/PROJECT.scl",
-"""
-project = {
-  "active_directories": { "default": ["foo"] },
-}
-""");
+    writeProjectSclWithActiveDirs("foo");
 
-    upload("//foo:A");
+    assertUploadSuccess("//foo:A");
     var exception = assertThrows(AbruptExitException.class, () -> buildTarget("//foo:A"));
     assertThat(exception).hasMessageThat().contains(BuildView.UPLOAD_BUILDS_MUST_BE_COLD);
   }
@@ -551,15 +507,9 @@ project = {
   @Test
   public void downloadedConfiguredTarget_doesNotDownloadTargetPackage() throws Exception {
     setupScenarioWithConfiguredTargets();
-    write(
-        "foo/PROJECT.scl",
-"""
-project = {
-  "active_directories": { "default": ["foo"] },
-}
-""");
+    writeProjectSclWithActiveDirs("foo");
     // Cache-writing build.
-    upload("//foo:D");
+    assertUploadSuccess("//foo:D");
 
     var graph = getSkyframeExecutor().getEvaluator().getInMemoryGraph();
     var fooKey = PackageIdentifier.createUnchecked(/* repository= */ "", "foo");
@@ -576,7 +526,7 @@ project = {
     getCommandEnvironment().getSkyframeExecutor().resetEvaluator();
 
     // Cache reading build.
-    download("//foo:D");
+    assertDownloadSuccess("//foo:D");
 
     graph = getSkyframeExecutor().getEvaluator().getInMemoryGraph();
     assertThat(graph.getIfPresent(fooKey)).isNotNull();
@@ -587,7 +537,7 @@ project = {
   @Test
   public void cquery_succeedsAndDoesNotTriggerUpload() throws Exception {
     setupScenarioWithConfiguredTargets();
-    addOptions("--experimental_remote_analysis_cache_mode=upload");
+    addOptions(UPLOAD_MODE_OPTION);
     runtimeWrapper.newCommand(CqueryCommand.class);
     buildTarget("//foo:A"); // succeeds, even though there's no PROJECT.scl
     assertThat(
@@ -600,14 +550,8 @@ project = {
   @Test
   public void cquery_succeedsAndDoesNotTriggerUploadWithProjectScl() throws Exception {
     setupScenarioWithConfiguredTargets();
-    write(
-        "foo/PROJECT.scl",
-"""
-project = {
-  "active_directories": { "default": ["foo"] },
-}
-""");
-    addOptions("--experimental_remote_analysis_cache_mode=upload");
+    writeProjectSclWithActiveDirs("foo");
+    addOptions(UPLOAD_MODE_OPTION);
     runtimeWrapper.newCommand(CqueryCommand.class);
     buildTarget("//foo:A");
     assertThat(
@@ -620,14 +564,9 @@ project = {
   @Test
   public void testConfiguration_doesNotAffectSkyValueVersion() throws Exception {
     setupScenarioWithConfiguredTargets();
-    write(
-        "mytest/PROJECT.scl",
-"""
-project = {
-  "active_directories": { "default": ["mytest"] },
-}
-""");
+    writeProjectSclWithActiveDirs("mytest");
     write("mytest/mytest.sh", "exit 0").setExecutable(true);
+
     write(
         "mytest/BUILD",
         """
@@ -638,7 +577,7 @@ project = {
             data = ["//foo:A"],
         )
         """);
-    addOptions("--experimental_remote_analysis_cache_mode=upload", "--nobuild");
+    addOptions(UPLOAD_MODE_OPTION, "--nobuild");
 
     buildTarget("//mytest");
     assertThat(
@@ -673,14 +612,9 @@ project = {
   @Test
   public void dumpUploadManifestOnlyMode_writesManifestToStdOut() throws Exception {
     setupScenarioWithConfiguredTargets();
-    addOptions("--experimental_remote_analysis_cache_mode=dump_upload_manifest_only");
-    write(
-        "foo/PROJECT.scl",
-"""
-project = {
-  "active_directories": { "default": ["foo"] },
-}
-""");
+    addOptions(DUMP_MANIFEST_MODE_OPTION);
+    writeProjectSclWithActiveDirs("foo");
+
     RecordingOutErr outErr = new RecordingOutErr();
     this.outErr = outErr;
 
@@ -774,7 +708,7 @@ filegroup(name = "I")
   @Test
   public void actionLookupKey_underTheFrontier_areNotUploaded() throws Exception {
     setupGenruleGraph();
-    upload("//A");
+    assertUploadSuccess("//A");
     var serializedKeys =
         getCommandEnvironment().getRemoteAnalysisCachingEventListener().getSerializedKeys();
     ImmutableSet<Label> labels = getLabels(filterKeys(serializedKeys, ActionLookupKey.class));
@@ -810,7 +744,7 @@ filegroup(name = "I")
             cmd = "cat $(SRCS) > $@",
         )
         """);
-    upload("//A");
+    assertUploadSuccess("//A");
     var serializedKeys =
         getCommandEnvironment().getRemoteAnalysisCachingEventListener().getSerializedKeys();
     ImmutableSet<Label> labels = getLabels(filterKeys(serializedKeys, ActionLookupKey.class));
@@ -848,7 +782,7 @@ filegroup(name = "I")
         )
         """);
 
-    addOptions("--experimental_remote_analysis_cache_mode=dump_upload_manifest_only");
+    addOptions(DUMP_MANIFEST_MODE_OPTION);
 
     RecordingOutErr outErr = new RecordingOutErr();
     this.outErr = outErr;
@@ -881,7 +815,7 @@ ACTION_EXECUTION:ActionLookupData0{actionLookupKey=ConfiguredTargetKey{label=//A
   @Test
   public void actionLookupData_ownedByActiveSet_areUploaded() throws Exception {
     setupGenruleGraph();
-    upload("//A");
+    assertUploadSuccess("//A");
     var serializedKeys =
         getCommandEnvironment().getRemoteAnalysisCachingEventListener().getSerializedKeys();
     var actionLookupDatas = filterKeys(serializedKeys, ActionLookupData.class);
@@ -904,12 +838,8 @@ ACTION_EXECUTION:ActionLookupData0{actionLookupKey=ConfiguredTargetKey{label=//A
   @Test
   public void disjointDirectoriesWithCanonicalProject_uploadsSuccessfully() throws Exception {
     setupGenruleGraph();
-    write(
-        "B/PROJECT.scl",
-"""
-project = { "actual": "//A:PROJECT.scl" }
-""");
-    upload("//A", "//B");
+    write("B/PROJECT.scl", "project = { \"actual\": \"//A:PROJECT.scl\" }");
+    assertUploadSuccess("//A", "//B");
   }
 
   @Test
@@ -954,19 +884,15 @@ genrule(
     cmd = "echo 'A received this via B:' > $@ && cat $(locations //pkg_b:b) >> $@",
 )
 """);
-    write(
-        "pkg_a/PROJECT.scl",
-"""
-project = { "active_directories": {"default": ["pkg_a", "pkg_c"]}}
-""");
-    upload("//pkg_a:a");
+    writeProjectSclWithActiveDirs("pkg_a", "pkg_a", "pkg_c");
+    assertUploadSuccess("//pkg_a:a");
 
     // TODO: b/367287783 - RemoteConfiguredTargetValue cannot be deserialized successfully with
     // Bazel yet. Return early.
     assumeTrue(isBlaze());
 
     getSkyframeExecutor().resetEvaluator();
-    download("//pkg_a:a");
+    assertDownloadSuccess("//pkg_a:a");
   }
 
   @Test
@@ -1126,19 +1052,15 @@ consumer_rule(
 )
 """);
 
-    write(
-        "C/PROJECT.scl",
-"""
-project = { "active_directories": {"default": ["C"]} }
-""");
-    upload("//C:consumer_one");
+    writeProjectSclWithActiveDirs("C", "C");
+    assertUploadSuccess("//C:consumer_one");
 
     // TODO: b/367287783 - RemoteConfiguredTargetValue cannot be deserialized successfully with
     // Bazel yet. Return early.
     assumeTrue(isBlaze());
 
     getSkyframeExecutor().resetEvaluator();
-    download("//C:consumer_two");
+    assertDownloadSuccess("//C:consumer_two");
   }
 
   protected final void setupGenruleGraph() throws IOException {
@@ -1200,11 +1122,7 @@ project = { "active_directories": {"default": ["C"]} }
             cmd = "cat $(SRCS) > $@",
         )
         """);
-    write(
-        "A/PROJECT.scl",
-"""
-project = { "active_directories": {"default": ["A"]} }
-""");
+    writeProjectSclWithActiveDirs("A");
   }
 
   protected static final void assertContainsExactlyPrefixes(
@@ -1234,7 +1152,7 @@ project = { "active_directories": {"default": ["A"]} }
 
   protected final ImmutableList<String> uploadManifest(String... targets) throws Exception {
     getSkyframeExecutor().resetEvaluator();
-    addOptions("--experimental_remote_analysis_cache_mode=dump_upload_manifest_only");
+    addOptions(DUMP_MANIFEST_MODE_OPTION);
     RecordingOutErr outErr = new RecordingOutErr();
     this.outErr = outErr;
     buildTarget(targets);
@@ -1247,25 +1165,39 @@ project = { "active_directories": {"default": ["A"]} }
 
   protected final void roundtrip(String... targets) throws Exception {
     getSkyframeExecutor().resetEvaluator();
-    upload(targets);
+    assertUploadSuccess(targets);
     getSkyframeExecutor().resetEvaluator();
-    download(targets);
+    assertDownloadSuccess(targets);
   }
 
-  protected final void upload(String... targets) throws Exception {
-    addOptions("--experimental_remote_analysis_cache_mode=upload");
+  protected final void assertUploadSuccess(String... targets) throws Exception {
+    addOptions(UPLOAD_MODE_OPTION);
     buildTarget(targets);
     assertWithMessage("expected to serialize at least one Skyframe node")
         .that(getCommandEnvironment().getRemoteAnalysisCachingEventListener().getSerializedKeys())
         .isNotEmpty();
   }
 
-  protected final void download(String... targets) throws Exception {
-    addOptions("--experimental_remote_analysis_cache_mode=download");
+  protected final void assertDownloadSuccess(String... targets) throws Exception {
+    addOptions(DOWNLOAD_MODE_OPTION);
     buildTarget(targets);
     assertWithMessage("expected to deserialize at least one Skyframe node")
         .that(getCommandEnvironment().getRemoteAnalysisCachingEventListener().getCacheHits())
         .isNotEmpty();
+  }
+
+  protected final void writeProjectSclWithActiveDirs(String path, String... activeDirs)
+      throws IOException {
+    String activeDirsString = stream(activeDirs).map(s -> "\"" + s + "\"").collect(joining(", "));
+    write(
+        path + "/PROJECT.scl",
+        String.format(
+            "project = { \"active_directories\": { \"default\": [%s] } }", activeDirsString));
+  }
+
+  protected final void writeProjectSclWithActiveDirs(String path) throws IOException {
+    // Overload for the common case where the path is the only active directory.
+    writeProjectSclWithActiveDirs(path, path);
   }
 
   @Override
