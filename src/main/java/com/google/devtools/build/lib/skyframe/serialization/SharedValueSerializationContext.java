@@ -168,7 +168,7 @@ abstract class SharedValueSerializationContext extends MemoizingSerializationCon
    *
    * <ul>
    *   <li><em>Serializing {@code child} causes recursive calls to {@link #putSharedValue} and some
-   *       of those recursive calls are are still being processed in a different thread</em>: this
+   *       of those recursive calls are still being processed in a different thread</em>: this
    *       results in placeholders being added to the {@code codedOut} and {@link #futurePuts}
    *       entries to be recorded.
    *   <li><em>Any other case, for example, serializing {@code child} does not recursively call
