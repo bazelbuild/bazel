@@ -41,11 +41,13 @@ public class DigestUtil {
   private final XattrProvider xattrProvider;
   private final DigestHashFunction hashFn;
   private final DigestFunction.Value digestFunction;
+  private final Digest emptyDigest;
 
   public DigestUtil(XattrProvider xattrProvider, DigestHashFunction hashFn) {
     this.xattrProvider = xattrProvider;
     this.hashFn = hashFn;
     this.digestFunction = getDigestFunctionFromHashFunction(hashFn);
+    this.emptyDigest = compute(new byte[0]);
   }
 
   private static final ImmutableSet<String> DIGEST_FUNCTION_NAMES =
@@ -143,6 +145,10 @@ public class DigestUtil {
   /** Returns the hash of {@code data} in binary. */
   public byte[] hash(byte[] data) {
     return hashFn.getHashFunction().hashBytes(data).asBytes();
+  }
+
+  public Digest emptyDigest() {
+    return emptyDigest;
   }
 
   public static Digest buildDigest(byte[] hash, long size) {
