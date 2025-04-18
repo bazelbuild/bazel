@@ -17,6 +17,8 @@ import com.google.common.hash.HashingOutputStream;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.util.StreamWriter;
+import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.vfs.FileAccessException;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -24,6 +26,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.ByteString;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -49,9 +52,8 @@ public abstract class VirtualActionInput implements ActionInput, StreamWriter {
    * by the local and remote branches.
    *
    * <p>This implementation works by first creating a temporary file with a unique name and then
-   * renaming it into place, relying on the atomicity of {@link FileSystem#renameTo} (which is
-   * guaranteed for Unix filesystems, but possibly not for Windows). Subclasses may provide a more
-   * efficient implementation.
+   * renaming it into place, relying on the atomicity of {@link FileSystem#renameTo}. Subclasses may
+   * provide a more efficient implementation.
    *
    * @param execRoot the path that this input should be written inside, typically the execroot
    * @return digest of written virtual input
@@ -80,7 +82,15 @@ public abstract class VirtualActionInput implements ActionInput, StreamWriter {
     tmpPath.delete();
     try {
       byte[] digest = writeTo(tmpPath);
-      tmpPath.renameTo(outputPath);
+      try {
+        tmpPath.renameTo(outputPath);
+      } catch (FileAccessException e) {
+        // Moves fail on Windows if the target is accessed concurrently.
+        if (OS.getCurrent() == OS.WINDOWS && Arrays.equals(outputPath.getDigest(), digest)) {
+          return digest;
+        }
+        throw e;
+      }
       tmpPath = null; // Avoid unnecessary deletion attempt.
       return digest;
     } finally {
