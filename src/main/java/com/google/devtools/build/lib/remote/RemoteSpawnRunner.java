@@ -66,7 +66,6 @@ import com.google.devtools.build.lib.remote.common.BulkTransferException;
 import com.google.devtools.build.lib.remote.common.OperationObserver;
 import com.google.devtools.build.lib.remote.common.RemoteExecutionCapabilitiesException;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
-import com.google.devtools.build.lib.remote.options.RemoteOptions.ConcurrentChangesCheckLevel;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.remote.util.Utils.InMemoryOutput;
@@ -702,9 +701,8 @@ public class RemoteSpawnRunner implements SpawnRunner {
       throws ExecException, IOException, ForbiddenActionInputException, InterruptedException {
     SpawnResult result = execLocally(spawn, context);
     if (uploadLocalResults && Status.SUCCESS.equals(result.status()) && result.exitCode() == 0) {
-      // FULL is used here to retain historic behavior.
       remoteExecutionService.uploadOutputs(
-          action, result, () -> {}, ConcurrentChangesCheckLevel.FULL);
+          action, result, () -> {}, remoteOptions.guardAgainstConcurrentChanges);
     }
     return result;
   }
