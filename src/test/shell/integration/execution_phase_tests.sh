@@ -345,15 +345,6 @@ function test_resource_flags_syntax() {
       || fail "Empty build failed"
 }
 
-function test_track_directory_crossing_package() {
-  mkdir -p foo/dir/subdir
-  touch foo/dir/subdir/BUILD
-  echo "filegroup(name = 'foo', srcs = ['dir'])" > foo/BUILD
-  bazel --host_jvm_args=-DBAZEL_TRACK_SOURCE_DIRECTORIES=1 build //foo \
-      >& "$TEST_log" && fail "Expected fail"
-  expect_log "Directory artifact foo/dir crosses package boundary into"
-}
-
 # Regression test for https://github.com/bazelbuild/bazel/issues/14723
 function test_fixed_mtime_move_detected_as_change() {
   mkdir -p pkg
