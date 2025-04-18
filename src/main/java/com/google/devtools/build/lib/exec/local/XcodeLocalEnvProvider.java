@@ -92,7 +92,12 @@ public final class XcodeLocalEnvProvider implements LocalEnvProvider {
     String developerDir = "";
     if (containsXcodeVersion && !containsDeveloperDir) {
       String version = env.get(AppleConfiguration.XCODE_VERSION_ENV_NAME);
-      developerDir = getDeveloperDir(binTools, DottedVersion.fromStringUnchecked(version));
+      // Directly use version as DEVELOPER_DIR when a path is passed
+      if (version.startsWith("/")) {
+        developerDir = version;
+      } else {
+        developerDir = getDeveloperDir(binTools, DottedVersion.fromStringUnchecked(version));
+      }
       newEnvBuilder.put("DEVELOPER_DIR", developerDir);
     }
     if (containsAppleSdkPlatform) {
