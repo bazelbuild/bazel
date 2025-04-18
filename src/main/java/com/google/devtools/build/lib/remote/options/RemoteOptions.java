@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution.Code;
 import com.google.devtools.build.lib.util.OptionsUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.common.options.BoolOrEnumConverter;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Converters.AssignmentConverter;
@@ -398,16 +399,35 @@ public final class RemoteOptions extends CommonRemoteOptions {
               + " determined by the --experimental_disk_cache_gc_idle_delay flag.")
   public Duration diskCacheGcMaxAge;
 
+  /** An enum for different levels of checks for concurrent changes. */
+  public enum ConcurrentChangesCheckLevel {
+    OFF,
+    LITE,
+    FULL;
+
+    /** Converts to {@link ConcurrentChangesCheckLevel}. */
+    static class Converter extends BoolOrEnumConverter<ConcurrentChangesCheckLevel> {
+      public Converter() {
+        super(ConcurrentChangesCheckLevel.class, "concurrent changes check level", FULL, OFF);
+      }
+    }
+  }
+
   @Option(
-      name = "experimental_guard_against_concurrent_changes",
-      defaultValue = "false",
+      name = "guard_against_concurrent_changes",
+      oldName = "experimental_guard_against_concurrent_changes",
+      defaultValue = "lite",
+      converter = ConcurrentChangesCheckLevel.Converter.class,
       documentationCategory = OptionDocumentationCategory.REMOTE,
-      effectTags = {OptionEffectTag.UNKNOWN},
+      effectTags = {OptionEffectTag.EXECUTION},
       help =
-          "Turn this off to disable checking the ctime of input files of an action before "
-              + "uploading it to a remote cache. There may be cases where the Linux kernel delays "
-              + "writing of files, which could cause false positives.")
-  public boolean experimentalGuardAgainstConcurrentChanges;
+          "Set this to 'full' to enable checking the ctime of all input files of an action before"
+              + " uploading it to a remote cache. There may be cases where the Linux kernel delays"
+              + " writing of files, which could cause false positives. The default is 'lite', which"
+              + " only checks source files in the main repository. Setting this to 'off' disables"
+              + " all checks. This is not recommended, as the cache may be polluted when a source"
+              + " file is changed while an action that takes it as an input is executing.")
+  public ConcurrentChangesCheckLevel guardAgainstConcurrentChanges;
 
   @Option(
       name = "remote_grpc_log",

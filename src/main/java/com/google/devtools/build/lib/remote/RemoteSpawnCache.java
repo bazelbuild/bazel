@@ -21,14 +21,11 @@ import static com.google.devtools.build.lib.remote.util.Utils.createSpawnResult;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Stopwatch;
-import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.SpawnResult;
-import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialHelperException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Event;
@@ -269,20 +266,6 @@ final class RemoteSpawnCache implements SpawnCache {
             return;
           }
 
-          if (options.experimentalGuardAgainstConcurrentChanges) {
-            try (SilentCloseable c = prof.profile("checkForConcurrentModifications")) {
-              checkForConcurrentModifications();
-            } catch (IOException | ForbiddenActionInputException e) {
-              var msg =
-                  spawn.getTargetLabel()
-                      + ": Skipping uploading outputs because of concurrent modifications "
-                      + "with --experimental_guard_against_concurrent_changes enabled: "
-                      + e.getMessage();
-              remoteExecutionService.report(Event.warn(msg));
-              return;
-            }
-          }
-
           // As soon as the result is in the cache, actions can get the result from it instead of
           // from the first in-flight execution. Not keeping in-flight executions around
           // indefinitely is important to avoid excessive memory pressure - Spawns can be very
@@ -290,7 +273,8 @@ final class RemoteSpawnCache implements SpawnCache {
           remoteExecutionService.uploadOutputs(
               action,
               result,
-              thisExecutionFinal != null ? thisExecutionFinal.delayClose() : () -> {});
+              thisExecutionFinal != null ? thisExecutionFinal.delayClose() : () -> {},
+              options.guardAgainstConcurrentChanges);
           if (thisExecutionFinal != null
               && action.getSpawn().getResourceOwner().mayModifySpawnOutputsAfterExecution()) {
             // In this case outputs have been uploaded synchronously and the callback above has run,
@@ -300,20 +284,6 @@ final class RemoteSpawnCache implements SpawnCache {
             // interruptible.
             try (SilentCloseable c = prof.profile(REMOTE_DOWNLOAD, "await output reuse")) {
               thisExecutionFinal.awaitAllOutputReuse();
-            }
-          }
-        }
-
-        private void checkForConcurrentModifications()
-            throws IOException, ForbiddenActionInputException {
-          for (ActionInput input : action.getInputMap(true).values()) {
-            if (input instanceof VirtualActionInput) {
-              continue;
-            }
-            FileArtifactValue metadata = context.getInputMetadataProvider().getInputMetadata(input);
-            Path path = execRoot.getRelative(input.getExecPath());
-            if (metadata.wasModifiedSinceDigest(path)) {
-              throw new IOException(path + " was modified during execution");
             }
           }
         }
