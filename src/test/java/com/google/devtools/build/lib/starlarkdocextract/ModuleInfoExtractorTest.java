@@ -608,7 +608,7 @@ public final class ModuleInfoExtractorTest {
 
             my_lib = rule(
                 implementation = _my_impl,
-                provides = [MyInfo, DefaultInfo, "LegacyStructInfo"],
+                provides = [MyInfo, DefaultInfo],
             )
             """);
     ModuleInfo moduleInfo = getExtractor().extractFrom(module);
@@ -622,12 +622,10 @@ public final class ModuleInfoExtractorTest {
                     ProviderNameGroup.newBuilder()
                         .addProviderName("MyInfo")
                         .addProviderName("DefaultInfo")
-                        .addProviderName("LegacyStructInfo")
                         .addOriginKey(
                             OriginKey.newBuilder().setName("MyInfo").setFile(fakeLabelString))
                         .addOriginKey(
-                            OriginKey.newBuilder().setName("DefaultInfo").setFile("<native>"))
-                        .addOriginKey(OriginKey.newBuilder().setName("LegacyStructInfo")))
+                            OriginKey.newBuilder().setName("DefaultInfo").setFile("<native>")))
                 .build());
   }
 
@@ -1021,7 +1019,7 @@ public final class ModuleInfoExtractorTest {
   public void macroInheritedAttributes() throws Exception {
     Module module =
         exec(
-            """
+"""
 def _my_rule_impl(ctx):
     pass
 
