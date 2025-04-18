@@ -2394,7 +2394,7 @@ public class RemoteExecutionServiceTest {
                 NodeProperties.newBuilder()
                     .addProperties(NodeProperty.newBuilder().setName("bazel_tool_input")))
             .build();
-    var rootDirectory =
+    var outputsDirectory =
         Directory.newBuilder()
             .addFiles(inputFile)
             .addFiles(toolFile)
@@ -2405,12 +2405,18 @@ public class RemoteExecutionServiceTest {
                     .build())
             .build();
 
+    var rootDirectory =
+        Directory.newBuilder()
+            .addDirectories(
+                DirectoryNode.newBuilder()
+                    .setName(enablePathMapping ? "mapped_outputs" : "outputs")
+                    .setDigest(digestUtil.compute(outputsDirectory))
+                    .build())
+            .build();
+
     var remoteAction1 = service.buildRemoteAction(spawn, context);
     var merkleTree = remoteAction1.getMerkleTree();
-    assertThat(
-            merkleTree.getDirectoryByDigest(
-                merkleTree.getRootProto().getDirectories(0).getDigest()))
-        .isEqualTo(rootDirectory);
+    assertThat(merkleTree.getRootProto()).isEqualTo(rootDirectory);
     assertThat(remoteAction1.getAction().getPlatform().getPropertiesList()).hasSize(1);
     assertThat(remoteAction1.getAction().getPlatform().getProperties(0).getName())
         .isEqualTo("persistentWorkerKey");
