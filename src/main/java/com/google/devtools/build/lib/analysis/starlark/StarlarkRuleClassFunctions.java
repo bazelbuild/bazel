@@ -24,7 +24,6 @@ import static com.google.devtools.build.lib.analysis.BaseRuleClasses.getTestRunt
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
-import static com.google.devtools.build.lib.packages.BuildType.LICENSE;
 import static com.google.devtools.build.lib.packages.BuiltinRestriction.allowlistEntry;
 import static com.google.devtools.build.lib.packages.RuleClass.DEFAULT_TEST_RUNNER_EXEC_GROUP;
 import static com.google.devtools.build.lib.packages.RuleClass.DEFAULT_TEST_RUNNER_EXEC_GROUP_NAME;
@@ -212,7 +211,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
   private static final RuleClass binaryBaseRule =
       new RuleClass.Builder("$binary_base_rule", RuleClassType.ABSTRACT, true, baseRule)
           .add(attr("args", STRING_LIST))
-          .add(attr("output_licenses", LICENSE))
+          .add(attr("output_licenses", STRING_LIST))
           .addAttribute(
               attr(Rule.IS_EXECUTABLE_ATTRIBUTE_NAME, BOOLEAN)
                   .value(true)

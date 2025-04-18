@@ -736,20 +736,6 @@ public class Rule extends RuleOrMacroInstance implements Target {
     }
   }
 
-  /**
-   * Returns the license of the output of the binary created by this rule, or null if it is not
-   * specified.
-   */
-  @Nullable
-  public License getToolOutputLicense(AttributeMap attributes) {
-    if (isAttrDefined("output_licenses", BuildType.LICENSE)
-        && attributes.isAttributeValueExplicitlySpecified("output_licenses")) {
-      return attributes.get("output_licenses", BuildType.LICENSE);
-    } else {
-      return null;
-    }
-  }
-
   /** Returns the Set of all tags exhibited by this target. May be empty. */
   @Override
   public Set<String> getRuleTags() {

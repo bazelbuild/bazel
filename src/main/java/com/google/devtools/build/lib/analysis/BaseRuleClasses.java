@@ -559,7 +559,7 @@ public class BaseRuleClasses {
       return builder
           .add(attr("args", STRING_LIST))
           .add(attr("env", STRING_DICT))
-          .add(attr("output_licenses", LICENSE))
+          .add(attr("output_licenses", STRING_LIST))
           .add(
               attr(Rule.IS_EXECUTABLE_ATTRIBUTE_NAME, BOOLEAN)
                   .value(true)
