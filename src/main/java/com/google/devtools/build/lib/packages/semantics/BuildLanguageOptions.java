@@ -510,7 +510,7 @@ public final class BuildLanguageOptions extends OptionsBase {
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help =
-          "If set, (used) source files are are package private unless exported explicitly. See "
+          "If set, (used) source files are package private unless exported explicitly. See "
               + "https://github.com/bazelbuild/proposals/blob/master/designs/"
               + "2019-10-24-file-visibility.md")
   public boolean incompatibleNoImplicitFileExport;
