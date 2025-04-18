@@ -60,8 +60,8 @@ public final class StarlarkFlagGuardingTest {
               positional = true,
               named = false,
               enableOnlyWithFlag = EXPERIMENTAL_FLAG,
-              valueWhenDisabled = "False"),
-          @Param(name = "c", positional = true, named = false),
+              defaultValue = "False"),
+          @Param(name = "c", positional = true, named = false, defaultValue = "3"),
         },
         useStarlarkThread = true)
     public String positionalsOnlyMethod(
@@ -79,38 +79,13 @@ public final class StarlarkFlagGuardingTest {
               positional = false,
               named = true,
               enableOnlyWithFlag = EXPERIMENTAL_FLAG,
-              valueWhenDisabled = "False"),
+              defaultValue = "False"),
           @Param(name = "c", positional = false, named = true),
         },
         useStarlarkThread = true)
     public String keywordsOnlyMethod(
         StarlarkInt a, boolean b, StarlarkInt c, StarlarkThread thread) {
       return "keywords_only_method(" + a + ", " + b + ", " + c + ")";
-    }
-
-    @StarlarkMethod(
-        name = "mixed_params_method",
-        documented = false,
-        parameters = {
-          @Param(name = "a", positional = true, named = false),
-          @Param(
-              name = "b",
-              positional = true,
-              named = false,
-              enableOnlyWithFlag = EXPERIMENTAL_FLAG,
-              valueWhenDisabled = "False"),
-          @Param(
-              name = "c",
-              positional = false,
-              named = true,
-              enableOnlyWithFlag = EXPERIMENTAL_FLAG,
-              valueWhenDisabled = "3"),
-          @Param(name = "d", positional = false, named = true),
-        },
-        useStarlarkThread = true)
-    public String mixedParamsMethod(
-        StarlarkInt a, boolean b, StarlarkInt c, boolean d, StarlarkThread thread) {
-      return "mixed_params_method(" + a + ", " + b + ", " + c + ", " + d + ")";
     }
 
     @StarlarkMethod(
@@ -123,13 +98,13 @@ public final class StarlarkFlagGuardingTest {
               positional = false,
               named = true,
               disableWithFlag = FLAG2,
-              valueWhenDisabled = "False"),
+              defaultValue = "False"),
           @Param(
               name = "c",
               positional = false,
               named = true,
               enableOnlyWithFlag = FLAG1,
-              valueWhenDisabled = "3"),
+              defaultValue = "3"),
         },
         useStarlarkThread = true)
     public String keywordsMultipleFlags(
@@ -173,9 +148,7 @@ public final class StarlarkFlagGuardingTest {
 
     ev.new Scenario(FLAG1_TRUE)
         .update("mock", new Mock())
-        .testIfErrorContains(
-            "keywords_only_method() missing 1 required named argument: b",
-            "mock.keywords_only_method(a=1, c=3)");
+        .testEval("mock.keywords_only_method(a=1, c=3)", "'keywords_only_method(1, false, 3)'");
 
     ev.new Scenario(FLAG1_FALSE)
         .update("mock", new Mock())
@@ -190,52 +163,17 @@ public final class StarlarkFlagGuardingTest {
   }
 
   @Test
-  public void testMixedParamsMethod() throws Exception {
-    // def mixed_params_method(a, b, c = ?, d = ?)
-    ev.new Scenario(FLAG1_TRUE)
-        .update("mock", new Mock())
-        .testEval(
-            "mock.mixed_params_method(1, True, c=3, d=True)",
-            "'mixed_params_method(1, true, 3, true)'");
-
-    ev.new Scenario(FLAG1_TRUE)
-        .update("mock", new Mock())
-        .testIfErrorContains(
-            // Missing named arguments (d) are not reported
-            // if there are missing positional arguments.
-            "mixed_params_method() missing 1 required positional argument: b",
-            "mock.mixed_params_method(1, c=3)");
-
-    // def mixed_params_method(a, b disabled = False, c disabled = 3, d = ?)
-    ev.new Scenario(FLAG1_FALSE)
-        .update("mock", new Mock())
-        .testEval(
-            "mock.mixed_params_method(1, d=True)", "'mixed_params_method(1, false, 3, true)'");
-
-    ev.new Scenario(FLAG1_FALSE)
-        .update("mock", new Mock())
-        .testIfErrorContains(
-            "mixed_params_method() accepts no more than 1 positional argument but got 2",
-            "mock.mixed_params_method(1, True, d=True)");
-
-    ev.new Scenario(FLAG1_FALSE)
-        .update("mock", new Mock())
-        .testIfErrorContains(
-            "mixed_params_method() accepts no more than 1 positional argument but got 2",
-            "mock.mixed_params_method(1, True, c=3, d=True)");
-  }
-
-  @Test
   public void testKeywordsMultipleFlags() throws Exception {
     StarlarkSemantics tf = FLAG1_TRUE.toBuilder().setBool(FLAG2, false).build();
     ev.new Scenario(tf)
         .update("mock", new Mock())
         .testEval(
             "mock.keywords_multiple_flags(a=42, b=True, c=0)",
-            "'keywords_multiple_flags(42, true, 0)'")
-        .testIfErrorContains(
-            "keywords_multiple_flags() missing 2 required named arguments: b, c",
-            "mock.keywords_multiple_flags(a=42)");
+            "'keywords_multiple_flags(42, true, 0)'");
+
+    ev.new Scenario(tf)
+        .update("mock", new Mock())
+        .testEval("mock.keywords_multiple_flags(a=42)", "'keywords_multiple_flags(42, false, 3)'");
 
     StarlarkSemantics ft = FLAG1_FALSE.toBuilder().setBool(FLAG2, true).build();
     ev.new Scenario(ft)
@@ -245,6 +183,10 @@ public final class StarlarkFlagGuardingTest {
             "parameter 'b' is deprecated and will be removed soon. It may be "
                 + "temporarily re-enabled by setting --incompatible_flag=false",
             "mock.keywords_multiple_flags(a=42, b=True, c=0)");
+
+    ev.new Scenario(ft)
+        .update("mock", new Mock())
+        .testEval("mock.keywords_multiple_flags(a=42)", "'keywords_multiple_flags(42, false, 3)'");
   }
 
   @Test
