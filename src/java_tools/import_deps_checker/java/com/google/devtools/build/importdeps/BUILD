@@ -48,11 +48,6 @@ java_binary(
         "--add-opens=java.base/java.lang=ALL-UNNAMED",
     ],
     main_class = "com.google.devtools.build.importdeps.Main",
-    visibility = [
-        "//src/java_tools/import_deps_checker:__subpackages__",
-        "//tools/android:__pkg__",
-        "//tools/android/runtime_deps:__pkg__",
-    ],
     deps = [
         ":import_deps_checker",
         "//src/main/java/com/google/devtools/common/options",
