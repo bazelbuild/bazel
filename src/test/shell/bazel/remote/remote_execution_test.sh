@@ -3766,4 +3766,77 @@ EOF
   assert_contains "input" bazel-bin/a/my_rule
 }
 
+# Verifies that the contents of a directory have the same representation with
+# remote execution regardless of whether they are added as a source directory or
+# via globbing.
+function test_source_directory() {
+  mkdir -p a
+  cat > a/BUILD <<'EOF'
+GENRULE_COMMAND = """
+[[ -f a/dir/file.txt ]] || { echo "a/dir/file.txt is not a file"; exit 1; }
+[[ ! -L a/dir/file.txt ]] || { echo "a/dir/file.txt is a symlink"; exit 1; }
+[[ -f a/dir/subdir/file.txt ]] || { echo "a/dir/subdir/file.txt is not a file"; exit 1; }
+[[ ! -L a/dir/subdir/file.txt ]] || { echo "a/dir/subdir/file.txt is a symlink"; exit 1; }
+[[ -f a/dir/symlink.txt ]] || { echo "a/dir/symlink.txt is not a file"; exit 1; }
+[[ ! -L a/dir/symlink.txt ]] || { echo "a/dir/symlink.txt is a symlink"; exit 1; }
+[[ -f a/dir/symlink_dir/file.txt ]] || { echo "a/dir/subdir/file.txt is not a file"; exit 1; }
+[[ ! -L a/dir/symlink_dir ]] || { echo "a/dir/symlink_dir is a symlink"; exit 1; }
+[[ ! -e a/dir/empty_dir ]] || { echo "a/dir/empty_dir exists"; exit 1; }
+[[ ! -e a/dir/symlink_empty_dir ]] || { echo "a/dir/symlink_empty_dir exists"; exit 1; }
+touch $@
+"""
+
+genrule(
+    name = "gen_source_directory",
+    srcs = ["dir"],
+    outs = ["out1"],
+    cmd = GENRULE_COMMAND,
+)
+
+genrule(
+    name = "gen_glob",
+    srcs = glob(["dir/**"]),
+    outs = ["out2"],
+    cmd = GENRULE_COMMAND,
+)
+EOF
+  mkdir -p a/dir
+  touch a/dir/file.txt
+  ln -s file.txt a/dir/symlink.txt
+  mkdir -p a/dir/subdir
+  touch a/dir/subdir/file.txt
+  ln -s subdir a/dir/symlink_dir
+  mkdir a/dir/empty_dir
+  ln -s empty_dir a/dir/symlink_empty_dir
+
+  bazel build \
+    --remote_executor=grpc://localhost:${worker_port} \
+    //a:gen_source_directory >& $TEST_log || fail "Failed to build //a:gen_source_directory"
+
+  bazel build \
+    --remote_executor=grpc://localhost:${worker_port} \
+    //a:gen_glob >& $TEST_log || fail "Failed to build //a:gen_glob"
+}
+
+function test_source_directory_dangling_symlink() {
+  mkdir -p a
+  cat > a/BUILD <<'EOF'
+genrule(
+    name = "gen",
+    srcs = ["dir"],
+    outs = ["out"],
+    cmd = """
+touch $@
+""",
+)
+EOF
+  mkdir -p a/dir
+  ln -s does_not_exist a/dir/symlink.txt
+
+  bazel build \
+    --remote_executor=grpc://localhost:${worker_port} \
+    //a:gen >& $TEST_log && fail "build //a:gen should fail"
+  expect_log "The file type of 'a/dir/symlink.txt' is not supported."
+}
+
 run_suite "Remote execution and remote cache tests"
