@@ -337,6 +337,7 @@ public final class ArtifactFunction implements SkyFunction {
           throw new ArtifactFunctionException(
               SourceArtifactException.create(artifact, e), Transience.PERSISTENT);
         case INCONSISTENT_FILESYSTEM:
+        case DETAILED_IO_EXCEPTION:
           throw new ArtifactFunctionException(
               SourceArtifactException.create(artifact, e), Transience.TRANSIENT);
         case CANNOT_CROSS_PACKAGE_BOUNDARY:
@@ -348,12 +349,6 @@ public final class ArtifactFunction implements SkyFunction {
           throw new IllegalStateException(
               String.format(
                   "Generated conflict in source tree: %s %s %s", artifact, fileValue, request),
-              e);
-        // TODO: b/7075837 - This code path is possible when BAZEL_TRACK_SOURCE_DIRECTORIES is set.
-        case DETAILED_IO_EXCEPTION:
-          throw new IllegalStateException(
-              String.format(
-                  "%s: %s %s %s", e.getCause().getMessage(), artifact, fileValue, request),
               e);
       }
       throw new IllegalStateException("Can't get here", e);

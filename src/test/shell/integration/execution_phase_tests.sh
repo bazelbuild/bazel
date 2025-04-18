@@ -349,8 +349,7 @@ function test_track_directory_crossing_package() {
   mkdir -p foo/dir/subdir
   touch foo/dir/subdir/BUILD
   echo "filegroup(name = 'foo', srcs = ['dir'])" > foo/BUILD
-  bazel --host_jvm_args=-DBAZEL_TRACK_SOURCE_DIRECTORIES=1 build //foo \
-      >& "$TEST_log" && fail "Expected fail"
+  bazel build //foo >& "$TEST_log" && fail "Expected fail"
   expect_log "Directory artifact foo/dir crosses package boundary into"
 }
 
@@ -452,4 +451,3 @@ EOF
 }
 
 run_suite "Integration tests of ${PRODUCT_NAME} using the execution phase."
-
