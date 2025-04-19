@@ -736,10 +736,11 @@ public class TestActionBuilderTest extends BuildViewTestCase {
   }
 
   /**
-   * With the default test toolchain, the first execution platform will be used (matching legacy).
+   * With the default test toolchain, a failure to find a suitable execution platform will result in
+   * a toolchain resolution error.
    */
   @Test
-  public void testFirstMatchingExecPlatformWithDefaultTestToolchain() throws Exception {
+  public void testNoMatchingExecPlatformWithDefaultTestToolchain() throws Exception {
     scratch.file(
         "some_test.bzl",
         """
@@ -792,11 +793,11 @@ public class TestActionBuilderTest extends BuildViewTestCase {
         "--platforms=//:linux_x86_64_target",
         "--host_platform=//:macos_aarch64_exec",
         "--extra_execution_platforms=//:macos_aarch64_exec");
-    ImmutableList<Artifact.DerivedArtifact> testStatusList = getTestStatusArtifacts("//:some_test");
-    TestRunnerAction testAction = (TestRunnerAction) getGeneratingAction(testStatusList.get(0));
-    assertThat(testAction.getExecutionPlatform().label())
-        .isEqualTo(Label.parseCanonicalUnchecked("//:macos_aarch64_exec"));
-    assertThat(testAction.getExecProperties()).isEmpty();
+    reporter.removeHandler(failFastHandler);
+    assertThat(getConfiguredTarget("//:some_test")).isNull();
+    assertContainsEvent(
+        "While resolving toolchains for target //:some_test: No matching toolchains found for"
+            + " types:\n  @@bazel_tools//tools/test:default_test_toolchain_type");
   }
 
   /**
