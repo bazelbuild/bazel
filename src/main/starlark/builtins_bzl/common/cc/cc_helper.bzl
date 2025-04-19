@@ -516,8 +516,8 @@ _TOOL_NAMES_TO_ACTION_NAMES = {
 }
 
 def _tool_or_action_path(cc_toolchain, feature_configuration, tool):
-    action_name = _TOOL_NAMES_TO_ACTION_NAMES.get(tool, "")
-    if cc_common.action_is_enabled(feature_configuration = feature_configuration, action_name = action_name):
+    action_name = _TOOL_NAMES_TO_ACTION_NAMES.get(tool, None)
+    if action_name != None and cc_common.action_is_enabled(feature_configuration = feature_configuration, action_name = action_name):
         return cc_common.get_tool_for_action(feature_configuration = feature_configuration, action_name = action_name)
     else:
         return cc_toolchain._tool_paths.get(tool, None)
