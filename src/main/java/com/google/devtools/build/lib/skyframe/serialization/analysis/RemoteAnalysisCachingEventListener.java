@@ -34,6 +34,7 @@ import com.google.devtools.build.skyframe.SkyKey;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 /** An {@link com.google.common.eventbus.EventBus} listener for remote analysis caching events. */
 @ThreadSafety.ThreadSafe
@@ -58,7 +59,7 @@ public class RemoteAnalysisCachingEventListener {
   private final AtomicInteger executionCacheMisses = new AtomicInteger();
   private final Set<SerializationException> serializationExceptions = ConcurrentHashMap.newKeySet();
 
-  private FrontierNodeVersion skyValueVersion;
+  private final AtomicReference<FrontierNodeVersion> skyValueVersion = new AtomicReference<>();
 
   @Subscribe
   @AllowConcurrentEvents
@@ -173,11 +174,11 @@ public class RemoteAnalysisCachingEventListener {
   }
 
   public void recordSkyValueVersion(FrontierNodeVersion version) {
-    this.skyValueVersion = version;
+    this.skyValueVersion.set(version);
   }
 
   /** Returns the {@link FrontierNodeVersion} for versioning the SkyValues in this build. */
   public FrontierNodeVersion getSkyValueVersion() {
-    return skyValueVersion;
+    return skyValueVersion.get();
   }
 }
