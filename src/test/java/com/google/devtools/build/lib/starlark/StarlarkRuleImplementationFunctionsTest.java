@@ -91,6 +91,7 @@ import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.syntax.Location;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -1197,9 +1198,15 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
   @Test
   public void testNoSuchProviderErrorMessage() throws Exception {
     setRuleContext(createRuleContext("//foo:bar"));
+    ev.update(
+        "MyInfo",
+        StarlarkProvider.builder(Location.BUILTIN)
+            .buildExported(
+                new StarlarkProvider.Key(
+                    keyForBuild(Label.parseCanonicalUnchecked("//myinfo:myinfo.bzl")), "MyInfo")));
     ev.checkEvalErrorContains(
-        "<target //foo:jl> (rule 'java_library') doesn't have provider 'my_provider'",
-        "ruleContext.attr.srcs[0].my_provider");
+        "<target //foo:jl> (rule 'java_library') doesn't contain declared provider 'MyInfo'",
+        "ruleContext.attr.srcs[0][MyInfo]");
   }
 
   @Test

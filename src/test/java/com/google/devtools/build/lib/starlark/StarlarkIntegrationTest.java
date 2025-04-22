@@ -3590,7 +3590,6 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
 
   @Test
   public void testDisableTargetProviderFields() throws Exception {
-    setBuildLanguageOptions("--incompatible_disable_target_provider_fields=true");
     scratch.file(
         "test/starlark/rule.bzl",
         """
@@ -3620,17 +3619,13 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test/starlark:r");
     assertContainsEvent(
-        "Accessing providers via the field syntax on structs is deprecated and will be removed "
-            + "soon. It may be temporarily re-enabled by setting "
-            + "--incompatible_disable_target_provider_fields=false. "
-            + "See https://github.com/bazelbuild/bazel/issues/9014 for details.");
+        "Accessing providers via the field syntax on structs is deprecated and removed.");
   }
 
   // Verifies that non-provider fields on the 'target' type are still available even with
   // --incompatible_disable_target_provider_fields.
   @Test
   public void testDisableTargetProviderFields_actionsField() throws Exception {
-    setBuildLanguageOptions("--incompatible_disable_target_provider_fields=true");
     scratch.file(
         "test/starlark/rule.bzl",
         """
