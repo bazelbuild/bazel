@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
+import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.util.AsyncTaskCache;
 import com.google.devtools.build.lib.util.TempPathGenerator;
 import com.google.devtools.build.lib.vfs.FileSymlinkLoopException;
@@ -358,14 +359,24 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
 
       Completable result =
           downloadFileNoCheckRx(
-              action,
-              execRoot.getRelative(execPath),
-              treeRootExecPath != null ? execRoot.getRelative(treeRootExecPath) : null,
-              dirsWithOutputPermissions,
-              input,
-              metadata,
-              priority,
-              reason);
+                  action,
+                  execRoot.getRelative(execPath),
+                  treeRootExecPath != null ? execRoot.getRelative(treeRootExecPath) : null,
+                  dirsWithOutputPermissions,
+                  input,
+                  metadata,
+                  priority,
+                  reason)
+              .onErrorResumeNext(
+                  t -> {
+                    if (t instanceof CacheNotFoundException cacheNotFoundException) {
+                      // Only the symlink itself is guaranteed to be an input to the action, so
+                      // report its path for rewinding.
+                      cacheNotFoundException.setExecPath(input.getExecPath());
+                      return Completable.error(cacheNotFoundException);
+                    }
+                    return Completable.error(t);
+                  });
 
       if (symlink != null) {
         result = result.andThen(plantSymlink(symlink));
