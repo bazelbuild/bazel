@@ -644,7 +644,7 @@ public class BaseRuleClasses {
             """
                 .formatted(ruleName, bzlLoadLabel, ruleName));
       } else {
-        ruleContext.ruleError("Rule is unimplemented.");
+        ruleContext.ruleError("Rule '" + ruleName + "' is unimplemented.");
       }
       return null;
     }
