@@ -1148,10 +1148,11 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     }
     Multimap<PackageIdentifier, Label> packageIdToLabelMap = ArrayListMultimap.create();
     labels.forEach(label -> packageIdToLabelMap.put(label.getPackageIdentifier(), label));
+
+    packageSemaphore.acquireAll(packageIdToLabelMap.keySet());
     Map<PackageIdentifier, Package> packageIdToPackageMap =
         bulkGetPackages(packageIdToLabelMap.keySet());
     ImmutableMap.Builder<Label, Target> resultBuilder = ImmutableMap.builder();
-    packageSemaphore.acquireAll(packageIdToLabelMap.keySet());
     try {
       for (PackageIdentifier pkgId : packageIdToLabelMap.keySet()) {
         Package pkg = packageIdToPackageMap.get(pkgId);
