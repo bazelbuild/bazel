@@ -1,3 +1,54 @@
+## Release 9.0.0-pre.20250414.1 (2025-04-22)
+
+```
+Baseline: 1b0cb1fa37ded09fdd1daf32b19253516e0d0694
+```
+
+Important changes:
+
+  - Soft deprecate bazel startup option --write_command_log. User
+    should switch to use command option with the same name or look at
+    the build event messages.
+  - Add better defaults for mobile-install flags
+
+This release contains contributions from many people at Google, as well as Alex Fax, Chi Wang, David Sanderson, Fabian Meumertzheim, Peter Li, PikachuHy.
+
+## Release 8.2.1 (2025-04-17)
+
+```
+
+Release Notes:
+
+```
+
+## Release 9.0.0-pre.20250408.2 (2025-04-15)
+
+```
+Baseline: 441c563bd43cccdfad71040557a7e229970475c3
+
+Cherry picks:
+
+   + 073ade620bf105339d4be5ba2efc9982e4aedf62:
+     Lazily create string for precondition error message.
+```
+
+Important changes:
+
+  - Turn the `distribs` common attribute into a no-op. See #19369
+  - Set generator_name, generator_function, generator_location, and
+    the full
+    Starlark stack for rule targets instantiated in a symbolic macro.
+
+This release contains contributions from many people at Google, as well as Chuck Grindel, dependabot[bot], Fabian Meumertzheim, Jim Carroll, Keith Smiley.
+
+## Release 8.2.0 (2025-04-14)
+
+```
+
+Release Notes:
+
+```
+
 ## Release 9.0.0-pre.20250402.1 (2025-04-09)
 
 ```
