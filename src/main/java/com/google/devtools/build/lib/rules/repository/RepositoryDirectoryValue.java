@@ -24,11 +24,17 @@ import com.google.devtools.build.skyframe.NotComparableSkyValue;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 
-/** A local view of an external repository. */
+/**
+ * A local view of an external repository.
+ *
+ * <p>Note that we explicitly disable change pruning here by extending {@link
+ * NotComparableSkyValue}. The reason is that, after fetching a repo successfully, the resultant
+ * {@link Success} object does not capture the newly fetched contents of the repo (note that it only
+ * contains the path and some other minor metadata), which means that with change pruning, dependent
+ * SkyValues would simply think the repo hasn't changed and not get re-evaluated. Without change
+ * pruning, we force dependent SkyValues to be marked dirty whenever a repo is re-fetched.
+ */
 public sealed interface RepositoryDirectoryValue extends NotComparableSkyValue {
-  /** Returns whether the repository exists or not. */
-  boolean repositoryExists();
-
   /**
    * Represents a successful repository lookup.
    *
@@ -42,30 +48,18 @@ public sealed interface RepositoryDirectoryValue extends NotComparableSkyValue {
    */
   record Success(Path path, boolean isFetchingDelayed, boolean excludeFromVendoring)
       implements RepositoryDirectoryValue {
-
-    @Override
-    public boolean repositoryExists() {
-      return true;
-    }
-
     public Path getPath() {
       return path;
     }
   }
 
   /**
-   * Represents an unsuccessful repository lookup.
+   * Represents an unsuccessful repository lookup, because the repo doesn't exist.
    *
    * @param errorMsg For an unsuccessful repository lookup, gets a detailed error message that is
    *     suitable for reporting to a user.
    */
   record Failure(String errorMsg) implements RepositoryDirectoryValue {
-
-    @Override
-    public boolean repositoryExists() {
-      return false;
-    }
-
     public String getErrorMsg() {
       return errorMsg;
     }
