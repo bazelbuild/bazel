@@ -338,7 +338,7 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
       return false;
     }
 
-    if (DEPRECATED_FLAGS.contains(optionName)) {
+    if (DEPRECATED_FLAGS.contains(optionName) && ruleContext.getLabel().getRepository().isMain()) {
       ruleContext.ruleWarning(
           String.format(
               "select() on %s is deprecated. Use platform constraints instead:"
