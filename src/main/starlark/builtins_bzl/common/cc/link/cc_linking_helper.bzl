@@ -421,6 +421,14 @@ def _maybe_link_transitively(feature_configuration, dynamic_link_type, linking_m
     return libraries, linkstamps, linkopts, non_code_inputs
 
 def _maybe_do_lto_indexing(*, compilation_outputs, libraries, feature_configuration, **link_action_kwargs):
+    all_lto_artifacts = []
+    thinlto_param_file = None
+    additional_object_files = []
+    allow_lto_indexing = False
+
+    if not feature_configuration.is_enabled("thin_lto"):
+        return all_lto_artifacts, allow_lto_indexing, thinlto_param_file, additional_object_files
+
     lto_compilation_context = compilation_outputs.lto_compilation_context()
     has_lto_bitcode_inputs = lto_compilation_context.lto_bitcode_inputs()
     if not has_lto_bitcode_inputs:
@@ -429,11 +437,7 @@ def _maybe_do_lto_indexing(*, compilation_outputs, libraries, feature_configurat
                 has_lto_bitcode_inputs = True
                 break
 
-    all_lto_artifacts = []
-    thinlto_param_file = None
-    additional_object_files = []
-    allow_lto_indexing = False
-    if has_lto_bitcode_inputs and feature_configuration.is_enabled("thin_lto"):
+    if has_lto_bitcode_inputs:
         if not feature_configuration.is_enabled("supports_start_end_lib"):
             fail("When using LTO. The feature supports_start_end_lib must be enabled.")
 
