@@ -200,7 +200,7 @@ function test_universe_scope_specified() {
   # Trim to just configurations.
   HOST_CONFIG=${PKG_HOST/"//$pkg:host"}
   TARGET_CONFIG=${PKG_TARGET/"//$pkg:target"}
-  # Ensure they are are not equal.
+  # Ensure they are not equal.
   assert_not_equals $HOST_CONFIG $TARGET_CONFIG
 }
 

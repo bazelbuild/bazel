@@ -324,7 +324,7 @@ EOF
     pid[$i]="${!}"
   done
 
-  # The various Bazel invocations are are now competing to run.  Wait for them
+  # The various Bazel invocations are now competing to run.  Wait for them
   # to start, in any order, and then allow them to proceed, recording the order
   # in which they actually started running the command.
   declare -a order
