@@ -561,7 +561,7 @@ public class BuildTool {
       if (!hasCatastrophe) {
         executionTool.nonCatastrophicFinalizations(
             result,
-            env.getBlazeWorkspace().getInUseActionCacheWithoutFurtherLoading(),
+            env.getBlazeWorkspace().getPersistentActionCache(),
             /* explanationHandler= */ null,
             buildCompleted);
       }

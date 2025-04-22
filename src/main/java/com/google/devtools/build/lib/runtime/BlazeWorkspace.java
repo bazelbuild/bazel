@@ -300,16 +300,11 @@ public final class BlazeWorkspace {
     getCorruptedActionCacheDirectory().deleteTree();
   }
 
-  /** Returns the reference to the action cache instance, without attempting to reload it. */
-  @Nullable
-  public ActionCache getInUseActionCacheWithoutFurtherLoading() {
-    return actionCache;
-  }
-
   /**
-   * Returns reference to the lazily instantiated persistent action cache instance. Note, that
-   * method may recreate instance between different build requests, so return value should not be
-   * cached.
+   * Returns the action cache, loading it from disk if it isn't already loaded.
+   *
+   * <p>The returned reference is only valid for the current build request, as build options may
+   * affect the presence of an action cache.
    */
   public ActionCache getOrLoadPersistentActionCache(Reporter reporter) throws IOException {
     if (actionCache == null) {
@@ -325,7 +320,12 @@ public final class BlazeWorkspace {
     return actionCache;
   }
 
-  /** Returns reference to the lazily instantiated persistent action cache instance */
+  /**
+   * Returns the action cache, or null if it isn't already loaded.
+   *
+   * <p>The returned reference is only valid for the current build request, as build options may
+   * affect the presence of an action cache.
+   */
   @Nullable
   public ActionCache getPersistentActionCache() {
     return actionCache;
