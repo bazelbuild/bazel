@@ -1335,6 +1335,40 @@ my_rule = rule(
   }
 
   @Test
+  public void returningOutputGroupsNotList() throws Exception {
+    // OutputGroupInfo is also a list, tests that an aspect can return it without a list
+    scratch.file(
+        "test/aspect.bzl",
+        """
+        def _a1_impl(target, ctx):
+          f = ctx.actions.declare_file(target.label.name + '_a1.txt')
+          ctx.actions.write(f, 'f')
+          return OutputGroupInfo(a1_group = depset([f]))
+
+        a1 = aspect(implementation=_a1_impl, attr_aspects = ['dep'])
+        def _rule_impl(ctx):
+          if not ctx.attr.dep:
+             return []
+          og = {k:ctx.attr.dep.output_groups[k] for k in ctx.attr.dep[OutputGroupInfo]}
+          return [OutputGroupInfo(**og)]
+        my_rule1 = rule(_rule_impl, attrs = { 'dep' : attr.label(aspects = [a1]) })
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load(':aspect.bzl', 'my_rule1')
+        my_rule1(name = 'base')
+        my_rule1(name = 'xxx', dep = ':base')
+        """);
+
+    AnalysisResult analysisResult = update("//test:xxx");
+    OutputGroupInfo outputGroupInfo =
+        OutputGroupInfo.get(Iterables.getOnlyElement(analysisResult.getTargetsToBuild()));
+    assertThat(getOutputGroupContents(outputGroupInfo, "a1_group"))
+        .containsExactly("test/base_a1.txt");
+  }
+
+  @Test
   public void outputGroupsDeclaredProviderFromOneAspect() throws Exception {
     scratch.file(
         "test/aspect.bzl",
