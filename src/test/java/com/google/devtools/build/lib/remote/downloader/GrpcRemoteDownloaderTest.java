@@ -39,7 +39,7 @@ import com.google.common.io.ByteStreams;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.authandtls.StaticCredentials;
-import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache.KeyType;
+import com.google.devtools.build.lib.bazel.repository.cache.DownloadCache.KeyType;
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import com.google.devtools.build.lib.bazel.repository.downloader.Downloader;
 import com.google.devtools.build.lib.bazel.repository.downloader.UnrecoverableHttpException;

@@ -166,12 +166,7 @@ public class NewLocalRepositoryFunction extends RepositoryFunction {
     fileHandler.finishFile(rule, outputDirectory, recordedInputValues);
     env.getListener().post(resolve(rule));
 
-    return new FetchResult(
-        RepositoryDirectoryValue.builder()
-            .setPath(outputDirectory)
-            .setSourceDir(directoryValue)
-            .setFileValues(fileValues.buildOrThrow()),
-        recordedInputValues);
+    return new FetchResult(recordedInputValues);
   }
 
   @Override

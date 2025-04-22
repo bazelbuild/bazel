@@ -353,8 +353,7 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
       }
     }
 
-    return new FetchResult(
-        RepositoryDirectoryValue.builder().setPath(outputDirectory), recordedInputValues);
+    return new FetchResult(recordedInputValues);
   }
 
   @SuppressWarnings("unchecked")

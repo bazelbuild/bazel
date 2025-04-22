@@ -97,8 +97,7 @@ public class LocalConfigPlatformFunction extends RepositoryFunction {
             });
 
     // Return the needed info.
-    return new FetchResult(
-        RepositoryDirectoryValue.builder().setPath(outputDirectory), ImmutableMap.of());
+    return new FetchResult(ImmutableMap.of());
   }
 
   private static String workspaceFileContent(String repositoryName) {

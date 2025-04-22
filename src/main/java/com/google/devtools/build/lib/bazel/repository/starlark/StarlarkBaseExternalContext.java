@@ -31,8 +31,8 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.bazel.debug.WorkspaceRuleEvent;
 import com.google.devtools.build.lib.bazel.repository.DecompressorDescriptor;
 import com.google.devtools.build.lib.bazel.repository.DecompressorValue;
-import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache;
-import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache.KeyType;
+import com.google.devtools.build.lib.bazel.repository.cache.DownloadCache;
+import com.google.devtools.build.lib.bazel.repository.cache.DownloadCache.KeyType;
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.bazel.repository.downloader.HttpUtils;
@@ -505,7 +505,7 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
       return originalChecksum.get();
     }
     try {
-      return Checksum.fromString(KeyType.SHA256, RepositoryCache.getChecksum(KeyType.SHA256, path));
+      return Checksum.fromString(KeyType.SHA256, DownloadCache.getChecksum(KeyType.SHA256, path));
     } catch (Checksum.InvalidChecksumException e) {
       throw new IllegalStateException(
           "Unexpected invalid checksum from internal computation of SHA-256 checksum on "

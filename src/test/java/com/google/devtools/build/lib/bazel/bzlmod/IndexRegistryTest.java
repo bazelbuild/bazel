@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.authandtls.Netrc;
 import com.google.devtools.build.lib.authandtls.NetrcCredentials;
 import com.google.devtools.build.lib.authandtls.NetrcParser;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
+import com.google.devtools.build.lib.bazel.repository.cache.DownloadCache;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache;
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
@@ -77,15 +78,15 @@ public class IndexRegistryTest extends FoundationTestCase {
   @Rule public final TemporaryFolder tempFolder = new TemporaryFolder();
 
   private RegistryFactoryImpl registryFactory;
-  private RepositoryCache repositoryCache;
+  private DownloadCache downloadCache;
 
   @Before
   public void setUp() throws Exception {
     eventRecorder = new EventRecorder();
     eventBus.register(eventRecorder);
-    repositoryCache = new RepositoryCache();
+    downloadCache = new DownloadCache();
     HttpDownloader httpDownloader = new HttpDownloader();
-    downloadManager = new DownloadManager(repositoryCache, httpDownloader, httpDownloader);
+    downloadManager = new DownloadManager(downloadCache, httpDownloader, httpDownloader);
     registryFactory = new RegistryFactoryImpl(Suppliers.ofInstance(ImmutableMap.of()));
   }
 
@@ -427,7 +428,7 @@ public class IndexRegistryTest extends FoundationTestCase {
 
   @Test
   public void testGetModuleFileChecksums() throws Exception {
-    repositoryCache.setRepositoryCachePath(scratch.dir("cache"));
+    downloadCache.setPath(scratch.dir("cache"));
 
     server.serve("/myreg/modules/foo/1.0/MODULE.bazel", "old");
     server.serve("/myreg/modules/foo/2.0/MODULE.bazel", "new");
@@ -510,7 +511,7 @@ public class IndexRegistryTest extends FoundationTestCase {
 
   @Test
   public void testGetModuleFileChecksumMismatch() throws Exception {
-    repositoryCache.setRepositoryCachePath(scratch.dir("cache"));
+    downloadCache.setPath(scratch.dir("cache"));
 
     server.serve("/myreg/modules/foo/1.0/MODULE.bazel", "fake");
     server.start();
@@ -542,7 +543,7 @@ public class IndexRegistryTest extends FoundationTestCase {
 
   @Test
   public void testGetRepoSpecChecksum() throws Exception {
-    repositoryCache.setRepositoryCachePath(scratch.dir("cache"));
+    downloadCache.setPath(scratch.dir("cache"));
 
     String registryJson =
         """
@@ -596,7 +597,7 @@ public class IndexRegistryTest extends FoundationTestCase {
 
   @Test
   public void testGetRepoSpecChecksumMismatch() throws Exception {
-    repositoryCache.setRepositoryCachePath(scratch.dir("cache"));
+    downloadCache.setPath(scratch.dir("cache"));
 
     String registryJson =
         """
@@ -641,7 +642,7 @@ public class IndexRegistryTest extends FoundationTestCase {
 
   @Test
   public void testBazelRegistryChecksumMismatch() throws Exception {
-    repositoryCache.setRepositoryCachePath(scratch.dir("cache"));
+    downloadCache.setPath(scratch.dir("cache"));
 
     String registryJson =
         """
@@ -686,6 +687,6 @@ public class IndexRegistryTest extends FoundationTestCase {
 
   private static Checksum sha256(String content) throws Checksum.InvalidChecksumException {
     return Checksum.fromString(
-        RepositoryCache.KeyType.SHA256, Hashing.sha256().hashString(content, UTF_8).toString());
+        DownloadCache.KeyType.SHA256, Hashing.sha256().hashString(content, UTF_8).toString());
   }
 }

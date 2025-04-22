@@ -28,8 +28,12 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.bazel.bzlmod.CompiledModuleFile.IncludeStatement;
+import com.google.devtools.build.lib.bazel.bzlmod.ModuleExtensionUsage.Proxy;
+import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileGlobals.ModuleExtensionProxy;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.NonRootModuleFileValue;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.RootModuleFileValue;
+import com.google.devtools.build.lib.bazel.bzlmod.ModuleThreadContext.ModuleExtensionUsageBuilder;
+import com.google.devtools.build.lib.bazel.bzlmod.Registry.NotFoundException;
 import com.google.devtools.build.lib.bazel.repository.PatchUtil;
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum.MissingChecksumException;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
@@ -47,6 +51,7 @@ import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
+import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue.Success;
 import com.google.devtools.build.lib.server.FailureDetails.ExternalDeps.Code;
 import com.google.devtools.build.lib.skyframe.ClientEnvironmentFunction;
 import com.google.devtools.build.lib.skyframe.ClientEnvironmentValue;
@@ -62,6 +67,7 @@ import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.skyframe.SkyFunction;
+import com.google.devtools.build.skyframe.SkyFunction.Environment.SkyKeyComputeState;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -132,7 +138,7 @@ public class ModuleFileFunction implements SkyFunction {
     this.builtinModules = builtinModules;
   }
 
-  private static class State implements Environment.SkyKeyComputeState {
+  private static class State implements SkyKeyComputeState {
     // The following fields are used during root module file evaluation. We try to compile the root
     // module file itself first, and then read, parse, and compile any included module files layer
     // by layer, in a BFS fashion (hence the `horizon` field). Finally, everything is collected into
@@ -480,7 +486,7 @@ public class ModuleFileFunction implements SkyFunction {
       throw errorf(Code.BAD_MODULE, "error executing MODULE.bazel file for the root module");
     }
     for (ModuleExtensionUsage usage : module.getExtensionUsages()) {
-      ModuleExtensionUsage.Proxy firstProxy = usage.getProxies().getFirst();
+      Proxy firstProxy = usage.getProxies().getFirst();
       if (usage.getIsolationKey().isPresent() && firstProxy.getImports().isEmpty()) {
         throw errorf(
             Code.BAD_MODULE,
@@ -581,16 +587,16 @@ public class ModuleFileFunction implements SkyFunction {
       return;
     }
     // Use the innate extension backing use_repo_rule.
-    ModuleThreadContext.ModuleExtensionUsageBuilder usageBuilder =
-        new ModuleThreadContext.ModuleExtensionUsageBuilder(
+    ModuleExtensionUsageBuilder usageBuilder =
+        new ModuleExtensionUsageBuilder(
             context,
             "//:MODULE.bazel",
             "@bazel_tools//tools/build_defs/repo:local.bzl local_repository",
             /* isolate= */ false);
-    ModuleFileGlobals.ModuleExtensionProxy extensionProxy =
-        new ModuleFileGlobals.ModuleExtensionProxy(
+    ModuleExtensionProxy extensionProxy =
+        new ModuleExtensionProxy(
             usageBuilder,
-            ModuleExtensionUsage.Proxy.builder()
+            Proxy.builder()
                 .setDevDependency(true)
                 .setLocation(Location.BUILTIN)
                 .setContainingModuleFilePath(context.getCurrentModuleFilePath()));
@@ -640,7 +646,8 @@ public class ModuleFileFunction implements SkyFunction {
       }
       RootedPath moduleFilePath =
           RootedPath.toRootedPath(
-              Root.fromPath(repoDir.getPath()), LabelConstants.MODULE_DOT_BAZEL_FILE_NAME);
+              Root.fromPath(((Success) repoDir).getPath()),
+              LabelConstants.MODULE_DOT_BAZEL_FILE_NAME);
       if (env.getValue(FileValue.key(moduleFilePath)) == null) {
         return null;
       }
@@ -706,7 +713,7 @@ public class ModuleFileFunction implements SkyFunction {
         try {
           originalModuleFile =
               registry.getModuleFile(key, downloadEventHandler, this.downloadManager);
-        } catch (Registry.NotFoundException e) {
+        } catch (NotFoundException e) {
           if (notFoundTrace == null) {
             notFoundTrace = new ArrayList<>();
           }

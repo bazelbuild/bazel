@@ -15,7 +15,11 @@ filegroup(
 #   Main Java code for Bazel
 java_library(
     name = "cache",
-    srcs = ["RepositoryCache.java"],
+    srcs = [
+        "DownloadCache.java",
+        "RepoContentsCache.java",
+        "RepositoryCache.java",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs/bazel",
@@ -26,7 +30,7 @@ java_library(
 
 java_library(
     name = "events",
-    srcs = ["RepositoryCacheHitEvent.java"],
+    srcs = ["DownloadCacheHitEvent.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/events",
