@@ -507,7 +507,7 @@ public class AutoloadSymbols {
         if (repo == null) {
           return null;
         }
-        repositoryExists = repo.repositoryExists();
+        repositoryExists = repo instanceof RepositoryDirectoryValue.Success;
       }
       // Only load if the dependency is present
       if (repositoryExists) {

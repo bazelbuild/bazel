@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.bazel.ResolvedEvent;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
-import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.rules.repository.ResolvedFileValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
@@ -97,8 +96,7 @@ public class LocalConfigPlatformFunction extends RepositoryFunction {
             });
 
     // Return the needed info.
-    return new FetchResult(
-        RepositoryDirectoryValue.builder().setPath(outputDirectory), ImmutableMap.of());
+    return new FetchResult(ImmutableMap.of());
   }
 
   private static String workspaceFileContent(String repositoryName) {
