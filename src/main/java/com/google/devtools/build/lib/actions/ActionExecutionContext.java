@@ -160,7 +160,7 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
     @Nullable
     @Override
     public FileArtifactValue getInputMetadataChecked(ActionInput input)
-        throws IOException, MissingDepExecException {
+        throws InterruptedException, IOException, MissingDepExecException {
       return wrapped.getInputMetadataChecked(input);
     }
 

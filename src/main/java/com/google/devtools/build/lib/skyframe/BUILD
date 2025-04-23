@@ -536,6 +536,25 @@ java_library(
 )
 
 java_library(
+    name = "skyframe_input_metadata_provider",
+    srcs = ["SkyframeInputMetadataProvider.java"],
+    deps = [
+        ":action_execution_value",
+        ":tree_artifact_value",
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
+        "//src/main/java/com/google/devtools/build/lib/actions:fileset_output_tree",
+        "//src/main/java/com/google/devtools/build/lib/actions:runfiles_metadata",
+        "//src/main/java/com/google/devtools/build/lib/actions:runfiles_tree",
+        "//src/main/java/com/google/devtools/build/skyframe",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
     name = "action_input_metadata_provider",
     srcs = ["ActionInputMetadataProvider.java"],
     deps = [
@@ -2483,6 +2502,7 @@ java_library(
         ":action_output_metadata_store",
         ":metadata_consumer_for_metrics",
         ":progress_suppressing_event_handler",
+        ":skyframe_input_metadata_provider",
         ":track_source_directories_flag",
         ":tree_artifact_value",
         "//src/main/java/com/google/devtools/build/lib:build-request-options",
@@ -2511,6 +2531,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util/io",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:output_service",
+        "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:failure_details_java_proto",

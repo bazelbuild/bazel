@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.actions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import java.io.IOException;
 import java.util.LinkedHashSet;
 import java.util.Map;
@@ -36,7 +37,7 @@ public final class DelegatingPairInputMetadataProvider implements InputMetadataP
 
   @Override
   public FileArtifactValue getInputMetadataChecked(ActionInput input)
-      throws IOException, MissingDepExecException {
+      throws InterruptedException, IOException, MissingDepExecException {
     FileArtifactValue metadata = primary.getInputMetadata(input);
     return (metadata != null) && (metadata != FileArtifactValue.MISSING_FILE_MARKER)
         ? metadata
@@ -94,5 +95,11 @@ public final class DelegatingPairInputMetadataProvider implements InputMetadataP
   public ActionInput getInput(String execPath) {
     ActionInput input = primary.getInput(execPath);
     return input != null ? input : secondary.getInput(execPath);
+  }
+
+  @Override
+  public FileSystem getFileSystemForInputResolution() {
+    FileSystem result = primary.getFileSystemForInputResolution();
+    return result != null ? result : secondary.getFileSystemForInputResolution();
   }
 }

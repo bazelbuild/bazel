@@ -44,12 +44,13 @@ public interface InputMetadataProvider {
    * @param input the input to retrieve the digest for
    * @return the artifact's digest or null if digest cannot be obtained (due to artifact
    *     non-existence, lookup errors, or any other reason)
+   * @throws InterruptedException if interrupted
    * @throws IOException if the action input cannot be digested
    * @throws MissingDepExecException if a Skyframe restart is required to provide the requested data
    */
   @Nullable
   FileArtifactValue getInputMetadataChecked(ActionInput input)
-      throws IOException, MissingDepExecException;
+      throws InterruptedException, IOException, MissingDepExecException;
 
   @Nullable
   TreeArtifactValue getTreeMetadata(ActionInput input);
@@ -63,7 +64,7 @@ public interface InputMetadataProvider {
   default FileArtifactValue getInputMetadata(ActionInput input) throws IOException {
     try {
       return getInputMetadataChecked(input);
-    } catch (MissingDepExecException e) {
+    } catch (MissingDepExecException | InterruptedException e) {
       throw new IllegalStateException(e);
     }
   }

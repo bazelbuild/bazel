@@ -43,7 +43,6 @@ import javax.annotation.concurrent.ThreadSafe;
  */
 @ThreadSafe
 public class SingleBuildFileCache implements InputMetadataProvider {
-
   private final Path execRoot;
 
   // If we can't get the digest, we store the exception. This avoids extra file IO for files
@@ -63,10 +62,18 @@ public class SingleBuildFileCache implements InputMetadataProvider {
   }
 
   @Override
+  @Nullable
   public FileArtifactValue getInputMetadataChecked(ActionInput input) throws IOException {
-    // TODO(lberki): It would be nice to assert that only source files are passed here.
-    // Unfortunately, that's not quite true at the moment and an unknown amount of work would be
-    // needed to make that true.
+    if (input instanceof Artifact artifact && !artifact.isSourceArtifact()) {
+      // This is not a perfect verification that this class doesn't access the output tree: nothing
+      // stops anyone from creating an ActionInput that is not an Artifact, but its exec path is
+      // under the output directory.
+      throw new IllegalStateException(
+          String.format(
+              "SingleBuildFileCache does not support derived artifact '%s'",
+              input.getExecPathString()));
+    }
+
     return pathToMetadata
         .get(
             input.getExecPathString(),
