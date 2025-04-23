@@ -814,7 +814,7 @@ public class ModuleFileFunction implements SkyFunction {
       if (!fileValue.isFile()) {
         throw errorf(
             Code.BAD_MODULE,
-            "error reading single_version_override patch %s: not a regular file",
+            "error reading single_version_override patch %s: is a directory or doesn't exist",
             key.argument());
       }
     }
