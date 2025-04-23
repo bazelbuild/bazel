@@ -42,7 +42,6 @@ import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.repository.RepositoryFetchProgress;
 import com.google.devtools.build.lib.rules.repository.NeedsSkyframeRestartException;
 import com.google.devtools.build.lib.rules.repository.RepoRecordedInput;
-import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.rules.repository.WorkspaceFileHelper;
 import com.google.devtools.build.lib.runtime.ProcessWrapper;
@@ -353,8 +352,7 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
       }
     }
 
-    return new FetchResult(
-        RepositoryDirectoryValue.builder().setPath(outputDirectory), recordedInputValues);
+    return new FetchResult(recordedInputValues);
   }
 
   @SuppressWarnings("unchecked")

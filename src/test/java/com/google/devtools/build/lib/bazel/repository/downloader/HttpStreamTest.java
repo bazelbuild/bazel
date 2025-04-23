@@ -28,7 +28,7 @@ import static org.mockito.Mockito.when;
 
 import com.google.common.hash.Hashing;
 import com.google.common.io.ByteStreams;
-import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache.KeyType;
+import com.google.devtools.build.lib.bazel.repository.cache.DownloadCache.KeyType;
 import com.google.devtools.build.lib.bazel.repository.downloader.RetryingInputStream.Reconnector;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;

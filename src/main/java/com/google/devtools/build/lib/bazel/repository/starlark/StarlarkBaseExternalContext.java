@@ -31,8 +31,8 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.bazel.debug.WorkspaceRuleEvent;
 import com.google.devtools.build.lib.bazel.repository.DecompressorDescriptor;
 import com.google.devtools.build.lib.bazel.repository.DecompressorValue;
-import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache;
-import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache.KeyType;
+import com.google.devtools.build.lib.bazel.repository.cache.DownloadCache;
+import com.google.devtools.build.lib.bazel.repository.cache.DownloadCache.KeyType;
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.bazel.repository.downloader.HttpUtils;
@@ -505,7 +505,7 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
       return originalChecksum.get();
     }
     try {
-      return Checksum.fromString(KeyType.SHA256, RepositoryCache.getChecksum(KeyType.SHA256, path));
+      return Checksum.fromString(KeyType.SHA256, DownloadCache.getChecksum(KeyType.SHA256, path));
     } catch (Checksum.InvalidChecksumException e) {
       throw new IllegalStateException(
           "Unexpected invalid checksum from internal computation of SHA-256 checksum on "
@@ -643,7 +643,7 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
   @StarlarkMethod(
       name = "download",
       doc =
-          """
+"""
 Downloads a file to the output path for the provided url and returns a struct \
 containing <code>success</code>, a flag which is <code>true</code> if the \
 download completed successfully, and if successful, a hash of the file \
@@ -850,7 +850,7 @@ When <code>sha256</code> or <code>integrity</code> is user specified, setting an
   @StarlarkMethod(
       name = "download_and_extract",
       doc =
-          """
+"""
 Downloads a file to the output path for the provided url, extracts it, and returns a \
 struct containing <code>success</code>, a flag which is <code>true</code> if the \
 download completed successfully, and if successful, a hash of the file with the \
@@ -976,7 +976,7 @@ When <code>sha256</code> or <code>integrity</code> is user specified, setting an
             named = true,
             positional = false,
             doc =
-                """
+"""
 An optional dict specifying files to rename during the extraction. Archive entries \
 with names exactly matching a key will be renamed to the value, prior to \
 any directory prefix adjustment. This can be used to extract archives that \

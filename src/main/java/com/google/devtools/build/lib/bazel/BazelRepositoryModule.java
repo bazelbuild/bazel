@@ -214,7 +214,7 @@ public class BazelRepositoryModule extends BlazeModule {
     public byte[] get(
         Supplier<BuildConfigurationValue> configurationSupplier, CommandEnvironment env)
         throws AbruptExitException, InterruptedException {
-      return print(repositoryCache.getRootPath());
+      return print(repositoryCache.getPath());
     }
   }
 
@@ -245,7 +245,8 @@ public class BazelRepositoryModule extends BlazeModule {
             isFetch,
             clientEnvironmentSupplier,
             directories,
-            BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER);
+            BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER,
+            repositoryCache.getRepoContentsCache());
     singleExtensionEvalFunction =
         new SingleExtensionEvalFunction(directories, clientEnvironmentSupplier);
 
@@ -311,7 +312,10 @@ public class BazelRepositoryModule extends BlazeModule {
   @Override
   public void beforeCommand(CommandEnvironment env) throws AbruptExitException {
     DownloadManager downloadManager =
-        new DownloadManager(repositoryCache, env.getDownloaderDelegate(), env.getHttpDownloader());
+        new DownloadManager(
+            repositoryCache.getDownloadCache(),
+            env.getDownloaderDelegate(),
+            env.getHttpDownloader());
     this.starlarkRepositoryFunction.setDownloadManager(downloadManager);
     this.moduleFileFunction.setDownloadManager(downloadManager);
     this.repoSpecFunction.setDownloadManager(downloadManager);
@@ -339,7 +343,7 @@ public class BazelRepositoryModule extends BlazeModule {
       }
       disableNativeRepoRules = repoOptions.disableNativeRepoRules;
 
-      repositoryCache.setHardlink(repoOptions.useHardlinks);
+      repositoryCache.getDownloadCache().setHardlink(repoOptions.useHardlinks);
       if (repoOptions.experimentalScaleTimeouts > 0.0) {
         starlarkRepositoryFunction.setTimeoutScaling(repoOptions.experimentalScaleTimeouts);
         singleExtensionEvalFunction.setTimeoutScaling(repoOptions.experimentalScaleTimeouts);
@@ -365,7 +369,7 @@ public class BazelRepositoryModule extends BlazeModule {
                   .getWorkspace()
                   .getRelative(repoOptions.experimentalRepositoryCache);
         }
-        repositoryCache.setRepositoryCachePath(repositoryCachePath);
+        repositoryCache.setPath(repositoryCachePath);
       } else {
         Path repositoryCachePath =
             env.getDirectories()
@@ -374,7 +378,7 @@ public class BazelRepositoryModule extends BlazeModule {
                 .getRelative(DEFAULT_CACHE_LOCATION);
         try {
           repositoryCachePath.createDirectoryAndParents();
-          repositoryCache.setRepositoryCachePath(repositoryCachePath);
+          repositoryCache.setPath(repositoryCachePath);
         } catch (IOException e) {
           env.getReporter()
               .handle(

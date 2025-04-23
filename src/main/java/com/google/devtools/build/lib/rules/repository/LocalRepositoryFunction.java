@@ -49,13 +49,13 @@ public class LocalRepositoryFunction extends RepositoryFunction {
     // See https://github.com/bazelbuild/bazel/issues/18285
     String userDefinedPath = RepositoryFunction.getPathAttr(rule);
     Path targetPath = directories.getWorkspace().getRelative(userDefinedPath);
-    RepositoryDirectoryValue.Builder result =
+    RepositoryDirectoryValue result =
         RepositoryDelegatorFunction.symlinkRepoRoot(
             directories, outputDirectory, targetPath, userDefinedPath, env);
     if (result != null) {
       env.getListener().post(resolve(rule, directories));
     }
-    return new FetchResult(result, ImmutableMap.of());
+    return new FetchResult(ImmutableMap.of());
   }
 
   @Override
