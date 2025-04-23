@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/bash
 #
 # Copyright 2019 The Bazel Authors. All rights reserved.
 #
@@ -47,7 +47,7 @@ wrapper=$(rlocation io_bazel/scripts/packages/bazel.sh)
 mock_bazel() {
   {
     cat <<'EOF'
-#!/usr/bin/env bash
+#!/bin/bash
 set -euo pipefail
 if [[ ${1:-""} == "--version" ]]; then
   echo "bazel BAZEL_VERSION"
@@ -74,8 +74,6 @@ setup_mock() {
   mock_bazel "bin/bazel-0.29.1" "0.29.1"
   mock_bazel "bin/bazel-1.0.1" "1.0.1"
   mock_bazel "bin/bazel-real" "1.1.0"
-
-  ln -s `which bash` bin/bash
 
   # We don't want USE_BAZEL_VERSION passed by --test_env to affect this test.
   unset USE_BAZEL_VERSION
@@ -236,7 +234,7 @@ test_delegates_to_wrapper_if_present() {
 
   mkdir tools
   cat > tools/bazel <<'EOF'
-#!/usr/bin/env bash
+#!/bin/bash
 set -euo pipefail
 echo "Hello from the wrapper tools/bazel!"
 echo "BAZEL_REAL = ${BAZEL_REAL}"
@@ -263,7 +261,7 @@ test_bazel_wrapper_envvar() {
 
   mkdir tooling
   cat > tooling/bazel <<'EOF'
-#!/usr/bin/env bash
+#!/bin/bash
 set -euo pipefail
 echo "Hello from the wrapper tooling/bazel!"
 echo "BAZEL_REAL = ${BAZEL_REAL}"
@@ -283,7 +281,7 @@ test_gracefully_handles_bogus_bazelversion() {
 
   mkdir tools
   cat > tools/bazel <<'EOF'
-#!/usr/bin/env bash
+#!/bin/bash
 set -euo pipefail
 echo "Hello from the wrapper tools/bazel!"
 echo "My args: $@"
