@@ -501,9 +501,6 @@ public final class CppConfiguration extends Fragment
     return cppOptions.experimentalLinkStaticLibrariesOnce;
   }
 
-  public boolean experimentalPlatformCcTest() {
-    return cppOptions.experimentalPlatformCcTest;
-  }
 
   public boolean legacyWholeArchive() {
     return cppOptions.legacyWholeArchive;
@@ -865,10 +862,6 @@ public final class CppConfiguration extends Fragment
     return appleGenerateDsym;
   }
 
-  public boolean experimentalStarlarkCcImport() {
-    return cppOptions.experimentalStarlarkCcImport;
-  }
-
   public boolean useCppCompileHeaderMnemonic() {
     return cppOptions.useCppCompileHeaderMnemonic;
   }
@@ -988,12 +981,6 @@ public final class CppConfiguration extends Fragment
       throws EvalException {
     CcModule.checkPrivateStarlarkificationAllowlist(thread);
     return experimentalLinkStaticLibrariesOnce();
-  }
-
-  @Override
-  public boolean getExperimentalPlatformCcTest(StarlarkThread thread) throws EvalException {
-    CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    return experimentalPlatformCcTest();
   }
 
   @Override

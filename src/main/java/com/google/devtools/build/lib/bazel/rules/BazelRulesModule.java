@@ -44,6 +44,22 @@ public final class BazelRulesModule extends BlazeModule {
   public static class BuildGraveyardOptions extends OptionsBase {
 
     @Option(
+        name = "experimental_starlark_cc_import",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "Deprecated. No-op.")
+    public boolean experimentalStarlarkCcImport;
+
+    @Option(
+        name = "experimental_platform_cc_test",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "Deprecated. No-op.")
+    public boolean experimentalPlatformCcTest;
+
+    @Option(
         name = "j2objc_dead_code_removal",
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
