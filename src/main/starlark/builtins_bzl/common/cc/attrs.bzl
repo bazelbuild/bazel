@@ -120,7 +120,8 @@ most build rules</a>.
    this <code>cc_library</code>'s data files.
 </p>
 <p>The functionality of locating data files (runfiles) at runtime in Bazel-built 
-C++ binaries is provided by runfiles.h.
+C++ binaries is provided by <a href="https://github.com/bazelbuild/rules_cc/blob/main/cc/runfiles/runfiles.h">runfiles.h.</a>.
+The functionality are documented inside the header file.
 </p>
 """,
     ),
