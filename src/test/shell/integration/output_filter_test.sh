@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2016 The Bazel Authors. All rights reserved.
 #
@@ -260,7 +260,7 @@ EOF
   local status_cmd="$TEST_TMPDIR/status_cmd.sh"
 
   cat >"$status_cmd" <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
 
 echo 'STATUS_COMMAND_RAN' >&2
 EOF

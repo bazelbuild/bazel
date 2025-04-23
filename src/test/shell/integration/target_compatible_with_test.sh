@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2020 The Bazel Authors. All rights reserved.
 #
@@ -63,13 +63,13 @@ function set_up() {
   add_rules_shell "MODULE.bazel"
   mkdir -p target_skipping || fail "couldn't create directory"
   cat > target_skipping/pass.sh <<'EOF'
-#!/bin/bash
+#!/usr/bin/env bash
 exit 0
 EOF
   chmod +x target_skipping/pass.sh
 
   cat > target_skipping/fail.sh <<'EOF'
-#!/bin/bash
+#!/usr/bin/env bash
 exit 1
 EOF
   chmod +x target_skipping/fail.sh

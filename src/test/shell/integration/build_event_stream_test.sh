@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2016 The Bazel Authors. All rights reserved.
 #
@@ -1544,7 +1544,7 @@ sh_test(name="a", srcs=["a.sh"])
 EOF
 
   cat > a/a.sh <<'EOF'
-#!/bin/bash
+#!/usr/bin/env bash
 exit 0
 EOF
 

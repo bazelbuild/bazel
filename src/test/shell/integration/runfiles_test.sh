@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2015 The Bazel Authors. All rights reserved.
 #
@@ -596,7 +596,7 @@ sh_test(
 EOF
   if "$is_windows"; then
     cat > pkg/foo.sh <<'EOF'
-#!/bin/bash
+#!/usr/bin/env bash
 if [[ "$(cat $'pkg/a b .txt')" != "my content" ]]; then
   echo "unexpected content or not found"
   exit 1
@@ -604,7 +604,7 @@ fi
 EOF
   else
     cat > pkg/foo.sh <<'EOF'
-#!/bin/bash
+#!/usr/bin/env bash
 if [[ "$(cat $'pkg/a \n \\ b .txt')" != "my content" ]]; then
   echo "unexpected content or not found"
   exit 1
@@ -654,7 +654,7 @@ sh_test(
 )
 EOF
   cat > pkg/foo.sh <<'EOF'
-#!/bin/bash
+#!/usr/bin/env bash
 if [[ "$(cat pkg/data.txt)" != "my content" ]]; then
   echo "unexpected content or not found"
   exit 1
@@ -700,7 +700,7 @@ sh_test(
 EOF
   if "$is_windows"; then
     cat > pkg/foo.sh <<'EOF'
-#!/bin/bash
+#!/usr/bin/env bash
 if [[ "$(cat $'pkg/a b .txt')" != "my content" ]]; then
   echo "unexpected content or not found"
   exit 1
@@ -708,7 +708,7 @@ fi
 EOF
   else
     cat > pkg/foo.sh <<'EOF'
-#!/bin/bash
+#!/usr/bin/env bash
 if [[ "$(cat $'pkg/a \n \\ b .txt')" != "my content" ]]; then
   echo "unexpected content or not found"
   exit 1
@@ -757,7 +757,7 @@ genrule(
 )
 EOF
   cat > pkg/tool.sh <<'EOF'
-#!/bin/bash
+#!/usr/bin/env bash
 # --- begin runfiles.bash initialization v3 ---
 # Copy-pasted from the Bazel Bash runfiles library v3.
 set -uo pipefail; set +e; f=bazel_tools/tools/bash/runfiles/runfiles.bash

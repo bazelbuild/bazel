@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2015 The Bazel Authors. All rights reserved.
 #
@@ -524,7 +524,7 @@ function write_test_xml_timeout_files() {
   add_rules_shell "MODULE.bazel"
 
   cat <<'EOF' > dir/test.sh
-#!/bin/bash
+#!/usr/bin/env bash
 echo "xmltest"
 echo -n "before "
 # Invalid XML character
@@ -859,7 +859,7 @@ function setup_undeclared_outputs_test() {
   add_rules_shell "MODULE.bazel"
 
   cat <<'EOF' > dir/test.sh
-#!/bin/bash
+#!/usr/bin/env bash
 mkdir -p "$TEST_UNDECLARED_OUTPUTS_DIR/deeply/nested"
 echo "some text" > "$TEST_UNDECLARED_OUTPUTS_DIR/text.txt"
 echo "<!DOCTYPE html>" > "$TEST_UNDECLARED_OUTPUTS_DIR/deeply/nested/index.html"

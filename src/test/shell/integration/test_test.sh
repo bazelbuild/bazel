@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2017 The Bazel Authors. All rights reserved.
 #
@@ -266,7 +266,7 @@ load("@rules_shell//shell:sh_test.bzl", "sh_test")
 sh_test(name = "x", srcs = ["x.sh"])
 EOF
   cat > "$pkg/x.sh" <<'eof'
-#!/bin/bash
+#!/usr/bin/env bash
 read -n5 FOO
 echo "foo=($FOO)"
 eof

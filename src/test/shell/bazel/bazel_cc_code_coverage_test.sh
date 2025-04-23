@@ -1,4 +1,4 @@
-#!/bin/bash -eu
+#!/usr/bin/env bash -eu
 #
 # Copyright 2018 The Bazel Authors. All rights reserved.
 #

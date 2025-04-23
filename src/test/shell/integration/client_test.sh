@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Copyright 2018 The Bazel Authors. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -427,7 +427,7 @@ EOF
   # - one of "read" or "write"
   # - the path to the fifo
   cat > x/x.sh <<'EOF'
-#!/bin/bash
+#!/usr/bin/env bash
 if [[ "$1" == "read" ]]; then
   cat "$2" > /dev/null
 elif [[ "$1" == "write" ]]; then

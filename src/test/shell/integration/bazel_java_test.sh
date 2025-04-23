@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Copyright 2018 The Bazel Authors. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -30,7 +30,7 @@ function test_server_javabase() {
   MAGIC="the cake is a lie"
 
   cat << EOF > test_server_javabase/bin/java
-#!/bin/bash
+#!/usr/bin/env bash
 echo "$MAGIC"
 EOF
   chmod +x test_server_javabase/bin/java
