@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.cmdline.BatchCallback.SafeBatchCallback;
@@ -40,7 +39,6 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
@@ -126,16 +124,6 @@ public final class EnvironmentBackedRecursivePackageProvider
       }
     }
     return pkgValue.getPackage();
-  }
-
-  @Override
-  public Map<PackageIdentifier, Package> bulkGetPackages(Iterable<PackageIdentifier> pkgIds)
-      throws NoSuchPackageException, InterruptedException {
-    ImmutableMap.Builder<PackageIdentifier, Package> builder = ImmutableMap.builder();
-    for (PackageIdentifier pkgId : pkgIds) {
-      builder.put(pkgId, getPackage(env.getListener(), pkgId));
-    }
-    return builder.buildOrThrow();
   }
 
   @SuppressWarnings("ThrowsUncheckedException") // Good for callers to know about MissingDep.

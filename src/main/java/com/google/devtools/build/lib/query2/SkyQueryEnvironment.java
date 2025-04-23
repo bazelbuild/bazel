@@ -55,6 +55,7 @@ import com.google.devtools.build.lib.concurrent.MultisetSemaphore;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.io.InconsistentFilesystemException;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.DependencyFilter;
 import com.google.devtools.build.lib.packages.LabelPrinter;
@@ -1186,6 +1187,11 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
       pkgResults.put(pkgId, Preconditions.checkNotNull(pkgValue.getPackage(), pkgId));
     }
     return pkgResults.buildOrThrow();
+  }
+
+  public ImmutableSet<PackageIdentifier> bulkIsPackage(Iterable<PackageIdentifier> pkgIds)
+      throws InconsistentFilesystemException, InterruptedException {
+    return graphBackedRecursivePackageProvider.bulkIsPackage(eventHandler, pkgIds);
   }
 
   @Override
