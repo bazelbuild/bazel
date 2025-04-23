@@ -96,7 +96,7 @@ public class LocalConfigPlatformFunction extends RepositoryFunction {
             });
 
     // Return the needed info.
-    return new FetchResult(ImmutableMap.of());
+    return new FetchResult(ImmutableMap.of(), Reproducibility.YES);
   }
 
   private static String workspaceFileContent(String repositoryName) {
