@@ -184,6 +184,8 @@ public class IndexRegistryTest extends FoundationTestCase {
         "/modules/foo/1.0/source.json",
         "{",
         "  \"url\": \"http://mysite.com/thing.zip\",",
+        "  \"mirror_urls\":"
+            + " [\"http://my.mirror/mysite.com/thing.zip\",\"http://another.mirror/mysite.com/thing.zip\"],",
         "  \"integrity\": \"sha256-blah\",",
         "  \"strip_prefix\": \"pref\"",
         "}");
@@ -225,7 +227,9 @@ public class IndexRegistryTest extends FoundationTestCase {
                     ImmutableList.of(
                         "https://mirror.bazel.build/mysite.com/thing.zip",
                         "file:///home/bazel/mymirror/mysite.com/thing.zip",
-                        "http://mysite.com/thing.zip"))
+                        "http://mysite.com/thing.zip",
+                        "http://my.mirror/mysite.com/thing.zip",
+                        "http://another.mirror/mysite.com/thing.zip"))
                 .setIntegrity("sha256-blah")
                 .setStripPrefix("pref")
                 .setRemotePatches(ImmutableMap.of())

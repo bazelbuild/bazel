@@ -97,7 +97,75 @@ An index registry must follow the format below:
     *   `patches/`: An optional directory containing patch files, only used when
         `source.json` has "archive" type
 
-## Bazel Central Registry
+### `metadata.json` {:#metadata-json}
+
+`metadata.json` is an optional JSON file containing information about the
+module, with the following fields:
+
+*   `versions`: An array of strings, each denoting a version of the module
+    available in this registry. This array should match the children of the
+    module directory.
+*   `yanked_versions`: A JSON object specifying the [*yanked*
+    versions](/external/module#yanked_versions) of this module. The keys
+    should be versions to yank, and the values should be descriptions of
+    why the version is yanked, ideally containing a link to more
+    information.
+
+Note that the BCR requires more information in the `metadata.json` file.
+
+### `source.json` {:#source-json}
+
+`source.json` is a required JSON file containing information about how to fetch
+a specific version of a module. The schema of this file depends on its `type`
+field, which defaults to `archive`.
+
+*   If `type` is `archive` (the default), this module version is backed by an
+    [`http_archive`](/rules/lib/repo/http#http_archive) repo rule; it's fetched
+    by downloading an archive from a given URL and extracting its contents. It
+    supports the following fields:
+    *   `url`: A string, the URL of the source archive
+    *   `mirror_urls`: A list of string, the mirror URLs of the source archive.
+        The URLs are tried in order after `url` as backups.
+    *   `integrity`: A string, the [Subresource
+        Integrity][subresource-integrity] checksum of the archive
+    *   `strip_prefix`: A string, the directory prefix to strip when extracting
+        the source archive
+    *   `overlay`: A JSON object containing overlay files to layer on top of the
+        extracted archive. The patch files are located under the
+        `/modules/$MODULE/$VERSION/overlay` directory. The keys are the
+        overlay file names, and the values are the integrity checksum of
+        the overlay files. The overlays are applied before the patch files.
+    *   `patches`: A JSON object containing patch files to apply to the
+        extracted archive. The patch files are located under the
+        `/modules/$MODULE/$VERSION/patches` directory. The keys are the
+        patch file names, and the values are the integrity checksum of
+        the patch files. The patches are applied after the overlay files.
+    *   `patch_strip`: A number; the same as the `--strip` argument of Unix
+        `patch`.
+    *   `archive_type`: A string, the archive type of the downloaded file (Same
+        as [`type` on `http_archive`](/rules/lib/repo/http#http_archive-type)).
+*   If `type` is `git_repository`, this module version is backed by a
+    [`git_repository`](/rules/lib/repo/git#git_repository) repo rule; it's
+    fetched by cloning a Git repository.
+    *   The following fields are supported, and are directly forwarded to the
+        underlying `git_repository` repo rule: `remote`, `commit`,
+        `shallow_since`, `tag`, `init_submodules`, `verbose`, and
+        `strip_prefix`.
+*   If `type` is `local_path`, this module version is backed by a
+    [`local_repository`](/rules/lib/repo/local#local_repository) repo rule;
+    it's symlinked to a directory on local disk. It supports the following
+    field:
+    *   `path`: The local path to the repo, calculated as following:
+        *   If `path` is an absolute path, it stays as it is
+        *   If `path` is a relative path and `module_base_path` is an
+            absolute path, it resolves to `<module_base_path>/<path>`
+        *   If `path` and `module_base_path` are both relative paths, it
+            resolves to `<registry_path>/<module_base_path>/<path>`.
+            Registry must be hosted locally and used by
+            `--registry=file://<registry_path>`. Otherwise, Bazel will
+            throw an error
+
+## Bazel Central Registry {:#bazel-central-registry}
 
 The Bazel Central Registry (BCR) at <https://bcr.bazel.build/> is an index
 registry with contents backed by the GitHub repo
