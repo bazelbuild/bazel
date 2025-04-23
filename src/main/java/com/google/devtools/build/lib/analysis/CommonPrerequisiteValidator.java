@@ -302,38 +302,32 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
 
   private void handleVisibilityConflict(
       RuleContext.Builder context, ConfiguredTargetAndData prerequisite, Label rule) {
+    if (!context.getConfiguration().checkVisibility()) {
+      return;
+    }
     if (packageUnderExperimental(rule.getPackageIdentifier())
         && !checkVisibilityForExperimental(context)) {
       return;
     }
 
-    if (!context.getConfiguration().checkVisibility()) {
-      String errorMessage =
-          String.format(
-              "Target '%s' violates visibility of "
-                  + "%s. Continuing because --nocheck_visibility is active",
-              rule, AliasProvider.describeTargetWithAliases(prerequisite, TargetMode.WITHOUT_KIND));
-      context.ruleWarning(errorMessage);
-    } else {
-      // Visibility error:
-      //   target '//land:land' is not visible from
-      //   target '//red_delicious:apple'
-      // Recommendation: ...
-      String errorMessage =
-          String.format(
-              "Visibility error:\n"
-                  + "%s is not visible from\n"
-                  + "target '%s'\n"
-                  + "Recommendation: modify the visibility declaration if you think the dependency"
-                  + " is legitimate. For more info see https://bazel.build/concepts/visibility",
-              AliasProvider.describeTargetWithAliases(prerequisite, TargetMode.WITHOUT_KIND), rule);
+    // Visibility error:
+    //   target '//land:land' is not visible from
+    //   target '//red_delicious:apple'
+    // Recommendation: ...
+    String errorMessage =
+        String.format(
+            "Visibility error:\n"
+                + "%s is not visible from\n"
+                + "target '%s'\n"
+                + "Recommendation: modify the visibility declaration if you think the dependency"
+                + " is legitimate. For more info see https://bazel.build/concepts/visibility",
+            AliasProvider.describeTargetWithAliases(prerequisite, TargetMode.WITHOUT_KIND), rule);
 
-      if (prerequisite.getTargetKind().equals(InputFile.targetKind())) {
-        errorMessage +=
-            ". To set the visibility of that source file target, use the exports_files() function";
-      }
-      context.ruleError(errorMessage);
+    if (prerequisite.getTargetKind().equals(InputFile.targetKind())) {
+      errorMessage +=
+          ". To set the visibility of that source file target, use the exports_files() function";
     }
+    context.ruleError(errorMessage);
   }
 
   private void validateDirectPrerequisiteLocation(

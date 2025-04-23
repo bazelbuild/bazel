@@ -336,6 +336,15 @@ public class BuildView {
     eventBus.post(new MakeEnvironmentEvent(topLevelConfig.getMakeEnvironment()));
     eventBus.post(topLevelConfig.toBuildEvent());
 
+    // Lightly chastize the user for disabling visibility checking. (Previously, we spammed them for
+    // every visibility failure; #16767.)
+    if (!topLevelConfig.checkVisibility()) {
+      eventHandler.handle(
+          Event.warn(
+              "This build has globally disabled target visibility checking"
+                  + " (--nocheck_visibility)."));
+    }
+
     var configurationKey = topLevelConfig.getKey();
     ImmutableList<ConfiguredTargetKey> topLevelCtKeys =
         labelToTargetMap.keySet().stream()
