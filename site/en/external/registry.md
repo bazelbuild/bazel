@@ -83,6 +83,8 @@ field, which defaults to `archive`.
     by downloading an archive from a given URL and extracting its contents. It
     supports the following fields:
     *   `url`: A string, the URL of the source archive
+    *   `mirror_urls`: A list of string, the mirror URLs of the source archive.
+        The URLs are tried in order after `url` as backups.
     *   `integrity`: A string, the [Subresource
         Integrity][subresource-integrity] checksum of the archive
     *   `strip_prefix`: A string, the directory prefix to strip when extracting
