@@ -77,7 +77,6 @@ public class CrashFailureDetails {
       logger.atWarning().log("Classifying non-OOM crash as OOM");
       crashBuilder
           .setCode(Crash.Code.CRASH_OOM)
-          .setOomDetectorOverride(true)
           .setOomCauseCategory(OomCauseCategory.OOM_DETECTOR_OVERRIDE);
     } else {
       crashBuilder.setCode(Crash.Code.CRASH_UNKNOWN);
