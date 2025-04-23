@@ -156,6 +156,7 @@ import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Package.Builder.PackageSettings;
 import com.google.devtools.build.lib.packages.Package.ConfigSettingVisibilityPolicy;
 import com.google.devtools.build.lib.packages.PackageFactory;
+import com.google.devtools.build.lib.packages.Packageoid;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.Target;
@@ -3266,13 +3267,19 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       // package should have been added to the InMemoryGraph. So it is safe to remove relevant
       // labels from weak interner.
       LabelInterner labelInterner = Label.getLabelInterner();
+      // TODO(https://github.com/bazelbuild/bazel/issues/23852): also intern labels in package
+      // pieces for macros.
       if (labelInterner.enabled()
           && skyKey.functionName().equals(SkyFunctions.PACKAGE)
           && newValue != null
           && directDeps != null) {
-        checkState(newValue instanceof PackageValue, newValue);
+        checkState(newValue instanceof PackageoidValue, newValue);
 
-        Package pkg = ((PackageValue) newValue).getPackage();
+        Packageoid pkg = ((PackageoidValue) newValue).getPackageoid();
+        // Lock is keyed by package id, not by package piece id, because we cannot easily look up a
+        // package piece from a target label (and even if we could, it is possible - although it is
+        // an error state - for package pieces in the same package to collide and declare targets
+        // with the same label).
         Lock writeLock = labelInterner.getLockForLabelTransferToPool(pkg.getPackageIdentifier());
         writeLock.lock();
         try {

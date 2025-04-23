@@ -65,7 +65,7 @@ final class PackageFunctionWithoutGlobDeps extends PackageFunction {
   }
 
   private static final class LoadedPackageWithoutDeps extends LoadedPackage {
-    LoadedPackageWithoutDeps(Package.Builder builder, long loadTimeNanos) {
+    LoadedPackageWithoutDeps(Package.AbstractBuilder builder, long loadTimeNanos) {
       super(builder, loadTimeNanos);
     }
   }
@@ -91,7 +91,7 @@ final class PackageFunctionWithoutGlobDeps extends PackageFunction {
 
   @Override
   protected LoadedPackage newLoadedPackage(
-      Package.Builder packageBuilder, @Nullable Globber globber, long loadTimeNanos) {
+      Package.AbstractBuilder packageBuilder, @Nullable Globber globber, long loadTimeNanos) {
     return new LoadedPackageWithoutDeps(packageBuilder, loadTimeNanos);
   }
 }

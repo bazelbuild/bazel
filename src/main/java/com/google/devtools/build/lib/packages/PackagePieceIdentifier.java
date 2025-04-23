@@ -18,7 +18,10 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.util.HashCodes;
+import com.google.devtools.build.skyframe.SkyFunctionName;
+import com.google.devtools.build.skyframe.SkyKey;
 
 /** A unique identifier for a {@link PackagePiece}. */
 public abstract sealed class PackagePieceIdentifier
@@ -70,7 +73,7 @@ public abstract sealed class PackagePieceIdentifier
    * sibling class of {@link PackagePieceIdentifier.ForMacro} only to reduce the potential for
    * confusion when used as sky keys.
    */
-  public static final class ForBuildFile extends PackagePieceIdentifier {
+  public static final class ForBuildFile extends PackagePieceIdentifier implements SkyKey {
     @Override
     public String getCanonicalFormName() {
       return packageIdentifier.getCanonicalForm();
@@ -79,6 +82,11 @@ public abstract sealed class PackagePieceIdentifier
     @Override
     public String getCanonicalFormDefinedBy() {
       return definingLabel.getCanonicalForm();
+    }
+
+    @Override
+    public SkyFunctionName functionName() {
+      return SkyFunctions.PACKAGE;
     }
 
     @Override

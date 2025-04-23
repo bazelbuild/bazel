@@ -179,10 +179,10 @@ public abstract sealed class PackagePiece extends Packageoid
       // No-op: no macros to violate.
     }
 
-    private ForBuildFile(Metadata metadata) {
-      this.identifier =
-          new PackagePieceIdentifier.ForBuildFile(
-              metadata.packageIdentifier(), metadata.buildFileLabel());
+    private ForBuildFile(PackagePieceIdentifier.ForBuildFile identifier, Metadata metadata) {
+      checkArgument(identifier.getPackageIdentifier().equals(metadata.packageIdentifier()));
+      checkArgument(identifier.getDefiningLabel().equals(metadata.buildFileLabel()));
+      this.identifier = identifier;
       this.metadata = metadata;
       this.declarations = new Declarations();
     }
@@ -192,7 +192,7 @@ public abstract sealed class PackagePiece extends Packageoid
     // method and use the builder's constructor directly.
     public static Builder newBuilder(
         PackageSettings packageSettings,
-        PackageIdentifier id,
+        PackagePieceIdentifier.ForBuildFile identifier,
         RootedPath filename,
         String workspaceName,
         Optional<String> associatedModuleName,
@@ -210,7 +210,7 @@ public abstract sealed class PackagePiece extends Packageoid
         boolean trackFullMacroInformation) {
       Metadata metadata =
           Metadata.builder()
-              .packageIdentifier(id)
+              .packageIdentifier(identifier.getPackageIdentifier())
               .buildFilename(filename)
               .isRepoRulePackage(false)
               .repositoryMapping(repositoryMapping)
@@ -219,7 +219,7 @@ public abstract sealed class PackagePiece extends Packageoid
               .configSettingVisibilityPolicy(configSettingVisibilityPolicy)
               .succinctTargetNotFoundErrors(packageSettings.succinctTargetNotFoundErrors())
               .build();
-      ForBuildFile forBuildFile = new ForBuildFile(metadata);
+      ForBuildFile forBuildFile = new ForBuildFile(identifier, metadata);
       return new Builder(
           forBuildFile,
           packageSettings.precomputeTransitiveLoads(),
@@ -303,7 +303,8 @@ public abstract sealed class PackagePiece extends Packageoid
             generatorMap,
             globber,
             enableNameConflictChecking,
-            trackFullMacroInformation);
+            trackFullMacroInformation,
+            /* enableTargetMapSnapshotting= */ false);
       }
     }
   }
@@ -464,7 +465,8 @@ public abstract sealed class PackagePiece extends Packageoid
             generatorMap,
             /* globber= */ null,
             enableNameConflictChecking,
-            trackFullMacroInformation);
+            trackFullMacroInformation,
+            /* enableTargetMapSnapshotting= */ false);
       }
     }
   }

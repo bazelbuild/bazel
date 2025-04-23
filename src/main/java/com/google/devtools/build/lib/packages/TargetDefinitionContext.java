@@ -315,7 +315,8 @@ public abstract class TargetDefinitionContext extends StarlarkThreadContext {
       @Nullable ImmutableMap<Location, String> generatorMap,
       @Nullable Globber globber,
       boolean enableNameConflictChecking,
-      boolean trackFullMacroInformation) {
+      boolean trackFullMacroInformation,
+      boolean enableTargetMapSnapshotting) {
     super(() -> mainRepositoryMapping);
     this.metadata = metadata;
     this.pkg = pkg;
@@ -328,7 +329,9 @@ public abstract class TargetDefinitionContext extends StarlarkThreadContext {
     this.packageOverheadEstimator = packageOverheadEstimator;
     this.generatorMap = (generatorMap == null) ? ImmutableMap.of() : generatorMap;
     this.globber = globber;
-    this.recorder = new TargetRecorder(enableNameConflictChecking, trackFullMacroInformation);
+    this.recorder =
+        new TargetRecorder(
+            enableNameConflictChecking, trackFullMacroInformation, enableTargetMapSnapshotting);
   }
 
   public Metadata getMetadata() {
@@ -570,6 +573,8 @@ public abstract class TargetDefinitionContext extends StarlarkThreadContext {
           ((SnapshottableBiMap<String, Target>) recorder.getTargetMap()).getTrackedSnapshot(),
           target -> (Rule) target);
     } else {
+      // TODO(https://github.com/bazelbuild/bazel/issues/23852): if we are in a PackagePiece
+      // builder, trigger a skyframe restart and request a full Package.
       throw new IllegalStateException(
           "getRulesSnapshotView() cannot be used after beforeBuild() has been called");
     }

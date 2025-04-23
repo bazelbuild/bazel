@@ -1169,7 +1169,8 @@ public class Package extends Packageoid {
         @Nullable ImmutableMap<Location, String> generatorMap,
         @Nullable Globber globber,
         boolean enableNameConflictChecking,
-        boolean trackFullMacroInformation) {
+        boolean trackFullMacroInformation,
+        boolean enableTargetMapSnapshotting) {
       super(
           metadata,
           pkg,
@@ -1182,7 +1183,8 @@ public class Package extends Packageoid {
           generatorMap,
           globber,
           enableNameConflictChecking,
-          trackFullMacroInformation);
+          trackFullMacroInformation,
+          enableTargetMapSnapshotting);
       this.precomputeTransitiveLoads = precomputeTransitiveLoads;
       this.noImplicitFileExport = noImplicitFileExport;
       if (metadata.getName().startsWith("javatests/")) {
@@ -1306,7 +1308,8 @@ public class Package extends Packageoid {
           generatorMap,
           globber,
           enableNameConflictChecking,
-          trackFullMacroInformation);
+          trackFullMacroInformation,
+          /* enableTargetMapSnapshotting= */ true);
     }
 
     /** Retrieves this object from a Starlark thread. Returns null if not present. */

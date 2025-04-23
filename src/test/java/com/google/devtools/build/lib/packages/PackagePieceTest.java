@@ -228,9 +228,10 @@ def fail_impl(name, visibility, **kwargs):
   }
 
   private PackagePiece.ForBuildFile.Builder minimalBuildFilePieceBuilder(String name) {
+    PackageIdentifier pkgId = PackageIdentifier.createInMainRepo(name);
     return PackagePiece.ForBuildFile.newBuilder(
             PackageSettings.DEFAULTS,
-            PackageIdentifier.createInMainRepo(name),
+            new PackagePieceIdentifier.ForBuildFile(pkgId, Label.createUnvalidated(pkgId, "BUILD")),
             /* filename= */ RootedPath.toRootedPath(
                 Root.fromPath(fileSystem.getPath("/irrelevantRoot")),
                 PathFragment.create(name + "/BUILD")),

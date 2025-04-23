@@ -326,6 +326,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/packages:declared_exec_group",
         "//src/main/java/com/google/devtools/build/lib/packages:globber",
         "//src/main/java/com/google/devtools/build/lib/packages:globber_utils",
+        "//src/main/java/com/google/devtools/build/lib/packages:package_piece_identifier",
         "//src/main/java/com/google/devtools/build/lib/packages/semantics",
         "//src/main/java/com/google/devtools/build/lib/pkgcache",
         "//src/main/java/com/google/devtools/build/lib/profiler",
@@ -1962,7 +1963,11 @@ java_library(
 
 java_library(
     name = "package_value",
-    srcs = ["PackageValue.java"],
+    srcs = [
+        "PackagePieceValue.java",
+        "PackageValue.java",
+        "PackageoidValue.java",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/packages",
