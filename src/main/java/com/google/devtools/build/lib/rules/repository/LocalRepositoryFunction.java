@@ -55,7 +55,7 @@ public class LocalRepositoryFunction extends RepositoryFunction {
     if (result != null) {
       env.getListener().post(resolve(rule, directories));
     }
-    return new FetchResult(ImmutableMap.of());
+    return new FetchResult(ImmutableMap.of(), Reproducibility.YES);
   }
 
   @Override

@@ -163,7 +163,7 @@ public class NewLocalRepositoryFunction extends RepositoryFunction {
     fileHandler.finishFile(rule, outputDirectory, recordedInputValues);
     env.getListener().post(resolve(rule));
 
-    return new FetchResult(recordedInputValues);
+    return new FetchResult(recordedInputValues, Reproducibility.YES);
   }
 
   @Override

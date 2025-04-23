@@ -94,6 +94,19 @@ public final class FileSystemLock implements AutoCloseable {
     return new FileSystemLock(channel, lock);
   }
 
+  public static FileSystemLock getExclusiveBlocking(Path path) throws IOException {
+    path.getParentDirectory().createDirectoryAndParents();
+    FileChannel channel =
+        FileChannel.open(
+            // Correctly handle non-ASCII paths by converting from the internal string encoding.
+            java.nio.file.Path.of(StringEncoding.internalToPlatform(path.getPathString())),
+            StandardOpenOption.READ,
+            StandardOpenOption.WRITE,
+            StandardOpenOption.CREATE);
+    FileLock lock = channel.lock(0, Long.MAX_VALUE, false);
+    return new FileSystemLock(channel, lock);
+  }
+
   @VisibleForTesting
   boolean isShared() {
     return lock.isShared();
