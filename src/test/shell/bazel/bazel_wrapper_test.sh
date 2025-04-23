@@ -75,6 +75,8 @@ setup_mock() {
   mock_bazel "bin/bazel-1.0.1" "1.0.1"
   mock_bazel "bin/bazel-real" "1.1.0"
 
+  ln -s `which bash` bin/bash
+
   # We don't want USE_BAZEL_VERSION passed by --test_env to affect this test.
   unset USE_BAZEL_VERSION
   cd ws
