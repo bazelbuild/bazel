@@ -1247,7 +1247,6 @@ java_library(
     deps = [
         ":build_options_scope_value",
         ":package_value",
-        ":precomputed_value",
         ":project_files_lookup_value",
         ":project_value",
         "//src/main/java/com/google/devtools/build/lib:starlark_options_parser",
@@ -1285,6 +1284,7 @@ java_library(
         ":bzl_load_value",
         ":project_value",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/java/net/starlark/java/eval",
         "//third_party:guava",
@@ -1299,6 +1299,7 @@ java_library(
         ":sky_functions",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//third_party:auto_value",
         "//third_party:guava",
         "//third_party:jsr305",
     ],

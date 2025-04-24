@@ -1040,7 +1040,8 @@ public class BuildTool {
           Code.INVALID_PROJECT);
     }
 
-    return PathFragmentPrefixTrie.of(((ProjectValue) result.get(key)).getDefaultActiveDirectory());
+    return PathFragmentPrefixTrie.of(
+        ((ProjectValue) result.get(key)).getDefaultProjectDirectories());
   }
 
   private Reporter getReporter() {

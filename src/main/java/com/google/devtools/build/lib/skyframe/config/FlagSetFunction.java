@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.runtime.ConfigFlagDefinitions;
 import com.google.devtools.build.lib.skyframe.ProjectValue;
+import com.google.devtools.build.lib.skyframe.ProjectValue.EnforcementPolicy;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
@@ -37,8 +38,8 @@ import com.google.devtools.common.options.GlobalRcUtils;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.Collection;
 import java.util.HashSet;
+import java.util.Map;
 import javax.annotation.Nullable;
-import net.starlark.java.eval.Dict;
 
 /**
  * A SkyFunction that, given an scl file path and the name of scl configs, does the following:
@@ -54,33 +55,6 @@ import net.starlark.java.eval.Dict;
  * cause the build to fail.
  */
 public final class FlagSetFunction implements SkyFunction {
-  private static final String CONFIGS = "configs";
-
-  private static final String DEFAULT_CONFIG = "default_config";
-  private static final String ENFORCEMENT_POLICY = "enforcement_policy";
-  private static final String ALWAYS_ALLOWED_CONFIGS = "always_allowed_configs";
-
-  private enum EnforcementPolicy {
-    WARN("warn"), // Default, enforced in getSclConfig().
-    COMPATIBLE("compatible"),
-    STRICT("strict");
-
-    EnforcementPolicy(String value) {
-      this.value = value;
-    }
-
-    private final String value;
-
-    public static EnforcementPolicy fromString(String value) {
-      for (EnforcementPolicy policy : EnforcementPolicy.values()) {
-        if (policy.value.equals(value)) {
-          return policy;
-        }
-      }
-      throw new IllegalArgumentException(String.format("invalid enforcement_policy '%s'", value));
-    }
-  }
-
   @Override
   @Nullable
   public SkyValue compute(SkyKey skyKey, Environment env)
@@ -117,79 +91,40 @@ public final class FlagSetFunction implements SkyFunction {
    * Given an .scl file and {@code --scl_config} value, returns the flags denoted by that {@code
    * --scl_config}. Flags are a list of strings (not parsed through the options parser).
    */
-  @SuppressWarnings("unchecked")
   private static ImmutableSet<String> getSclConfig(
       FlagSetValue.Key key, ProjectValue sclContent, ImmutableSet.Builder<Event> persistentMessages)
       throws FlagSetFunctionException {
     Label projectFile = key.getProjectFile();
     String sclConfigName = key.getSclConfig();
-    EnforcementPolicy enforcementPolicy = EnforcementPolicy.WARN;
-    Object enforcementPolicyRaw = sclContent.getProject().get(ENFORCEMENT_POLICY);
-    if (enforcementPolicyRaw != null) {
-      try {
-        enforcementPolicy = EnforcementPolicy.fromString(enforcementPolicyRaw.toString());
-      } catch (IllegalArgumentException e) {
-        throw new FlagSetFunctionException(
-            new InvalidProjectFileException(e.getMessage() + " in " + projectFile),
-            Transience.PERSISTENT);
-      }
-    }
-    var unTypeCheckedConfigs = sclContent.getProject().get(CONFIGS);
-    // This project file doesn't define configs, so it must not be used for canonical configs.
-    if (unTypeCheckedConfigs == null) {
+    EnforcementPolicy enforcementPolicy = sclContent.getEnforcementPolicy();
+
+    ImmutableMap<String, ProjectValue.BuildableUnit> configs = sclContent.getBuildableUnits();
+    if (configs == null) {
+      // This project file doesn't define configs, so it must not be used for canonical configs.
       return ImmutableSet.of();
     }
-    boolean expectedConfigsType = false;
-    if (unTypeCheckedConfigs instanceof Dict<?, ?> configsAsDict) {
-      expectedConfigsType = true;
-      for (var entry : configsAsDict.entrySet()) {
-        if (!(entry.getKey() instanceof String
-            && entry.getValue() instanceof Collection<?> values)) {
-          expectedConfigsType = false;
-          break;
-        }
-        for (var value : values) {
-          if (!(value instanceof String)) {
-            expectedConfigsType = false;
-            break;
-          }
-        }
-      }
-    }
-    if (!expectedConfigsType) {
-      throw new FlagSetFunctionException(
-          new InvalidProjectFileException(
-              String.format("%s variable must be a map of strings to lists of strings", CONFIGS)),
-          Transience.PERSISTENT);
-    }
-    var configs = (Dict<String, Collection<String>>) unTypeCheckedConfigs;
 
     String sclConfigNameForMessage = sclConfigName;
-    Collection<String> sclConfigValue = null;
+    ImmutableList<String> sclConfigValue = null;
     if (sclConfigName.isEmpty()) {
       // If there's no --scl_config, try to use the default_config.
-      var defaultConfigNameRaw = sclContent.getProject().get(DEFAULT_CONFIG);
-      try {
-        if (defaultConfigNameRaw != null && !(defaultConfigNameRaw instanceof String)) {
-          throw new FlagSetFunctionException(
-              new InvalidProjectFileException(
-                  String.format(
-                      "%s must be a string matching a %s variable definition",
-                      DEFAULT_CONFIG, CONFIGS)),
-              Transience.PERSISTENT);
-        }
-
-        String defaultConfigName = (String) defaultConfigNameRaw;
-        sclConfigValue = validateDefaultConfig(defaultConfigName, configs);
-        sclConfigNameForMessage = defaultConfigName;
-      } catch (InvalidProjectFileException e) {
+      // TODO: b/b/409382048 - apply correct default config semantics.
+      var firstDefault =
+          sclContent.getBuildableUnits().entrySet().stream()
+              .filter(entry -> entry.getValue().isDefault())
+              .findFirst();
+      if (firstDefault.isEmpty()) {
         throw new FlagSetFunctionException(
             new UnsupportedConfigException(
                 String.format(
-                    "This project's builds must set --scl_config because %s.\n%s",
-                    e.getMessage(), supportedConfigsDesc(projectFile, configs))),
+                    "This project's builds must set --scl_config because no default config is"
+                        + " defined.\n"
+                        + "%s",
+                    supportedConfigsDesc(projectFile, configs))),
             Transience.PERSISTENT);
       }
+      sclConfigValue = firstDefault.get().getValue().flags();
+      sclConfigNameForMessage = firstDefault.get().getKey();
     } else {
       if (!configs.containsKey(sclConfigName)) {
         // The user set --scl_config to an unknown config.
@@ -200,7 +135,7 @@ public final class FlagSetFunction implements SkyFunction {
                     sclConfigName, supportedConfigsDesc(projectFile, configs))),
             Transience.PERSISTENT);
       }
-      sclConfigValue = configs.get(sclConfigName);
+      sclConfigValue = configs.get(sclConfigName).flags();
     }
 
     // Replace --config=foo entries with their expanded definitions.
@@ -215,9 +150,9 @@ public final class FlagSetFunction implements SkyFunction {
     }
 
     Collection<String> alwaysAllowedConfigs =
-        !sclContent.getProject().containsKey(ALWAYS_ALLOWED_CONFIGS)
+        sclContent.getAlwaysAllowedConfigs() == null
             ? ImmutableList.of()
-            : (Collection<String>) sclContent.getProject().get(ALWAYS_ALLOWED_CONFIGS);
+            : sclContent.getAlwaysAllowedConfigs();
 
     validateNoExtraFlagsSet(
         enforcementPolicy,
@@ -233,21 +168,6 @@ public final class FlagSetFunction implements SkyFunction {
                 "Applying flags from the config '%s' defined in %s: %s ",
                 sclConfigNameForMessage, projectFile, optionsToApply)));
     return optionsToApply;
-  }
-
-  private static Collection<String> validateDefaultConfig(
-      @Nullable String defaultConfigName, Dict<String, Collection<String>> configs)
-      throws InvalidProjectFileException {
-    if (defaultConfigName == null) {
-      throw new InvalidProjectFileException("no default_config is defined");
-    }
-
-    if (!configs.containsKey(defaultConfigName)) {
-      throw new InvalidProjectFileException(
-          String.format("default_config refers to a nonexistent config: %s", defaultConfigName));
-    }
-
-    return configs.get(defaultConfigName);
   }
 
   private static ImmutableList<String> getBuildOptionsAsStrings(BuildOptions targetOptions) {
@@ -460,10 +380,14 @@ public final class FlagSetFunction implements SkyFunction {
 
   /** Returns a user-friendly description of project-supported configurations. */
   private static String supportedConfigsDesc(
-      Label projectFile, Dict<String, Collection<String>> configs) {
+      Label projectFile, Map<String, ProjectValue.BuildableUnit> configs) {
     String ans = "\nThis project supports:\n";
     for (var configInfo : configs.entrySet()) {
-      ans += String.format("  --scl_config=%s: %s\n", configInfo.getKey(), configInfo.getValue());
+      ans += String.format("  --scl_config=%s: [", configInfo.getKey());
+      for (String flag : configInfo.getValue().flags()) {
+        ans += String.format("\"%s\"", flag);
+      }
+      ans += "]\n";
     }
     ans += String.format("\nThis policy is defined in %s.\n", projectFile.toPathFragment());
     return ans;
@@ -482,9 +406,4 @@ public final class FlagSetFunction implements SkyFunction {
     }
   }
 
-  private static final class InvalidProjectFileException extends Exception {
-    InvalidProjectFileException(String msg) {
-      super(msg);
-    }
-  }
 }

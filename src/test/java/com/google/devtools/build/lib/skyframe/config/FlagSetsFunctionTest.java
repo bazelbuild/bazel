@@ -40,6 +40,8 @@ import org.junit.runners.JUnit4;
 /** Tests for {@link FlagSetFunction}. */
 @RunWith(JUnit4.class)
 public final class FlagSetsFunctionTest extends BuildViewTestCase {
+  // TODO: b/409377907 - Most of this enforcement has been moved to ProjectFunction. Move the
+  // corresponding tests to ProjectFunctionTest.
 
   @Override
   protected ConfiguredRuleClassProvider createRuleClassProvider() {
@@ -191,7 +193,7 @@ public final class FlagSetsFunctionTest extends BuildViewTestCase {
           "configs": {
             "test_config": ['--platforms=//buildenv/platforms/android:x86'],
           },
-          "enforcement_policy": "INVALID",
+          "enforcement_policy": "invalid",
         }
         """);
     scratch.file("test/BUILD");
@@ -211,7 +213,7 @@ public final class FlagSetsFunctionTest extends BuildViewTestCase {
     var thrown = assertThrows(Exception.class, () -> executeFunction(key));
     assertThat(thrown)
         .hasMessageThat()
-        .contains("invalid enforcement_policy 'INVALID' in //test:PROJECT.scl");
+        .contains("invalid enforcement_policy 'invalid' in //test:PROJECT.scl");
   }
 
   @Test
@@ -332,7 +334,7 @@ public final class FlagSetsFunctionTest extends BuildViewTestCase {
   public void enforceCanonicalConfigsExtraNativeFlag_withSclConfig_fails() throws Exception {
     scratch.file(
         "test/build_settings.bzl",
-        """
+"""
 string_flag = rule(implementation = lambda ctx: [], build_setting = config.string(flag = True))
 """);
     scratch.file(
@@ -375,7 +377,7 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
   public void enforceCanonicalConfigsFlag_warnPolicy_passes() throws Exception {
     scratch.file(
         "test/build_settings.bzl",
-        """
+"""
 string_flag = rule(implementation = lambda ctx: [], build_setting = config.string(flag = True))
 """);
     scratch.file(
@@ -422,7 +424,7 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
   public void enforceCanonicalConfigsFlag_compatiblePolicy_unrelatedFlag_warns() throws Exception {
     scratch.file(
         "test/build_settings.bzl",
-        """
+"""
 string_flag = rule(implementation = lambda ctx: [], build_setting = config.string(flag = True))
 """);
     scratch.file(
@@ -469,7 +471,7 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
   public void enforceCanonicalConfigs_compatiblePolicy_onlyDifferentValue_fails() throws Exception {
     scratch.file(
         "test/build_settings.bzl",
-        """
+"""
 string_flag = rule(implementation = lambda ctx: [], build_setting = config.string(flag = True))
 """);
     scratch.file(
@@ -487,7 +489,7 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
         """);
     scratch.file(
         "test/PROJECT.scl",
-        """
+"""
 project = {
   "configs": {
     "test_config": ['--//test:myflag=test_config_value', '--//test:other_flag=test_config_value'],
@@ -864,7 +866,7 @@ project = {
   public void noEnforceCanonicalConfigs_noSclConfig_extraFlag_passes() throws Exception {
     scratch.file(
         "test/build_settings.bzl",
-        """
+"""
 string_flag = rule(implementation = lambda ctx: [], build_setting = config.string(flag = True))
 """);
     scratch.file(
@@ -965,11 +967,11 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
     assertThat(thrown)
         .hasMessageThat()
         .contains(
-            "This project's builds must set --scl_config because no default_config is defined");
+            "This project's builds must set --scl_config because no default config is defined");
   }
 
   @Test
-  public void enforceCanonicalConfigsNoSclConfigFlagNonexistentDefaultConfig() throws Exception {
+  public void enforceCanonicalConfigsNonexistentDefaultConfig() throws Exception {
     createStringFlag("//test:myflag", /* defaultValue= */ "default");
     scratch.file(
         "test/PROJECT.scl",
@@ -999,9 +1001,7 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
     var thrown = assertThrows(Exception.class, () -> executeFunction(key));
     assertThat(thrown)
         .hasMessageThat()
-        .contains(
-            "This project's builds must set --scl_config because default_config refers to a"
-                + " nonexistent config: nonexistent_config");
+        .contains("default_config must be a string matching a configs variable definition");
   }
 
   @Test
@@ -1175,14 +1175,14 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
     assertThat(thrown)
         .hasMessageThat()
         .contains(
-            """
-This project's builds must set --scl_config because no default_config is defined.
+"""
+This project's builds must set --scl_config because no default config is defined.
 
 This project supports:
   --scl_config=debug: ["--//test:myflag=debug_value"]
   --scl_config=release: ["--//test:myflag=debug_value"]
 
-This policy is defined in test/PROJECT.scl.\
+This policy is defined in test/PROJECT.scl.
 """);
   }
 

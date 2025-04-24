@@ -115,9 +115,9 @@ public final class BuildOptionsScopeFunction implements SkyFunction {
           projectScopedFlag,
           new Scope(
               scopes.get(projectScopedFlag).getScopeType(),
-              projectValue.getDefaultActiveDirectory().isEmpty()
+              projectValue.getDefaultProjectDirectories().isEmpty()
                   ? null
-                  : new Scope.ScopeDefinition(projectValue.getDefaultActiveDirectory())));
+                  : new Scope.ScopeDefinition(projectValue.getDefaultProjectDirectories())));
     }
 
     return BuildOptionsScopeValue.create(
