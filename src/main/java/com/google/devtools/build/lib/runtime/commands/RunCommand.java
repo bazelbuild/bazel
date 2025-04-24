@@ -455,9 +455,12 @@ public class RunCommand implements BlazeCommand {
       configuration = result.getBuildConfiguration();
     }
 
-    // When virtual paths are enabled, assume runfiles staging is handled elsewhere.
+    // When --nobuild_runfile_manifests is enabled, either virtual roots are also enabled (in which
+    // case we assume runfiles staging is handled elsewhere) or the output service is responsible
+    // for staging runfiles.
     if (!configuration.buildRunfileManifests()
-        && env.getDirectories().getVirtualSourceRoot() == null) {
+        && env.getDirectories().getVirtualSourceRoot() == null
+        && !env.getOutputService().stagesTopLevelRunfiles()) {
       throw new RunCommandException(
           reportAndCreateFailureResult(
               env,
@@ -945,8 +948,10 @@ public class RunCommand implements BlazeCommand {
       workingDir = workingDir.getRelative(runfilesSupport.getRunfiles().getPrefix());
     }
 
-    // When virtual paths are enabled, assume runfiles staging is handled elsewhere.
-    if (env.getDirectories().getVirtualSourceRoot() != null) {
+    // Return early if runfiles staging is handled elsewhere (i.e. either if virtual roots are
+    // enabled or if it's managed by the output service).
+    if (env.getDirectories().getVirtualSourceRoot() != null
+        || env.getOutputService().stagesTopLevelRunfiles()) {
       return workingDir.devirtualize();
     }
 

@@ -264,4 +264,8 @@ public interface OutputService {
   default XattrProvider getXattrProvider(XattrProvider delegate) {
     return delegate;
   }
+
+  default boolean stagesTopLevelRunfiles() {
+    return false;
+  }
 }
