@@ -7689,7 +7689,6 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
             String.format(callFormatString, "additional_linkstamp_defines=[]"),
             String.format(callFormatString, "whole_archive=False"),
             String.format(callFormatString, "native_deps=False"),
-            String.format(callFormatString, "only_for_dynamic_libs=False"),
             String.format(callFormatString, "emit_interface_shared_library=True"));
     for (String call : calls) {
       scratch.overwriteFile(

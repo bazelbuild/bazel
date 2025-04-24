@@ -59,7 +59,6 @@ def link(
         whole_archive = False,
         additional_linkstamp_defines = [],
         always_link = False,
-        only_for_dynamic_libs = False,
         link_artifact_name_suffix = "",
         main_output = None,
         use_shareable_artifact_factory = False,
@@ -122,7 +121,6 @@ def link(
         whole_archive: (bool) undocumented.
         additional_linkstamp_defines: (list[str]) undocumented.
         always_link: (bool) undocumented.
-        only_for_dynamic_libs: (bool) undocumented.
         link_artifact_name_suffix: (str) undocumented.
         main_output: (File) Name of the main output artifact that will be produced by the linker.
             Only set this if the default name generation does not match you needs
@@ -192,7 +190,6 @@ def link(
         # alwayslink may be deprecated but we're trying to replicate CcBinary as closely as possible for the moment.
         # TODO(b/331164666): remove alwayslink, the information is in static_link_type already
         always_link,
-        only_for_dynamic_libs,
         link_artifact_name_suffix,
         main_output,  # linker_output_artifact
         emit_interface_shared_libraries = dynamic_link_type == LINK_TARGET_TYPE.DYNAMIC_LIBRARY and

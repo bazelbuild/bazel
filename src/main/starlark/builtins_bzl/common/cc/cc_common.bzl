@@ -75,7 +75,6 @@ def _link(
         whole_archive = _UNBOUND,
         additional_linkstamp_defines = _UNBOUND,
         always_link = _UNBOUND,
-        only_for_dynamic_libs = _UNBOUND,
         link_artifact_name_suffix = _UNBOUND,
         main_output = _UNBOUND,
         use_shareable_artifact_factory = _UNBOUND,
@@ -94,7 +93,6 @@ def _link(
        whole_archive != _UNBOUND or \
        additional_linkstamp_defines != _UNBOUND or \
        always_link != _UNBOUND or \
-       only_for_dynamic_libs != _UNBOUND or \
        link_artifact_name_suffix != _UNBOUND or \
        main_output != _UNBOUND or \
        use_shareable_artifact_factory != _UNBOUND or \
@@ -116,8 +114,6 @@ def _link(
         additional_linkstamp_defines = []
     if always_link == _UNBOUND:
         always_link = False
-    if only_for_dynamic_libs == _UNBOUND:
-        only_for_dynamic_libs = False
     if link_artifact_name_suffix == _UNBOUND:
         link_artifact_name_suffix = ""
     if main_output == _UNBOUND:
@@ -151,7 +147,6 @@ def _link(
         whole_archive = whole_archive,
         additional_linkstamp_defines = additional_linkstamp_defines,
         always_link = always_link,
-        only_for_dynamic_libs = only_for_dynamic_libs,
         link_artifact_name_suffix = link_artifact_name_suffix,
         main_output = main_output,
         use_shareable_artifact_factory = use_shareable_artifact_factory,

@@ -940,13 +940,6 @@ public interface CcModuleApi<
             allowedTypes = {@ParamType(type = Boolean.class)},
             defaultValue = "unbound"),
         @Param(
-            name = "only_for_dynamic_libs",
-            positional = false,
-            named = true,
-            documented = false,
-            allowedTypes = {@ParamType(type = Boolean.class)},
-            defaultValue = "unbound"),
-        @Param(
             name = "link_artifact_name_suffix",
             positional = false,
             named = true,
@@ -1019,7 +1012,6 @@ public interface CcModuleApi<
       Object wholeArchive,
       Object additionalLinkstampDefines,
       Object alwaysLink,
-      Object onlyForDynamicLibs,
       Object linkArtifactNameSuffix,
       Object mainOutput,
       Object useShareableArtifactFactory,

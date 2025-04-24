@@ -64,7 +64,6 @@ def create_cc_link_actions(
         native_deps = False,
         additional_linkstamp_defines = [],
         alwayslink = False,
-        only_for_dynamic_libs = False,
         link_artifact_name_suffix = "",
         linker_output_artifact = None,  # TODO(b/331164666): rename to main_output
         emit_interface_shared_libraries = True,
@@ -111,7 +110,6 @@ def create_cc_link_actions(
         whole_archive: (bool) undocumented.
         additional_linkstamp_defines: (list[str]) undocumented.
         alwayslink: (bool) undocumented.
-        only_for_dynamic_libs: (bool) undocumented. Same as willOnlyBeLinkedIntoDynamicLibraries.
         link_artifact_name_suffix: (str)
           Adds a suffix for paths of linked artifacts. Normally their paths are derived solely from rule
           labels. In the case of multiple callers (e.g., aspects) acting on a single rule, they may
@@ -192,7 +190,6 @@ def create_cc_link_actions(
             static_link_type,
             cc_toolchain,
             link_artifact_name_suffix,
-            only_for_dynamic_libs,
             use_pic_for_binaries,
             use_pic_for_dynamic_libs,
             link_action_kwargs,
@@ -534,7 +531,6 @@ def _create_no_pic_and_pic_static_libs_actions(
         static_link_type,
         cc_toolchain,
         link_artifact_name_suffix,
-        only_for_dynamic_libs,
         use_pic_for_binaries,
         use_pic_for_dynamic_libs,
         link_action_kwargs):
@@ -562,12 +558,8 @@ def _create_no_pic_and_pic_static_libs_actions(
     if static_link_type.linker_or_archiver != USE_ARCHIVER:
         fail("Only archiving of static libraries is supported, not linking.")
 
-    if only_for_dynamic_libs:
-        create_no_pic_action = not use_pic_for_dynamic_libs
-        create_pic_action = use_pic_for_dynamic_libs
-    else:
-        create_no_pic_action = not use_pic_for_binaries
-        create_pic_action = use_pic_for_binaries or use_pic_for_dynamic_libs
+    create_no_pic_action = not use_pic_for_binaries
+    create_pic_action = use_pic_for_binaries or use_pic_for_dynamic_libs
 
     no_pic_library_to_link = {}
     if create_no_pic_action:
