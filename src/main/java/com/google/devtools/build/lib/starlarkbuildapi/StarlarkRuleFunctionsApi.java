@@ -47,12 +47,11 @@ public interface StarlarkRuleFunctionsApi {
           + " listed here from its return value. However, the implementation function may return"
           + " additional providers not listed here." //
           + "<p>Each element of the list is an <code>*Info</code> object returned by <a"
-          + " href='../globals/bzl.html#provider'><code>provider()</code></a>, except that a legacy"
-          + " provider is represented by its string name instead.When a target of the rule is used"
-          + " as a dependency for a target that declares a required provider, it is not necessary"
-          + " to specify that provider here. It is enough that the implementation function returns"
-          + " it. However, it is considered best practice to specify it, even though this is not"
-          + " required. The <a"
+          + " href='../globals/bzl.html#provider'><code>provider()</code></a>. When a target of the"
+          + " rule is used as a dependency for a target that declares a required provider, it is"
+          + " not necessary to specify that provider here. It is enough that the implementation"
+          + " function returns it. However, it is considered best practice to specify it, even"
+          + " though this is not required. The <a"
           + " href='../globals/bzl.html#aspect.required_providers'><code>required_providers</code></a>"
           + " field of an <a href='../globals/bzl.html#aspect'>aspect</a> does, however, require"
           + " that providers are specified here.";
@@ -202,7 +201,7 @@ public interface StarlarkRuleFunctionsApi {
   @StarlarkMethod(
       name = "macro",
       doc =
-          """
+"""
 Defines a symbolic macro, which may be called in <code>BUILD</code> files or macros (legacy or
 symbolic) to define targets &ndash; possibly multiple ones.
 
@@ -218,7 +217,7 @@ macros.
             positional = false,
             named = true,
             doc =
-                """
+"""
 The Starlark function implementing this macro. The values of the macro's attributes are passed to
 the implementation function as keyword arguments. The implementation function must have at least two
 named parameters, <code>name</code> and <code>visibility</code>, and if the macro inherits
@@ -273,7 +272,7 @@ function it transitively calls:
             positional = false,
             defaultValue = "{}",
             doc =
-                """
+"""
 A dictionary of the attributes this macro supports, analogous to
 <a href="#rule.attrs">rule.attrs</a>. Keys are attribute names, and values are either attribute
 objects like <code>attr.label_list(...)</code> (see the <a href=\"../toplevel/attr.html\">attr</a>
@@ -303,7 +302,7 @@ site of the rule. Such attributes can be assigned a default value (as in
             named = true,
             defaultValue = "None",
             doc =
-                """
+"""
 A rule symbol, macro symbol, or the name of a built-in common attribute list (see below) from which
 the macro should inherit attributes.
 
@@ -391,7 +390,7 @@ care to handle the <code>None</code> default value of non-mandatory inherited at
             named = true,
             defaultValue = "False",
             doc =
-                """
+"""
 Whether this macro is a rule finalizer, which is a macro that, regardless of its position in a
 <code>BUILD</code> file, is evaluated at the end of package loading, after all non-finalizer targets
 have been defined.
@@ -470,7 +469,7 @@ targets defined by any rule finalizer, including this one.
             positional = false,
             defaultValue = "{}",
             doc =
-                """
+"""
 A dictionary to declare all the attributes of the rule. It maps from an attribute \
 name to an attribute object (see
 <a href="../toplevel/attr.html"><code>attr</code></a> module). Attributes starting \

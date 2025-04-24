@@ -1398,13 +1398,14 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     scratch.file(
         "test/starlark/extension.bzl",
         """
+        MyInfo = provider()
         def rule_impl(ctx):
           return []
 
         dependent_rule = rule(implementation = rule_impl)
 
         main_rule = rule(implementation = rule_impl,
-            attrs = {'dependencies': attr.label_list(providers = ['some_provider'],
+            attrs = {'dependencies': attr.label_list(providers = [MyInfo],
                 allow_files=True)})
         """);
 
@@ -1412,7 +1413,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
         "test",
         "b",
         "in dependencies attribute of main_rule rule //test:b: "
-            + "'//test:a' does not have mandatory providers: 'some_provider'",
+            + "'//test:a' does not have mandatory providers: 'MyInfo'",
         "load('//test/starlark:extension.bzl', 'dependent_rule')",
         "load('//test/starlark:extension.bzl', 'main_rule')",
         "",

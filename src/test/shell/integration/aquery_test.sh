@@ -1261,7 +1261,7 @@ def _my_jpl_aspect_imp(target, ctx):
 
 my_jpl_aspect = aspect(
   attr_aspects = ['deps', 'exports'],
-  required_aspect_providers = [['proto_java']],
+  required_aspect_providers = [],
   attrs = {
     'aspect_param': attr.string(default = 'x', values = ['x', 'y'])
   },

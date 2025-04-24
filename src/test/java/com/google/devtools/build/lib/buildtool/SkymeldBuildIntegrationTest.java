@@ -87,7 +87,7 @@ public class SkymeldBuildIntegrationTest extends BuildIntegrationTestCase {
             implementation = _impl,
             attrs = {
                 "srcs": attr.label_list(allow_files = True),
-                "deps": attr.label_list(providers = ["DefaultInfo"]),
+                "deps": attr.label_list(),
             },
         )
         """);
