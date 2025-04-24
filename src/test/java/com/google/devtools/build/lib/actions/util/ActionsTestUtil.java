@@ -138,7 +138,10 @@ public final class ActionsTestUtil {
         actionKeyContext,
         fileOutErr,
         new SingleBuildFileCache(
-            execRoot.getPathString(), execRoot.getFileSystem(), SyscallCache.NO_CACHE),
+            execRoot.getPathString(),
+            PathFragment.create("dummy-output-path"),
+            execRoot.getFileSystem(),
+            SyscallCache.NO_CACHE),
         outputMetadataStore,
         /* clientEnv= */ ImmutableMap.of());
   }
@@ -203,7 +206,10 @@ public final class ActionsTestUtil {
     return ActionExecutionContext.forInputDiscovery(
         executor,
         new SingleBuildFileCache(
-            execRoot.getPathString(), execRoot.getFileSystem(), SyscallCache.NO_CACHE),
+            execRoot.getPathString(),
+            PathFragment.create("dummy-output-path"),
+            execRoot.getFileSystem(),
+            SyscallCache.NO_CACHE),
         ActionInputPrefetcher.NONE,
         actionKeyContext,
         outputMetadataStore,

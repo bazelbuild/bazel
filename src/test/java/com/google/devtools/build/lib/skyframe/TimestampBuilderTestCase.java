@@ -238,7 +238,10 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
 
     InputMetadataProvider cache =
         new SingleBuildFileCache(
-            rootDirectory.getPathString(), scratch.getFileSystem(), SyscallCache.NO_CACHE);
+            rootDirectory.getPathString(),
+            PathFragment.create("dummy-output-path"),
+            scratch.getFileSystem(),
+            SyscallCache.NO_CACHE);
     skyframeActionExecutor.configure(
         cache, ActionInputPrefetcher.NONE, DiscoveredModulesPruner.DEFAULT);
 

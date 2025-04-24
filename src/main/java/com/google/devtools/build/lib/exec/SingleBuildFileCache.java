@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.actions.RunfilesTree;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.XattrProvider;
 import java.io.IOException;
@@ -44,6 +45,7 @@ import javax.annotation.concurrent.ThreadSafe;
 @ThreadSafe
 public class SingleBuildFileCache implements InputMetadataProvider {
   private final Path execRoot;
+  private final PathFragment relativeOutputPath;
 
   // If we can't get the digest, we store the exception. This avoids extra file IO for files
   // that are allowed to be missing, as we first check a likely non-existent content file
@@ -56,22 +58,28 @@ public class SingleBuildFileCache implements InputMetadataProvider {
           .build();
   private final XattrProvider xattrProvider;
 
-  public SingleBuildFileCache(String cwd, FileSystem fs, XattrProvider xattrProvider) {
+  public SingleBuildFileCache(
+      String cwd, PathFragment relativeOutputPath, FileSystem fs, XattrProvider xattrProvider) {
     this.xattrProvider = xattrProvider;
     this.execRoot = fs.getPath(cwd);
+    this.relativeOutputPath = relativeOutputPath;
   }
 
   @Override
   @Nullable
   public FileArtifactValue getInputMetadataChecked(ActionInput input) throws IOException {
-    if (input instanceof Artifact artifact && !artifact.isSourceArtifact()) {
-      // This is not a perfect verification that this class doesn't access the output tree: nothing
-      // stops anyone from creating an ActionInput that is not an Artifact, but its exec path is
-      // under the output directory.
+    if (input instanceof Artifact artifact) {
+      if (!artifact.isSourceArtifact()) {
+        throw new IllegalStateException(
+            String.format(
+                "SingleBuildFileCache does not support derived artifact '%s'",
+                input.getExecPathString()));
+      }
+    } else if (input.getExecPath().startsWith(relativeOutputPath)) {
       throw new IllegalStateException(
           String.format(
-              "SingleBuildFileCache does not support derived artifact '%s'",
-              input.getExecPathString()));
+              "SingleBuildFileCache does not support action input '%s' in the output tree",
+              input.getExecPath()));
     }
 
     return pathToMetadata

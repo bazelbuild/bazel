@@ -955,7 +955,10 @@ public class CommandEnvironment {
         if (fileCache == null) {
           fileCache =
               new SingleBuildFileCache(
-                  getExecRoot().getPathString(), runtime.getFileSystem(), syscallCache);
+                  getExecRoot().getPathString(),
+                  PathFragment.create(directories.getRelativeOutputPath()),
+                  runtime.getFileSystem(),
+                  syscallCache);
         }
       }
     }
