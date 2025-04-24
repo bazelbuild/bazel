@@ -3445,9 +3445,14 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     return diffAwarenessManager != null;
   }
 
+  @VisibleForTesting
+  public void handleDiffsForTesting(ExtendedEventHandler eventHandler) throws InterruptedException, AbruptExitException {
+    handleDiffsForTesting(eventHandler, Options.getDefaults(PackageOptions.class));
+  }
+
   /** Uses diff awareness on all the package paths to invalidate changed files. */
   @VisibleForTesting
-  public void handleDiffsForTesting(ExtendedEventHandler eventHandler)
+  public void handleDiffsForTesting(ExtendedEventHandler eventHandler, PackageOptions packageOptions)
       throws InterruptedException, AbruptExitException {
     if (lastAnalysisDiscarded) {
       // Values were cleared last build, but they couldn't be deleted because they were needed for
@@ -3455,7 +3460,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       dropConfiguredTargetsNow(eventHandler);
       lastAnalysisDiscarded = false;
     }
-    PackageOptions packageOptions = Options.getDefaults(PackageOptions.class);
     packageOptions.checkOutputFiles = false;
     ClassToInstanceMap<OptionsBase> options =
         ImmutableClassToInstanceMap.of(PackageOptions.class, packageOptions);
@@ -3558,12 +3562,14 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     }
     RepositoryOptions repoOptions = options.getOptions(RepositoryOptions.class);
     try (SilentCloseable c = Profiler.instance().profile("handleDiffsWithMissingDiffInformation")) {
+      PackageOptions packageOptions = options.getOptions(PackageOptions.class);
       handleDiffsWithMissingDiffInformation(
           eventHandler,
           tsgm,
           pathEntriesWithoutDiffInformation,
-          options.getOptions(PackageOptions.class).checkOutputFiles,
-          repoOptions != null && repoOptions.checkExternalRepositoryFiles,
+          packageOptions.checkOutputFiles,
+	  repoOptions != null && repoOptions.checkExternalRepositoryFiles,
+          packageOptions.checkExternalOtherFiles,
           fsvcThreads);
     }
     handleClientEnvironmentChanges();
@@ -3640,6 +3646,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       Set<Pair<Root, ProcessableModifiedFileSet>> pathEntriesWithoutDiffInformation,
       boolean checkOutputFiles,
       boolean checkExternalRepositoryFiles,
+      boolean checkNonoutputExternalFiles,
       int fsvcThreads)
       throws InterruptedException, AbruptExitException {
 
@@ -3648,7 +3655,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         || (checkOutputFiles && externalFilesKnowledge.anyOutputFilesSeen)
         || (checkExternalRepositoryFiles && repositoryHelpersHolder != null)
         || (checkExternalRepositoryFiles && externalFilesKnowledge.anyFilesInExternalReposSeen)
-        || externalFilesKnowledge.tooManyExternalOtherFilesSeen) {
+        || (checkNonoutputExternalFiles && externalFilesKnowledge.tooManyExternalOtherFilesSeen)) {
       // We freshly compute knowledge of the presence of external files in the skyframe graph. We
       // use a fresh ExternalFilesHelper instance and only set the real instance's knowledge *after*
       // we are done with the graph scan, lest an interrupt during the graph scan causes us to
@@ -3692,8 +3699,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       if (checkExternalRepositoryFiles) {
         fileTypesToCheck = EnumSet.of(FileType.EXTERNAL_REPO);
       }
-      if (externalFilesKnowledge.tooManyExternalOtherFilesSeen
-          || !externalFilesKnowledge.externalOtherFilesSeen.isEmpty()) {
+      if (checkNonoutputExternalFiles && (externalFilesKnowledge.tooManyExternalOtherFilesSeen
+          || !externalFilesKnowledge.externalOtherFilesSeen.isEmpty())) {
         fileTypesToCheck.add(FileType.EXTERNAL_OTHER);
       }
       // See the comment for FileType.OUTPUT for why we need to consider output files here.
@@ -3727,8 +3734,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       // once an external file gets into the Skyframe graph, we'll overly-conservatively always
       // think the graph needs to be scanned.
       externalFilesHelper.setExternalFilesKnowledge(
-          tmpExternalFilesHelper.getExternalFilesKnowledge());
-    } else if (!externalFilesKnowledge.externalOtherFilesSeen.isEmpty()) {
+           tmpExternalFilesHelper.getExternalFilesKnowledge());
+    } else if (checkNonoutputExternalFiles && !externalFilesKnowledge.externalOtherFilesSeen.isEmpty()) {
       logger.atInfo().log(
           "About to scan %d external files",
           externalFilesKnowledge.externalOtherFilesSeen.size());

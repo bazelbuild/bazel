@@ -406,8 +406,13 @@ public class IncrementalLoadingTest {
     tester.addSymlink("a/b.bzl", "/b.bzl");
     tester.sync();
     tester.getTarget("//a:BUILD");
+    PackageOptions packageOptions = Options.getDefaults(PackageOptions.class);
+    packageOptions.checkExternalOtherFiles = false;
     tester.modifyFile("/b.bzl", "ERROR ERROR");
-    tester.sync();
+    tester.syncWithOptions(packageOptions);
+    tester.getTarget("//a:BUILD");
+    packageOptions.checkExternalOtherFiles = true;
+    tester.syncWithOptions(packageOptions);
 
     assertThrows(NoSuchThingException.class, () -> tester.getTarget("//a:BUILD"));
   }
@@ -618,10 +623,13 @@ public class IncrementalLoadingTest {
     }
 
     void sync() throws InterruptedException, AbruptExitException {
+      syncWithOptions(Options.getDefaults(PackageOptions.class));
+    }
+
+    void syncWithOptions(PackageOptions packageOptions) throws InterruptedException, AbruptExitException {
       clock.advanceMillis(1);
 
       modifiedFileSet = getModifiedFileSet();
-      PackageOptions packageOptions = Options.getDefaults(PackageOptions.class);
       packageOptions.defaultVisibility = RuleVisibility.PUBLIC;
       packageOptions.showLoadingProgress = true;
       packageOptions.globbingThreads = 7;
@@ -642,7 +650,7 @@ public class IncrementalLoadingTest {
       skyframeExecutor.invalidateFilesUnderPathForTesting(
           new Reporter(new EventBus()), modifiedFileSet, Root.fromPath(workspace));
       ((SequencedSkyframeExecutor) skyframeExecutor)
-          .handleDiffsForTesting(new Reporter(new EventBus()));
+          .handleDiffsForTesting(new Reporter(new EventBus()), packageOptions);
 
       changes.clear();
     }
