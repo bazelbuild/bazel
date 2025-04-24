@@ -49,6 +49,7 @@ import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.util.AsyncTaskCache;
+import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.util.TempPathGenerator;
 import com.google.devtools.build.lib.vfs.FileSymlinkLoopException;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -569,6 +570,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     }
 
     Path finalPath = path;
+    PathFragment execPath = finalPath.relativeTo(execRoot);
 
     Completable download =
         usingTempPath(
@@ -576,19 +578,25 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
                 toCompletable(
                         () ->
                             doDownloadFile(
-                                action,
-                                reporter,
-                                tempPath,
-                                finalPath.relativeTo(execRoot),
-                                metadata,
-                                priority,
-                                reason),
+                                action, reporter, tempPath, execPath, metadata, priority, reason),
                         directExecutor())
                     .doOnComplete(
                         () -> {
                           finalizeDownload(
                               metadata, tempPath, finalPath, dirsWithOutputPermissions);
                           alreadyDeleted.set(true);
+                        })
+                    .onErrorResumeNext(
+                        error -> {
+                          if (error instanceof CacheNotFoundException) {
+                            return Completable.error(error);
+                          }
+
+                          // Treat other download error as CacheNotFoundException so that Bazel can
+                          // correctly rewind the action/build.
+                          var digest =
+                              DigestUtil.buildDigest(metadata.getDigest(), metadata.getSize());
+                          return Completable.error(new CacheNotFoundException(digest, execPath));
                         }));
 
     return downloadCache.executeIfNot(
