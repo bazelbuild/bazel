@@ -13,8 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
@@ -34,13 +32,7 @@ public final class RuleConfiguredTargetValue
     extends AbstractConfiguredTargetValue<RuleConfiguredTarget>
     implements RuleConfiguredObjectValue, ConfiguredTargetValue {
 
-  /**
-   * Operations accessing actions, for example, executing them, should be performed in the same
-   * Bazel instance that constructs the {@code RuleConfiguredTargetValue} instance and not on a
-   * Bazel instance that retrieves it remotely using deserialization.
-   */
-  @Nullable // Null if deserialized.
-  private final transient ImmutableList<ActionAnalysisMetadata> actions;
+  private final ImmutableList<ActionAnalysisMetadata> actions;
 
   public RuleConfiguredTargetValue(
       RuleConfiguredTarget configuredTarget,
@@ -52,7 +44,7 @@ public final class RuleConfiguredTargetValue
 
   @Override
   public ImmutableList<ActionAnalysisMetadata> getActions() {
-    return checkNotNull(actions, "actions are not available on deserialized instances");
+    return actions;
   }
 
   @Override
