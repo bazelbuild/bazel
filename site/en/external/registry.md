@@ -57,6 +57,8 @@ An index registry must follow the format below:
         *   The default type is "archive", representing an `http_archive` repo,
             with the following fields:
             *   `url`: The URL of the source archive
+            *   `mirror_urls`: A list of string, the mirror URLs of the source archive.
+                The URLs are tried in order after `url` as backups.
             *   `integrity`: The [Subresource
                 Integrity](https://w3c.github.io/webappsec-subresource-integrity/#integrity-metadata-description){: .external}
                 checksum of the archive
