@@ -3648,7 +3648,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         || (checkOutputFiles && externalFilesKnowledge.anyOutputFilesSeen)
         || (checkExternalRepositoryFiles && repositoryHelpersHolder != null)
         || (checkExternalRepositoryFiles && externalFilesKnowledge.anyFilesInExternalReposSeen)
-        || externalFilesKnowledge.tooManyNonOutputExternalFilesSeen) {
+        || externalFilesKnowledge.tooManyExternalOtherFilesSeen) {
       // We freshly compute knowledge of the presence of external files in the skyframe graph. We
       // use a fresh ExternalFilesHelper instance and only set the real instance's knowledge *after*
       // we are done with the graph scan, lest an interrupt during the graph scan causes us to
@@ -3692,9 +3692,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       if (checkExternalRepositoryFiles) {
         fileTypesToCheck = EnumSet.of(FileType.EXTERNAL_REPO);
       }
-      if (externalFilesKnowledge.tooManyNonOutputExternalFilesSeen
-          || !externalFilesKnowledge.nonOutputExternalFilesSeen.isEmpty()) {
-        fileTypesToCheck.add(FileType.EXTERNAL);
+      if (externalFilesKnowledge.tooManyExternalOtherFilesSeen
+          || !externalFilesKnowledge.externalOtherFilesSeen.isEmpty()) {
+        fileTypesToCheck.add(FileType.EXTERNAL_OTHER);
       }
       // See the comment for FileType.OUTPUT for why we need to consider output files here.
       if (checkOutputFiles) {
@@ -3728,10 +3728,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       // think the graph needs to be scanned.
       externalFilesHelper.setExternalFilesKnowledge(
           tmpExternalFilesHelper.getExternalFilesKnowledge());
-    } else if (!externalFilesKnowledge.nonOutputExternalFilesSeen.isEmpty()) {
+    } else if (!externalFilesKnowledge.externalOtherFilesSeen.isEmpty()) {
       logger.atInfo().log(
           "About to scan %d external files",
-          externalFilesKnowledge.nonOutputExternalFilesSeen.size());
+          externalFilesKnowledge.externalOtherFilesSeen.size());
       FilesystemValueChecker fsvc =
           new FilesystemValueChecker(
               tsgm,
@@ -3743,7 +3743,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       ImmutableBatchDirtyResult batchDirtyResult;
       try (SilentCloseable c = Profiler.instance().profile("fsvc.getDirtyExternalKeys")) {
         Map<SkyKey, SkyValue> externalDirtyNodes = new ConcurrentHashMap<>();
-        for (RootedPath path : externalFilesKnowledge.nonOutputExternalFilesSeen) {
+        for (RootedPath path : externalFilesKnowledge.externalOtherFilesSeen) {
           SkyKey key = FileStateValue.key(path);
           SkyValue value = memoizingEvaluator.getExistingValue(key);
           if (value != null) {
@@ -3758,7 +3758,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         batchDirtyResult =
             fsvc.getDirtyKeys(
                 externalDirtyNodes,
-                new ExternalDirtinessChecker(externalFilesHelper, EnumSet.of(FileType.EXTERNAL)));
+                new ExternalDirtinessChecker(externalFilesHelper, EnumSet.of(FileType.EXTERNAL_OTHER)));
       }
       handleChangedFiles(
           ImmutableList.of(), batchDirtyResult, batchDirtyResult.getNumKeysChecked());
