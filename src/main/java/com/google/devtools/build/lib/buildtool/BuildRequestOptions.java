@@ -82,7 +82,9 @@ public class BuildRequestOptions extends OptionsBase {
       defaultValue = "5000",
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
       effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS, OptionEffectTag.EXECUTION},
-      help = "The number of maximum concurrent actions to run with async execution")
+      help =
+          "The number of maximum concurrent actions to run with async execution. If the value is"
+              + " less than --jobs, it is clamped to --jobs.")
   public int asyncExecutionMaxConcurrentActions;
 
   @Option(
