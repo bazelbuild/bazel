@@ -121,7 +121,7 @@ function test_bootstrap() {
     mkdir fake_java_toolchain
     touch fake_java_toolchain/dummy.jar
     cat << EOF > fake_java_toolchain/BUILD
-load("@bazel_tools//tools/jdk:default_java_toolchain.bzl", "default_java_toolchain")
+load("@rules_java//toolchains:default_java_toolchain.bzl", "default_java_toolchain")
 default_java_toolchain(
     name = "fake_java_toolchain",
     genclass = [":dummy.jar"],

@@ -242,7 +242,7 @@ EOF
   touch zoo/bin/java
 
   cat << EOF > BUILD
-load("@bazel_tools//tools/jdk:default_java_toolchain.bzl", "default_java_toolchain")
+load("@rules_java//toolchains:default_java_toolchain.bzl", "default_java_toolchain")
 default_java_toolchain(
     name = "toolchain",
     # Implicitly use the host_javabase bootclasspath, since the target doesn't

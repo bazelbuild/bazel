@@ -2143,7 +2143,7 @@ function test_sandboxed_multiplexing() {
   mkdir -p pkg
   cat << 'EOF' > pkg/BUILD
 load("@rules_java//java:java_library.bzl", "java_library")
-load("@bazel_tools//tools/jdk:default_java_toolchain.bzl", "default_java_toolchain")
+load("@rules_java//toolchains:default_java_toolchain.bzl", "default_java_toolchain")
 
 default_java_toolchain(
     name = "java_toolchain",
@@ -2171,7 +2171,7 @@ EOF
 function test_sandboxed_multiplexing_hermetic_paths_in_diagnostics() {
   mkdir -p pkg
   cat << 'EOF' > pkg/BUILD
-load("@bazel_tools//tools/jdk:default_java_toolchain.bzl", "default_java_toolchain")
+load("@rules_java//toolchains:default_java_toolchain.bzl", "default_java_toolchain")
 load("@rules_java//java:java_library.bzl", "java_library")
 
 default_java_toolchain(
@@ -2410,7 +2410,7 @@ EOF
 function test_one_version_allowlist() {
   mkdir -p pkg
   cat << 'EOF' > pkg/BUILD
-load("@bazel_tools//tools/jdk:default_java_toolchain.bzl", "default_java_toolchain")
+load("@rules_java//toolchains:default_java_toolchain.bzl", "default_java_toolchain")
 load("@rules_java//java:java_binary.bzl", "java_binary")
 
 default_java_toolchain(

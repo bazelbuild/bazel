@@ -169,7 +169,7 @@ function test_path_stripping_multiplex_worker() {
 
   mkdir toolchain
   cat > toolchain/BUILD <<'EOF'
-load("@bazel_tools//tools/jdk:default_java_toolchain.bzl", "default_java_toolchain")
+load("@rules_java//toolchains:default_java_toolchain.bzl", "default_java_toolchain")
 default_java_toolchain(
     name = "java_toolchain",
     source_version = "17",
@@ -222,7 +222,7 @@ EOF
 
   mkdir toolchain
   cat > toolchain/BUILD <<'EOF'
-load("@bazel_tools//tools/jdk:default_java_toolchain.bzl", "default_java_toolchain")
+load("@rules_java//toolchains:default_java_toolchain.bzl", "default_java_toolchain")
 genrule(
     name = "gen_javabuilder",
     srcs = ["@remote_java_tools//:JavaBuilder"],

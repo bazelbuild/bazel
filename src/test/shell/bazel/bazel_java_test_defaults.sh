@@ -59,7 +59,7 @@ function test_default_java_toolchain_target_version() {
   mkdir -p java/main
   cat >java/main/BUILD <<EOF
 load("@rules_java//java:java_binary.bzl", "java_binary")
-load("@bazel_tools//tools/jdk:default_java_toolchain.bzl", "default_java_toolchain")
+load("@rules_java//toolchains:default_java_toolchain.bzl", "default_java_toolchain")
 
 java_binary(
     name = 'JavaBinary',
@@ -136,7 +136,7 @@ function test_tools_jdk_toolchain_nojacocorunner() {
   mkdir -p java/main
   cat >java/main/BUILD <<EOF
 load("@rules_java//java:java_binary.bzl", "java_binary")
-load("@bazel_tools//tools/jdk:default_java_toolchain.bzl", "default_java_toolchain")
+load("@rules_java//toolchains:default_java_toolchain.bzl", "default_java_toolchain")
 
 java_binary(
     name = 'JavaBinary',
@@ -168,8 +168,9 @@ EOF
 
 # Specific toolchain attributes can be overridden.
 function test_default_java_toolchain_manualConfiguration() {
+  add_rules_java "MODULE.bazel"
   cat > BUILD <<EOF
-load("@bazel_tools//tools/jdk:default_java_toolchain.bzl", "default_java_toolchain")
+load("@rules_java//toolchains:default_java_toolchain.bzl", "default_java_toolchain")
 default_java_toolchain(
   name = "vanilla",
   javabuilder = ["//:VanillaJavaBuilder"],
@@ -186,8 +187,9 @@ EOF
 
 # DEFAULT_TOOLCHAIN_CONFIGURATION shall use JavaBuilder and override Java 9+ internal compiler classes.
 function test_default_java_toolchain_javabuilderToolchain() {
+  add_rules_java "MODULE.bazel"
   cat > BUILD <<EOF
-load("@bazel_tools//tools/jdk:default_java_toolchain.bzl", "default_java_toolchain", "DEFAULT_TOOLCHAIN_CONFIGURATION")
+load("@rules_java//toolchains:default_java_toolchain.bzl", "default_java_toolchain", "DEFAULT_TOOLCHAIN_CONFIGURATION")
 default_java_toolchain(
   name = "javabuilder_toolchain",
   configuration = DEFAULT_TOOLCHAIN_CONFIGURATION,
@@ -209,7 +211,7 @@ java_toolchains = use_extension("@rules_java//java:extensions.bzl", "toolchains"
 use_repo(java_toolchains, "local_jdk")
 EOF
   cat > BUILD <<EOF
-load("@bazel_tools//tools/jdk:default_java_toolchain.bzl", "default_java_toolchain", "VANILLA_TOOLCHAIN_CONFIGURATION")
+load("@rules_java//toolchains:default_java_toolchain.bzl", "default_java_toolchain", "VANILLA_TOOLCHAIN_CONFIGURATION")
 default_java_toolchain(
   name = "vanilla_toolchain",
   configuration = VANILLA_TOOLCHAIN_CONFIGURATION,
@@ -226,8 +228,9 @@ EOF
 
 # NONPREBUILT_TOOLCHAIN_CONFIGURATION shall compile ijar and singlejar from sources.
 function test_default_java_toolchain_nonprebuiltToolchain() {
+  add_rules_java "MODULE.bazel"
   cat > BUILD <<EOF
-load("@bazel_tools//tools/jdk:default_java_toolchain.bzl", "default_java_toolchain", "NONPREBUILT_TOOLCHAIN_CONFIGURATION")
+load("@rules_java//toolchains:default_java_toolchain.bzl", "default_java_toolchain", "NONPREBUILT_TOOLCHAIN_CONFIGURATION")
 default_java_toolchain(
   name = "nonprebuilt_toolchain",
   configuration = NONPREBUILT_TOOLCHAIN_CONFIGURATION,
