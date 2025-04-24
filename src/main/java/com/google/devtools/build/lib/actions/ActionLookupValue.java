@@ -42,12 +42,4 @@ public interface ActionLookupValue extends SkyValue {
     return actionTemplate;
   }
 
-  /**
-   * Returns the number of {@link Action} objects present in this value.
-   *
-   * <p>There are no actions for deserialized values.
-   */
-  default int getNumActions() {
-    return getActions().size();
-  }
 }

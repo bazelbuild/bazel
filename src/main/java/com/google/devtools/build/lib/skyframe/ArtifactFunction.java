@@ -499,7 +499,7 @@ public final class ArtifactFunction implements SkyFunction {
         return null;
       }
       ImmutableList.Builder<ActionLookupData> expandedActionExecutionKeys =
-          ImmutableList.builderWithExpectedSize(value.getNumActions());
+          ImmutableList.builderWithExpectedSize(value.getActions().size());
       for (ActionAnalysisMetadata action : value.getActions()) {
         expandedActionExecutionKeys.add(
             ((DerivedArtifact) action.getPrimaryOutput()).getGeneratingActionKey());

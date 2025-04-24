@@ -1352,7 +1352,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   }
 
   private static boolean hasActions(ConfiguredObjectValue value) {
-    return value instanceof ActionLookupValue alv && alv.getNumActions() > 0;
+    return value instanceof ActionLookupValue alv && !alv.getActions().isEmpty();
   }
 
   /** Tracks how long it takes to clear the analysis cache. */
