@@ -15,7 +15,7 @@
 
 cc_internal = _builtins.internal.cc_internal
 
-def convert_library_to_link_list_to_linker_input_list(libraries_to_link, static_mode, for_dynamic_library, supports_dynamic_linker):
+def convert_library_to_link_list_to_linker_input_list(libraries_to_link, prefer_static_libs, prefer_pic_libs):
     """
     Converts LibraryToLink-s from CcLinkingContext-s to LegacyLinkerInput-s.
 
@@ -33,10 +33,8 @@ def convert_library_to_link_list_to_linker_input_list(libraries_to_link, static_
 
     Args:
       libraries_to_link: (list[LibraryToLink]) Libraries from dependencies.
-      static_mode: (bool) True for `static`, False for `dynamic` linking mode.
-      for_dynamic_library: (bool) True when creating a library. False for executable.
-      supports_dynamic_linker: (bool) True when C++ toolchain supports_dynamic_linker. That is,
-        toolchain can produce binaries that load shared libraries at runtime.
+      prefer_static_libs: (bool) Prefers selection of static libraries over interface libs
+      prefer_pic_libs: (bool) Prefers selection of PIC static libraries over non PIC.
     Returns:
       (list[LibraryInput]) The selected libraries. LibraryInputs are subclass of LegacyLinkerInputs.
       The contain the information about libraries main file as well as it's object files. Only one
@@ -53,5 +51,5 @@ def convert_library_to_link_list_to_linker_input_list(libraries_to_link, static_
     # types a lot and that might cause more garbage. But the garbage also can't be completely
     # removed until both LibraryToLink and LibraryToLinkValues are in Starlark.
 
-    libraries = cc_internal.convert_library_to_link_list_to_linker_input_list(libraries_to_link, static_mode, for_dynamic_library, supports_dynamic_linker)
+    libraries = cc_internal.convert_library_to_link_list_to_linker_input_list(libraries_to_link, prefer_static_libs, prefer_pic_libs)
     return depset(libraries, order = "topological").to_list()  # filter duplicates

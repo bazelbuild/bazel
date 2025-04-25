@@ -682,27 +682,14 @@ public class CcStarlarkInternal implements StarlarkValue {
       documented = false,
       parameters = {
         @Param(name = "libraries_to_link"),
-        @Param(name = "static_mode"),
-        @Param(name = "for_dynamic_library"),
-        @Param(name = "supports_dynamic_linker")
+        @Param(name = "prefer_static_libs"),
+        @Param(name = "prefer_pic_libs"),
       })
   public StarlarkList<LibraryInput> convertLibraryToLinkListToLinkerInputList(
-      Sequence<?> librariesToLinkSeq,
-      boolean staticMode,
-      boolean forDynamicLibrary,
-      boolean supportsDynamicLinker)
+      Sequence<?> librariesToLinkSeq, boolean preferStaticLibs, boolean preferPicLibs)
       throws EvalException {
     Sequence<LibraryToLink> librariesToLink =
         Sequence.cast(librariesToLinkSeq, LibraryToLink.class, "libraries_to_link");
-
-    // When selecting libraries to link, we prefer static or dynamic libraries based on the static
-    // or dynamic linking mode. If dynamic linking is not supported, we fall back to selecting
-    // static libraries.
-    boolean preferStaticLibs = staticMode || !supportsDynamicLinker;
-    // TODO(b/412540147) We select PIC libraries iff creating a dynamic library.
-    //  It doesn't match PIC flag.
-    boolean preferPicLibs = forDynamicLibrary;
-
     ImmutableList.Builder<LibraryInput> libraryInputsBuilder = ImmutableList.builder();
     for (LibraryToLink libraryToLink : librariesToLink) {
       LibraryInput libraryInputToUse;

@@ -325,11 +325,21 @@ def _create_dynamic_link_actions(
     if non_code_inputs:
         link_action_kwargs["non_code_inputs"].extend(non_code_inputs)
 
+    # When selecting libraries to link, we prefer static or dynamic libraries based on the static
+    # or dynamic linking mode.
+    # When C++ toolchain doesn't `supports_dynamic_linker`,  toolchain can't produce binaries that
+    # load shared libraries at runtime, then we can only link static libraries.
+    prefer_static_libs = linking_mode == LINKING_MODE.STATIC or \
+                         not feature_configuration.is_enabled("supports_dynamic_linker")
+
+    # TODO(b/412540147): We select PIC libraries iff creating a dynamic library. This doesn't
+    # match PIC flag.
+    prefer_pic_libs = is_dynamic_library(dynamic_link_type)
+
     libraries = convert_library_to_link_list_to_linker_input_list(
         libraries_to_link,
-        linking_mode != LINKING_MODE.DYNAMIC,
-        is_dynamic_library(dynamic_link_type),
-        feature_configuration.is_enabled("supports_dynamic_linker"),
+        prefer_static_libs,
+        prefer_pic_libs,
     )
 
     all_lto_artifacts, allow_lto_indexing, thinlto_param_file, additional_object_files = \
