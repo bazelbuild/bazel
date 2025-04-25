@@ -39,7 +39,6 @@ import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.Info;
@@ -711,16 +710,17 @@ public class CcStarlarkInternal implements StarlarkValue {
         @Param(name = "supports_dynamic_linker")
       })
   public StarlarkList<LibraryInput> convertLibraryToLinkListToLinkerInputList(
-      Depset librariesToLinkDepset,
+      Sequence<?> librariesToLinkSeq,
       boolean staticMode,
       boolean forDynamicLibrary,
       boolean supportsDynamicLinker)
-      throws TypeException {
+      throws EvalException {
     // LINT.IfChange
-    NestedSet<LibraryToLink> librariesToLink = librariesToLinkDepset.getSet(LibraryToLink.class);
+    Sequence<LibraryToLink> librariesToLink =
+        Sequence.cast(librariesToLinkSeq, LibraryToLink.class, "libraries_to_link");
 
     ImmutableList.Builder<LibraryInput> libraryInputsBuilder = ImmutableList.builder();
-    for (LibraryToLink libraryToLink : librariesToLink.toList()) {
+    for (LibraryToLink libraryToLink : librariesToLink) {
       LibraryInput staticLibraryInput =
           libraryToLink.getStaticLibrary() == null ? null : libraryToLink.getStaticLibraryInput();
       LibraryInput picStaticLibraryInput =

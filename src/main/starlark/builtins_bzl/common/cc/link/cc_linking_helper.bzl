@@ -318,12 +318,19 @@ def _create_dynamic_link_actions(
         link_action_kwargs["toolchain_libraries_type"] = LINK_TARGET_TYPE.STATIC_LIBRARY.linker_output
         link_action_kwargs["toolchain_libraries_input"] = cc_toolchain.static_runtime_lib(feature_configuration = feature_configuration)
 
-    libraries, linkstamps, linkopts, non_code_inputs = \
+    libraries_to_link, linkstamps, linkopts, non_code_inputs = \
         _maybe_link_transitively(feature_configuration, dynamic_link_type, linking_mode, linking_contexts)
     if linkopts:
         link_action_kwargs["linkopts"].extend(linkopts)
     if non_code_inputs:
         link_action_kwargs["non_code_inputs"].extend(non_code_inputs)
+
+    libraries = convert_library_to_link_list_to_linker_input_list(
+        libraries_to_link,
+        linking_mode != LINKING_MODE.DYNAMIC,
+        is_dynamic_library(dynamic_link_type),
+        feature_configuration.is_enabled("supports_dynamic_linker"),
+    )
 
     all_lto_artifacts, allow_lto_indexing, thinlto_param_file, additional_object_files = \
         _maybe_do_lto_indexing(
@@ -394,19 +401,12 @@ def _maybe_link_transitively(feature_configuration, dynamic_link_type, linking_m
     should_link_transitively = (feature_configuration.is_enabled("targets_windows") or
                                 dynamic_link_type != LINK_TARGET_TYPE.NODEPS_DYNAMIC_LIBRARY)
     if not should_link_transitively:
-        return [], [], [], []  # libraries, linkstamps, linkopts, non_code_inputs
+        return [], [], [], []  # libraries_to_link, linkstamps, linkopts, non_code_inputs
 
     linker_inputs = depset(
         transitive = [linking_context.linker_inputs for linking_context in linking_contexts],
         order = "topological",
     ).to_list()
-    libraries = convert_library_to_link_list_to_linker_input_list(
-        linker_inputs,
-        linking_mode != LINKING_MODE.DYNAMIC,
-        is_dynamic_library(dynamic_link_type),
-        feature_configuration.is_enabled("supports_dynamic_linker"),
-    )
-    libraries = depset(libraries, order = "topological").to_list()  # filter duplicates
     if dynamic_link_type != LINK_TARGET_TYPE.NODEPS_DYNAMIC_LIBRARY:
         linkstamps = [stamp for linker_input in linker_inputs for stamp in linker_input.linkstamps]
     else:
@@ -415,7 +415,14 @@ def _maybe_link_transitively(feature_configuration, dynamic_link_type, linking_m
     non_code_inputs = \
         [input for linker_input in linker_inputs for input in linker_input.additional_inputs]
 
-    return libraries, linkstamps, linkopts, non_code_inputs
+    # This ordering of LinkerInputs and Librar(-ies)ToLink is really sensitive, changes result in
+    # subtle breakages.
+    libraries_to_link = depset(
+        [lib for linker_input in linker_inputs for lib in linker_input.libraries],
+        order = "topological",
+    ).to_list()
+
+    return libraries_to_link, linkstamps, linkopts, non_code_inputs
 
 def _maybe_do_lto_indexing(*, compilation_outputs, libraries, feature_configuration, **link_action_kwargs):
     all_lto_artifacts = []

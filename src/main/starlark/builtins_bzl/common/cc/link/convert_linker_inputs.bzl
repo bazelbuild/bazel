@@ -17,7 +17,7 @@ load(":common/cc/cc_helper_internal.bzl", "artifact_category")
 
 cc_internal = _builtins.internal.cc_internal
 
-def convert_library_to_link_list_to_linker_input_list(linker_inputs, static_mode, for_dynamic_library, supports_dynamic_linker):
+def convert_library_to_link_list_to_linker_input_list(libraries_to_link, static_mode, for_dynamic_library, supports_dynamic_linker):
     """
     Converts LibraryToLink-s from CcLinkingContext-s to LegacyLinkerInput-s.
 
@@ -34,7 +34,7 @@ def convert_library_to_link_list_to_linker_input_list(linker_inputs, static_mode
     variables to generated the command line.
 
     Args:
-      linker_inputs: (list[LinkerInput]) Linker inputs from dependencies.
+      libraries_to_link: (list[LibraryToLink]) Libraries from dependencies.
       static_mode: (bool) True for `static`, False for `dynamic` linking mode.
       for_dynamic_library: (bool) True when creating a library. False for executable.
       supports_dynamic_linker: (bool) True when C++ toolchain supports_dynamic_linker. That is,
@@ -55,26 +55,13 @@ def convert_library_to_link_list_to_linker_input_list(linker_inputs, static_mode
     # types a lot and that might cause more garbage. But the garbage also can't be completely
     # removed until both LibraryToLink and LibraryToLinkValues are in Starlark.
 
-    # This ordering of LinkerInputs and Librar(-ies)ToLink is really sensitive, changes result in
-    # subtle breakages.
-    libraries_to_link = depset(
-        [lib for linker_input in linker_inputs for lib in linker_input.libraries],
-        order = "topological",
-    )
-
-    return cc_internal.convert_library_to_link_list_to_linker_input_list(libraries_to_link, static_mode, for_dynamic_library, supports_dynamic_linker)
+    libraries = cc_internal.convert_library_to_link_list_to_linker_input_list(libraries_to_link, static_mode, for_dynamic_library, supports_dynamic_linker)
+    return depset(libraries, order = "topological").to_list()  # filter duplicates
 
 # A pure Starlark implementation of convert_library_to_link_list_to_linker_input_list
 # at the moment unused, becuase it causes a regression
-def _convert_library_to_link_list_to_linker_input_list(linker_inputs, static_mode, for_dynamic_library, supports_dynamic_linker):
-    libraries_to_link = depset(
-        [lib for linker_input in linker_inputs for lib in linker_input.libraries],
-        order = "topological",
-    )
-
-    library_inputs = []
-
-    for library_to_link in libraries_to_link.to_list():
+def _convert_library_to_link_list_to_linker_input_list(libraries_to_link, static_mode, for_dynamic_library, supports_dynamic_linker):
+    for library_to_link in libraries_to_link:
         static_library_input = None
         if library_to_link.static_library:
             static_library_input = _static_library_input(library_to_link)
