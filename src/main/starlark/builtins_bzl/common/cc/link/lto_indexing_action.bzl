@@ -30,9 +30,9 @@ def create_lto_artifacts_and_lto_indexing_action(
         # Inputs from compilation:
         compilation_outputs,
         # Inputs from linking_contexts:
+        libraries_to_link,
         static_libraries_to_link,
         prefer_pic_libs,
-        libraries,  # deprecated
         linkopts,
         # The final output file, uses its name:
         output,
@@ -58,9 +58,9 @@ def create_lto_artifacts_and_lto_indexing_action(
         cc_toolchain: (CcToolchainInfo) CcToolchainInfo provider to be used.
         compilation_outputs: (CompilationOutputs) Compilation outputs containing object files
             to link.
+        libraries_to_link: (list[LibraryToLink]) The libraries to link in.
         static_libraries_to_link: (list[LibraryToLink]) The libraries to link in statically.
         prefer_pic_libs: (bool) Prefers selection of PIC static libraries over non PIC.
-        libraries: (list[LegacyLinkerInput]) The libraries to link in.
         linkopts: (list[str]) Additional list of linker options.
         variables_extensions: (dict[str, str|list[str]|depset[str]]) Additional variables to pass to
             the toolchain configuration when creating link command line.
@@ -118,9 +118,9 @@ def create_lto_artifacts_and_lto_indexing_action(
             variables_extensions = variables_extensions,
             output = output,
             link_type = link_type,
+            libraries_to_link = libraries_to_link,
             static_libraries_to_link = static_libraries_to_link,
             prefer_pic_libs = prefer_pic_libs,
-            libraries = libraries,  # deprecated
             use_pic = use_pic,
             linking_mode = linking_mode,
             all_lto_artifacts = all_lto_artifacts,
@@ -141,9 +141,9 @@ def _lto_indexing_action(
         cc_toolchain,
         all_lto_artifacts,
         allow_lto_indexing,
+        libraries_to_link,
         static_libraries_to_link,
         prefer_pic_libs,
-        libraries,  # deprecated
         include_link_static_in_lto_indexing,
         compilation_outputs,
         output,
@@ -258,7 +258,7 @@ def _lto_indexing_action(
         "LTO indexing %{output}",  # progress_message
         # Inputs:
         object_file_inputs = object_file_inputs,
-        unique_libraries = libraries,
+        libraries_to_link = libraries_to_link,
         linkstamp_map = {},
         linkstamp_object_artifacts = [],
         linkstamp_object_file_inputs = [],

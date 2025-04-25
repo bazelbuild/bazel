@@ -13,6 +13,7 @@
 # limitations under the License.
 """Common functions that create C++ link and LTO indexing action."""
 
+load(":common/cc/link/convert_linker_inputs.bzl", "convert_library_to_link_list_to_linker_input_list")
 load(":common/cc/link/libraries_to_link_collector.bzl", "LINKING_MODE", "collect_libraries_to_link")
 load(":common/cc/link/link_build_variables.bzl", "setup_common_linking_variables")
 load(":common/cc/link/target_types.bzl", "LINK_TARGET_TYPE", "USE_ARCHIVER", "USE_LINKER", "is_dynamic_library")
@@ -34,7 +35,7 @@ def finalize_link_action(
         # Inputs:
         object_file_inputs,
         non_code_inputs,
-        unique_libraries,
+        libraries_to_link,
         linkstamp_map,
         linkstamp_object_artifacts,
         linkstamp_object_file_inputs,
@@ -75,7 +76,7 @@ def finalize_link_action(
         progress_message: (str) The progress message of the action.
         object_file_inputs: (list[File]) Object files
         non_code_inputs: (list[File]) Additional inputs to the linker.
-        unique_libraries: (list[LegacyLinkerInput]) The libraries to link in.
+        libraries_to_link: (list[LibraryToLink]) The libraries to link in.
         linkstamp_map: (dict[Linkstamp, File]) Map from linkstamps to their object files.
         linkstamp_object_artifacts: (list[File]) Linkstamp object files.
         linkstamp_object_file_inputs: (list[File]) Linkstamp object files wrapped into LinkerInputs.
@@ -105,14 +106,28 @@ def finalize_link_action(
         cc_toolchain._cpp_configuration,
     )
 
-    must_keep_debug = any([lib.must_keep_debug for lib in unique_libraries])
+    must_keep_debug = any([lib.must_keep_debug() for lib in libraries_to_link])
 
     toolchain_libraries_solib_dir = ""
     if feature_configuration.is_enabled("static_link_cpp_runtimes"):
         toolchain_libraries_solib_dir = cc_toolchain.dynamic_runtime_solib_dir
 
-    # Linker inputs without any start/end lib expansions.
-    non_expanded_linker_inputs = list(unique_libraries)
+    # When selecting libraries to link, we prefer static or dynamic libraries based on the static
+    # or dynamic linking mode.
+    # When C++ toolchain doesn't `supports_dynamic_linker`,  toolchain can't produce binaries that
+    # load shared libraries at runtime, then we can only link static libraries.
+    prefer_static_libs = linking_mode == LINKING_MODE.STATIC or \
+                         not feature_configuration.is_enabled("supports_dynamic_linker")
+
+    # TODO(b/412540147): We select PIC libraries iff creating a dynamic library. This doesn't
+    # match PIC flag.
+    prefer_pic_libs = is_dynamic_library(link_type)
+
+    non_expanded_linker_inputs = convert_library_to_link_list_to_linker_input_list(
+        libraries_to_link,
+        prefer_static_libs,
+        prefer_pic_libs,
+    )
 
     solib_dir = output.root.path + "/" + cc_toolchain._solib_dir
     collected_libraries_to_link = collect_libraries_to_link(

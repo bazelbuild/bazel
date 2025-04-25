@@ -22,7 +22,6 @@ load(
     _use_pic_for_binaries = "use_pic_for_binaries",
     _use_pic_for_dynamic_libs = "use_pic_for_dynamic_libs",
 )
-load(":common/cc/link/convert_linker_inputs.bzl", "convert_library_to_link_list_to_linker_input_list")
 load(":common/cc/link/cpp_link_action.bzl", "link_action")
 load(":common/cc/link/libraries_to_link_collector.bzl", "LINKING_MODE")
 load(":common/cc/link/lto_indexing_action.bzl", "create_lto_artifacts_and_lto_indexing_action")
@@ -336,32 +335,12 @@ def _create_dynamic_link_actions(
     if non_code_inputs:
         link_action_kwargs["non_code_inputs"].extend(non_code_inputs)
 
-    # When selecting libraries to link, we prefer static or dynamic libraries based on the static
-    # or dynamic linking mode.
-    # When C++ toolchain doesn't `supports_dynamic_linker`,  toolchain can't produce binaries that
-    # load shared libraries at runtime, then we can only link static libraries.
-    prefer_static_libs = linking_mode == LINKING_MODE.STATIC or \
-                         not feature_configuration.is_enabled("supports_dynamic_linker")
-
-    # TODO(b/412540147): We select PIC libraries iff creating a dynamic library. This doesn't
-    # match PIC flag.
-    prefer_pic_libs = is_dynamic_library(dynamic_link_type)
-
-    libraries = convert_library_to_link_list_to_linker_input_list(
-        libraries_to_link,
-        prefer_static_libs,
-        prefer_pic_libs,
-    )
-
     all_lto_artifacts, allow_lto_indexing, thinlto_param_file, additional_object_files = \
         _maybe_do_lto_indexing(
             link_type = dynamic_link_type,
             linking_mode = linking_mode,
             use_pic = use_pic,
             libraries_to_link = libraries_to_link,
-            prefer_static_libs = prefer_static_libs,
-            prefer_pic_libs = prefer_pic_libs,
-            libraries = libraries,  # deprecated, remove
             output = linker_output,
             test_only_target = test_only_target,
             **link_action_kwargs
@@ -389,7 +368,7 @@ def _create_dynamic_link_actions(
         additional_object_files = additional_object_files,
 
         # Inputs from linking_contexts:
-        libraries = libraries,
+        libraries_to_link = libraries_to_link,
         linkstamps = linkstamps,
 
         # Output files:
@@ -448,7 +427,7 @@ def _maybe_link_transitively(feature_configuration, dynamic_link_type, linking_m
 
     return libraries_to_link, linkstamps, linkopts, non_code_inputs
 
-def _maybe_do_lto_indexing(*, compilation_outputs, libraries_to_link, prefer_static_libs, prefer_pic_libs, libraries, feature_configuration, **link_action_kwargs):
+def _maybe_do_lto_indexing(*, link_type, linking_mode, compilation_outputs, libraries_to_link, feature_configuration, **link_action_kwargs):
     all_lto_artifacts = []
     thinlto_param_file = None
     additional_object_files = []
@@ -459,6 +438,12 @@ def _maybe_do_lto_indexing(*, compilation_outputs, libraries_to_link, prefer_sta
 
     lto_compilation_context = compilation_outputs.lto_compilation_context()
     has_lto_bitcode_inputs = lto_compilation_context.lto_bitcode_inputs()
+
+    # TODO(b/338618120): deduplicate prefer_static_lib, prefer_pic_libs computed in finalize_link_action as well
+    prefer_static_libs = linking_mode == LINKING_MODE.STATIC or \
+                         not feature_configuration.is_enabled("supports_dynamic_linker")
+    prefer_pic_libs = is_dynamic_library(link_type)
+
     static_libraries_to_link = cc_internal.get_static_libraries(libraries_to_link, prefer_static_libs)
     if not has_lto_bitcode_inputs:
         for lib in static_libraries_to_link:
@@ -474,10 +459,12 @@ def _maybe_do_lto_indexing(*, compilation_outputs, libraries_to_link, prefer_sta
 
         all_lto_artifacts, allow_lto_indexing, thinlto_param_file, thinlto_merged_object_file = \
             create_lto_artifacts_and_lto_indexing_action(
+                link_type = link_type,
+                linking_mode = linking_mode,
                 compilation_outputs = compilation_outputs,
+                libraries_to_link = libraries_to_link,
                 static_libraries_to_link = static_libraries_to_link,
                 prefer_pic_libs = prefer_pic_libs,
-                libraries = libraries,  # deprecated, remove
                 feature_configuration = feature_configuration,
                 lto_compilation_context = lto_compilation_context,
                 **link_action_kwargs
@@ -651,7 +638,7 @@ def _create_action_for_static_library(
 
         # Inputs from linking contexts:
         linkstamps = [],
-        libraries = [],
+        libraries_to_link = [],
 
         # Output files:
         output = linked_artifact,  # output

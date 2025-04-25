@@ -39,7 +39,7 @@ def link_action(
         additional_object_files = [],
 
         # Inputs from linking_contexts and toolchain:
-        libraries,
+        libraries_to_link,
         linkstamps,
         linkopts,
         non_code_inputs,
@@ -89,7 +89,7 @@ def link_action(
         cc_toolchain: (CcToolchainInfo) CcToolchainInfo provider to be used.
         compilation_outputs: (CompilationOutputs) Compilation outputs containing object files to link.
         additional_object_files: (list[File]) Additional object files not in the `compilation_outputs`.
-        libraries: (list[LegacyLinkerInput]) The libraries to link in.
+        libraries_to_link: (list[LibraryToLink]) The libraries to link in.
         linkstamps: (list[Linkstamp]) The linkstamps to use.
         linkopts: (list[str]) Additional list of linker options.
         non_code_inputs: (list[File]) Additional inputs to the linker.
@@ -217,7 +217,7 @@ def link_action(
         # Inputs:
         object_file_inputs,
         non_code_inputs,
-        libraries,
+        libraries_to_link,
         linkstamp_map,
         linkstamp_object_artifacts,
         linkstamp_object_file_inputs,
