@@ -75,12 +75,12 @@ def finalize_link_action(
         feature_configuration: (FeatureConfiguration) `feature_configuration` to be queried.
         cc_toolchain: (CcToolchainInfo) CcToolchainInfo provider to be used.
         progress_message: (str) The progress message of the action.
-        object_file_inputs: (list[LegacyLinkerInput]) Object files
+        object_file_inputs: (list[File]) Object files
         non_code_inputs: (list[File]) Additional inputs to the linker.
         unique_libraries: (list[LegacyLinkerInput]) The libraries to link in.
         linkstamp_map: (dict[Linkstamp, File]) Map from linkstamps to their object files.
         linkstamp_object_artifacts: (list[File]) Linkstamp object files.
-        linkstamp_object_file_inputs: (list[LegacyLinkerInput]) Linkstamp object files wrapped into LinkerInputs.
+        linkstamp_object_file_inputs: (list[File]) Linkstamp object files wrapped into LinkerInputs.
         toolchain_libraries_type: (artifact_category) Type of toolchain libraries.
         toolchain_libraries_input: (depset[File]) Toolchain libraries.
         user_link_flags: (list[str]) Additional list of linker options.
@@ -116,6 +116,8 @@ def finalize_link_action(
         toolchain_libraries_solib_dir = cc_toolchain.dynamic_runtime_solib_dir
 
     # Linker inputs without any start/end lib expansions.
+    linkstamp_object_file_inputs = [cc_internal.linkstamp_linker_input(input) for input in linkstamp_object_file_inputs]
+    object_file_inputs = [cc_internal.simple_linker_input(input) for input in object_file_inputs]
     non_expanded_linker_inputs = object_file_inputs + linkstamp_object_file_inputs + \
                                  unique_libraries
 

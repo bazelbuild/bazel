@@ -149,8 +149,8 @@ def link_action(
         non_code_inputs.append(thinlto_param_file)
 
     linkstamp_map = _map_linkstamps_to_outputs(actions, linkstamps, output)
-    linkstamp_object_file_inputs = [cc_internal.linkstamp_linker_input(input) for input in linkstamp_map.values()]
-    object_file_inputs = [cc_internal.simple_linker_input(input) for input in object_files]
+    linkstamp_object_file_inputs = linkstamp_map.values()
+    object_file_inputs = object_files
 
     object_artifacts = [lto_mapping.get(obj, obj) for obj in object_files]
     linkstamp_object_artifacts = [lto_mapping.get(obj, obj) for obj in linkstamp_map.values()]

@@ -157,9 +157,10 @@ def _lto_indexing_action(
     # inputs for this link, depending on whether this is LTO indexing or
     # a native link.
     lto_compilation_context = compilation_outputs.lto_compilation_context()
-    object_file_inputs = [cc_internal.simple_linker_input(
-        lto_compilation_context.get_minimized_bitcode_or_self(input),
-    ) for input in (compilation_outputs.pic_objects if use_pic else compilation_outputs.objects)]
+    object_file_inputs = [
+        lto_compilation_context.get_minimized_bitcode_or_self(input)
+        for input in (compilation_outputs.pic_objects if use_pic else compilation_outputs.objects)
+    ]
 
     unique_libraries = []
     for lib in libraries:

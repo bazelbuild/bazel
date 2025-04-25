@@ -350,7 +350,7 @@ public class CppLinkActionBuilder {
       FeatureConfiguration featureConfiguration,
       CcToolchainProvider toolchain,
       boolean usePicForLtoBackendActions,
-      Set<LegacyLinkerInput> objectFiles)
+      ImmutableList<Artifact> objectFiles)
       throws EvalException {
     // Only create the shared LTO artifacts for a statically linked library that has bitcode files.
     if (ltoCompilationContext == null || isLinker) {
@@ -363,6 +363,6 @@ public class CppLinkActionBuilder {
         featureConfiguration,
         toolchain,
         usePicForLtoBackendActions,
-        objectFiles.stream().map(LegacyLinkerInput::getArtifact).collect(toImmutableList()));
+        objectFiles);
   }
 }
