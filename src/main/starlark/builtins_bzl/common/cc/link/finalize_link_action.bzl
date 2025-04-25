@@ -116,10 +116,7 @@ def finalize_link_action(
         toolchain_libraries_solib_dir = cc_toolchain.dynamic_runtime_solib_dir
 
     # Linker inputs without any start/end lib expansions.
-    linkstamp_object_file_inputs = [cc_internal.linkstamp_linker_input(input) for input in linkstamp_object_file_inputs]
-    object_file_inputs = [cc_internal.simple_linker_input(input) for input in object_file_inputs]
-    non_expanded_linker_inputs = object_file_inputs + linkstamp_object_file_inputs + \
-                                 unique_libraries
+    non_expanded_linker_inputs = list(unique_libraries)
 
     # Adding toolchain libraries without whole archive no-matter-what. People don't want to
     # include whole libstdc++ in their binary ever.
@@ -130,6 +127,8 @@ def finalize_link_action(
 
     solib_dir = output.root.path + "/" + cc_toolchain._solib_dir
     collected_libraries_to_link = collect_libraries_to_link(
+        object_file_inputs,
+        linkstamp_object_file_inputs,
         non_expanded_linker_inputs,
         cc_toolchain,
         feature_configuration,

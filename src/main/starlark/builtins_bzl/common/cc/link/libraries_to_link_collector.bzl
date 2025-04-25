@@ -31,6 +31,8 @@ LINKING_MODE = struct(
 # just to determine a single property, for example link_type and linking_mode are passed in, just to
 # determine need_toolchain_libraries_rpath. Refining the signature will increase readability.
 def collect_libraries_to_link(
+        object_file_inputs,
+        linkstamp_object_file_inputs,
         linker_inputs,
         cc_toolchain,
         feature_configuration,
@@ -57,7 +59,9 @@ def collect_libraries_to_link(
     to be wrapped with -Wl,-whole-archive and -Wl,-no-whole-archive.
 
     Args:
-      linker_inputs: (list[LegacyLinkerInput]) Linker inputs
+      object_file_inputs: (list[File]) Direct object files
+      linkstamp_object_file_inputs: (list[File]) Linkstamp object files
+      linker_inputs: (list[LegacyLinkerInput]) Linker inputs, just the libraries.
       cc_toolchain: cc_toolchain providing some extra information in the conversion.
       feature_configuration: Feature configuration to be queried.
       output: (File) The linker's output.
@@ -88,6 +92,8 @@ def collect_libraries_to_link(
 
     """
     return cc_internal.collect_libraries_to_link(
+        object_file_inputs,
+        linkstamp_object_file_inputs,
         linker_inputs,
         cc_toolchain,
         feature_configuration,
