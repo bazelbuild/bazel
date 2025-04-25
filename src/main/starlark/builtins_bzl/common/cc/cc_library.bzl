@@ -80,9 +80,7 @@ def _cc_library_impl(ctx):
     )
 
     precompiled_objects = cc_common.create_compilation_outputs(
-        # TODO(bazel-team): Perhaps this should be objects, leaving as it is in the original
-        # Java code for now. Changing it might cause breakages.
-        objects = depset(precompiled_files[1]),
+        objects = depset(precompiled_files[0]),
         pic_objects = depset(precompiled_files[1]),
     )
 
