@@ -966,7 +966,7 @@ public class CcStarlarkInternal implements StarlarkValue {
           featureConfiguration.getFeatureConfiguration(),
           CcToolchainProvider.create(toolchain),
           usePicForLtoBackendActions,
-          ImmutableSet.copyOf(Sequence.cast(objectFiles, LegacyLinkerInput.class, "object_files")),
+          Sequence.cast(objectFiles, Artifact.class, "object_files").getImmutableList(),
           PathFragment.create(ltoOutputRootPrefix),
           PathFragment.create(ltoObjRootPrefix),
           uniqueLibraries.getSet(LibraryInput.class),

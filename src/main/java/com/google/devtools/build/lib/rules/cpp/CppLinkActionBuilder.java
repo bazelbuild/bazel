@@ -189,7 +189,7 @@ public class CppLinkActionBuilder {
       FeatureConfiguration featureConfiguration,
       CcToolchainProvider toolchain,
       boolean usePicForLtoBackendActions,
-      Set<LegacyLinkerInput> objectFiles,
+      ImmutableList<Artifact> objectFiles,
       PathFragment ltoOutputRootPrefix,
       PathFragment ltoObjRootPrefix,
       NestedSet<LibraryInput> uniqueLibraries,
@@ -219,9 +219,9 @@ public class CppLinkActionBuilder {
         }
       }
     }
-    for (LegacyLinkerInput input : objectFiles) {
-      if (ltoCompilationContext.containsBitcodeFile(input.getArtifact())) {
-        allBitcode.add(input.getArtifact());
+    for (Artifact input : objectFiles) {
+      if (ltoCompilationContext.containsBitcodeFile(input)) {
+        allBitcode.add(input);
       }
     }
     BitcodeFiles bitcodeFiles = new BitcodeFiles(allBitcode.build());
@@ -274,20 +274,18 @@ public class CppLinkActionBuilder {
         }
       }
     }
-    for (LegacyLinkerInput input : objectFiles) {
-      if (ltoCompilationContext.containsBitcodeFile(input.getArtifact())) {
+    for (Artifact input : objectFiles) {
+      if (ltoCompilationContext.containsBitcodeFile(input)) {
         List<String> backendUserCompileFlags =
             getLtoBackendUserCompileFlags(
-                toolchain.getCppConfiguration(),
-                input.getArtifact(),
-                ltoCompilationContext.getCopts(input.getArtifact()));
+                toolchain.getCppConfiguration(), input, ltoCompilationContext.getCopts(input));
         LtoBackendArtifacts ltoArtifacts =
             createLtoArtifact(
                 linkActionConstruction,
                 featureConfiguration,
                 toolchain,
                 usePicForLtoBackendActions,
-                input.getArtifact(),
+                input,
                 bitcodeFiles,
                 ltoOutputRootPrefix,
                 ltoObjRootPrefix,

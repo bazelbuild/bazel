@@ -88,10 +88,7 @@ def create_lto_artifacts_and_lto_indexing_action(
     lto_obj_root_prefix = lto_output_root_prefix
     if feature_configuration.is_enabled("use_lto_native_object_directory"):
         lto_obj_root_prefix = lto_output_root_prefix + "-obj"
-    object_file_inputs = [
-        cc_internal.simple_linker_input(input)
-        for input in (compilation_outputs.pic_objects if use_pic else compilation_outputs.objects)
-    ]
+    object_file_inputs = compilation_outputs.pic_objects if use_pic else compilation_outputs.objects
 
     all_lto_artifacts = cc_internal.create_lto_artifacts(
         actions,
