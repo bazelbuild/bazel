@@ -22,8 +22,8 @@ load(
     _artifact_category = "artifact_category",
 )
 load(":common/cc/cc_info.bzl", "CcInfo")
+load(":common/cc/semantics.bzl", "semantics")
 load(":common/objc/objc_common.bzl", "objc_common")
-load(":common/objc/semantics.bzl", objc_semantics = "semantics")
 load(":common/paths.bzl", "paths")
 
 cc_internal = _builtins.internal.cc_internal
@@ -132,7 +132,7 @@ def _get_dynamic_library_for_runtime_or_none(library, linking_statically):
 
     return library.dynamic_library
 
-_CPP_TOOLCHAIN_TYPE = "@@" + objc_semantics.get_repo() + "//tools/cpp:toolchain_type"
+_CPP_TOOLCHAIN_TYPE = "@@" + semantics.get_repo() + "//tools/cpp:toolchain_type"
 
 def _find_cpp_toolchain(ctx, *, mandatory = True):
     """
