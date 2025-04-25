@@ -52,13 +52,6 @@ public abstract class LegacyLinkerInputs {
           Preconditions.checkState(Link.SHARED_LIBRARY_FILETYPES.matches(basename));
           break;
 
-        case OBJECT_FILE:
-          // We skip file extension checks for TreeArtifacts because they represent directory
-          // artifacts without a file extension.
-          Preconditions.checkState(
-              artifact.isTreeArtifact() || Link.OBJECT_FILETYPES.matches(basename));
-          break;
-
         default:
           throw new IllegalStateException();
       }
@@ -129,23 +122,6 @@ public abstract class LegacyLinkerInputs {
     @Override
     public String getLibraryIdentifier() {
       return libraryIdentifier;
-    }
-  }
-
-  @ThreadSafety.Immutable
-  private static class LinkstampLinkerInput extends SimpleLinkerInput {
-    private LinkstampLinkerInput(Artifact artifact, String libraryIdentifier) {
-      super(
-          artifact,
-          ArtifactCategory.OBJECT_FILE,
-          /* disableWholeArchive= */ false,
-          libraryIdentifier);
-      Preconditions.checkState(Link.OBJECT_FILETYPES.matches(artifact.getFilename()));
-    }
-
-    @Override
-    public boolean isLinkstamp() {
-      return true;
     }
   }
 
@@ -394,10 +370,6 @@ public abstract class LegacyLinkerInputs {
   //////////////////////////////////////////////////////////////////////////////////////
   // Public factory constructors:
   //////////////////////////////////////////////////////////////////////////////////////
-
-  public static LegacyLinkerInput linkstampLinkerInput(Artifact input) {
-    return new LinkstampLinkerInput(input, input.getRootRelativePathString());
-  }
 
   /** Creates a linker input for which we do not know what objects files it consists of. */
   public static LegacyLinkerInput simpleLinkerInput(
