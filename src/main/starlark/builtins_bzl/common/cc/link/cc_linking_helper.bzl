@@ -347,7 +347,10 @@ def _create_dynamic_link_actions(
             link_type = dynamic_link_type,
             linking_mode = linking_mode,
             use_pic = use_pic,
-            libraries = libraries,
+            libraries_to_link = libraries_to_link,
+            prefer_static_libs = prefer_static_libs,
+            prefer_pic_libs = prefer_pic_libs,
+            libraries = libraries,  # deprecated, remove
             output = linker_output,
             test_only_target = test_only_target,
             **link_action_kwargs
@@ -434,7 +437,7 @@ def _maybe_link_transitively(feature_configuration, dynamic_link_type, linking_m
 
     return libraries_to_link, linkstamps, linkopts, non_code_inputs
 
-def _maybe_do_lto_indexing(*, compilation_outputs, libraries, feature_configuration, **link_action_kwargs):
+def _maybe_do_lto_indexing(*, compilation_outputs, libraries_to_link, prefer_static_libs, prefer_pic_libs, libraries, feature_configuration, **link_action_kwargs):
     all_lto_artifacts = []
     thinlto_param_file = None
     additional_object_files = []
@@ -445,9 +448,12 @@ def _maybe_do_lto_indexing(*, compilation_outputs, libraries, feature_configurat
 
     lto_compilation_context = compilation_outputs.lto_compilation_context()
     has_lto_bitcode_inputs = lto_compilation_context.lto_bitcode_inputs()
+    static_libraries_to_link = cc_internal.get_static_libraries(libraries_to_link, prefer_static_libs)
     if not has_lto_bitcode_inputs:
-        for lib in libraries:
-            if lib.lto_compilation_context.lto_bitcode_inputs():
+        for lib in static_libraries_to_link:
+            pic = (prefer_pic_libs and lib.pic_static_library != None) or lib.static_library == None
+            context = lib.pic_lto_compilation_context() if pic else lib.lto_compilation_context()
+            if context and context.lto_bitcode_inputs():
                 has_lto_bitcode_inputs = True
                 break
 
@@ -458,7 +464,9 @@ def _maybe_do_lto_indexing(*, compilation_outputs, libraries, feature_configurat
         all_lto_artifacts, allow_lto_indexing, thinlto_param_file, thinlto_merged_object_file = \
             create_lto_artifacts_and_lto_indexing_action(
                 compilation_outputs = compilation_outputs,
-                libraries = libraries,
+                static_libraries_to_link = static_libraries_to_link,
+                prefer_pic_libs = prefer_pic_libs,
+                libraries = libraries,  # deprecated, remove
                 feature_configuration = feature_configuration,
                 lto_compilation_context = lto_compilation_context,
                 **link_action_kwargs

@@ -27,10 +27,8 @@ import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
-import com.google.devtools.build.lib.rules.cpp.LegacyLinkerInputs.LibraryInput;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
@@ -192,13 +190,17 @@ public class CppLinkActionBuilder {
       ImmutableList<Artifact> objectFiles,
       PathFragment ltoOutputRootPrefix,
       PathFragment ltoObjRootPrefix,
-      NestedSet<LibraryInput> uniqueLibraries,
+      List<LibraryToLink> staticLibrariesToLink,
       boolean allowLtoIndexing,
-      boolean includeLinkStaticInLtoIndexing)
+      boolean includeLinkStaticInLtoIndexing,
+      boolean preferPicLibs)
       throws EvalException {
     Set<Artifact> compiled = new LinkedHashSet<>();
-    for (LibraryInput lib : uniqueLibraries.toList()) {
-      compiled.addAll(lib.getLtoCompilationContext().getBitcodeFiles());
+    for (LibraryToLink lib : staticLibrariesToLink) {
+      boolean pic = lib.getEffectivePic(preferPicLibs);
+      compiled.addAll(
+          (pic ? lib.getPicLtoCompilationContext() : lib.getLtoCompilationContext())
+              .getBitcodeFiles());
     }
 
     // Make this a NestedSet to return from LtoBackendAction.getAllowedDerivedInputs. For M binaries
@@ -208,11 +210,14 @@ public class CppLinkActionBuilder {
     // statically linked, so we need to look at includeLinkStaticInLtoIndexing to decide whether
     // to include its objects in the LTO indexing for this target.
     if (includeLinkStaticInLtoIndexing) {
-      for (LibraryInput lib : uniqueLibraries.toList()) {
-        if (!lib.containsObjectFiles()) {
+      for (LibraryToLink lib : staticLibrariesToLink) {
+        boolean pic = lib.getEffectivePic(preferPicLibs);
+        ImmutableList<Artifact> libObjectFiles =
+            pic ? lib.getPicObjectFiles() : lib.getObjectFiles();
+        if (libObjectFiles == null) {
           continue;
         }
-        for (Artifact objectFile : lib.getObjectFiles()) {
+        for (Artifact objectFile : libObjectFiles) {
           if (compiled.contains(objectFile)) {
             allBitcode.add(objectFile);
           }
@@ -231,20 +236,26 @@ public class CppLinkActionBuilder {
           "Thinlto with tree artifacts requires feature use_lto_native_object_directory.");
     }
     ImmutableList.Builder<LtoBackendArtifacts> ltoOutputs = ImmutableList.builder();
-    for (LibraryInput lib : uniqueLibraries.toList()) {
-      if (!lib.containsObjectFiles()) {
+    for (LibraryToLink lib : staticLibrariesToLink) {
+      boolean pic = lib.getEffectivePic(preferPicLibs);
+      ImmutableList<Artifact> libObjectFiles = pic ? lib.getPicObjectFiles() : lib.getObjectFiles();
+      if (libObjectFiles == null) {
         continue;
       }
+      LtoCompilationContext libLtoCompilationContext =
+          pic ? lib.getPicLtoCompilationContext() : lib.getLtoCompilationContext();
+      ImmutableMap<Artifact, LtoBackendArtifacts> sharedLtoBackends =
+          pic ? lib.getPicSharedNonLtoBackends() : lib.getSharedNonLtoBackends();
       // We will create new LTO backends whenever we are performing LTO indexing, in which case
       // each target linking this library needs a unique set of LTO backends.
-      for (Artifact objectFile : lib.getObjectFiles()) {
+      for (Artifact objectFile : libObjectFiles) {
         if (compiled.contains(objectFile)) {
           if (includeLinkStaticInLtoIndexing) {
             List<String> backendUserCompileFlags =
                 getLtoBackendUserCompileFlags(
                     toolchain.getCppConfiguration(),
                     objectFile,
-                    lib.getLtoCompilationContext().getCopts(objectFile));
+                    libLtoCompilationContext.getCopts(objectFile));
             LtoBackendArtifacts ltoArtifacts =
                 createLtoArtifact(
                     linkActionConstruction,
@@ -260,14 +271,13 @@ public class CppLinkActionBuilder {
             ltoOutputs.add(ltoArtifacts);
           } else {
             // We should have created shared non-LTO backends when the library was created.
-            if (lib.getSharedNonLtoBackends() == null) {
+            if (sharedLtoBackends == null) {
               throw Starlark.errorf(
                   "Statically linked test target requires non-LTO backends for its library inputs,"
                       + " but library input %s does not specify shared_non_lto_backends",
                   lib);
             }
-            LtoBackendArtifacts ltoArtifacts =
-                lib.getSharedNonLtoBackends().getOrDefault(objectFile, null);
+            LtoBackendArtifacts ltoArtifacts = sharedLtoBackends.getOrDefault(objectFile, null);
             Preconditions.checkNotNull(ltoArtifacts);
             ltoOutputs.add(ltoArtifacts);
           }

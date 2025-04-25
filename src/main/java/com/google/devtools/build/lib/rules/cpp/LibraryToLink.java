@@ -221,7 +221,8 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact, LtoBac
     return backends != null ? Dict.immutableCopyOf(backends) : null;
   }
 
-  private boolean getEffectivePic(boolean preferPicLibs) {
+  /** Return true if a pic library should effectively be selected */
+  public boolean getEffectivePic(boolean preferPicLibs) {
     return (preferPicLibs && getPicStaticLibrary() != null) || getStaticLibrary() == null;
   }
 

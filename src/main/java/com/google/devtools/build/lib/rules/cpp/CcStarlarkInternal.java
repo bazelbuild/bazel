@@ -678,6 +678,34 @@ public class CcStarlarkInternal implements StarlarkValue {
   }
 
   @StarlarkMethod(
+      name = "get_static_libraries",
+      documented = false,
+      parameters = {
+        @Param(name = "libraries_to_link"),
+        @Param(name = "prefer_static_libs"),
+      })
+  public StarlarkList<LibraryToLink> getStaticLibraries(
+      Sequence<?> librariesToLinkObj, boolean preferStaticLibs) throws EvalException {
+    ImmutableList.Builder<LibraryToLink> staticLibraries = ImmutableList.builder();
+    Sequence<LibraryToLink> librariesToLink =
+        Sequence.cast(librariesToLinkObj, LibraryToLink.class, "libraries_to_link");
+    for (LibraryToLink libraryToLink : librariesToLink) {
+      if (preferStaticLibs) {
+        if (libraryToLink.getStaticLibrary() != null
+            || libraryToLink.getPicStaticLibrary() != null) {
+          staticLibraries.add(libraryToLink);
+        }
+      } else {
+        if (libraryToLink.getInterfaceLibrary() == null
+            && libraryToLink.getDynamicLibrary() == null) {
+          staticLibraries.add(libraryToLink);
+        }
+      }
+    }
+    return StarlarkList.immutableCopyOf(staticLibraries.build());
+  }
+
+  @StarlarkMethod(
       name = "convert_library_to_link_list_to_linker_input_list",
       documented = false,
       parameters = {
@@ -868,9 +896,10 @@ public class CcStarlarkInternal implements StarlarkValue {
         @Param(name = "object_files"),
         @Param(name = "lto_output_root_prefix"),
         @Param(name = "lto_obj_root_prefix"),
-        @Param(name = "libraries"),
+        @Param(name = "static_libraries_to_link"),
         @Param(name = "allow_lto_indexing"),
         @Param(name = "include_link_static_in_lto_indexing"),
+        @Param(name = "prefer_pic_libs"),
       })
   public Iterable<LtoBackendArtifacts> createLtoArtifacts(
       WrappedStarlarkActionFactory actions,
@@ -881,26 +910,24 @@ public class CcStarlarkInternal implements StarlarkValue {
       Sequence<?> objectFiles,
       String ltoOutputRootPrefix,
       String ltoObjRootPrefix,
-      Depset uniqueLibraries,
+      Sequence<?> staticLibrariesToLink,
       boolean allowLtoIndexing,
-      boolean includeLinkStaticInLtoIndexing)
+      boolean includeLinkStaticInLtoIndexing,
+      boolean preferPicLibs)
       throws EvalException {
-    try {
-      return CppLinkActionBuilder.createLtoArtifacts(
-          actions.construction,
-          ltoCompilationContext,
-          featureConfiguration.getFeatureConfiguration(),
-          CcToolchainProvider.create(toolchain),
-          usePicForLtoBackendActions,
-          Sequence.cast(objectFiles, Artifact.class, "object_files").getImmutableList(),
-          PathFragment.create(ltoOutputRootPrefix),
-          PathFragment.create(ltoObjRootPrefix),
-          uniqueLibraries.getSet(LibraryInput.class),
-          allowLtoIndexing,
-          includeLinkStaticInLtoIndexing);
-    } catch (TypeException e) {
-      throw new EvalException(e);
-    }
+    return CppLinkActionBuilder.createLtoArtifacts(
+        actions.construction,
+        ltoCompilationContext,
+        featureConfiguration.getFeatureConfiguration(),
+        CcToolchainProvider.create(toolchain),
+        usePicForLtoBackendActions,
+        Sequence.cast(objectFiles, Artifact.class, "object_files").getImmutableList(),
+        PathFragment.create(ltoOutputRootPrefix),
+        PathFragment.create(ltoObjRootPrefix),
+        Sequence.cast(staticLibrariesToLink, LibraryToLink.class, "static_libraries_to_link"),
+        allowLtoIndexing,
+        includeLinkStaticInLtoIndexing,
+        preferPicLibs);
   }
 
   // TODO(b/331164666): rewrite to Stalark using cc_common.create_lto_artifact

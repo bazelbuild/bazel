@@ -30,7 +30,9 @@ def create_lto_artifacts_and_lto_indexing_action(
         # Inputs from compilation:
         compilation_outputs,
         # Inputs from linking_contexts:
-        libraries,
+        static_libraries_to_link,
+        prefer_pic_libs,
+        libraries,  # deprecated
         linkopts,
         # The final output file, uses its name:
         output,
@@ -56,6 +58,8 @@ def create_lto_artifacts_and_lto_indexing_action(
         cc_toolchain: (CcToolchainInfo) CcToolchainInfo provider to be used.
         compilation_outputs: (CompilationOutputs) Compilation outputs containing object files
             to link.
+        static_libraries_to_link: (list[LibraryToLink]) The libraries to link in statically.
+        prefer_pic_libs: (bool) Prefers selection of PIC static libraries over non PIC.
         libraries: (list[LegacyLinkerInput]) The libraries to link in.
         linkopts: (list[str]) Additional list of linker options.
         variables_extensions: (dict[str, str|list[str]|depset[str]]) Additional variables to pass to
@@ -99,9 +103,10 @@ def create_lto_artifacts_and_lto_indexing_action(
         object_file_inputs,
         lto_output_root_prefix,
         lto_obj_root_prefix,
-        depset(libraries),
+        static_libraries_to_link,
         allow_lto_indexing,
         include_link_static_in_lto_indexing,
+        prefer_pic_libs,
     )
     if allow_lto_indexing:
         thinlto_param_file, thinlto_merged_object_file = _lto_indexing_action(
@@ -113,7 +118,7 @@ def create_lto_artifacts_and_lto_indexing_action(
             variables_extensions = variables_extensions,
             output = output,
             link_type = link_type,
-            libraries = libraries,
+            libraries = libraries,  # deprecated
             use_pic = use_pic,
             linking_mode = linking_mode,
             all_lto_artifacts = all_lto_artifacts,
