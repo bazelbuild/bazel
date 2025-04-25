@@ -392,7 +392,7 @@ Lastly, you want to include the smoothie as a dependency in the Chef’s `BUILD`
 **`src/main/java/com/example/restaurant/BUILD`**
 
 ```
-java\_library(
+java_library(
     name = "chef",
     visibility = ["//visibility:public"],
     srcs = [
@@ -406,7 +406,7 @@ java\_library(
     ],
 )
 
-java\_library(
+java_library(
     name = "cafe",
     visibility = ["//visibility:public"],
     srcs = [
