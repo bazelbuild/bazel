@@ -61,7 +61,6 @@ import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver;
-import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.RxUtils;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -110,7 +109,6 @@ public class UploadManifest {
   private Digest stdoutDigest;
 
   public static UploadManifest create(
-      RemoteOptions remoteOptions,
       CacheCapabilities cacheCapabilities,
       DigestUtil digestUtil,
       RemotePathResolver remotePathResolver,
@@ -298,17 +296,9 @@ public class UploadManifest {
   }
 
   /** Map of digests to file paths to upload. */
+  @VisibleForTesting
   public Map<Digest, Path> getDigestToFile() {
     return digestToFile;
-  }
-
-  /**
-   * Map of digests to chunkers to upload. When the file is a regular, non-directory file it is
-   * transmitted through {@link #getDigestToFile()}. When it is a directory, it is transmitted as a
-   * {@link Tree} protobuf message through {@link #getDigestToBlobs()}.
-   */
-  public Map<Digest, ByteString> getDigestToBlobs() {
-    return digestToBlobs;
   }
 
   @Nullable
