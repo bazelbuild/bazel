@@ -47,6 +47,8 @@ public class LibrariesToLinkCollector {
   private static final OsPathPolicy OS = OsPathPolicy.getFilePathOs();
   private static final Joiner PATH_JOINER = Joiner.on(PathFragment.SEPARATOR_CHAR);
 
+  private final boolean preferStaticLibs;
+  private final boolean preferPicLibs;
   private final boolean isNativeDeps;
   private final PathFragment toolchainLibrariesSolibDir;
   private final CcToolchainProvider ccToolchainProvider;
@@ -77,10 +79,22 @@ public class LibrariesToLinkCollector {
       boolean allowLtoIndexing,
       Sequence<Artifact> objectFileInputs,
       Sequence<Artifact> linkstampObjectFileInputs,
-      Iterable<LegacyLinkerInput> linkerInputs,
+      Sequence<LibraryToLink> librariesToLink,
       boolean needWholeArchive,
       String workspaceName,
       Artifact dynamicLibrarySolibSymlinkOutput) {
+    // When selecting libraries to link, we prefer static or dynamic libraries based on the static
+    // or dynamic linking mode.
+    // When C++ toolchain doesn't `supports_dynamic_linker`,  toolchain can't produce binaries that
+    // load shared libraries at runtime, then we can only link static libraries.
+
+    this.preferStaticLibs =
+        linkingMode == LinkingMode.STATIC
+            || !featureConfiguration.isEnabled(CppRuleClasses.SUPPORTS_DYNAMIC_LINKER);
+
+    // TODO(b/412540147): We select PIC libraries iff creating a dynamic library. This doesn't
+    // match PIC flag.
+    this.preferPicLibs = linkType.isDynamicLibrary();
     this.isNativeDeps = isNativeDeps;
     this.ccToolchainProvider = toolchain;
     this.toolchainLibrariesSolibDir = toolchainLibrariesSolibDir;
@@ -90,7 +104,9 @@ public class LibrariesToLinkCollector {
     this.allowLtoIndexing = allowLtoIndexing;
     this.objectFileInputs = objectFileInputs;
     this.linkstampObjectFileInputs = linkstampObjectFileInputs;
-    this.linkerInputs = linkerInputs;
+    this.linkerInputs =
+        CcStarlarkInternal.convertLibraryToLinkListToLinkerInputList(
+            librariesToLink, preferStaticLibs, preferPicLibs);
     this.needWholeArchive = needWholeArchive;
     this.output = output;
     this.workspaceName = workspaceName;

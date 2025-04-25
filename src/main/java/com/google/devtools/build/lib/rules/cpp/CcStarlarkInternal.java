@@ -705,19 +705,8 @@ public class CcStarlarkInternal implements StarlarkValue {
     return StarlarkList.immutableCopyOf(staticLibraries.build());
   }
 
-  @StarlarkMethod(
-      name = "convert_library_to_link_list_to_linker_input_list",
-      documented = false,
-      parameters = {
-        @Param(name = "libraries_to_link"),
-        @Param(name = "prefer_static_libs"),
-        @Param(name = "prefer_pic_libs"),
-      })
-  public StarlarkList<LibraryInput> convertLibraryToLinkListToLinkerInputList(
-      Sequence<?> librariesToLinkSeq, boolean preferStaticLibs, boolean preferPicLibs)
-      throws EvalException {
-    Sequence<LibraryToLink> librariesToLink =
-        Sequence.cast(librariesToLinkSeq, LibraryToLink.class, "libraries_to_link");
+  public static StarlarkList<LibraryInput> convertLibraryToLinkListToLinkerInputList(
+      Sequence<LibraryToLink> librariesToLink, boolean preferStaticLibs, boolean preferPicLibs) {
     ImmutableList.Builder<LibraryInput> libraryInputsBuilder = ImmutableList.builder();
     for (LibraryToLink libraryToLink : librariesToLink) {
       LibraryInput libraryInputToUse;
@@ -745,7 +734,7 @@ public class CcStarlarkInternal implements StarlarkValue {
       parameters = {
         @Param(name = "object_file_inputs"),
         @Param(name = "linkstamp_object_file_inputs"),
-        @Param(name = "linker_inputs"),
+        @Param(name = "libraries_to_link"),
         @Param(name = "cc_toolchain"),
         @Param(name = "feature_configuration"),
         @Param(name = "output"),
@@ -763,7 +752,7 @@ public class CcStarlarkInternal implements StarlarkValue {
   public StructImpl collectLibrariesToLink(
       Sequence<?> objectFileInputs,
       Sequence<?> linkstampObjectFileInputs,
-      Sequence<?> linkerInputs,
+      Sequence<?> librariesToLink,
       StarlarkInfo ccToolchain,
       FeatureConfigurationForStarlark featureConfiguration,
       Artifact output,
@@ -794,7 +783,7 @@ public class CcStarlarkInternal implements StarlarkValue {
             Sequence.cast(objectFileInputs, Artifact.class, "object_file_inputs"),
             Sequence.cast(
                 linkstampObjectFileInputs, Artifact.class, "linkstamp_object_file_inputs"),
-            Sequence.cast(linkerInputs, LegacyLinkerInput.class, "linker_inputs"),
+            Sequence.cast(librariesToLink, LibraryToLink.class, "librariesToLink"),
             needWholeArchive,
             workspaceName,
             dynamicLibrarySolibSymlinkOutput == Starlark.NONE

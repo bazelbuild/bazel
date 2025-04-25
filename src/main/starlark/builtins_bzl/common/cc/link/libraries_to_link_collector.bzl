@@ -33,7 +33,7 @@ LINKING_MODE = struct(
 def collect_libraries_to_link(
         object_file_inputs,
         linkstamp_object_file_inputs,
-        linker_inputs,
+        libraries_to_link,
         cc_toolchain,
         feature_configuration,
         output,
@@ -49,8 +49,7 @@ def collect_libraries_to_link(
         workspace_name):
     """Goes over LegacyLinkerInputs and produces LibraryToLinkValue-s and rpaths.
 
-    LegacyLinkerInputs are produced by convert_linker_inputs.bzl. LibraryToLinkValues are consumed
-    by link_build_variables.bzl.
+    LibraryToLinkValues are consumed by link_build_variables.bzl.
 
     When linking a shared library fully or mostly static then we need to link in *all* dependent
     files, not just what the shared library needs for its own code. This is done by wrapping all
@@ -61,7 +60,7 @@ def collect_libraries_to_link(
     Args:
       object_file_inputs: (list[File]) Direct object files
       linkstamp_object_file_inputs: (list[File]) Linkstamp object files
-      linker_inputs: (list[LegacyLinkerInput]) Linker inputs, just the libraries.
+      libraries_to_link: (list[LibraryToLink]) Libraries to link in.
       cc_toolchain: cc_toolchain providing some extra information in the conversion.
       feature_configuration: Feature configuration to be queried.
       output: (File) The linker's output.
@@ -94,7 +93,7 @@ def collect_libraries_to_link(
     return cc_internal.collect_libraries_to_link(
         object_file_inputs,
         linkstamp_object_file_inputs,
-        linker_inputs,
+        libraries_to_link,
         cc_toolchain,
         feature_configuration,
         output,
