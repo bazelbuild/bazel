@@ -37,6 +37,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 
 // LINT.IfChange
@@ -51,6 +52,9 @@ public class LibrariesToLinkCollector {
   private final CcToolchainProvider ccToolchainProvider;
   private final Map<Artifact, Artifact> ltoMapping;
   private final PathFragment solibDir;
+
+  private final Sequence<Artifact> objectFileInputs;
+  private final Sequence<Artifact> linkstampObjectFileInputs;
   private final Iterable<? extends LegacyLinkerInput> linkerInputs;
   private final boolean allowLtoIndexing;
   private final FeatureConfiguration featureConfiguration;
@@ -71,6 +75,8 @@ public class LibrariesToLinkCollector {
       Map<Artifact, Artifact> ltoMapping,
       FeatureConfiguration featureConfiguration,
       boolean allowLtoIndexing,
+      Sequence<Artifact> objectFileInputs,
+      Sequence<Artifact> linkstampObjectFileInputs,
       Iterable<LegacyLinkerInput> linkerInputs,
       boolean needWholeArchive,
       String workspaceName,
@@ -82,6 +88,8 @@ public class LibrariesToLinkCollector {
     this.ltoMapping = ltoMapping;
     this.featureConfiguration = featureConfiguration;
     this.allowLtoIndexing = allowLtoIndexing;
+    this.objectFileInputs = objectFileInputs;
+    this.linkstampObjectFileInputs = linkstampObjectFileInputs;
     this.linkerInputs = linkerInputs;
     this.needWholeArchive = needWholeArchive;
     this.output = output;
@@ -473,6 +481,25 @@ public class LibrariesToLinkCollector {
     boolean includeSolibDir = false;
     boolean includeToolchainLibrariesSolibDir = false;
     Map<String, PathFragment> linkedLibrariesPaths = new HashMap<>();
+
+    for (Artifact input : objectFileInputs) {
+      addStaticInputLinkOptions(
+          LegacyLinkerInputs.simpleLinkerInput(
+              input,
+              ArtifactCategory.OBJECT_FILE,
+              /* disableWholeArchive= */ false,
+              input.getRootRelativePathString()),
+          ltoMap,
+          librariesToLink,
+          expandedLinkerInputsBuilder);
+    }
+    for (Artifact input : linkstampObjectFileInputs) {
+      addStaticInputLinkOptions(
+          LegacyLinkerInputs.linkstampLinkerInput(input),
+          ltoMap,
+          librariesToLink,
+          expandedLinkerInputsBuilder);
+    }
 
     for (LegacyLinkerInput input : linkerInputs) {
       if (input.getArtifactCategory() == ArtifactCategory.DYNAMIC_LIBRARY

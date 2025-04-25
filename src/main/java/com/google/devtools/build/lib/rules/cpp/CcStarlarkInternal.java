@@ -809,25 +809,6 @@ public class CcStarlarkInternal implements StarlarkValue {
       String workspaceName,
       StarlarkThread thread)
       throws EvalException {
-    ImmutableList.Builder<LegacyLinkerInput> nonExpandedLinkerInputs = ImmutableList.builder();
-    nonExpandedLinkerInputs.addAll(
-        Sequence.cast(objectFileInputs, Artifact.class, "object_file_inputs").stream()
-            .map(
-                input ->
-                    LegacyLinkerInputs.simpleLinkerInput(
-                        input,
-                        ArtifactCategory.OBJECT_FILE,
-                        /* disableWholeArchive= */ false,
-                        input.getRootRelativePathString()))
-            .collect(toImmutableList()));
-    nonExpandedLinkerInputs.addAll(
-        Sequence.cast(linkstampObjectFileInputs, Artifact.class, "linkstamp_object_file_inputs")
-            .stream()
-            .map(LegacyLinkerInputs::linkstampLinkerInput)
-            .collect(toImmutableList()));
-    nonExpandedLinkerInputs.addAll(
-        Sequence.cast(linkerInputs, LegacyLinkerInput.class, "linker_inputs"));
-
     LibrariesToLinkCollector librariesToLinkCollector =
         new LibrariesToLinkCollector(
             isNativeDeps,
@@ -840,7 +821,10 @@ public class CcStarlarkInternal implements StarlarkValue {
             Dict.cast(ltoMapping, Artifact.class, Artifact.class, "lto_mapping"),
             featureConfiguration.getFeatureConfiguration(),
             allowLtoIndexing,
-            nonExpandedLinkerInputs.build(),
+            Sequence.cast(objectFileInputs, Artifact.class, "object_file_inputs"),
+            Sequence.cast(
+                linkstampObjectFileInputs, Artifact.class, "linkstamp_object_file_inputs"),
+            Sequence.cast(linkerInputs, LegacyLinkerInput.class, "linker_inputs"),
             needWholeArchive,
             workspaceName,
             dynamicLibrarySolibSymlinkOutput == Starlark.NONE
