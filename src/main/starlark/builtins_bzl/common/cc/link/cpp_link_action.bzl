@@ -43,9 +43,6 @@ def link_action(
         linkstamps,
         linkopts,
         non_code_inputs,
-        # TODO(b/331164666): merge into libraries or additional_object_files
-        toolchain_libraries_type,
-        toolchain_libraries_input,
 
         # Custom user input/output files and variables:
         additional_linker_inputs,  # TODO(b/331164666): rename to linker_input_files
@@ -96,8 +93,6 @@ def link_action(
         linkstamps: (list[Linkstamp]) The linkstamps to use.
         linkopts: (list[str]) Additional list of linker options.
         non_code_inputs: (list[File]) Additional inputs to the linker.
-        toolchain_libraries_type: (artifact_category) Type of toolchain libraries.
-        toolchain_libraries_input: (depset[File]) Toolchain libraries.
         additional_linker_inputs: (list[File]|depset[File]) For additional inputs to the linking action,
           e.g.: linking scripts.
         link_action_outputs: (list[File]) For additional outputs to the linking action, e.g.: map files.
@@ -226,8 +221,6 @@ def link_action(
         linkstamp_map,
         linkstamp_object_artifacts,
         linkstamp_object_file_inputs,
-        toolchain_libraries_type,
-        toolchain_libraries_input,
         user_link_flags,
         # Custom user input files and variables:
         additional_linker_inputs,

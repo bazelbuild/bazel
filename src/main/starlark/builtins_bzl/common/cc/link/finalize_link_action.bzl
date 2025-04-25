@@ -38,8 +38,6 @@ def finalize_link_action(
         linkstamp_map,
         linkstamp_object_artifacts,
         linkstamp_object_file_inputs,
-        toolchain_libraries_type,
-        toolchain_libraries_input,
         user_link_flags,
         # Custom user input files and variables:
         additional_linker_inputs,
@@ -81,8 +79,6 @@ def finalize_link_action(
         linkstamp_map: (dict[Linkstamp, File]) Map from linkstamps to their object files.
         linkstamp_object_artifacts: (list[File]) Linkstamp object files.
         linkstamp_object_file_inputs: (list[File]) Linkstamp object files wrapped into LinkerInputs.
-        toolchain_libraries_type: (artifact_category) Type of toolchain libraries.
-        toolchain_libraries_input: (depset[File]) Toolchain libraries.
         user_link_flags: (list[str]) Additional list of linker options.
         additional_linker_inputs: (list[File]|depset[File]) For additional inputs to the linking action,
                   e.g.: linking scripts.
@@ -117,13 +113,6 @@ def finalize_link_action(
 
     # Linker inputs without any start/end lib expansions.
     non_expanded_linker_inputs = list(unique_libraries)
-
-    # Adding toolchain libraries without whole archive no-matter-what. People don't want to
-    # include whole libstdc++ in their binary ever.
-    non_expanded_linker_inputs.extend([
-        cc_internal.simple_linker_input(input, toolchain_libraries_type, True)
-        for input in toolchain_libraries_input.to_list()
-    ])
 
     solib_dir = output.root.path + "/" + cc_toolchain._solib_dir
     collected_libraries_to_link = collect_libraries_to_link(

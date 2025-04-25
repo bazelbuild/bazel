@@ -20,7 +20,6 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -260,7 +259,7 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact, LtoBac
         dynamicLibrary,
         ArtifactCategory.DYNAMIC_LIBRARY,
         getLibraryIdentifier(),
-        /* objectFiles= */ ImmutableSet.of(),
+        /* objectFiles= */ ImmutableList.of(),
         LtoCompilationContext.EMPTY,
         /* sharedNonLtoBackends= */ ImmutableMap.of(),
         getMustKeepDebug(),
@@ -281,7 +280,7 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact, LtoBac
         interfaceLibrary,
         ArtifactCategory.INTERFACE_LIBRARY,
         getLibraryIdentifier(),
-        /* objectFiles= */ ImmutableSet.of(),
+        /* objectFiles= */ ImmutableList.of(),
         LtoCompilationContext.EMPTY,
         /* sharedNonLtoBackends= */ ImmutableMap.of(),
         getMustKeepDebug(),

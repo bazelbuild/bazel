@@ -167,8 +167,6 @@ def create_cc_link_actions(
         # Inputs from linking_contexts and toolchain:
         linkopts = [],
         non_code_inputs = [],
-        toolchain_libraries_type = "",
-        toolchain_libraries_input = depset(),
 
         # Custom user input/output files and variables:
         additional_linker_inputs = additional_linker_inputs,
@@ -312,14 +310,27 @@ def _create_dynamic_link_actions(
     mnemonic = "ObjcLink" if dynamic_link_type == LINK_TARGET_TYPE.OBJC_EXECUTABLE else None
 
     if linking_mode == LINKING_MODE.DYNAMIC:
-        link_action_kwargs["toolchain_libraries_type"] = LINK_TARGET_TYPE.DYNAMIC_LIBRARY.linker_output
-        link_action_kwargs["toolchain_libraries_input"] = cc_toolchain.dynamic_runtime_lib(feature_configuration = feature_configuration)
+        toolchain_libraries = [cc_internal.create_library_to_link(
+            struct(
+                library_identifier = lib.path,
+                dynamic_library = lib,
+                disable_whole_archive = True,
+            ),
+        ) for lib in cc_toolchain.dynamic_runtime_lib(feature_configuration = feature_configuration).to_list()]
     else:
-        link_action_kwargs["toolchain_libraries_type"] = LINK_TARGET_TYPE.STATIC_LIBRARY.linker_output
-        link_action_kwargs["toolchain_libraries_input"] = cc_toolchain.static_runtime_lib(feature_configuration = feature_configuration)
+        toolchain_libraries = [cc_internal.create_library_to_link(
+            struct(
+                library_identifier = lib.path,
+                static_library = lib,
+                # Adding toolchain libraries without whole archive no-matter-what. People don't want to
+                # include whole libstdc++ in their binary ever.
+                disable_whole_archive = True,
+            ),
+        ) for lib in cc_toolchain.static_runtime_lib(feature_configuration = feature_configuration).to_list()]
 
     libraries_to_link, linkstamps, linkopts, non_code_inputs = \
         _maybe_link_transitively(feature_configuration, dynamic_link_type, linking_mode, linking_contexts)
+    libraries_to_link.extend(toolchain_libraries)
     if linkopts:
         link_action_kwargs["linkopts"].extend(linkopts)
     if non_code_inputs:

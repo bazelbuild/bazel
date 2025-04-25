@@ -198,9 +198,11 @@ public class CppLinkActionBuilder {
     Set<Artifact> compiled = new LinkedHashSet<>();
     for (LibraryToLink lib : staticLibrariesToLink) {
       boolean pic = lib.getEffectivePic(preferPicLibs);
-      compiled.addAll(
-          (pic ? lib.getPicLtoCompilationContext() : lib.getLtoCompilationContext())
-              .getBitcodeFiles());
+      LtoCompilationContext context =
+          (pic ? lib.getPicLtoCompilationContext() : lib.getLtoCompilationContext());
+      if (context != null) {
+        compiled.addAll(context.getBitcodeFiles());
+      }
     }
 
     // Make this a NestedSet to return from LtoBackendAction.getAllowedDerivedInputs. For M binaries
