@@ -643,19 +643,6 @@ public class CcStarlarkInternal implements StarlarkValue {
   }
 
   @StarlarkMethod(
-      name = "solib_linker_input",
-      documented = false,
-      parameters = {
-        @Param(name = "solib_symlink", named = true),
-        @Param(name = "original", named = true),
-        @Param(name = "library_identifier", named = true),
-      })
-  public LegacyLinkerInput solibLinkerInput(
-      Artifact solibSymlink, Artifact original, String libraryIdentifier) throws EvalException {
-    return LegacyLinkerInputs.solibLibraryInput(solibSymlink, original, libraryIdentifier);
-  }
-
-  @StarlarkMethod(
       name = "get_link_args",
       documented = false,
       parameters = {
@@ -705,67 +692,35 @@ public class CcStarlarkInternal implements StarlarkValue {
       boolean forDynamicLibrary,
       boolean supportsDynamicLinker)
       throws EvalException {
-    // LINT.IfChange
     Sequence<LibraryToLink> librariesToLink =
         Sequence.cast(librariesToLinkSeq, LibraryToLink.class, "libraries_to_link");
 
+    // When selecting libraries to link, we prefer static or dynamic libraries based on the static
+    // or dynamic linking mode. If dynamic linking is not supported, we fall back to selecting
+    // static libraries.
+    boolean preferStaticLibs = staticMode || !supportsDynamicLinker;
+    // TODO(b/412540147) We select PIC libraries iff creating a dynamic library.
+    //  It doesn't match PIC flag.
+    boolean preferPicLibs = forDynamicLibrary;
+
     ImmutableList.Builder<LibraryInput> libraryInputsBuilder = ImmutableList.builder();
     for (LibraryToLink libraryToLink : librariesToLink) {
-      LibraryInput staticLibraryInput =
-          libraryToLink.getStaticLibrary() == null ? null : libraryToLink.getStaticLibraryInput();
-      LibraryInput picStaticLibraryInput =
-          libraryToLink.getPicStaticLibrary() == null
-              ? null
-              : libraryToLink.getPicStaticLibraryInput();
-      LibraryInput libraryInputToUse = null;
-      if (staticMode) {
-        if (forDynamicLibrary) {
-          if (picStaticLibraryInput != null) {
-            libraryInputToUse = picStaticLibraryInput;
-          } else if (staticLibraryInput != null) {
-            libraryInputToUse = staticLibraryInput;
-          }
-        } else {
-          if (staticLibraryInput != null) {
-            libraryInputToUse = staticLibraryInput;
-          } else if (picStaticLibraryInput != null) {
-            libraryInputToUse = picStaticLibraryInput;
-          }
-        }
+      LibraryInput libraryInputToUse;
+      if (preferStaticLibs) {
+        libraryInputToUse = libraryToLink.getStaticLibraryInput(preferPicLibs);
         if (libraryInputToUse == null) {
-          if (libraryToLink.getInterfaceLibrary() != null) {
-            libraryInputToUse = libraryToLink.getInterfaceLibraryInput();
-          } else if (libraryToLink.getDynamicLibrary() != null) {
-            libraryInputToUse = libraryToLink.getDynamicLibraryInput();
-          }
+          libraryInputToUse = libraryToLink.getInterfaceOrDynamicLibraryInput();
         }
       } else {
-        if (libraryToLink.getInterfaceLibrary() != null) {
-          libraryInputToUse = libraryToLink.getInterfaceLibraryInput();
-        } else if (libraryToLink.getDynamicLibrary() != null) {
-          libraryInputToUse = libraryToLink.getDynamicLibraryInput();
-        }
-        if (libraryInputToUse == null || !supportsDynamicLinker) {
-          if (forDynamicLibrary) {
-            if (picStaticLibraryInput != null) {
-              libraryInputToUse = picStaticLibraryInput;
-            } else if (staticLibraryInput != null) {
-              libraryInputToUse = staticLibraryInput;
-            }
-          } else {
-            if (staticLibraryInput != null) {
-              libraryInputToUse = staticLibraryInput;
-            } else if (picStaticLibraryInput != null) {
-              libraryInputToUse = picStaticLibraryInput;
-            }
-          }
+        libraryInputToUse = libraryToLink.getInterfaceOrDynamicLibraryInput();
+        if (libraryInputToUse == null) {
+          libraryInputToUse = libraryToLink.getStaticLibraryInput(preferPicLibs);
         }
       }
       Preconditions.checkNotNull(libraryInputToUse);
       libraryInputsBuilder.add(libraryInputToUse);
     }
     return StarlarkList.copyOf(Mutability.IMMUTABLE, libraryInputsBuilder.build());
-    // LINT.ThenChange(//src/main/starlark/builtins_bzl/common/cc/link/convert_linker_inputs.bzl)
   }
 
   @StarlarkMethod(

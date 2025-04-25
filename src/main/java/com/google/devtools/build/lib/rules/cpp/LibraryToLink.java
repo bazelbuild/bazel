@@ -221,39 +221,36 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact, LtoBac
     return backends != null ? Dict.immutableCopyOf(backends) : null;
   }
 
-  // TODO(b/331164666): This can be removed after cc_common.link is in Starlark
-  LibraryInput getStaticLibraryInput() {
+  private boolean getEffectivePic(boolean preferPicLibs) {
+    return (preferPicLibs && getPicStaticLibrary() != null) || getStaticLibrary() == null;
+  }
+
+  @Nullable
+  LibraryInput getStaticLibraryInput(boolean preferPicLibs) {
+    boolean pic = getEffectivePic(preferPicLibs);
+    Artifact library = pic ? getPicStaticLibrary() : getStaticLibrary();
+    if (library == null) {
+      return null;
+    }
     return LegacyLinkerInputs.newInputLibrary(
-        Preconditions.checkNotNull(getStaticLibrary(), this),
+        library,
         getAlwayslink()
             ? ArtifactCategory.ALWAYSLINK_STATIC_LIBRARY
             : ArtifactCategory.STATIC_LIBRARY,
         getLibraryIdentifier(),
-        getObjectFiles(),
-        getLtoCompilationContext(),
-        getSharedNonLtoBackends(),
+        pic ? getPicObjectFiles() : getObjectFiles(),
+        pic ? getPicLtoCompilationContext() : getLtoCompilationContext(),
+        pic ? getPicSharedNonLtoBackends() : getSharedNonLtoBackends(),
         getMustKeepDebug(),
         getDisableWholeArchive());
   }
 
-  // TODO(b/331164666): This can be removed after cc_common.link is in Starlark
-  LibraryInput getPicStaticLibraryInput() {
-    return LegacyLinkerInputs.newInputLibrary(
-        Preconditions.checkNotNull(getPicStaticLibrary(), this),
-        getAlwayslink()
-            ? ArtifactCategory.ALWAYSLINK_STATIC_LIBRARY
-            : ArtifactCategory.STATIC_LIBRARY,
-        getLibraryIdentifier(),
-        getPicObjectFiles(),
-        getPicLtoCompilationContext(),
-        getPicSharedNonLtoBackends(),
-        getMustKeepDebug(),
-        getDisableWholeArchive());
-  }
-
-  // TODO(b/331164666): This can be removed after cc_common.link is in Starlark
-  LibraryInput getDynamicLibraryInput() {
-    Artifact dynamicLibrary = Preconditions.checkNotNull(getDynamicLibrary(), this);
+  @Nullable
+  private LibraryInput getDynamicLibraryInput() {
+    Artifact dynamicLibrary = getDynamicLibrary();
+    if (dynamicLibrary == null) {
+      return null;
+    }
     if (getResolvedSymlinkDynamicLibrary() != null) {
       return LegacyLinkerInputs.solibLibraryInput(
           dynamicLibrary, getResolvedSymlinkDynamicLibrary(), getLibraryIdentifier());
@@ -269,9 +266,12 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact, LtoBac
         getDisableWholeArchive());
   }
 
-  // TODO(b/331164666): This can be removed after cc_common.link is in Starlark
-  LibraryInput getInterfaceLibraryInput() {
-    Artifact interfaceLibrary = Preconditions.checkNotNull(getInterfaceLibrary(), this);
+  @Nullable
+  LibraryInput getInterfaceOrDynamicLibraryInput() {
+    Artifact interfaceLibrary = getInterfaceLibrary();
+    if (interfaceLibrary == null) {
+      return getDynamicLibraryInput();
+    }
     if (getResolvedSymlinkInterfaceLibrary() != null) {
       return LegacyLinkerInputs.solibLibraryInput(
           interfaceLibrary, getResolvedSymlinkInterfaceLibrary(), getLibraryIdentifier());
@@ -416,26 +416,9 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact, LtoBac
 
     @Memoized
     @Override
-    LibraryInput getStaticLibraryInput() {
-      return super.getStaticLibraryInput();
-    }
-
-    @Memoized
-    @Override
-    LibraryInput getPicStaticLibraryInput() {
-      return super.getPicStaticLibraryInput();
-    }
-
-    @Memoized
-    @Override
-    LibraryInput getDynamicLibraryInput() {
-      return super.getDynamicLibraryInput();
-    }
-
-    @Memoized
-    @Override
-    LibraryInput getInterfaceLibraryInput() {
-      return super.getInterfaceLibraryInput();
+    @Nullable
+    LibraryInput getInterfaceOrDynamicLibraryInput() {
+      return super.getInterfaceOrDynamicLibraryInput();
     }
 
     @AutoValue.Builder
