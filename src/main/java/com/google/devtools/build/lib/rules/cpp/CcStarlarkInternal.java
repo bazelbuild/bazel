@@ -794,7 +794,7 @@ public class CcStarlarkInternal implements StarlarkValue {
         Dict.immutableCopyOf(
             ImmutableMap.of(
                 "libraries_to_link",
-                    StarlarkList.immutableCopyOf(libs.getLibrariesToLink().getValues()),
+                    StarlarkList.immutableCopyOf(libs.getLibrariesToLinkValues().getValues()),
                 "expanded_linker_inputs",
                     StarlarkList.immutableCopyOf(libs.getExpandedLinkerInputs().toList()),
                 "library_search_directories",

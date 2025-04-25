@@ -123,24 +123,24 @@ public class LibrariesToLinkCollector {
    * computed sequence of {@link LibraryToLinkValue}s and accompanying library search directories.
    */
   public static class CollectedLibrariesToLink {
-    private final SequenceBuilder librariesToLink;
+    private final SequenceBuilder librariesToLinkValues;
     private final NestedSet<Artifact> expandedLinkerInputs;
     private final NestedSet<String> librarySearchDirectories;
     private final NestedSet<String> runtimeLibrarySearchDirectories;
 
     private CollectedLibrariesToLink(
-        SequenceBuilder librariesToLink,
+        SequenceBuilder librariesToLinkValues,
         NestedSet<Artifact> expandedLinkerInputs,
         NestedSet<String> librarySearchDirectories,
         NestedSet<String> runtimeLibrarySearchDirectories) {
-      this.librariesToLink = librariesToLink;
+      this.librariesToLinkValues = librariesToLinkValues;
       this.expandedLinkerInputs = expandedLinkerInputs;
       this.librarySearchDirectories = librarySearchDirectories;
       this.runtimeLibrarySearchDirectories = runtimeLibrarySearchDirectories;
     }
 
-    public SequenceBuilder getLibrariesToLink() {
-      return librariesToLink;
+    public SequenceBuilder getLibrariesToLinkValues() {
+      return librariesToLinkValues;
     }
 
     public NestedSet<Artifact> getExpandedLinkerInputs() {
@@ -424,7 +424,7 @@ public class LibrariesToLinkCollector {
     NestedSetBuilder<Artifact> expandedLinkerInputsBuilder = NestedSetBuilder.linkOrder();
     // List of command line parameters that need to be placed *outside* of
     // --whole-archive ... --no-whole-archive.
-    SequenceBuilder librariesToLink = new SequenceBuilder();
+    SequenceBuilder librariesToLinkValues = new SequenceBuilder();
 
     ImmutableList<String> potentialSolibParents;
     ImmutableList<String> rpathRoots;
@@ -460,7 +460,7 @@ public class LibrariesToLinkCollector {
             ltoMap,
             librarySearchDirectories,
             rpathRootsForExplicitSoDeps,
-            librariesToLink,
+            librariesToLinkValues,
             expandedLinkerInputsBuilder);
     boolean includeSolibDir = includeSolibsPair.first;
     boolean includeToolchainLibrariesSolibDir = includeSolibsPair.second;
@@ -480,7 +480,7 @@ public class LibrariesToLinkCollector {
     }
 
     return new CollectedLibrariesToLink(
-        librariesToLink,
+        librariesToLinkValues,
         expandedLinkerInputsBuilder.build(),
         librarySearchDirectories.build(),
         allRuntimeLibrarySearchDirectories.build());
@@ -491,7 +491,7 @@ public class LibrariesToLinkCollector {
       Map<Artifact, Artifact> ltoMap,
       NestedSetBuilder<String> librarySearchDirectories,
       ImmutableSet.Builder<String> rpathRootsForExplicitSoDeps,
-      SequenceBuilder librariesToLink,
+      SequenceBuilder librariesToLinkValues,
       NestedSetBuilder<Artifact> expandedLinkerInputsBuilder)
       throws EvalException {
     boolean includeSolibDir = false;
@@ -499,11 +499,13 @@ public class LibrariesToLinkCollector {
     Map<String, PathFragment> linkedLibrariesPaths = new HashMap<>();
 
     for (Artifact input : objectFileInputs) {
-      addObjectFileInputLinkOptions(input, ltoMap, librariesToLink, expandedLinkerInputsBuilder);
+      addObjectFileInputLinkOptions(
+          input, ltoMap, librariesToLinkValues, expandedLinkerInputsBuilder);
       expandedLinkerInputsBuilder.add(input);
     }
     for (Artifact input : linkstampObjectFileInputs) {
-      addObjectFileInputLinkOptions(input, ltoMap, librariesToLink, expandedLinkerInputsBuilder);
+      addObjectFileInputLinkOptions(
+          input, ltoMap, librariesToLinkValues, expandedLinkerInputsBuilder);
     }
 
     for (LegacyLinkerInput input : linkerInputs) {
@@ -542,13 +544,14 @@ public class LibrariesToLinkCollector {
         }
         addDynamicInputLinkOptions(
             input,
-            librariesToLink,
+            librariesToLinkValues,
             expandedLinkerInputsBuilder,
             librarySearchDirectories,
             rpathRoots,
             rpathRootsForExplicitSoDeps);
       } else {
-        addStaticInputLinkOptions(input, ltoMap, librariesToLink, expandedLinkerInputsBuilder);
+        addStaticInputLinkOptions(
+            input, ltoMap, librariesToLinkValues, expandedLinkerInputsBuilder);
       }
     }
     return Pair.of(includeSolibDir, includeToolchainLibrariesSolibDir);
@@ -557,11 +560,11 @@ public class LibrariesToLinkCollector {
   /**
    * Adds command-line options for a dynamic library input file into options and libOpts.
    *
-   * @param librariesToLink - a collection that will be exposed as a build variable.
+   * @param librariesToLinkValues - a collection that will be exposed as a build variable.
    */
   private void addDynamicInputLinkOptions(
       LegacyLinkerInput input,
-      SequenceBuilder librariesToLink,
+      SequenceBuilder librariesToLinkValues,
       NestedSetBuilder<Artifact> expandedLinkerInputsBuilder,
       NestedSetBuilder<String> librarySearchDirectories,
       ImmutableList<String> rpathRoots,
@@ -633,17 +636,17 @@ public class LibrariesToLinkCollector {
             || (!name.endsWith(".so") && !name.endsWith(".dylib") && !name.endsWith(".dll"));
     if (CppFileTypes.SHARED_LIBRARY.matches(name) && hasCompatibleName) {
       String libName = name.replaceAll("(^lib|\\.(so|dylib|dll)$)", "");
-      librariesToLink.addValue(LibraryToLinkValue.forDynamicLibrary(libName));
+      librariesToLinkValues.addValue(LibraryToLinkValue.forDynamicLibrary(libName));
     } else if (CppFileTypes.SHARED_LIBRARY.matches(name)
         || CppFileTypes.VERSIONED_SHARED_LIBRARY.matches(name)) {
-      librariesToLink.addValue(
+      librariesToLinkValues.addValue(
           LibraryToLinkValue.forVersionedDynamicLibrary(name, inputArtifact.getExecPathString()));
     } else {
       // Interface shared objects have a non-standard extension
       // that the linker won't be able to find.  So use the
       // filename directly rather than a -l option.  Since the
       // library has an SONAME attribute, this will work fine.
-      librariesToLink.addValue(
+      librariesToLinkValues.addValue(
           LibraryToLinkValue.forInterfaceLibrary(inputArtifact.getExecPathString()));
     }
   }
@@ -651,12 +654,12 @@ public class LibrariesToLinkCollector {
   /**
    * Adds command-line options for a static library or non-library input into options.
    *
-   * @param librariesToLink - a collection that will be exposed as a build variable.
+   * @param librariesToLinkValues - a collection that will be exposed as a build variable.
    */
   private void addStaticInputLinkOptions(
       LegacyLinkerInput input,
       Map<Artifact, Artifact> ltoMap,
-      SequenceBuilder librariesToLink,
+      SequenceBuilder librariesToLinkValues,
       NestedSetBuilder<Artifact> expandedLinkerInputsBuilder)
       throws EvalException {
     ArtifactCategory artifactCategory = input.getArtifactCategory();
@@ -720,20 +723,20 @@ public class LibrariesToLinkCollector {
                 // TODO(b/78189629): This object filegroup is expanded at action time but wrapped
                 // with --start/--end-lib. There's currently no way to force these objects to be
                 // linked in.
-                librariesToLink.addValue(
+                librariesToLinkValues.addValue(
                     LibraryToLinkValue.forObjectFileGroup(
                         ImmutableList.<Artifact>of(member), /* isWholeArchive= */ true));
               } else {
                 // TODO(b/78189629): These each need to be their own LibraryToLinkValue so they're
                 // not wrapped in --start/--end-lib (which lets the linker leave out objects with
                 // unreferenced code).
-                librariesToLink.addValue(
+                librariesToLinkValues.addValue(
                     LibraryToLinkValue.forObjectFile(
                         member.getExecPathString(), /* isWholeArchive= */ true));
               }
             }
           } else {
-            librariesToLink.addValue(
+            librariesToLinkValues.addValue(
                 LibraryToLinkValue.forObjectFileGroup(
                     nonLtoArchiveMembers, /* isWholeArchive= */ false));
           }
@@ -757,7 +760,7 @@ public class LibrariesToLinkCollector {
         inputArtifact = a;
       }
 
-      librariesToLink.addValue(
+      librariesToLinkValues.addValue(
           LibraryToLinkValue.forStaticLibrary(
               inputArtifact.getExecPathString(), inputIsWholeArchive));
       expandedLinkerInputsBuilder.add(input.getArtifact());
@@ -767,7 +770,7 @@ public class LibrariesToLinkCollector {
   private void addObjectFileInputLinkOptions(
       Artifact inputArtifact,
       Map<Artifact, Artifact> ltoMap,
-      SequenceBuilder librariesToLink,
+      SequenceBuilder librariesToLinkValues,
       NestedSetBuilder<Artifact> expandedLinkerInputsBuilder) {
 
     boolean inputIsWholeArchive = needWholeArchive;
@@ -796,11 +799,11 @@ public class LibrariesToLinkCollector {
       inputArtifact = a;
     }
     if (inputArtifact.isTreeArtifact()) {
-      librariesToLink.addValue(
+      librariesToLinkValues.addValue(
           LibraryToLinkValue.forObjectFileGroup(
               ImmutableList.<Artifact>of(inputArtifact), inputIsWholeArchive));
     } else {
-      librariesToLink.addValue(
+      librariesToLinkValues.addValue(
           LibraryToLinkValue.forObjectFile(inputArtifact.getExecPathString(), inputIsWholeArchive));
     }
   }
