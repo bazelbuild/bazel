@@ -164,12 +164,10 @@ def _lto_indexing_action(
         for input in (compilation_outputs.pic_objects if use_pic else compilation_outputs.objects)
     ]
 
-    unique_libraries = []
+    lto_mapping = {}
     for lib in libraries:
         if lib.object_files == None:
-            unique_libraries.append(lib)
             continue
-        new_object_files = []
         for a in lib.object_files:
             # If this link includes object files from another library, that library must be
             # statically linked.
@@ -181,19 +179,12 @@ def _lto_indexing_action(
                     # Include the native object produced by the shared LTO backend in the LTO indexing
                     # step instead of the bitcode file. The LTO indexing step invokes the linker which
                     # must see all objects used to produce the final link output.
-                    new_object_files.append(lto_artifacts.object_file())
+                    lto_mapping[a] = lto_artifacts.object_file()
                     continue
                 elif lib.lto_compilation_context.get_minimized_bitcode_or_self(a) != a:
                     fail(("For artifact '%s' in library '%s': unexpectedly has a shared LTO artifact for " +
                           "bitcode") % (a, lib.file))
-            new_object_files.append(lib.lto_compilation_context.get_minimized_bitcode_or_self(a))
-        unique_libraries.append(cc_internal.library_linker_input(
-            lib.file,
-            lib.artifact_category,
-            lib.library_identifier,
-            new_object_files,
-            lib.lto_compilation_context,
-        ))
+            lto_mapping[a] = lib.lto_compilation_context.get_minimized_bitcode_or_self(a)
 
     # Create artifact for the file that the LTO indexing step will emit
     # object file names into for any that were included in the link as
@@ -253,7 +244,7 @@ def _lto_indexing_action(
         "LTO indexing %{output}",  # progress_message
         # Inputs:
         object_file_inputs = object_file_inputs,
-        unique_libraries = unique_libraries,
+        unique_libraries = libraries,
         linkstamp_map = {},
         linkstamp_object_artifacts = [],
         linkstamp_object_file_inputs = [],
@@ -266,8 +257,10 @@ def _lto_indexing_action(
         dynamic_library_solib_symlink_output = None,
         action_outputs = action_outputs,
         # LTO:
-        lto_mapping = {},
-        allow_lto_indexing = allow_lto_indexing,
+        lto_mapping = lto_mapping,
+        # Counterintuitively allow_lto_indexing is set to False, so that all
+        # lto_mapped libraries are included on the linker command line.
+        allow_lto_indexing = False,
         **link_action_args
     )
 
