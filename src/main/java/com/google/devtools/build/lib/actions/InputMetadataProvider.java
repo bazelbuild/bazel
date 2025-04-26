@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -52,8 +53,19 @@ public interface InputMetadataProvider {
   FileArtifactValue getInputMetadataChecked(ActionInput input)
       throws InterruptedException, IOException, MissingDepExecException;
 
+  /**
+   * Returns the {@link TreeArtifactValue} for the given path, or {@code null} if no such tree
+   * artifact exists.
+   */
   @Nullable
   TreeArtifactValue getTreeMetadata(ActionInput input);
+
+  /**
+   * Returns the {@link TreeArtifactValue} for the tree artifact that contains the given path or
+   * {@code null} if no such tree artifact exists.
+   */
+  @Nullable
+  TreeArtifactValue getTreeMetadataForPrefix(PathFragment execPath);
 
   /**
    * Like {@link #getInputMetadata(ActionInput)}, but assumes that no Skyframe restart is needed.

@@ -96,7 +96,7 @@ public class RemoteOutputService implements OutputService {
       PathFragment execRootFragment,
       String relativeOutputPath,
       ImmutableList<Root> sourceRoots,
-      ActionInputMap inputArtifactData,
+      InputMetadataProvider inputArtifactData,
       Iterable<Artifact> outputArtifacts,
       boolean rewindingEnabled) {
     checkNotNull(actionInputFetcher, "actionInputFetcher");

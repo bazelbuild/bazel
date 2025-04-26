@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.FilesetOutputTree;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.LostInputsActionExecutionException;
 import com.google.devtools.build.lib.actions.OutputChecker;
 import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
@@ -213,7 +214,7 @@ public interface OutputService {
       PathFragment execRootFragment,
       String relativeOutputPath,
       ImmutableList<Root> sourceRoots,
-      ActionInputMap inputArtifactData,
+      InputMetadataProvider inputArtifactData,
       Iterable<Artifact> outputArtifacts,
       boolean rewindingEnabled) {
     return null;

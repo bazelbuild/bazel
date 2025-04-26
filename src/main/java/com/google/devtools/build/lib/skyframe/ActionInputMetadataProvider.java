@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.actions.FilesetOutputTree;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.RunfilesArtifactValue;
 import com.google.devtools.build.lib.actions.RunfilesTree;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.HashMap;
@@ -89,6 +90,12 @@ final class ActionInputMetadataProvider implements InputMetadataProvider {
   @Override
   public TreeArtifactValue getTreeMetadata(ActionInput actionInput) {
     return inputArtifactData.getTreeMetadata(actionInput);
+  }
+
+  @Nullable
+  @Override
+  public TreeArtifactValue getTreeMetadataForPrefix(PathFragment execPath) {
+    return inputArtifactData.getTreeMetadataForPrefix(execPath);
   }
 
   @Nullable

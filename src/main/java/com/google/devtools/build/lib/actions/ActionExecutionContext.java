@@ -172,6 +172,12 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
 
     @Nullable
     @Override
+    public TreeArtifactValue getTreeMetadataForPrefix(PathFragment execPath) {
+      return wrapped.getTreeMetadataForPrefix(execPath);
+    }
+
+    @Nullable
+    @Override
     public ActionInput getInput(String execPath) {
       return wrapped.getInput(execPath);
     }
@@ -318,7 +324,6 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
       InputMetadataProvider actionInputFileCache,
       ActionInputPrefetcher actionInputPrefetcher,
       ActionKeyContext actionKeyContext,
-      OutputMetadataStore outputMetadataStore,
       boolean rewindingEnabled,
       LostInputsCheck lostInputsCheck,
       FileOutErr fileOutErr,
@@ -334,7 +339,7 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
         actionInputFileCache,
         actionInputPrefetcher,
         actionKeyContext,
-        outputMetadataStore,
+        null,
         rewindingEnabled,
         lostInputsCheck,
         fileOutErr,

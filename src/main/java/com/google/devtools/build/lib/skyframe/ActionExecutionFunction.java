@@ -766,7 +766,6 @@ public final class ActionExecutionFunction implements SkyFunction {
                   action,
                   actionLookupData,
                   inputMetadataProvider,
-                  outputMetadataStore,
                   env,
                   evaluator.get(),
                   state.actionFileSystem);

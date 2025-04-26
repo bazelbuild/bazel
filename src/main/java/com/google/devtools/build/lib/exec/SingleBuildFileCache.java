@@ -113,6 +113,12 @@ public class SingleBuildFileCache implements InputMetadataProvider {
     return null;
   }
 
+  @Nullable
+  @Override
+  public TreeArtifactValue getTreeMetadataForPrefix(PathFragment execPath) {
+    return null;
+  }
+
   @Override
   @Nullable
   public FilesetOutputTree getFileset(ActionInput input) {

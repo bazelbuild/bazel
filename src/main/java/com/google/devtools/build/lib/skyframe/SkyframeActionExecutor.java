@@ -43,7 +43,6 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext.LostInputsCh
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionExecutionStatusReporter;
 import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLogBufferPathGenerator;
@@ -431,7 +430,7 @@ public final class SkyframeActionExecutor {
   /** REQUIRES: {@link #actionFileSystemType()} to be not {@code DISABLED}. */
   FileSystem createActionFileSystem(
       String relativeOutputPath,
-      ActionInputMap inputArtifactData,
+      InputMetadataProvider inputArtifactData,
       Iterable<Artifact> outputArtifacts) {
     return outputService.createActionFileSystem(
         executorEngine.getFileSystem(),
@@ -854,7 +853,6 @@ public final class SkyframeActionExecutor {
       Action action,
       ActionLookupData actionLookupData,
       InputMetadataProvider inputMetadataProvider,
-      OutputMetadataStore outputMetadataStore,
       Environment env,
       MemoizingEvaluator evaluator,
       @Nullable FileSystem actionFileSystem)
@@ -879,7 +877,6 @@ public final class SkyframeActionExecutor {
             compositeInputMetadataProvider,
             actionInputPrefetcher,
             actionKeyContext,
-            outputMetadataStore,
             rewindingEnabled,
             lostInputsCheck(actionFileSystem, action, outputService),
             fileOutErr,

@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.util.LinkedHashSet;
 import java.util.Map;
@@ -49,6 +50,13 @@ public final class DelegatingPairInputMetadataProvider implements InputMetadataP
   public TreeArtifactValue getTreeMetadata(ActionInput actionInput) {
     TreeArtifactValue metadata = primary.getTreeMetadata(actionInput);
     return metadata != null ? metadata : secondary.getTreeMetadata(actionInput);
+  }
+
+  @Nullable
+  @Override
+  public TreeArtifactValue getTreeMetadataForPrefix(PathFragment execPath) {
+    TreeArtifactValue metadata = primary.getTreeMetadataForPrefix(execPath);
+    return metadata != null ? metadata : secondary.getTreeMetadataForPrefix(execPath);
   }
 
   @Override

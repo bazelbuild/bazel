@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.MissingDepExecException;
 import com.google.devtools.build.lib.actions.RunfilesArtifactValue;
 import com.google.devtools.build.lib.actions.RunfilesTree;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
@@ -93,6 +94,12 @@ public class SkyframeInputMetadataProvider implements InputMetadataProvider {
   @Nullable
   @Override
   public TreeArtifactValue getTreeMetadata(ActionInput input) {
+    return null;
+  }
+
+  @Nullable
+  @Override
+  public TreeArtifactValue getTreeMetadataForPrefix(PathFragment execPath) {
     return null;
   }
 

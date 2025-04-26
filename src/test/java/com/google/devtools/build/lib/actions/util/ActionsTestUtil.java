@@ -200,7 +200,6 @@ public final class ActionsTestUtil {
       ActionKeyContext actionKeyContext,
       FileOutErr fileOutErr,
       Path execRoot,
-      OutputMetadataStore outputMetadataStore,
       Environment environment,
       DiscoveredModulesPruner discoveredModulesPruner) {
     return ActionExecutionContext.forInputDiscovery(
@@ -212,7 +211,6 @@ public final class ActionsTestUtil {
             SyscallCache.NO_CACHE),
         ActionInputPrefetcher.NONE,
         actionKeyContext,
-        outputMetadataStore,
         /* rewindingEnabled= */ false,
         LostInputsCheck.NONE,
         fileOutErr,
@@ -933,6 +931,12 @@ public final class ActionsTestUtil {
     @Nullable
     @Override
     public TreeArtifactValue getTreeMetadata(ActionInput actionInput) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Nullable
+    @Override
+    public TreeArtifactValue getTreeMetadataForPrefix(PathFragment execPath) {
       throw new UnsupportedOperationException();
     }
 

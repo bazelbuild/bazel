@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
-import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher.Priority;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher.Reason;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -111,7 +110,7 @@ public class RemoteActionFileSystem extends AbstractFileSystem
   private final PathFragment execRoot;
   private final PathFragment outputBase;
   private final InputMetadataProvider fileCache;
-  private final ActionInputMap inputArtifactData;
+  private final InputMetadataProvider inputArtifactData;
   private final TreeArtifactDirectoryCache inputTreeArtifactDirectoryCache;
   private final PathCanonicalizer pathCanonicalizer;
   private final ImmutableMap<PathFragment, Artifact> outputMapping;
@@ -246,7 +245,7 @@ public class RemoteActionFileSystem extends AbstractFileSystem
       FileSystem localFs,
       PathFragment execRootFragment,
       String relativeOutputPath,
-      ActionInputMap inputArtifactData,
+      InputMetadataProvider inputArtifactData,
       Iterable<Artifact> outputArtifacts,
       InputMetadataProvider fileCache,
       RemoteActionInputFetcher inputFetcher) {
@@ -549,7 +548,8 @@ public class RemoteActionFileSystem extends AbstractFileSystem
   private PathFragment readSymbolicLinkInternal(PathFragment path) throws IOException {
     if (path.startsWith(execRoot)) {
       var execPath = path.relativeTo(execRoot);
-      var metadata = inputArtifactData.getMetadata(execPath);
+      var actionInput = inputArtifactData.getInput(execPath.getPathString());
+      var metadata = actionInput != null ? inputArtifactData.getInputMetadata(actionInput) : null;
       if (metadata != null && metadata.getType().isSymlink()) {
         return PathFragment.create(metadata.getUnresolvedSymlinkTarget());
       }
@@ -664,7 +664,8 @@ public class RemoteActionFileSystem extends AbstractFileSystem
 
     if (path.startsWith(execRoot)) {
       var execPath = path.relativeTo(execRoot);
-      var metadata = inputArtifactData.getMetadata(execPath);
+      var actionInput = inputArtifactData.getInput(execPath.getPathString());
+      var metadata = actionInput != null ? inputArtifactData.getInputMetadata(actionInput) : null;
       if (metadata != null) {
         return statFromMetadata(metadata);
       }
@@ -763,7 +764,7 @@ public class RemoteActionFileSystem extends AbstractFileSystem
 
   @Nullable
   @VisibleForTesting
-  FileArtifactValue getInputMetadata(ActionInput input) {
+  FileArtifactValue getInputMetadata(ActionInput input) throws IOException {
     return inputArtifactData.getInputMetadata(input);
   }
 
