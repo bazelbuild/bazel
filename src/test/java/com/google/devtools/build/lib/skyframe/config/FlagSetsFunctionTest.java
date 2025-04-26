@@ -377,9 +377,9 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
   public void enforceCanonicalConfigsFlag_warnPolicy_passes() throws Exception {
     scratch.file(
         "test/build_settings.bzl",
-"""
-string_flag = rule(implementation = lambda ctx: [], build_setting = config.string(flag = True))
-""");
+        """
+        string_flag = rule(implementation = lambda ctx: [], build_setting = config.string(flag = True))
+        """);
     scratch.file(
         "test/BUILD",
         """
@@ -424,9 +424,9 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
   public void enforceCanonicalConfigsFlag_compatiblePolicy_unrelatedFlag_warns() throws Exception {
     scratch.file(
         "test/build_settings.bzl",
-"""
-string_flag = rule(implementation = lambda ctx: [], build_setting = config.string(flag = True))
-""");
+        """
+        string_flag = rule(implementation = lambda ctx: [], build_setting = config.string(flag = True))
+        """);
     scratch.file(
         "test/BUILD",
         """
@@ -471,9 +471,9 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
   public void enforceCanonicalConfigs_compatiblePolicy_onlyDifferentValue_fails() throws Exception {
     scratch.file(
         "test/build_settings.bzl",
-"""
-string_flag = rule(implementation = lambda ctx: [], build_setting = config.string(flag = True))
-""");
+        """
+        string_flag = rule(implementation = lambda ctx: [], build_setting = config.string(flag = True))
+        """);
     scratch.file(
         "test/BUILD",
         """
@@ -489,14 +489,14 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
         """);
     scratch.file(
         "test/PROJECT.scl",
-"""
-project = {
-  "configs": {
-    "test_config": ['--//test:myflag=test_config_value', '--//test:other_flag=test_config_value'],
-  },
-  "enforcement_policy": "compatible",
-}
-""");
+        """
+        project = {
+          "configs": {
+            "test_config": ['--//test:myflag=test_config_value', '--//test:other_flag=test_config_value'],
+          },
+          "enforcement_policy": "compatible",
+        }
+        """);
     setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
     BuildOptions buildOptions =
         createBuildOptions("--//test:myflag=other_value", "--//test:other_flag=test_config_value");
@@ -1175,15 +1175,15 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
     assertThat(thrown)
         .hasMessageThat()
         .contains(
-"""
-This project's builds must set --scl_config because no default config is defined.
+            """
+            This project's builds must set --scl_config because no default config is defined.
 
-This project supports:
-  --scl_config=debug: ["--//test:myflag=debug_value"]
-  --scl_config=release: ["--//test:myflag=debug_value"]
+            This project supports:
+              --scl_config=debug: ["--//test:myflag=debug_value"]
+              --scl_config=release: ["--//test:myflag=debug_value"]
 
-This policy is defined in test/PROJECT.scl.
-""");
+            This policy is defined in test/PROJECT.scl.
+            """);
   }
 
   private FlagSetValue executeFunction(FlagSetValue.Key key) throws Exception {
