@@ -288,6 +288,11 @@ def jvm_maven_import_external(
     srcjar_urls = kwargs.pop("srcjar_urls", None)
 
     rule_name = kwargs.pop("rule_name", "java_import")
+    rules_java_defs = str(Label("@rules_java//java:defs.bzl"))
+    rule_load = kwargs.pop(
+        "rule_load",
+        'load("{}", "java_import")'.format(rules_java_defs),
+    )
 
     if fetch_sources:
         src_coordinates = struct(
@@ -310,6 +315,7 @@ def jvm_maven_import_external(
         srcjar_urls = srcjar_urls,
         canonical_id = artifact,
         rule_name = rule_name,
+        rule_load = rule_load,
         tags = tags,
         **kwargs
     )
