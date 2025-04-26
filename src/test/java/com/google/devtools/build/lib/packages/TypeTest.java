@@ -199,13 +199,10 @@ public class TypeTest {
     assertThrows(
         UnsupportedOperationException.class,
         () -> BuildType.TRISTATE.toTagSet(TriState.AUTO, "some_tristate"));
-    assertThrows(
-        UnsupportedOperationException.class,
-        () -> BuildType.LICENSE.toTagSet(License.NO_LICENSE, "output_license"));
   }
 
   @Test
-  public void testIllegalTagConversIonFromNullOnSupportedType() {
+  public void testIllegalTagConversionFromNullOnSupportedType() {
     assertThrows(IllegalStateException.class, () -> Type.BOOLEAN.toTagSet(null, "a_boolean"));
   }
 

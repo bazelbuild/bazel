@@ -18,8 +18,6 @@ import com.google.devtools.build.docgen.annot.GlobalMethods.Environment;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.packages.TargetRecorder.NameConflictException;
-import com.google.devtools.build.lib.packages.Type.ConversionException;
-import com.google.devtools.build.lib.server.FailureDetails.PackageLoading.Code;
 import java.util.List;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
@@ -117,17 +115,8 @@ public class BuildGlobals {
       throws EvalException {
     Package.AbstractBuilder pkgBuilder =
         Package.AbstractBuilder.fromOrFailAllowBuildOnly(thread, "licenses()");
-    try {
-      License license = BuildType.LICENSE.convert(licensesList, "'licenses' operand");
-      pkgBuilder.mergePackageArgsFrom(PackageArgs.builder().setLicense(license));
-    } catch (ConversionException e) {
-      pkgBuilder
-          .getLocalEventHandler()
-          .handle(
-              Package.error(
-                  thread.getCallerLocation(), e.getMessage(), Code.LICENSE_PARSE_FAILURE));
-      pkgBuilder.setContainsErrors();
-    }
+    List<String> license = Types.STRING_LIST.convert(licensesList, "'licenses' operand");
+    pkgBuilder.mergePackageArgsFrom(PackageArgs.builder().setLicense(license));
     return Starlark.NONE;
   }
 }

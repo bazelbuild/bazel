@@ -15,14 +15,15 @@ package com.google.devtools.build.lib.query2.compat;
 
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.packages.License;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Packageoid;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetData;
+import java.util.List;
 import java.util.Objects;
+import javax.annotation.Nullable;
 import net.starlark.java.syntax.Location;
 
 /**
@@ -70,7 +71,8 @@ public class FakeLoadTarget implements Target {
   }
 
   @Override
-  public License getLicense() {
+  @Nullable
+  public List<String> getLicense() {
     throw new UnsupportedOperationException();
   }
 

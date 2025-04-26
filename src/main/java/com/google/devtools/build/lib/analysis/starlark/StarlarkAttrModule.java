@@ -659,8 +659,11 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
       Type<?> type,
       StarlarkThread thread)
       throws EvalException {
-    String whyNotConfigurableReason =
-        Preconditions.checkNotNull(BuildType.maybeGetNonConfigurableReason(type), type);
+    // BuildType types have good reasons associated with themselves.
+    String whyNotConfigurableReason = BuildType.maybeGetNonConfigurableReason(type);
+    if (whyNotConfigurableReason == null) {
+      whyNotConfigurableReason = "not configurable";
+    }
     try {
       // We use an empty name now so that we can set it later.
       // This trick makes sense only in the context of Starlark (builtin rules should not use it).
@@ -1148,7 +1151,7 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
         "license",
         Starlark.toJavaOptional(doc, String.class),
         optionMap(DEFAULT_ARG, defaultValue, MANDATORY_ARG, mandatory),
-        BuildType.LICENSE,
+        Types.STRING_LIST,
         thread);
   }
 

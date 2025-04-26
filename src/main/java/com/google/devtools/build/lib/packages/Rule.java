@@ -719,18 +719,19 @@ public class Rule extends RuleOrMacroInstance implements Target {
   }
 
   @Override
-  public License getLicense() {
+  @Nullable
+  public List<String> getLicense() {
     // New style licenses defined by Starlark rules don't
     // have old-style licenses. This is hardcoding the representation
     // of new-style rules, but it's in the old-style licensing code path
     // and will ultimately be removed.
     if (ruleClass.isPackageMetadataRule()) {
-      return License.NO_LICENSE;
-    } else if (isAttrDefined("licenses", BuildType.LICENSE)
+      return null;
+    } else if (isAttrDefined("licenses", Types.STRING_LIST)
         && isAttributeValueExplicitlySpecified("licenses")) {
-      return NonconfigurableAttributeMapper.of(this).get("licenses", BuildType.LICENSE);
+      return NonconfigurableAttributeMapper.of(this).get("licenses", Types.STRING_LIST);
     } else if (ruleClass.ignoreLicenses()) {
-      return License.NO_LICENSE;
+      return null;
     } else {
       return getPackageDeclarations().getPackageArgs().license();
     }

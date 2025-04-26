@@ -243,7 +243,7 @@ public class AttributeProvider {
       Attribute attr = getAttribute(attrIndex);
 
       if (attributeName.equals("licenses") && ignoreLicenses) {
-        ruleOrMacroInstance.setAttributeValue(attr, License.NO_LICENSE, /* explicit= */ false);
+        ruleOrMacroInstance.setAttributeValue(attr, null, /* explicit= */ false);
         definedAttrIndices.set(attrIndex);
         continue;
       }
@@ -371,14 +371,11 @@ public class AttributeProvider {
             ruleInstance.setAttributeValue(attr, ImmutableList.of(), /* explicit= */ false);
           }
 
-        } else if (attr.getName().equals("licenses") && attr.getType() == BuildType.LICENSE) {
+        } else if (attr.getName().equals("licenses") && attr.getType() == Types.STRING_LIST) {
           ruleInstance.setAttributeValue(
               attr,
-              ignoreLicenses
-                  ? License.NO_LICENSE
-                  : targetDefinitionContext.getPartialPackageArgs().license(),
+              ignoreLicenses ? null : targetDefinitionContext.getPartialPackageArgs().license(),
               /* explicit= */ false);
-
         }
         // Don't store default values, querying materializes them at read time.
       }

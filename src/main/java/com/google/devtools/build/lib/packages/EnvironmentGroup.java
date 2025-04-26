@@ -288,8 +288,9 @@ public class EnvironmentGroup implements Target {
   }
 
   @Override
-  public License getLicense() {
-    return License.NO_LICENSE;
+  @Nullable
+  public List<String> getLicense() {
+    return null;
   }
 
   @Override
