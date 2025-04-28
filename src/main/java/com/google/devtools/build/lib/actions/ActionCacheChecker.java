@@ -201,12 +201,11 @@ public class ActionCacheChecker {
         if (treeMetadata == null) {
           treeMetadata = getOutputTreeMetadataMaybe(outputMetadataStore, artifact);
         }
-        if (shouldTrustTreeMetadata(artifact, treeMetadata, outputChecker)) {
-          mdMap.put(
-              artifact.getExecPathString(),
-              treeMetadata != null ? treeMetadata.getMetadata() : null);
+        if (treeMetadata != null
+            && shouldTrustTreeMetadata(artifact, treeMetadata, outputChecker)) {
+          mdMap.put(artifact.getExecPathString(), treeMetadata.getMetadata());
         } else {
-          mdMap.put(artifact.getExecPathString(), null);
+          return true;
         }
 
       } else {
@@ -214,10 +213,10 @@ public class ActionCacheChecker {
         if (metadata == null) {
           metadata = getOutputMetadataMaybe(outputMetadataStore, artifact);
         }
-        if (shouldTrustMetadata(artifact, metadata, outputChecker)) {
+        if (metadata != null && shouldTrustMetadata(artifact, metadata, outputChecker)) {
           mdMap.put(artifact.getExecPathString(), metadata);
         } else {
-          mdMap.put(artifact.getExecPathString(), null);
+          return true;
         }
       }
     }
@@ -229,22 +228,18 @@ public class ActionCacheChecker {
   }
 
   private static boolean shouldTrustMetadata(
-      Artifact artifact,
-      @Nullable FileArtifactValue metadata,
-      @Nullable OutputChecker outputChecker) {
+      Artifact artifact, FileArtifactValue metadata, @Nullable OutputChecker outputChecker) {
     checkArgument(!artifact.isTreeArtifact());
-    if (outputChecker == null || metadata == null) {
+    if (outputChecker == null) {
       return true;
     }
     return outputChecker.shouldTrustMetadata(artifact, metadata);
   }
 
   private static boolean shouldTrustTreeMetadata(
-      Artifact artifact,
-      @Nullable TreeArtifactValue treeMetadata,
-      @Nullable OutputChecker outputChecker) {
+      Artifact artifact, TreeArtifactValue treeMetadata, @Nullable OutputChecker outputChecker) {
     checkArgument(artifact.isTreeArtifact());
-    if (outputChecker == null || treeMetadata == null) {
+    if (outputChecker == null) {
       return true;
     }
     if (treeMetadata.getArchivedRepresentation().isPresent()) {
