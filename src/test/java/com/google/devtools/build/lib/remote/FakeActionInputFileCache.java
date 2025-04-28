@@ -75,7 +75,7 @@ final class FakeActionInputFileCache implements InputMetadataProvider {
 
   @Nullable
   @Override
-  public TreeArtifactValue getTreeMetadataForPrefix(PathFragment execPath) {
+  public TreeArtifactValue getEnclosingTreeMetadata(PathFragment execPath) {
     throw new UnsupportedOperationException();
   }
 

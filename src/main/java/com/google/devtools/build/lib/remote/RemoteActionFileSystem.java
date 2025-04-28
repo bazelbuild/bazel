@@ -201,7 +201,7 @@ public class RemoteActionFileSystem extends AbstractFileSystem
     }
 
     private void ensureCached(PathFragment execPath) {
-      TreeArtifactValue treeMetadata = inputArtifactData.getTreeMetadataForPrefix(execPath);
+      TreeArtifactValue treeMetadata = inputArtifactData.getEnclosingTreeMetadata(execPath);
       if (treeMetadata == null || treeMetadata.getChildren().isEmpty()) {
         return;
       }

@@ -54,9 +54,9 @@ public final class DelegatingPairInputMetadataProvider implements InputMetadataP
 
   @Nullable
   @Override
-  public TreeArtifactValue getTreeMetadataForPrefix(PathFragment execPath) {
-    TreeArtifactValue metadata = primary.getTreeMetadataForPrefix(execPath);
-    return metadata != null ? metadata : secondary.getTreeMetadataForPrefix(execPath);
+  public TreeArtifactValue getEnclosingTreeMetadata(PathFragment execPath) {
+    TreeArtifactValue metadata = primary.getEnclosingTreeMetadata(execPath);
+    return metadata != null ? metadata : secondary.getEnclosingTreeMetadata(execPath);
   }
 
   @Override

@@ -94,8 +94,8 @@ final class ActionInputMetadataProvider implements InputMetadataProvider {
 
   @Nullable
   @Override
-  public TreeArtifactValue getTreeMetadataForPrefix(PathFragment execPath) {
-    return inputArtifactData.getTreeMetadataForPrefix(execPath);
+  public TreeArtifactValue getEnclosingTreeMetadata(PathFragment execPath) {
+    return inputArtifactData.getEnclosingTreeMetadata(execPath);
   }
 
   @Nullable

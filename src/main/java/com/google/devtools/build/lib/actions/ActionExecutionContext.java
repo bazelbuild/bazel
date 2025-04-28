@@ -172,8 +172,8 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
 
     @Nullable
     @Override
-    public TreeArtifactValue getTreeMetadataForPrefix(PathFragment execPath) {
-      return wrapped.getTreeMetadataForPrefix(execPath);
+    public TreeArtifactValue getEnclosingTreeMetadata(PathFragment execPath) {
+      return wrapped.getEnclosingTreeMetadata(execPath);
     }
 
     @Nullable

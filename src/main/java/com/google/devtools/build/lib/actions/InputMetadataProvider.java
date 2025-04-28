@@ -65,7 +65,7 @@ public interface InputMetadataProvider {
    * {@code null} if no such tree artifact exists.
    */
   @Nullable
-  TreeArtifactValue getTreeMetadataForPrefix(PathFragment execPath);
+  TreeArtifactValue getEnclosingTreeMetadata(PathFragment execPath);
 
   /**
    * Like {@link #getInputMetadata(ActionInput)}, but assumes that no Skyframe restart is needed.

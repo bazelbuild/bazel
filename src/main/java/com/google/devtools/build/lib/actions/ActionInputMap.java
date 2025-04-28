@@ -319,7 +319,7 @@ public final class ActionInputMap implements InputMetadataProvider {
 
   @Nullable
   @Override
-  public TreeArtifactValue getTreeMetadataForPrefix(PathFragment execPath) {
+  public TreeArtifactValue getEnclosingTreeMetadata(PathFragment execPath) {
     return treeArtifactsRoot.findTreeArtifactNodeAtPrefix(execPath);
   }
 

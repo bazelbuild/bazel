@@ -99,7 +99,7 @@ public class SkyframeInputMetadataProvider implements InputMetadataProvider {
 
   @Nullable
   @Override
-  public TreeArtifactValue getTreeMetadataForPrefix(PathFragment execPath) {
+  public TreeArtifactValue getEnclosingTreeMetadata(PathFragment execPath) {
     return null;
   }
 
