@@ -174,7 +174,7 @@ java_library(
     name = "object_graph_traverser",
     srcs = ["ObjectGraphTraverser.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/collect",
+        "//src/main/java/com/google/devtools/build/lib/collect:concurrent_identity_set",
         "//third_party:flogger",
         "//third_party:guava",
         "//third_party:jsr305",

@@ -149,7 +149,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/analysis:transitive_info_collection",
-        "//src/main/java/com/google/devtools/build/lib/collect",
+        "//src/main/java/com/google/devtools/build/lib/collect:immutable_sorted_key_list_multimap",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//third_party:guava",
         "//third_party:jsr305",

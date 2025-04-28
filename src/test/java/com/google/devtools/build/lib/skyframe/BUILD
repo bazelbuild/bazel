@@ -694,7 +694,7 @@ java_test(
     deps = [
         ":testutil",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/collect",
+        "//src/main/java/com/google/devtools/build/lib/collect:path_fragment_prefix_trie",
         "//src/main/java/com/google/devtools/build/lib/skyframe:project_value",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/skyframe",

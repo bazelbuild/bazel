@@ -14,9 +14,7 @@ filegroup(
 # Library of collection utilities.
 java_library(
     name = "compacthashset",
-    srcs = glob([
-        "*.java",
-    ]),
+    srcs = ["CompactHashSet.java"],
     deps = [
         "//third_party:guava",
         "//third_party:jsr305",
