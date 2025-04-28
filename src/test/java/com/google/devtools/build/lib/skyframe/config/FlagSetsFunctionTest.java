@@ -32,13 +32,18 @@ import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.skyframe.EvaluationResult;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
+import com.google.testing.junit.testparameterinjector.TestParameters;
+import com.google.testing.junit.testparameterinjector.TestParameters.TestParametersValues;
+import com.google.testing.junit.testparameterinjector.TestParametersValuesProvider;
+import java.util.List;
 import java.util.Optional;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 /** Tests for {@link FlagSetFunction}. */
-@RunWith(JUnit4.class)
+@RunWith(TestParameterInjector.class)
 public final class FlagSetsFunctionTest extends BuildViewTestCase {
   // TODO: b/409377907 - Most of this enforcement has been moved to ProjectFunction. Move the
   // corresponding tests to ProjectFunctionTest.
@@ -1198,5 +1203,53 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
       throw result.getError(key).getException();
     }
     return result.get(key);
+  }
+
+  @Test
+  @TestParameters(valuesProvider = TargetPatternProvider.class)
+  @Ignore("b/409378610 - Need to actually implement isTargetInPattern")
+  public void testIsTargetInPattern(boolean included, List<String> patterns, Label label) {
+    assertThat(FlagSetFunction.isTargetInPattern(patterns, label)).isEqualTo(included);
+  }
+
+  static final class TargetPatternProvider extends TestParametersValuesProvider {
+
+    private static TestParametersValues create(boolean included, String pattern, String label) {
+      return create(included, ImmutableList.of(pattern), label);
+    }
+
+    private static TestParametersValues create(
+        boolean included, List<String> patterns, String label) {
+      String name = String.format("%s-%s-%s", included ? "included" : "excluded", patterns, label);
+      return TestParametersValues.builder()
+          .name(name)
+          .addParameter("included", included)
+          .addParameter("patterns", patterns)
+          .addParameter("label", Label.parseCanonicalUnchecked(label))
+          .build();
+    }
+
+    @Override
+    protected ImmutableList<TestParametersValues> provideValues(Context context) {
+      return ImmutableList.of(
+          // Single pattern
+          create(true, "//foo:foo", "//foo:foo"),
+          create(false, "//foo:foo", "//foo:bar"),
+          create(true, "//foo/...", "//foo:foo"),
+          create(true, "//foo/...", "//foo/bar:bar"),
+          create(false, "//foo/...", "//bar:bar"),
+          create(false, "//foo/bar/...", "//foo:foo"),
+
+          // Multiple patterns
+          create(true, ImmutableList.of("//foo:foo", "//bar:bar"), "//foo:foo"),
+          create(true, ImmutableList.of("//foo:foo", "//bar:bar"), "//bar:bar"),
+          create(false, ImmutableList.of("//foo:foo", "//bar:bar"), "//quux:quux"),
+
+          // Negative patterns
+          create(false, "-//foo:foo", "//foo:foo"),
+          create(false, "-//foo/...", "//foo:foo"),
+          create(false, ImmutableList.of("//foo/...", "-//foo/bar/..."), "//foo/bar:bar"),
+          create(true, ImmutableList.of("//foo/...", "-//foo/bar/..."), "//foo:foo"));
+    }
   }
 }

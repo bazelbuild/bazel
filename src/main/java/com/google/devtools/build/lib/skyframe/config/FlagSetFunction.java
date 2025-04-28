@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe.config;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.common.options.OptionsParser.STARLARK_SKIPPED_PREFIXES;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -28,6 +29,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.runtime.ConfigFlagDefinitions;
 import com.google.devtools.build.lib.skyframe.ProjectValue;
+import com.google.devtools.build.lib.skyframe.ProjectValue.BuildableUnit;
 import com.google.devtools.build.lib.skyframe.ProjectValue.EnforcementPolicy;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
@@ -38,6 +40,7 @@ import com.google.devtools.common.options.GlobalRcUtils;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.Collection;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
 
@@ -168,6 +171,26 @@ public final class FlagSetFunction implements SkyFunction {
                 "Applying flags from the config '%s' defined in %s: %s ",
                 sclConfigNameForMessage, projectFile, optionsToApply)));
     return optionsToApply;
+  }
+
+  /**
+   * Returns all {@link BuildableUnit buildable units} that contain {@code specificTarget} in the
+   * {@code targetPatterns} field.
+   */
+  // TODO: b/409378610 - Actually implement this: currently it returns **all** BuildableUnits.
+  @SuppressWarnings("unused")
+  private static ImmutableList<BuildableUnit> filterProjects(
+      ImmutableList<BuildableUnit> buildableUnits, Label targetToBuild) {
+    return buildableUnits;
+  }
+
+  /**
+   * Returns {@code true} iff the {@code specificTarget} matches any of the given patterns. Patterns
+   * are processed in order: if a later negative pattern removes the target it will not be matched.
+   */
+  @VisibleForTesting
+  static boolean isTargetInPattern(List<String> targetPatterns, Label specificTarget) {
+    return false;
   }
 
   private static ImmutableList<String> getBuildOptionsAsStrings(BuildOptions targetOptions) {
