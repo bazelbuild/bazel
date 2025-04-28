@@ -47,6 +47,7 @@ import net.starlark.java.eval.StarlarkSemantics;
 public class ModuleExtensionContext extends StarlarkBaseExternalContext {
   private final ModuleExtensionId extensionId;
   private final StarlarkList<StarlarkBazelModule> modules;
+  private final Facts facts;
   private final boolean rootModuleHasNonDevDependency;
 
   protected ModuleExtensionContext(
@@ -61,6 +62,7 @@ public class ModuleExtensionContext extends StarlarkBaseExternalContext {
       @Nullable RepositoryRemoteExecutor remoteExecutor,
       ModuleExtensionId extensionId,
       StarlarkList<StarlarkBazelModule> modules,
+      Facts facts,
       boolean rootModuleHasNonDevDependency) {
     super(
         workingDirectory,
@@ -76,6 +78,7 @@ public class ModuleExtensionContext extends StarlarkBaseExternalContext {
         /* allowWatchingPathsOutsideWorkspace= */ false);
     this.extensionId = extensionId;
     this.modules = modules;
+    this.facts = facts;
     this.rootModuleHasNonDevDependency = rootModuleHasNonDevDependency;
   }
 
@@ -108,6 +111,23 @@ public class ModuleExtensionContext extends StarlarkBaseExternalContext {
               + " breadth-first search starting from the root module.")
   public StarlarkList<StarlarkBazelModule> getModules() {
     return modules;
+  }
+
+  @StarlarkMethod(
+      name = "facts",
+      structField = true,
+      doc =
+          """
+          The JSON-like value returned by a previous execution of this extension in the <code>\
+          facts</code> parameter of <a href="../builtins/module_ctx#extension_metadata"><code>\
+          extension_metadata</code></a> or else <code>None</code>.
+          This is useful for extensions that want to preserve universally true facts such as the \
+          hashes of artifacts in an immutable repository.
+          Note that the returned value may have been created by a different version of the \
+          extension, which may have used a different schema.
+          """)
+  public Object getFacts() {
+    return facts.value();
   }
 
   @StarlarkMethod(
@@ -220,13 +240,29 @@ public class ModuleExtensionContext extends StarlarkBaseExternalContext {
             allowedTypes = {
               @ParamType(type = Boolean.class),
             }),
+        @Param(
+            name = "facts",
+            doc =
+                """
+                A JSON-like value that is made available to future executions of this extension via
+                the <code>module_ctx.facts</code> property.
+                This is useful for extensions that want to preserve universally true facts such as
+                the hashes of artifacts in an immutable repository.
+                Note that the value provided here may be read back by a different version of the
+                extension, so either include a version number or use a schema that is unlikely to
+                result in ambiguities.
+                """,
+            positional = false,
+            named = true,
+            defaultValue = "None"),
       })
   public ModuleExtensionMetadata extensionMetadata(
       Object rootModuleDirectDepsUnchecked,
       Object rootModuleDirectDevDepsUnchecked,
-      boolean reproducible)
+      boolean reproducible,
+      Object facts)
       throws EvalException {
     return ModuleExtensionMetadata.create(
-        rootModuleDirectDepsUnchecked, rootModuleDirectDevDepsUnchecked, reproducible);
+        rootModuleDirectDepsUnchecked, rootModuleDirectDevDepsUnchecked, reproducible, facts);
   }
 }

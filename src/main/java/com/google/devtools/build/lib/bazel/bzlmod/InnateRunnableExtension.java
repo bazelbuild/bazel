@@ -161,7 +161,8 @@ final class InnateRunnableExtension implements RunnableExtension {
       SingleExtensionUsagesValue usagesValue,
       StarlarkSemantics starlarkSemantics,
       ModuleExtensionId extensionId,
-      RepositoryMapping mainRepositoryMapping)
+      RepositoryMapping mainRepositoryMapping,
+      Facts facts)
       throws InterruptedException, ExternalDepsException {
     Object exported = loadedBzl.getModule().getGlobal(ruleName);
     if (exported == null) {

@@ -115,9 +115,10 @@ public class BazelLockFileModule extends BlazeModule {
     // transitive closure of the current build. Since extensions are potentially costly to evaluate,
     // this is seen as an advantage. Full reproducibility can be ensured by running 'bazel shutdown'
     // first if needed.
+    var numExtensions = depGraphValue.getExtensionUsagesTable().rowKeySet().size();
     var newExtensionInfos =
-        new HashMap<ModuleExtensionId, LockFileModuleExtension.WithFactors>(
-            depGraphValue.getExtensionUsagesTable().rowKeySet().size());
+        new HashMap<ModuleExtensionId, LockFileModuleExtension.WithFactors>(numExtensions);
+    var combinedFacts = new HashMap<ModuleExtensionId, Facts>(numExtensions);
     var doneValues = evaluator.getDoneValues();
     for (var extensionId : depGraphValue.getExtensionUsagesTable().rowKeySet()) {
       if (extensionId.isInnate()) {
@@ -127,6 +128,7 @@ public class BazelLockFileModule extends BlazeModule {
       var value = (SingleExtensionValue) doneValues.get(SingleExtensionValue.evalKey(extensionId));
       if (value != null) {
         newExtensionInfos.put(extensionId, value.lockFileInfo().get());
+        combinedFacts.put(extensionId, value.facts());
       }
     }
 
@@ -159,6 +161,10 @@ public class BazelLockFileModule extends BlazeModule {
                       .setRegistryFileHashes(remoteRegistryFileHashes)
                       .setSelectedYankedVersions(moduleResolutionValue.getSelectedYankedVersions())
                       .setModuleExtensions(notReproducibleExtensionInfos)
+                      .setFacts(
+                          ImmutableSortedMap.copyOf(
+                              Maps.filterValues(
+                                  combinedFacts, facts -> !facts.equals(Facts.EMPTY))))
                       .build();
 
               // Write the new values to the files, but only if needed. This is not just a
