@@ -21,10 +21,11 @@ import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialModule;
 import com.google.devtools.build.lib.buildeventservice.BazelBuildEventServiceModule;
-import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId.IdCase;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.TargetSummary;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.TestStatus;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.TestSummary;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.runtime.BlazeCommandDispatcher;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
@@ -75,7 +76,7 @@ public class TargetSummaryEventTest extends BuildIntegrationTestCase {
 
     File bep = buildTargetAndCaptureBuildEventProtocol("//foo:foobin");
 
-    BuildEventStreamProtos.TargetSummary summary = findTargetSummaryEventInBuildEventStream(bep);
+    TargetSummary summary = findTargetSummaryEventInBuildEventStream(bep);
     assertThat(summary.getOverallBuildSuccess()).isTrue();
     assertThat(summary.getOverallTestStatus()).isEqualTo(TestStatus.NO_STATUS);
   }
@@ -86,7 +87,7 @@ public class TargetSummaryEventTest extends BuildIntegrationTestCase {
 
     File bep = buildFailingTargetAndCaptureBuildEventProtocol("//foo:foobin");
 
-    BuildEventStreamProtos.TargetSummary summary = findTargetSummaryEventInBuildEventStream(bep);
+    TargetSummary summary = findTargetSummaryEventInBuildEventStream(bep);
     assertThat(summary.getOverallBuildSuccess()).isFalse();
     assertThat(summary.getOverallTestStatus()).isEqualTo(TestStatus.NO_STATUS);
   }
@@ -101,9 +102,12 @@ public class TargetSummaryEventTest extends BuildIntegrationTestCase {
 
     File bep = testTargetAndCaptureBuildEventProtocol("//foo:good_test");
 
-    BuildEventStreamProtos.TargetSummary summary = findTargetSummaryEventInBuildEventStream(bep);
-    assertThat(summary.getOverallBuildSuccess()).isTrue();
-    assertThat(summary.getOverallTestStatus()).isEqualTo(TestStatus.PASSED);
+    TargetSummary targetSummary = findTargetSummaryEventInBuildEventStream(bep);
+    assertThat(targetSummary.getOverallBuildSuccess()).isTrue();
+    assertThat(targetSummary.getOverallTestStatus()).isEqualTo(TestStatus.PASSED);
+
+    TestSummary testSummary = findTestSummaryEventInBuildEventStream(bep);
+    assertThat(testSummary.getOverallStatus()).isEqualTo(TestStatus.PASSED);
   }
 
   @Test
@@ -116,9 +120,12 @@ public class TargetSummaryEventTest extends BuildIntegrationTestCase {
 
     File bep = testTargetAndCaptureBuildEventProtocol("//foo:bad_test");
 
-    BuildEventStreamProtos.TargetSummary summary = findTargetSummaryEventInBuildEventStream(bep);
-    assertThat(summary.getOverallBuildSuccess()).isTrue();
-    assertThat(summary.getOverallTestStatus()).isEqualTo(TestStatus.FAILED);
+    TargetSummary targetSummary = findTargetSummaryEventInBuildEventStream(bep);
+    assertThat(targetSummary.getOverallBuildSuccess()).isTrue();
+    assertThat(targetSummary.getOverallTestStatus()).isEqualTo(TestStatus.FAILED);
+
+    TestSummary testSummary = findTestSummaryEventInBuildEventStream(bep);
+    assertThat(testSummary.getOverallStatus()).isEqualTo(TestStatus.FAILED);
   }
 
   @Test
@@ -147,9 +154,13 @@ public class TargetSummaryEventTest extends BuildIntegrationTestCase {
 
     File bep = testTargetAndCaptureBuildEventProtocol("//foo:good_test");
 
-    BuildEventStreamProtos.TargetSummary summary = findTargetSummaryEventInBuildEventStream(bep);
-    assertThat(summary.getOverallBuildSuccess()).isTrue();
-    assertThat(summary.getOverallTestStatus()).isEqualTo(TestStatus.FAILED_TO_BUILD);
+    TargetSummary targetSummary = findTargetSummaryEventInBuildEventStream(bep);
+    assertThat(targetSummary.getOverallBuildSuccess()).isTrue();
+    assertThat(targetSummary.getOverallTestStatus()).isEqualTo(TestStatus.FAILED_TO_BUILD);
+
+    // TODO: b/186996003 - TestSummary is a child of TargetComplete and should be posted.
+    TestSummary testSummary = findTestSummaryEventInBuildEventStream(bep);
+    assertThat(testSummary).isNull();
   }
 
   private File buildTargetAndCaptureBuildEventProtocol(String target) throws Exception {
@@ -217,11 +228,21 @@ public class TargetSummaryEventTest extends BuildIntegrationTestCase {
   }
 
   @Nullable
-  private static BuildEventStreamProtos.TargetSummary findTargetSummaryEventInBuildEventStream(
-      File bep) throws IOException {
+  private static TargetSummary findTargetSummaryEventInBuildEventStream(File bep)
+      throws IOException {
     for (BuildEvent buildEvent : parseBuildEventsFromBuildEventStream(bep)) {
       if (buildEvent.getId().getIdCase() == IdCase.TARGET_SUMMARY) {
         return buildEvent.getTargetSummary();
+      }
+    }
+    return null;
+  }
+
+  @Nullable
+  private static TestSummary findTestSummaryEventInBuildEventStream(File bep) throws IOException {
+    for (BuildEvent buildEvent : parseBuildEventsFromBuildEventStream(bep)) {
+      if (buildEvent.getId().getIdCase() == IdCase.TEST_SUMMARY) {
+        return buildEvent.getTestSummary();
       }
     }
     return null;
