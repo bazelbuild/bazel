@@ -35,9 +35,13 @@ import java.util.Optional;
 import java.util.Set;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkFloat;
+import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkValue;
 
@@ -57,7 +61,8 @@ public abstract class ModuleExtensionMetadata implements StarlarkValue {
           /* explicitRootModuleDirectDeps= */ null,
           /* explicitRootModuleDirectDevDeps= */ null,
           UseAllRepos.NO,
-          /* reproducible= */ true);
+          /* reproducible= */ true,
+          /* facts= */ null);
 
   @Nullable
   abstract ImmutableSet<String> getExplicitRootModuleDirectDeps();
@@ -69,11 +74,14 @@ public abstract class ModuleExtensionMetadata implements StarlarkValue {
 
   abstract boolean getReproducible();
 
+  abstract Object getFacts();
+
   private static ModuleExtensionMetadata create(
       @Nullable Set<String> explicitRootModuleDirectDeps,
       @Nullable Set<String> explicitRootModuleDirectDevDeps,
       UseAllRepos useAllRepos,
-      boolean reproducible) {
+      boolean reproducible,
+      Object facts) {
     return new AutoValue_ModuleExtensionMetadata(
         explicitRootModuleDirectDeps != null
             ? ImmutableSet.copyOf(explicitRootModuleDirectDeps)
@@ -82,29 +90,33 @@ public abstract class ModuleExtensionMetadata implements StarlarkValue {
             ? ImmutableSet.copyOf(explicitRootModuleDirectDevDeps)
             : null,
         useAllRepos,
-        reproducible);
+        reproducible,
+        facts);
   }
 
   static ModuleExtensionMetadata create(
       Object rootModuleDirectDepsUnchecked,
       Object rootModuleDirectDevDepsUnchecked,
-      boolean reproducible)
+      boolean reproducible,
+      Object facts)
       throws EvalException {
+    validateFacts(facts, 0);
+
     if (rootModuleDirectDepsUnchecked == Starlark.NONE
         && rootModuleDirectDevDepsUnchecked == Starlark.NONE) {
-      return create(null, null, UseAllRepos.NO, reproducible);
+      return create(null, null, UseAllRepos.NO, reproducible, facts);
     }
 
     // When root_module_direct_deps = "all", accept both root_module_direct_dev_deps = None and
     // root_module_direct_dev_deps = [], but not root_module_direct_dev_deps = ["some_repo"].
     if (rootModuleDirectDepsUnchecked.equals("all")
         && rootModuleDirectDevDepsUnchecked.equals(StarlarkList.immutableOf())) {
-      return create(null, null, UseAllRepos.REGULAR, reproducible);
+      return create(null, null, UseAllRepos.REGULAR, reproducible, facts);
     }
 
     if (rootModuleDirectDevDepsUnchecked.equals("all")
         && rootModuleDirectDepsUnchecked.equals(StarlarkList.immutableOf())) {
-      return create(null, null, UseAllRepos.DEV, reproducible);
+      return create(null, null, UseAllRepos.DEV, reproducible, facts);
     }
 
     if (rootModuleDirectDepsUnchecked.equals("all")
@@ -166,7 +178,8 @@ public abstract class ModuleExtensionMetadata implements StarlarkValue {
         explicitRootModuleDirectDeps,
         explicitRootModuleDirectDevDeps,
         UseAllRepos.NO,
-        reproducible);
+        reproducible,
+        facts);
   }
 
   public Optional<RootModuleFileFixup> generateFixup(
@@ -376,6 +389,39 @@ public abstract class ModuleExtensionMetadata implements StarlarkValue {
       case REGULAR -> Optional.of(ImmutableSet.of());
       case DEV -> Optional.of(ImmutableSet.copyOf(allRepos));
     };
+  }
+
+  private static final int MAX_FACTS_DEPTH = 5;
+
+  private static void validateFacts(Object facts, int currentDepth) throws EvalException {
+    if (currentDepth > MAX_FACTS_DEPTH) {
+      throw Starlark.errorf("Facts are too deeply nested");
+    }
+    switch (facts) {
+      case String ignored -> {}
+      case NoneType ignored -> {}
+      case Boolean ignored -> {}
+      case StarlarkFloat ignored -> {}
+      case StarlarkInt ignored -> {}
+      case StarlarkList<?> list -> {
+        for (var element : list) {
+          validateFacts(element, currentDepth + 1);
+        }
+      }
+      case Dict<?, ?> dict -> {
+        for (var entry : dict.entrySet()) {
+          if (!(entry.getKey() instanceof String)) {
+            throw Starlark.errorf(
+                "Facts keys must be strings, got '%s' (%s)",
+                Starlark.repr(entry), Starlark.type(entry.getKey()));
+          }
+          validateFacts(entry.getValue(), currentDepth + 1);
+        }
+      }
+      default ->
+          throw Starlark.errorf(
+              "'%s' (%s) is not supported in facts", Starlark.repr(facts), Starlark.type(facts));
+    }
   }
 
   enum UseAllRepos {

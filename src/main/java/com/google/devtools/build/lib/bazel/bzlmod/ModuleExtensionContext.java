@@ -224,13 +224,20 @@ public class ModuleExtensionContext extends StarlarkBaseExternalContext {
             allowedTypes = {
               @ParamType(type = Boolean.class),
             }),
+        @Param(
+            name = "facts",
+            doc = "Facts about the extension.",
+            positional = false,
+            named = true,
+            defaultValue = "None"),
       })
   public ModuleExtensionMetadata extensionMetadata(
       Object rootModuleDirectDepsUnchecked,
       Object rootModuleDirectDevDepsUnchecked,
-      boolean reproducible)
+      boolean reproducible,
+      Object facts)
       throws EvalException {
     return ModuleExtensionMetadata.create(
-        rootModuleDirectDepsUnchecked, rootModuleDirectDevDepsUnchecked, reproducible);
+        rootModuleDirectDepsUnchecked, rootModuleDirectDevDepsUnchecked, reproducible, facts);
   }
 }
