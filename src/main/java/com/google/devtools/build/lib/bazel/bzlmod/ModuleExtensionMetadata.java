@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.ryanharter.auto.value.gson.GenerateTypeAdapter;
+import io.sweers.autotransient.AutoTransient;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashSet;
@@ -57,7 +58,8 @@ public abstract class ModuleExtensionMetadata implements StarlarkValue {
           /* explicitRootModuleDirectDeps= */ null,
           /* explicitRootModuleDirectDevDeps= */ null,
           UseAllRepos.NO,
-          /* reproducible= */ true);
+          /* reproducible= */ true,
+          /* facts= */ null);
 
   @Nullable
   abstract ImmutableSet<String> getExplicitRootModuleDirectDeps();
@@ -69,11 +71,17 @@ public abstract class ModuleExtensionMetadata implements StarlarkValue {
 
   abstract boolean getReproducible();
 
+  /** null if and only if this instance is deserialized from a lockfile. */
+  @AutoTransient
+  @Nullable
+  abstract Facts getFacts();
+
   private static ModuleExtensionMetadata create(
       @Nullable Set<String> explicitRootModuleDirectDeps,
       @Nullable Set<String> explicitRootModuleDirectDevDeps,
       UseAllRepos useAllRepos,
-      boolean reproducible) {
+      boolean reproducible,
+      @Nullable Facts facts) {
     return new AutoValue_ModuleExtensionMetadata(
         explicitRootModuleDirectDeps != null
             ? ImmutableSet.copyOf(explicitRootModuleDirectDeps)
@@ -82,29 +90,33 @@ public abstract class ModuleExtensionMetadata implements StarlarkValue {
             ? ImmutableSet.copyOf(explicitRootModuleDirectDevDeps)
             : null,
         useAllRepos,
-        reproducible);
+        reproducible,
+        facts);
   }
 
   static ModuleExtensionMetadata create(
       Object rootModuleDirectDepsUnchecked,
       Object rootModuleDirectDevDepsUnchecked,
-      boolean reproducible)
+      boolean reproducible,
+      Object factsObj)
       throws EvalException {
+    var facts = Facts.validateAndCreate(factsObj);
+
     if (rootModuleDirectDepsUnchecked == Starlark.NONE
         && rootModuleDirectDevDepsUnchecked == Starlark.NONE) {
-      return create(null, null, UseAllRepos.NO, reproducible);
+      return create(null, null, UseAllRepos.NO, reproducible, facts);
     }
 
     // When root_module_direct_deps = "all", accept both root_module_direct_dev_deps = None and
     // root_module_direct_dev_deps = [], but not root_module_direct_dev_deps = ["some_repo"].
     if (rootModuleDirectDepsUnchecked.equals("all")
         && rootModuleDirectDevDepsUnchecked.equals(StarlarkList.immutableOf())) {
-      return create(null, null, UseAllRepos.REGULAR, reproducible);
+      return create(null, null, UseAllRepos.REGULAR, reproducible, facts);
     }
 
     if (rootModuleDirectDevDepsUnchecked.equals("all")
         && rootModuleDirectDepsUnchecked.equals(StarlarkList.immutableOf())) {
-      return create(null, null, UseAllRepos.DEV, reproducible);
+      return create(null, null, UseAllRepos.DEV, reproducible, facts);
     }
 
     if (rootModuleDirectDepsUnchecked.equals("all")
@@ -166,7 +178,8 @@ public abstract class ModuleExtensionMetadata implements StarlarkValue {
         explicitRootModuleDirectDeps,
         explicitRootModuleDirectDevDeps,
         UseAllRepos.NO,
-        reproducible);
+        reproducible,
+        facts);
   }
 
   public Optional<RootModuleFileFixup> generateFixup(

@@ -2759,6 +2759,119 @@ class BazelLockfileTest(test_base.TestBase):
     stderr = '\n'.join(stderr)
     self.assertIn('label: @@+my_ext2+bar//:bar\n', stderr)
 
+  def testFactsInReproducibleExtension(self):
+      self.ScratchFile(
+          'MODULE.bazel',
+          [
+              'lockfile_ext = use_extension("extension.bzl", "lockfile_ext")',
+              'use_repo(lockfile_ext, "hello")',
+          ],
+      )
+      self.ScratchFile('BUILD.bazel')
+      self.ScratchFile(
+          'extension.bzl',
+          [
+              'def impl(ctx):',
+              '    ctx.file("BUILD", "filegroup(name=\\"lala\\")")',
+              'repo_rule = repository_rule(implementation = impl)',
+              'def _fetch_repo_names(_ctx):',
+              '    # Fake function to simulate fetching repo names from the internet',
+              '    print("Fetching repo names...")',
+              '    return ["hello", "world"]',
+              'def _mod_ext_impl(ctx):',
+              '    print("Hello from the other side!")',
+              '    repos = ctx.facts or _fetch_repo_names(ctx)',
+              '    for repo in repos:',
+              '        repo_rule(name = repo)',
+              '    print("Repositories: [" + ", ".join(repos) + "]")',
+              '    return ctx.extension_metadata(',
+              '        reproducible = True,',
+              '        facts = repos,',
+              '    )',
+              'lockfile_ext = module_extension(implementation = _mod_ext_impl)',
+          ],
+      )
+      _, _, stderr = self.RunBazel(['build', '@hello//:all'])
+      stderr = ''.join(stderr)
+      self.assertIn('Hello from the other side!', stderr)
+      self.assertIn('Fetching repo names...', stderr)
+      self.assertIn('Repositories: [hello, world]', stderr)
+
+      # Clean out the hidden lockfile to ensure that the extension is
+      # evaluated again.
+      _, _, stderr = self.RunBazel(['clean', '--expunge'])
+
+      _, _, stderr = self.RunBazel(['build', '@hello//:all', '--lockfile_mode=error'])
+      stderr = ''.join(stderr)
+      self.assertIn('Hello from the other side!', stderr)
+      self.assertNotIn('Fetching repo names...', stderr)
+      self.assertIn('Repositories: [hello, world]', stderr)
+
+      # Update extension in a way that does not change the facts.
+      self.ScratchFile(
+          'extension.bzl',
+          [
+              'def impl(ctx):',
+              '    ctx.file("BUILD", "filegroup(name=\\"lala\\")")',
+              'repo_rule = repository_rule(implementation = impl)',
+              'def _fetch_repo_names(_ctx):',
+              '    # Fake function to simulate fetching repo names from the internet',
+              '    print("Fetching repo names...")',
+              '    return ["hello", "world"]',
+              'def _mod_ext_impl(ctx):',
+              '    print("Hello from this side!")',
+              '    repos = ctx.facts or _fetch_repo_names(ctx)',
+              '    for repo in repos:',
+              '        repo_rule(name = repo)',
+              '    print("Repositories: [" + ", ".join(repos) + "]")',
+              '    return ctx.extension_metadata(',
+              '        reproducible = True,',
+              '        facts = repos,',
+              '    )',
+              'lockfile_ext = module_extension(implementation = _mod_ext_impl)',
+          ],
+      )
+
+      _, _, stderr = self.RunBazel(['build', '@hello//:all', '--lockfile_mode=error'])
+      stderr = ''.join(stderr)
+      self.assertIn('Hello from this side!', stderr)
+      self.assertNotIn('Fetching repo names...', stderr)
+      self.assertIn('Repositories: [hello, world]', stderr)
+
+      # Update extension in a way that *does* change the facts.
+      self.ScratchFile(
+          'extension.bzl',
+          [
+              'def impl(ctx):',
+              '    ctx.file("BUILD", "filegroup(name=\\"lala\\")")',
+              'repo_rule = repository_rule(implementation = impl)',
+              'def _fetch_repo_names(_ctx):',
+              '    # Fake function to simulate fetching repo names from the internet',
+              '    print("Fetching repo names...")',
+              '    return ["hello", "world", "baz"]',
+              'def _mod_ext_impl(ctx):',
+              '    print("Hello from this side!")',
+              '    repos = _fetch_repo_names(ctx)',
+              '    for repo in repos:',
+              '        repo_rule(name = repo)',
+              '    print("Repositories: [" + ", ".join(repos) + "]")',
+              '    return ctx.extension_metadata(',
+              '        reproducible = True,',
+              '        facts = repos,',
+              '    )',
+              'lockfile_ext = module_extension(implementation = _mod_ext_impl)',
+          ],
+      )
+
+      exit_code, stdout, stderr = self.RunBazel(['build', '@hello//:all', '--lockfile_mode=error'], allow_failure=True)
+      self.AssertExitCode(exit_code, 48, stderr, stdout)
+      stderr = ''.join(stderr)
+      self.assertIn('Hello from this side!', stderr)
+      self.assertIn('Fetching repo names...', stderr)
+      self.assertIn(
+          'ERROR: The module extension \'@@//:extension.bzl%lockfile_ext\' has changed its lockfileFacts: ["hello", "world", "baz"] != ["hello", "world"]',
+          stderr)
+
 
 if __name__ == '__main__':
   absltest.main()
