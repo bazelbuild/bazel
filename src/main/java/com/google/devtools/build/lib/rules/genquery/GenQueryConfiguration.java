@@ -41,14 +41,10 @@ public class GenQueryConfiguration extends Fragment {
     public boolean skipTtvs;
   }
 
-  private final boolean skipTtvs;
-
-  public GenQueryConfiguration(BuildOptions buildOptions) {
-    this.skipTtvs = buildOptions.get(GenQueryOptions.class).skipTtvs;
-  }
+  public GenQueryConfiguration(BuildOptions buildOptions) {}
 
   /** Returns whether genquery should load its scope's transitive closure directly. */
   boolean skipTtvs() {
-    return skipTtvs;
+    return true;
   }
 }
