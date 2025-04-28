@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.devtools.build.lib.skyframe.SkyfocusOptions.FrontierViolationCheck.DISABLED_FOR_TESTING;
 
 import com.google.common.base.Joiner;
@@ -91,7 +90,13 @@ public final class FrontierViolationChecker {
     Preconditions.checkArgument(provider.mode().requiresBackendConnectivity());
 
     if (check == DISABLED_FOR_TESTING) {
-      checkState(TestType.isInTest());
+      if (!TestType.isInTest()) {
+        eventHandler.handle(
+            Event.warn(
+                "Frontier violation check explicitly disabled at user request. This may well result"
+                    + " in incorrect builds and should only be used if you know what you are"
+                    + " doing."));
+      }
       return provider;
     }
 
