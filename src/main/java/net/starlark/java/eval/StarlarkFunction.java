@@ -19,7 +19,6 @@ import com.google.common.collect.Maps;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Objects;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.eval.StarlarkThread.Frame;
@@ -27,7 +26,6 @@ import net.starlark.java.spelling.SpellChecker;
 import net.starlark.java.syntax.Location;
 import net.starlark.java.syntax.Resolver;
 import net.starlark.java.types.StarlarkType;
-import net.starlark.java.types.Types;
 import net.starlark.java.types.Types.CallableType;
 
 /** A StarlarkFunction is a function value created by a Starlark {@code def} statement. */
@@ -96,7 +94,7 @@ public final class StarlarkFunction implements StarlarkCallable {
 
   @Override
   public StarlarkType getStarlarkType() {
-    return Objects.requireNonNullElse(rfn.getFunctionType(), Types.ANY);
+    return rfn.getFunctionType();
   }
 
   // TODO(adonovan): many functions would be simpler if

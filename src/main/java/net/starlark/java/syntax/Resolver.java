@@ -159,7 +159,7 @@ public final class Resolver extends NodeVisitor {
     private final String name;
     private final Location location;
     private final ImmutableList<Parameter> params;
-    @Nullable private final Types.CallableType functionType;
+    private final Types.CallableType functionType;
     private final ImmutableList<Statement> body;
     private final boolean hasVarargs;
     private final boolean hasKwargs;
@@ -175,7 +175,7 @@ public final class Resolver extends NodeVisitor {
         String name,
         Location loc,
         ImmutableList<Parameter> params,
-        @Nullable Types.CallableType functionType,
+        Types.CallableType functionType,
         ImmutableList<Statement> body,
         boolean hasVarargs,
         boolean hasKwargs,
@@ -291,7 +291,6 @@ public final class Resolver extends NodeVisitor {
       return params;
     }
 
-    @Nullable
     public Types.CallableType getFunctionType() {
       return functionType;
     }
@@ -853,18 +852,21 @@ public final class Resolver extends NodeVisitor {
     return Types.ANY;
   }
 
-  public Types.CallableType resolveFunctionType(Resolver.Module module, DefStatement def) {
+  public Types.CallableType resolveFunctionType(
+      Resolver.Module module,
+      ImmutableList<Parameter> parameters,
+      @Nullable Expression returnTypeExpr) {
     ImmutableList.Builder<String> names = ImmutableList.builder();
     ImmutableList.Builder<StarlarkType> types = ImmutableList.builder();
     ImmutableSet.Builder<String> mandatoryParameters = ImmutableSet.builder();
 
-    int nparams = def.getParameters().size();
+    int nparams = parameters.size();
     int numPositionalParameters = 0;
     Parameter.Star star = null;
     Parameter.StarStar starStar = null;
     int i;
     for (i = 0; i < nparams; i++) {
-      Parameter param = def.getParameters().get(i);
+      Parameter param = parameters.get(i);
       if (param instanceof Parameter.Star pstar) {
         star = pstar;
         continue;
@@ -899,8 +901,8 @@ public final class Resolver extends NodeVisitor {
     }
 
     StarlarkType returnType = Types.ANY;
-    if (def.getReturnType() != null) {
-      returnType = resolveType(module, def.getReturnType());
+    if (returnTypeExpr != null) {
+      returnType = resolveType(module, returnTypeExpr);
     }
 
     return Types.callable(
@@ -1011,7 +1013,10 @@ public final class Resolver extends NodeVisitor {
 
     Types.CallableType functionType = null;
     if (syntax instanceof DefStatement def) {
-      functionType = resolveFunctionType(module, def);
+      functionType = resolveFunctionType(module, def.getParameters(), def.getReturnType());
+    } else if (syntax instanceof LambdaExpression lambda) {
+      functionType =
+          resolveFunctionType(module, lambda.getParameters(), /* returnTypeExpr= */ null);
     }
 
     return new Function(
