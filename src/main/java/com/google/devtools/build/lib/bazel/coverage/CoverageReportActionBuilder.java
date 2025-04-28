@@ -14,6 +14,9 @@
 
 package com.google.devtools.build.lib.bazel.coverage;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Comparator.comparing;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -61,6 +64,7 @@ import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
+import java.util.Comparator;
 import javax.annotation.Nullable;
 
 /**
@@ -94,7 +98,8 @@ public final class CoverageReportActionBuilder {
   private static final ResourceSet LOCAL_RESOURCES =
       ResourceSet.createWithRamCpu(/* memoryMb= */ 750, /* cpu= */ 1);
 
-  private static final ActionOwner ACTION_OWNER = ActionOwner.SYSTEM_ACTION_OWNER;
+  private static final Comparator<ActionOwner> ACTION_OWNER_COMPARATOR =
+      comparing(ActionOwner::getLabel).thenComparing(ActionOwner::getConfigurationChecksum);
 
   // SpawnActions can't be used because they need the AnalysisEnvironment and this action is
   // created specially at the very end of the analysis phase when we don't have it anymore.
@@ -199,6 +204,7 @@ public final class CoverageReportActionBuilder {
     }
     NestedSetBuilder<Artifact> builder = NestedSetBuilder.stableOrder();
     FilesToRunProvider reportGenerator = null;
+    ActionOwner actionOwner = null;
     for (ConfiguredTarget target : targetsToTest) {
       // Skip incompatible tests.
       if (target.get(IncompatiblePlatformProvider.PROVIDER) != null) {
@@ -206,14 +212,22 @@ public final class CoverageReportActionBuilder {
       }
       TestParams testParams = target.getProvider(TestProvider.class).getTestParams();
       builder.addAll(testParams.getCoverageArtifacts());
-      if (reportGenerator == null) {
+      // targetsToTest has non-deterministic order, so we ensure that we pick the same action owner
+      // and matching report generator each time by picking the owner that's lexicographically
+      // smallest. We prefer an owner with exec properties set in case the action is run remotely.
+      if (reportGenerator == null
+          || ACTION_OWNER_COMPARATOR.compare(testParams.getActionOwnerForCoverage(), actionOwner)
+              < 0
+          || actionOwner.getExecProperties().isEmpty()) {
         reportGenerator = testParams.getCoverageReportGenerator();
+        actionOwner = testParams.getActionOwnerForCoverage();
       }
     }
     // If all tests are incompatible, there's nothing to do.
     if (reportGenerator == null) {
       return null;
     }
+    checkNotNull(actionOwner);
     NestedSet<Artifact> coverageArtifacts =
         builder.addTransitive(baselineCoverageArtifacts).build();
     if (!coverageArtifacts.isEmpty()) {
@@ -224,7 +238,7 @@ public final class CoverageReportActionBuilder {
               directories.getBuildDataDirectory(workspaceName),
               artifactOwner);
       Action baselineLcovFileAction =
-          generateLcovFileWriteAction(baselineLcovArtifact, baselineCoverageArtifacts);
+          generateLcovFileWriteAction(baselineLcovArtifact, baselineCoverageArtifacts, actionOwner);
       Action baselineReportAction =
           generateCoverageReportAction(
               CoverageArgs.create(
@@ -235,7 +249,8 @@ public final class CoverageReportActionBuilder {
                   artifactOwner,
                   reportGenerator,
                   workspaceName,
-                  /* htmlReport= */ false),
+                  /* htmlReport= */ false,
+                  actionOwner),
               argsFunction,
               locationFunc,
               "_baseline_report.dat");
@@ -245,7 +260,7 @@ public final class CoverageReportActionBuilder {
               directories.getBuildDataDirectory(workspaceName),
               artifactOwner);
       Action coverageLcovFileAction =
-          generateLcovFileWriteAction(coverageLcovArtifact, coverageArtifacts);
+          generateLcovFileWriteAction(coverageLcovArtifact, coverageArtifacts, actionOwner);
       Action coverageReportAction =
           generateCoverageReportAction(
               CoverageArgs.create(
@@ -256,7 +271,8 @@ public final class CoverageReportActionBuilder {
                   artifactOwner,
                   reportGenerator,
                   workspaceName,
-                  htmlReport),
+                  htmlReport,
+                  actionOwner),
               argsFunction,
               locationFunc,
               "_coverage_report.dat");
@@ -273,9 +289,9 @@ public final class CoverageReportActionBuilder {
   }
 
   private static LazyWritePathsFileAction generateLcovFileWriteAction(
-      Artifact lcovArtifact, NestedSet<Artifact> coverageArtifacts) {
+      Artifact lcovArtifact, NestedSet<Artifact> coverageArtifacts, ActionOwner actionOwner) {
     return new LazyWritePathsFileAction(
-        ACTION_OWNER,
+        actionOwner,
         lcovArtifact,
         coverageArtifacts,
         /* filesToIgnore= */ ImmutableSet.of(),
@@ -317,7 +333,7 @@ public final class CoverageReportActionBuilder {
       inputsBuilder.add(runfilesTree);
     }
     return new CoverageReportAction(
-        ACTION_OWNER,
+        args.actionOwner(),
         inputsBuilder.build(),
         ImmutableSet.of(lcovOutput),
         actionArgs,

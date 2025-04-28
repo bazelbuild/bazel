@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.bazel.coverage;
 
 import static java.util.Objects.requireNonNull;
 
+import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
@@ -40,6 +41,7 @@ public record CoverageArgs(
     FilesToRunProvider reportGenerator,
     String workspaceName,
     boolean htmlReport,
+    ActionOwner actionOwner,
     @Nullable Artifact lcovOutput) {
   public CoverageArgs {
     requireNonNull(directories, "directories");
@@ -49,6 +51,7 @@ public record CoverageArgs(
     requireNonNull(artifactOwner, "artifactOwner");
     requireNonNull(reportGenerator, "reportGenerator");
     requireNonNull(workspaceName, "workspaceName");
+    requireNonNull(actionOwner);
   }
 
   public static CoverageArgs create(
@@ -59,7 +62,8 @@ public record CoverageArgs(
       ArtifactOwner artifactOwner,
       FilesToRunProvider reportGenerator,
       String workspaceName,
-      boolean htmlReport) {
+      boolean htmlReport,
+      ActionOwner actionOwner) {
     return new CoverageArgs(
         directories,
         coverageArtifacts,
@@ -69,10 +73,12 @@ public record CoverageArgs(
         reportGenerator,
         workspaceName,
         htmlReport,
+        actionOwner,
         /* lcovOutput= */ null);
   }
 
-  public static CoverageArgs createCopyWithLcovOutput(CoverageArgs args, Artifact lcovOutput) {
+  public static CoverageArgs createCopyWithLcovOutput(
+      CoverageArgs args,  Artifact lcovOutput) {
     return new CoverageArgs(
         args.directories(),
         args.coverageArtifacts(),
@@ -82,6 +88,7 @@ public record CoverageArgs(
         args.reportGenerator(),
         args.workspaceName(),
         args.htmlReport(),
+        args.actionOwner(),
         lcovOutput);
   }
 }
