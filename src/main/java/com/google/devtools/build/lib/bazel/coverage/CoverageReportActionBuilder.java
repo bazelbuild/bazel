@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.bazel.coverage;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.primitives.Booleans.falseFirst;
 import static java.util.Comparator.comparing;
 
 import com.google.common.collect.ImmutableList;
@@ -99,7 +100,10 @@ public final class CoverageReportActionBuilder {
       ResourceSet.createWithRamCpu(/* memoryMb= */ 750, /* cpu= */ 1);
 
   private static final Comparator<ActionOwner> ACTION_OWNER_COMPARATOR =
-      comparing(ActionOwner::getLabel).thenComparing(ActionOwner::getConfigurationChecksum);
+      comparing(
+              (ActionOwner actionOwner) -> actionOwner.getExecProperties().isEmpty(), falseFirst())
+          .thenComparing(ActionOwner::getLabel)
+          .thenComparing(ActionOwner::getConfigurationChecksum);
 
   // SpawnActions can't be used because they need the AnalysisEnvironment and this action is
   // created specially at the very end of the analysis phase when we don't have it anymore.
@@ -214,11 +218,10 @@ public final class CoverageReportActionBuilder {
       builder.addAll(testParams.getCoverageArtifacts());
       // targetsToTest has non-deterministic order, so we ensure that we pick the same action owner
       // and matching report generator each time by picking the owner that's lexicographically
-      // smallest. We prefer an owner with exec properties set in case the action is run remotely.
+      // largest. We prefer an owner with exec properties set in case the action is run remotely.
       if (reportGenerator == null
           || ACTION_OWNER_COMPARATOR.compare(testParams.getActionOwnerForCoverage(), actionOwner)
-              < 0
-          || actionOwner.getExecProperties().isEmpty()) {
+              > 0) {
         reportGenerator = testParams.getCoverageReportGenerator();
         actionOwner = testParams.getActionOwnerForCoverage();
       }
