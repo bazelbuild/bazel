@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.actions.cache;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -47,7 +46,6 @@ import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.Collection;
 import java.util.EnumMap;
 import java.util.Map;
 import java.util.Optional;
@@ -71,9 +69,7 @@ public class CompactPersistentActionCache implements ActionCache {
   // cache records.
   private static final int VALIDATION_KEY = -10;
 
-  private static final int NO_INPUT_DISCOVERY_COUNT = -1;
-
-  private static final int VERSION = 19;
+  private static final int VERSION = 20;
 
   private static final MapCodec<Integer, byte[]> CODEC =
       new MapCodec<Integer, byte[]>() {
@@ -393,7 +389,16 @@ public class CompactPersistentActionCache implements ActionCache {
   @Override
   public void removeIf(Predicate<Entry> predicate) {
     for (Map.Entry<Integer, byte[]> entry : map.entrySet()) {
-      if (predicate.test(decode(entry.getValue()))) {
+      if (entry.getKey() == VALIDATION_KEY) {
+        // Skip the validation record.
+        continue;
+      }
+      ActionCache.Entry decodedEntry = decode(entry.getValue());
+      if (decodedEntry.isCorrupted()) {
+        // Skip corrupted entries.
+        continue;
+      }
+      if (predicate.test(decodedEntry)) {
         // Although this is racy (the key might be concurrently set to a different value), we don't
         // care because it's a very small window and it only impacts performance, not correctness.
         map.remove(entry.getKey());
@@ -507,7 +512,7 @@ public class CompactPersistentActionCache implements ActionCache {
   }
 
   private static final int MAX_REMOTE_METADATA_SIZE =
-      DigestUtils.ESTIMATED_SIZE // digest
+      (1 + DigestUtils.ESTIMATED_SIZE) // digest length + digest
           + VarInt.MAX_VARLONG_SIZE // size
           + VarInt.MAX_VARINT_SIZE // locationIndex
           + VarInt.MAX_VARLONG_SIZE // expirationTime
@@ -553,8 +558,13 @@ public class CompactPersistentActionCache implements ActionCache {
   private byte[] encode(ActionCache.Entry entry) throws IOException {
     Preconditions.checkState(!entry.isCorrupted());
 
-    byte[] actionKeyBytes = entry.getActionKey().getBytes(ISO_8859_1);
-    Collection<String> files = entry.getPaths();
+    int maxDiscoveredInputsSize = 1; // presence marker
+    if (entry.discoversInputs()) {
+      maxDiscoveredInputsSize +=
+          VarInt.MAX_VARINT_SIZE // length
+              + (VarInt.MAX_VARINT_SIZE // execPath
+                  * entry.getDiscoveredInputPaths().size());
+    }
 
     int maxOutputFilesSize =
         VarInt.MAX_VARINT_SIZE // entry.getOutputFiles().size()
@@ -583,41 +593,24 @@ public class CompactPersistentActionCache implements ActionCache {
           1 + value.resolvedPath().map(ignored -> VarInt.MAX_VARINT_SIZE).orElse(0);
     }
 
-    // Estimate the size of the buffer:
-    //   5 bytes max for the actionKey length
-    // + the actionKey itself
-    // + 32 bytes for the digest
-    // + 5 bytes max for the file list length
-    // + 5 bytes max for each file id
-    // + 32 bytes for the environment digest
-    // + 1 byte for archived tree artifacts flag
-    // + max bytes for output files
-    // + max bytes for output trees
+    // Estimate the size of the buffer.
     int maxSize =
-        VarInt.MAX_VARINT_SIZE
-            + actionKeyBytes.length
-            + DigestUtils.ESTIMATED_SIZE
-            + VarInt.MAX_VARINT_SIZE
-            + files.size() * VarInt.MAX_VARINT_SIZE
-            + DigestUtils.ESTIMATED_SIZE
-            + 1
+        (1 + DigestUtils.ESTIMATED_SIZE) // digest length + digest
+            + maxDiscoveredInputsSize
             + maxOutputFilesSize
             + maxOutputTreesSize;
     ByteArrayOutputStream sink = new ByteArrayOutputStream(maxSize);
 
-    VarInt.putVarInt(actionKeyBytes.length, sink);
-    sink.write(actionKeyBytes);
+    MetadataDigestUtils.write(entry.getDigest(), sink);
 
-    MetadataDigestUtils.write(entry.getFileDigest(), sink);
-
-    VarInt.putVarInt(entry.discoversInputs() ? files.size() : NO_INPUT_DISCOVERY_COUNT, sink);
-    for (String file : files) {
-      VarInt.putVarInt(indexer.getOrCreateIndex(file), sink);
+    VarInt.putVarInt(entry.discoversInputs() ? 1 : 0, sink);
+    if (entry.discoversInputs()) {
+      ImmutableList<String> discoveredInputPaths = entry.getDiscoveredInputPaths();
+      VarInt.putVarInt(discoveredInputPaths.size(), sink);
+      for (String discoveredInputPath : discoveredInputPaths) {
+        VarInt.putVarInt(indexer.getOrCreateIndex(discoveredInputPath), sink);
+      }
     }
-
-    MetadataDigestUtils.write(entry.getActionPropertiesDigest(), sink);
-
-    VarInt.putVarInt(entry.useArchivedTreeArtifacts() ? 1 : 0, sink);
 
     VarInt.putVarInt(entry.getOutputFiles().size(), sink);
     for (Map.Entry<String, FileArtifactValue> file : entry.getOutputFiles().entrySet()) {
@@ -677,37 +670,35 @@ public class CompactPersistentActionCache implements ActionCache {
     try {
       ByteBuffer source = ByteBuffer.wrap(data);
 
-      int actionKeySize = VarInt.getVarInt(source);
-      if (actionKeySize < 0) {
-        throw new IOException("Negative action key size: " + actionKeySize);
-      }
-      byte[] actionKeyBytes = new byte[actionKeySize];
-      source.get(actionKeyBytes);
-      String actionKey = new String(actionKeyBytes, ISO_8859_1);
-
       byte[] digest = MetadataDigestUtils.read(source);
 
-      int count = VarInt.getVarInt(source);
-      if (count != NO_INPUT_DISCOVERY_COUNT && count < 0) {
-        throw new IOException("Negative discovered file count: " + count);
-      }
-      ImmutableList<String> files = null;
-      if (count != NO_INPUT_DISCOVERY_COUNT) {
-        ImmutableList.Builder<String> builder = ImmutableList.builderWithExpectedSize(count);
-        for (int i = 0; i < count; i++) {
+      ImmutableList<String> discoveredInputPaths = null;
+      int discoveredInputsPresenceMarker = VarInt.getVarInt(source);
+      if (discoveredInputsPresenceMarker != 0) {
+        if (discoveredInputsPresenceMarker != 1) {
+          throw new IOException(
+              "Invalid presence marker for discovered inputs: " + discoveredInputsPresenceMarker);
+        }
+        int numDiscoveredInputs = VarInt.getVarInt(source);
+        if (numDiscoveredInputs < 0) {
+          throw new IOException("Invalid discovered input count: " + numDiscoveredInputs);
+        }
+        ImmutableList.Builder<String> builder =
+            ImmutableList.builderWithExpectedSize(numDiscoveredInputs);
+        for (int i = 0; i < numDiscoveredInputs; i++) {
           int id = VarInt.getVarInt(source);
           String filename = getStringForIndex(indexer, id);
           builder.add(filename);
         }
-        files = builder.build();
+        discoveredInputPaths = builder.build();
       }
 
-      byte[] usedClientEnvDigest = MetadataDigestUtils.read(source);
-
-      boolean useArchivedTreeArtifacts = VarInt.getVarInt(source) != 0;
-
       int numOutputFiles = VarInt.getVarInt(source);
-      Map<String, FileArtifactValue> outputFiles = Maps.newHashMapWithExpectedSize(numOutputFiles);
+      if (numOutputFiles < 0) {
+        throw new IOException("Invalid output file count: " + numOutputFiles);
+      }
+      ImmutableMap.Builder<String, FileArtifactValue> outputFiles =
+          ImmutableMap.builderWithExpectedSize(numOutputFiles);
       for (int i = 0; i < numOutputFiles; i++) {
         String execPath = getStringForIndex(indexer, VarInt.getVarInt(source));
         FileArtifactValue value = decodeRemoteMetadata(source);
@@ -715,8 +706,11 @@ public class CompactPersistentActionCache implements ActionCache {
       }
 
       int numOutputTrees = VarInt.getVarInt(source);
-      Map<String, SerializableTreeArtifactValue> outputTrees =
-          Maps.newHashMapWithExpectedSize(numOutputTrees);
+      if (numOutputTrees < 0) {
+        throw new IOException("invalid output tree count: " + numOutputTrees);
+      }
+      ImmutableMap.Builder<String, SerializableTreeArtifactValue> outputTrees =
+          ImmutableMap.builderWithExpectedSize(numOutputTrees);
       for (int i = 0; i < numOutputTrees; i++) {
         String treeKey = getStringForIndex(indexer, VarInt.getVarInt(source));
 
@@ -729,19 +723,22 @@ public class CompactPersistentActionCache implements ActionCache {
         }
 
         Optional<FileArtifactValue> archivedFileValue = Optional.empty();
-        int numArchivedFileValue = VarInt.getVarInt(source);
-        if (numArchivedFileValue > 0) {
-          if (numArchivedFileValue != 1) {
-            throw new IOException("Invalid presence marker for archived representation");
+        int archivedFileValuePresenceMarker = VarInt.getVarInt(source);
+        if (archivedFileValuePresenceMarker != 0) {
+          if (archivedFileValuePresenceMarker != 1) {
+            throw new IOException(
+                "Invalid presence marker for archived representation: "
+                    + archivedFileValuePresenceMarker);
           }
           archivedFileValue = Optional.of(decodeRemoteMetadata(source));
         }
 
         Optional<PathFragment> resolvedPath = Optional.empty();
-        int numResolvedPath = VarInt.getVarInt(source);
-        if (numResolvedPath > 0) {
-          if (numResolvedPath != 1) {
-            throw new IOException("Invalid presence marker for resolved path");
+        int resolvedPathPresenceMarker = VarInt.getVarInt(source);
+        if (resolvedPathPresenceMarker != 0) {
+          if (resolvedPathPresenceMarker != 1) {
+            throw new IOException(
+                "Invalid presence marker for resolved path: " + resolvedPathPresenceMarker);
           }
           resolvedPath =
               Optional.of(
@@ -758,13 +755,7 @@ public class CompactPersistentActionCache implements ActionCache {
         throw new IOException("serialized entry data has not been fully decoded");
       }
       return new ActionCache.Entry(
-          actionKey,
-          usedClientEnvDigest,
-          files,
-          digest,
-          outputFiles,
-          outputTrees,
-          useArchivedTreeArtifacts);
+          digest, discoveredInputPaths, outputFiles.buildOrThrow(), outputTrees.buildOrThrow());
     } catch (BufferUnderflowException e) {
       throw new IOException("encoded entry data is incomplete", e);
     }

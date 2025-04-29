@@ -44,7 +44,6 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.SortedMap;
 
 /** Options for remote execution and distributed caching for Bazel only. */
 public final class RemoteOptions extends CommonRemoteOptions {
@@ -822,7 +821,8 @@ public final class RemoteOptions extends CommonRemoteOptions {
    * Returns the default exec properties specified by the user or an empty map if nothing was
    * specified. Use this method instead of directly accessing the fields.
    */
-  public SortedMap<String, String> getRemoteDefaultExecProperties() throws UserExecException {
+  public ImmutableSortedMap<String, String> getRemoteDefaultExecProperties()
+      throws UserExecException {
     boolean hasExecProperties = !remoteDefaultExecProperties.isEmpty();
     boolean hasPlatformProperties = !remoteDefaultPlatformProperties.isEmpty();
 

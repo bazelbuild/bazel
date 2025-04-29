@@ -112,16 +112,6 @@ public class BuildRequestOptions extends OptionsBase {
   public PathFragment explanationPath;
 
   @Option(
-      name = "verbose_explanations",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.LOGGING,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-      help =
-          "Increases the verbosity of the explanations issued if --explain is enabled. "
-              + "Has no effect if --explain is not enabled.")
-  public boolean verboseExplanations;
-
-  @Option(
       name = "output_filter",
       converter = Converters.RegexPatternConverter.class,
       defaultValue = "null",

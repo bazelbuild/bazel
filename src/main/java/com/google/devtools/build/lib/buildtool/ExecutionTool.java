@@ -974,7 +974,6 @@ public class ExecutionTool {
             executionFilter,
             ActionCacheChecker.CacheConfig.builder()
                 .setEnabled(options.useActionCache)
-                .setVerboseExplanations(options.verboseExplanations)
                 .setStoreOutputMetadata(shouldStoreRemoteOutputMetadataInActionCache)
                 .build()),
         modifiedOutputFiles,

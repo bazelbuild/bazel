@@ -662,6 +662,14 @@ public final class BazelRulesModule extends BlazeModule {
         metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
         help = "No-op.")
     public boolean macosSetInstallName;
+
+    @Option(
+        name = "verbose_explanations",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.LOGGING,
+        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+        help = "No-op.")
+    public boolean verboseExplanations;
   }
 
   @Override

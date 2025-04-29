@@ -127,7 +127,6 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.SortedMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -682,7 +681,7 @@ public final class SkyframeActionExecutor {
       throws ActionExecutionException, InterruptedException {
     Token token;
     RemoteOptions remoteOptions;
-    SortedMap<String, String> remoteDefaultProperties;
+    ImmutableSortedMap<String, String> remoteDefaultProperties;
     EventHandler handler;
     OutputChecker outputChecker = null;
 
@@ -791,7 +790,7 @@ public final class SkyframeActionExecutor {
     if (!actionCacheChecker.enabled()) {
       return;
     }
-    final SortedMap<String, String> remoteDefaultProperties;
+    ImmutableSortedMap<String, String> remoteDefaultProperties;
     try {
       RemoteOptions remoteOptions = this.options.getOptions(RemoteOptions.class);
       remoteDefaultProperties =

@@ -118,7 +118,6 @@ public class ActionCacheCheckerTest {
         action -> true,
         ActionCacheChecker.CacheConfig.builder()
             .setEnabled(true)
-            .setVerboseExplanations(false)
             .setStoreOutputMetadata(storeOutputMetadata)
             .build());
   }
@@ -141,7 +140,7 @@ public class ActionCacheCheckerTest {
 
   /** "Executes" the given action from the point of view of the cache's lifecycle. */
   private void runAction(Action action) throws Exception {
-    runAction(action, new HashMap<>());
+    runAction(action, ImmutableMap.of());
   }
 
   private void runAction(
@@ -150,18 +149,19 @@ public class ActionCacheCheckerTest {
       OutputMetadataStore outputMetadataStore)
       throws Exception {
     runAction(
-        action, new HashMap<>(), ImmutableMap.of(), inputMetadataProvider, outputMetadataStore);
+        action, ImmutableMap.of(), ImmutableMap.of(), inputMetadataProvider, outputMetadataStore);
   }
 
   /**
    * "Executes" the given action from the point of view of the cache's lifecycle with a custom
    * client environment.
    */
-  private void runAction(Action action, Map<String, String> clientEnv) throws Exception {
+  private void runAction(Action action, ImmutableMap<String, String> clientEnv) throws Exception {
     runAction(action, clientEnv, ImmutableMap.of());
   }
 
-  private void runAction(Action action, Map<String, String> clientEnv, Map<String, String> platform)
+  private void runAction(
+      Action action, ImmutableMap<String, String> clientEnv, ImmutableMap<String, String> platform)
       throws Exception {
     FakeInputMetadataHandler metadataHandler = new FakeInputMetadataHandler();
     runAction(action, clientEnv, platform, metadataHandler, metadataHandler);
@@ -169,8 +169,8 @@ public class ActionCacheCheckerTest {
 
   private void runAction(
       Action action,
-      Map<String, String> clientEnv,
-      Map<String, String> platform,
+      ImmutableMap<String, String> clientEnv,
+      ImmutableMap<String, String> platform,
       InputMetadataProvider inputMetadataProvider,
       OutputMetadataStore outputMetadataStore)
       throws Exception {
@@ -185,8 +185,8 @@ public class ActionCacheCheckerTest {
 
   private void runAction(
       Action action,
-      Map<String, String> clientEnv,
-      Map<String, String> platform,
+      ImmutableMap<String, String> clientEnv,
+      ImmutableMap<String, String> platform,
       InputMetadataProvider inputMetadataProvider,
       OutputMetadataStore outputMetadataStore,
       OutputChecker outputChecker)
@@ -203,8 +203,8 @@ public class ActionCacheCheckerTest {
 
   private void runAction(
       Action action,
-      Map<String, String> clientEnv,
-      Map<String, String> platform,
+      ImmutableMap<String, String> clientEnv,
+      ImmutableMap<String, String> platform,
       InputMetadataProvider inputMetadataProvider,
       OutputMetadataStore outputMetadataStore,
       OutputChecker outputChecker,
@@ -234,8 +234,8 @@ public class ActionCacheCheckerTest {
 
   private void runAction(
       Action action,
-      Map<String, String> clientEnv,
-      Map<String, String> platform,
+      ImmutableMap<String, String> clientEnv,
+      ImmutableMap<String, String> platform,
       InputMetadataProvider inputMetadataProvider,
       OutputMetadataStore outputMetadataStore,
       @Nullable Token token)
@@ -252,8 +252,8 @@ public class ActionCacheCheckerTest {
 
   private void runAction(
       Action action,
-      Map<String, String> clientEnv,
-      Map<String, String> platform,
+      ImmutableMap<String, String> clientEnv,
+      ImmutableMap<String, String> platform,
       InputMetadataProvider inputMetadataProvider,
       OutputMetadataStore outputMetadataStore,
       @Nullable Token token,
@@ -374,7 +374,7 @@ public class ActionCacheCheckerTest {
     assertStatistics(
         0,
         new MissDetailsBuilder()
-            .set(MissReason.DIFFERENT_ACTION_KEY, 1)
+            .set(MissReason.DIGEST_MISMATCH, 1)
             .set(MissReason.NOT_CACHED, 1)
             .build());
   }
@@ -388,19 +388,19 @@ public class ActionCacheCheckerTest {
             return ImmutableList.of("used-var");
           }
         };
-    Map<String, String> clientEnv = new HashMap<>();
-    clientEnv.put("unused-var", "1");
-    runAction(action, clientEnv);  // Not cached.
-    clientEnv.remove("unused-var");
-    runAction(action, clientEnv);  // Cache hit because we only modified uninteresting variables.
-    clientEnv.put("used-var", "2");
-    runAction(action, clientEnv);  // Cache miss because of different environment.
-    runAction(action, clientEnv);  // Cache hit because we did not change anything.
+
+    runAction(action, ImmutableMap.of("unused-var", "1")); // Not cached.
+    runAction(
+        action, ImmutableMap.of()); // Cache hit because we only modified uninteresting variables.
+    runAction(
+        action, ImmutableMap.of("used-var", "2")); // Cache miss because of different environment.
+    runAction(
+        action, ImmutableMap.of("used-var", "2")); // Cache hit because we did not change anything.
 
     assertStatistics(
         2,
         new MissDetailsBuilder()
-            .set(MissReason.DIFFERENT_ENVIRONMENT, 1)
+            .set(MissReason.DIGEST_MISMATCH, 1)
             .set(MissReason.NOT_CACHED, 1)
             .build());
   }
@@ -408,29 +408,25 @@ public class ActionCacheCheckerTest {
   @Test
   public void testDifferentRemoteDefaultPlatform() throws Exception {
     Action action = new WriteEmptyOutputAction();
-    Map<String, String> env = new HashMap<>();
-    env.put("unused-var", "1");
+    ImmutableMap<String, String> env = ImmutableMap.of("unused-var", "1");
 
-    Map<String, String> platform = new HashMap<>();
-    platform.put("used-var", "1");
     // Not cached.
-    runAction(action, env, platform);
+    runAction(action, env, ImmutableMap.of("used-var", "1"));
     // Cache hit because nothing changed.
-    runAction(action, env, platform);
+    runAction(action, env, ImmutableMap.of("used-var", "1"));
     // Cache miss because platform changed to an empty from a previous value.
     runAction(action, env, ImmutableMap.of());
     // Cache hit with an empty platform.
     runAction(action, env, ImmutableMap.of());
     // Cache miss because platform changed to a value from an empty one.
-    runAction(action, env, ImmutableMap.copyOf(platform));
-    platform.put("another-var", "1234");
+    runAction(action, env, ImmutableMap.of("used-var", "1"));
     // Cache miss because platform value changed.
-    runAction(action, env, ImmutableMap.copyOf(platform));
+    runAction(action, env, ImmutableMap.of("used-var", "1", "another-var", "1234"));
 
     assertStatistics(
         2,
         new MissDetailsBuilder()
-            .set(MissReason.DIFFERENT_ENVIRONMENT, 3)
+            .set(MissReason.DIGEST_MISMATCH, 3)
             .set(MissReason.NOT_CACHED, 1)
             .build());
   }
@@ -446,7 +442,7 @@ public class ActionCacheCheckerTest {
     assertStatistics(
         0,
         new MissDetailsBuilder()
-            .set(MissReason.DIFFERENT_FILES, 1)
+            .set(MissReason.DIGEST_MISMATCH, 1)
             .set(MissReason.NOT_CACHED, 1)
             .build());
   }
@@ -784,7 +780,7 @@ public class ActionCacheCheckerTest {
         0,
         new MissDetailsBuilder()
             .set(MissReason.NOT_CACHED, 1)
-            .set(MissReason.DIFFERENT_FILES, 1)
+            .set(MissReason.DIGEST_MISMATCH, 1)
             .build());
     ActionCache.Entry entry = cache.get(output.getExecPathString());
     assertThat(entry).isNotNull();
@@ -847,7 +843,7 @@ public class ActionCacheCheckerTest {
         0,
         new MissDetailsBuilder()
             .set(MissReason.NOT_CACHED, 1)
-            .set(MissReason.DIFFERENT_FILES, 1)
+            .set(MissReason.DIGEST_MISMATCH, 1)
             .build());
 
     ActionCache.Entry entry = cache.get(output.getExecPathString());
@@ -1148,7 +1144,7 @@ public class ActionCacheCheckerTest {
         0,
         new MissDetailsBuilder()
             .set(MissReason.NOT_CACHED, 1)
-            .set(MissReason.DIFFERENT_FILES, 1)
+            .set(MissReason.DIGEST_MISMATCH, 1)
             .build());
     assertThat(output.getPath().exists()).isTrue();
     TreeArtifactValue expectedMetadata =
@@ -1216,7 +1212,7 @@ public class ActionCacheCheckerTest {
         0,
         new MissDetailsBuilder()
             .set(MissReason.NOT_CACHED, 1)
-            .set(MissReason.DIFFERENT_FILES, 1)
+            .set(MissReason.DIGEST_MISMATCH, 1)
             .build());
     assertThat(output.getPath().exists()).isFalse();
     TreeArtifactValue expectedMetadata =
@@ -1350,8 +1346,7 @@ public class ActionCacheCheckerTest {
         OutputChecker.TRUST_ALL,
         initiallyEnabled);
 
-    ActionCache.Entry entry = cache.get(output.getExecPathString());
-    assertThat(entry.useArchivedTreeArtifacts()).isEqualTo(initiallyEnabled);
+    assertThat(cache.get(output.getExecPathString())).isNotNull();
 
     Token token =
         cacheChecker.getTokenIfNeedToExecute(
@@ -1550,7 +1545,7 @@ public class ActionCacheCheckerTest {
         0,
         new MissDetailsBuilder()
             .set(MissReason.NOT_CACHED, 1)
-            .set(MissReason.DIFFERENT_FILES, 1)
+            .set(MissReason.DIGEST_MISMATCH, 1)
             .build());
 
     ActionCache.Entry entry = cache.get(tree.getExecPathString());
