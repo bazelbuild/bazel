@@ -488,7 +488,9 @@ declared.
             named = true,
             positional = false,
             defaultValue = "[]",
-            doc = "List of (inherited) attributes to remove."),
+            doc =
+                "List of (inherited) attributes to remove.\n\n"
+                    + "Must only be used for rules that do not have parents or subrules."),
         // TODO(bazel-team): need to give the types of these builtin attributes
         @Param(
             name = "outputs",
