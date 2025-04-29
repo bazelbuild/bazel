@@ -3818,6 +3818,8 @@ EOF
     //a:gen_glob >& $TEST_log || fail "Failed to build //a:gen_glob"
 }
 
+# TODO: Turn this into a more targeted test after enabling proper source
+#  directory tracking (#25834) - it is not specific to remote execution.
 function test_source_directory_dangling_symlink() {
   mkdir -p a
   cat > a/BUILD <<'EOF'
