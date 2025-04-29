@@ -14,11 +14,11 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
+import static java.util.Objects.requireNonNull;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.spy;
 
-import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
-import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue.ArchivedRepresentation;
 import com.google.devtools.build.lib.testutil.Scratch;
@@ -60,18 +59,16 @@ public final class TreeArtifactValueTest {
       ArtifactRoot.asDerivedRoot(
           scratch.resolve("root"), RootType.Output, PathFragment.create("bin"));
 
-  @AutoValue
-  abstract static class VisitTreeArgs {
-    abstract PathFragment getParentRelativePath();
-
-    abstract Dirent.Type getType();
-
-    abstract boolean getTraversedSymlink();
+  record VisitTreeArgs(
+      PathFragment parentRelativePath, Dirent.Type type, boolean traversedSymlink) {
+    VisitTreeArgs {
+      requireNonNull(parentRelativePath, "parentRelativePath");
+      requireNonNull(type, "type");
+    }
 
     static VisitTreeArgs of(
         PathFragment parentRelativePath, Dirent.Type type, boolean traversedSymlink) {
-      return new AutoValue_TreeArtifactValueTest_VisitTreeArgs(
-          parentRelativePath, type, traversedSymlink);
+      return new VisitTreeArgs(parentRelativePath, type, traversedSymlink);
     }
   }
 
@@ -126,15 +123,15 @@ public final class TreeArtifactValueTest {
   }
 
   @Test
-  public void createsCorrectValueWithmaterializationExecPath() {
-    PathFragment targetPath = PathFragment.create("some/target/path");
+  public void createsCorrectValueWithResolvedPath() {
+    PathFragment targetPath = PathFragment.create("/some/target/path");
     SpecialArtifact parent = createTreeArtifact("bin/tree");
 
     TreeArtifactValue tree =
-        TreeArtifactValue.newBuilder(parent).setMaterializationExecPath(targetPath).build();
+        TreeArtifactValue.newBuilder(parent).setResolvedPath(targetPath).build();
 
-    assertThat(tree.getMaterializationExecPath()).hasValue(targetPath);
-    assertThat(tree.getMetadata().getMaterializationExecPath()).hasValue(targetPath);
+    assertThat(tree.getResolvedPath()).hasValue(targetPath);
+    assertThat(tree.getMetadata().getResolvedPath()).isEqualTo(targetPath);
   }
 
   @Test
@@ -410,7 +407,7 @@ public final class TreeArtifactValueTest {
   }
 
   @Test
-  public void visitTree_throwsOnUnknownDirentType() throws Exception {
+  public void visitTree_throwsOnUnknownDirentType() {
     FileSystem fs =
         new InMemoryFileSystem(DigestHashFunction.SHA256) {
           @Override
@@ -747,79 +744,6 @@ public final class TreeArtifactValueTest {
                 .build());
   }
 
-  @Test
-  public void multiBuilder_doesNotInjectRemovedValue() {
-    TreeArtifactValue.MultiBuilder builder = TreeArtifactValue.newMultiBuilder();
-    SpecialArtifact parent1 = createTreeArtifact("bin/tree1");
-    TreeFileArtifact parent1Child = TreeFileArtifact.createTreeOutput(parent1, "child");
-    FileArtifactValue parent1ChildMetadata = metadataWithId(1);
-    SpecialArtifact parent2 = createTreeArtifact("bin/tree2");
-    TreeFileArtifact parent2Child = TreeFileArtifact.createTreeOutput(parent2, "child");
-    FileArtifactValue parent2ChildMetadata = metadataWithId(2);
-    Map<SpecialArtifact, TreeArtifactValue> results = new HashMap<>();
-
-    builder
-        .putChild(parent1Child, parent1ChildMetadata)
-        .putChild(parent2Child, parent2ChildMetadata)
-        .remove(parent1)
-        .forEach(results::put);
-
-    assertThat(results)
-        .containsExactly(
-            parent2,
-            TreeArtifactValue.newBuilder(parent2)
-                .putChild(parent2Child, parent2ChildMetadata)
-                .build());
-  }
-
-  @Test
-  public void multiBuilder_removeMissingTree_doesNothing() {
-    TreeArtifactValue.MultiBuilder builder = TreeArtifactValue.newMultiBuilder();
-    SpecialArtifact missingTree = createTreeArtifact("bin/tree");
-    Map<SpecialArtifact, TreeArtifactValue> results = new HashMap<>();
-
-    builder.remove(missingTree).forEach(results::put);
-
-    assertThat(results).isEmpty();
-  }
-
-  @Test
-  public void multiBuilder_removeNotATreeArtifact_fails() {
-    TreeArtifactValue.MultiBuilder builder = TreeArtifactValue.newMultiBuilder();
-    SpecialArtifact notATreeArtifact =
-        SpecialArtifact.create(
-            root,
-            root.getExecPath().getRelative("bin/artifact"),
-            ActionsTestUtil.NULL_ARTIFACT_OWNER,
-            SpecialArtifactType.FILESET);
-
-    assertThrows(IllegalArgumentException.class, () -> builder.remove(notATreeArtifact));
-  }
-
-  @Test
-  public void multiBuilder_removeAndRecreateValue_injectsValueAfterRemove() {
-    TreeArtifactValue.MultiBuilder builder = TreeArtifactValue.newMultiBuilder();
-    SpecialArtifact parent = createTreeArtifact("bin/tree");
-    TreeFileArtifact child1 = TreeFileArtifact.createTreeOutput(parent, "child1");
-    FileArtifactValue child1Metadata = metadataWithId(1);
-    ArchivedTreeArtifact archivedArtifact = createArchivedTreeArtifact(parent);
-    FileArtifactValue archivedArtifactMetadata = metadataWithId(2);
-    TreeFileArtifact child2 = TreeFileArtifact.createTreeOutput(parent, "child2");
-    FileArtifactValue child2Metadata = metadataWithId(3);
-    Map<SpecialArtifact, TreeArtifactValue> results = new HashMap<>();
-
-    builder
-        .putChild(child1, child1Metadata)
-        .setArchivedRepresentation(archivedArtifact, archivedArtifactMetadata)
-        .remove(parent)
-        .putChild(child2, child2Metadata)
-        .forEach(results::put);
-
-    assertThat(results)
-        .containsExactly(
-            parent, TreeArtifactValue.newBuilder(parent).putChild(child2, child2Metadata).build());
-  }
-
   private static ArchivedTreeArtifact createArchivedTreeArtifact(SpecialArtifact specialArtifact) {
     return ArchivedTreeArtifact.createForTree(specialArtifact);
   }
@@ -834,8 +758,7 @@ public final class TreeArtifactValueTest {
   }
 
   private static FileArtifactValue metadataWithId(int id) {
-    return RemoteFileArtifactValue.create(
-        new byte[] {(byte) id}, id, id, /* expireAtEpochMilli= */ -1);
+    return FileArtifactValue.createForRemoteFile(new byte[] {(byte) id}, id, id);
   }
 
   private static FileArtifactValue metadataWithIdNoDigest(int id) {

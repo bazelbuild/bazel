@@ -30,15 +30,14 @@ import org.junit.runners.JUnit4;
 /** Tests to verify that Bazel actions don't poison any output cache. */
 @RunWith(JUnit4.class)
 public class CachingTest extends BuildViewTestCase {
-  /**
-   * Regression test for bugs #2317593 and #2284024: Don't expand runfile middlemen.
-   */
+  /** Regression test for bugs #2317593 and #2284024 */
   @Test
   public void testRunfilesManifestNotAnInput() throws Exception {
     scratch.file(
         "x/BUILD",
         """
-        sh_binary(
+        load('//test_defs:foo_binary.bzl', 'foo_binary')
+        foo_binary(
             name = "tool",
             srcs = ["tool.sh"],
             data = ["tool.data"],
@@ -58,7 +57,7 @@ public class CachingTest extends BuildViewTestCase {
     }
 
     boolean lookedAtAnyAction = false;
-    boolean foundRunfilesMiddlemanSoRunfilesAreCorrectlyStaged = false;
+    boolean foundRunfilesTreeSoRunfilesAreCorrectlyStaged = false;
     for (Action action : actions) {
       if (action instanceof SpawnAction) {
         for (ActionInput string :
@@ -66,7 +65,7 @@ public class CachingTest extends BuildViewTestCase {
           lookedAtAnyAction = true;
           if (string.getExecPathString().endsWith("tool.runfiles")
               || string.getExecPathString().endsWith("tool.exe.runfiles")) {
-            foundRunfilesMiddlemanSoRunfilesAreCorrectlyStaged = true;
+            foundRunfilesTreeSoRunfilesAreCorrectlyStaged = true;
           } else {
             assertThat(string.getExecPathString().endsWith(".runfiles/MANIFEST")).isFalse();
           }
@@ -74,6 +73,6 @@ public class CachingTest extends BuildViewTestCase {
       }
     }
     assertThat(lookedAtAnyAction).isTrue();
-    assertThat(foundRunfilesMiddlemanSoRunfilesAreCorrectlyStaged).isTrue();
+    assertThat(foundRunfilesTreeSoRunfilesAreCorrectlyStaged).isTrue();
   }
 }

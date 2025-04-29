@@ -208,8 +208,6 @@ public final class SandboxModule extends BlazeModule {
     sandboxBase = computeSandboxBase(options, env);
     Path trashBase = sandboxBase.getRelative(AsynchronousTreeDeleter.MOVED_TRASH_DIR);
 
-    SandboxHelpers helpers = new SandboxHelpers();
-
     // Do not remove the sandbox base when --sandbox_debug was specified so that people can check
     // out the contents of the generated sandbox directories.
     shouldCleanupSandboxBase = !options.sandboxDebug;
@@ -298,11 +296,10 @@ public final class SandboxModule extends BlazeModule {
     if (processWrapperSupported) {
       SandboxFallbackSpawnRunner spawnRunner =
           withFallback(
-              cmdEnv,
-              new ProcessWrapperSandboxedSpawnRunner(helpers, cmdEnv, sandboxBase, treeDeleter));
+              cmdEnv, new ProcessWrapperSandboxedSpawnRunner(cmdEnv, sandboxBase, treeDeleter));
       spawnRunners.add(spawnRunner);
       builder.registerStrategy(
-          new ProcessWrapperSandboxedStrategy(cmdEnv.getExecRoot(), spawnRunner, executionOptions),
+          new ProcessWrapperSandboxedStrategy(spawnRunner, executionOptions),
           "sandboxed",
           "processwrapper-sandbox");
     }
@@ -320,7 +317,6 @@ public final class SandboxModule extends BlazeModule {
             withFallback(
                 cmdEnv,
                 new DockerSandboxedSpawnRunner(
-                    helpers,
                     cmdEnv,
                     pathToDocker,
                     sandboxBase,
@@ -329,8 +325,7 @@ public final class SandboxModule extends BlazeModule {
                     treeDeleter));
         spawnRunners.add(spawnRunner);
         builder.registerStrategy(
-            new DockerSandboxedStrategy(cmdEnv.getExecRoot(), spawnRunner, executionOptions),
-            "docker");
+            new DockerSandboxedStrategy(spawnRunner, executionOptions), "docker");
       }
     } else if (options.dockerVerbose) {
       cmdEnv
@@ -346,23 +341,19 @@ public final class SandboxModule extends BlazeModule {
       SandboxFallbackSpawnRunner spawnRunner =
           withFallback(
               cmdEnv,
-              LinuxSandboxedStrategy.create(
-                  helpers, cmdEnv, sandboxBase, timeoutKillDelay, treeDeleter));
+              LinuxSandboxedStrategy.create(cmdEnv, sandboxBase, timeoutKillDelay, treeDeleter));
       spawnRunners.add(spawnRunner);
       builder.registerStrategy(
-          new LinuxSandboxedStrategy(cmdEnv.getExecRoot(), spawnRunner, executionOptions),
-          "sandboxed",
-          "linux-sandbox");
+          new LinuxSandboxedStrategy(spawnRunner, executionOptions), "sandboxed", "linux-sandbox");
     }
 
     // This is the preferred sandboxing strategy on macOS.
     if (darwinSandboxSupported) {
       SandboxFallbackSpawnRunner spawnRunner =
-          withFallback(
-              cmdEnv, new DarwinSandboxedSpawnRunner(helpers, cmdEnv, sandboxBase, treeDeleter));
+          withFallback(cmdEnv, new DarwinSandboxedSpawnRunner(cmdEnv, sandboxBase, treeDeleter));
       spawnRunners.add(spawnRunner);
       builder.registerStrategy(
-          new DarwinSandboxedStrategy(cmdEnv.getExecRoot(), spawnRunner, executionOptions),
+          new DarwinSandboxedStrategy(spawnRunner, executionOptions),
           "sandboxed",
           "darwin-sandbox");
     }
@@ -371,11 +362,10 @@ public final class SandboxModule extends BlazeModule {
       SandboxFallbackSpawnRunner spawnRunner =
           withFallback(
               cmdEnv,
-              new WindowsSandboxedSpawnRunner(
-                  helpers, cmdEnv, timeoutKillDelay, windowsSandboxPath));
+              new WindowsSandboxedSpawnRunner(cmdEnv, timeoutKillDelay, windowsSandboxPath));
       spawnRunners.add(spawnRunner);
       builder.registerStrategy(
-          new WindowsSandboxedStrategy(cmdEnv.getExecRoot(), spawnRunner, executionOptions),
+          new WindowsSandboxedStrategy(spawnRunner, executionOptions),
           "sandboxed",
           "windows-sandbox");
     }
@@ -499,10 +489,10 @@ public final class SandboxModule extends BlazeModule {
           reporter.handle(
               Event.warn(
                   String.format(
-                      "%s uses implicit fallback from sandbox to local, which is deprecated"
-                          + " because it is not hermetic. Prefer setting an explicit list of"
-                          + " strategies, e.g., --strategy=%s=sandboxed,standalone",
-                      spawn.getMnemonic(), spawn.getMnemonic())));
+                      "%s (from %s) uses implicit fallback from sandbox to local, which is"
+                          + " deprecated because it is not hermetic. Prefer setting an explicit"
+                          + " list of strategies, e.g., --strategy=%s=sandboxed,standalone",
+                      spawn.getMnemonic(), spawn.getTargetLabel(), spawn.getMnemonic())));
         }
       }
       return canExec && fallbackAllowed;
@@ -583,8 +573,7 @@ public final class SandboxModule extends BlazeModule {
     // If asynchronous deletions were requested, they may still be ongoing so let them be: trying
     // to delete the base tree synchronously could fail as we can race with those other deletions,
     // and scheduling an asynchronous deletion could race with future builds.
-    if (asyncTreeDeleteThreads > 0 && treeDeleter instanceof AsynchronousTreeDeleter) {
-      AsynchronousTreeDeleter treeDeleter = (AsynchronousTreeDeleter) this.treeDeleter;
+    if (asyncTreeDeleteThreads > 0 && treeDeleter instanceof AsynchronousTreeDeleter treeDeleter) {
       treeDeleter.setThreads(asyncTreeDeleteThreads);
     }
     // `treeDeleter` might not be an AsynchronousTreeDeleter if the user changed the option but

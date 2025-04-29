@@ -25,9 +25,8 @@ import java.time.Duration;
 
 /** Strategy that uses sandboxing to execute a process. */
 public final class LinuxSandboxedStrategy extends AbstractSpawnStrategy {
-  LinuxSandboxedStrategy(
-      Path execRoot, SpawnRunner spawnRunner, ExecutionOptions executionOptions) {
-    super(execRoot, spawnRunner, executionOptions);
+  LinuxSandboxedStrategy(SpawnRunner spawnRunner, ExecutionOptions executionOptions) {
+    super(spawnRunner, executionOptions);
   }
 
   @Override
@@ -38,13 +37,11 @@ public final class LinuxSandboxedStrategy extends AbstractSpawnStrategy {
   /**
    * Creates a sandboxed spawn runner that uses the {@code linux-sandbox} tool.
    *
-   * @param helpers common tools and state across all spawns during sandboxed execution
    * @param cmdEnv the command environment to use
    * @param sandboxBase path to the sandbox base directory
    * @param timeoutKillDelay additional grace period before killing timing out commands
    */
   static LinuxSandboxedSpawnRunner create(
-      SandboxHelpers helpers,
       CommandEnvironment cmdEnv,
       Path sandboxBase,
       Duration timeoutKillDelay,
@@ -54,7 +51,6 @@ public final class LinuxSandboxedStrategy extends AbstractSpawnStrategy {
     Path inaccessibleHelperDir = LinuxSandboxUtil.getInaccessibleHelperDir(sandboxBase);
 
     return new LinuxSandboxedSpawnRunner(
-        helpers,
         cmdEnv,
         sandboxBase,
         inaccessibleHelperFile,

@@ -16,10 +16,10 @@ package com.google.devtools.build.lib.remote.merkletree;
 import build.bazel.remote.execution.v2.Digest;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import com.google.protobuf.ByteString;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -41,7 +41,7 @@ final class DirectoryTree {
         SortedSet<DirectoryNode> dirs);
   }
 
-  abstract static class Node implements Comparable<Node> {
+  abstract static sealed class Node implements Comparable<Node> {
     private final String pathSegment;
 
     Node(String pathSegment) {
@@ -71,57 +71,39 @@ final class DirectoryTree {
     }
   }
 
-  static class FileNode extends Node {
-    private final Path path;
-    private final ByteString data;
+  static sealed class FileNode extends Node {
+    private final Object /* Path | VirtualActionInput */ data;
     private final Digest digest;
-    private final boolean isExecutable;
-    private final boolean toolInput;
 
-    /**
-     * Create a FileNode with its executable bit set.
-     *
-     * <p>We always treat files as executable since Bazel will `chmod 555` on the output files of an
-     * action within ActionOutputMetadataStore#getMetadata after action execution if no metadata was
-     * injected. We can't use real executable bit of the file until this behaviour is changed. See
-     * https://github.com/bazelbuild/bazel/issues/13262 for more details.
-     */
-    static FileNode createExecutable(String pathSegment, Path path, Digest digest) {
-      return new FileNode(pathSegment, path, digest, /* isExecutable= */ true, false);
+    static FileNode create(String pathSegment, Path path, Digest digest) {
+      return create(pathSegment, path, digest, /* toolInput= */ false);
     }
 
-    static FileNode createExecutable(
-        String pathSegment, Path path, Digest digest, boolean toolInput) {
-      return new FileNode(pathSegment, path, digest, /* isExecutable= */ true, toolInput);
+    static FileNode create(String pathSegment, Path path, Digest digest, boolean toolInput) {
+      if (toolInput) {
+        return new ToolInputFileNode(pathSegment, path, digest);
+      } else {
+        return new FileNode(pathSegment, path, digest);
+      }
     }
 
-    static FileNode createExecutable(
-        String pathSegment, ByteString data, Digest digest, boolean toolInput) {
-      return new FileNode(pathSegment, data, digest, /* isExecutable= */ true, toolInput);
-    }
-
-    private FileNode(
-        String pathSegment, Path path, Digest digest, boolean isExecutable, boolean toolInput) {
-      super(pathSegment);
-      this.path = Preconditions.checkNotNull(path, "path");
-      this.data = null;
-      this.digest = Preconditions.checkNotNull(digest, "digest");
-      this.isExecutable = isExecutable;
-      this.toolInput = toolInput;
-    }
-
-    private FileNode(
+    static FileNode create(
         String pathSegment,
-        ByteString data,
+        VirtualActionInput virtualActionInput,
         Digest digest,
-        boolean isExecutable,
         boolean toolInput) {
+      if (toolInput) {
+        return new ToolInputFileNode(pathSegment, virtualActionInput, digest);
+      } else {
+        return new FileNode(pathSegment, virtualActionInput, digest);
+      }
+    }
+
+    private FileNode(
+        String pathSegment, Object /* Path | VirtualActionInput */ data, Digest digest) {
       super(pathSegment);
-      this.path = null;
-      this.data = Preconditions.checkNotNull(data, "data");
-      this.digest = Preconditions.checkNotNull(digest, "digest");
-      this.isExecutable = isExecutable;
-      this.toolInput = toolInput;
+      this.data = data;
+      this.digest = digest;
     }
 
     Digest getDigest() {
@@ -129,35 +111,29 @@ final class DirectoryTree {
     }
 
     Path getPath() {
-      return path;
+      return data instanceof Path path ? path : null;
     }
 
-    ByteString getBytes() {
-      return data;
-    }
-
-    public boolean isExecutable() {
-      return isExecutable;
+    VirtualActionInput getVirtualActionInput() {
+      return data instanceof VirtualActionInput virtualActionInput ? virtualActionInput : null;
     }
 
     boolean isToolInput() {
-      return toolInput;
+      return false;
     }
 
     @Override
     public int hashCode() {
-      return Objects.hash(super.hashCode(), path, data, digest, toolInput, isExecutable);
+      return Objects.hash(super.hashCode(), data, digest, isToolInput());
     }
 
     @Override
     public boolean equals(Object o) {
       if (o instanceof FileNode other) {
         return super.equals(other)
-            && Objects.equals(path, other.path)
             && Objects.equals(data, other.data)
             && Objects.equals(digest, other.digest)
-            && toolInput == other.toolInput
-            && isExecutable == other.isExecutable;
+            && isToolInput() == other.isToolInput();
       }
       return false;
     }
@@ -167,9 +143,21 @@ final class DirectoryTree {
       return String.format(
           "%s (hash: %s, size: %d)", getPathSegment(), digest.getHash(), digest.getSizeBytes());
     }
+
+    static final class ToolInputFileNode extends FileNode {
+      ToolInputFileNode(
+          String pathSegment, Object /* Path | VirtualActionInput */ data, Digest digest) {
+        super(pathSegment, data, digest);
+      }
+
+      @Override
+      boolean isToolInput() {
+        return true;
+      }
+    }
   }
 
-  static class SymlinkNode extends Node {
+  static final class SymlinkNode extends Node {
     private final String target;
 
     SymlinkNode(String pathSegment, String target) {
@@ -200,7 +188,7 @@ final class DirectoryTree {
     }
   }
 
-  static class DirectoryNode extends Node {
+  static final class DirectoryNode extends Node {
 
     private final SortedSet<FileNode> files = new TreeSet<>();
     private final SortedSet<SymlinkNode> symlinks = new TreeSet<>();

@@ -15,17 +15,15 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.auto.value.AutoValue;
-import com.google.auto.value.extension.memoized.Memoized;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.rules.cpp.LegacyLinkerInputs.LibraryInput;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.LibraryToLinkApi;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Dict;
@@ -220,70 +218,9 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact, LtoBac
     return backends != null ? Dict.immutableCopyOf(backends) : null;
   }
 
-  // TODO(b/331164666): This can be removed after cc_common.link is in Starlark
-  LibraryInput getStaticLibraryInput() {
-    return LegacyLinkerInputs.newInputLibrary(
-        Preconditions.checkNotNull(getStaticLibrary(), this),
-        getAlwayslink()
-            ? ArtifactCategory.ALWAYSLINK_STATIC_LIBRARY
-            : ArtifactCategory.STATIC_LIBRARY,
-        getLibraryIdentifier(),
-        getObjectFiles(),
-        getLtoCompilationContext(),
-        getSharedNonLtoBackends(),
-        getMustKeepDebug(),
-        getDisableWholeArchive());
-  }
-
-  // TODO(b/331164666): This can be removed after cc_common.link is in Starlark
-  LibraryInput getPicStaticLibraryInput() {
-    return LegacyLinkerInputs.newInputLibrary(
-        Preconditions.checkNotNull(getPicStaticLibrary(), this),
-        getAlwayslink()
-            ? ArtifactCategory.ALWAYSLINK_STATIC_LIBRARY
-            : ArtifactCategory.STATIC_LIBRARY,
-        getLibraryIdentifier(),
-        getPicObjectFiles(),
-        getPicLtoCompilationContext(),
-        getPicSharedNonLtoBackends(),
-        getMustKeepDebug(),
-        getDisableWholeArchive());
-  }
-
-  // TODO(b/331164666): This can be removed after cc_common.link is in Starlark
-  LibraryInput getDynamicLibraryInput() {
-    Artifact dynamicLibrary = Preconditions.checkNotNull(getDynamicLibrary(), this);
-    if (getResolvedSymlinkDynamicLibrary() != null) {
-      return LegacyLinkerInputs.solibLibraryInput(
-          dynamicLibrary, getResolvedSymlinkDynamicLibrary(), getLibraryIdentifier());
-    }
-    return LegacyLinkerInputs.newInputLibrary(
-        dynamicLibrary,
-        ArtifactCategory.DYNAMIC_LIBRARY,
-        getLibraryIdentifier(),
-        /* objectFiles= */ ImmutableSet.of(),
-        LtoCompilationContext.EMPTY,
-        /* sharedNonLtoBackends= */ ImmutableMap.of(),
-        getMustKeepDebug(),
-        getDisableWholeArchive());
-  }
-
-  // TODO(b/331164666): This can be removed after cc_common.link is in Starlark
-  LibraryInput getInterfaceLibraryInput() {
-    Artifact interfaceLibrary = Preconditions.checkNotNull(getInterfaceLibrary(), this);
-    if (getResolvedSymlinkInterfaceLibrary() != null) {
-      return LegacyLinkerInputs.solibLibraryInput(
-          interfaceLibrary, getResolvedSymlinkInterfaceLibrary(), getLibraryIdentifier());
-    }
-    return LegacyLinkerInputs.newInputLibrary(
-        interfaceLibrary,
-        ArtifactCategory.INTERFACE_LIBRARY,
-        getLibraryIdentifier(),
-        /* objectFiles= */ ImmutableSet.of(),
-        LtoCompilationContext.EMPTY,
-        /* sharedNonLtoBackends= */ ImmutableMap.of(),
-        getMustKeepDebug(),
-        getDisableWholeArchive());
+  /** Return true if a pic library should effectively be selected */
+  public boolean getEffectivePic(boolean preferPicLibs) {
+    return (preferPicLibs && getPicStaticLibrary() != null) || getStaticLibrary() == null;
   }
 
   abstract boolean getMustKeepDebug();
@@ -349,6 +286,7 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact, LtoBac
 
     AutoLibraryToLink.Builder setLtoCompilationContext(LtoCompilationContext ltoCompilationContext);
 
+    @CanIgnoreReturnValue
     AutoLibraryToLink.Builder setSharedNonLtoBackends(
         ImmutableMap<Artifact, LtoBackendArtifacts> sharedNonLtoBackends);
 
@@ -411,30 +349,6 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact, LtoBac
 
     @Override // Remove @StarlarkMethod.
     public abstract boolean getAlwayslink();
-
-    @Memoized
-    @Override
-    LibraryInput getStaticLibraryInput() {
-      return super.getStaticLibraryInput();
-    }
-
-    @Memoized
-    @Override
-    LibraryInput getPicStaticLibraryInput() {
-      return super.getPicStaticLibraryInput();
-    }
-
-    @Memoized
-    @Override
-    LibraryInput getDynamicLibraryInput() {
-      return super.getDynamicLibraryInput();
-    }
-
-    @Memoized
-    @Override
-    LibraryInput getInterfaceLibraryInput() {
-      return super.getInterfaceLibraryInput();
-    }
 
     @AutoValue.Builder
     public abstract static class Builder implements LibraryToLink.Builder {

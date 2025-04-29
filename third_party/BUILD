@@ -1,7 +1,7 @@
-load("@rules_java//java:defs.bzl", "java_import", "java_library", "java_plugin")
+load("@rules_java//java:defs.bzl", "java_binary", "java_import", "java_library", "java_plugin")
 load("@rules_license//rules:license.bzl", "license")
+load("//src/tools/bzlmod:utils.bzl", "get_repo_root")
 load("//tools/distributions:distribution_rules.bzl", "distrib_jar_filegroup", "distrib_java_import")
-load(":compiler_config_setting.bzl", "create_compiler_config_setting")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -9,17 +9,12 @@ filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [
         "//third_party/allocation_instrumenter:srcs",
-        "//third_party/android_dex:srcs",
         "//third_party/def_parser:srcs",
         "//third_party/googleapis:srcs",
         "//third_party/grpc:srcs",
         "//third_party/grpc-java:srcs",
         "//third_party/ijar:srcs",
         "//third_party/jarjar:srcs",
-        "//third_party/java/android_databinding:srcs",
-        "//third_party/java/aosp_gradle_core:srcs",
-        "//third_party/java/j2objc:srcs",
-        "//third_party/java/j2objc-annotations:srcs",
         "//third_party/java/jacoco:srcs",
         "//third_party/java/javapoet:srcs",
         "//third_party/java/jcommander:srcs",
@@ -32,7 +27,6 @@ filegroup(
         "//third_party/py/frozendict:srcs",
         "//third_party/py/mock:srcs",
         "//third_party/remoteapis:srcs",
-        "//third_party/zlib:srcs",
     ],
 )
 
@@ -60,11 +54,6 @@ alias(
 )
 
 alias(
-    name = "apache_commons_pool2",
-    actual = "@maven//:org_apache_commons_commons_pool2",
-)
-
-alias(
     name = "apache_velocity",
     actual = "@maven//:org_apache_velocity_velocity",
 )
@@ -85,35 +74,35 @@ java_library(
 distrib_java_import(
     name = "asm",
     enable_distributions = ["debian"],
-    jars = ["asm/asm-9.6.jar"],
-    srcjar = "asm/asm-9.6-sources.jar",
+    jars = ["asm/asm-9.7.1.jar"],
+    srcjar = "asm/asm-9.7.1-sources.jar",
 )
 
 java_import(
     name = "asm-analysis",
-    jars = ["asm/asm-analysis-9.6.jar"],
-    srcjar = "asm/asm-analysis-9.6-sources.jar",
+    jars = ["asm/asm-analysis-9.7.1.jar"],
+    srcjar = "asm/asm-analysis-9.7.1-sources.jar",
     runtime_deps = [":asm-tree"],
 )
 
 java_import(
     name = "asm-commons",
-    jars = ["asm/asm-commons-9.6.jar"],
-    srcjar = "asm/asm-commons-9.6-sources.jar",
+    jars = ["asm/asm-commons-9.7.1.jar"],
+    srcjar = "asm/asm-commons-9.7.1-sources.jar",
     runtime_deps = [":asm-tree"],
 )
 
 java_import(
     name = "asm-tree",
-    jars = ["asm/asm-tree-9.6.jar"],
-    srcjar = "asm/asm-tree-9.6-sources.jar",
+    jars = ["asm/asm-tree-9.7.1.jar"],
+    srcjar = "asm/asm-tree-9.7.1-sources.jar",
     runtime_deps = [":asm"],
 )
 
 java_import(
     name = "asm-util",
-    jars = ["asm/asm-util-9.6.jar"],
-    srcjar = "asm/asm-util-9.6-sources.jar",
+    jars = ["asm/asm-util-9.7.1.jar"],
+    srcjar = "asm/asm-util-9.7.1-sources.jar",
     runtime_deps = [":asm-tree"],
 )
 
@@ -276,6 +265,28 @@ distrib_jar_filegroup(
     enable_distributions = ["debian"],
 )
 
+java_import(
+    name = "async_profiler",
+    jars = ["@async_profiler//file"],
+    runtime_deps = [":async_profiler_native"],
+)
+
+java_library(
+    name = "async_profiler_native",
+    resource_strip_prefix = select({
+        "//src/conditions:darwin": get_repo_root("async_profiler_macos"),
+        "//src/conditions:linux_arm": get_repo_root("async_profiler_linux_arm64"),
+        "//src/conditions:linux_x86_64": get_repo_root("async_profiler_linux_x64"),
+        "//conditions:default": None,
+    }),
+    resources = select({
+        "//src/conditions:darwin": ["@async_profiler_macos//:libasyncProfiler"],
+        "//src/conditions:linux_arm": ["@async_profiler_linux_arm64//:libasyncProfiler"],
+        "//src/conditions:linux_x86_64": ["@async_profiler_linux_x64//:libasyncProfiler"],
+        "//conditions:default": [],
+    }),
+)
+
 alias(
     name = "checker_framework_annotations",
     actual = "@maven//:org_checkerframework_checker_qual",
@@ -304,13 +315,17 @@ genrule(
         "@rules_java//toolchains:platformclasspath",
     ],
     outs = ["fastutil-stripped.jar"],
+    # ProGuard output is silenced below because it prints
+    # ...
+    # Caused by: java.net.UnknownHostException: bk-docker-3gmr: Temporary failure in name resolution
+    # ...
+    # when running in the Bazel sandbox, which throws off bazel_determinism_test.
     cmd = """
     $(location :proguard) \
         -injars $(execpath @maven//:it_unimi_dsi_fastutil_file) \
         -outjars $@ \
         -libraryjars $(execpath @rules_java//toolchains:platformclasspath) \
-        @$(location //tools:fastutil.proguard) \
-      | tail -n +2 # Skip the "ProGuard, version X" line
+        @$(location //tools:fastutil.proguard) > /dev/null
     # Null out the file times stored in the jar to make the output reproducible.
     TMPDIR=$$(mktemp -d)
     trap 'rm -rf $$TMPDIR' EXIT
@@ -328,6 +343,10 @@ genrule(
 
 java_binary(
     name = "proguard",
+    jvm_flags = [
+        # Prevent ProGuard from calling out to the internet through log4j.
+        "-Dlog4j.rootLogger=OFF",
+    ],
     main_class = "proguard.ProGuard",
     runtime_deps = ["@maven//:com_guardsquare_proguard_base"],
 )
@@ -654,72 +673,4 @@ filegroup(
         "@maven//:junit_junit_file",
         "@maven//:org_hamcrest_hamcrest_core_file",
     ],
-)
-
-create_compiler_config_setting(
-    name = "windows_mingw",
-    value = "windows_mingw",
-)
-
-create_compiler_config_setting(
-    name = "windows_msys64",
-    value = "windows_msys64",
-)
-
-create_compiler_config_setting(
-    name = "windows_msys64_mingw64",
-    value = "windows_msys64_mingw64",
-)
-
-create_compiler_config_setting(
-    name = "windows_clang",
-    value = "windows_clang",
-)
-
-config_setting(
-    name = "k8",
-    values = {"host_cpu": "k8"},
-)
-
-config_setting(
-    name = "piii",
-    values = {"host_cpu": "piii"},
-)
-
-config_setting(
-    name = "arm",
-    values = {"host_cpu": "arm"},
-)
-
-config_setting(
-    name = "aarch64",
-    values = {"host_cpu": "aarch64"},
-)
-
-config_setting(
-    name = "freebsd",
-    values = {"host_cpu": "freebsd"},
-)
-
-config_setting(
-    name = "openbsd",
-    values = {"host_cpu": "openbsd"},
-)
-
-config_setting(
-    name = "s390x",
-    values = {"host_cpu": "s390x"},
-)
-
-config_setting(
-    name = "ppc",
-    values = {"host_cpu": "ppc"},
-)
-
-test_suite(
-    name = "all_windows_tests",
-    tests = [
-        "//third_party/def_parser:windows_tests",
-    ],
-    visibility = ["//src:__pkg__"],
 )

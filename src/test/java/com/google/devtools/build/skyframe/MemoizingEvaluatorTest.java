@@ -24,13 +24,13 @@ import static com.google.devtools.build.skyframe.GraphTester.COPY;
 import static com.google.devtools.build.skyframe.GraphTester.NODE_TYPE;
 import static com.google.devtools.build.skyframe.GraphTester.nonHermeticKey;
 import static com.google.devtools.build.skyframe.GraphTester.skyKey;
+import static java.util.Objects.requireNonNull;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
-import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
@@ -1646,7 +1646,11 @@ public abstract class MemoizingEvaluatorTest {
     topLevelBuilder.setConstantValue(new StringValue("xyz"));
 
     EvaluationResult<StringValue> result =
-        tester.eval(/*keepGoing=*/ true, /*numThreads=*/ 5, topLevel);
+        tester.eval(
+            /* keepGoing= */ true,
+            /* mergingSkyframeAnalysisExecutionPhases= */ false,
+            /* numThreads= */ 5,
+            topLevel);
     assertThat(result.hasError()).isFalse();
     assertThat(maxValue[0]).isEqualTo(5);
   }
@@ -5846,13 +5850,13 @@ public abstract class MemoizingEvaluatorTest {
   }
 
   /** Data encapsulating a graph inconsistency found during evaluation. */
-  @AutoValue
-  abstract static class InconsistencyData {
-    abstract SkyKey key();
-
-    abstract ImmutableSet<SkyKey> otherKeys();
-
-    abstract Inconsistency inconsistency();
+  record InconsistencyData(
+      SkyKey key, ImmutableSet<SkyKey> otherKeys, Inconsistency inconsistency) {
+    InconsistencyData {
+      requireNonNull(key, "key");
+      requireNonNull(otherKeys, "otherKeys");
+      requireNonNull(inconsistency, "inconsistency");
+    }
 
     static InconsistencyData resetRequested(SkyKey key) {
       return create(key, /* otherKeys= */ null, Inconsistency.RESET_REQUESTED);
@@ -5864,7 +5868,7 @@ public abstract class MemoizingEvaluatorTest {
 
     static InconsistencyData create(
         SkyKey key, @Nullable Collection<SkyKey> otherKeys, Inconsistency inconsistency) {
-      return new AutoValue_MemoizingEvaluatorTest_InconsistencyData(
+      return new InconsistencyData(
           key,
           otherKeys == null ? ImmutableSet.of() : ImmutableSet.copyOf(otherKeys),
           inconsistency);
@@ -5954,11 +5958,16 @@ public abstract class MemoizingEvaluatorTest {
     }
 
     public <T extends SkyValue> EvaluationResult<T> eval(
-        boolean keepGoing, int numThreads, SkyKey... keys) throws InterruptedException {
+        boolean keepGoing,
+        boolean mergingSkyframeAnalysisExecutionPhases,
+        int numThreads,
+        SkyKey... keys)
+        throws InterruptedException {
       assertThat(getModifiedValues()).isEmpty();
       EvaluationContext evaluationContext =
           EvaluationContext.newBuilder()
               .setKeepGoing(keepGoing)
+              .setMergingSkyframeAnalysisExecutionPhases(mergingSkyframeAnalysisExecutionPhases)
               .setParallelism(numThreads)
               .setEventHandler(reporter)
               .build();
@@ -5975,7 +5984,13 @@ public abstract class MemoizingEvaluatorTest {
 
     public <T extends SkyValue> EvaluationResult<T> eval(boolean keepGoing, SkyKey... keys)
         throws InterruptedException {
-      return eval(keepGoing, 100, keys);
+      return eval(keepGoing, /* mergingSkyframeAnalysisExecutionPhases= */ false, 100, keys);
+    }
+
+    public <T extends SkyValue> EvaluationResult<T> eval(
+        boolean keepGoing, boolean mergingSkyframeAnalysisExecutionPhases, SkyKey... keys)
+        throws InterruptedException {
+      return eval(keepGoing, mergingSkyframeAnalysisExecutionPhases, 100, keys);
     }
 
     public <T extends SkyValue> EvaluationResult<T> eval(boolean keepGoing, String... keys)
@@ -6000,6 +6015,15 @@ public abstract class MemoizingEvaluatorTest {
 
     public ErrorInfo evalAndGetError(boolean keepGoing, SkyKey key) throws InterruptedException {
       EvaluationResult<StringValue> evaluationResult = eval(keepGoing, key);
+      assertThatEvaluationResult(evaluationResult).hasErrorEntryForKeyThat(key);
+      return evaluationResult.getError(key);
+    }
+
+    public ErrorInfo evalAndGetError(
+        boolean keepGoing, boolean mergingSkyframeAnalysisExecutionPhases, SkyKey key)
+        throws InterruptedException {
+      EvaluationResult<StringValue> evaluationResult =
+          eval(keepGoing, mergingSkyframeAnalysisExecutionPhases, key);
       assertThatEvaluationResult(evaluationResult).hasErrorEntryForKeyThat(key);
       return evaluationResult.getError(key);
     }

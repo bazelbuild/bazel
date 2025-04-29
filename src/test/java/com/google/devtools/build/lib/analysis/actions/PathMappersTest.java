@@ -19,6 +19,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static java.lang.String.format;
 
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
@@ -78,7 +79,7 @@ public class PathMappersTest extends BuildViewTestCase {
     ConfiguredTarget configuredTarget = getConfiguredTarget("//java/com/google/test:a");
     Artifact compiledArtifact =
         JavaInfo.getProvider(JavaCompilationArgsProvider.class, configuredTarget)
-            .getDirectCompileTimeJars()
+            .directCompileTimeJars()
             .toList()
             .get(0);
     SpawnAction action = (SpawnAction) getGeneratingAction(compiledArtifact);
@@ -163,7 +164,8 @@ public class PathMappersTest extends BuildViewTestCase {
     scratch.file(
         "tool/BUILD",
         """
-        sh_binary(
+        load('//test_defs:foo_binary.bzl', 'foo_binary')
+        foo_binary(
             name = 'tool',
             srcs = ['tool.sh'],
             visibility = ['//visibility:public'],
@@ -263,7 +265,8 @@ public class PathMappersTest extends BuildViewTestCase {
     scratch.file(
         "foo/BUILD",
         """
-        sh_binary(
+        load('//test_defs:foo_binary.bzl', 'foo_binary')
+        foo_binary(
             name = 'script',
             srcs = ['script.sh'],
             visibility = ['//visibility:public'],
@@ -296,7 +299,7 @@ public class PathMappersTest extends BuildViewTestCase {
 
   @Test
   public void forActionKey() {
-    var pathMapper = PathMappers.forActionKey(CoreOptions.OutputPathsMode.STRIP);
+    var pathMapper = PathMapper.forActionKey(CoreOptions.OutputPathsMode.STRIP);
     assertThat(pathMapper.isNoop()).isFalse();
     assertThat(pathMapper.map(PathFragment.create("pkg/file")))
         .isEqualTo(PathFragment.create("pkg/file"));

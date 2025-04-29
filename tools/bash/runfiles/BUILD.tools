@@ -1,5 +1,5 @@
-sh_library(
+alias(
     name = "runfiles",
-    srcs = ["runfiles.bash"],
+    actual = "@rules_shell//shell/runfiles",
     visibility = ["//visibility:public"],
 )

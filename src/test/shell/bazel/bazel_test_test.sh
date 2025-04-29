@@ -28,6 +28,7 @@ function set_up_jobcount() {
   # test runs.
   touch ${tmp}/counter
 
+  add_rules_shell "MODULE.bazel"
   mkdir -p dir
 
   cat <<EOF > dir/test.sh
@@ -55,6 +56,8 @@ EOF
   chmod +x dir/test.sh
 
   cat <<EOF > dir/BUILD
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
 sh_test(
   name = "test",
   srcs = [ "test.sh" ],
@@ -83,6 +86,7 @@ function test_3_local_jobs() {
 
 # TODO(#2228): Re-enable when the tmpdir creation is fixed.
 function DISABLED_test_tmpdir() {
+  add_rules_shell "MODULE.bazel"
   mkdir -p foo
   cat > foo/bar_test.sh <<'EOF'
 #!/bin/sh
@@ -90,6 +94,8 @@ echo TEST_TMPDIR=$TEST_TMPDIR
 EOF
   chmod +x foo/bar_test.sh
   cat > foo/BUILD <<EOF
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
 sh_test(
     name = "bar_test",
     srcs = ["bar_test.sh"],
@@ -119,6 +125,7 @@ EOF
 }
 
 function test_env_vars() {
+  add_rules_shell "MODULE.bazel"
   mkdir -p foo
   cat > foo/testenv.sh <<'EOF'
 #!/bin/sh
@@ -128,6 +135,8 @@ echo "ws: $TEST_WORKSPACE"
 EOF
   chmod +x foo/testenv.sh
   cat > foo/BUILD <<EOF
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
 sh_test(
     name = "foo",
     srcs = ["testenv.sh"],
@@ -141,6 +150,7 @@ EOF
 }
 
 function test_env_vars_override() {
+  add_rules_shell "MODULE.bazel"
   mkdir -p foo
   cat > foo/testenv.sh <<'EOF'
 #!/bin/sh
@@ -152,6 +162,7 @@ echo "ws: $TEST_WORKSPACE"
 EOF
   chmod +x foo/testenv.sh
   cat > foo/BUILD <<EOF
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 sh_test(
     name = "foo",
     srcs = ["testenv.sh"],
@@ -207,6 +218,7 @@ function test_runfiles_python_runfiles_merges_env_vars() {
 
 # Usage: runfiles_merges_runfiles_env_vars overridden unchanged
 function runfiles_merges_runfiles_env_vars() {
+  add_rules_shell "MODULE.bazel"
   local -r overridden=$1
   local -r unchanged=$2
   mkdir -p foo
@@ -216,7 +228,10 @@ echo "JAVA_RUNFILES: ${JAVA_RUNFILES}"
 echo "PYTHON_RUNFILES: ${PYTHON_RUNFILES}"
 EOF
   chmod +x foo/foo.sh
-  echo 'sh_test(name = "foo", srcs = ["foo.sh"])' > foo/BUILD
+  cat > foo/BUILD <<EOF
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+sh_test(name = "foo", srcs = ["foo.sh"])
+EOF
 
   bazel test --test_env="${overridden}"=override --test_output=all \
       //foo >& "${TEST_log}" || fail "Test failed"
@@ -228,6 +243,7 @@ EOF
 function test_run_under_external_label_with_options() {
   mkdir -p testing run || fail "mkdir testing run failed"
   cat <<EOF > run/BUILD
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 sh_binary(
   name='under', srcs=['under.sh'],
   visibility=["//visibility:public"],
@@ -249,6 +265,7 @@ EOF
   chmod u+x testing/passing_test.sh
 
   cat <<EOF > testing/BUILD
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 sh_test(
   name = "passing_test" ,
   srcs = [ "passing_test.sh" ])
@@ -261,6 +278,7 @@ local_repository(
     path = "./run",
 )
 EOF
+  add_rules_shell "MODULE.bazel"
 
   bazel test //testing:passing_test --run_under='@run//:under -c' \
     --test_output=all >& $TEST_log || fail "Expected success"
@@ -271,8 +289,10 @@ EOF
 }
 
 function test_run_under_label_with_options() {
+  add_rules_shell "MODULE.bazel"
   mkdir -p testing run || fail "mkdir testing run failed"
   cat <<EOF > run/BUILD
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 sh_binary(
   name='under', srcs=['under.sh'],
   visibility=["//visibility:public"],
@@ -292,6 +312,7 @@ EOF
   chmod u+x testing/passing_test.sh
 
   cat <<EOF > testing/BUILD
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 sh_test(
   name = "passing_test" ,
   srcs = [ "passing_test.sh" ])
@@ -307,8 +328,12 @@ EOF
 # This test uses "--ignore_all_rc_files" since outside .bazelrc files can pollute
 # this environment. Just "--bazelrc=/dev/null" is not sufficient to fix.
 function test_run_under_path() {
+  add_rules_shell "MODULE.bazel"
   mkdir -p testing || fail "mkdir testing failed"
-  echo "sh_test(name='t1', srcs=['t1.sh'])" > testing/BUILD
+  cat > testing/BUILD <<EOF
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+sh_test(name='t1', srcs=['t1.sh'])
+EOF
   cat <<EOF > testing/t1.sh
 #!/bin/sh
 exit 0
@@ -372,10 +397,12 @@ local_repository(
     path = "../run",
 )
 EOF
+  add_rules_shell "MODULE.bazel"
 
   mkdir -p testing || fail "mkdir testing failed"
 
   cat <<EOF > testing/BUILD
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 sh_test(
   name = "passing_test" ,
   srcs = [ "passing_test.sh" ])
@@ -396,6 +423,7 @@ EOF
 }
 
 function test_test_timeout() {
+  add_rules_shell "MODULE.bazel"
   mkdir -p dir
 
   cat <<EOF > dir/test.sh
@@ -408,6 +436,8 @@ EOF
   chmod +x dir/test.sh
 
   cat <<EOF > dir/BUILD
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
 sh_test(
     name = "test",
     timeout = "short",
@@ -430,6 +460,7 @@ function test_runs_per_test_detects_flakes() {
   # Directory for counters
   local COUNTER_DIR="${TEST_TMPDIR}/counter_dir"
   mkdir -p "${COUNTER_DIR}"
+  add_rules_shell "MODULE.bazel"
 
   for (( i = 1 ; i <= 5 ; i++ )); do
 
@@ -448,6 +479,8 @@ exit \$((i != $i))
 EOF
     chmod +x test$i.sh
     cat <<EOF > BUILD
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
 sh_test(name = "test$i", srcs = [ "test$i.sh" ])
 EOF
     bazel test --spawn_strategy=standalone \
@@ -462,7 +495,7 @@ EOF
 # Tests that the test.xml is extracted from the sandbox correctly.
 function test_xml_is_present() {
   mkdir -p dir
-
+  add_rules_shell "MODULE.bazel"
   cat <<'EOF' > dir/test.sh
 #!/bin/sh
 echo HELLO > $XML_OUTPUT_FILE
@@ -472,6 +505,8 @@ EOF
   chmod +x dir/test.sh
 
   cat <<'EOF' > dir/BUILD
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
 sh_test(
     name = "test",
     srcs = [ "test.sh" ],
@@ -486,6 +521,7 @@ EOF
 
 function write_test_xml_timeout_files() {
   mkdir -p dir
+  add_rules_shell "MODULE.bazel"
 
   cat <<'EOF' > dir/test.sh
 #!/bin/bash
@@ -504,6 +540,8 @@ EOF
   chmod +x dir/test.sh
 
   cat <<'EOF' > dir/BUILD
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
 sh_test(
     name = "test",
     srcs = [ "test.sh" ],
@@ -560,6 +598,7 @@ function test_xml_is_present_when_timingout_split_xml() {
 # Tests that the test.xml and test.log are correct and the test does not
 # hang when the test launches a subprocess.
 function test_subprocess_non_timeout() {
+  add_rules_shell "MODULE.bazel"
   mkdir -p dir
 
   cat <<'EOF' > dir/test.sh
@@ -572,6 +611,8 @@ EOF
   chmod +x dir/test.sh
 
   cat <<'EOF' > dir/BUILD
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
 sh_test(
     name = "test",
     timeout = "short",
@@ -594,6 +635,7 @@ EOF
 
 # Check that fallback xml output is correctly generated for sharded tests.
 function test_xml_fallback_for_sharded_test() {
+  add_rules_shell "MODULE.bazel"
   mkdir -p dir
 
   cat <<'EOF' > dir/test.sh
@@ -605,6 +647,8 @@ EOF
   chmod +x dir/test.sh
 
   cat <<EOF > dir/BUILD
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
 sh_test(
   name = "test",
   srcs = [ "test.sh" ],
@@ -649,6 +693,7 @@ EOF
 
 function test_always_xml_output() {
   mkdir -p dir
+  add_rules_shell "MODULE.bazel"
 
   cat <<EOF > dir/success.sh
 #!/bin/sh
@@ -662,6 +707,8 @@ EOF
   chmod +x dir/{success,fail}.sh
 
   cat <<EOF > dir/BUILD
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
 sh_test(
     name = "success",
     srcs = [ "success.sh" ],
@@ -731,7 +778,9 @@ function test_detailed_test_summary_for_passed_test() {
 # This test uses "--ignore_all_rc_files" since outside .bazelrc files can pollute
 # this environment. Just "--bazelrc=/dev/null" is not sufficient to fix.
 function test_flaky_test() {
+  add_rules_shell "MODULE.bazel"
   cat >BUILD <<EOF
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 sh_test(name = "flaky", flaky = True, srcs = ["flaky.sh"])
 sh_test(name = "pass", flaky = True, srcs = ["true.sh"])
 sh_test(name = "fail", flaky = True, srcs = ["false.sh"])
@@ -807,87 +856,128 @@ EOF
 
 function setup_undeclared_outputs_test() {
   mkdir -p dir
+  add_rules_shell "MODULE.bazel"
 
   cat <<'EOF' > dir/test.sh
-#!/bin/sh
+#!/bin/bash
+mkdir -p "$TEST_UNDECLARED_OUTPUTS_DIR/deeply/nested"
 echo "some text" > "$TEST_UNDECLARED_OUTPUTS_DIR/text.txt"
-echo "<!DOCTYPE html>" > "$TEST_UNDECLARED_OUTPUTS_DIR/fake.html"
-echo "pass"
-exit 0
+echo "<!DOCTYPE html>" > "$TEST_UNDECLARED_OUTPUTS_DIR/deeply/nested/index.html"
+if [[ -z "$FLAKY_FILE" ]]; then
+  # Non-flaky execution.
+  exit 0
+elif [[ -e "$FLAKY_FILE" ]]; then
+  # Flaky execution, second run.
+  exit 0
+else
+  # Flaky execution, first run.
+  touch "$FLAKY_FILE"
+  exit 1
+fi
 EOF
 
   chmod +x dir/test.sh
 
   cat <<'EOF' > dir/BUILD
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 sh_test(
-    name = "test",
-    srcs = [ "test.sh" ],
-  )
+  name = "test",
+  srcs = ["test.sh"],
+)
 EOF
 }
 
 function test_undeclared_outputs_are_zipped() {
   setup_undeclared_outputs_test
 
+  local -r outputs_manifest=bazel-testlogs/dir/test/test.outputs_manifest/MANIFEST
   local -r outputs_dir=bazel-testlogs/dir/test/test.outputs
   local -r outputs_zip=$outputs_dir/outputs.zip
   local -r output_text=$outputs_dir/text.txt
-  local -r output_html=$outputs_dir/fake.html
+  local -r output_html=$outputs_dir/deeply/nested/index.html
 
   bazel test -s --zip_undeclared_test_outputs //dir:test &> $TEST_log || fail "expected success"
 
-  # Newlines are useful around diffs. This helps us get them in bash strings.
-  N=$'\n'
+  assert_exists "$outputs_zip"
+  assert_not_exists "$output_text"
+  assert_not_exists "$output_html"
 
-  # Check that the undeclared outputs zip file exists.
-  [ -s $outputs_zip ] || fail "$outputs_zip was not present after test"
-
-  # Check that the original undeclared outputs no longer exist.
-  [ -e $output_text ] && fail "$output_text was present after test"
-  [ -e $output_text ] && fail "$output_text was present after test"
-
-
-  # Check the contents of the zip file.
   unzip -q "$outputs_zip" -d unzipped_outputs || fail "failed to unzip $outputs_zip"
-  cat > expected_text <<EOF
-some text
+  assert_equals "$(cat unzipped_outputs/text.txt)" "some text"
+  assert_equals "$(cat unzipped_outputs/deeply/nested/index.html)" "<!DOCTYPE html>"
+
+  assert_exists "$outputs_manifest"
+  cat > expected_manifest <<EOF
+deeply/nested/index.html	16	text/html
+text.txt	10	text/plain
 EOF
-  diff "unzipped_outputs/text.txt" expected_text > d || fail "unzipped_outputs/text.txt differs from expected:$N$(cat d)$N"
-  cat > expected_html <<EOF
-<!DOCTYPE html>
-EOF
-  diff expected_html "unzipped_outputs/fake.html" > d || fail "unzipped_outputs/fake.html differs from expected:$N$(cat d)$N"
+  assert_equals "$(cat "$outputs_manifest")" "$(cat expected_manifest)"
+}
+
+function test_undeclared_outputs_are_zipped_multiple_attempts() {
+  setup_undeclared_outputs_test
+
+  local -r outputs_dir=bazel-testlogs/dir/test/test_attempts/attempt_1.outputs
+  local -r outputs_zip=$outputs_dir/outputs.zip
+  local -r output_text=$outputs_dir/text.txt
+  local -r output_html=$outputs_dir/deeply/nested/index.html
+
+  local -r flaky_file=$TEST_TMPDIR/flaky
+  rm -f "$flaky_file"
+
+  bazel test -s --zip_undeclared_test_outputs --spawn_strategy=local \
+      --flaky_test_attempts=2 --test_env=FLAKY_FILE="$flaky_file" \
+      //dir:test &> $TEST_log || fail "expected success"
+
+  assert_exists "$outputs_zip"
+  assert_not_exists "$output_text"
+  assert_not_exists "$output_html"
 }
 
 function test_undeclared_outputs_are_not_zipped() {
   setup_undeclared_outputs_test
 
+  local -r outputs_manifest=bazel-testlogs/dir/test/test.outputs_manifest/MANIFEST
   local -r outputs_dir=bazel-testlogs/dir/test/test.outputs
   local -r outputs_zip=$outputs_dir/outputs.zip
   local -r output_text=$outputs_dir/text.txt
-  local -r output_html=$outputs_dir/fake.html
+  local -r output_html=$outputs_dir/deeply/nested/index.html
 
   bazel test -s //dir:test &> $TEST_log || fail "expected success"
 
-  # Newlines are useful around diffs. This helps us get them in bash strings.
-  N=$'\n'
+  assert_not_exists "$outputs_zip"
+  assert_exists "$output_text"
+  assert_exists "$output_html"
 
-  # Check that the undeclared outputs zip file does not exist.
-  [ -e $outputs_zip ] && fail "$outputs_zip was present after test"
+  assert_equals "$(cat "$output_text")" "some text"
+  assert_equals "$(cat "$output_html")" "<!DOCTYPE html>"
 
-  # Check that the undeclared outputs exist.
-  [ -e $output_text ] || fail "$output_text was not present after test"
-  [ -e $output_text ] || fail "$output_text was not present after test"
-
-  # Check the contents of the undeclared outputs.
-  cat > expected_text <<EOF
-some text
+  assert_exists "$outputs_manifest"
+  cat > expected_manifest <<EOF
+deeply/nested/index.html	16	text/html
+text.txt	10	text/plain
 EOF
-  diff "$outputs_dir/text.txt" expected_text > d || fail "$outputs_dir/text.txt differs from expected:$N$(cat d)$N"
-  cat > expected_html <<EOF
-<!DOCTYPE html>
-EOF
-  diff expected_html "$outputs_dir/fake.html" > d || fail "$outputs_dir/fake.html differs from expected:$N$(cat d)$N"
+  assert_equals "$(cat "$outputs_manifest")" "$(cat expected_manifest)"
+}
+
+function test_undeclared_outputs_are_not_zipped_multiple_attempts() {
+  setup_undeclared_outputs_test
+
+  local -r outputs_dir=bazel-testlogs/dir/test/test_attempts/attempt_1.outputs
+  local -r outputs_zip=$outputs_dir/outputs.zip
+  local -r output_text=$outputs_dir/text.txt
+  local -r output_html=$outputs_dir/deeply/nested/index.html
+
+  local -r flaky_file=$TEST_TMPDIR/flaky
+  rm -f "$flaky_file"
+
+  bazel test -s --spawn_strategy=local \
+      --flaky_test_attempts=2 --test_env=FLAKY_FILE="$flaky_file" \
+      //dir:test &> $TEST_log || fail "expected success"
+
+  assert_not_exists "$outputs_zip"
+  assert_exists "$output_text"
+  assert_exists "$output_html"
 }
 
 function test_undeclared_outputs_zipped_then_unzipped() {
@@ -896,19 +986,19 @@ function test_undeclared_outputs_zipped_then_unzipped() {
   local -r outputs_dir=bazel-testlogs/dir/test/test.outputs
   local -r outputs_zip=$outputs_dir/outputs.zip
   local -r output_text=$outputs_dir/text.txt
-  local -r output_html=$outputs_dir/fake.html
+  local -r output_html=$outputs_dir/deeply/nested/index.html
 
   bazel test -s --zip_undeclared_test_outputs //dir:test &> $TEST_log || fail "expected success"
 
-  [ -s $output_text ] && fail "$output_text was present after test"
-  [ -s $output_html ] && fail "$output_html was present after test"
-  [ -s $outputs_zip ] || fail "$outputs_zip was not present after test"
+  assert_exists "$outputs_zip"
+  assert_not_exists "$output_text"
+  assert_not_exists "$output_html"
 
   bazel test -s //dir:test &> $TEST_log || fail "expected success"
 
-  [ -s $outputs_zip ] && fail "$outputs_zip was present after test"
-  [ -s $output_text ] || fail "$output_text was not present after test"
-  [ -s $output_html ] || fail "$output_html was not present after test"
+  assert_not_exists "$outputs_zip"
+  assert_exists "$output_text"
+  assert_exists "$output_html"
 }
 
 function test_undeclared_outputs_unzipped_then_zipped() {
@@ -917,42 +1007,24 @@ function test_undeclared_outputs_unzipped_then_zipped() {
   local -r outputs_dir=bazel-testlogs/dir/test/test.outputs
   local -r outputs_zip=$outputs_dir/outputs.zip
   local -r output_text=$outputs_dir/text.txt
-  local -r output_html=$outputs_dir/fake.html
+  local -r output_html=$outputs_dir/deeply/nested/index.html
 
   bazel test -s //dir:test &> $TEST_log || fail "expected success"
 
-  [ -s $outputs_zip ] && fail "$outputs_zip was present after test"
-  [ -s $output_text ] || fail "$output_text was not present after test"
-  [ -s $output_html ] || fail "$output_html was not present after test"
+  assert_not_exists "$outputs_zip"
+  assert_exists "$output_text"
+  assert_exists "$output_html"
 
   bazel test -s --zip_undeclared_test_outputs //dir:test &> $TEST_log || fail "expected success"
 
-  [ -s $output_text ] && fail "$output_text was present after test"
-  [ -s $output_html ] && fail "$output_html was present after test"
-  [ -s $outputs_zip ] || fail "$outputs_zip was not present after test"
-}
-
-function test_undeclared_outputs_manifest_is_created() {
-  setup_undeclared_outputs_test
-
-  bazel test -s //dir:test &> $TEST_log || fail "expected success"
-
-  # Newlines are useful around diffs. This helps us get them in bash strings.
-  N=$'\n'
-
-  # Check that the undeclared outputs manifest exists and that it has the
-  # correct contents.
-  local -r outputs_manifest=bazel-testlogs/dir/test/test.outputs_manifest/MANIFEST
-  [ -s $outputs_manifest ] || fail "$outputs_manifest was not present after test"
-  cat > expected_manifest <<EOF
-fake.html	16	text/html
-text.txt	10	text/plain
-EOF
-  diff expected_manifest "$outputs_manifest" > d || fail "$outputs_manifest differs from expected:$N$(cat d)$N"
+  assert_exists "$outputs_zip"
+  assert_not_exists "$output_text"
+  assert_not_exists "$output_html"
 }
 
 function test_undeclared_outputs_annotations_are_added() {
   mkdir -p dir
+  add_rules_shell "MODULE.bazel"
 
   cat <<'EOF' > dir/test.sh
 #!/bin/sh
@@ -965,6 +1037,8 @@ EOF
   chmod +x dir/test.sh
 
   cat <<'EOF' > dir/BUILD
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
 sh_test(
     name = "test",
     srcs = [ "test.sh" ],
@@ -989,6 +1063,7 @@ diff expected_annotations "$annotations" > d || fail "$annotations differs from 
 
 function test_no_zip_annotation_manifest_when_no_undeclared_outputs() {
   mkdir -p dir
+  add_rules_shell "MODULE.bazel"
 
   cat <<'EOF' > dir/test.sh
 #!/bin/sh
@@ -999,6 +1074,8 @@ EOF
   chmod +x dir/test.sh
 
   cat <<'EOF' > dir/BUILD
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
 sh_test(
     name = "test",
     srcs = [ "test.sh" ],
@@ -1018,10 +1095,12 @@ EOF
 
 function test_test_with_nobuild_runfile_manifests() {
   mkdir -p dir
+  add_rules_shell "MODULE.bazel"
 
   touch dir/test.sh
   chmod u+x dir/test.sh
   cat <<'EOF' > dir/BUILD
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 sh_test(
     name = 'test',
     srcs = ['test.sh'],
@@ -1039,10 +1118,12 @@ local_repository(
     path = "./a",
 )
 EOF
+  add_rules_python "MODULE.bazel"
 
   mkdir -p a
   touch a/REPO.bazel
   cat <<'EOF' > a/BUILD
+load("@rules_python//python:py_test.bzl", "py_test")
 py_test(
     name = 'x',
     srcs = ['x.py'],
@@ -1053,13 +1134,16 @@ EOF
   bazel test --experimental_sibling_repository_layout @a//:x &> $TEST_log \
       || fail "expected success"
 
-  cp $(testlogs_dir +_repo_rules+a)/x/test.xml $TEST_log
-  expect_log "<testsuite name=\"+_repo_rules+a/x\""
-  expect_log "<testcase name=\"+_repo_rules+a/x\""
+  cp $(testlogs_dir +local_repository+a)/x/test.xml $TEST_log
+  expect_log "<testsuite name=\"+local_repository+a/x\""
+  expect_log "<testcase name=\"+local_repository+a/x\""
 }
 
 function test_xml_output_format() {
+  add_rules_python "MODULE.bazel"
+
   cat <<'EOF' > BUILD
+load("@rules_python//python:py_test.bzl", "py_test")
 py_test(
     name = 'x',
     srcs = ['x.py'],
@@ -1076,7 +1160,10 @@ EOF
 }
 
 function test_shard_status_file_checked() {
+  add_rules_shell "MODULE.bazel"
   cat <<'EOF' > BUILD
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
 sh_test(
     name = 'x',
     srcs = ['x.sh'],
@@ -1098,7 +1185,9 @@ EOF
 }
 
 function test_premature_exit_file_checked() {
+  add_rules_shell "MODULE.bazel"
   cat <<'EOF' > BUILD
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 sh_test(
     name = 'x',
     srcs = ['x.sh'],
@@ -1114,6 +1203,33 @@ EOF
 
   bazel test //:x --test_output=errors &> $TEST_log && fail "expected failure"
   expect_log "-- Test exited prematurely (TEST_PREMATURE_EXIT_FILE exists) --"
+}
+
+function test_test_env_change_preserves_cache() {
+  local -r pkg="pkg${LINENO}"
+  mkdir -p "${pkg}"
+  cat > "$pkg/BUILD" <<'EOF'
+load(":defs.bzl", "my_rule")
+my_rule(
+  name = "my_rule",
+)
+EOF
+  cat > "$pkg/defs.bzl" <<'EOF'
+def _my_rule_impl(ctx):
+  print("my_rule is being analyzed")
+  out = ctx.actions.declare_file(ctx.label.name)
+  ctx.actions.write(out, "hi")
+  return [DefaultInfo(files = depset([out]))]
+my_rule = rule(_my_rule_impl)
+EOF
+
+  bazel build "${pkg}:my_rule" >$TEST_log 2>&1 \
+   || fail "expected build to pass"
+  expect_log "my_rule is being analyzed"
+
+  bazel build --test_env=FOO=bar "${pkg}:my_rule" >$TEST_log 2>&1 \
+   || fail "expected build to pass"
+  expect_not_log "my_rule is being analyzed"
 }
 
 run_suite "bazel test tests"

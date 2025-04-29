@@ -43,7 +43,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
 import com.google.devtools.build.lib.profiler.Profiler;
@@ -82,7 +81,7 @@ public class StarlarkDocExtract implements RuleConfiguredTargetFactory {
   public ConfiguredTarget create(RuleContext ruleContext)
       throws ActionConflictException, InterruptedException, RuleErrorException {
     RepositoryMappingValue mainRepositoryMappingValue = getMainRepositoryMappingValue(ruleContext);
-    RepositoryMapping repositoryMapping = mainRepositoryMappingValue.getRepositoryMapping();
+    RepositoryMapping repositoryMapping = mainRepositoryMappingValue.repositoryMapping();
     Module module = loadModule(ruleContext, repositoryMapping);
     if (module == null) {
       // Skyframe restart
@@ -94,7 +93,7 @@ public class StarlarkDocExtract implements RuleConfiguredTargetFactory {
     verifyModuleDeps(ruleContext, module, repositoryMapping);
     Optional<String> mainRepoName = Optional.empty();
     if (ruleContext.attributes().get(RENDER_MAIN_REPO_NAME, BOOLEAN)) {
-      mainRepoName = mainRepositoryMappingValue.getAssociatedModuleName();
+      mainRepoName = mainRepositoryMappingValue.associatedModuleName();
       if (mainRepoName.isEmpty()) {
         mainRepoName = Optional.of(ruleContext.getWorkspaceName());
       }
@@ -103,7 +102,7 @@ public class StarlarkDocExtract implements RuleConfiguredTargetFactory {
         getModuleInfo(ruleContext, module, new LabelRenderer(repositoryMapping, mainRepoName));
 
     NestedSet<Artifact> filesToBuild =
-        new NestedSetBuilder<Artifact>(Order.STABLE_ORDER)
+        NestedSet.<Artifact>builder(Order.STABLE_ORDER)
             .add(createBinaryProtoOutput(ruleContext, moduleInfo))
             .build();
     // Textproto output isn't in filesToBuild: we want to create it only if explicitly requested.

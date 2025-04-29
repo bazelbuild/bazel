@@ -76,7 +76,7 @@ cc_library(
             "//src/main/native/windows:lib-file",
             "//src/main/native/windows:lib-process",
             "//third_party/ijar:zip",
-            "@bazel_tools//tools/cpp/runfiles",
+            "@rules_cc//cc/runfiles",
         ],
         "//conditions:default": [],
     }),
@@ -113,6 +113,7 @@ filegroup(
         "BUILD.tools",
         "collect_cc_coverage.sh",
         "collect_coverage.sh",
+        "default_test_toolchain.bzl",
         "extensions.bzl",
         "generate-xml.sh",
         "test-setup.sh",
@@ -130,5 +131,8 @@ filegroup(
 
 filegroup(
     name = "bzl_srcs",
-    srcs = ["extensions.bzl"],
+    srcs = [
+        "default_test_toolchain.bzl",
+        "extensions.bzl",
+    ],
 )

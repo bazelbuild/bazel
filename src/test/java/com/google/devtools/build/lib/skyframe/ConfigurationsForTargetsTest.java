@@ -386,7 +386,7 @@ public final class ConfigurationsForTargetsTest extends AnalysisTestCase {
     scratch.file(
         "p/BUILD",
         """
-        sh_library(name = "a")
+        filegroup(name = "a")
 
         genquery(
             name = "q",
@@ -449,8 +449,9 @@ public final class ConfigurationsForTargetsTest extends AnalysisTestCase {
         "a/BUILD",
         """
         load("//a:exec_rule.bzl", "exec_rule")
+        load('//test_defs:foo_binary.bzl', 'foo_binary')
 
-        sh_binary(
+        foo_binary(
             name = "exec_tool",
             srcs = ["exec_tool.sh"],
         )

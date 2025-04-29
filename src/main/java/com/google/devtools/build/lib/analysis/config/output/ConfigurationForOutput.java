@@ -86,6 +86,12 @@ public class ConfigurationForOutput {
     return isExec;
   }
 
+  public boolean hasTestConfig() {
+    return fragmentOptions.stream()
+        .map(FragmentOptionsForOutput::getName)
+        .anyMatch(name -> name.contains("TestConfiguration"));
+  }
+
   public List<FragmentForOutput> getFragments() {
     return fragments;
   }

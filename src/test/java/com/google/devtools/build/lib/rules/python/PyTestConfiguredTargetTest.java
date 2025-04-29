@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.python;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.rules.python.PythonTestUtils.getPyLoad;
+import static org.junit.Assert.assertThrows;
 
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.analysis.test.ExecutionInfo;
@@ -45,7 +46,9 @@ public class PyTestConfiguredTargetTest extends PyExecutableConfiguredTargetTest
         "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:x86_64',",
         "  ],",
         ")");
-    useConfiguration("--platforms=//platforms:darwin_x86_64");
+    useConfiguration(
+        "--platforms=//platforms:darwin_x86_64",
+        "--extra_execution_platforms=//platforms:darwin_x86_64");
     scratch.file(
         "pkg/BUILD", //
         getPyLoad("py_test"),
@@ -73,6 +76,26 @@ public class PyTestConfiguredTargetTest extends PyExecutableConfiguredTargetTest
     if (executionInfo != null) {
       assertThat(executionInfo.getExecutionInfo())
           .doesNotContainKey(ExecutionRequirements.REQUIRES_DARWIN);
+    }
+  }
+
+  @Test
+  // b/382441996
+  public void nativePyTestReportsAnError() throws Exception {
+    scratch.file(
+        "pkg/BUILD", //
+        "py_test(",
+        "    name = 'foo',",
+        "    srcs = ['foo.py'],",
+        ")");
+
+    AssertionError error =
+        assertThrows(AssertionError.class, () -> getConfiguredTarget("//pkg:foo"));
+
+    if (analysisMock.isThisBazel()) {
+      assertThat(error).hasMessageThat().contains("name 'py_test' is not defined");
+    } else {
+      assertThat(error).hasMessageThat().contains("Rule 'py_test' is unimplemented.");
     }
   }
 }

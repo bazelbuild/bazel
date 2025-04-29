@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.skyframe.CompletionFunction.Completor;
 import com.google.devtools.build.lib.skyframe.rewinding.ActionRewindStrategy;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
-import java.util.function.Supplier;
 
 /** Manages completing builds for aspects. */
 final class AspectCompletor
@@ -45,16 +44,14 @@ final class AspectCompletor
       SkyframeActionExecutor skyframeActionExecutor,
       MetadataConsumerForMetrics.FilesMetricConsumer topLevelArtifactsMetric,
       ActionRewindStrategy actionRewindStrategy,
-      BugReporter bugReporter,
-      Supplier<Boolean> isSkymeld) {
+      BugReporter bugReporter) {
     return new CompletionFunction<>(
         pathResolverFactory,
         new AspectCompletor(),
         skyframeActionExecutor,
         topLevelArtifactsMetric,
         actionRewindStrategy,
-        bugReporter,
-        isSkymeld);
+        bugReporter);
   }
 
   @Override
@@ -98,7 +95,8 @@ final class AspectCompletor
       CompletionContext ctx,
       ImmutableMap<String, ArtifactsInOutputGroup> outputs,
       Environment env) {
-    return AspectCompleteEvent.createFailed(skyKey.actionLookupKey(), ctx, rootCauses, outputs);
+    return AspectCompleteEvent.createFailed(
+        skyKey.actionLookupKey(), ctx, rootCauses, outputs, value.getWritesOutputToMasterLog());
   }
 
   @Override
@@ -111,6 +109,7 @@ final class AspectCompletor
     return AspectCompleteEvent.createSuccessful(
         skyKey.actionLookupKey(),
         completionContext,
-        artifactsToBuild.getAllArtifactsByOutputGroup());
+        artifactsToBuild.getAllArtifactsByOutputGroup(),
+        value.getWritesOutputToMasterLog());
   }
 }

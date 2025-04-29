@@ -35,6 +35,7 @@ import net.starlark.java.eval.StarlarkFunction;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.Tuple;
+import net.starlark.java.syntax.Location;
 
 /** A class that exposes testing infrastructure to Starlark. */
 public class StarlarkTestingModule implements TestingModuleApi {
@@ -108,7 +109,7 @@ public class StarlarkTestingModule implements TestingModuleApi {
     // TODO(b/291752414): Fix.
     Label dummyBzlFile = Label.createUnvalidated(PackageIdentifier.EMPTY_PACKAGE_ID, "dummy_label");
     Fingerprint fingerprint = new Fingerprint();
-    fingerprint.addString(pkgBuilder.getBuildFileLabel().getPackageName());
+    fingerprint.addString(pkgBuilder.getMetadata().getName());
     fingerprint.addString(name);
     byte[] transitiveDigestToUse = fingerprint.digestAndReset();
 
@@ -159,7 +160,11 @@ public class StarlarkTestingModule implements TestingModuleApi {
     // evaluation in BzlLoadFunction#execAndExport.
     StoredEventHandler handler = new StoredEventHandler();
     starlarkRuleFunction.export(
-        handler, pkgBuilder.getBuildFileLabel(), name + "_test"); // export in BUILD thread
+        handler,
+        pkgBuilder.getMetadata().buildFileLabel(),
+        name + "_test",
+        Location.fromFile(
+            pkgBuilder.getMetadata().buildFilename().toString())); // export in BUILD thread
     if (handler.hasErrors()) {
       StringBuilder errors =
           handler.getEvents().stream()

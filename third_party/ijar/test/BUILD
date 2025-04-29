@@ -1,3 +1,9 @@
+load("@rules_java//java:java_binary.bzl", "java_binary")
+load("@rules_java//java:java_library.bzl", "java_library")
+load("@rules_java//java:java_test.bzl", "java_test")
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
 package(default_visibility = ["//visibility:__pkg__"])
 
 licenses(["notice"])  # Apache License 2.0
@@ -9,10 +15,7 @@ sh_test(
     size = "enormous",
     srcs = ["ijar_test.sh"],
     args = [
-        "$(JAVABASE)/bin/javac",
-        "$(JAVABASE)/bin/java",
-        "$(JAVABASE)/bin/jar",
-        "$(JAVABASE)/bin/javap",
+        "$(JAVABASE)",
         "$(location //third_party/ijar)",
         # We assume unzip and zip to be on the path
         "unzip",
@@ -46,6 +49,7 @@ sh_test(
         # wrong.
         "libwrongcentraldir.jar",
         ":dynamic_constant.jar",
+        "@bazel_tools//tools/bash/runfiles",
         "@bazel_tools//tools/jdk:current_java_runtime",
     ],
     shard_count = 5,

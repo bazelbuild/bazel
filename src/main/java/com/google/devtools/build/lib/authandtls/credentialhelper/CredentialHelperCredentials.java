@@ -19,6 +19,7 @@ import com.google.auth.Credentials;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
@@ -34,20 +35,6 @@ public class CredentialHelperCredentials extends Credentials {
   private final CredentialHelperEnvironment credentialHelperEnvironment;
   private final Cache<URI, GetCredentialsResponse> credentialCache;
   private final Optional<Credentials> fallbackCredentials;
-
-  /** Wraps around an {@link IOException} so we can smuggle it through {@link Cache#get}. */
-  public static final class WrappedIOException extends RuntimeException {
-    private final IOException wrapped;
-
-    WrappedIOException(IOException e) {
-      super(e);
-      this.wrapped = e;
-    }
-
-    IOException getWrapped() {
-      return wrapped;
-    }
-  }
 
   public CredentialHelperCredentials(
       CredentialHelperProvider credentialHelperProvider,
@@ -77,11 +64,11 @@ public class CredentialHelperCredentials extends Credentials {
     GetCredentialsResponse response;
     try {
       response = credentialCache.get(uri, this::getCredentialsFromHelper);
-    } catch (WrappedIOException e) {
-      throw e.getWrapped();
+    } catch (UncheckedIOException e) {
+      throw e.getCause();
     }
     if (response != null) {
-      return (Map) response.getHeaders();
+      return (Map) response.headers();
     }
 
     if (fallbackCredentials.isPresent()) {
@@ -106,7 +93,7 @@ public class CredentialHelperCredentials extends Credentials {
     try {
       response = credentialHelper.getCredentials(credentialHelperEnvironment, uri);
     } catch (IOException e) {
-      throw new WrappedIOException(e);
+      throw new UncheckedIOException(e);
     }
     if (response == null) {
       return null;

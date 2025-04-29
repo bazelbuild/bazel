@@ -102,12 +102,7 @@ function test_bootstrap() {
 
     JAVABASE=$(echo reduced*)
 
-    env EXTRA_BAZEL_ARGS="--java_runtime_version=21 \
-      --java_language_version=21 \
-      --tool_java_runtime_version=21 \
-      --tool_java_language_version=21" \
-      ./compile.sh \
-      || fail "Expected to be able to bootstrap bazel.\
+    ./compile.sh || fail "Expected to be able to bootstrap bazel.\
  If you updated MODULE.bazel, see the NOTE in that file."
 
     ./output/bazel \
@@ -126,7 +121,7 @@ function test_bootstrap() {
     mkdir fake_java_toolchain
     touch fake_java_toolchain/dummy.jar
     cat << EOF > fake_java_toolchain/BUILD
-load("@bazel_tools//tools/jdk:default_java_toolchain.bzl", "default_java_toolchain")
+load("@rules_java//toolchains:default_java_toolchain.bzl", "default_java_toolchain")
 default_java_toolchain(
     name = "fake_java_toolchain",
     genclass = [":dummy.jar"],
@@ -151,6 +146,7 @@ EOF
       --override_repository=$(cat derived/maven/MAVEN_CANONICAL_REPO_NAME)=derived/maven \
       --java_language_version=${JAVA_VERSION} --tool_java_language_version=${JAVA_VERSION} \
       --tool_java_runtime_version=local_jdk \
+      --extra_toolchains=@rules_python//python/runtime_env_toolchains:all \
       --extra_toolchains=fake_java_toolchain:all \
       src:bazel_nojdk &> "${TEST_log}" || fail "analysis with bootstrapped Bazel failed"
 }

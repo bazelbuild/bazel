@@ -53,10 +53,9 @@ public class AbstractConfiguredTargetTest extends BuildViewTestCase {
         TopLevelArtifactHelper.getAllArtifactsToBuild(
                 x,
                 new TopLevelArtifactContext(
-                    /*runTestsExclusively=*/ false,
-                    /*expandFilesets=*/ false,
-                    /*fullyResolveFilesetSymlinks=*/ false,
-                    /*outputGroups=*/ ImmutableSortedSet.<String>of(
+                    /* runTestsExclusively= */ false,
+                    /* expandFilesets= */ false,
+                    /* outputGroups= */ ImmutableSortedSet.of(
                         OutputGroupInfo.DEFAULT, OutputGroupInfo.HIDDEN_TOP_LEVEL)))
             .getImportantArtifacts()
             .toSet();
@@ -66,10 +65,14 @@ public class AbstractConfiguredTargetTest extends BuildViewTestCase {
 
   @Test
   public void testRunUnderWithExperimental() throws Exception {
-    scratch.file("foo/BUILD",
-        "sh_test(name = 'test', srcs = ['test.sh'], data = ['test.txt'])");
-    scratch.file("experimental/bar/BUILD",
-        "sh_binary(name = 'bar', srcs = ['test.sh'])");
+    scratch.file(
+        "foo/BUILD",
+        "load('//test_defs:foo_test.bzl', 'foo_test')",
+        "foo_test(name = 'test', srcs = ['test.sh'], data = ['test.txt'])");
+    scratch.file(
+        "experimental/bar/BUILD",
+        "load('//test_defs:foo_binary.bzl', 'foo_binary')",
+        "foo_binary(name = 'bar', srcs = ['test.sh'])");
     useConfiguration("--run_under=//experimental/bar");
     getConfiguredTarget("//foo:test");
   }

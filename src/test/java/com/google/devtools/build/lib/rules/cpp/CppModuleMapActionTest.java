@@ -53,8 +53,8 @@ public final class CppModuleMapActionTest {
     CppModuleMapAction action1 = createCppModuleMapAction(map, dep);
     CppModuleMapAction action2 = createCppModuleMapAction(map, depWithDifferentName);
 
-    assertThat(action1.getKey(actionKeyContext, /*artifactExpander=*/ null))
-        .isNotEqualTo(action2.getKey(actionKeyContext, /*artifactExpander=*/ null));
+    assertThat(action1.getKey(actionKeyContext, /* inputMetadataProvider= */ null))
+        .isNotEqualTo(action2.getKey(actionKeyContext, /* inputMetadataProvider= */ null));
   }
 
   private static CppModuleMapAction createCppModuleMapAction(

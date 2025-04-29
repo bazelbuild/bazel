@@ -16,10 +16,13 @@ package com.google.devtools.build.lib.skyframe.config;
 import static com.google.common.base.Strings.nullToEmpty;
 
 import com.google.common.base.Verify;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
+import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.runtime.ConfigFlagDefinitions;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -31,7 +34,13 @@ import javax.annotation.Nullable;
 /** A return value of {@link FlagSetFunction} */
 public class FlagSetValue implements SkyValue {
 
-  private final BuildOptions topLevelBuildOptions;
+  private final ImmutableSet<String> flags;
+
+  /**
+   * Warnings and info messages for the caller to emit. This lets the caller persistently emit
+   * messages that Skyframe ignores on cache hits. See {@link Reportable#storeForReplay}).
+   */
+  private final ImmutableSet<Event> persistentMessages;
 
   /** Key for {@link FlagSetValue} based on the raw flags. */
   @ThreadSafety.Immutable
@@ -41,20 +50,22 @@ public class FlagSetValue implements SkyValue {
     private final Label projectFile;
     private final String sclConfig;
     private final BuildOptions targetOptions;
-    private final ImmutableSet<String> userOptions;
-
+    private final ImmutableMap<String, String> userOptions;
+    private final ConfigFlagDefinitions configFlagDefinitions;
     private final boolean enforceCanonical;
 
     public Key(
         Label projectFile,
         @Nullable String sclConfig,
         BuildOptions targetOptions,
-        ImmutableSet<String> userOptions,
+        ImmutableMap<String, String> userOptions,
+        ConfigFlagDefinitions configFlagDefinitions,
         boolean enforceCanonical) {
       this.projectFile = Verify.verifyNotNull(projectFile);
       this.sclConfig = nullToEmpty(sclConfig);
       this.targetOptions = Verify.verifyNotNull(targetOptions);
       this.userOptions = Verify.verifyNotNull(userOptions);
+      this.configFlagDefinitions = configFlagDefinitions;
       this.enforceCanonical = enforceCanonical;
     }
 
@@ -62,10 +73,17 @@ public class FlagSetValue implements SkyValue {
         Label projectFile,
         String sclConfig,
         BuildOptions targetOptions,
-        ImmutableSet<String> userOptions,
+        ImmutableMap<String, String> userOptions,
+        ConfigFlagDefinitions configFlagDefinitions,
         boolean enforceCanonical) {
       return interner.intern(
-          new Key(projectFile, sclConfig, targetOptions, userOptions, enforceCanonical));
+          new Key(
+              projectFile,
+              sclConfig,
+              targetOptions,
+              userOptions,
+              configFlagDefinitions,
+              enforceCanonical));
     }
 
     public Label getProjectFile() {
@@ -80,8 +98,12 @@ public class FlagSetValue implements SkyValue {
       return targetOptions;
     }
 
-    public ImmutableSet<String> getUserOptions() {
+    public ImmutableMap<String, String> getUserOptions() {
       return userOptions;
+    }
+
+    public ConfigFlagDefinitions getConfigFlagDefinitions() {
+      return configFlagDefinitions;
     }
 
     /**
@@ -115,24 +137,38 @@ public class FlagSetValue implements SkyValue {
           && Objects.equals(sclConfig, key.sclConfig)
           && Objects.equals(targetOptions, key.targetOptions)
           && Objects.equals(userOptions, key.userOptions)
+          && Objects.equals(configFlagDefinitions, key.configFlagDefinitions)
           && (enforceCanonical == key.enforceCanonical);
     }
 
     @Override
     public int hashCode() {
-      return Objects.hash(projectFile, sclConfig, targetOptions, userOptions, enforceCanonical);
+      return Objects.hash(
+          projectFile,
+          sclConfig,
+          targetOptions,
+          userOptions,
+          configFlagDefinitions,
+          enforceCanonical);
     }
   }
 
-  public static FlagSetValue create(BuildOptions buildOptions) {
-    return new FlagSetValue(buildOptions);
+  public static FlagSetValue create(
+      ImmutableSet<String> flags, ImmutableSet<Event> persistentMessages) {
+    return new FlagSetValue(flags, persistentMessages);
   }
 
-  public FlagSetValue(BuildOptions buildOptions) {
-    this.topLevelBuildOptions = buildOptions;
+  public FlagSetValue(ImmutableSet<String> flags, ImmutableSet<Event> persistentMessages) {
+    this.flags = flags;
+    this.persistentMessages = persistentMessages;
   }
 
-  public BuildOptions getTopLevelBuildOptions() {
-    return topLevelBuildOptions;
+  /** Returns the set of flags to be applied to the build from the flagset, in flag=value form. */
+  public ImmutableSet<String> getOptionsFromFlagset() {
+    return flags;
+  }
+
+  public ImmutableSet<Event> getPersistentMessages() {
+    return persistentMessages;
   }
 }

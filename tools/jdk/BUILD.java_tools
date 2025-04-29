@@ -1,7 +1,9 @@
-load("@protobuf//bazel:cc_proto_library.bzl", "cc_proto_library")
-load("@protobuf//bazel:proto_library.bzl", "proto_library")
-load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library")
-load("@rules_java//java:defs.bzl", "java_binary", "java_import")
+load("@com_google_protobuf//bazel:cc_proto_library.bzl", "cc_proto_library")
+load("@com_google_protobuf//bazel:proto_library.bzl", "proto_library")
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_java//java:java_binary.bzl", "java_binary")
+load("@rules_java//java:java_import.bzl", "java_import")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -102,21 +104,21 @@ java_import(
 
 java_import(
     name = "asm",
-    jars = ["java_tools/third_party/java/jacoco/asm-9.6.jar"],
-    srcjar = "java_tools/third_party/java/jacoco/asm-9.6-sources.jar",
+    jars = ["java_tools/third_party/java/jacoco/asm-9.7.1.jar"],
+    srcjar = "java_tools/third_party/java/jacoco/asm-9.7.1-sources.jar",
 )
 
 java_import(
     name = "asm-commons",
-    jars = ["java_tools/third_party/java/jacoco/asm-commons-9.6.jar"],
-    srcjar = "java_tools/third_party/java/jacoco/asm-commons-9.6-sources.jar",
+    jars = ["java_tools/third_party/java/jacoco/asm-commons-9.7.1.jar"],
+    srcjar = "java_tools/third_party/java/jacoco/asm-commons-9.7.1-sources.jar",
     runtime_deps = [":asm-tree"],
 )
 
 java_import(
     name = "asm-tree",
-    jars = ["java_tools/third_party/java/jacoco/asm-tree-9.6.jar"],
-    srcjar = "java_tools/third_party/java/jacoco/asm-tree-9.6-sources.jar",
+    jars = ["java_tools/third_party/java/jacoco/asm-tree-9.7.1.jar"],
+    srcjar = "java_tools/third_party/java/jacoco/asm-tree-9.7.1-sources.jar",
     runtime_deps = [":asm"],
 )
 
@@ -365,7 +367,7 @@ cc_library(
     copts = SUPRESSED_WARNINGS,
     include_prefix = "third_party",
     strip_include_prefix = "java_tools",
-    deps = ["//java_tools/zlib"],
+    deps = ["@zlib"],
 )
 
 ##################### singlejar
@@ -388,7 +390,7 @@ cc_library(
         ":diag",
         ":options",
         ":output_jar",
-        "//java_tools/zlib",
+        "@zlib",
     ],
     alwayslink = 1,
 )
@@ -418,7 +420,7 @@ cc_binary(
         ":desugar_checking",
         ":options",
         ":output_jar",
-        "//java_tools/zlib",
+        "@zlib",
     ],
 )
 
@@ -426,15 +428,17 @@ cc_library(
     name = "combiners",
     srcs = [
         "java_tools/src/tools/singlejar/combiners.cc",
+        "java_tools/src/tools/singlejar/log4j2_plugin_dat_combiner.cc",
     ],
     hdrs = [
         "java_tools/src/tools/singlejar/combiners.h",
+        "java_tools/src/tools/singlejar/log4j2_plugin_dat_combiner.h",
         ":transient_bytes",
     ],
     copts = SUPRESSED_WARNINGS,
     strip_include_prefix = "java_tools",
     deps = [
-        "//java_tools/zlib",
+        "@zlib",
     ],
 )
 
@@ -544,7 +548,7 @@ cc_library(
         ":mapped_file",
         ":options",
         ":singlejar_port",
-        "//java_tools/zlib",
+        "@zlib",
     ],
 )
 

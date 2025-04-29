@@ -7,11 +7,23 @@ keywords: bzlmod
 {% include "_buttons.html" %}
 
 Due to the [shortcomings of
-WORKSPACE](/external/overview#workspace-shortcomings), Bzlmod is going to
-replace the legacy WORKSPACE system. The WORKSPACE file will be disabled by
-default in Bazel 8 (late 2024) and will be removed in Bazel 9 (late 2025).
-This guide helps you migrate your project to Bzlmod and drop WORKSPACE for
-fetching external dependencies.
+WORKSPACE](/external/overview#workspace-shortcomings), Bzlmod is replacing the
+legacy WORKSPACE system. The WORKSPACE file is already disabled in Bazel 8 (late
+2024) and will be removed in Bazel 9 (late 2025). This guide helps you migrate
+your project to Bzlmod and drop WORKSPACE for managing external dependencies.
+
+## Why migrate to Bzlmod? {:#why-migrate-to-bzlmod}
+
+*   There are many [advantages](overview#benefits) compared to the legacy
+    WORKSPACE system, which helps to ensure a healthy growth of the Bazel
+    ecosystem.
+
+*   If your project is a dependency of other projects, migrating to Bzlmod will
+    unblock their migration and make it easier for them to depend on your
+    project.
+
+*   Migration to Bzlmod is a necessary step in order to use future Bazel
+    versions (mandatory in Bazel 9).
 
 ## WORKSPACE vs Bzlmod {:#workspace-vs-bzlmod}
 
@@ -22,7 +34,7 @@ Bzlmod.
 ### Define the root of a Bazel workspace {:#define-root}
 
 The WORKSPACE file marks the source root of a Bazel project, this responsibility
-is replaced by MODULE.bazel in Bazel version 6.3 and later. With Bazel version
+is replaced by MODULE.bazel in Bazel version 6.3 and later. With Bazel versions
 prior to 6.3, there should still be a `WORKSPACE` or `WORKSPACE.bazel` file at
 your workspace root, maybe with comments like:
 
@@ -763,8 +775,12 @@ following command:
 
 ```shell
 git clone https://github.com/bazelbuild/bazel-central-registry.git
+cd bazel-central-registry
+bazel build //tools:migrate_to_bzlmod
+alias migrate2bzlmod=$(realpath ./bazel-bin/tools/migrate_to_bzlmod)
+
 cd <your workspace root>
-<BCR repo root>/tools/migrate_to_bzlmod.py -t <your build targets>
+migrate2bzlmod -t <your build targets>
 ```
 
 Note: The migration script is not perfect and may not be up-to-date since Bzlmod

@@ -283,10 +283,10 @@ public final class TopLevelArtifactHelper {
   /**
    * Returns true if the given artifact should be shown to users as a build output.
    *
-   * <p>Always returns false for middleman and source artifacts.
+   * <p>Always returns false for runfiles tree and source artifacts.
    */
   public static boolean shouldDisplay(Artifact artifact) {
-    return !artifact.isSourceArtifact() && !artifact.isMiddlemanArtifact();
+    return !artifact.isSourceArtifact() && !artifact.isRunfilesTree();
   }
 
   /**
@@ -389,7 +389,7 @@ public final class TopLevelArtifactHelper {
         return null;
       }
       NestedSetBuilder<Artifact> newSetBuilder =
-          new NestedSetBuilder<>(declaredArtifacts.getOrder());
+          NestedSetBuilder.newBuilder(declaredArtifacts.getOrder());
       for (Artifact a : leaves) {
         if (builtArtifacts.contains(a)) {
           newSetBuilder.add(a);

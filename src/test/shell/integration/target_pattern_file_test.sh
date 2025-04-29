@@ -60,7 +60,10 @@ add_to_bazelrc "build --package_path=%workspace%"
 #### SETUP #############################################################
 
 function setup() {
+  add_rules_shell "MODULE.bazel"
   cat >BUILD <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
 genrule(name = "x", outs = ["x.out"], cmd = "echo true > $@", executable = True)
 sh_test(name = "y", srcs = ["x.out"])
 EOF
@@ -69,6 +72,7 @@ EOF
 # Test comment
 //:x # Trailing comment
 //:y
+#
 EOF
 }
 

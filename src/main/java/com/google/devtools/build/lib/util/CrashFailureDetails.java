@@ -20,6 +20,7 @@ import com.google.common.collect.Sets;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.Crash;
+import com.google.devtools.build.lib.server.FailureDetails.Crash.OomCauseCategory;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.ThrowableOrBuilder;
 import java.util.Set;
@@ -71,10 +72,12 @@ public class CrashFailureDetails {
   public static FailureDetail forThrowable(Throwable throwable) {
     Crash.Builder crashBuilder = Crash.newBuilder();
     if (getRootCauseToleratingCycles(throwable) instanceof OutOfMemoryError) {
-      crashBuilder.setCode(Crash.Code.CRASH_OOM);
+      crashBuilder.setCode(Crash.Code.CRASH_OOM).setOomCauseCategory(OomCauseCategory.ORGANIC);
     } else if (oomDetected()) {
       logger.atWarning().log("Classifying non-OOM crash as OOM");
-      crashBuilder.setCode(Crash.Code.CRASH_OOM).setOomDetectorOverride(true);
+      crashBuilder
+          .setCode(Crash.Code.CRASH_OOM)
+          .setOomCauseCategory(OomCauseCategory.OOM_DETECTOR_OVERRIDE);
     } else {
       crashBuilder.setCode(Crash.Code.CRASH_UNKNOWN);
     }

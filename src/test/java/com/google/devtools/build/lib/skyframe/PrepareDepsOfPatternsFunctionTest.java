@@ -19,6 +19,7 @@ import static com.google.devtools.build.skyframe.WalkableGraphUtils.exists;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -226,12 +227,13 @@ public class PrepareDepsOfPatternsFunctionTest extends BuildViewTestCase {
     scratch.file(
         "foo/BUILD",
         """
-        sh_library(
+        load("//test_defs:foo_library.bzl", "foo_library")
+        foo_library(
             name = "t1",
             deps = ["//foo:t2"],
         )
 
-        sh_library(
+        foo_library(
             name = "t2",
             deps = [
                 "//foo:t1",
@@ -271,6 +273,7 @@ public class PrepareDepsOfPatternsFunctionTest extends BuildViewTestCase {
         PrecomputedValue.injected(
             ModuleFileFunction.REGISTRIES, ImmutableSet.of(registry.getUrl())),
         PrecomputedValue.injected(ModuleFileFunction.IGNORE_DEV_DEPS, false),
+        PrecomputedValue.injected(ModuleFileFunction.INJECTED_REPOSITORIES, ImmutableMap.of()),
         PrecomputedValue.injected(
             BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES, CheckDirectDepsMode.WARNING),
         PrecomputedValue.injected(YankedVersionsUtil.ALLOWED_YANKED_VERSIONS, ImmutableList.of()),
@@ -364,7 +367,7 @@ public class PrepareDepsOfPatternsFunctionTest extends BuildViewTestCase {
         """);
     registry.addModule(
         new ModuleKey("repo", Version.parse("1.0")), "module(name = \"repo\", version = \"1.0\")");
-    scratch.file(moduleRoot.getRelative("repo+1.0/WORKSPACE").getPathString(), "");
+    scratch.file(moduleRoot.getRelative("repo+1.0/REPO.bazel").getPathString(), "");
     scratch.file(
         moduleRoot.getRelative("repo+1.0/a/BUILD").getPathString(), "exports_files(['x'])");
     invalidatePackages();

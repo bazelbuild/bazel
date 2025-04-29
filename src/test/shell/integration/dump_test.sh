@@ -58,8 +58,10 @@ function set_up() {
 }
 
 function test_memory_summary() {
+  add_rules_shell "MODULE.bazel"
   mkdir -p a
   cat > a/BUILD <<'EOF'
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
 sh_library(name='a')
 EOF
 
@@ -123,13 +125,16 @@ EOF
 }
 
 function test_memory_transitive() {
+  add_rules_shell "MODULE.bazel"
   mkdir -p a
   cat > a/BUILD <<'EOF'
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
 sh_library(name="a", srcs=["a.sh"], deps=["//b"])
 EOF
 
   mkdir -p b
   cat > b/BUILD <<'EOF'
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
 sh_library(name="b", srcs=["b.sh"], visibility=["//visibility:public"])
 EOF
 

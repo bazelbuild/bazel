@@ -16,14 +16,10 @@ package com.google.devtools.build.lib.rules.java;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.devtools.build.lib.analysis.config.BuildOptions.MapBackedChecksumCache;
-import com.google.devtools.build.lib.analysis.config.BuildOptions.OptionsChecksumCache;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.Dumper;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationDepsUtils;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
-import com.google.devtools.build.lib.vfs.FileSystem;
-import com.google.devtools.build.lib.vfs.Root;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -33,7 +29,7 @@ public class JavaInfoCodecTest extends BuildViewTestCase {
 
   @Test
   public void emptyJavaInfo_canBeSerializedAndDeserialized() throws Exception {
-    new SerializationTester(JavaInfo.EMPTY)
+    new SerializationTester(JavaInfo.EMPTY_JAVA_INFO_FOR_TESTING)
         .makeMemoizingAndAllowFutureBlocking(/* allowFutureBlocking= */ true)
         .setVerificationFunction((in, out) -> assertThat(in).isEqualTo(out))
         .runTests();
@@ -66,13 +62,9 @@ public class JavaInfoCodecTest extends BuildViewTestCase {
         )
         """);
 
-    new SerializationTester(getConfiguredTarget("//java/com/google/test:a").get(JavaInfo.PROVIDER))
+    new SerializationTester(JavaInfo.getJavaInfo(getConfiguredTarget("//java/com/google/test:a")))
         .makeMemoizingAndAllowFutureBlocking(/* allowFutureBlocking= */ true)
-        .addDependency(FileSystem.class, scratch.getFileSystem())
-        .addDependency(OptionsChecksumCache.class, new MapBackedChecksumCache())
-        .addDependency(
-            Root.RootCodecDependencies.class,
-            new Root.RootCodecDependencies(Root.absoluteRoot(scratch.getFileSystem())))
+        .addDependencies(getCommonSerializationDependencies())
         .addDependencies(SerializationDepsUtils.SERIALIZATION_DEPS_FOR_TEST)
         .setVerificationFunction(
             (in, out) -> {
@@ -86,10 +78,10 @@ public class JavaInfoCodecTest extends BuildViewTestCase {
                   inInfo.getProvider(JavaCompilationArgsProvider.class);
               JavaCompilationArgsProvider outProvider =
                   outInfo.getProvider(JavaCompilationArgsProvider.class);
-              assertThat(inProvider.getRuntimeJars().toList()).hasSize(4);
-              assertThat(Dumper.dumpStructureWithEquivalenceReduction(inProvider.getRuntimeJars()))
+              assertThat(inProvider.runtimeJars().toList()).hasSize(4);
+              assertThat(Dumper.dumpStructureWithEquivalenceReduction(inProvider.runtimeJars()))
                   .isEqualTo(
-                      Dumper.dumpStructureWithEquivalenceReduction(outProvider.getRuntimeJars()));
+                      Dumper.dumpStructureWithEquivalenceReduction(outProvider.runtimeJars()));
             })
         .runTests();
   }

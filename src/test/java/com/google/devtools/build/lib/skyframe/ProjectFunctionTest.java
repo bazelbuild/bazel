@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -23,8 +24,6 @@ import com.google.devtools.build.lib.collect.PathFragmentPrefixTrie;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.EvaluationResult;
-import java.util.Collection;
-import net.starlark.java.eval.StarlarkInt;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -40,7 +39,7 @@ public class ProjectFunctionTest extends BuildViewTestCase {
 
   @Test
   public void projectFunction_emptyFile_isValid() throws Exception {
-    scratch.file("test/PROJECT.scl", "");
+    scratch.file("test/PROJECT.scl", "project = {}");
     scratch.file("test/BUILD");
     ProjectValue.Key key = new ProjectValue.Key(Label.parseCanonical("//test:PROJECT.scl"));
 
@@ -49,13 +48,18 @@ public class ProjectFunctionTest extends BuildViewTestCase {
     assertThat(result.hasError()).isFalse();
 
     ProjectValue value = result.get(key);
-    assertThat(value.getDefaultActiveDirectory()).isEmpty();
+    assertThat(value.getDefaultProjectDirectories()).isEmpty();
   }
 
   @Test
   public void projectFunction_returnsActiveDirectories() throws Exception {
     scratch.file(
-        "test/PROJECT.scl", "active_directories = {'default': ['foo'], 'a': ['bar', '-bar/baz']}");
+        "test/PROJECT.scl",
+        """
+        project = {
+          "active_directories": {'default': ['foo'], 'a': ['bar', '-bar/baz']},
+        }
+        """);
     scratch.file("test/BUILD");
     ProjectValue.Key key = new ProjectValue.Key(Label.parseCanonical("//test:PROJECT.scl"));
 
@@ -65,7 +69,7 @@ public class ProjectFunctionTest extends BuildViewTestCase {
 
     ProjectValue value = result.get(key);
     ImmutableMap<String, PathFragmentPrefixTrie> trie =
-        PathFragmentPrefixTrie.transformValues(value.getActiveDirectories());
+        PathFragmentPrefixTrie.transformValues(value.getProjectDirectories());
     assertThat(trie.get("default").includes(PathFragment.create("foo"))).isTrue();
     assertThat(trie.get("default").includes(PathFragment.create("bar"))).isFalse();
     assertThat(trie.get("a").includes(PathFragment.create("bar"))).isTrue();
@@ -76,7 +80,13 @@ public class ProjectFunctionTest extends BuildViewTestCase {
 
   @Test
   public void projectFunction_returnsDefaultActiveDirectories() throws Exception {
-    scratch.file("test/PROJECT.scl", "active_directories = { 'default': ['a', 'b/c'] }");
+    scratch.file(
+        "test/PROJECT.scl",
+        """
+        project = {
+          "active_directories": { 'default': ['a', 'b/c'] },
+        }
+        """);
     scratch.file("test/BUILD");
     ProjectValue.Key key = new ProjectValue.Key(Label.parseCanonical("//test:PROJECT.scl"));
 
@@ -85,7 +95,31 @@ public class ProjectFunctionTest extends BuildViewTestCase {
     assertThat(result.hasError()).isFalse();
 
     ProjectValue value = result.get(key);
-    PathFragmentPrefixTrie trie = PathFragmentPrefixTrie.of(value.getDefaultActiveDirectory());
+    PathFragmentPrefixTrie trie = PathFragmentPrefixTrie.of(value.getDefaultProjectDirectories());
+    assertThat(trie.includes(PathFragment.create("a"))).isTrue();
+    assertThat(trie.includes(PathFragment.create("b/c"))).isTrue();
+    assertThat(trie.includes(PathFragment.create("d"))).isFalse();
+  }
+
+  @Test
+  public void projectFunction_returnsDefaultActiveDirectories_topLevelProjectSchema()
+      throws Exception {
+    scratch.file(
+        "test/PROJECT.scl",
+        """
+        project = {
+          "active_directories": { "default": ["a", "b/c"] }
+        }
+        """);
+    scratch.file("test/BUILD");
+    ProjectValue.Key key = new ProjectValue.Key(Label.parseCanonical("//test:PROJECT.scl"));
+
+    EvaluationResult<ProjectValue> result =
+        SkyframeExecutorTestUtils.evaluate(skyframeExecutor, key, false, reporter);
+    assertThat(result.hasError()).isFalse();
+
+    ProjectValue value = result.get(key);
+    PathFragmentPrefixTrie trie = PathFragmentPrefixTrie.of(value.getDefaultProjectDirectories());
     assertThat(trie.includes(PathFragment.create("a"))).isTrue();
     assertThat(trie.includes(PathFragment.create("b/c"))).isTrue();
     assertThat(trie.includes(PathFragment.create("d"))).isFalse();
@@ -93,7 +127,13 @@ public class ProjectFunctionTest extends BuildViewTestCase {
 
   @Test
   public void projectFunction_nonEmptyActiveDirectoriesMustHaveADefault() throws Exception {
-    scratch.file("test/PROJECT.scl", "active_directories = { 'foo': ['a', 'b/c'] }");
+    scratch.file(
+        "test/PROJECT.scl",
+        """
+        project = {
+          "active_directories": { 'foo': ['a', 'b/c'] },
+        }
+        """);
     scratch.file("test/BUILD");
     ProjectValue.Key key = new ProjectValue.Key(Label.parseCanonical("//test:PROJECT.scl"));
 
@@ -107,7 +147,13 @@ public class ProjectFunctionTest extends BuildViewTestCase {
 
   @Test
   public void projectFunction_incorrectType() throws Exception {
-    scratch.file("test/PROJECT.scl", "active_directories = 42");
+    scratch.file(
+        "test/PROJECT.scl",
+        """
+        project = {
+          "active_directories": 42,
+        }
+        """);
     scratch.file("test/BUILD");
     ProjectValue.Key key = new ProjectValue.Key(Label.parseCanonical("//test:PROJECT.scl"));
 
@@ -121,7 +167,13 @@ public class ProjectFunctionTest extends BuildViewTestCase {
 
   @Test
   public void projectFunction_incorrectType_inList() throws Exception {
-    scratch.file("test/PROJECT.scl", "active_directories = { 'default': [42] }");
+    scratch.file(
+        "test/PROJECT.scl",
+        """
+        project = {
+          "active_directories": { 'default': [42] },
+        }
+        """);
     scratch.file("test/BUILD");
     ProjectValue.Key key = new ProjectValue.Key(Label.parseCanonical("//test:PROJECT.scl"));
 
@@ -134,31 +186,138 @@ public class ProjectFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void projectFunction_parsesResidualGlobals() throws Exception {
+  public void projectFunction_incorrectProjectType() throws Exception {
     scratch.file(
         "test/PROJECT.scl",
         """
-        active_directories = { "default": ["a", "b/c"] }
-        foo = [0, 1]
-        bar = 'str'
+        project = 1
         """);
+
+    scratch.file("test/BUILD");
+    ProjectValue.Key key = new ProjectValue.Key(Label.parseCanonical("//test:PROJECT.scl"));
+
+    EvaluationResult<ProjectValue> result =
+        SkyframeExecutorTestUtils.evaluate(skyframeExecutor, key, false, reporter);
+    assertThat(result.hasError()).isTrue();
+    assertThat(result.getError().getException())
+        .hasMessageThat()
+        .matches("project variable: expected a map of string to objects, got .+Int32");
+  }
+
+  @Test
+  public void projectFunction_incorrectProjectKeyType() throws Exception {
+    scratch.file(
+        "test/PROJECT.scl",
+        """
+        project = {1: [] }
+        """);
+
+    scratch.file("test/BUILD");
+    ProjectValue.Key key = new ProjectValue.Key(Label.parseCanonical("//test:PROJECT.scl"));
+
+    EvaluationResult<ProjectValue> result =
+        SkyframeExecutorTestUtils.evaluate(skyframeExecutor, key, false, reporter);
+    assertThat(result.hasError()).isTrue();
+    assertThat(result.getError().getException())
+        .hasMessageThat()
+        .matches("project variable: expected string key, got element of .+Int32");
+  }
+
+  @Test
+  public void projectFunction_buildableUnitsFormat() throws Exception {
+    scratch.file(
+        "test/project_proto.scl",
+        """
+        project_pb2 = struct(
+         Project = struct(
+            create = lambda name, enforcement_policy, project_directories, buildable_units: struct(
+               name = name,
+               enforcement_policy = enforcement_policy,
+               project_directories = project_directories,
+               buildable_units = buildable_units,
+            )
+          )
+        )
+        buildable_unit_pb2 = struct(
+          BuildableUnit = struct(
+            create = lambda name, target_patterns, flags, description, is_default: struct(
+              name = name,
+              target_patterns = target_patterns,
+              flags = flags,
+              description = description,
+              is_default = is_default,
+            )
+          )
+        )
+        """);
+    scratch.file(
+        "test/PROJECT.scl",
+        """
+        load(
+            "//test:project_proto.scl",
+            "buildable_unit_pb2",
+            "project_pb2",
+        )
+        project = project_pb2.Project.create(
+          name = "test",
+          enforcement_policy = "warn",
+          project_directories = [ "//test/..."],
+          buildable_units = [
+              buildable_unit_pb2.BuildableUnit.create(
+                  name = "default",
+                  target_patterns = [
+                      "//test/...",
+                  ],
+                  description = "default",
+                  flags = ["--define=foo=bar"],
+                  is_default = True,
+              ),
+              buildable_unit_pb2.BuildableUnit.create(
+                  name = "non_default",
+                  target_patterns = [
+                      "//test/...",
+                  ],
+                  description = "non default",
+                  flags = ["--define=bar=baz"],
+                  is_default = False,
+              ),
+          ],
+        )
+        """);
+
     scratch.file("test/BUILD");
     ProjectValue.Key key = new ProjectValue.Key(Label.parseCanonical("//test:PROJECT.scl"));
 
     EvaluationResult<ProjectValue> result =
         SkyframeExecutorTestUtils.evaluate(skyframeExecutor, key, false, reporter);
     assertThat(result.hasError()).isFalse();
-
     ProjectValue value = result.get(key);
-    assertThat(value.getResidualGlobal("active_directories")).isNull();
-    assertThat(value.getResidualGlobal("nonexistent_global")).isNull();
+    assertThat(value.getEnforcementPolicy()).isEqualTo(ProjectValue.EnforcementPolicy.WARN);
+    assertThat(value.getAlwaysAllowedConfigs()).isNull();
+    assertThat(value.getActualProjectFile()).isEqualTo(Label.parseCanonical("//test:PROJECT.scl"));
+    assertThat(value.getBuildableUnits().get("default").isDefault()).isTrue();
+    assertThat(value.getBuildableUnits().get("non_default").isDefault()).isFalse();
+    assertThat(value.getProjectDirectories()).hasSize(1);
+    assertThat(value.getProjectDirectories().get("default")).containsExactly("//test/...");
 
-    @SuppressWarnings("unchecked")
-    Collection<StarlarkInt> fooValue = (Collection<StarlarkInt>) value.getResidualGlobal("foo");
-    assertThat(fooValue).containsExactly(StarlarkInt.of(0), StarlarkInt.of(1));
+    assertThat(value.getBuildableUnits()).containsKey("default");
+    assertThat(value.getBuildableUnits().get("default"))
+        .isEqualTo(
+            ProjectValue.BuildableUnit.create(
+                ImmutableList.of("//test/..."),
+                "default",
+                ImmutableList.of("--define=foo=bar"),
+                true));
 
-    String barValue = (String) value.getResidualGlobal("bar");
-    assertThat(barValue).isEqualTo("str");
+    assertThat(value.getBuildableUnits()).containsKey("non_default");
+
+    assertThat(value.getBuildableUnits().get("non_default"))
+        .isEqualTo(
+            ProjectValue.BuildableUnit.create(
+                ImmutableList.of("//test/..."),
+                "non default",
+                ImmutableList.of("--define=bar=baz"),
+                false));
   }
 
   @Test
@@ -177,4 +336,5 @@ public class ProjectFunctionTest extends BuildViewTestCase {
             () -> SkyframeExecutorTestUtils.evaluate(skyframeExecutor, key, false, reporter));
     assertThat(e).hasMessageThat().contains("syntax error at 'newline': expected expression");
   }
+
 }

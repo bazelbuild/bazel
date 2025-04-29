@@ -87,6 +87,9 @@ public class ModuleThreadContext extends StarlarkThreadContext {
       String extensionName,
       ImmutableList<StarlarkThread.CallStackEntry> stack) {
     Location location() {
+      if (stack.size() < 2) {
+        return Location.BUILTIN;
+      }
       // Skip over the override_repo builtin frame.
       return stack.reverse().get(1).location;
     }
@@ -94,6 +97,9 @@ public class ModuleThreadContext extends StarlarkThreadContext {
 
   record RepoNameUsage(String how, ImmutableList<StarlarkThread.CallStackEntry> stack) {
     Location location() {
+      if (stack.size() < 2) {
+        return Location.BUILTIN;
+      }
       // Skip over the override_repo builtin frame.
       return stack.reverse().get(1).location;
     }
@@ -136,8 +142,12 @@ public class ModuleThreadContext extends StarlarkThreadContext {
     return ignoreDevDeps;
   }
 
-  public void addDep(String repoName, DepSpec depSpec) {
-    deps.put(repoName, depSpec);
+  public void addDep(Optional<String> repoName, DepSpec depSpec) {
+    if (repoName.isPresent()) {
+      deps.put(repoName.get(), depSpec);
+    } else {
+      module.addNodepDep(depSpec);
+    }
   }
 
   List<ModuleExtensionUsageBuilder> getExtensionUsageBuilders() {

@@ -64,7 +64,7 @@ public class DanglingSymlinkTest extends BuildIntegrationTestCase {
         write(
             "foo/BUILD",
             """
-            sh_binary(
+            filegroup(
                 name = "foo",
                 srcs = ["foo.sh"],
             )
@@ -90,7 +90,8 @@ public class DanglingSymlinkTest extends BuildIntegrationTestCase {
         write(
             "foo/BUILD",
             """
-            sh_binary(
+            load('//test_defs:foo_binary.bzl', 'foo_binary')
+            foo_binary(
                 name = "foo",
                 srcs = ["foo.sh"],
             )
@@ -106,7 +107,7 @@ public class DanglingSymlinkTest extends BuildIntegrationTestCase {
     fooShFile.createSymbolicLink(PathFragment.create("doesnotexist"));
 
     assertThrows(BuildFailedException.class, () -> buildTarget("//foo:top"));
-    events.assertContainsError("Symlinking //foo:foo failed: missing input file '//foo:foo.sh'");
+    events.assertContainsError("missing input file '//foo:foo.sh'");
   }
 
   @Test
@@ -121,7 +122,7 @@ public class DanglingSymlinkTest extends BuildIntegrationTestCase {
 
   @Test
   public void globSymlinkCycle() throws Exception {
-    Path fooBuildFile = write("foo/BUILD", "sh_library(name = 'foo', srcs = glob(['*.sh']))");
+    Path fooBuildFile = write("foo/BUILD", "filegroup(name = 'foo', srcs = glob(['*.sh']))");
     fooBuildFile
         .getParentDirectory()
         .getChild("foo.sh")

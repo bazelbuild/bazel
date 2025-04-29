@@ -62,6 +62,7 @@ function test_starlark_cc() {
   cp "$(rlocation "io_bazel/src/conditions/BUILD")" "src/conditions/BUILD"
 
   add_rules_cc "MODULE.bazel"
+  add_protobuf "MODULE.bazel"
   cat >> MODULE.bazel<<EOF
 bazel_dep(name = "test_repo", repo_name = "my_test_repo")
 local_path_override(
@@ -201,7 +202,7 @@ function test_cc_static_library_protobuf() {
   cat > pkg/BUILD<<'EOF'
 cc_static_library(
     name = "protobuf",
-    deps = ["@protobuf"],
+    deps = ["@com_google_protobuf//:protobuf"],
 )
 EOF
 

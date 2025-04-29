@@ -17,6 +17,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
+import com.google.common.base.Predicates;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.HashMultiset;
 import com.google.common.collect.ImmutableMap;
@@ -163,7 +164,6 @@ public abstract class AbstractInMemoryMemoizingEvaluator implements MemoizingEva
                 emittedEventState,
                 eventFilter,
                 ErrorInfoManager.UseChildErrorInfoIfNecessary.INSTANCE,
-                evaluationContext.getKeepGoing(),
                 progressReceiver,
                 graphInconsistencyReceiver,
                 evaluationContext
@@ -175,7 +175,8 @@ public abstract class AbstractInMemoryMemoizingEvaluator implements MemoizingEva
                                 evaluationContext.getParallelism(),
                                 ParallelEvaluatorErrorClassifier.instance())),
                 new SimpleCycleDetector(),
-                evaluationContext.getUnnecessaryTemporaryStateDropperReceiver());
+                evaluationContext.getUnnecessaryTemporaryStateDropperReceiver(),
+                getKeepGoingPredicate(evaluationContext));
         result = evaluator.eval(roots);
       }
       return EvaluationResult.<T>builder()
@@ -188,6 +189,15 @@ public abstract class AbstractInMemoryMemoizingEvaluator implements MemoizingEva
       }
       setAndCheckEvaluateState(false, roots);
     }
+  }
+
+  /**
+   * Returns whether a key should always be evaluated with --keep_going. By default, all keys should
+   * respect the build level --keep_going flag.
+   */
+  @ForOverride
+  protected Predicate<SkyKey> getKeepGoingPredicate(EvaluationContext evaluationContext) {
+    return evaluationContext.getKeepGoing() ? Predicates.alwaysTrue() : Predicates.alwaysFalse();
   }
 
   @ForOverride

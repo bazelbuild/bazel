@@ -27,15 +27,18 @@ source "${CURRENT_DIR}/../integration_test_setup.sh" \
 set -e
 
 function set_up() {
+  add_rules_shell "MODULE.bazel"
+
   mkdir -p pkg
   cat > pkg/BUILD <<EOF
+load("//pkg:build.bzl", "environ")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
 genrule(
   name = "showenv",
   outs = ["env.txt"],
   cmd = "env | sort > \"\$@\""
 )
-
-load("//pkg:build.bzl", "environ")
 
 environ(name = "no_default_env", env = 0)
 environ(name = "with_default_env", env = 1)
@@ -229,28 +232,6 @@ function test_use_default_shell_env {
 }
 
 function test_use_default_shell_env_and_fixed_env {
-    ACTION_AND_CLIENT_INHERITED=client CLIENT_INHERITED=client \
-        bazel build \
-        --noincompatible_merge_fixed_and_default_shell_env \
-        --action_env=ACTION_AND_CLIENT_FIXED=client \
-        --action_env=ACTION_AND_CLIENT_INHERITED \
-        --action_env=CLIENT_FIXED=client \
-        --action_env=CLIENT_INHERITED \
-        //pkg:with_default_and_fixed_env
-    echo
-    cat bazel-bin/pkg/with_default_and_fixed_env.env
-    echo
-    grep -q ACTION_AND_CLIENT_FIXED=client bazel-bin/pkg/with_default_and_fixed_env.env \
-        || fail "static action environment not honored"
-    grep -q ACTION_AND_CLIENT_INHERITED=client bazel-bin/pkg/with_default_and_fixed_env.env \
-        || fail "dynamic action environment not honored"
-    grep -q ACTION_FIXED bazel-bin/pkg/with_default_and_fixed_env.env \
-        && fail "fixed env provided by action should have been ignored"
-    grep -q CLIENT_FIXED=client bazel-bin/pkg/with_default_and_fixed_env.env \
-        || fail "static action environment not honored"
-    grep -q CLIENT_INHERITED=client bazel-bin/pkg/with_default_and_fixed_env.env \
-        || fail "dynamic action environment not honored"
-
     ACTION_AND_CLIENT_INHERITED=client CLIENT_INHERITED=client \
         bazel build \
         --action_env=ACTION_AND_CLIENT_FIXED=client \

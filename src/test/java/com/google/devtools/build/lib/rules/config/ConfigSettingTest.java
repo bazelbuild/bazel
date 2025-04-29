@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.rules.config;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.packages.Types.STRING_LIST;
 
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
@@ -24,8 +25,6 @@ import com.google.devtools.build.lib.analysis.config.RequiresOptions;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.packages.BuildType;
-import com.google.devtools.build.lib.packages.License.LicenseType;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
@@ -36,6 +35,7 @@ import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import com.google.testing.junit.testparameterinjector.TestParameters;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import org.junit.Test;
@@ -500,9 +500,11 @@ public class ConfigSettingTest extends BuildViewTestCase {
 
   @Test
   public void selectForDefaultGrteTop() throws Exception {
-    scratchConfiguredTarget("a", "a",
+    scratchConfiguredTarget(
+        "a",
+        "a",
         "config_setting(name='cs', values={'grte_top': 'default'})",
-        "sh_library(name='a', srcs=['a.sh'], deps=select({':cs': []}))");
+        "filegroup(name='a', srcs=select({':cs': []}))");
   }
 
   @Test
@@ -2529,14 +2531,22 @@ public class ConfigSettingTest extends BuildViewTestCase {
         ")");
   }
 
-  private Set<LicenseType> getLicenses(String label) throws Exception {
+  private Set<String> getLicenses(String label) throws Exception {
     Rule rule = (Rule) getTarget(label);
     // There are two interfaces for retrieving a rule's license: from the Rule object and by
     // directly reading the "licenses" attribute. For config_setting both of these should always
     // be NONE. This method checks consistency between them.
-    Set<LicenseType> fromRule = rule.getLicense().getLicenseTypes();
-    Set<LicenseType> fromAttribute =
-        RawAttributeMapper.of(rule).get("licenses", BuildType.LICENSE).getLicenseTypes();
+    List<String> licenseFromRule = rule.getLicense();
+    List<String> licenseFromAttribute = RawAttributeMapper.of(rule).get("licenses", STRING_LIST);
+    if (licenseFromRule == null) {
+      if (licenseFromAttribute != null) {
+        assertThat(licenseFromAttribute).isEmpty();
+      }
+      return new HashSet<>();
+    }
+    assertThat(licenseFromAttribute).isNotNull();
+    Set<String> fromRule = new HashSet<>(licenseFromRule);
+    Set<String> fromAttribute = new HashSet<>(licenseFromAttribute);
     assertThat(fromRule).containsExactlyElementsIn(fromAttribute);
     return fromRule;
   }
@@ -2556,7 +2566,7 @@ public class ConfigSettingTest extends BuildViewTestCase {
         """);
 
     useConfiguration("--copt", "-Dfoo");
-    assertThat(getLicenses("//test:match")).containsExactly(LicenseType.NONE);
+    assertThat(getLicenses("//test:match")).isEmpty();
   }
 
   /** Tests that third-party doesn't require a license from config_setting. */
@@ -2574,7 +2584,7 @@ public class ConfigSettingTest extends BuildViewTestCase {
         """);
 
     useConfiguration("--copt", "-Dfoo");
-    assertThat(getLicenses("//third_party/test:match")).containsExactly(LicenseType.NONE);
+    assertThat(getLicenses("//third_party/test:match")).isEmpty();
   }
 
   /** Tests that package-wide licenses are ignored by config_setting. */
@@ -2594,7 +2604,7 @@ public class ConfigSettingTest extends BuildViewTestCase {
         """);
 
     useConfiguration("--copt", "-Dfoo");
-    assertThat(getLicenses("//test:match")).containsExactly(LicenseType.NONE);
+    assertThat(getLicenses("//test:match")).isEmpty();
   }
 
   /** Tests that rule-specific licenses are ignored by config_setting. */
@@ -2613,8 +2623,9 @@ public class ConfigSettingTest extends BuildViewTestCase {
         """);
 
     useConfiguration("--copt", "-Dfoo");
-    assertThat(getLicenses("//test:match")).containsExactly(LicenseType.NONE);
+    assertThat(getLicenses("//test:match")).isEmpty();
   }
+
 
   @Test
   public void aliasedStarlarkFlag() throws Exception {
@@ -2651,8 +2662,46 @@ public class ConfigSettingTest extends BuildViewTestCase {
         )
         """);
 
+    // Expect config_setting on an alias to pass completely through the alias to the underlying
+    // flag it references. This means aliases model which flags trigger config_setting matches. This
+    // keeps config_setting in sync with actual builds: if someone builds with --//foo:alias=1,
+    // both the user and config_setting interpret it the same way even when the underlying flag
+    // changes.
     useConfiguration("--//test:flag=specified");
     assertThat(getConfigMatchingProviderResultAsBoolean("//test:alias_setting")).isTrue();
+  }
+
+  @Test
+  public void labelStarlarkFlag() throws Exception {
+    scratch.file(
+        "test/BUILD",
+        """
+
+        label_flag(
+            name = "my_flag",
+            build_setting_default = "other_target",
+        )
+
+        genrule(
+            name = "other_target",
+            srcs = [],
+            outs = ["other_target"],
+            cmd = "echo other_target",
+        )
+
+        config_setting(
+            name = "my_setting",
+            flag_values = {":my_flag": "//test:other_target"},
+        )
+        """);
+
+    // While label_flag is technically an alias, we can't treat it the same way as a normal alias:
+    // label_flag is by definition a flag, and therefore a valid config_setting input. But the
+    // target it refers to isn't necessarily a flag (and for most practical uses won't be a flag).
+    // So it doesn't make sense to treat it like an alias(), where config_setting setting matches
+    // against the reference's value. So config_setting treats a label_flag's value like any
+    // normal flag value and compares against it directly.
+    assertThat(getConfigMatchingProviderResultAsBoolean("//test:my_setting")).isTrue();
   }
 
   @Test
@@ -2894,5 +2943,47 @@ public class ConfigSettingTest extends BuildViewTestCase {
         "in values attribute of config_setting rule //test:match: '//foo:bar' is"
             + " not a valid setting name, but appears to be a label. Did you mean to place it in"
             + " flag_values instead?");
+  }
+
+  @Test
+  @TestParameters({"{flag: cpu}", "{flag: host_cpu}", "{flag: crosstool_top}"})
+  public void selectOnDeprecatedFlagEmitsWarning(String flag) throws Exception {
+    scratch.file(
+        "test/BUILD",
+        """
+        config_setting(
+            name = "match",
+            values = {
+              "%s": "//foo",
+            },
+        )
+        """
+            .formatted(flag));
+    assertThat(getConfiguredTarget("//test:match")).isNotNull();
+    assertContainsEvent(
+        "select() on %s is deprecated. Use platform constraints instead".formatted(flag));
+  }
+
+  @Test
+  @TestParameters({"{flag: cpu}", "{flag: host_cpu}", "{flag: crosstool_top}"})
+  public void selectOnDisabledFlagFails(String flag) throws Exception {
+    scratch.file(
+        "test/BUILD",
+        """
+        config_setting(
+            name = "match",
+            values = {
+              "%s": "//foo",
+            },
+        )
+        """
+            .formatted(flag));
+    useConfiguration("--incompatible_disable_select_on=%s".formatted(flag));
+    reporter.removeHandler(failFastHandler);
+    assertThat(getConfiguredTarget("//test:match")).isNull();
+    assertContainsEvent(
+        "in values attribute of config_setting rule //test:match: error while parsing configuration"
+            + " settings: select() on %s is not allowed. Use platform constraints instead"
+                .formatted(flag));
   }
 }

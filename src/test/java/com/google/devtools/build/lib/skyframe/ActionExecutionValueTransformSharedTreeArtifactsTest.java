@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
-import com.google.devtools.build.lib.actions.FilesetOutputTree;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil.NullAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -259,10 +258,10 @@ public final class ActionExecutionValueTransformSharedTreeArtifactsTest {
   private static ActionExecutionValue createActionExecutionValue(
       ImmutableMap<Artifact, FileArtifactValue> fileArtifacts,
       ImmutableMap<Artifact, TreeArtifactValue> treeArtifacts) {
-    return ActionExecutionValue.createFromOutputMetadataStore(
+    return ActionExecutionValue.create(
         fileArtifacts,
         treeArtifacts,
-        FilesetOutputTree.EMPTY,
+        /* richArtifactData= */ null,
         /* discoveredModules= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER));
   }
 

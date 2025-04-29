@@ -31,6 +31,8 @@ import com.google.devtools.build.lib.sandbox.cgroups.controller.v1.LegacyCpu;
 import com.google.devtools.build.lib.sandbox.cgroups.controller.v1.LegacyMemory;
 import com.google.devtools.build.lib.sandbox.cgroups.controller.v2.UnifiedCpu;
 import com.google.devtools.build.lib.sandbox.cgroups.controller.v2.UnifiedMemory;
+import com.google.devtools.build.lib.sandbox.cgroups.proto.CgroupsInfoProtos.CgroupControllerInfo;
+import com.google.devtools.build.lib.sandbox.cgroups.proto.CgroupsInfoProtos.CgroupsInfo;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -66,6 +68,9 @@ public abstract class VirtualCgroup implements Cgroup {
   @Override
   public abstract ImmutableSet<Path> paths();
 
+  @Nullable
+  public abstract CgroupsInfo cgroupsInfo();
+
   private final Queue<VirtualCgroup> children = new ConcurrentLinkedQueue<>();
 
   public static VirtualCgroup getInstance() {
@@ -73,15 +78,21 @@ public abstract class VirtualCgroup implements Cgroup {
   }
 
   private static VirtualCgroup createInstance() {
-    VirtualCgroup root;
+    VirtualCgroup instance;
     try {
-      root = createRoot().createChild("blaze_" + ProcessHandle.current().pid() + "_spawns.slice");
+      VirtualCgroup cgroupRoot = createRoot();
+      // In our implementation, only the root cgroup holds the cgroupsInfo object. If we want to
+      // create a node to be the new root of our cgroup, we need to pass down the cgroupsInfo,
+      // otherwise it'll be null.
+      instance =
+          cgroupRoot.createChild(
+              "blaze_" + ProcessHandle.current().pid() + "_spawns.slice", cgroupRoot.cgroupsInfo());
     } catch (IOException e) {
       logger.atInfo().withCause(e).log("Failed to create root cgroup");
-      root = NULL;
+      instance = NULL;
     }
     Runtime.getRuntime().addShutdownHook(new Thread(VirtualCgroup::deleteInstance));
-    return root;
+    return instance;
   }
 
   public static void deleteInstance() {
@@ -89,7 +100,7 @@ public abstract class VirtualCgroup implements Cgroup {
   }
 
   public static final VirtualCgroup NULL =
-      new AutoValue_VirtualCgroup(null, null, ImmutableSet.of());
+      new AutoValue_VirtualCgroup(null, null, ImmutableSet.of(), null);
 
   static VirtualCgroup createRoot() throws IOException {
     return createRoot(PROC_SELF_MOUNTS_PATH, PROC_SELF_CGROUP_PATH);
@@ -118,6 +129,7 @@ public abstract class VirtualCgroup implements Cgroup {
     Controller.Memory memory = null;
     Controller.Cpu cpu = null;
     ImmutableSet.Builder<Path> paths = ImmutableSet.builder();
+    CgroupsInfo.Builder cgroupsInfo = CgroupsInfo.newBuilder();
 
     for (Mount m : mounts) {
       if (memory != null && cpu != null) {
@@ -130,13 +142,23 @@ public abstract class VirtualCgroup implements Cgroup {
           continue;
         }
         Path cgroup = m.path().resolve(Path.of("/").relativize(h.path()));
+        logger.atInfo().log("Found cgroup v2 at %s", cgroup);
         if (!cgroup.equals(m.path())) {
           // Because of the "no internal processes" rule, it is not possible to
           // create a non-empty child cgroups on non-root cgroups with member processes
           // Instead, we go up one level in the hierarchy and declare a sibling.
           cgroup = cgroup.getParent();
+          logger.atInfo().log(
+              "Due to the no internal processes rule, using cgroup %s instead.", cgroup);
         }
-        if (!cgroup.toFile().canWrite()) {
+        boolean isCgroupWritable = cgroup.toFile().canWrite();
+        cgroupsInfo.addCgroupControllers(
+            CgroupControllerInfo.newBuilder()
+                .setPath(cgroup.toString())
+                .setIsWritable(isCgroupWritable)
+                .setVersion(CgroupControllerInfo.Version.V2)
+                .build());
+        if (!isCgroupWritable) {
           logger.atInfo().log("Found non-writable cgroup v2 at %s", cgroup);
           continue;
         }
@@ -170,7 +192,14 @@ public abstract class VirtualCgroup implements Cgroup {
             continue;
           }
           Path cgroup = m.path().resolve(Path.of("/").relativize(h.path()));
-          if (!cgroup.toFile().canWrite()) {
+          boolean isCgroupWritable = cgroup.toFile().canWrite();
+          cgroupsInfo.addCgroupControllers(
+              CgroupControllerInfo.newBuilder()
+                  .setPath(cgroup.toString())
+                  .setIsWritable(isCgroupWritable)
+                  .setVersion(CgroupControllerInfo.Version.V1)
+                  .build());
+          if (!isCgroupWritable) {
             logger.atInfo().log("Found non-writable cgroup v1 at %s", cgroup);
             continue;
           }
@@ -197,13 +226,16 @@ public abstract class VirtualCgroup implements Cgroup {
       }
     }
 
-    return new AutoValue_VirtualCgroup(cpu, memory, paths.build());
+    return new AutoValue_VirtualCgroup(cpu, memory, paths.build(), cgroupsInfo.build());
   }
 
   @VisibleForTesting
   public static VirtualCgroup create(
-      Controller.Cpu cpu, Controller.Memory memory, ImmutableSet<Path> paths) {
-    return new AutoValue_VirtualCgroup(cpu, memory, paths);
+      Controller.Cpu cpu,
+      Controller.Memory memory,
+      ImmutableSet<Path> paths,
+      CgroupsInfo cgroupsInfo) {
+    return new AutoValue_VirtualCgroup(cpu, memory, paths, cgroupsInfo);
   }
 
   @Override
@@ -213,6 +245,11 @@ public abstract class VirtualCgroup implements Cgroup {
   }
 
   public VirtualCgroup createChild(String name) throws IOException {
+    return createChild(name, null);
+  }
+
+  private VirtualCgroup createChild(String name, @Nullable CgroupsInfo cgroupsInfo)
+      throws IOException {
     Controller.Cpu cpu = null;
     Controller.Memory memory = null;
     ImmutableSet.Builder<Path> paths = ImmutableSet.builder();
@@ -224,7 +261,10 @@ public abstract class VirtualCgroup implements Cgroup {
       cpu = cpu().child(name);
       paths.add(cpu.getPath());
     }
-    VirtualCgroup child = new AutoValue_VirtualCgroup(cpu, memory, paths.build());
+    // We don't create the CgroupsInfo for the child cgroups. Theoretically, when the root cgroup is
+    // user-writable, then the child cgroups are also user-writable. We can revisit this if we
+    // observe strange behaviors in the future.
+    VirtualCgroup child = new AutoValue_VirtualCgroup(cpu, memory, paths.build(), cgroupsInfo);
     this.children.add(child);
     return child;
   }

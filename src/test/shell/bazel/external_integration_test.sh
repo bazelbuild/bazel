@@ -144,7 +144,7 @@ EOF
 
     cat > zoo/female.sh <<EOF
 #!/bin/sh
-../+_repo_rules+endangered/fox/male
+../+http_archive+endangered/fox/male
 EOF
     chmod +x zoo/female.sh
 fi
@@ -154,7 +154,7 @@ fi
   kill_nc
   expect_log $what_does_the_fox_say
 
-  base_external_path=bazel-out/../external/+_repo_rules+endangered/fox
+  base_external_path=bazel-out/../external/+http_archive+endangered/fox
   assert_files_same ${base_external_path}/male ${base_external_path}/male_relative
   assert_files_same ${base_external_path}/male ${base_external_path}/male_absolute
   case "${PLATFORM}" in
@@ -221,7 +221,7 @@ http_archive(
 EOF
   bazel build @test_zstd_repo//...
 
-  base_external_path=bazel-out/../external/+_repo_rules+test_zstd_repo
+  base_external_path=bazel-out/../external/+http_archive+test_zstd_repo
   assert_contains "test content" "${base_external_path}/test_dir/test_file"
 }
 
@@ -237,7 +237,7 @@ http_archive(
 EOF
   bazel build @test_zstd_repo//...
 
-  base_external_path=bazel-out/../external/+_repo_rules+test_zstd_repo
+  base_external_path=bazel-out/../external/+http_archive+test_zstd_repo
   assert_contains "test content" "${base_external_path}/test_dir/test_file"
 }
 
@@ -326,7 +326,7 @@ function test_sha256_caching() {
 
 function test_cached_across_server_restart() {
   http_archive_helper zip_up
-  local marker_file=$(bazel info output_base)/external/\@+_repo_rules+endangered.marker
+  local marker_file=$(bazel info output_base)/external/\@+http_archive+endangered.marker
   echo "<MARKER>"
   cat "${marker_file}"
   echo "</MARKER>"
@@ -374,7 +374,7 @@ EOF
   kill_nc
   expect_log "Tra-la!"
   output_base=$(bazel info output_base)
-  jar_dir=$output_base/external/+_repo_rules+endangered/jar
+  jar_dir=$output_base/external/+http_jar+endangered/jar
   [[ -f ${jar_dir}/foo.jar ]] || fail "${jar_dir}/foo.jar not found"
 }
 
@@ -808,7 +808,7 @@ EOF
 
   cat > zoo/female.sh <<EOF
 #!/bin/sh
-cat ../+_repo_rules+endangered/fox/male
+cat ../+http_archive+endangered/fox/male
 EOF
   chmod +x zoo/female.sh
 
@@ -895,7 +895,7 @@ EOF
   touch BUILD
 
   bazel build @x//:catter &> $TEST_log || fail "Build failed"
-  assert_contains "abc" bazel-genfiles/external/+_repo_rules+x/catter.out
+  assert_contains "abc" bazel-genfiles/external/+http_archive+x/catter.out
 }
 
 function test_prefix_stripping_zip() {
@@ -926,7 +926,7 @@ EOF
   touch BUILD
 
   bazel build @x//:catter &> $TEST_log || fail "Build failed"
-  assert_contains "abc" bazel-genfiles/external/+_repo_rules+x/catter.out
+  assert_contains "abc" bazel-genfiles/external/+http_archive+x/catter.out
 }
 
 function test_prefix_stripping_existing_repo() {
@@ -956,7 +956,7 @@ http_archive(
 EOF
 
   bazel build @x//:catter &> $TEST_log || fail "Build failed"
-  assert_contains "abc" bazel-genfiles/external/+_repo_rules+x/catter.out
+  assert_contains "abc" bazel-genfiles/external/+http_archive+x/catter.out
 }
 
 function test_adding_prefix_zip() {
@@ -987,7 +987,7 @@ EOF
   touch BUILD
 
   bazel build @ws//:catter &> $TEST_log || fail "Build failed"
-  assert_contains "abc" bazel-genfiles/external/+_repo_rules+ws/catter.out
+  assert_contains "abc" bazel-genfiles/external/+http_archive+ws/catter.out
 }
 
 function test_adding_and_stripping_prefix_zip() {
@@ -1019,7 +1019,7 @@ EOF
   touch BUILD
 
   bazel build @ws//:catter &> $TEST_log || fail "Build failed"
-  assert_contains "abc" bazel-genfiles/external/+_repo_rules+ws/catter.out
+  assert_contains "abc" bazel-genfiles/external/+http_archive+ws/catter.out
 }
 
 function test_moving_build_file() {
@@ -1048,13 +1048,13 @@ genrule(
 EOF
 
   bazel build @x//:catter &> $TEST_log || fail "Build 1 failed"
-  assert_contains "abc" bazel-genfiles/external/+_repo_rules+x/catter.out
+  assert_contains "abc" bazel-genfiles/external/+http_archive+x/catter.out
   mv x.BUILD x.BUILD.new || fail "Moving x.BUILD failed"
   sed 's/x.BUILD/x.BUILD.new/g' MODULE.bazel > MODULE.bazel.tmp || \
     fail "Editing MODULE.bazel failed"
   mv MODULE.bazel.tmp MODULE.bazel
   bazel build @x//:catter &> $TEST_log || fail "Build 2 failed"
-  assert_contains "abc" bazel-genfiles/external/+_repo_rules+x/catter.out
+  assert_contains "abc" bazel-genfiles/external/+http_archive+x/catter.out
 }
 
 function test_changing_build_file() {
@@ -1093,51 +1093,12 @@ genrule(
 EOF
 
   bazel build @x//:catter || fail "Build 1 failed"
-  assert_contains "abc" bazel-genfiles/external/+_repo_rules+x/catter.out
+  assert_contains "abc" bazel-genfiles/external/+http_archive+x/catter.out
   sed 's/x.BUILD/x.BUILD.new/g' MODULE.bazel > MODULE.bazel.tmp || \
     fail "Editing MODULE.bazel failed"
   mv MODULE.bazel.tmp MODULE.bazel
   bazel build @x//:catter &> $TEST_log || fail "Build 2 failed"
-  assert_contains "def" bazel-genfiles/external/+_repo_rules+x/catter.out
-}
-
-function test_use_bind_as_repository() {
-  cat > WORKSPACE <<'EOF'
-load("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
-local_repository(name = 'foobar', path = 'foo')
-bind(name = 'foo', actual = '@foobar//:test')
-EOF
-  mkdir foo
-  touch foo/WORKSPACE
-  touch foo/test
-  echo 'exports_files(["test"])' > foo/BUILD
-  cat > BUILD <<'EOF'
-genrule(
-    name = "foo",
-    srcs = ["@foo//:test"],
-    cmd = "echo $< | tee $@",
-    outs = ["foo.txt"],
-)
-EOF
-  bazel build --enable_workspace :foo &> "$TEST_log" && fail "Expected failure" || true
-  expect_log "No repository visible as '@foo' from main repository"
-}
-
-function test_bind_repo_mapping() {
-  cat > WORKSPACE <<'EOF'
-workspace(name = "myws")
-load('//:foo.bzl', 'foo')
-foo()
-bind(name='bar', actual='@myws//:something')
-EOF
-  cat > foo.bzl <<'EOF'
-def foo():
-  native.bind(name='foo', actual='@myws//:something')
-EOF
-  cat > BUILD <<'EOF'
-filegroup(name='something', visibility=["//visibility:public"])
-EOF
-  bazel build --enable_workspace //external:foo //external:bar &> "$TEST_log" || fail "don't fail!"
+  assert_contains "def" bazel-genfiles/external/+http_archive+x/catter.out
 }
 
 function test_flip_flopping() {
@@ -1173,12 +1134,12 @@ EOF
   for i in $(seq 1 3); do
     cp local_ws MODULE.bazel
     bazel build @repo//:all &> $TEST_log || fail "Build failed"
-    test -L "$external_dir/+_repo_rules+repo" || fail "creating local symlink failed"
-    test -a "$external_dir/+_repo_rules+repo/bar" || fail "bar not found"
+    test -L "$external_dir/+local_repository+repo" || fail "creating local symlink failed"
+    test -a "$external_dir/+local_repository+repo/bar" || fail "bar not found"
     cp remote_ws MODULE.bazel
     bazel build @repo//:all &> $TEST_log || fail "Build failed"
-    test -d "$external_dir/+_repo_rules+repo" || fail "creating remote repo failed"
-    test -a "$external_dir/+_repo_rules+repo/foo" || fail "foo not found"
+    test -d "$external_dir/+http_archive+repo" || fail "creating remote repo failed"
+    test -a "$external_dir/+http_archive+repo/foo" || fail "foo not found"
   done
 
   shutdown_server
@@ -2447,7 +2408,7 @@ EOF
 
   bazel build //:it > "${TEST_log}" 2>&1 && fail "Expected failure" || :
 
-  expect_log '@@+_repo_rules+ext.*badargument'
+  expect_log '@@+http_archive+ext.*badargument'
 }
 
 function test_prefix_suggestions() {
@@ -2519,26 +2480,6 @@ EOF
   expect_log 'no need for `strip_prefix`'
 }
 
-function test_loaded_file_reported() {
-  # Verify that upon a load in the WORKSPACE file with
-  # the repository not (yet) defined, the name of the
-  # file is reported in the error message.
-  WRKDIR=$(mktemp -d "${TEST_TMPDIR}/testXXXXXX")
-  cd "${WRKDIR}"
-
-  mkdir main
-  cd main
-  cat > WORKSPACE <<'EOF'
-load("@nonexistent//path/to/package:file/to/import.bzl", "foo")
-foo()
-EOF
-  touch BUILD
-  bazel build --enable_workspace //... > "${TEST_log}" 2>&1 && fail "Expected failure"
-
-  expect_log '@nonexistent//path/to/package:file/to/import.bzl'
-  expect_log 'nonexistent.*repository.*WORKSPACE'
-}
-
 function test_report_files_searched() {
   # Verify that upon  a missing package, the places where a BUILD file was
   # searched for are reported.
@@ -2604,180 +2545,6 @@ EOF
       && fail "Expected failure" || :
 
   expect_log 'BUILD file not found.*path/too/deep'
-}
-
-function test_location_reported() {
-  # Verify that some useful information is provided about where
-  # a failing repository definition occurred.
-  WRKDIR=$(mktemp -d "${TEST_TMPDIR}/testXXXXXX")
-  cd "${WRKDIR}"
-  mkdir empty
-  tar cvf x.tar empty
-  rm -rf empty
-
-  mkdir -p path/to/main
-  cd path/to/main
-  touch BUILD
-  cat > WORKSPACE <<'EOF'
-load("//:repos.bzl", "repos")
-repos()
-EOF
-  cat > repos.bzl <<"EOF"
-load("//:foo.bzl", "foo_repos")
-
-def repos():
-  # ..forgot to add the repository bar
-  foo_repos()
-EOF
-  cat > foo.bzl <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
-
-def foo_repos():
-    http_archive(
-        name = "foo",
-        url = "file://${WRKDIR}/x.tar",
-        build_file = "@bar//:foo.build",
-    )
-EOF
-
-  bazel build --enable_workspace @foo//... > "${TEST_log}" 2>&1 && fail "expected failure"
-  inplace-sed -e "s?$WRKDIR/?WRKDIR/?g" -e "s?$TEST_TMPDIR/?TEST_TMPDIR/?g" "${TEST_log}"
-
-  expect_log 'error.*repository.*foo'
-  expect_log '@bar//:foo.build'
-  expect_log "Repository foo instantiated at:"
-  expect_log "  WRKDIR/path/to/main/WORKSPACE:"
-  expect_log "  WRKDIR/path/to/main/repos.bzl:5"
-  expect_log "  WRKDIR/path/to/main/foo.bzl:4"
-  expect_log "Repository rule http_archive defined at:"
-  expect_log "  TEST_TMPDIR/.*/external/bazel_tools/tools/build_defs/repo/http.bzl:"
-}
-
-function test_circular_definition_reported() {
-  # Verify that bazel reports a useful error message upon
-  # detecting a circular definition of a repository.
-  # Also verify that the call stack of the definition is shown.
-
-  WRKDIR=$(mktemp -d "${TEST_TMPDIR}/testXXXXXX")
-  cd "${WRKDIR}"
-
-  mkdir ext
-  touch ext/BUILD
-  cat > ext/a.BUILD <<'EOF'
-genrule(
-  name = "a",
-  outs = ["a.txt"],
-  cmd = "echo Hello World > $@",
-)
-EOF
-  cat > ext/b.BUILD <<'EOF'
-genrule(
-  name = "b",
-  outs = ["b.txt"],
-  cmd = "echo Hello World > $@",
-)
-EOF
-  cat > ext/notabuildfile.bzl <<'EOF'
-x = 42
-EOF
-  tar cvf ext.tar ext
-  rm -rf ext
-
-  mkdir main
-  cd main
-  cat > foo.bzl <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
-
-def foo():
-  http_archive(
-    name = "a",
-    url = "file://${WRKDIR}/ext.tar",
-    build_file = "@b//:a.BUILD",
-  )
-EOF
-  cat > bar.bzl <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
-
-def bar():
-  http_archive(
-    name = "b",
-    url = "file://${WRKDIR}/ext.tar",
-    build_file = "@a//:b.BUILD",
-  )
-EOF
-  cat > WORKSPACE <<EOF
-load("//:foo.bzl", "foo")
-load("//:bar.bzl", "bar")
-
-foo()
-bar()
-
-load("@a//:notabuildfile.bzl", "x")
-EOF
-  touch BUILD
-
-  bazel build --enable_workspace //... > "${TEST_log}" 2>&1 && fail "expected failure" || :
-  inplace-sed -e 's?$(pwd)/?PWD/?g' "${TEST_log}"
-
-  expect_not_log '[iI]nternal [eE]rror'
-  expect_not_log 'IllegalStateException'
-  expect_log '[Cc]ircular definition.*repositor'
-  expect_log '@a'
-  expect_log '@b'
-
-  # We expect to find the call stack for the definition of the repositories
-  # a and b
-  expect_log "WORKSPACE:4:4"
-  expect_log "foo.bzl:4:15"
-
-  expect_log "WORKSPACE:5:4"
-  expect_log "bar.bzl:4:15"
-}
-
-function test_missing_repo_reported() {
-  # Verify that, if a WORKSPACE cycle is reported due to
-  # a missing repository definition, the name of the actually
-  # missing repository is reported.
-  WRKDIR=$(mktemp -d "${TEST_TMPDIR}/testXXXXXX")
-  cd "${WRKDIR}"
-
-  mkdir main
-  cd main
-
-  cat > withimplicit.bzl <<'EOF'
-def _impl(ctx):
-  ctx.file("data.txt", ctx.attr.value)
-  ctx.file("data.bzl", "value = %s" % (ctx.attr.value,))
-  ctx.symlink(ctx.attr._generic_build_file, "BUILD")
-
-data_repo = repository_rule(
-  implementation = _impl,
-  attrs = { "value" : attr.string(),
-            "_generic_build_file" : attr.label(
-                default = Label("@this_repo_is_missing//:generic.BUILD")) },
-)
-EOF
-  touch BUILD
-  cat > WORKSPACE <<'EOF'
-load("//:withimplicit.bzl", "data_repo")
-
-data_repo(
-  name = "data",
-  value = "42")
-
-load("@data//:value.bzl", "value")
-EOF
-
-  bazel build --enable_workspace //... > "${TEST_log}" 2>&1 && fail "expected failure" || :
-  inplace-sed -e 's?$(pwd)/?PWD/?g' "${TEST_log}"
-
-  expect_log "you have to add.*this_repo_is_missing.*WORKSPACE"
-  # Also verify that the repository class and its definition is reported, to
-  # help finding out where the implicit dependency comes from.
-  expect_log "Repository data instantiated at:"
-  expect_log ".../WORKSPACE:[0-9]*"
-  expect_log "Repository rule data_repo defined at:"
-  expect_log ".../withimplicit.bzl:6"
 }
 
 function test_overwrite_existing_workspace_build() {
@@ -3068,7 +2835,7 @@ EOF
   bazel build --experimental_merged_skyframe_analysis_execution //:foo \
     || fail 'Expected build to succeed with Skymeld'
 
-  test -h "$execroot/external/+_repo_rules+ext" || fail "Expected symlink to external repo."
+  test -h "$execroot/external/+http_archive+ext" || fail "Expected symlink to external repo."
 }
 
 function test_default_canonical_id_enabled() {

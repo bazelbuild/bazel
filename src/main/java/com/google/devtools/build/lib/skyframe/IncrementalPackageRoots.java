@@ -247,7 +247,7 @@ public class IncrementalPackageRoots implements PackageRoots {
    * potentially conflicting symlinks detected.
    */
   private void recursiveRegisterAndPlantMissingSymlinks(
-      NestedSet<Package> packages,
+      NestedSet<Package.Metadata> packages,
       Set<Node> donePackagesRef,
       Set<Path> lazilyPlantedSymlinksRef,
       List<ListenableFuture<Void>> futures) {
@@ -262,28 +262,28 @@ public class IncrementalPackageRoots implements PackageRoots {
       if (symlinkPlantingPool.isShutdown()) {
         return;
       }
-      for (Package pkg : packages.getLeaves()) {
+      for (Package.Metadata pkg : packages.getLeaves()) {
         futures.add(
             symlinkPlantingPool.submit(
                 () -> plantSingleSymlinkForPackage(pkg, lazilyPlantedSymlinksRef)));
       }
     }
-    for (NestedSet<Package> transitive : packages.getNonLeaves()) {
+    for (NestedSet<Package.Metadata> transitive : packages.getNonLeaves()) {
       recursiveRegisterAndPlantMissingSymlinks(
           transitive, donePackagesRef, lazilyPlantedSymlinksRef, futures);
     }
   }
 
-  private Void plantSingleSymlinkForPackage(Package pkg, Set<Path> lazilyPlantedSymlinksRef)
-      throws AbruptExitException {
+  private Void plantSingleSymlinkForPackage(
+      Package.Metadata pkg, Set<Path> lazilyPlantedSymlinksRef) throws AbruptExitException {
     try {
-      PackageIdentifier pkgId = pkg.getPackageIdentifier();
-      if (isExternalRepository(pkgId) && pkg.getSourceRoot().isPresent()) {
+      PackageIdentifier pkgId = pkg.packageIdentifier();
+      if (isExternalRepository(pkgId) && pkg.sourceRoot().isPresent()) {
         threadSafeExternalRepoPackageRootsMap.putIfAbsent(
-            pkg.getPackageIdentifier(), pkg.getSourceRoot().get());
+            pkg.packageIdentifier(), pkg.sourceRoot().get());
         SymlinkForest.plantSingleSymlinkForExternalRepo(
             pkgId.getRepository(),
-            pkg.getSourceRoot().get().asPath(),
+            pkg.sourceRoot().get().asPath(),
             execroot,
             useSiblingRepositoryLayout,
             lazilyPlantedSymlinksRef);

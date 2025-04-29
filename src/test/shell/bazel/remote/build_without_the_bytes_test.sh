@@ -601,9 +601,9 @@ EOF
 }
 
 function test_download_toplevel_test_rule() {
-  # Test that when using --remote_download_toplevel with bazel test only
-  # the test.log and test.xml file are downloaded but not the test binary.
-  # However when building a test then the test binary should be downloaded.
+  # Test that using --remote_download_toplevel downloads test.log and test.xml
+  # for a test or coverage command, but the test binary is only downloaded for
+  # a build command.
 
   mkdir -p a
   cat > a/BUILD <<EOF
@@ -618,29 +618,34 @@ EOF
 int main() { std::cout << "Hello test!" << std::endl; return 0; }
 EOF
 
-  # When invoking bazel test only test.log and test.xml should be downloaded.
   bazel test \
     --remote_executor=grpc://localhost:${worker_port} \
     --remote_download_toplevel \
-    //a:test >& $TEST_log || fail "Failed to test //a:test with remote execution"
+    //a:test >& $TEST_log || fail "Expected success"
 
-  (! [[ -f bazel-bin/a/test ]]) \
-  || fail "Expected test binary bazel-bin/a/test to not be downloaded"
+  assert_exists bazel-testlogs/a/test/test.log
+  assert_exists bazel-testlogs/a/test/test.xml
+  assert_not_exists bazel-bin/a/test
 
-  [[ -f bazel-testlogs/a/test/test.log ]] \
-  || fail "Expected toplevel output bazel-testlogs/a/test/test.log to be downloaded"
+  rm -rf bazel-out
 
-  [[ -f bazel-testlogs/a/test/test.xml ]] \
-  || fail "Expected toplevel output bazel-testlogs/a/test/test.log to be downloaded"
+  bazel coverage \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --remote_download_toplevel \
+    //a:test >& $TEST_log || fail "Expected success"
 
-  # When invoking bazel build the test binary should be downloaded.
+  assert_exists bazel-testlogs/a/test/test.log
+  assert_exists bazel-testlogs/a/test/test.xml
+  assert_not_exists bazel-bin/a/test
+
+  rm -rf bazel-out
+
   bazel build \
     --remote_executor=grpc://localhost:${worker_port} \
     --remote_download_toplevel \
-    //a:test >& $TEST_log || fail "Failed to build //a:test with remote execution"
+    //a:test >& $TEST_log || fail "Expected success"
 
-  ([[ -f bazel-bin/a/test ]]) \
-  || fail "Expected test binary bazel-bin/a/test to be downloaded"
+  assert_exists bazel-bin/a/test
 }
 
 function do_test_non_test_toplevel_targets() {
@@ -690,6 +695,7 @@ function test_non_test_toplevel_targets_minimal() {
 function test_downloads_minimal_bep() {
   # Test that when using --remote_download_minimal all URI's in the BEP
   # are rewritten as bytestream://..
+  add_rules_shell "MODULE.bazel"
   mkdir -p a
   cat > a/success.sh <<'EOF'
 #!/bin/sh
@@ -697,6 +703,7 @@ exit 0
 EOF
   chmod 755 a/success.sh
   cat > a/BUILD <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 sh_test(
   name = "success_test",
   srcs = ["success.sh"],
@@ -724,6 +731,7 @@ function test_bytestream_uri_prefix() {
   # Test that when --remote_bytestream_uri_prefix is set, bytestream://
   # URIs do not contain the hostname that's part of --remote_executor.
   # They should use a fixed value instead.
+  add_rules_shell "MODULE.bazel"
   mkdir -p a
   cat > a/success.sh <<'EOF'
 #!/bin/sh
@@ -731,6 +739,7 @@ exit 0
 EOF
   chmod 755 a/success.sh
   cat > a/BUILD <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 sh_test(
   name = "success_test",
   srcs = ["success.sh"],
@@ -758,8 +767,10 @@ EOF
 function test_undeclared_test_outputs_unzipped_bep() {
   # Test that when using --remote_download_minimal, undeclared outputs in a test
   # are reported by BEP
+  add_rules_shell "MODULE.bazel"
   mkdir -p a
   cat > a/BUILD <<EOF
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 sh_test(
   name = "foo",
   srcs = ["foo.sh"],
@@ -786,8 +797,10 @@ EOF
 function test_undeclared_test_outputs_zipped_bep() {
   # Test that when using --remote_download_minimal, undeclared outputs in a test
   # are reported by BEP
+  add_rules_shell "MODULE.bazel"
   mkdir -p a
   cat > a/BUILD <<EOF
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 sh_test(
   name = "foo",
   srcs = ["foo.sh"],
@@ -813,6 +826,7 @@ EOF
 }
 
 function test_undeclared_test_outputs_unzipped() {
+  add_rules_shell "MODULE.bazel"
   mkdir -p a
   cat > a/test.sh << 'EOF'
 #!/bin/sh
@@ -821,6 +835,7 @@ EOF
   chmod +x a/test.sh
 
   cat > a/BUILD <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 sh_test(
   name = "foo",
   srcs = ["test.sh"],
@@ -838,6 +853,7 @@ EOF
 }
 
 function test_undeclared_test_outputs_zipped() {
+  add_rules_shell "MODULE.bazel"
   mkdir -p a
   cat > a/test.sh << 'EOF'
 #!/bin/sh
@@ -846,6 +862,7 @@ EOF
   chmod +x a/test.sh
 
   cat > a/BUILD <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 sh_test(
   name = "foo",
   srcs = ["test.sh"],
@@ -864,10 +881,12 @@ EOF
 }
 
 function test_multiple_test_attempts() {
+  add_rules_shell "MODULE.bazel"
   # Test that test logs of multiple test attempts can be renamed and reported by
   # BEP.
   mkdir -p a
   cat > a/BUILD <<EOF
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 sh_test(
   name = "foo",
   srcs = ["foo.sh"],
@@ -1052,6 +1071,7 @@ EOF
 function test_testxml_download_toplevel() {
   # Test that a test action generating its own test.xml file works with
   # --remote_download_toplevel.
+  add_rules_shell "MODULE.bazel"
   mkdir -p a
 
   cat > a/test.sh <<'EOF'
@@ -1072,6 +1092,7 @@ EOF
   chmod +x a/test.sh
 
   cat > a/BUILD <<EOF
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 sh_test(
   name = 'test',
   srcs = [ 'test.sh' ],
@@ -1327,9 +1348,11 @@ function do_test_prefetcher_recreate_dir() {
 }
 
 function test_prefetcher_recreate_non_tree_dir() {
+  add_rules_shell "MODULE.bazel"
   # Test that the prefetcher recreates a non-tree directory when fetching a
   # remotely stored output into an externally modified output tree.
   cat > BUILD <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 genrule(
   name = "gen",
   outs = ["some/nested/file"],
@@ -1352,6 +1375,7 @@ EOF
 function test_prefetcher_recreate_tree_dir() {
   # Test that the prefetcher recreates a tree directory when fetching a
   # remotely stored output into an externally modified output tree.
+  add_rules_shell "MODULE.bazel"
   cat > defs.bzl <<'EOF'
 def _impl(ctx):
   d = ctx.actions.declare_directory("some")
@@ -1366,6 +1390,7 @@ tree = rule(_impl)
 EOF
   cat > BUILD <<'EOF'
 load(":defs.bzl", "tree")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 
 tree(
   name = "gen",
@@ -1423,6 +1448,7 @@ function test_remote_download_toplevel_with_non_toplevel_unused_inputs_list() {
   # unused_inputs_list for starlark action. See #11732.
 
   touch WORKSPACE
+  add_rules_shell "MODULE.bazel"
 
   cat > test.bzl <<'EOF'
 def _test_rule_impl(ctx):
@@ -1454,6 +1480,7 @@ EOF
 
   cat > BUILD <<'EOF'
 load(":test.bzl", "test_rule")
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 
 test_rule(
     name = "test_non_toplevel",
@@ -1507,9 +1534,15 @@ EOF
 # regenerate the test.xml if the action actually produced it. See
 # https://github.com/bazelbuild/bazel/issues/12554
 function test_remote_download_minimal_with_test_xml_generation() {
+  add_rules_shell "MODULE.bazel"
+  add_rules_java "MODULE.bazel"
+
   mkdir -p a
 
   cat > a/BUILD <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+load("@rules_java//java:java_test.bzl", "java_test")
+
 sh_test(
     name = "test0",
     srcs = ["test.sh"],
@@ -1777,9 +1810,13 @@ EOF
 }
 
 function test_remote_download_regex() {
+  add_rules_java "MODULE.bazel"
   mkdir -p a
 
   cat > a/BUILD <<'EOF'
+load("@rules_java//java:java_test.bzl", "java_test")
+load("@rules_java//java:java_library.bzl", "java_library")
+
 java_library(
     name = "lib",
     srcs = ["Library.java"],
@@ -1873,9 +1910,13 @@ function test_java_rbe_coverage_produces_report() {
   JAVA_TOOLS_ZIP="released"
   COVERAGE_GENERATOR_DIR="released"
 
+  add_rules_java "MODULE.bazel"
   cd java/factorial
 
   cat > BUILD <<'EOF'
+load("@rules_java//java:java_library.bzl", "java_library")
+load("@rules_java//java:java_test.bzl", "java_test")
+
 java_library(
     name = "fact",
     srcs = ["Factorial.java"],
@@ -2010,7 +2051,222 @@ EOF
       --experimental_remote_cache_eviction_retries=1 \
       //a:bar >& $TEST_log || fail "Failed to build"
 
-  expect_log 'Failed to fetch blobs because they do not exist remotely.'
+  expect_log "Lost inputs no longer available remotely: a/foo.out (.*/4)"
+  expect_log "Found transient remote cache error, retrying the build..."
+
+  local invocation_ids=$(grep "Invocation ID:" $TEST_log)
+  local first_id=$(echo "$invocation_ids" | head -n 1)
+  local second_id=$(echo "$invocation_ids" | tail -n 1)
+  if [ "$first_id" == "$second_id" ]; then
+    fail "Invocation IDs are the same"
+  fi
+}
+
+function test_retry_build_if_remote_executor_is_unavailable() {
+  mkdir -p a
+
+  cat > a/BUILD <<'EOF'
+genrule(
+  name = 'foo',
+  srcs = ['foo.in'],
+  outs = ['foo.out'],
+  cmd = 'cat $(SRCS) > $@',
+)
+
+genrule(
+  name = 'bar',
+  srcs = ['foo.out', 'bar.in'],
+  outs = ['bar.out'],
+  cmd = 'cat $(SRCS) > $@',
+  tags = ['no-remote-exec'],
+)
+EOF
+
+  echo foo > a/foo.in
+  echo bar > a/bar.in
+
+  # Populate remote cache
+  bazel build \
+      --remote_executor=grpc://localhost:${worker_port} \
+      --remote_download_minimal \
+      //a:bar >& $TEST_log || fail "Failed to build"
+
+  bazel clean
+
+  # Clean build, foo.out isn't downloaded
+  bazel build \
+      --remote_executor=grpc://localhost:${worker_port} \
+      --remote_download_minimal \
+      //a:bar >& $TEST_log || fail "Failed to build"
+
+  if [[ -f bazel-bin/a/foo.out ]]; then
+    fail "Expected intermediate output bazel-bin/a/foo.out to not be downloaded"
+  fi
+
+  # Make the remote worker unavailable
+  stop_worker
+  start_worker --unavailable
+
+  echo "updated bar" > a/bar.in
+
+  # Incremental build triggers remote cache error but Bazel automatically retries the build and reruns the generating
+  # actions locally for missing blobs
+  bazel build \
+      --remote_executor=grpc://localhost:${worker_port} \
+      --remote_local_fallback \
+      --remote_download_minimal \
+      --experimental_remote_cache_eviction_retries=1 \
+      //a:bar >& $TEST_log || fail "Failed to build"
+
+  expect_log "Found transient remote cache error, retrying the build..."
+}
+
+function test_remote_cache_eviction_retries_toplevel_artifacts() {
+  mkdir -p a
+
+  cat > a/BUILD <<'EOF'
+genrule(
+  name = 'foo',
+  srcs = ['foo.in'],
+  outs = [
+      'foo1.out',
+      'foo2.out',
+  ],
+  cmd = 'cat $< > $(location foo1.out) && cat $< $(location foo1.out) > $(location foo2.out)',
+)
+EOF
+
+  echo foo > a/foo.in
+
+  # Populate remote cache
+  bazel build \
+      --remote_executor=grpc://localhost:${worker_port} \
+      --remote_download_minimal \
+      //a:foo >& $TEST_log || fail "Failed to build"
+
+  bazel clean
+
+  # Clean build, foo{1,2}.out aren't downloaded
+  bazel build \
+      --remote_executor=grpc://localhost:${worker_port} \
+      --remote_download_minimal \
+      //a:foo >& $TEST_log || fail "Failed to build"
+
+  if [[ -f bazel-bin/a/foo1.out ]]; then
+    fail "Expected top-level output bazel-bin/a/foo1.out to not be downloaded"
+  fi
+  if [[ -f bazel-bin/a/foo2.out ]]; then
+    fail "Expected top-level output bazel-bin/a/foo2.out to not be downloaded"
+  fi
+
+  # Evict blobs from remote cache
+  stop_worker
+  start_worker
+
+  # Incremental build triggers remote cache eviction error but Bazel
+  # automatically retries the build and reruns the generating actions for
+  # missing blobs
+  bazel build \
+      --remote_executor=grpc://localhost:${worker_port} \
+      --remote_download_toplevel \
+      --experimental_remote_cache_eviction_retries=1 \
+      //a:foo >& $TEST_log || fail "Failed to build"
+
+  if [[ ! -f bazel-bin/a/foo1.out ]]; then
+    fail "Expected top-level output bazel-bin/a/foo1.out to be downloaded"
+  fi
+  if [[ ! -f bazel-bin/a/foo2.out ]]; then
+    fail "Expected top-level output bazel-bin/a/foo2.out to be downloaded"
+  fi
+
+  expect_log "Lost outputs no longer available remotely: a/foo1.out (.*/4), a/foo2.out (.*/8)"
+  expect_log "Found transient remote cache error, retrying the build..."
+
+  local invocation_ids=$(grep "Invocation ID:" $TEST_log)
+  local first_id=$(echo "$invocation_ids" | head -n 1)
+  local second_id=$(echo "$invocation_ids" | tail -n 1)
+  if [ "$first_id" == "$second_id" ]; then
+    fail "Invocation IDs are the same"
+  fi
+}
+
+function test_remote_cache_eviction_retries_jdeps() {
+  add_rules_java "MODULE.bazel"
+  mkdir -p a
+
+  cat > a/BUILD <<'EOF'
+load("@rules_java//java:java_library.bzl", "java_library")
+load("@rules_java//java:java_binary.bzl", "java_binary")
+
+java_library(
+  name = "lib",
+  srcs = ["Library.java"],
+)
+
+java_binary(
+  name = "bin",
+  srcs = ["Binary.java"],
+  main_class = "Binary",
+  deps = [":lib"],
+  tags = ['no-remote-exec'],
+)
+EOF
+  cat > a/Library.java <<'EOF'
+public class Library {
+  public static boolean TEST = true;
+}
+EOF
+  cat > a/Binary.java <<'EOF'
+public class Binary {
+  public static void main(String[] args) {
+    System.out.println(Library.TEST);
+  }
+}
+EOF
+
+  # Populate remote cache
+  bazel build \
+      --remote_executor=grpc://localhost:${worker_port} \
+      --remote_download_minimal \
+      --experimental_java_classpath=bazel \
+      //a:bin >& $TEST_log || fail "Failed to build"
+
+  bazel clean
+
+  # Clean build, the jdeps file for lib isn't downloaded
+  bazel build \
+      --remote_executor=grpc://localhost:${worker_port} \
+      --remote_download_minimal \
+      --experimental_java_classpath=bazel \
+      //a:bin >& $TEST_log || fail "Failed to build"
+
+  if [[ -f bazel-bin/a/liblib-hjar.jdeps ]]; then
+    fail "Expected intermediate output bazel-bin/a/liblib-hjar.jdeps to not be downloaded"
+  fi
+
+  # Evict blobs from remote cache
+  stop_worker
+  start_worker
+
+  cat > a/Binary.java <<'EOF'
+public class Binary {
+  public static void main(String[] args) {
+    System.out.println(!Library.TEST);
+  }
+}
+EOF
+
+  # Incremental build triggers remote cache eviction error but Bazel
+  # automatically retries the build and reruns the generating actions for
+  # missing blobs
+  bazel build \
+      --remote_executor=grpc://localhost:${worker_port} \
+      --remote_download_minimal \
+      --experimental_remote_cache_eviction_retries=1 \
+      --experimental_java_classpath=bazel \
+      //a:bin >& $TEST_log || fail "Failed to build"
+
+  expect_log "Lost inputs no longer available remotely: a/liblib-hjar.jdeps (.*)"
   expect_log "Found transient remote cache error, retrying the build..."
 
   local invocation_ids=$(grep "Invocation ID:" $TEST_log)
@@ -2068,17 +2324,31 @@ EOF
 
   echo "updated bar" > a/bar.in
 
-  # Incremental build triggers remote cache eviction error and Bazel tries to
-  # retry the build but failed because the invocation id is the same.
+  # Incremental build triggers remote cache eviction error and Bazel retries
+  # the build with a new invocation ID
   bazel build \
       --invocation_id=91648f28-6081-4af7-9374-cdfd3cd36ef2 \
       --remote_executor=grpc://localhost:${worker_port} \
       --remote_download_minimal \
       --experimental_remote_cache_eviction_retries=1 \
-      //a:bar >& $TEST_log && fail "Expected build to fail"
+      --build_event_text_file=bes.txt \
+      //a:bar >& $TEST_log || fail "Failed to build"
 
-  expect_log 'Failed to fetch blobs because they do not exist remotely.'
-  expect_log 'Failed to retry the build: invocation id `91648f28-6081-4af7-9374-cdfd3cd36ef2` has already been used.'
+  expect_log "Lost inputs no longer available remotely: a/foo.out (.*/4)"
+  expect_log "Found transient remote cache error, retrying the build..."
+
+  local invocation_ids=$(grep "Invocation ID:" $TEST_log)
+  local first_id=$(echo "$invocation_ids" | head -n 1)
+  if [[ "$first_id" != *"Invocation ID: 91648f28-6081-4af7-9374-cdfd3cd36ef2" ]]; then
+    fail "Expected fixed invocation ID to be preserved for the first invocation, got: $first_id"
+  fi
+  local second_id=$(echo "$invocation_ids" | tail -n 1)
+  if [[ "$second_id" == "$first_id" ]]; then
+    fail "Expected second invocation ID to be different from the fixed invocation ID"
+  fi
+
+  cat bes.txt | tr '\n' ' ' > $TEST_log
+  expect_log "uuid: \"${second_id#INFO: Invocation ID: }\""
 }
 
 function test_download_toplevel_symlinks_runfiles() {
@@ -2206,7 +2476,9 @@ EOF
 
 function test_incremental_run_command_with_no_check_output_files() {
   # Regression test for https://github.com/bazelbuild/bazel/issues/20843.
+  add_rules_shell "MODULE.bazel"
   cat > BUILD <<'EOF'
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 genrule(
   name = "gen",
   outs = ["out.txt"],

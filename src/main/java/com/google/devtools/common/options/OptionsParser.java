@@ -284,6 +284,8 @@ public class OptionsParser implements OptionsParsingResult {
   private final boolean ignoreUserOptions;
 
   private ImmutableSortedMap<String, Object> starlarkOptions = ImmutableSortedMap.of();
+  // scopes for starlark options
+  private ImmutableSortedMap<String, String> scopesAttributes = ImmutableSortedMap.of();
   private final Map<String, String> aliases = new HashMap<>();
   private boolean success = true;
 
@@ -300,6 +302,11 @@ public class OptionsParser implements OptionsParsingResult {
   @Override
   public ImmutableSortedMap<String, Object> getStarlarkOptions() {
     return starlarkOptions;
+  }
+
+  @Override
+  public ImmutableMap<String, String> getScopesAttributes() {
+    return scopesAttributes;
   }
 
   @Override
@@ -338,6 +345,10 @@ public class OptionsParser implements OptionsParsingResult {
 
   public void setStarlarkOptions(Map<String, Object> starlarkOptions) {
     this.starlarkOptions = ImmutableSortedMap.copyOf(starlarkOptions);
+  }
+
+  public void setScopesAttributes(Map<String, String> scopesAttributes) {
+    this.scopesAttributes = ImmutableSortedMap.copyOf(scopesAttributes);
   }
 
   public void parseAndExitUponError(String[] args) {
@@ -540,7 +551,7 @@ public class OptionsParser implements OptionsParsingResult {
    * intuitive short description for the options.
    */
   public String describeOptionsHtml(
-      Escaper escaper, String productName, List<String> optionsToIgnore) {
+      Escaper escaper, String productName, List<String> optionsToIgnore, String commandName) {
     StringBuilder desc = new StringBuilder();
     LinkedHashMap<OptionDocumentationCategory, List<OptionDefinition>> optionsByCategory =
         getOptionsSortedByCategory();
@@ -565,7 +576,8 @@ public class OptionsParser implements OptionsParsingResult {
 
       desc.append("<dl>").append(escaper.escape(categoryDescription)).append(":\n");
       for (OptionDefinition optionDef : categorizedOptionsList) {
-        OptionsUsage.getUsageHtml(optionDef, desc, escaper, impl.getOptionsData(), true);
+        OptionsUsage.getUsageHtml(
+            optionDef, desc, escaper, impl.getOptionsData(), true, commandName);
       }
       desc.append("</dl>\n");
     }
@@ -875,38 +887,39 @@ public class OptionsParser implements OptionsParsingResult {
     return impl.asCanonicalizedList();
   }
 
-  @Override
-  public ImmutableSet<String> getUserOptions() {
-    if (ignoreUserOptions) {
-      return ImmutableSet.of();
+  private static String getFinalExpansion(ParsedOptionDescription option) {
+    if (option.getExpandedFrom() == null) {
+      return "";
     }
-    ImmutableSet.Builder<String> userOptions = ImmutableSet.builder();
+    while (option.getExpandedFrom() != null) {
+      option = option.getExpandedFrom();
+    }
+    return option.getCanonicalForm();
+  }
 
-    return userOptions
-        .addAll(
-            asCompleteListOfParsedOptions().stream()
-                .filter(GlobalRcUtils.IS_GLOBAL_RC_OPTION.negate())
-                .filter(option -> !option.getCanonicalForm().contains("default_override"))
-                .map(
-                    option ->
-                        option.getExpandedFrom() != null
-                            ? option.getCanonicalForm()
-                                + " (expanded from "
-                                + option.getExpandedFrom().getCanonicalForm()
-                                + ")"
-                            : option.getCanonicalForm())
-                .collect(toImmutableSet()))
-        .addAll(
-            impl.getSkippedOptions().stream()
-                .filter(GlobalRcUtils.IS_GLOBAL_RC_OPTION.negate())
-                .map(option -> option.getUnconvertedValue())
-                .filter(
-                    o ->
-                        getStarlarkOptions()
-                            .containsKey(
-                                Iterables.get(Splitter.on('=').split(o.replace("--", "")), 0)))
-                .collect(toImmutableSet()))
-        .build();
+  @Override
+  public ImmutableMap<String, String> getUserOptions() {
+    if (ignoreUserOptions) {
+      return ImmutableMap.of();
+    }
+
+    // First collect to a hashmap to deduplicate options.
+    HashMap<String, String> userOptions = new HashMap<>();
+
+    asCompleteListOfParsedOptions().stream()
+        .filter(GlobalRcUtils.IS_GLOBAL_RC_OPTION.negate())
+        .filter(option -> !option.getCanonicalForm().contains("default_override"))
+        .forEach(option -> userOptions.put(option.getCanonicalForm(), getFinalExpansion(option)));
+    impl.getSkippedOptions().stream()
+        .filter(GlobalRcUtils.IS_GLOBAL_RC_OPTION.negate())
+        .map(option -> option.getUnconvertedValue())
+        .filter(
+            o ->
+                getStarlarkOptions()
+                    .containsKey(Iterables.get(Splitter.on('=').split(o.replace("--", "")), 0)))
+        .forEach(option -> userOptions.put(option, ""));
+
+    return ImmutableMap.copyOf(userOptions);
   }
 
   /** Returns all options fields of the given options class, in alphabetic order. */

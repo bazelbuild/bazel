@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.testing.common;
 
 import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsProvider;
@@ -111,13 +110,18 @@ public final class FakeOptions implements OptionsProvider {
   }
 
   @Override
+  public ImmutableMap<String, String> getScopesAttributes() {
+    return ImmutableMap.of();
+  }
+
+  @Override
   public Map<String, Object> getExplicitStarlarkOptions(
       Predicate<? super ParsedOptionDescription> filter) {
     return ImmutableMap.of();
   }
 
   @Override
-  public ImmutableSet<String> getUserOptions() {
-    return ImmutableSet.of();
+  public ImmutableMap<String, String> getUserOptions() {
+    return ImmutableMap.of();
   }
 }

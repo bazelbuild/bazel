@@ -14,15 +14,14 @@
 
 package com.google.devtools.build.lib.query2.query.output;
 
-import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
+import com.google.devtools.build.lib.packages.AbstractAttributeMapper;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.LabelPrinter;
-import com.google.devtools.build.lib.packages.License;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
@@ -184,13 +183,7 @@ public class BuildOutputFormatter extends AbstractUnorderedFormatter {
 
     /** Outputs the given attribute value BUILD-style. Does not support selects. */
     private String outputRawAttrValue(Object value) {
-      if (value instanceof License) {
-        List<String> licenseTypes = new ArrayList<>();
-        for (License.LicenseType licenseType : ((License) value).getLicenseTypes()) {
-          licenseTypes.add(Ascii.toLowerCase(licenseType.toString()));
-        }
-        value = licenseTypes;
-      } else if (value instanceof TriState triState) {
+      if (value instanceof TriState triState) {
         value = triState.toInt();
       }
       return new Printer() {
@@ -244,7 +237,9 @@ public class BuildOutputFormatter extends AbstractUnorderedFormatter {
       this.targetOutputter =
           new TargetOutputter(
               writer,
-              (rule, attr) -> RawAttributeMapper.of(rule).isConfigurable(attr.getName()),
+              (rule, attr) ->
+                  AbstractAttributeMapper.isConfigurable(
+                      rule, attr.getName(), /* includeComputedDefaults= */ false),
               lineTerm,
               labelPrinter);
     }

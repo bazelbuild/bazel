@@ -42,7 +42,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
-import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
 import com.google.devtools.build.lib.actions.StaticInputMetadataProvider;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.authandtls.CallCredentialsProvider;
@@ -90,7 +89,6 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 import org.mockito.Mockito;
-import org.mockito.MockitoAnnotations;
 
 /** Test for {@link ByteStreamBuildEventArtifactUploader}. */
 @RunWith(JUnit4.class)
@@ -155,11 +153,6 @@ public class ByteStreamBuildEventArtifactUploaderTest {
 
     server.shutdownNow();
     server.awaitTermination();
-  }
-
-  @Before
-  public void setup() {
-    MockitoAnnotations.initMocks(this);
   }
 
   @Test
@@ -385,7 +378,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
           @Override
           public StreamObserver<WriteRequest> write(StreamObserver<WriteResponse> response) {
             StreamObserver<WriteRequest> delegate = super.write(response);
-            return new StreamObserver<WriteRequest>() {
+            return new StreamObserver<>() {
               private boolean failed;
 
               @Override
@@ -530,17 +523,17 @@ public class ByteStreamBuildEventArtifactUploaderTest {
     byte[] b = contents.getBytes(StandardCharsets.UTF_8);
     HashCode h = HashCode.fromString(DIGEST_UTIL.compute(b).getHash());
     FileArtifactValue f =
-        RemoteFileArtifactValue.create(
-            h.asBytes(), b.length, /* locationIndex= */ 1, /* expireAtEpochMilli= */ -1);
-    inputs.putWithNoDepOwner(a, f);
+        FileArtifactValue.createForRemoteFile(h.asBytes(), b.length, /* locationIndex= */ 1);
+    inputs.put(a, f);
     return a;
   }
 
-  private CombinedCache newCombinedCache(ReferenceCountedChannel channel, RemoteRetrier retrier) {
+  private static CombinedCache newCombinedCache(
+      ReferenceCountedChannel channel, RemoteRetrier retrier) {
     return newCombinedCache(channel, retrier, new AllMissingDigestsFinder());
   }
 
-  private CombinedCache newCombinedCache(
+  private static CombinedCache newCombinedCache(
       ReferenceCountedChannel channel,
       RemoteRetrier retrier,
       MissingDigestsFinder missingDigestsFinder) {

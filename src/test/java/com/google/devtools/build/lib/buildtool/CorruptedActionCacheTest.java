@@ -17,9 +17,9 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.util.LoggingUtil;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.SyscallCache;
-import com.google.devtools.build.lib.vfs.UnixGlob;
+import java.util.Arrays;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -50,13 +50,10 @@ public class CorruptedActionCacheTest extends BuildIntegrationTestCase {
     getCommandEnvironment().getBlazeWorkspace().clearCaches();
     outputBase.getChild("action_cache_temp").renameTo(outputBase.getChild("action_cache"));
 
-    // now corrupt filename index datafile by truncating it
-    for (Path path :
-        new UnixGlob.Builder(outputBase.getChild("action_cache"), SyscallCache.NO_CACHE)
-            .addPattern("filename*.blaze")
-            .globInterruptible()) {
-      path.getOutputStream().close();
-    }
+    // Corrupt one of the data files by deleting the last byte.
+    Path corruptedPath = outputBase.getChild("action_cache").getChild("filename_index.blaze");
+    byte[] content = FileSystemUtils.readContent(corruptedPath);
+    FileSystemUtils.writeContent(corruptedPath, Arrays.copyOf(content, content.length - 1));
 
     // Don't crash when we try to log an error message about the corrupt cache.
     LoggingUtil.installRemoteLoggerForTesting(null);
@@ -65,6 +62,6 @@ public class CorruptedActionCacheTest extends BuildIntegrationTestCase {
     assertThat(buildTarget("//foo:foo").getSuccess()).isTrue();
     assertThat(events.errors()).hasSize(1);
     events.assertContainsError("Error during action cache initialization");
-    events.assertContainsError("Data will be reset, potentially causing target rebuilds");
+    events.assertContainsError("Data may be incomplete, potentially causing rebuilds");
   }
 }

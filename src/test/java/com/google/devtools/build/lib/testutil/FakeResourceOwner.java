@@ -22,8 +22,7 @@ import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.ArtifactExpander;
-import com.google.devtools.build.lib.actions.MiddlemanType;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.analysis.platform.ConstraintCollection.DuplicateConstraintException;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo.ExecPropertiesException;
@@ -75,7 +74,7 @@ public class FakeResourceOwner implements ActionExecutionMetadata {
         /* configurationChecksum= */ "fake",
         /* buildConfigurationEvent= */ null,
         /* isToolConfiguration= */ false,
-        /* executionPlatform= */ null,
+        /* executionPlatform= */ PlatformInfo.EMPTY_PLATFORM_INFO,
         /* aspectDescriptors= */ ImmutableList.of(),
         /* execProperties= */ ImmutableMap.of());
   }
@@ -92,7 +91,7 @@ public class FakeResourceOwner implements ActionExecutionMetadata {
 
   @Override
   public String getKey(
-      ActionKeyContext actionKeyContext, @Nullable ArtifactExpander artifactExpander)
+      ActionKeyContext actionKeyContext, @Nullable InputMetadataProvider inputMetadataProvider)
       throws InterruptedException {
     return "fake key";
   }
@@ -162,11 +161,6 @@ public class FakeResourceOwner implements ActionExecutionMetadata {
   @Override
   public NestedSet<Artifact> getMandatoryInputs() {
     return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
-  }
-
-  @Override
-  public MiddlemanType getActionType() {
-    return MiddlemanType.NORMAL;
   }
 
   @Override

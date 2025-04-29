@@ -34,6 +34,7 @@ import com.google.gson.JsonObject;
 import java.util.HashSet;
 import java.util.Map.Entry;
 import java.util.Set;
+import javax.annotation.Nullable;
 
 /** Outputs graph-based results of {@link ModExecutor} in JSON format. */
 public class JsonOutputFormatter extends OutputFormatter {
@@ -59,7 +60,7 @@ public class JsonOutputFormatter extends OutputFormatter {
   private JsonObject printExtension(
       ModuleKey key, ModuleExtensionId extensionId, boolean unexpanded) {
     JsonObject json = new JsonObject();
-    json.addProperty("key", extensionId.asTargetString());
+    json.addProperty("key", extensionId.toString());
     json.addProperty("unexpanded", unexpanded);
     if (options.extensionInfo == ExtensionShow.USAGES) {
       return json;
@@ -89,31 +90,36 @@ public class JsonOutputFormatter extends OutputFormatter {
 
   // Depth-first traversal to display modules (while explicitly detecting cycles)
   JsonObject printModule(
-      ModuleKey key, ModuleKey parent, IsExpanded expanded, IsIndirect indirect) {
+      ModuleKey key, @Nullable ModuleKey parent, IsExpanded expanded, IsIndirect indirect) {
     ResultNode node = result.get(key);
     AugmentedModule module = depGraph.get(key);
     JsonObject json = new JsonObject();
     json.addProperty("key", printKey(key));
-    if (!key.name().equals(module.getName())) {
-      json.addProperty("name", module.getName());
+    json.addProperty("name", module.name());
+    json.addProperty("version", module.version().toString());
+    String apparentName;
+    if (parent != null) {
+      // The apparent repository name under which parent refers to key.
+      apparentName = depGraph.get(parent).deps().inverse().get(key);
+    } else {
+      // The apparent repository name under which key refers to itself.
+      apparentName = module.repoName();
     }
-    if (!key.version().equals(module.getVersion())) {
-      json.addProperty("version", module.getVersion().toString());
-    }
+    json.addProperty("apparentName", apparentName);
 
     if (indirect == IsIndirect.FALSE && options.verbose && parent != null) {
       Explanation explanation = getExtraResolutionExplanation(key, parent);
       if (explanation != null) {
         if (!module.isUsed()) {
           json.addProperty("unused", true);
-          json.addProperty("resolvedVersion", explanation.getChangedVersion().toString());
+          json.addProperty("resolvedVersion", explanation.changedVersion().toString());
         } else {
-          json.addProperty("originalVersion", explanation.getChangedVersion().toString());
+          json.addProperty("originalVersion", explanation.changedVersion().toString());
         }
-        json.addProperty("resolutionReason", explanation.getChangedVersion().toString());
-        if (explanation.getRequestedByModules() != null) {
+        json.addProperty("resolutionReason", explanation.changedVersion().toString());
+        if (explanation.requestedByModules() != null) {
           JsonArray requestedBy = new JsonArray();
-          explanation.getRequestedByModules().forEach(k -> requestedBy.add(printKey(k)));
+          explanation.requestedByModules().forEach(k -> requestedBy.add(printKey(k)));
           json.add("resolvedRequestedBy", requestedBy);
         }
       }

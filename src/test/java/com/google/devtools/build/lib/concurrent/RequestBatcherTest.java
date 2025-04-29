@@ -28,6 +28,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.concurrent.RequestBatcher.RequestResponse;
 import com.google.devtools.build.lib.unsafe.UnsafeProvider;
+
 import java.lang.ref.Cleaner;
 import java.util.ArrayList;
 import java.util.List;
@@ -53,7 +54,8 @@ public final class RequestBatcherTest {
         RequestBatcher.<Request, Response>create(
             commonPool(),
             requests -> immediateFuture(respondTo(requests)),
-            /* targetWorkerCount= */ 1);
+            /* maxBatchSize= */ 255,
+            /* maxConcurrentRequests= */ 1);
     ListenableFuture<Response> response = batcher.submit(new Request(1));
     assertThat(response.get()).isEqualTo(new Response(1));
   }
@@ -61,11 +63,15 @@ public final class RequestBatcherTest {
   @Test
   public void queueOverflow_sleeps() throws Exception {
     // This covers the overflow case of Step 1B in the documentation.
+    int batchSize = 256;
 
     var multiplexer = new SettableMultiplexer();
     var batcher =
         RequestBatcher.<Request, Response>create(
-            commonPool(), multiplexer, /* targetWorkerCount= */ 1);
+            commonPool(),
+            multiplexer,
+            /* maxBatchSize= */ batchSize - 1,
+            /* maxConcurrentRequests= */ 1);
     ListenableFuture<Response> response0 = batcher.submit(new Request(0));
     BatchedRequestResponses requestResponses0 = multiplexer.queue.take();
     // The first worker is busy until requestResponse0 is populated.
@@ -101,7 +107,6 @@ public final class RequestBatcherTest {
     assertThat(responses).hasSize(ConcurrentFifo.MAX_ELEMENTS + 1);
 
     // Responds to all remaining batches.
-    int batchSize = RequestBatcher.BATCH_SIZE + 1;
     int batchCount = responses.size() / batchSize;
     assertThat(responses).hasSize(batchCount * batchSize);
 
@@ -121,7 +126,7 @@ public final class RequestBatcherTest {
     var multiplexer = new SettableMultiplexer();
     var batcher =
         RequestBatcher.<Request, Response>create(
-            commonPool(), multiplexer, /* targetWorkerCount= */ 1);
+            commonPool(), multiplexer, /* maxBatchSize= */ 255, /* maxConcurrentRequests= */ 1);
     ListenableFuture<Response> response1 = batcher.submit(new Request(1));
     BatchedRequestResponses requestResponses1 = multiplexer.queue.take();
 
@@ -141,6 +146,7 @@ public final class RequestBatcherTest {
     assertThat(response2.get()).isEqualTo(new Response(2));
   }
 
+  // TODO: b/386384684 - remove Unsafe usage
   @Test
   public void concurrentWorkCompletion_startsNewWorker() throws Exception {
     // This covers Step 1B and Step 2B of the documentation.
@@ -148,7 +154,7 @@ public final class RequestBatcherTest {
     // This test uses fakes to achieve the narrow set of conditions needed to reach this code path.
     long baseAddress = createPaddedBaseAddress(4);
 
-    var executor = new FakeExecutor();
+    var queueDrainingExecutor = new FakeExecutor();
     var fifo =
         new FakeConcurrentFifo(
             getAlignedAddress(baseAddress, /* offset= */ 1),
@@ -157,15 +163,17 @@ public final class RequestBatcherTest {
     long countersAddress = getAlignedAddress(baseAddress, /* offset= */ 0);
     var batcher =
         new RequestBatcher<Request, Response>(
-            executor,
+            /* responseDistributionExecutor= */ commonPool(),
+            /* queueDrainingExecutor= */ queueDrainingExecutor,
             requests -> immediateFuture(respondTo(requests)),
-            /* targetWorkerCount= */ 1,
+            /* maxBatchSize= */ 255,
+            /* maxConcurrentRequests= */ 1,
             countersAddress,
             fifo);
     cleaner.register(batcher, new AddressFreer(baseAddress));
 
-    // Submits a request. This starts a worker to run the batch, but it gets blocked on the executor
-    // and can't continue.
+    // Submits a request. This starts a worker to run the batch, but it gets blocked on
+    // `queueDrainingExecutor` and can't continue.
     ListenableFuture<Response> response1 = batcher.submit(new Request(1));
 
     // Submits a 2nd request. This request observes that there are enough active workers so it tries
@@ -176,10 +184,9 @@ public final class RequestBatcherTest {
     // Waits until the 2nd request starts enqueuing.
     fifo.tryAppendTokens.acquireUninterruptibly();
 
-    // Allows the 1st worker to continue. It will go idle. There are two Runnables, one to run the
-    // continuation logic and one that sets the response callbacks. Runs both.
-    executor.queue.take().run();
-    executor.queue.take().run();
+    // Allows the 1st worker to continue. This calls an enqueued `continueToNextBatchOrBecomeIdle`
+    // invocation that will cause the 1st worker to go idle.
+    queueDrainingExecutor.queue.take().run();
 
     assertThat(response1.get()).isEqualTo(new Response(1));
 
@@ -188,8 +195,7 @@ public final class RequestBatcherTest {
 
     // Allows the 2nd request to enqueue and complete processing.
     fifo.appendPermits.release();
-    executor.queue.take().run();
-    executor.queue.take().run();
+    queueDrainingExecutor.queue.take().run();
 
     assertThat(response2.get().get()).isEqualTo(new Response(2));
   }
@@ -200,7 +206,8 @@ public final class RequestBatcherTest {
         RequestBatcher.<Request, Response>create(
             commonPool(),
             requests -> immediateFuture(respondTo(requests)),
-            /* targetWorkerCount= */ 4);
+            /* maxBatchSize= */ 255,
+            /* maxConcurrentRequests= */ 4);
 
     var results = new ConcurrentLinkedQueue<ListenableFuture<Void>>();
     final int requestCount = 4_000_000;

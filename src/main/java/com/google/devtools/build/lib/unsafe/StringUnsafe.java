@@ -13,10 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.unsafe;
 
-import static com.google.devtools.build.lib.unsafe.UnsafeProvider.unsafe;
-
+import com.google.common.base.Ascii;
+import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.VarHandle;
 import java.lang.reflect.Constructor;
-import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.util.Arrays;
 
 /**
@@ -33,39 +35,35 @@ public final class StringUnsafe {
   public static final byte LATIN1 = 0;
   public static final byte UTF16 = 1;
 
-  private static final StringUnsafe INSTANCE = new StringUnsafe();
+  private static final MethodHandle CONSTRUCTOR;
+  private static final MethodHandle HAS_NEGATIVES;
+  private static final VarHandle VALUE_HANDLE;
+  private static final VarHandle CODE_HANDLE;
 
-  private final Constructor<String> constructor;
-  private final long valueOffset;
-  private final long coderOffset;
-
-  public static StringUnsafe getInstance() {
-    return INSTANCE;
-  }
-
-  private StringUnsafe() {
-    Field valueField;
-    Field coderField;
+  static {
     try {
-      this.constructor = String.class.getDeclaredConstructor(byte[].class, byte.class);
-      valueField = String.class.getDeclaredField("value");
-      coderField = String.class.getDeclaredField("coder");
+      Class<?> stringCoding = Class.forName("java.lang.StringCoding");
+      Method hasNegatives =
+          stringCoding.getDeclaredMethod("hasNegatives", byte[].class, int.class, int.class);
+      hasNegatives.setAccessible(true);
+      HAS_NEGATIVES = MethodHandles.lookup().unreflect(hasNegatives);
+
+      Constructor<String> constructor =
+          String.class.getDeclaredConstructor(byte[].class, byte.class);
+      constructor.setAccessible(true);
+      CONSTRUCTOR = MethodHandles.lookup().unreflectConstructor(constructor);
+
+      var stringLookup = MethodHandles.privateLookupIn(String.class, MethodHandles.lookup());
+      VALUE_HANDLE = stringLookup.unreflectVarHandle(String.class.getDeclaredField("value"));
+      CODE_HANDLE = stringLookup.unreflectVarHandle(String.class.getDeclaredField("coder"));
     } catch (ReflectiveOperationException e) {
-      throw new IllegalStateException(
-          "Bad fields/constructor: "
-              + Arrays.toString(String.class.getDeclaredConstructors())
-              + ", "
-              + Arrays.toString(String.class.getDeclaredFields()),
-          e);
+      throw new IllegalStateException(e);
     }
-    this.constructor.setAccessible(true);
-    valueOffset = unsafe().objectFieldOffset(valueField);
-    coderOffset = unsafe().objectFieldOffset(coderField);
   }
 
   /** Returns the coder used for this string. See {@link #LATIN1} and {@link #UTF16}. */
-  public byte getCoder(String obj) {
-    return unsafe().getByte(obj, coderOffset);
+  public static byte getCoder(String obj) {
+    return (byte) CODE_HANDLE.get(obj);
   }
 
   /**
@@ -74,12 +72,66 @@ public final class StringUnsafe {
    * <p>Use of this is unsafe. The representation may change from one JDK version to the next.
    * Ensure you do not mutate this byte array in any way.
    */
-  public byte[] getByteArray(String obj) {
-    return (byte[]) unsafe().getObject(obj, valueOffset);
+  public static byte[] getByteArray(String obj) {
+    return (byte[]) VALUE_HANDLE.get(obj);
   }
 
-  /** Constructs a new string from a byte array and coder. */
-  public String newInstance(byte[] bytes, byte coder) throws ReflectiveOperationException {
-    return constructor.newInstance(bytes, coder);
+  /**
+   * Return the internal byte array of a String using Bazel's internal encoding (see {@link
+   * com.google.devtools.build.lib.util.StringEncoding}).
+   *
+   * <p>Use of this is unsafe. The representation may change from one JDK version to the next.
+   * Ensure you do not mutate this byte array in any way.
+   */
+  public static byte[] getInternalStringBytes(String obj) {
+    // This is both a performance optimization and a correctness check: internal strings must
+    // always be coded in Latin-1, otherwise they have been constructed out of a non-ASCII string
+    // that hasn't been converted to internal encoding.
+    if (getCoder(obj) != LATIN1) {
+      // Truncation is ASCII only and thus doesn't change the encoding.
+      String truncatedString = Ascii.truncate(obj, 1000, "...");
+      throw new IllegalArgumentException(
+          "Expected internal string with Latin-1 coder, got: %s (%s)"
+              .formatted(truncatedString, Arrays.toString(getByteArray(truncatedString))));
+    }
+    return getByteArray(obj);
   }
+
+  /** Returns whether the string is ASCII-only. */
+  public static boolean isAscii(String obj) {
+    // This implementation uses java.lang.StringCoding#hasNegatives, which is implemented as a JVM
+    // intrinsic. On a machine with 512-bit SIMD registers, this is 5x as fast as a naive loop
+    // over getByteArray(obj), which in turn is 5x as fast as obj.chars().anyMatch(c -> c > 0x7F) in
+    // a JMH benchmark.
+
+    if (getCoder(obj) != LATIN1) {
+      // Latin-1 is a superset of ASCII, so we must have non-ASCII characters.
+      return false;
+    }
+    byte[] bytes = getByteArray(obj);
+    try {
+      return !(boolean) HAS_NEGATIVES.invokeExact(bytes, 0, bytes.length);
+    } catch (Throwable t) {
+      // hasNegatives doesn't throw.
+      throw new IllegalStateException(t);
+    }
+  }
+
+  /**
+   * Constructs a new string from a byte array and coder.
+   *
+   * <p>The new string shares the byte array instance, which must not be modified after calling this
+   * method.
+   */
+  public static String newInstance(byte[] bytes, byte coder) {
+    try {
+      return (String) CONSTRUCTOR.invokeExact(bytes, coder);
+    } catch (Throwable e) {
+      // The constructor never throws, so this is not expected.
+      throw new IllegalStateException(
+          "Could not instantiate string: " + Arrays.toString(bytes) + ", " + coder, e);
+    }
+  }
+
+  private StringUnsafe() {}
 }

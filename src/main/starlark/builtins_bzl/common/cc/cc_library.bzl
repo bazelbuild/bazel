@@ -80,9 +80,7 @@ def _cc_library_impl(ctx):
     )
 
     precompiled_objects = cc_common.create_compilation_outputs(
-        # TODO(bazel-team): Perhaps this should be objects, leaving as it is in the original
-        # Java code for now. Changing it might cause breakages.
-        objects = depset(precompiled_files[1]),
+        objects = depset(precompiled_files[0]),
         pic_objects = depset(precompiled_files[1]),
     )
 
@@ -712,7 +710,7 @@ cc_library(
     deps = ["//third_party/llvm/llvm/tools/clang:frontend"],
     # alwayslink as we want to be able to call things in this library at
     # debug time, even if they aren't used anywhere in the code.
-    alwayslink = 1,
+    alwayslink = True,
 )
 </code></pre>
 
@@ -949,10 +947,8 @@ See <a href="${link cc_binary.linkshared}"><code>cc_binary.linkshared</code></a>
         "licenses": attr.license() if hasattr(attr, "license") else attr.string_list(),
         "_stl": semantics.get_stl(),
         "_def_parser": semantics.get_def_parser(),
-        # TODO(b/288421584): necessary because IDE aspect can't see toolchains
-        "_cc_toolchain": attr.label(default = "@" + semantics.get_repo() + "//tools/cpp:current_cc_toolchain"),
         "_use_auto_exec_groups": attr.bool(default = True),
-    } | semantics.get_distribs_attr() | semantics.get_implementation_deps_allowed_attr() | semantics.get_nocopts_attr(),
+    } | semantics.get_implementation_deps_allowed_attr() | semantics.get_nocopts_attr(),
     toolchains = cc_helper.use_cpp_toolchain() +
                  semantics.get_runtimes_toolchain(),
     fragments = ["cpp"] + semantics.additional_fragments(),

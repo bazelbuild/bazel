@@ -30,7 +30,9 @@ def create_lto_artifacts_and_lto_indexing_action(
         # Inputs from compilation:
         compilation_outputs,
         # Inputs from linking_contexts:
-        libraries,
+        libraries_to_link,
+        static_libraries_to_link,
+        prefer_pic_libs,
         linkopts,
         # The final output file, uses its name:
         output,
@@ -56,7 +58,9 @@ def create_lto_artifacts_and_lto_indexing_action(
         cc_toolchain: (CcToolchainInfo) CcToolchainInfo provider to be used.
         compilation_outputs: (CompilationOutputs) Compilation outputs containing object files
             to link.
-        libraries: (list[LegacyLinkerInput]) The libraries to link in.
+        libraries_to_link: (list[LibraryToLink]) The libraries to link in.
+        static_libraries_to_link: (list[LibraryToLink]) The libraries to link in statically.
+        prefer_pic_libs: (bool) Prefers selection of PIC static libraries over non PIC.
         linkopts: (list[str]) Additional list of linker options.
         variables_extensions: (dict[str, str|list[str]|depset[str]]) Additional variables to pass to
             the toolchain configuration when creating link command line.
@@ -88,10 +92,7 @@ def create_lto_artifacts_and_lto_indexing_action(
     lto_obj_root_prefix = lto_output_root_prefix
     if feature_configuration.is_enabled("use_lto_native_object_directory"):
         lto_obj_root_prefix = lto_output_root_prefix + "-obj"
-    object_file_inputs = [
-        cc_internal.simple_linker_input(input)
-        for input in (compilation_outputs.pic_objects if use_pic else compilation_outputs.objects)
-    ]
+    object_file_inputs = compilation_outputs.pic_objects if use_pic else compilation_outputs.objects
 
     all_lto_artifacts = cc_internal.create_lto_artifacts(
         actions,
@@ -102,9 +103,10 @@ def create_lto_artifacts_and_lto_indexing_action(
         object_file_inputs,
         lto_output_root_prefix,
         lto_obj_root_prefix,
-        depset(libraries),
+        static_libraries_to_link,
         allow_lto_indexing,
         include_link_static_in_lto_indexing,
+        prefer_pic_libs,
     )
     if allow_lto_indexing:
         thinlto_param_file, thinlto_merged_object_file = _lto_indexing_action(
@@ -116,7 +118,9 @@ def create_lto_artifacts_and_lto_indexing_action(
             variables_extensions = variables_extensions,
             output = output,
             link_type = link_type,
-            libraries = libraries,
+            libraries_to_link = libraries_to_link,
+            static_libraries_to_link = static_libraries_to_link,
+            prefer_pic_libs = prefer_pic_libs,
             use_pic = use_pic,
             linking_mode = linking_mode,
             all_lto_artifacts = all_lto_artifacts,
@@ -137,7 +141,9 @@ def _lto_indexing_action(
         cc_toolchain,
         all_lto_artifacts,
         allow_lto_indexing,
-        libraries,
+        libraries_to_link,
+        static_libraries_to_link,
+        prefer_pic_libs,
         include_link_static_in_lto_indexing,
         compilation_outputs,
         output,
@@ -157,40 +163,42 @@ def _lto_indexing_action(
     # inputs for this link, depending on whether this is LTO indexing or
     # a native link.
     lto_compilation_context = compilation_outputs.lto_compilation_context()
-    object_file_inputs = [cc_internal.simple_linker_input(
-        lto_compilation_context.get_minimized_bitcode_or_self(input),
-    ) for input in (compilation_outputs.pic_objects if use_pic else compilation_outputs.objects)]
+    object_file_inputs = [
+        lto_compilation_context.get_minimized_bitcode_or_self(input)
+        for input in (compilation_outputs.pic_objects if use_pic else compilation_outputs.objects)
+    ]
 
-    unique_libraries = []
-    for lib in libraries:
-        if lib.object_files == None:
-            unique_libraries.append(lib)
+    lto_mapping = {}
+    for lib in static_libraries_to_link:
+        pic = (prefer_pic_libs and lib.pic_static_library != None) or lib.static_library == None
+        if pic:
+            objects = lib.pic_objects_private()
+            shared_non_lto_backends = lib.pic_shared_non_lto_backends()
+            lib_lto_compilation_context = lib.pic_lto_compilation_context()
+        else:
+            objects = lib.objects_private()
+            shared_non_lto_backends = lib.shared_non_lto_backends()
+            lib_lto_compilation_context = lib.lto_compilation_context()
+        if objects == None:
             continue
-        new_object_files = []
-        for a in lib.object_files:
+        for a in objects:
             # If this link includes object files from another library, that library must be
             # statically linked.
             if not include_link_static_in_lto_indexing:
-                lto_artifacts = lib.shared_non_lto_backends.get(a, None)
+                lto_artifacts = shared_non_lto_backends.get(a, None)
 
                 # Either we have a shared LTO artifact, or this wasn't bitcode to start with.
                 if lto_artifacts:
                     # Include the native object produced by the shared LTO backend in the LTO indexing
                     # step instead of the bitcode file. The LTO indexing step invokes the linker which
                     # must see all objects used to produce the final link output.
-                    new_object_files.append(lto_artifacts.object_file())
+                    lto_mapping[a] = lto_artifacts.object_file()
                     continue
-                elif lib.lto_compilation_context.get_minimized_bitcode_or_self(a) == a:
-                    fail("For artifact '%s' in library '%s': need a shared LTO artifact for " +
-                         "bitcode" % (a, lib.file))
-            new_object_files.append(lib.lto_compilation_context.get_minimized_bitcode_or_self(a))
-        unique_libraries.append(cc_internal.library_linker_input(
-            lib.file,
-            lib.artifact_category,
-            lib.library_identifier,
-            new_object_files,
-            lib.lto_compilation_context,
-        ))
+                elif lib_lto_compilation_context.get_minimized_bitcode_or_self(a) != a:
+                    fail(("For artifact '%s' in library '%s': unexpectedly has a shared LTO artifact for " +
+                          "bitcode") % (a, lib.file))
+            if lib_lto_compilation_context:
+                lto_mapping[a] = lib_lto_compilation_context.get_minimized_bitcode_or_self(a)
 
     # Create artifact for the file that the LTO indexing step will emit
     # object file names into for any that were included in the link as
@@ -250,7 +258,7 @@ def _lto_indexing_action(
         "LTO indexing %{output}",  # progress_message
         # Inputs:
         object_file_inputs = object_file_inputs,
-        unique_libraries = unique_libraries,
+        libraries_to_link = libraries_to_link,
         linkstamp_map = {},
         linkstamp_object_artifacts = [],
         linkstamp_object_file_inputs = [],
@@ -263,8 +271,10 @@ def _lto_indexing_action(
         dynamic_library_solib_symlink_output = None,
         action_outputs = action_outputs,
         # LTO:
-        lto_mapping = {},
-        allow_lto_indexing = allow_lto_indexing,
+        lto_mapping = lto_mapping,
+        # Counterintuitively allow_lto_indexing is set to False, so that all
+        # lto_mapped libraries are included on the linker command line.
+        allow_lto_indexing = False,
         **link_action_args
     )
 

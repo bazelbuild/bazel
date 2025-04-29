@@ -14,14 +14,11 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.actions.FileArtifactValue.createForTesting;
 import static org.junit.Assert.assertThrows;
-import static org.mockito.Mockito.mock;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
@@ -39,10 +36,6 @@ import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.BasicActionLookupValue;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
-import com.google.devtools.build.lib.actions.MiddlemanAction;
-import com.google.devtools.build.lib.actions.MiddlemanType;
-import com.google.devtools.build.lib.actions.RunfilesArtifactValue;
-import com.google.devtools.build.lib.actions.RunfilesTree;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.TestAction.DummyAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnActionTemplate;
@@ -130,38 +123,6 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
     FileStatus stat = inputPath.stat();
     assertThat(value.getSize()).isEqualTo(stat.getSize());
     assertThat(value.getDigest()).isEqualTo(expectedDigest);
-  }
-
-  @Test
-  public void testMiddlemanArtifact() throws Throwable {
-    DerivedArtifact output = createRunfilesArtifact("output");
-    Artifact input1 = createSourceArtifact("input1");
-    Artifact input2 = createDerivedArtifact("input2");
-    SpecialArtifact tree = createDerivedTreeArtifactWithAction("treeArtifact");
-    TreeFileArtifact treeFile1 = createFakeTreeFileArtifact(tree, "child1", "hello1");
-    TreeFileArtifact treeFile2 = createFakeTreeFileArtifact(tree, "child2", "hello2");
-    file(treeFile1.getPath(), "src1");
-    file(treeFile2.getPath(), "src2");
-    RunfilesTree mockRunfilesTree = mock(RunfilesTree.class);
-    Action action =
-        new MiddlemanAction(
-            ActionsTestUtil.NULL_ACTION_OWNER,
-            mockRunfilesTree,
-            NestedSetBuilder.create(Order.STABLE_ORDER, input1, input2, tree),
-            ImmutableSet.of(output));
-    actions.add(action);
-    file(input2.getPath(), "contents");
-    file(input1.getPath(), "source contents");
-
-    SkyValue value = evaluateArtifactValue(output);
-    assertThat(value)
-        .isEqualTo(
-            new RunfilesArtifactValue(
-                mockRunfilesTree,
-                ImmutableList.of(input1, input2),
-                ImmutableList.of(createForTesting(input1), createForTesting(input2)),
-                ImmutableList.of(tree),
-                ImmutableList.of((TreeArtifactValue) evaluateArtifactValue(tree))));
   }
 
   /**
@@ -277,15 +238,6 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
     actions.add(new DummyAction(NestedSetBuilder.emptySet(Order.STABLE_ORDER), output));
     output.setGeneratingActionKey(ActionLookupData.create(ALL_OWNER, actions.size() - 1));
     return output;
-  }
-
-  private SpecialArtifact createRunfilesArtifact(String path) {
-    PathFragment execPath = PathFragment.create("out").getRelative(path);
-    return SpecialArtifact.create(
-        ArtifactRoot.asDerivedRoot(root, RootType.Output, "out"),
-        execPath,
-        ALL_OWNER,
-        SpecialArtifactType.RUNFILES);
   }
 
   private SpecialArtifact createDerivedTreeArtifactWithAction(String path) {
@@ -417,7 +369,9 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
                       treeFileArtifact2, FileArtifactValue.createForTesting(treeFileArtifact2))
                   .build();
           treeArtifactData.put(output, tree);
-        } else if (action.getActionType() == MiddlemanType.NORMAL) {
+        } else if (output.isRunfilesTree()) {
+          artifactData.put(output, FileArtifactValue.RUNFILES_TREE_MARKER);
+        } else {
           Path path = output.getPath();
           FileArtifactValue noDigest =
               ActionOutputMetadataStore.fileArtifactValueFromArtifact(
@@ -428,8 +382,6 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
           FileArtifactValue withDigest =
               FileArtifactValue.createFromInjectedDigest(noDigest, path.getDigest());
           artifactData.put(output, withDigest);
-        } else {
-          artifactData.put(output, FileArtifactValue.DEFAULT_MIDDLEMAN);
         }
       } catch (IOException e) {
         throw new IllegalStateException(e);

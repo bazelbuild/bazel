@@ -19,9 +19,7 @@ import com.google.common.hash.HashCode;
 import com.google.common.hash.Hasher;
 import com.google.common.hash.Hashing;
 import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.RunfilesTree;
@@ -48,9 +46,9 @@ public class WorkerFilesHash {
     workerFilesMap.forEach(
         (execPath, digest) -> {
           String execPathString = execPath.getPathString();
-          hasher.putByte(StringUnsafe.getInstance().getCoder(execPathString));
+          hasher.putByte(StringUnsafe.getCoder(execPathString));
           hasher.putInt(execPathString.length());
-          hasher.putBytes(StringUnsafe.getInstance().getByteArray(execPathString));
+          hasher.putBytes(StringUnsafe.getByteArray(execPathString));
 
           hasher.putInt(digest.length);
           hasher.putBytes(digest);
@@ -65,18 +63,17 @@ public class WorkerFilesHash {
    * @throws MissingInputException if metadata is missing for any of the worker files.
    */
   public static SortedMap<PathFragment, byte[]> getWorkerFilesWithDigests(
-      Spawn spawn, ArtifactExpander artifactExpander, InputMetadataProvider actionInputFileCache)
-      throws IOException {
+      Spawn spawn, InputMetadataProvider actionInputFileCache) throws IOException {
     TreeMap<PathFragment, byte[]> workerFilesMap = new TreeMap<>();
 
     List<ActionInput> tools =
-        ActionInputHelper.expandArtifacts(
+        InputMetadataProvider.expandArtifacts(
+            actionInputFileCache,
             spawn.getToolFiles(),
-            artifactExpander,
             /* keepEmptyTreeArtifacts= */ false,
-            /* keepMiddlemanArtifacts= */ true);
+            /* keepRunfilesTrees= */ true);
     for (ActionInput tool : tools) {
-      if (tool instanceof Artifact artifact && artifact.isMiddlemanArtifact()) {
+      if (tool instanceof Artifact artifact && artifact.isRunfilesTree()) {
         RunfilesTree runfilesTree =
             actionInputFileCache.getRunfilesMetadata(tool).getRunfilesTree();
         PathFragment root = runfilesTree.getExecPath();

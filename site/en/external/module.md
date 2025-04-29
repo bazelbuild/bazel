@@ -33,7 +33,7 @@ By default, Bazel then [selects](#version-selection) one version of each module
 to use. Bazel represents each module with a repo, and consults the registry
 again to learn how to define each of the repos.
 
-## Version format
+## Version format {:#version-format}
 
 Bazel has a diverse ecosystem and projects use various versioning schemes. The
 most popular by far is [SemVer](https://semver.org){: .external}, but there are
@@ -41,7 +41,7 @@ also prominent projects using different schemes such as
 [Abseil](https://github.com/abseil/abseil-cpp/releases){: .external}, whose
 versions are date-based, for example `20210324.2`).
 
-For this reason, Bzlmod adopts a more relaxed version of the SemVer spec. The
+For this reason, Bazel adopts a more relaxed version of the SemVer spec. The
 differences include:
 
 *   SemVer prescribes that the "release" part of the version must consist of 3
@@ -71,7 +71,7 @@ management space. Suppose you have the dependency graph:
    D 1.0    D 1.1
 ```
 
-Which version of `D` should be used? To resolve this question, Bzlmod uses the
+Which version of `D` should be used? To resolve this question, Bazel uses the
 [Minimal Version Selection](https://research.swtch.com/vgo-mvs){: .external}
 (MVS) algorithm introduced in the Go module system. MVS assumes that all new
 versions of a module are backwards compatible, and so picks the highest version

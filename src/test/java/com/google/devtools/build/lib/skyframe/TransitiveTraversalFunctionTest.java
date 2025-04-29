@@ -47,7 +47,10 @@ public class TransitiveTraversalFunctionTest extends BuildViewTestCase {
   public void noRepeatedLabelVisitationForTransitiveTraversalFunction() throws Exception {
     // Create a basic package with a target //foo:foo.
     Label label = Label.parseCanonical("//foo:foo");
-    scratch.file("foo/BUILD", "sh_library(name = '" + label.getName() + "')");
+    scratch.file(
+        "foo/BUILD",
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
+        "foo_library(name = '" + label.getName() + "')");
     Package pkg = loadPackage(label.getPackageIdentifier());
     TargetAndErrorIfAny targetAndErrorIfAny =
         new TargetAndErrorIfAny(
@@ -100,7 +103,9 @@ public class TransitiveTraversalFunctionTest extends BuildViewTestCase {
   public void multipleErrorsForTransitiveTraversalFunction() throws Exception {
     Label label = Label.parseCanonical("//foo:foo");
     scratch.file(
-        "foo/BUILD", "sh_library(name = '" + label.getName() + "', deps = [':bar', ':baz'])");
+        "foo/BUILD",
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
+        "foo_library(name = '" + label.getName() + "', deps = [':bar', ':baz'])");
     Package pkg = loadPackage(label.getPackageIdentifier());
     TargetAndErrorIfAny targetAndErrorIfAny =
         new TargetAndErrorIfAny(
@@ -139,7 +144,10 @@ public class TransitiveTraversalFunctionTest extends BuildViewTestCase {
   @Test
   public void selfErrorWins() throws Exception {
     Label label = Label.parseCanonical("//foo:foo");
-    scratch.file("foo/BUILD", "sh_library(name = '" + label.getName() + "', deps = [':bar'])");
+    scratch.file(
+        "foo/BUILD",
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
+        "foo_library(name = '" + label.getName() + "', deps = [':bar'])");
     Package pkg = loadPackage(label.getPackageIdentifier());
     TargetAndErrorIfAny targetAndErrorIfAny =
         new TargetAndErrorIfAny(

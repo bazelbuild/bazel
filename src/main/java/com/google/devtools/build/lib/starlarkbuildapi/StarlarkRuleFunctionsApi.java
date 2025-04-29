@@ -47,12 +47,11 @@ public interface StarlarkRuleFunctionsApi {
           + " listed here from its return value. However, the implementation function may return"
           + " additional providers not listed here." //
           + "<p>Each element of the list is an <code>*Info</code> object returned by <a"
-          + " href='../globals/bzl.html#provider'><code>provider()</code></a>, except that a legacy"
-          + " provider is represented by its string name instead.When a target of the rule is used"
-          + " as a dependency for a target that declares a required provider, it is not necessary"
-          + " to specify that provider here. It is enough that the implementation function returns"
-          + " it. However, it is considered best practice to specify it, even though this is not"
-          + " required. The <a"
+          + " href='../globals/bzl.html#provider'><code>provider()</code></a>. When a target of the"
+          + " rule is used as a dependency for a target that declares a required provider, it is"
+          + " not necessary to specify that provider here. It is enough that the implementation"
+          + " function returns it. However, it is considered best practice to specify it, even"
+          + " though this is not required. The <a"
           + " href='../globals/bzl.html#aspect.required_providers'><code>required_providers</code></a>"
           + " field of an <a href='../globals/bzl.html#aspect'>aspect</a> does, however, require"
           + " that providers are specified here.";
@@ -201,14 +200,69 @@ public interface StarlarkRuleFunctionsApi {
 
   @StarlarkMethod(
       name = "macro",
-      documented = false, // TODO(#19922): Document
+      doc =
+"""
+Defines a symbolic macro, which may be called in <code>BUILD</code> files or macros (legacy or
+symbolic) to define targets &ndash; possibly multiple ones.
+
+<p>The value returned by <code>macro(...)</code> must be assigned to a global variable in a .bzl
+file; the name of the global variable will be the macro symbol's name.
+
+<p>See <a href="/extending/macros">Macros</a> for a comprehensive guide on how to use symbolic
+macros.
+""",
       parameters = {
         @Param(
             name = "implementation",
             positional = false,
             named = true,
-            documented = false // TODO(#19922): Document
-            ),
+            doc =
+"""
+The Starlark function implementing this macro. The values of the macro's attributes are passed to
+the implementation function as keyword arguments. The implementation function must have at least two
+named parameters, <code>name</code> and <code>visibility</code>, and if the macro inherits
+attributes (see <code>inherit_attrs</code> below), it must have a <code>**kwargs</code> residual
+keyword parameter.
+
+<p>By convention, the implementation function should have a named parameter for any attribute that
+the macro needs to examine, modify, or pass to non-"main" targets, while the "bulk" inherited
+attributes which will be passed to the "main" target unchanged are passed as <code>**kwargs</code>.
+
+<p>The implementation function must not return a value. Instead, the implementation function
+<em>declares targets</em> by calling rule or macro symbols.
+
+<p>The name of any target or inner symbolic macro declared by a symbolic macro (including by any
+Starlark function that the macro's implementation function transitively calls) must either equal
+<code>name</code> (this is referred to as the "main" target) or start with <code>name</code>,
+followed by a separator chracter (<code>"_"</code>, <code>"-"</code>, or <code>"."</code>) and a
+string suffix. (Targets violating this naming scheme are allowed to be declared, but cannot be
+built, configured, or depended upon.)
+
+<p>By default, targets declared by a symbolic macro (including by any Starlark function that the
+macro's implementation function transitively calls) are visible only in the package containing the
+.bzl file defining the macro. To declare targets visible externally, <em>including to the caller of
+the symbolic macro</em>, the implementation function must set <code>visibility</code> appropriately
+&ndash; typically, by passing <code>visibility = visibility</code> to the rule or macro symbol being
+called.
+
+<p>The following APIs are unavailable within a macro implementation function and any Starlark
+function it transitively calls:
+<ul>
+  <li><a href="/reference/be/functions#package"><code>package()</code>, <code>licenses()</code>
+  <li><code>environment_group()</code>
+  <li><a href="../toplevel/native#glob"><code>native.glob()</code></a> &ndash; instead, you may pass
+    a glob into the macro via a label list attribute
+  <li><a href="../toplevel/native#subpackages"><code>native.subpackages()</code></a>
+  <li>(allowed in rule finalizers only, see <code>finalizer</code> below)
+    <a href="../toplevel/native#existing_rules"><code>native.existing_rules()</code></a>,
+    <a href="../toplevel/native#existing_rule"><code>native.existing_rule()</code></a>
+  <li>(for <code>WORKSPACE</code> threads)
+    <a href="../globals/workspace#workspace"><code>workspace()</code></a>,
+    <a href="../globals/workspace#register_toolchains"><code>register_toolchains()</code></a>,
+    <a href="../globals/workspace#register_execution_platforms><code>register_execution_platforms()</code></a>,
+    <a href="../globals/workspace#bind"><code>bind()</code></a>, repository rule instantiation
+</ul>
+"""),
         @Param(
             name = "attrs",
             allowedTypes = {
@@ -218,10 +272,13 @@ public interface StarlarkRuleFunctionsApi {
             positional = false,
             defaultValue = "{}",
             doc =
-                """
-A dictionary of the attributes this macro supports, analogous to <a href="#rule.attrs">rule.attrs
-</a>. Keys are attribute names, and values are attribute objects like <code>attr.label_list(...)
-</code> (see the <a href=\"../toplevel/attr.html\">attr</a> module).
+"""
+A dictionary of the attributes this macro supports, analogous to
+<a href="#rule.attrs">rule.attrs</a>. Keys are attribute names, and values are either attribute
+objects like <code>attr.label_list(...)</code> (see the <a href=\"../toplevel/attr.html\">attr</a>
+module), or <code>None</code>. A <code>None</code> entry means that the macro does not have an
+attribute by that name, even if it would have otherwise inherited one via <code>inherit_attrs</code>
+(see below).
 
 <p>The special <code>name</code> attribute is predeclared and must not be included in the
 dictionary. The <code>visibility</code> attribute name is reserved and must not be included in the
@@ -231,24 +288,94 @@ dictionary.
 site of the rule. Such attributes can be assigned a default value (as in
 <code>attr.label(default="//pkg:foo")</code>) to create an implicit dependency on a label.
 
-<p>Certain APIs are not available within symbolic macros. These include:
-<ul>
-  <li><a href="/reference/be/functions#package"><code>package()</code>, <code>licenses()</code>
-  <li><code>environment_group()</code>
-  <li><a href="../toplevel/native#glob"><code>native.glob()</code></a> - instead, you may pass a
-    glob into the macro via a label list attribute
-  <li><a href="../toplevel/native#subpackages"><code>native.subpackages()</code></a>
-  <li>(allowed in rule finalizers only)
-    <a href="../toplevel/native#existing_rules"><code>native.existing_rules()</code></a>,
-    <a href="../toplevel/native#existing_rule"><code>native.existing_rule()</code></a>
-  <li>(for <code>WORKSPACE</code> threads)
-    <a href="../globals/workspace#workspace"><code>workspace()</code></a>,
-    <a href="../globals/workspace#register_toolchains"><code>register_toolchains()</code></a>,
-    <a href="../globals/workspace#register_execution_platforms><code>register_execution_platforms()</code></a>,
-    <a href="../globals/workspace#bind"><code>bind()</code></a>, repository rule instantiation
-</ul>
-
 <p>To limit memory usage, there is a cap on the number of attributes that may be declared.
+"""),
+        @Param(
+            name = "inherit_attrs",
+            allowedTypes = {
+              @ParamType(type = RuleFunctionApi.class),
+              @ParamType(type = MacroFunctionApi.class),
+              @ParamType(type = String.class),
+              @ParamType(type = NoneType.class)
+            },
+            positional = false,
+            named = true,
+            defaultValue = "None",
+            doc =
+"""
+A rule symbol, macro symbol, or the name of a built-in common attribute list (see below) from which
+the macro should inherit attributes.
+
+<p>If <code>inherit_attrs</code> is set to the string <code>"common"</code>, the macro will inherit
+<a href="/reference/be/common-definitions#common-attributes">common rule attribute definitions</a>
+used by all Starlark rules.
+
+<p>Note that if the return value of <code>rule()</code> or <code>macro()</code> was not assigned to
+a global variable in a .bzl file, then such a value has not been registered as a rule or macro
+symbol, and therefore cannot be used for <code>inherit_attrs</code>.
+
+<p>The inheritance mechanism works as follows:</p>
+<ol>
+  <li>The special <code>name</code> and <code>visibility</code> attributes are never inherited;
+  <li>Hidden attributes (ones whose name starts with <code>"_"</code>) are never inherited;
+  <li>Attributes whose names are already defined in the <code>attrs</code> dictionary are never
+    inherited (the entry in <code>attrs</code> takes precedence; note that an entry may be set to
+    <code>None</code> to ensure that no attribute by that name gets defined on the macro);
+  <li>All other attributes are inherited from the rule or macro and effectively merged into the
+    <code>attrs</code> dict.
+</ol>
+
+<p>When a non-mandatory attribute is inherited, the default value of the attribute is overridden
+to be <code>None</code>, regardless of what it was specified in the original rule or macro. This
+ensures that when the macro forwards the attribute's value to an instance of the wrapped rule or
+macro &ndash; such as by passing in the unmodified <code>**kwargs</code> &ndash; a value that was
+absent from the outer macro's call will also be absent in the inner rule or macro's call (since
+passing <code>None</code> to an attribute is treated the same as omitting the attribute).
+This is important because omitting an attribute has subtly different semantics from passing
+its apparent default value. In particular, omitted attributes are not shown in some <code>bazel
+query</code> output formats, and computed defaults only execute when the value is omitted. If the
+macro needs to examine or modify an inherited attribute &ndash; for example, to add a value to an
+inherited <code>tags</code> attribute &ndash; you must make sure to handle the <code>None</code>
+case in the macro's implementation function.
+
+<p>For example, the following macro inherits all attributes from <code>native.cc_library</code>,
+except for <code>cxxopts</code> (which is removed from the attribute list) and <code>copts</code>
+(which is given a new definition). It also takes care to checks for the default <code>None</code>
+value of the inherited <code>tags</code> attribute before appending an additional tag.
+
+<pre class="language-python">
+def _my_cc_library_impl(name, visibility, tags, **kwargs):
+    # Append a tag; tags attr was inherited from native.cc_library, and
+    # therefore is None unless explicitly set by the caller of my_cc_library()
+    my_tags = (tags or []) + ["my_custom_tag"]
+    native.cc_library(
+        name = name,
+        visibility = visibility,
+        tags = my_tags,
+        **kwargs
+    )
+
+my_cc_library = macro(
+    implementation = _my_cc_library_impl,
+    inherit_attrs = native.cc_library,
+    attrs = {
+        "cxxopts": None,
+        "copts": attr.string_list(default = ["-D_FOO"]),
+    },
+)
+</pre>
+
+<p>If <code>inherit_attrs</code> is set, the macro's implementation function <em>must</em> have a
+<code>**kwargs</code> residual keyword parameter.
+
+<p>By convention, a macro should pass inherited, non-overridden attributes unchanged to the "main"
+rule or macro symbol which the macro is wrapping. Typically, most inherited attributes will not have
+a parameter in the implementation function's parameter list, and will simply be passed via
+<code>**kwargs</code>. It can be convenient for the implementation function to have explicit
+parameters for some inherited attributes (most commonly, <code>tags</code> and
+<code>testonly</code>) if the macro needs to pass those attributes to both "main" and non-"main"
+targets &ndash; but if the macro also needs to examine or manipulate those attributes, you must take
+care to handle the <code>None</code> default value of non-mandatory inherited attributes.
 """),
         // TODO: #19922 - Make a concepts page for symbolic macros, migrate some details like the
         // list of disallowed APIs to there.
@@ -263,7 +390,7 @@ site of the rule. Such attributes can be assigned a default value (as in
             named = true,
             defaultValue = "False",
             doc =
-                """
+"""
 Whether this macro is a rule finalizer, which is a macro that, regardless of its position in a
 <code>BUILD</code> file, is evaluated at the end of package loading, after all non-finalizer targets
 have been defined.
@@ -289,9 +416,10 @@ targets defined by any rule finalizer, including this one.
                     + "tools.")
       },
       useStarlarkThread = true)
-  StarlarkCallable macro(
+  MacroFunctionApi macro(
       StarlarkFunction implementation,
       Dict<?, ?> attrs,
+      Object inheritAttrs,
       boolean finalizer,
       Object doc,
       StarlarkThread thread)
@@ -341,7 +469,7 @@ targets defined by any rule finalizer, including this one.
             positional = false,
             defaultValue = "{}",
             doc =
-                """
+"""
 A dictionary to declare all the attributes of the rule. It maps from an attribute \
 name to an attribute object (see
 <a href="../toplevel/attr.html"><code>attr</code></a> module). Attributes starting \
@@ -372,7 +500,6 @@ declared.
             named = true,
             positional = false,
             defaultValue = "None",
-            valueWhenDisabled = "None",
             disableWithFlag = BuildLanguageOptions.INCOMPATIBLE_NO_RULE_OUTPUTS_PARAM,
             doc =
                 "This parameter has been deprecated. Migrate rules to use"
@@ -694,23 +821,31 @@ declared.
                     + " analysis phase for each application of an aspect to a target."),
         @Param(
             name = "attr_aspects",
-            allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
+            allowedTypes = {
+              @ParamType(type = Sequence.class, generic1 = String.class),
+              @ParamType(type = StarlarkFunction.class)
+            },
             named = true,
             defaultValue = "[]",
             doc =
-                "List of attribute names. The aspect propagates along dependencies specified in "
-                    + "the attributes of a target with these names. Common values here include "
-                    + "<code>deps</code> and <code>exports</code>. The list can also contain a "
-                    + "single string <code>\"*\"</code> to propagate along all dependencies of a "
-                    + "target."),
+                "Accepts a list of attribute names or [Experimental] a function that returns the"
+                    + " list of attribute names. The aspect propagates along dependencies specified"
+                    + " in the attributes of a target with these names. Common values here include"
+                    + " <code>deps</code> and <code>exports</code>. The list can also contain a"
+                    + " single string <code>\"*\"</code> to propagate along all dependencies of a"
+                    + " target."),
         @Param(
             name = "toolchains_aspects",
-            allowedTypes = {@ParamType(type = Sequence.class, generic1 = Object.class)},
+            allowedTypes = {
+              @ParamType(type = Sequence.class, generic1 = Object.class),
+              @ParamType(type = StarlarkFunction.class)
+            },
             named = true,
             defaultValue = "[]",
             doc =
-                "List of toolchain types. The aspect propagates to target"
-                    + " toolchains which match these toolchain types."),
+                "Accepts a list of toolchain types or [Experimental] a function that returns the"
+                    + " list of toolchain types. The aspect propagates to target toolchains which"
+                    + " match these toolchain types."),
         @Param(
             name = "attrs",
             allowedTypes = {
@@ -788,6 +923,17 @@ declared.
             named = true,
             defaultValue = "[]",
             doc = "List of aspects required to be propagated before this aspect."),
+        @Param(
+            name = "propagation_predicate",
+            allowedTypes = {
+              @ParamType(type = StarlarkFunction.class),
+              @ParamType(type = NoneType.class),
+            },
+            named = true,
+            defaultValue = "None",
+            doc =
+                "Experimental: a function that returns a boolean value indicating whether the"
+                    + " aspect should be propagated to a target."),
         @Param(
             name = "fragments",
             allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
@@ -882,13 +1028,14 @@ declared.
       useStarlarkThread = true)
   StarlarkAspectApi aspect(
       StarlarkFunction implementation,
-      Sequence<?> attributeAspects,
-      Sequence<?> toolchainsAspects,
+      Object attributeAspects,
+      Object toolchainsAspects,
       Dict<?, ?> attrs,
       Sequence<?> requiredProvidersArg,
       Sequence<?> requiredAspectProvidersArg,
       Sequence<?> providesArg,
       Sequence<?> requiredAspects,
+      Object propagationPredicate,
       Sequence<?> fragments,
       Sequence<?> hostFragments,
       Sequence<?> toolchains,

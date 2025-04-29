@@ -32,7 +32,7 @@ public class AspectValue extends BasicActionLookupValue
       AspectKey key,
       Aspect aspect,
       ConfiguredAspect configuredAspect,
-      @Nullable NestedSet<Package> transitivePackages) {
+      @Nullable NestedSet<Package.Metadata> transitivePackages) {
     return transitivePackages == null
         ? new AspectValue(aspect, configuredAspect)
         : new AspectValueWithTransitivePackages(key, aspect, configuredAspect, transitivePackages);
@@ -42,7 +42,7 @@ public class AspectValue extends BasicActionLookupValue
       AspectKey key,
       Aspect aspect,
       ConfiguredAspect configuredAspect,
-      @Nullable NestedSet<Package> transitivePackages) {
+      @Nullable NestedSet<Package.Metadata> transitivePackages) {
     return transitivePackages == null
         ? new AspectValueForAlias(aspect, configuredAspect)
         : new AspectValueWithTransitivePackagesForAlias(
@@ -54,10 +54,16 @@ public class AspectValue extends BasicActionLookupValue
   @Nullable private Aspect aspect;
   @Nullable private TransitiveInfoProviderMap providers;
 
+  // We store this in a boolean because the aspect variable from which it comes may be cleared to
+  // save memory.
+  private final boolean writesOutputToMasterLog;
+
   private AspectValue(Aspect aspect, ConfiguredAspect configuredAspect) {
     super(configuredAspect.getActions());
     this.aspect = checkNotNull(aspect);
     this.providers = configuredAspect.getProviders();
+    this.writesOutputToMasterLog =
+        aspect.getDefinition().getAttributes().containsKey("$print_to_master_log");
   }
 
   public AspectKey getKeyForTransitivePackageTracking() {
@@ -71,6 +77,10 @@ public class AspectValue extends BasicActionLookupValue
   @Override
   public TransitiveInfoProviderMap getProviders() {
     return checkNotNull(providers);
+  }
+
+  public boolean getWritesOutputToMasterLog() {
+    return writesOutputToMasterLog;
   }
 
   @Override
@@ -93,7 +103,7 @@ public class AspectValue extends BasicActionLookupValue
 
   @Nullable
   @Override
-  public NestedSet<Package> getTransitivePackages() {
+  public NestedSet<Package.Metadata> getTransitivePackages() {
     return null;
   }
 
@@ -113,21 +123,23 @@ public class AspectValue extends BasicActionLookupValue
   }
 
   private static class AspectValueWithTransitivePackages extends AspectValue {
-    @Nullable private transient NestedSet<Package> transitivePackages; // Null after clear().
+    @Nullable
+    private transient NestedSet<Package.Metadata> transitivePackages; // Null after clear().
+
     @Nullable private AspectKey key;
 
     private AspectValueWithTransitivePackages(
         AspectKey key,
         Aspect aspect,
         ConfiguredAspect configuredAspect,
-        NestedSet<Package> transitivePackages) {
+        NestedSet<Package.Metadata> transitivePackages) {
       super(aspect, configuredAspect);
       this.transitivePackages = checkNotNull(transitivePackages);
       this.key = checkNotNull(key);
     }
 
     @Override
-    public NestedSet<Package> getTransitivePackages() {
+    public NestedSet<Package.Metadata> getTransitivePackages() {
       return transitivePackages;
     }
 
@@ -161,7 +173,7 @@ public class AspectValue extends BasicActionLookupValue
         AspectKey key,
         Aspect aspect,
         ConfiguredAspect configuredAspect,
-        NestedSet<Package> transitivePackages) {
+        NestedSet<Package.Metadata> transitivePackages) {
       super(key, aspect, configuredAspect, transitivePackages);
     }
   }

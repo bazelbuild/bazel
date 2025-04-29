@@ -423,10 +423,7 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
                     + " href=\"/reference/command-line-reference#flag--action_env\"><code>--action_env</code></a>.<p>If"
                     + " both <code>use_default_shell_env</code> and <code>env</code> are set to"
                     + " <code>True</code>, values set in <code>env</code> will overwrite the"
-                    + " default shell environment if <a "
-                    + "href=\"/reference/command-line-reference#flag--incompatible_merge_fixed_and_default_shell_env\"><code>--incompatible_merge_fixed_and_default_shell_env</code></a>"
-                    + " is enabled (default). If the flag is not enabled, <code>env</code> is"
-                    + " ignored."),
+                    + " default shell environment."),
         @Param(
             name = "env",
             allowedTypes = {
@@ -440,10 +437,7 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
                 "Sets the dictionary of environment variables.<p>If both"
                     + " <code>use_default_shell_env</code> and <code>env</code> are set to"
                     + " <code>True</code>, values set in <code>env</code> will overwrite the"
-                    + " default shell environment if <a "
-                    + "href=\"/reference/command-line-reference#flag--incompatible_merge_fixed_and_default_shell_env\"><code>--incompatible_merge_fixed_and_default_shell_env</code></a>"
-                    + " is enabled (default). If the flag is not enabled, <code>env</code> is"
-                    + " ignored."),
+                    + " default shell environment."),
         @Param(
             name = "execution_requirements",
             allowedTypes = {
@@ -512,10 +506,9 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
                     + " action. The returned dictionary may contain the following entries, each of"
                     + " which may be a float or an int:<ul><li>\"cpu\": number of CPUs; default"
                     + " 1<li>\"memory\": in MB; default 250<li>\"local_test\": number of local"
-                    + " tests; default 1</ul><p>If this parameter is set to <code>None</code> or if"
-                    + " <code>--experimental_action_resource_set</code> is false, the default"
-                    + " values are used.<p>The callback must be top-level (lambda and nested"
-                    + " functions aren't allowed)."),
+                    + " tests; default 1</ul><p>If this parameter is set to <code>None</code> , the"
+                    + " default values are used.<p>The callback must be top-level (lambda and"
+                    + " nested functions aren't allowed)."),
         @Param(
             name = "toolchain",
             allowedTypes = {
@@ -685,10 +678,7 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
                     + " href=\"/reference/command-line-reference#flag--action_env\"><code>--action_env</code></a>.<p>If"
                     + " both <code>use_default_shell_env</code> and <code>env</code> are set to"
                     + " <code>True</code>, values set in <code>env</code> will overwrite the"
-                    + " default shell environment if <a "
-                    + "href=\"/reference/command-line-reference#flag--incompatible_merge_fixed_and_default_shell_env\"><code>--incompatible_merge_fixed_and_default_shell_env</code></a>"
-                    + " is enabled (default). If the flag is not enabled, <code>env</code> is"
-                    + " ignored."),
+                    + " default shell environment."),
         @Param(
             name = "env",
             allowedTypes = {
@@ -702,10 +692,7 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
                 "Sets the dictionary of environment variables.<p>If both"
                     + " <code>use_default_shell_env</code> and <code>env</code> are set to"
                     + " <code>True</code>, values set in <code>env</code> will overwrite the"
-                    + " default shell environment if <a "
-                    + "href=\"/reference/command-line-reference#flag--incompatible_merge_fixed_and_default_shell_env\"><code>--incompatible_merge_fixed_and_default_shell_env</code></a>"
-                    + " is enabled (default). If the flag is not enabled, <code>env</code> is"
-                    + " ignored."),
+                    + " default shell environment."),
         @Param(
             name = "execution_requirements",
             allowedTypes = {

@@ -22,5 +22,5 @@ java_library(
     add_opens = [
         "java.base/java.lang",
     ],
-    deps = [":unsafe-provider"],
+    deps = ["//third_party:guava"],
 )

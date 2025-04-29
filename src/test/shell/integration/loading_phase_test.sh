@@ -107,13 +107,18 @@ function test_query_buildfiles_with_load() {
 # "Skyframe does not build targets that transitively depend on non-rule targets
 # that live in packages with errors".
 function test_non_error_target_in_bad_pkg() {
+    add_rules_shell "MODULE.bazel"
+
     local -r pkg="${FUNCNAME}"
     mkdir -p "$pkg" || fail "could not create \"$pkg\""
 
     mkdir -p $pkg/a || fail "mkdir $pkg/a failed"
     mkdir -p $pkg/b || fail "mkdir $pkg/b failed"
 
-    echo "sh_library(name = 'a', data = ['//$pkg/b'])" > $pkg/a/BUILD
+    cat > $pkg/a/BUILD <<EOF
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
+sh_library(name = 'a', data = ['//$pkg/b'])
+EOF
     echo "exports_files(['b'])" > $pkg/b/BUILD
     echo "genrule(name='r1', cmd = '', outs = ['conflict'])" >> $pkg/b/BUILD
     echo "genrule(name='r2', cmd = '', outs = ['conflict'])" >> $pkg/b/BUILD
@@ -287,9 +292,9 @@ function test_incremental_deleting_package_roots() {
   local other_root=other_root/${WORKSPACE_NAME}
   mkdir -p $other_root/$pkg/a
   touch $other_root/WORKSPACE
-  echo 'sh_library(name="external")' > $other_root/$pkg/a/BUILD
+  echo 'filegroup(name="external")' > $other_root/$pkg/a/BUILD
   mkdir -p $pkg/a
-  echo 'sh_library(name="internal")' > $pkg/a/BUILD
+  echo 'filegroup(name="internal")' > $pkg/a/BUILD
 
   bazel query --package_path=%workspace%/$other_root:. $pkg/a:all >& $TEST_log \
       || fail "Expected success"
@@ -305,49 +310,6 @@ function test_incremental_deleting_package_roots() {
       || fail "Expected success"
   expect_log "//$pkg/a:internal"
   expect_not_log "//$pkg/a:external"
-}
-
-function test_no_package_loading_on_benign_workspace_file_changes() {
-  if [ -f WORKSPACE ]; then
-    cp WORKSPACE "${TEST_TMPDIR}/OLD_WORKSPACE"
-  fi
-
-  local -r pkg="${FUNCNAME}"
-  mkdir -p "$pkg" || fail "could not create \"$pkg\""
-
-  mkdir $pkg/foo
-
-  echo 'workspace(name="wsname1")' > WORKSPACE
-  echo 'sh_library(name="shname1")' > $pkg/foo/BUILD
-  bazel query --enable_workspace --experimental_ui_debug_all_events //$pkg/foo:all >& "$TEST_log" \
-      || fail "Expected success"
-  expect_log "Loading package: $pkg/foo"
-  expect_log "//$pkg/foo:shname1"
-
-  echo 'sh_library(name="shname2")' > $pkg/foo/BUILD
-  bazel query --enable_workspace --experimental_ui_debug_all_events //$pkg/foo:all >& "$TEST_log" \
-      || fail "Expected success"
-  expect_log "Loading package: $pkg/foo"
-  expect_log "//$pkg/foo:shname2"
-
-  # Test that comment changes do not cause package reloading
-  echo '#benign comment' >> WORKSPACE
-  bazel query --enable_workspace --experimental_ui_debug_all_events //$pkg/foo:all >& "$TEST_log" \
-      || fail "Expected success"
-  expect_not_log "Loading package: $pkg/foo"
-  expect_log "//$pkg/foo:shname2"
-
-  echo 'workspace(name="wsname2")' > WORKSPACE
-  bazel query --enable_workspace --experimental_ui_debug_all_events //$pkg/foo:all >& "$TEST_log" \
-      || fail "Expected success"
-  expect_log "Loading package: $pkg/foo"
-  expect_log "//$pkg/foo:shname2"
-
-  if [ -f "${TEST_TMPDIR}/OLD_WORKSPACE" ]; then
-    # Restore the old WORKSPACE file we don't pollute the behavior of other test
-    # cases.
-    mv "${TEST_TMPDIR}/OLD_WORKSPACE" WORKSPACE
-  fi
 }
 
 function test_disallow_load_labels_to_cross_package_boundaries() {

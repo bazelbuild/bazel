@@ -23,8 +23,8 @@ import com.google.common.collect.Iterators;
 import com.google.common.escape.Escaper;
 import com.google.common.escape.Escapers;
 import com.google.common.flogger.GoogleLogger;
+import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.skyframe.SkyframeAwareAction;
 import com.google.devtools.build.lib.vfs.OsPathPolicy;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.WalkableGraph;
@@ -70,7 +70,7 @@ public final class Actions {
     if (action instanceof NotifyOnActionCacheHit) {
       return true;
     }
-    return ((Action) action).isVolatile() && !(action instanceof SkyframeAwareAction);
+    return ((Action) action).isVolatile();
   }
 
   /**
@@ -91,8 +91,8 @@ public final class Actions {
         // Non-Actions cannot be shared.
         && a instanceof Action
         && b instanceof Action
-        && a.getKey(actionKeyContext, /*artifactExpander=*/ null)
-            .equals(b.getKey(actionKeyContext, /*artifactExpander=*/ null))
+        && a.getKey(actionKeyContext, /* inputMetadataProvider= */ null)
+            .equals(b.getKey(actionKeyContext, /* inputMetadataProvider= */ null))
         && artifactsEqualWithoutOwner(
             a.getMandatoryInputs().toList(), b.getMandatoryInputs().toList())
         && artifactsEqualWithoutOwner(a.getOutputs(), b.getOutputs());
@@ -182,7 +182,7 @@ public final class Actions {
   }
 
   private static void verifyGeneratingActionKeys(
-      Artifact.DerivedArtifact output,
+      DerivedArtifact output,
       ActionLookupData otherKey,
       boolean allowSharedAction,
       ActionKeyContext actionKeyContext,
@@ -219,12 +219,15 @@ public final class Actions {
       ActionLookupKey actionLookupKey,
       boolean allowSharedAction)
       throws ActionConflictException, InterruptedException, ArtifactGeneratedByOtherRuleException {
-    Map<PathFragment, Artifact.DerivedArtifact> seenArtifacts = new HashMap<>();
+    Map<PathFragment, DerivedArtifact> seenArtifacts = new HashMap<>();
     // Loop over the actions, looking at all outputs for conflicts.
     int actionIndex = 0;
     for (ActionAnalysisMetadata action : actions) {
       ActionLookupData generatingActionKey =
-          dependsOnBuildId(action)
+          // Runfiles tree actions have the unfortunate property that their RichArtifactData
+          // contains a NestedSet of Artifacts, which we currently deem to be not worth serializing.
+          // TODO: b/401575099 - See if we can factor out the NestedSet and remove this exclusion.
+          dependsOnBuildId(action) || action instanceof RunfilesTreeAction
               ? ActionLookupData.createUnshareable(actionLookupKey, actionIndex)
               : ActionLookupData.create(actionLookupKey, actionIndex);
       for (Artifact artifact : action.getOutputs()) {
@@ -234,18 +237,13 @@ public final class Actions {
             artifact,
             generatingActionKey,
             action);
-        Artifact.DerivedArtifact output = (Artifact.DerivedArtifact) artifact;
+        DerivedArtifact output = (DerivedArtifact) artifact;
         // Has an artifact with this execPath been seen before?
-        Artifact.DerivedArtifact equalOutput =
-            seenArtifacts.putIfAbsent(output.getExecPath(), output);
+        DerivedArtifact equalOutput = seenArtifacts.putIfAbsent(output.getExecPath(), output);
         if (equalOutput != null) {
           // Yes: assert that its generating action and this artifact's are compatible.
           verifyGeneratingActionKeys(
-              equalOutput,
-              generatingActionKey,
-              allowSharedAction,
-              actionKeyContext,
-              actions);
+              equalOutput, generatingActionKey, allowSharedAction, actionKeyContext, actions);
         }
         // Was this output already seen, so it has a generating action key set?
         if (!output.hasGeneratingActionKey()) {
@@ -264,11 +262,7 @@ public final class Actions {
           }
           // Key is already set: verify that the generating action and this action are compatible.
           verifyGeneratingActionKeys(
-              output,
-              generatingActionKey,
-              allowSharedAction,
-              actionKeyContext,
-              actions);
+              output, generatingActionKey, allowSharedAction, actionKeyContext, actions);
         }
       }
       actionIndex++;
@@ -301,14 +295,14 @@ public final class Actions {
       };
 
   /**
-   * Check whether two artifacts are a runfiles middleman - runfiles output manifest pair.
+   * Check whether two artifacts are a runfiles tree - runfiles output manifest pair.
    *
    * <p>This is necessary because these are exempt from the "path of one artifact cannot be a prefix
    * of another" rule. This is like this for historical reasons.
    */
   public static boolean isRunfilesArtifactPair(Artifact runfilesTree, Artifact runfilesManifest) {
-    if (!runfilesTree.isMiddlemanArtifact()) {
-      // The outside artifact is not a middleman. No go.
+    if (!runfilesTree.isRunfilesTree()) {
+      // The outside artifact is not a runfiles tree. No go.
       return false;
     }
 
@@ -381,18 +375,17 @@ public final class Actions {
   }
 
   /**
-   * Returns the escaped name for a given relative path as a string. This takes
-   * a short relative path and turns it into a string suitable for use as a
-   * filename. Invalid filename characters are escaped with an '_' + a single
-   * character token.
+   * Returns the escaped name for a given relative path as a string. This takes a short relative
+   * path and turns it into a string suitable for use as a filename. Invalid filename characters are
+   * escaped with an '_' + a single character token.
    */
   public static String escapedPath(String path) {
     return PATH_ESCAPER.escape(path);
   }
 
   /**
-   * Returns a string that is usable as a unique path component for a label. It is guaranteed
-   * that no other label maps to this string.
+   * Returns a string that is usable as a unique path component for a label. It is guaranteed that
+   * no other label maps to this string.
    */
   public static String escapeLabel(Label label) {
     String path = label.getPackageName() + ":" + label.getName();
@@ -419,13 +412,19 @@ public final class Actions {
       return null;
     }
 
-    var generatingActionKey = ((Artifact.DerivedArtifact) artifact).getGeneratingActionKey();
-    var actionLookupKey = generatingActionKey.getActionLookupKey();
-    ActionLookupValue actionLookupValue = (ActionLookupValue) graph.getValue(actionLookupKey);
-    if (actionLookupValue == null) {
-      return null;
-    }
+    return getGeneratingAction(graph, (DerivedArtifact) artifact);
+  }
 
-    return actionLookupValue.getActions().get(generatingActionKey.getActionIndex());
+  @Nullable
+  public static ActionAnalysisMetadata getGeneratingAction(
+      WalkableGraph graph, DerivedArtifact artifact) throws InterruptedException {
+    return getAction(graph, artifact.getGeneratingActionKey());
+  }
+
+  public static ActionAnalysisMetadata getAction(
+      WalkableGraph graph, ActionLookupData actionLookupData) throws InterruptedException {
+    var actionLookupKey = actionLookupData.getActionLookupKey();
+    var actionLookupValue = (ActionLookupValue) graph.getValue(actionLookupKey);
+    return actionLookupValue.getActions().get(actionLookupData.getActionIndex());
   }
 }

@@ -21,7 +21,6 @@ import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Predicate;
 import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -36,6 +35,7 @@ import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationDependencyProvider;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
@@ -98,7 +98,7 @@ import net.starlark.java.eval.StarlarkSemantics;
  *   <li>A directory of unknown contents, but not a TreeArtifact. This is a legacy facility and
  *       should not be used by any new rule implementations. In particular, the file system cache
  *       integrity checks fail for directories.
- *   <li>A middleman special Artifact.
+ *   <li>A runfiles tree.
  *   <li>A 'constant metadata' special Artifact. These represent real files, changes to which are
  *       ignored by the build system. They are useful for files which change frequently but do not
  *       affect the result of a build, such as timestamp files.
@@ -142,28 +142,6 @@ public abstract sealed class Artifact
         }
       };
 
-  /** Compares artifact according to their root relative paths. Sorts null values first. */
-  @SuppressWarnings("ReferenceEquality") // "a == b" is an optimization
-  public static final Comparator<Artifact> ROOT_RELATIVE_PATH_COMPARATOR =
-      (a, b) -> {
-        if (a == b) {
-          return 0;
-        } else if (a == null) {
-          return -1;
-        } else if (b == null) {
-          return 1;
-        } else {
-          int result = a.getRootRelativePath().compareTo(b.getRootRelativePath());
-          if (result == 0) {
-            // Use the full exec path as a fallback if the root-relative paths are the same, thus
-            // avoiding problems when ImmutableSortedMaps are switched from EXEC_PATH_COMPARATOR.
-            return a.execPath.compareTo(b.execPath);
-          } else {
-            return result;
-          }
-        }
-      };
-
   /**
    * {@link com.google.devtools.build.lib.skyframe.ArtifactFunction} does direct filesystem access
    * without declaring Skyframe dependencies if the artifact is a source directory. However, that
@@ -190,7 +168,6 @@ public abstract sealed class Artifact
   @ThreadSafety.ThreadSafe
   public static SkyKey key(Artifact artifact) {
     if (artifact.isTreeArtifact()
-        || artifact.isMiddlemanArtifact()
         || !artifact.hasKnownGeneratingAction()) {
       return artifact;
     }
@@ -219,9 +196,6 @@ public abstract sealed class Artifact
   public int compareTo(Artifact o) {
     return EXEC_PATH_COMPARATOR.compare(this, o);
   }
-
-  /** A Predicate that evaluates to true if the Artifact is not a middleman artifact. */
-  public static final Predicate<Artifact> MIDDLEMAN_FILTER = input -> !input.isMiddlemanArtifact();
 
   private final ArtifactRoot root;
 
@@ -297,8 +271,6 @@ public abstract sealed class Artifact
     @VisibleForTesting
     public final void setGeneratingActionKey(ActionLookupData generatingActionKey) {
       Preconditions.checkState(
-          this.owner != OMITTED_FOR_SERIALIZATION, "Owner was omitted for serialization: %s", this);
-      Preconditions.checkState(
           this.owner instanceof ActionLookupKey,
           "Already set generating action key: %s (%s %s)",
           this,
@@ -326,11 +298,9 @@ public abstract sealed class Artifact
 
     @Override
     public final ActionLookupKey getArtifactOwner() {
-      Preconditions.checkState(
-          this.owner != OMITTED_FOR_SERIALIZATION, "Owner was omitted for serialization: %s", this);
-      return owner instanceof ActionLookupData
-          ? getGeneratingActionKey().getActionLookupKey()
-          : (ActionLookupKey) owner;
+      return owner instanceof ActionLookupKey lookupKey
+          ? lookupKey
+          : getGeneratingActionKey().getActionLookupKey();
     }
 
     /**
@@ -350,7 +320,7 @@ public abstract sealed class Artifact
 
     @Override
     public final String toDebugString() {
-      if (hasGeneratingActionKey() || owner == OMITTED_FOR_SERIALIZATION) {
+      if (hasGeneratingActionKey()) {
         return super.toDetailString() + " (" + owner + ")";
       }
       return super.toDebugString();
@@ -389,34 +359,33 @@ public abstract sealed class Artifact
     SourceArtifact getSourceArtifact(PathFragment execPath, Root root, ArtifactOwner owner);
 
     /**
-     * Whether to include the generating action key when serializing the given derived artifact.
+     * Whether to include the generating action key when serializing the given derived artifact in
+     * the given context.
      *
-     * <p>If {@code false} is returned, upon deserialization the generating action key is replaced
-     * with the marker {@link #OMITTED_FOR_SERIALIZATION}. The artifact is then only intended for
-     * use with {@link #equalsWithoutOwner} or {@link OwnerlessArtifactWrapper} - any operation
-     * accessing the generating action key will fail.
+     * <p>If {@code false} is returned, {@link #getOmittedGeneratingActionKey} should be overridden
+     * to provide the generating action key upon deserialization.
      */
-    default boolean includeGeneratingActionKey(DerivedArtifact artifact) {
+    default boolean includeGeneratingActionKey(
+        DerivedArtifact artifact, SerializationDependencyProvider context) {
       return true;
     }
 
-    default DerivedArtifact intern(DerivedArtifact original) {
+    /**
+     * Returns the generating action key to use when one was not serialized.
+     *
+     * <p>Only called if {@link #includeGeneratingActionKey} returned {@code false} at serialization
+     * time.
+     */
+    default ActionLookupData getOmittedGeneratingActionKey(
+        SerializationDependencyProvider context) {
+      throw new UnsupportedOperationException();
+    }
+
+    default DerivedArtifact intern(
+        DerivedArtifact original, SerializationDependencyProvider context) {
       return original;
     }
   }
-
-  /**
-   * Marker stored in place of the generating action key for deserialized artifacts when {@link
-   * ArtifactSerializationContext#includeGeneratingActionKey} is {@code false}.
-   */
-  @SerializationConstant @VisibleForSerialization
-  static final Object OMITTED_FOR_SERIALIZATION =
-      new Object() {
-        @Override
-        public String toString() {
-          return "OMITTED_FOR_SERIALIZATION";
-        }
-      };
 
   public final Path getPath() {
     return root.getRoot().getRelative(getRootRelativePath());
@@ -477,7 +446,7 @@ public abstract sealed class Artifact
   }
 
   /** Checks whether this artifact is of one of the types in the supplied set. */
-  public boolean isFileType(FileTypeSet fileTypeSet) {
+  final boolean isFileType(FileTypeSet fileTypeSet) {
     return fileTypeSet.matches(filePathForFileTypeMatcher());
   }
 
@@ -501,8 +470,8 @@ public abstract sealed class Artifact
    * Gets the {@code ActionLookupKey} of the {@code ConfiguredTarget} that owns this artifact, if it
    * was set. Otherwise, this should be a dummy value -- either {@link ArtifactOwner#NULL_OWNER} or
    * a dummy owner set in tests. Such a dummy value should only occur for source artifacts if
-   * created without specifying the owner, or for special derived artifacts, such as target
-   * completion middleman artifacts, build info artifacts, and the like.
+   * created without specifying the owner, or for special derived artifacts, such as build info
+   * artifacts.
    */
   public abstract ArtifactOwner getArtifactOwner();
 
@@ -590,10 +559,6 @@ public abstract sealed class Artifact
     return getRootRelativePath().getPathString();
   }
 
-  public final String getRepositoryRelativePathString() {
-    return getRepositoryRelativePath().getPathString();
-  }
-
   @Override
   public boolean isSymlink() {
     return false;
@@ -639,7 +604,7 @@ public abstract sealed class Artifact
    *
    * <p>If true, this artifact is necessarily a {@link DerivedArtifact}.
    */
-  public boolean isMiddlemanArtifact() {
+  public boolean isRunfilesTree() {
     return false;
   }
 
@@ -863,7 +828,7 @@ public abstract sealed class Artifact
    */
   @VisibleForTesting
   public enum SpecialArtifactType {
-    /** A runfiles tree ("runfiles middleman" in legacy parlance") */
+    /** A runfiles tree. */
     RUNFILES,
 
     /** Google-specific legacy type. */
@@ -906,7 +871,7 @@ public abstract sealed class Artifact
     }
 
     @Override
-    public boolean isMiddlemanArtifact() {
+    public boolean isRunfilesTree() {
       return type == SpecialArtifactType.RUNFILES;
     }
 
@@ -994,11 +959,10 @@ public abstract sealed class Artifact
      * bazel-out/:archived_tree_artifacts/k8-fastbuild/bin/directory.zip}.
      */
     public static ArchivedTreeArtifact createForTree(SpecialArtifact treeArtifact) {
-      return createInternal(
+      return createWithCustomDerivedTreeRoot(
           treeArtifact,
           DEFAULT_DERIVED_TREE_ROOT,
-          treeArtifact.getRootRelativePath().replaceName(treeArtifact.getFilename() + ".zip"),
-          treeArtifact.getGeneratingActionKey());
+          treeArtifact.getRootRelativePath().replaceName(treeArtifact.getFilename() + ".zip"));
     }
 
     /**
@@ -1015,23 +979,13 @@ public abstract sealed class Artifact
      */
     public static ArchivedTreeArtifact createWithCustomDerivedTreeRoot(
         SpecialArtifact treeArtifact, PathFragment derivedTreeRoot, PathFragment rootRelativePath) {
-      return createInternal(
-          treeArtifact, derivedTreeRoot, rootRelativePath, treeArtifact.getGeneratingActionKey());
-    }
-
-    @VisibleForSerialization
-    static ArchivedTreeArtifact createInternal(
-        SpecialArtifact treeArtifact,
-        PathFragment derivedTreeRoot,
-        PathFragment rootRelativePath,
-        Object generatingActionKey) {
       ArtifactRoot treeRoot = treeArtifact.getRoot();
       PathFragment archiveRoot = embedDerivedTreeRoot(treeRoot.getExecPath(), derivedTreeRoot);
       return new ArchivedTreeArtifact(
           treeArtifact,
           ArtifactRoot.asDerivedRoot(getExecRoot(treeRoot), RootType.Output, archiveRoot),
           archiveRoot.getRelative(rootRelativePath),
-          generatingActionKey);
+          treeArtifact.getGeneratingActionKey());
     }
 
     /**
@@ -1207,63 +1161,36 @@ public abstract sealed class Artifact
   public static final Function<Artifact, String> ROOT_RELATIVE_PATH_STRING =
       artifact -> artifact.getRootRelativePath().getPathString();
 
-  public static final Function<Artifact, String> RUNFILES_PATH_STRING =
-      artifact -> artifact.getRunfilesPath().getPathString();
-
   /**
-   * Converts a collection of artifacts into execution-time path strings, and
-   * adds those to a given collection. Middleman artifacts are ignored by this
+   * Lazily converts artifacts into root-relative path strings. Runfiles trees are ignored by this
    * method.
-   */
-  public static void addExecPaths(Iterable<Artifact> artifacts, Collection<String> output) {
-    addNonMiddlemanArtifacts(artifacts, output, ActionInput::getExecPathString);
-  }
-
-  /**
-   * Converts a collection of artifacts into the outputs computed by outputFormatter and adds them
-   * to a given collection. Middleman artifacts are ignored.
-   */
-  private static <E> void addNonMiddlemanArtifacts(
-      Iterable<Artifact> artifacts,
-      Collection<? super E> output,
-      Function<? super Artifact, E> outputFormatter) {
-    for (Artifact artifact : artifacts) {
-      if (MIDDLEMAN_FILTER.apply(artifact)) {
-        output.add(outputFormatter.apply(artifact));
-      }
-    }
-  }
-
-  /**
-   * Lazily converts artifacts into root-relative path strings. Middleman artifacts are ignored by
-   * this method.
    */
   public static Iterable<String> toRootRelativePaths(NestedSet<Artifact> artifacts) {
     return toRootRelativePaths(artifacts.toList());
   }
 
   /**
-   * Lazily converts artifacts into root-relative path strings. Middleman artifacts are ignored by
-   * this method.
+   * Lazily converts artifacts into root-relative path strings. Runfiles trees are ignored by this
+   * method.
    */
   public static Iterable<String> toRootRelativePaths(Iterable<Artifact> artifacts) {
     return Iterables.transform(
-        Iterables.filter(artifacts, MIDDLEMAN_FILTER),
+        Iterables.filter(artifacts, a -> !a.isRunfilesTree()),
         artifact -> artifact.getRootRelativePath().getPathString());
   }
 
   /**
-   * Lazily converts artifacts into execution-time path strings. Middleman artifacts are ignored by
-   * this method.
+   * Lazily converts artifacts into execution-time path strings. Runfiles trees are ignored by this
+   * * method.
    */
   public static Iterable<String> toExecPaths(Iterable<Artifact> artifacts) {
     return Iterables.transform(
-        Iterables.filter(artifacts, MIDDLEMAN_FILTER), ActionInput::getExecPathString);
+        Iterables.filter(artifacts, a -> !a.isRunfilesTree()), ActionInput::getExecPathString);
   }
 
   /**
    * Converts a collection of artifacts into execution-time path strings, and returns those as an
-   * immutable list. Middleman artifacts are ignored by this method.
+   * immutable list. Runfiles trees are ignored by this method.
    *
    * <p>Avoid this method in production code - it flattens the given nested set unconditionally.
    */
@@ -1273,16 +1200,16 @@ public abstract sealed class Artifact
   }
 
   /**
-   * Converts a collection of artifacts into execution-time path strings, and
-   * returns those as an immutable list. Middleman artifacts are ignored by this method.
+   * Converts a collection of artifacts into execution-time path strings, and returns those as an
+   * immutable list. Runfiles trees are ignored by this method.
    */
   public static List<String> asExecPaths(Iterable<Artifact> artifacts) {
     return ImmutableList.copyOf(toExecPaths(artifacts));
   }
 
   /**
-   * Renders a collection of artifacts as execution-time paths and joins
-   * them into a single string. Middleman artifacts are ignored by this method.
+   * Renders a collection of artifacts as execution-time paths and joins them into a single string.
+   * Runfiles trees are ignored by this method.
    */
   public static String joinExecPaths(String delimiter, Iterable<Artifact> artifacts) {
     return Joiner.on(delimiter).join(toExecPaths(artifacts));

@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.util.List;
 import javax.annotation.Nullable;
 import net.starlark.java.syntax.Location;
 
@@ -41,22 +42,32 @@ import net.starlark.java.syntax.Location;
 @ThreadSafe
 public class InputFile extends FileTarget {
 
-  private final Package pkg;
+  private final Packageoid pkg;
   private final Location location;
 
   /**
-   * Constructs an input file with the given label, which must be a label for
-   * the given package, and package-default visibility.
+   * Constructs an input file with the given label, which must be a label for the given package, and
+   * package-default visibility.
    */
-  InputFile(Package pkg, Label label, Location location) {
+  InputFile(Packageoid pkg, Label label, Location location) {
     super(pkg, label);
     this.pkg = pkg;
     this.location = Preconditions.checkNotNull(location);
   }
 
   @Override
-  public Package getPackage() {
+  public Packageoid getPackageoid() {
     return pkg;
+  }
+
+  @Override
+  public Package.Metadata getPackageMetadata() {
+    return pkg.getMetadata();
+  }
+
+  @Override
+  public Package.Declarations getPackageDeclarations() {
+    return pkg.getDeclarations();
   }
 
   public boolean isVisibilitySpecified() {
@@ -64,8 +75,9 @@ public class InputFile extends FileTarget {
   }
 
   @Override
-  public RuleVisibility getVisibility() {
-    return pkg.getPackageArgs().defaultVisibility();
+  @Nullable
+  public RuleVisibility getRawVisibility() {
+    return null;
   }
 
   @Override
@@ -78,8 +90,9 @@ public class InputFile extends FileTarget {
   }
 
   @Override
-  public License getLicense() {
-    return License.NO_LICENSE;
+  @Nullable
+  public List<String> getLicense() {
+    return null;
   }
 
   /**
@@ -90,7 +103,7 @@ public class InputFile extends FileTarget {
    * <p>Prefer {@link #getExecPath} if possible.
    */
   public Path getPath() {
-    return pkg.getPackageDirectory().getRelative(label.getName());
+    return pkg.getMetadata().getPackageDirectory().getRelative(label.getName());
   }
 
   /**

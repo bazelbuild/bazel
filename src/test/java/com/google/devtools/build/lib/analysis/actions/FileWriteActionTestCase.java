@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.actions.ThreadStateReceiver;
 import com.google.devtools.build.lib.analysis.util.ActionTester;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.events.StoredEventHandler;
-import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.exec.util.TestExecutorBuilder;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -54,7 +53,7 @@ public abstract class FileWriteActionTestCase extends BuildViewTestCase {
   public final void createAction() throws Exception {
     outputArtifact = getBinArtifactWithNoOwner("destination.txt");
     output = outputArtifact.getPath();
-    FileSystemUtils.createDirectoryAndParents(output.getParentDirectory());
+    output.getParentDirectory().createDirectoryAndParents();
     action = createAction(NULL_ACTION_OWNER, outputArtifact, "Hello World", false);
   }
 
@@ -63,8 +62,7 @@ public abstract class FileWriteActionTestCase extends BuildViewTestCase {
 
   @Before
   public final void createExecutorAndContext() throws Exception {
-    BinTools binTools = BinTools.forUnitTesting(directories, analysisMock.getEmbeddedTools());
-    executor = new TestExecutorBuilder(fileSystem, directories, binTools).build();
+    executor = new TestExecutorBuilder(fileSystem, directories).build();
     context =
         new ActionExecutionContext(
             executor,
@@ -77,10 +75,7 @@ public abstract class FileWriteActionTestCase extends BuildViewTestCase {
             new FileOutErr(),
             new StoredEventHandler(),
             /* clientEnv= */ ImmutableMap.of(),
-            /* topLevelFilesets= */ ImmutableMap.of(),
-            /* artifactExpander= */ null,
             /* actionFileSystem= */ null,
-            /* skyframeDepsResult= */ null,
             DiscoveredModulesPruner.DEFAULT,
             SyscallCache.NO_CACHE,
             ThreadStateReceiver.NULL_INSTANCE);

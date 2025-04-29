@@ -17,7 +17,6 @@ import io
 import os
 import unittest
 
-# Do not edit this line. Copybara replaces it with PY2 migration helper.
 from third_party.py import mock
 
 from src.main.protobuf import analysis_v2_pb2
@@ -409,8 +408,10 @@ class CmdLineDifferTest(unittest.TestCase):
             "direct_artifact_ids": [1]
         }, {
             "id": 2,
+            # Note: Artifact 1 which is both a direct and transitive input
+            # should be deduplicated in the aquery_differ output.
             "transitive_dep_set_ids": [1],
-            "direct_artifact_ids": [2]
+            "direct_artifact_ids": [1, 2]
         }])
     second = make_aquery_output_with_dep_set(
         action_objs=[

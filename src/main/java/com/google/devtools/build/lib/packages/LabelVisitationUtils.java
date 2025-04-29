@@ -67,8 +67,7 @@ public final class LabelVisitationUtils {
       return;
     }
 
-    if (target instanceof Rule) {
-      Rule rule = (Rule) target;
+    if (target instanceof Rule rule) {
       visitRuleVisibility(rule, edgeFilter, labelProcessor);
       visitRule(rule, edgeFilter, labelProcessor);
       visitRuleToolchains(rule, edgeFilter, labelProcessor);
@@ -90,11 +89,11 @@ public final class LabelVisitationUtils {
   private static void visitRuleVisibility(
       Rule rule, DependencyFilter edgeFilter, LabelProcessor labelProcessor) {
     RuleClass ruleClass = rule.getRuleClassObject();
-    Integer index = ruleClass.getAttributeIndex("visibility");
+    Integer index = ruleClass.getAttributeProvider().getAttributeIndex("visibility");
     if (index == null) {
       return;
     }
-    Attribute visibilityAttribute = ruleClass.getAttribute(index);
+    Attribute visibilityAttribute = ruleClass.getAttributeProvider().getAttribute(index);
     if (visibilityAttribute.getType() != BuildType.NODEP_LABEL_LIST) {
       return;
     }

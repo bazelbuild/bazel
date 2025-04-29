@@ -15,8 +15,8 @@
 package com.google.devtools.build.lib.actions;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
@@ -28,8 +28,10 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.util.CommandDescriptionForm;
 import com.google.devtools.build.lib.util.CommandFailureUtils;
+import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
@@ -41,6 +43,7 @@ import com.google.devtools.common.options.OptionsProvider;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.Map;
+import java.util.SortedMap;
 import javax.annotation.Nullable;
 
 /** A class that groups services in the scope of the action. Like the FileOutErr object. */
@@ -65,7 +68,7 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
     }
 
     @Override
-    public Map<PathFragment, Artifact> getMapping() {
+    public SortedMap<PathFragment, Artifact> getMapping() {
       return wrapped.getMapping();
     }
 
@@ -124,35 +127,53 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
     public boolean isMappingCached() {
       return wrapped.isMappingCached();
     }
+
+    @Override
+    public void fingerprint(
+        ActionKeyContext actionKeyContext, Fingerprint fp, boolean digestAbsolutePaths) {
+      wrapped.fingerprint(actionKeyContext, fp, digestAbsolutePaths);
+    }
   }
 
   /**
    * An {@link InputMetadataProvider} wrapping another while overriding the materialization path of
    * a chosen runfiles tree.
    *
-   * <p>The choice is made by passing in the runfiles middleman which represents the tree whose path
-   * is to be overridden.
+   * <p>The choice is made by passing in the runfiles tree artifact which represents the tree whose
+   * path is is to be overridden.
    */
   private static class OverriddenRunfilesPathInputMetadataProvider
       implements InputMetadataProvider {
     private final InputMetadataProvider wrapped;
-    private final ActionInput wrappedMiddleman;
+    private final ActionInput wrappedRunfilesArtifact;
     private final OverriddenPathRunfilesTree overriddenTree;
 
     private OverriddenRunfilesPathInputMetadataProvider(
-        InputMetadataProvider wrapped, ActionInput wrappedMiddleman, PathFragment execPath) {
+        InputMetadataProvider wrapped, ActionInput wrappedRunfilesArtifact, PathFragment execPath) {
       this.wrapped = wrapped;
-      this.wrappedMiddleman = wrappedMiddleman;
+      this.wrappedRunfilesArtifact = wrappedRunfilesArtifact;
       this.overriddenTree =
           new OverriddenPathRunfilesTree(
-              wrapped.getRunfilesMetadata(wrappedMiddleman).getRunfilesTree(), execPath);
+              wrapped.getRunfilesMetadata(wrappedRunfilesArtifact).getRunfilesTree(), execPath);
     }
 
     @Nullable
     @Override
     public FileArtifactValue getInputMetadataChecked(ActionInput input)
-        throws IOException, MissingDepExecException {
+        throws InterruptedException, IOException, MissingDepExecException {
       return wrapped.getInputMetadataChecked(input);
+    }
+
+    @Nullable
+    @Override
+    public TreeArtifactValue getTreeMetadata(ActionInput actionInput) {
+      return wrapped.getTreeMetadata(actionInput);
+    }
+
+    @Nullable
+    @Override
+    public TreeArtifactValue getEnclosingTreeMetadata(PathFragment execPath) {
+      return wrapped.getEnclosingTreeMetadata(execPath);
     }
 
     @Nullable
@@ -163,9 +184,20 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
 
     @Nullable
     @Override
+    public FilesetOutputTree getFileset(ActionInput input) {
+      return wrapped.getFileset(input);
+    }
+
+    @Override
+    public Map<Artifact, FilesetOutputTree> getFilesets() {
+      return wrapped.getFilesets();
+    }
+
+    @Nullable
+    @Override
     public RunfilesArtifactValue getRunfilesMetadata(ActionInput input) {
       RunfilesArtifactValue original = wrapped.getRunfilesMetadata(input);
-      if (wrappedMiddleman.equals(input)) {
+      if (wrappedRunfilesArtifact.equals(input)) {
         return original.withOverriddenRunfilesTree(overriddenTree);
       } else {
         return original;
@@ -207,14 +239,11 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
   private final FileOutErr fileOutErr;
   private final ExtendedEventHandler eventHandler;
   private final ImmutableMap<String, String> clientEnv;
-  private final ImmutableMap<Artifact, FilesetOutputTree> topLevelFilesets;
-  @Nullable private final ArtifactExpander artifactExpander;
   @Nullable private final Environment env;
 
   @Nullable private final FileSystem actionFileSystem;
-  @Nullable private final Object skyframeDepsResult;
 
-  private FilesetOutputTree filesetOutput = FilesetOutputTree.EMPTY;
+  private RichArtifactData richArtifactData = null;
 
   private final ArtifactPathResolver pathResolver;
   private final DiscoveredModulesPruner discoveredModulesPruner;
@@ -232,11 +261,8 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
       FileOutErr fileOutErr,
       ExtendedEventHandler eventHandler,
       Map<String, String> clientEnv,
-      ImmutableMap<Artifact, FilesetOutputTree> topLevelFilesets,
-      @Nullable ArtifactExpander artifactExpander,
       @Nullable Environment env,
       @Nullable FileSystem actionFileSystem,
-      @Nullable Object skyframeDepsResult,
       DiscoveredModulesPruner discoveredModulesPruner,
       SyscallCache syscallCache,
       ThreadStateReceiver threadStateReceiverForMetrics) {
@@ -249,12 +275,9 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
     this.fileOutErr = fileOutErr;
     this.eventHandler = eventHandler;
     this.clientEnv = ImmutableMap.copyOf(clientEnv);
-    this.topLevelFilesets = topLevelFilesets;
     this.executor = executor;
-    this.artifactExpander = artifactExpander;
     this.env = env;
     this.actionFileSystem = actionFileSystem;
-    this.skyframeDepsResult = skyframeDepsResult;
     this.threadStateReceiverForMetrics = threadStateReceiverForMetrics;
     this.pathResolver = ArtifactPathResolver.createPathResolver(actionFileSystem,
         // executor is only ever null in testing.
@@ -274,10 +297,7 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
       FileOutErr fileOutErr,
       ExtendedEventHandler eventHandler,
       Map<String, String> clientEnv,
-      ImmutableMap<Artifact, FilesetOutputTree> topLevelFilesets,
-      ArtifactExpander artifactExpander,
       @Nullable FileSystem actionFileSystem,
-      @Nullable Object skyframeDepsResult,
       DiscoveredModulesPruner discoveredModulesPruner,
       SyscallCache syscallCache,
       ThreadStateReceiver threadStateReceiverForMetrics) {
@@ -292,11 +312,8 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
         fileOutErr,
         eventHandler,
         clientEnv,
-        topLevelFilesets,
-        artifactExpander,
         /* env= */ null,
         actionFileSystem,
-        skyframeDepsResult,
         discoveredModulesPruner,
         syscallCache,
         threadStateReceiverForMetrics);
@@ -307,7 +324,6 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
       InputMetadataProvider actionInputFileCache,
       ActionInputPrefetcher actionInputPrefetcher,
       ActionKeyContext actionKeyContext,
-      OutputMetadataStore outputMetadataStore,
       boolean rewindingEnabled,
       LostInputsCheck lostInputsCheck,
       FileOutErr fileOutErr,
@@ -323,17 +339,14 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
         actionInputFileCache,
         actionInputPrefetcher,
         actionKeyContext,
-        outputMetadataStore,
+        null,
         rewindingEnabled,
         lostInputsCheck,
         fileOutErr,
         eventHandler,
         clientEnv,
-        ImmutableMap.of(),
-        /* artifactExpander= */ null,
         env,
         actionFileSystem,
-        /* skyframeDepsResult= */ null,
         discoveredModulesPruner,
         syscalls,
         threadStateReceiverForMetrics);
@@ -421,21 +434,17 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
     return eventHandler;
   }
 
-  public ImmutableMap<Artifact, FilesetOutputTree> getTopLevelFilesets() {
-    return topLevelFilesets;
+  public RichArtifactData getRichArtifactData() {
+    return richArtifactData;
   }
 
-  public FilesetOutputTree getFilesetOutput() {
-    return filesetOutput;
-  }
-
-  public void setFilesetOutput(FilesetOutputTree filesetOutput) {
-    checkState(
-        this.filesetOutput.isEmpty(),
-        "Unexpected reassignment of Fileset output from\n:%s to:\n%s",
-        this.filesetOutput,
-        filesetOutput);
-    this.filesetOutput = checkNotNull(filesetOutput);
+  public void setRichArtifactData(RichArtifactData richArtifactData) {
+    Preconditions.checkState(
+        this.richArtifactData == null,
+        "rich artifact data was set twice, old=%s, new=%s",
+        this.richArtifactData,
+        richArtifactData);
+    this.richArtifactData = richArtifactData;
   }
 
   @Override
@@ -445,10 +454,10 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
   }
 
   /**
-   * Report a subcommand event to this Executor's Reporter and, if action
-   * logging is enabled, post it on its EventBus.
+   * Report a subcommand event to this Executor's Reporter and, if action logging is enabled, post
+   * it on its EventBus.
    */
-  public void maybeReportSubcommand(Spawn spawn) {
+  public void maybeReportSubcommand(Spawn spawn, @Nullable String spawnRunner) {
     ShowSubcommands showSubcommands = executor.reportsSubcommands();
     if (!showSubcommands.shouldShowSubcommands) {
       return;
@@ -485,21 +494,13 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
             /* environmentVariablesToClear= */ null,
             getExecRoot().getPathString(),
             spawn.getConfigurationChecksum(),
-            spawn.getExecutionPlatformLabel());
+            spawn.getExecutionPlatformLabel(),
+            spawnRunner);
     getEventHandler().handle(Event.of(EventKind.SUBCOMMAND, null, "# " + reason + "\n" + message));
   }
 
   public ImmutableMap<String, String> getClientEnv() {
     return clientEnv;
-  }
-
-  public ArtifactExpander getArtifactExpander() {
-    return artifactExpander;
-  }
-
-  @Nullable
-  public Object getSkyframeDepsResult() {
-    return skyframeDepsResult;
   }
 
   /**
@@ -559,11 +560,8 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
         fileOutErr,
         eventHandler,
         clientEnv,
-        topLevelFilesets,
-        artifactExpander,
         env,
         actionFileSystem,
-        skyframeDepsResult,
         discoveredModulesPruner,
         syscallCache,
         threadStateReceiverForMetrics);
@@ -593,10 +591,10 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
   }
 
   public ActionExecutionContext withOverriddenRunfilesPath(
-      ActionInput overriddenMiddleman, PathFragment overrideRunfilesPath) {
+      ActionInput overriddenRunfilesArtifact, PathFragment overrideRunfilesPath) {
     return withInputMetadataProvider(
         new OverriddenRunfilesPathInputMetadataProvider(
-            inputMetadataProvider, overriddenMiddleman, overrideRunfilesPath));
+            inputMetadataProvider, overriddenRunfilesArtifact, overrideRunfilesPath));
   }
 
   /**
@@ -615,11 +613,8 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
         fileOutErr,
         eventHandler,
         clientEnv,
-        topLevelFilesets,
-        artifactExpander,
         env,
         actionFileSystem,
-        skyframeDepsResult,
         discoveredModulesPruner,
         syscallCache,
         threadStateReceiverForMetrics);

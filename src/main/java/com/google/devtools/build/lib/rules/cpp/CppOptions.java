@@ -606,26 +606,6 @@ public class CppOptions extends FragmentOptions {
               + "except bar.o.")
   public List<PerLabelOptions> perFileLtoBackendOpts;
 
-  /**
-   * The value of "--crosstool_top" to use for building tools.
-   *
-   * <p>We want to make sure this stays bound to the top-level configuration when not explicitly set
-   * (as opposed to a configuration that comes out of a transition). Otherwise we risk using the
-   * wrong crosstool (i.e., trying to build tools with an Android-specific crosstool).
-   *
-   * <p>To accomplish this, we initialize this to null and, if it isn't explicitly set, use {@link
-   * #getNormalized} to rewrite it to {@link #crosstoolTop}. Blaze always evaluates top-level
-   * configurations first, so they'll trigger this. But no followup transitions can.
-   */
-  @Option(
-      name = "host_crosstool_top",
-      defaultValue = "null",
-      converter = LabelConverter.class,
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.NO_OP},
-      help = "No-op flag. Will be removed in a future release.")
-  public Label hostCrosstoolTop;
-
   @Option(
       name = "host_copt",
       allowMultiple = true,
@@ -909,17 +889,6 @@ public class CppOptions extends FragmentOptions {
   public boolean disableNoCopts;
 
   @Option(
-      name = "incompatible_enable_cc_test_feature",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          "When enabled, it switches Crosstool to use feature 'is_cc_test' rather than"
-              + " the link-time build variable of the same name.")
-  public boolean enableCcTestFeature;
-
-  @Option(
       name = "apple_generate_dsym",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
@@ -947,17 +916,6 @@ public class CppOptions extends FragmentOptions {
   public boolean objcEnableBinaryStripping;
 
   @Option(
-      name = "experimental_starlark_cc_import",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
-      effectTags = {
-        OptionEffectTag.LOADING_AND_ANALYSIS,
-      },
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      help = "If enabled, the Starlark version of cc_import can be used.")
-  public boolean experimentalStarlarkCcImport;
-
-  @Option(
       name = "experimental_generate_llvm_lcov",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
@@ -974,20 +932,6 @@ public class CppOptions extends FragmentOptions {
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help = "If enabled, give distinguishing mnemonic to header processing actions")
   public boolean useCppCompileHeaderMnemonic;
-
-  // TODO: When moving this flag to the graveyard, also delete
-  // tools/cpp/osx_cc_wrapper.sh.tpl and make tools/cpp/linux_cc_wrapper.sh.tpl
-  // the generic wrapper for header parsing on all Unix platforms.
-  @Option(
-      name = "incompatible_macos_set_install_name",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          "Whether to explicitly set `-install_name` when creating dynamic libraries. "
-              + "See https://github.com/bazelbuild/bazel/issues/12370")
-  public boolean macosSetInstallName;
 
   @Option(
       name = "experimental_use_cpp_compile_action_args_params_file",
@@ -1088,17 +1032,15 @@ public class CppOptions extends FragmentOptions {
   public boolean experimentalCppCompileResourcesEstimation;
 
   @Option(
-      name = "experimental_platform_cc_test",
+      name = "experimental_starlark_compiling",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {
         OptionEffectTag.LOADING_AND_ANALYSIS,
       },
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      help =
-          "If enabled, a Starlark version of cc_test can be used which will use platform-based"
-              + " toolchain() resolution to choose a test runner.")
-  public boolean experimentalPlatformCcTest;
+      help = "If enabled, a Starlark version of compiling is used.")
+  public boolean experimentalStarlarkCompiling;
 
   /** See {@link #targetLibcTopLabel} documentation. * */
   @Override

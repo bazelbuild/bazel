@@ -307,8 +307,10 @@ EOF
 }
 
 function test_cc_binary() {
+  add_rules_cc "MODULE.bazel"
   mkdir -p a
   cat > a/BUILD <<EOF
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 package(default_visibility = ["//visibility:public"])
 cc_binary(
 name = 'test',
@@ -334,8 +336,10 @@ EOF
 }
 
 function test_cc_test() {
+  add_rules_cc "MODULE.bazel"
   mkdir -p a
   cat > a/BUILD <<EOF
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
 package(default_visibility = ["//visibility:public"])
 cc_test(
 name = 'test',
@@ -356,8 +360,10 @@ EOF
 }
 
 function test_cc_test_split_xml() {
+  add_rules_cc "MODULE.bazel"
   mkdir -p a
   cat > a/BUILD <<EOF
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
 package(default_visibility = ["//visibility:public"])
 cc_test(
 name = 'test',
@@ -378,8 +384,10 @@ EOF
 }
 
 function test_cc_binary_grpc_cache() {
+  add_rules_cc "MODULE.bazel"
   mkdir -p a
   cat > a/BUILD <<EOF
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 package(default_visibility = ["//visibility:public"])
 cc_binary(
 name = 'test',
@@ -404,8 +412,10 @@ EOF
 }
 
 function test_cc_binary_grpc_cache_statsline() {
+  add_rules_cc "MODULE.bazel"
   mkdir -p a
   cat > a/BUILD <<EOF
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 package(default_visibility = ["//visibility:public"])
 cc_binary(
 name = 'test',
@@ -428,8 +438,10 @@ EOF
 }
 
 function test_failing_cc_test() {
+  add_rules_cc "MODULE.bazel"
   mkdir -p a
   cat > a/BUILD <<EOF
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
 package(default_visibility = ["//visibility:public"])
 cc_test(
 name = 'test',
@@ -616,8 +628,10 @@ function is_file_uploaded() {
 function test_failed_test_outputs_not_uploaded() {
   # Test that outputs of a failed test/action are not uploaded to the remote
   # cache. This is a regression test for https://github.com/bazelbuild/bazel/issues/7232
+  add_rules_cc "MODULE.bazel"
   mkdir -p a
   cat > a/BUILD <<EOF
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
 package(default_visibility = ["//visibility:public"])
 cc_test(
   name = 'test',
@@ -671,8 +685,10 @@ EOF
 }
 
 function test_py_test() {
+  add_rules_python "MODULE.bazel"
   mkdir -p a
   cat > a/BUILD <<EOF
+load("@rules_python//python:py_test.bzl", "py_test")
 package(default_visibility = ["//visibility:public"])
 py_test(
 name = 'test',
@@ -693,8 +709,10 @@ EOF
 }
 
 function test_py_test_with_xml_output() {
+  add_rules_python "MODULE.bazel"
   mkdir -p a
   cat > a/BUILD <<EOF
+load("@rules_python//python:py_test.bzl", "py_test")
 package(default_visibility = ["//visibility:public"])
 py_test(
 name = 'test',
@@ -731,8 +749,10 @@ EOF
 }
 
 function test_failing_py_test_with_xml_output() {
+  add_rules_python "MODULE.bazel"
   mkdir -p a
   cat > a/BUILD <<EOF
+load("@rules_python//python:py_test.bzl", "py_test")
 package(default_visibility = ["//visibility:public"])
 py_test(
 name = 'test',
@@ -795,8 +815,10 @@ EOF
 }
 
 function test_timeout() {
+  add_rules_shell "MODULE.bazel"
   mkdir -p a
   cat > a/BUILD <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 sh_test(
   name = "sleep",
   timeout = "short",
@@ -828,8 +850,10 @@ EOF
 }
 
 function test_passed_env_user() {
+  add_rules_shell "MODULE.bazel"
   mkdir -p a
   cat > a/BUILD <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 sh_test(
   name = "user_test",
   timeout = "short",
@@ -885,8 +909,10 @@ EOF
 # For example, if the network connection to the remote executor fails it shouldn't be displayed as
 # a test error.
 function test_display_non_testerrors() {
+  add_rules_shell "MODULE.bazel"
   mkdir -p a
   cat > a/BUILD <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 sh_test(
   name = "test",
   timeout = "short",
@@ -1221,7 +1247,7 @@ EOF
 
 function test_nobuild_runfile_links() {
   mkdir data && echo "hello" > data/hello && echo "world" > data/world
-
+  add_rules_shell "MODULE.bazel"
   cat > test.sh <<'EOF'
 #!/bin/bash
 set -e
@@ -1231,6 +1257,8 @@ exit 0
 EOF
   chmod 755 test.sh
   cat > BUILD <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
 filegroup(
   name = "runfiles",
   srcs = ["data/hello", "data/world"],
@@ -2043,6 +2071,7 @@ EOF
 }
 
 function setup_exclusive_test_case() {
+  add_rules_shell "MODULE.bazel"
   mkdir -p a
   cat > a/success.sh <<'EOF'
 #!/bin/sh
@@ -2050,6 +2079,7 @@ exit 0
 EOF
   chmod 755 a/success.sh
   cat > a/BUILD <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 sh_test(
   name = "success_test",
   srcs = ["success.sh"],
@@ -2125,6 +2155,7 @@ function test_exclusive_test_wont_remote_exec() {
 # runfiles. The error we would see here without the flag would be "Cannot find
 # runfiles". See #4685.
 function test_java_rbe_coverage_produces_report() {
+  add_rules_java "MODULE.bazel"
   mkdir -p java/factorial
 
   JAVA_TOOLS_ZIP="released"
@@ -2133,6 +2164,9 @@ function test_java_rbe_coverage_produces_report() {
   cd java/factorial
 
   cat > BUILD <<'EOF'
+load("@rules_java//java:java_library.bzl", "java_library")
+load("@rules_java//java:java_test.bzl", "java_test")
+
 java_library(
     name = "fact",
     srcs = ["Factorial.java"],
@@ -2412,10 +2446,14 @@ function test_cc_rbe_coverage_produces_report() {
   # Check to see if intermediate files are supported, otherwise skip.
   gcov --help | grep "\-i," || return 0
 
+  add_rules_cc "MODULE.bazel"
   local test_dir="a/cc/coverage_test"
   mkdir -p $test_dir
 
   cat > "$test_dir"/BUILD <<'EOF'
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
 package(default_visibility = ["//visibility:public"])
 
 cc_library(
@@ -2547,10 +2585,15 @@ function test_cc_rbe_coverage_produces_report_with_llvm() {
     return 0
   fi
 
+  add_rules_cc "MODULE.bazel"
   local test_dir="a/cc/coverage_test"
   mkdir -p $test_dir
 
   cat > "$test_dir"/BUILD <<'EOF'
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
 package(default_visibility = ["//visibility:public"])
 
 cc_library(
@@ -2640,7 +2683,7 @@ int main(int argc, char** argv) {
 
 EOF
 
-  BAZEL_USE_LLVM_NATIVE_COVERAGE=1 GCOV=llvm-profdata BAZEL_LLVM_COV=llvm-cov CC=clang \
+  BAZEL_USE_LLVM_NATIVE_COVERAGE=1 BAZEL_LLVM_PROFDATA=llvm-profdata BAZEL_LLVM_COV=llvm-cov CC=clang \
     bazel coverage \
       --test_output=all \
       --experimental_fetch_all_coverage_outputs \
@@ -2681,8 +2724,11 @@ EOF
 }
 
 function test_async_upload_works_for_flaky_tests() {
+  add_rules_shell "MODULE.bazel"
   mkdir -p a
   cat > a/BUILD <<EOF
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
 sh_test(
     name = "test",
     srcs = ["test.sh"],
@@ -2763,8 +2809,10 @@ function test_local_test_execution_with_disk_cache() {
   # considered stale on a cache hit.
   # Regression test for https://github.com/bazelbuild/bazel/issues/14426.
 
+  add_rules_shell "MODULE.bazel"
   mkdir -p a
   cat > a/BUILD <<EOF
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 sh_test(
   name = 'test',
   srcs = ['test.sh'],
@@ -3021,12 +3069,14 @@ local_repository(
   path = "other_repo",
 )
 EOF
+  add_rules_cc "MODULE.bazel"
 
   mkdir -p other_repo
   touch other_repo/REPO.bazel
 
   mkdir -p other_repo/lib
   cat > other_repo/lib/BUILD <<'EOF'
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 cc_library(
   name = "lib",
   srcs = ["lib.cpp"],
@@ -3046,6 +3096,7 @@ EOF
 
   mkdir -p other_repo/test
   cat > other_repo/test/BUILD <<'EOF'
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
 cc_test(
   name = "test",
   srcs = ["test.cpp"],
@@ -3178,13 +3229,14 @@ function setup_cc_binary_tool_with_dynamic_deps() {
   local repo=$1
 
   cat >> MODULE.bazel <<'EOF'
-bazel_dep(name = "apple_support", version = "1.17.0")
+bazel_dep(name = "apple_support", version = "1.21.0")
 local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(
   name = "other_repo",
   path = "other_repo",
 )
 EOF
+  add_rules_cc "MODULE.bazel"
 
   mkdir -p $repo
   touch $repo/REPO.bazel
@@ -3193,6 +3245,9 @@ EOF
   # Use a comma in the target name as that is known to be problematic whith -Wl,
   # which is commonly used to pass rpaths to the linker.
   cat > $repo/lib/BUILD <<'EOF'
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+load("@rules_cc//cc:cc_import.bzl", "cc_import")
+
 cc_binary(
   name = "l,ib",
   srcs = ["lib.cpp"],
@@ -3219,6 +3274,8 @@ EOF
 
   mkdir -p $repo/pkg
   cat > $repo/pkg/BUILD <<'EOF'
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+
 cc_binary(
   name = "tool",
   srcs = ["tool.cpp"],
@@ -3244,7 +3301,6 @@ function test_cc_binary_tool_with_dynamic_deps() {
   setup_cc_binary_tool_with_dynamic_deps .
 
   bazel build \
-      --incompatible_macos_set_install_name \
       --remote_executor=grpc://localhost:${worker_port} \
       //pkg:rule >& $TEST_log || fail "Build should succeed"
 }
@@ -3253,7 +3309,6 @@ function test_cc_binary_tool_with_dynamic_deps_sibling_repository_layout() {
   setup_cc_binary_tool_with_dynamic_deps .
 
   bazel build \
-      --incompatible_macos_set_install_name \
       --experimental_sibling_repository_layout \
       --remote_executor=grpc://localhost:${worker_port} \
       //pkg:rule >& $TEST_log || fail "Build should succeed"
@@ -3263,7 +3318,6 @@ function test_external_cc_binary_tool_with_dynamic_deps() {
   setup_cc_binary_tool_with_dynamic_deps other_repo
 
   bazel build \
-      --incompatible_macos_set_install_name \
       --remote_executor=grpc://localhost:${worker_port} \
       @other_repo//pkg:rule >& $TEST_log || fail "Build should succeed"
 }
@@ -3272,14 +3326,15 @@ function test_external_cc_binary_tool_with_dynamic_deps_sibling_repository_layou
   setup_cc_binary_tool_with_dynamic_deps other_repo
 
   bazel build \
-      --incompatible_macos_set_install_name \
       --experimental_sibling_repository_layout \
       --remote_executor=grpc://localhost:${worker_port} \
       @other_repo//pkg:rule >& $TEST_log || fail "Build should succeed"
 }
 
 function test_shard_status_file_checked_remote_download_minimal() {
+  add_rules_shell "MODULE.bazel"
   cat <<'EOF' > BUILD
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 sh_test(
     name = 'x',
     srcs = ['x.sh'],
@@ -3305,7 +3360,9 @@ EOF
 }
 
 function test_premature_exit_file_checked_remote_download_minimal() {
+  add_rules_shell "MODULE.bazel"
   cat <<'EOF' > BUILD
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 sh_test(
     name = 'x',
     srcs = ['x.sh'],
@@ -3449,7 +3506,29 @@ function test_platform_no_remote_exec_test_action() {
 exit 0
 EOF
   chmod 755 a/test.sh
+  cat > a/rule.bzl <<'EOF'
+def _my_test(ctx):
+  script = ctx.actions.declare_file(ctx.label.name)
+  ctx.actions.run_shell(
+    outputs = [script],
+    command = """
+cat > $1 <<'EOF2'
+#!/usr/bin/env sh
+exit 0
+EOF2
+chmod +x $1
+""",
+    arguments = [script.path],
+  )
+  return [DefaultInfo(executable = script)]
+my_test = rule(
+  implementation = _my_test,
+  test = True,
+)
+EOF
   cat > a/BUILD <<'EOF'
+load(":rule.bzl", "my_test")
+
 constraint_setting(name = "foo")
 
 constraint_value(
@@ -3460,11 +3539,14 @@ constraint_value(
 
 platform(
     name = "host",
-    constraint_values = [":has_foo"],
+    constraint_values = [
+        "@platforms//cpu:x86_64",
+        "@platforms//os:linux",
+        ":has_foo",
+    ],
     exec_properties = {
-        "no-remote-exec": "1",
+        "test.no-remote-exec": "1",
     },
-    parents = ["@bazel_tools//tools:host_platform"],
     visibility = ["//visibility:public"],
 )
 
@@ -3480,36 +3562,31 @@ platform(
     },
 )
 
-sh_test(
+my_test(
     name = "test",
-    srcs = ["test.sh"],
-    exec_compatible_with = [":has_foo"],
+    exec_group_compatible_with = {
+        "test": [":has_foo"],
+    },
 )
 
-sh_test(
+my_test(
     name = "test2",
-    srcs = ["test.sh"],
-    exec_compatible_with = [":has_foo"],
-    target_compatible_with = [":has_foo"],
+    exec_properties = {
+        "test.no-remote-exec": "1",
+    },
 )
 EOF
 
-  # A test target includes 2 actions: 1 build action (a) and 1 test action (b)
-  # This test currently demonstrates that:
-  #  - (b) would always be executed on Bazel's target platform, set by "--platforms=" flag.
-  #  - Regardless of 'no-remote-exec' set on (b)'s platform, (b) would still be executed remotely.
-  #    The remote test action will be sent with `"no-remote-exec": "1"` in it's platform.
-  #
-  # TODO: Make this test's result consistent with 'test_platform_no_remote_exec'.
-  # Test action (b) should be executed locally instead of remotely in this setup.
-
+  # A my_test target includes 2 actions: 1 build action (a) and 1 test action (b),
+  # with (b) running two spawns (test execution, test XML generation).
+  # The genrule spawn runs remotely, both test spawns run locally.
   bazel test \
     --extra_execution_platforms=//a:remote,//a:host \
     --platforms=//a:remote \
     --spawn_strategy=remote,local \
     --remote_executor=grpc://localhost:${worker_port} \
     //a:test >& $TEST_log || fail "Failed to test //a:test"
-  expect_log "1 local, 1 remote"
+  expect_log "2 local, 1 remote"
 
   bazel test \
     --extra_execution_platforms=//a:remote,//a:host \
@@ -3517,7 +3594,7 @@ EOF
     --spawn_strategy=remote,local \
     --remote_executor=grpc://localhost:${worker_port} \
     //a:test2 >& $TEST_log || fail "Failed to test //a:test2"
-  expect_log "1 local, 1 remote"
+  expect_log "2 local, 1 remote"
 
   bazel clean
 
@@ -3527,7 +3604,7 @@ EOF
     --spawn_strategy=remote,local \
     --remote_executor=grpc://localhost:${worker_port} \
     //a:test >& $TEST_log || fail "Failed to test //a:test"
-  expect_log "2 remote cache hit"
+  expect_log "3 remote cache hit"
 
   bazel test \
     --extra_execution_platforms=//a:remote,//a:host \
@@ -3535,10 +3612,11 @@ EOF
     --spawn_strategy=remote,local \
     --remote_executor=grpc://localhost:${worker_port} \
     //a:test2 >& $TEST_log || fail "Failed to test //a:test2"
-  expect_log "2 remote cache hit"
+  expect_log "3 remote cache hit"
 }
 
 function setup_inlined_outputs() {
+  add_rules_shell "MODULE.bazel"
   mkdir -p a
   cat > a/input.txt <<'EOF'
 input
@@ -3579,6 +3657,7 @@ my_rule = rule(
 EOF
   cat > a/BUILD <<'EOF'
 load("//a:defs.bzl", "my_rule")
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 
 my_rule(
   name = "my_rule",

@@ -20,7 +20,6 @@ import static java.lang.Math.min;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
 import com.google.errorprone.annotations.CheckReturnValue;
@@ -300,6 +299,8 @@ public final class Starlark {
     }
   }
 
+  private static final Object[] EMPTY = {};
+
   /**
    * Returns the length of a Starlark string, sequence (such as a list or tuple), dict, or other
    * iterable, as if by the Starlark expression {@code len(x)}, or -1 if the value is valid but has
@@ -312,6 +313,8 @@ public final class Starlark {
       return ((Sequence) x).size();
     } else if (x instanceof Dict) {
       return ((Dict) x).size();
+    } else if (x instanceof StarlarkSet) {
+      return ((StarlarkSet) x).size();
     } else if (x instanceof StarlarkIterable) {
       // Iterables.size runs in constant time if x implements Collection.
       return Iterables.size((Iterable<?>) x);
@@ -581,17 +584,20 @@ public final class Starlark {
    * processors interpreting indented parts of the original string as special formatting (e.g. code
    * blocks in the case of Markdown).
    */
+  // TODO: Pass in StarlarkSemantics as an argument rather than using StarlarkSemantics.DEFAULT.
   public static String trimDocString(String docString) {
     ImmutableList<String> lines = expandTabs(docString, 8).lines().collect(toImmutableList());
     if (lines.isEmpty()) {
       return "";
     }
     // First line is special: we fully strip it and ignore it for leading spaces calculation
-    String firstLineTrimmed = StringModule.INSTANCE.strip(lines.get(0), NONE);
+    String firstLineTrimmed =
+        StringModule.INSTANCE.stripSemantics(lines.get(0), NONE, StarlarkSemantics.DEFAULT);
     Iterable<String> subsequentLines = Iterables.skip(lines, 1);
     int minLeadingSpaces = Integer.MAX_VALUE;
     for (String line : subsequentLines) {
-      String strippedLeading = StringModule.INSTANCE.lstrip(line, NONE);
+      String strippedLeading =
+          StringModule.INSTANCE.lstripSemantics(line, NONE, StarlarkSemantics.DEFAULT);
       if (!strippedLeading.isEmpty()) {
         int leadingSpaces = line.length() - strippedLeading.length();
         minLeadingSpaces = min(leadingSpaces, minLeadingSpaces);
@@ -609,11 +615,14 @@ public final class Starlark {
         result.append("\n");
       }
       if (line.length() > minLeadingSpaces) {
-        result.append(StringModule.INSTANCE.rstrip(line.substring(minLeadingSpaces), NONE));
+        result.append(
+            StringModule.INSTANCE.rstripSemantics(
+                line.substring(minLeadingSpaces), NONE, StarlarkSemantics.DEFAULT));
       }
     }
     // Remove trailing empty lines
-    return StringModule.INSTANCE.rstrip(result.toString(), NONE);
+    return StringModule.INSTANCE.rstripSemantics(
+        result.toString(), NONE, StarlarkSemantics.DEFAULT);
   }
 
   /**
@@ -764,13 +773,16 @@ public final class Starlark {
   public static Object call(
       StarlarkThread thread, Object fn, List<Object> args, Map<String, Object> kwargs)
       throws EvalException, InterruptedException {
-    Object[] named = new Object[2 * kwargs.size()];
-    int i = 0;
-    for (Map.Entry<String, Object> e : kwargs.entrySet()) {
-      named[i++] = e.getKey();
-      named[i++] = Starlark.checkValid(e.getValue());
+    StarlarkCallable callable = getStarlarkCallable(thread, fn);
+    StarlarkCallable.ArgumentProcessor argumentProcessor =
+        requestArgumentProcessor(thread, callable);
+    for (Object arg : args) {
+      argumentProcessor.addPositionalArg(arg);
     }
-    return fastcall(thread, fn, args.toArray(), named);
+    for (Map.Entry<String, Object> e : kwargs.entrySet()) {
+      argumentProcessor.addNamedArg(e.getKey(), Starlark.checkValid(e.getValue()));
+    }
+    return callViaArgumentProcessor(thread, callable, argumentProcessor);
   }
 
   /**
@@ -786,22 +798,14 @@ public final class Starlark {
    * Starlark call stack rather than the Java call stack. The original throwable (and the Java call
    * stack) may be retrieved using {@link Throwable#getCause}.
    */
+  // TODO(b/380824219): Remove this method once callWithArguments has been implemented on all
+  // StarlarkCallable implementations that currently implement fastcall, plus a default
+  // implementation in StarlarkCallable that forwards to StarlarkCallable.call().
   public static Object fastcall(
-      StarlarkThread thread, Object fn, Object[] positional, Object[] named)
+      StarlarkThread thread, StarlarkCallable callable, Object[] positional, Object[] named)
       throws EvalException, InterruptedException {
-    StarlarkCallable callable;
-    if (fn instanceof StarlarkCallable) {
-      callable = (StarlarkCallable) fn;
-    } else {
-      // @StarlarkMethod(selfCall)?
-      MethodDescriptor desc =
-          CallUtils.getSelfCallMethodDescriptor(thread.getSemantics(), fn.getClass());
-      if (desc == null) {
-        throw errorf("'%s' object is not callable", type(fn));
-      }
-      callable = new BuiltinFunction(fn, desc.getName(), desc);
-    }
 
+    // LINT.IfChange(fastcall)
     thread.push(callable);
     try {
       return callable.fastcall(thread, positional, named);
@@ -817,6 +821,98 @@ public final class Starlark {
     } finally {
       thread.pop();
     }
+    // LINT.ThenChange(:positionalOnlyCall)
+  }
+
+  /**
+   * Calls the a function-like value in the specified thread via the given ArgumentProcessor which
+   * previously has been returned by {@link #requestArgumentProcessor} and has been populated with
+   * the arguments.
+   *
+   * <p>If the call throws an unchecked throwable, regardless of whether it originates in a
+   * user-defined built-in function or a bug in the interpreter itself, the throwable is wrapped by
+   * {@link UncheckedEvalException} (for {@link RuntimeException}) or {@link UncheckedEvalError}
+   * (for {@link Error}). The {@linkplain Throwable#getStackTrace stack trace} will reflect the
+   * Starlark call stack rather than the Java call stack. The original throwable (and the Java call
+   * stack) may be retrieved using {@link Throwable#getCause}.
+   */
+  public static Object callViaArgumentProcessor(
+      StarlarkThread thread,
+      StarlarkCallable callable,
+      StarlarkCallable.ArgumentProcessor argumentProcessor)
+      throws EvalException, InterruptedException {
+    thread.push(callable);
+    try {
+      return argumentProcessor.call(thread);
+    } catch (UncheckedEvalException | UncheckedEvalError ex) {
+      throw ex; // already wrapped
+    } catch (RuntimeException ex) {
+      throw new UncheckedEvalException(ex, thread);
+    } catch (Error ex) {
+      throw new UncheckedEvalError(ex, thread);
+    } catch (EvalException ex) {
+      // If this exception was newly thrown, set its stack.
+      throw ex.ensureStack(thread);
+    } finally {
+      thread.pop();
+    }
+  }
+
+  /**
+   * Calls the function-like value {@code fn} in the specified thread, passing it only positional
+   * arguments in the "fastcall" array representation.
+   *
+   * <p>The caller must not subsequently modify or even inspect the array.
+   *
+   * <p>If the call throws an unchecked throwable, regardless of whether it originates in a
+   * user-defined built-in function or a bug in the interpreter itself, the throwable is wrapped by
+   * {@link UncheckedEvalException} (for {@link RuntimeException}) or {@link UncheckedEvalError}
+   * (for {@link Error}). The {@linkplain Throwable#getStackTrace stack trace} will reflect the
+   * Starlark call stack rather than the Java call stack. The original throwable (and the Java call
+   * stack) may be retrieved using {@link Throwable#getCause}.
+   */
+  public static Object positionalOnlyCall(
+      StarlarkThread thread, StarlarkCallable callable, Object... positional)
+      throws EvalException, InterruptedException {
+    // LINT.IfChange(positionalOnlyCall)
+    thread.push(callable);
+    try {
+      return callable.positionalOnlyCall(thread, positional);
+    } catch (UncheckedEvalException | UncheckedEvalError ex) {
+      throw ex; // already wrapped
+    } catch (RuntimeException ex) {
+      throw new UncheckedEvalException(ex, thread);
+    } catch (Error ex) {
+      throw new UncheckedEvalError(ex, thread);
+    } catch (EvalException ex) {
+      // If this exception was newly thrown, set its stack.
+      throw ex.ensureStack(thread);
+    } finally {
+      thread.pop();
+    }
+    // LINT.ThenChange(:fastcall)
+  }
+
+  static StarlarkCallable getStarlarkCallable(StarlarkThread thread, Object fn)
+      throws EvalException {
+    StarlarkCallable callable;
+    if (fn instanceof StarlarkCallable starlarkCallable) {
+      callable = starlarkCallable;
+    } else {
+      // @StarlarkMethod(selfCall)?
+      MethodDescriptor desc =
+          CallUtils.getSelfCallMethodDescriptor(thread.getSemantics(), fn.getClass());
+      if (desc == null) {
+        throw errorf("'%s' object is not callable", type(fn));
+      }
+      callable = new BuiltinFunction(fn, desc.getName(), desc);
+    }
+    return callable;
+  }
+
+  public static StarlarkCallable.ArgumentProcessor requestArgumentProcessor(
+      StarlarkThread thread, StarlarkCallable callable) throws EvalException {
+    return callable.requestArgumentProcessor(thread);
   }
 
   /**
@@ -899,8 +995,7 @@ public final class Starlark {
     }
 
     // user-defined field?
-    if (x instanceof Structure) {
-      Structure struct = (Structure) x;
+    if (x instanceof Structure struct) {
       Object field = struct.getValue(semantics, name);
       if (field != null) {
         return Starlark.checkValid(field);
@@ -939,27 +1034,6 @@ public final class Starlark {
   }
 
   // --- methods related to StarlarkMethod-annotated classes ---
-
-  /**
-   * Returns the value of the named field of Starlark value {@code x}, as defined by a Java method
-   * with a {@code StarlarkMethod(structField=true)} annotation.
-   *
-   * <p>Most callers should use {@link #getattr} instead.
-   */
-  public static Object getAnnotatedField(StarlarkSemantics semantics, Object x, String name)
-      throws EvalException, InterruptedException {
-    return CallUtils.getAnnotatedField(semantics, x, name);
-  }
-
-  /**
-   * Returns the names of the fields of Starlark value {@code x}, as defined by Java methods with
-   * {@code StarlarkMethod(structField=true)} annotations under the specified semantics.
-   *
-   * <p>Most callers should use {@link #dir} instead.
-   */
-  public static ImmutableSet<String> getAnnotatedFieldNames(StarlarkSemantics semantics, Object x) {
-    return CallUtils.getAnnotatedFieldNames(semantics, x);
-  }
 
   /**
    * Returns a map of Java methods and corresponding StarlarkMethod annotations for each annotated
@@ -1017,16 +1091,7 @@ public final class Starlark {
             String.format("addMethods(%s): method %s has structField=true", cls.getName(), name));
       }
 
-      // We use the 2-arg (desc=null) BuiltinFunction constructor instead of passing
-      // the descriptor that CallUtils.getAnnotatedMethod would return,
-      // because most calls to addMethods implicitly pass StarlarkSemantics.DEFAULT,
-      // which is probably the wrong semantics for the later call.
-      //
-      // The effect is that the default semantics determine which method names are
-      // statically available in the environment, but the thread's semantics determine
-      // the dynamic behavior of the method call; this includes a run-time check for
-      // whether the method was disabled by the semantics.
-      env.put(name, new BuiltinFunction(v, name));
+      env.put(name, new BuiltinFunction(v, name, e.getValue()));
     }
   }
 
@@ -1098,10 +1163,8 @@ public final class Starlark {
             /* defaultValues= */ Tuple.empty(),
             /* freevars= */ Tuple.empty(),
             thread.getNextIdentityToken());
-    return Starlark.fastcall(thread, toplevel, EMPTY, EMPTY);
+    return Starlark.positionalOnlyCall(thread, toplevel);
   }
-
-  private static final Object[] EMPTY = {};
 
   /**
    * Parses the input as an expression, resolves it in the specified module environment, compiles
@@ -1115,7 +1178,7 @@ public final class Starlark {
       ParserInput input, FileOptions options, Module module, StarlarkThread thread)
       throws SyntaxError.Exception, EvalException, InterruptedException {
     StarlarkFunction fn = newExprFunction(input, options, module, thread.getNextIdentityToken());
-    return Starlark.fastcall(thread, fn, EMPTY, EMPTY);
+    return Starlark.positionalOnlyCall(thread, fn);
   }
 
   /** Variant of {@link #eval} that creates a module for the given predeclared environment. */

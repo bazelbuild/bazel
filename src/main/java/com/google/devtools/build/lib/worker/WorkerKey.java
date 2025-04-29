@@ -27,7 +27,7 @@ import java.util.SortedMap;
 
 /**
  * Data container that uniquely identifies a kind of worker process and is used as the key for the
- * {@link WorkerPoolImplLegacy}.
+ * {@link WorkerPoolImpl}.
  *
  * <p>We expect a small number of WorkerKeys per mnemonic. Unbounded creation of WorkerKeys will
  * break various things as well as render the workers less useful.
@@ -90,7 +90,7 @@ public final class WorkerKey {
       WorkerProtocolFormat protocolFormat) {
     this.args = Preconditions.checkNotNull(args);
     this.env = Preconditions.checkNotNull(env);
-    this.execRoot = Preconditions.checkNotNull(execRoot);
+    this.execRoot = Preconditions.checkNotNull(execRoot.devirtualize());
     this.mnemonic = Preconditions.checkNotNull(mnemonic);
     this.workerFilesCombinedHash = Preconditions.checkNotNull(workerFilesCombinedHash);
     this.workerFilesWithDigests = Preconditions.checkNotNull(workerFilesWithDigests);
@@ -101,6 +101,7 @@ public final class WorkerKey {
     this.protocolFormat = protocolFormat;
     hash = calculateHashCode();
   }
+
 
   public ImmutableList<String> getArgs() {
     return args;
@@ -198,7 +199,6 @@ public final class WorkerKey {
       return false;
     }
     return mnemonic.equals(workerKey.mnemonic);
-
   }
 
   /** Since all fields involved in the {@code hashCode} are final, we cache the result. */
@@ -235,6 +235,7 @@ public final class WorkerKey {
         /* environmentVariablesToClear= */ null,
         execRoot.getPathString(),
         /* configurationChecksum= */ null,
-        /* executionPlatformLabel= */ null);
+        /* executionPlatformLabel= */ null,
+        /* spawnRunner= */ getWorkerTypeName());
   }
 }

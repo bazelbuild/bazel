@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
-import com.google.devtools.build.lib.packages.License.LicenseType;
 import com.google.devtools.build.lib.packages.PackageValidator.InvalidPackageException;
 import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -86,7 +85,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
   @Test
   public void testCreatePackage() throws Exception {
     scratch.file("pkgname/BUILD", "# empty build file ");
-    Package pkg = loadPackage("pkgname");
+    Package pkg = getPackage("pkgname");
     assertThat(pkg.getName()).isEqualTo("pkgname");
     assertThat(Sets.newHashSet(pkg.getTargets(Rule.class))).isEmpty();
   }
@@ -95,7 +94,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
   public void testBadRuleName() throws Exception {
     reporter.removeHandler(failFastHandler);
     scratch.file("badrulename/BUILD", "cc_library(name = 3)");
-    Package pkg = loadPackage("badrulename");
+    Package pkg = getPackage("badrulename");
     assertContainsEvent("cc_library 'name' attribute must be a string");
     assertThat(pkg.containsErrors()).isTrue();
   }
@@ -104,7 +103,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
   public void testNoRuleName() throws Exception {
     reporter.removeHandler(failFastHandler);
     scratch.file("badrulename/BUILD", "cc_library()");
-    Package pkg = loadPackage("badrulename");
+    Package pkg = getPackage("badrulename");
     assertContainsEvent("cc_library rule has no 'name' attribute");
     assertThat(pkg.containsErrors()).isTrue();
   }
@@ -114,7 +113,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
     // This is a "shallow" syntactic error: failure to form the
     // PackageIdentifier that is the real argument to loadPackage.
     LabelSyntaxException e =
-        assertThrows(LabelSyntaxException.class, () -> loadPackage("not even a legal/.../label"));
+        assertThrows(LabelSyntaxException.class, () -> getPackage("not even a legal/.../label"));
     assertThat(e).hasMessageThat().contains("invalid package name 'not even a legal/.../label'");
   }
 
@@ -123,7 +122,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
     reporter.removeHandler(failFastHandler);
     scratch.file(
         "googledata/cafe/BUILD", "exports_files(['houseads/house_ads:ca-aol_parenting_html'])");
-    Package pkg = loadPackage("googledata/cafe");
+    Package pkg = getPackage("googledata/cafe");
     assertContainsEvent("target names may not contain ':'");
     assertThat(pkg.getTargets(FileTarget.class).toString())
         .doesNotContain("houseads/house_ads:ca-aol_parenting_html");
@@ -158,7 +157,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
   private boolean isValidPackageName(String packageName) throws Exception {
     // Write a license decl just in case it's a third_party package:
     scratch.file(packageName + "/BUILD", "licenses(['notice'])");
-    Package pkg = loadPackage(packageName);
+    Package pkg = getPackage(packageName);
     return !pkg.containsErrors();
   }
 
@@ -172,7 +171,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
         cc_library(name='has_dupe', deps=[':dep', ':dep'])
         """);
 
-    Package pkg = loadPackage("has_dupe");
+    Package pkg = getPackage("has_dupe");
     assertContainsEvent(
         "Label '//has_dupe:dep' is duplicated in the 'deps' attribute of rule 'has_dupe'");
     assertThat(pkg.containsErrors()).isTrue();
@@ -188,7 +187,8 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
     reporter.removeHandler(failFastHandler);
     scratch.file(
         "fruit/orange/BUILD", "genrule(name='orange', srcs=[], outs=['a', 'a/b'], cmd='')");
-    loadPackage("fruit/orange");
+    Package pkg = getPackage("fruit/orange");
+    assertThat(pkg.containsErrors()).isTrue();
     assertContainsEvent("rule 'orange' has conflicting output files 'a/b' and 'a");
   }
 
@@ -197,7 +197,8 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
     reporter.removeHandler(failFastHandler);
     scratch.file(
         "fruit/orange/BUILD", "genrule(name='orange', srcs=[], outs=['a/b', 'a'], cmd='')");
-    loadPackage("fruit/orange");
+    Package pkg = getPackage("fruit/orange");
+    assertThat(pkg.containsErrors()).isTrue();
     assertContainsEvent("rule 'orange' has conflicting output files 'a' and 'a/b");
   }
 
@@ -210,7 +211,8 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
         genrule(name='kiwi1', srcs=[], outs=['a'], cmd='')
         genrule(name='kiwi2', srcs=[], outs=['a/b'], cmd='')
         """);
-    loadPackage("fruit/kiwi");
+    Package pkg = getPackage("fruit/kiwi");
+    assertThat(pkg.containsErrors()).isTrue();
     assertContainsEvent(
         "output file 'a/b' of rule 'kiwi2' conflicts with output file 'a' of rule 'kiwi1'");
   }
@@ -224,7 +226,8 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
         genrule(name='kiwi1', srcs=[], outs=['a/b'], cmd='')
         genrule(name='kiwi2', srcs=[], outs=['a'], cmd='')
         """);
-    loadPackage("fruit/kiwi");
+    Package pkg = getPackage("fruit/kiwi");
+    assertThat(pkg.containsErrors()).isTrue();
     assertContainsEvent(
         "output file 'a' of rule 'kiwi2' conflicts with output file 'a/b' of rule 'kiwi1'");
   }
@@ -232,7 +235,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
   @Test
   public void testPackageNameFunction() throws Exception {
     scratch.file("pina/BUILD", "cc_library(name=package_name() + '-colada')");
-    Package pkg = loadPackage("pina");
+    Package pkg = getPackage("pina");
     assertNoEvents();
     assertThat(pkg.containsErrors()).isFalse();
     assertThat(pkg.getRule("pina-colada")).isNotNull();
@@ -246,14 +249,14 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
     scratch.file(
         "duplicaterulename/BUILD",
         """
-        proto_library(name = 'spellcheck_proto',
+        filegroup(name = 'spellcheck_proto',
                  srcs = ['spellcheck.proto'])
         cc_library(name = 'spellcheck_proto')  # conflict error stops execution
         x = 1//0  # not reached
         """);
-    Package pkg = loadPackage("duplicaterulename");
+    Package pkg = getPackage("duplicaterulename");
     assertContainsEvent(
-        "cc_library rule 'spellcheck_proto' conflicts with" + " existing proto_library rule");
+        "cc_library rule 'spellcheck_proto' conflicts with" + " existing filegroup rule");
     assertDoesNotContainEvent("division by zero");
     assertThat(pkg.containsErrors()).isTrue();
   }
@@ -264,7 +267,8 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
     Target target = getTarget("//foo:BUILD");
     assertThat(target.getName()).isEqualTo("BUILD");
     // Test that it's memoized:
-    assertThat(target.getPackage().getTarget("BUILD")).isSameInstanceAs(target);
+    assertThat(getPackage(target.getLabel().getPackageIdentifier()).getTarget("BUILD"))
+        .isSameInstanceAs(target);
   }
 
   @Test
@@ -277,7 +281,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
         "cc_library(name='W', deps=['X', 'Y', 'A'])",
         "cc_library(name='X', srcs=['X'])",
         "cc_library(name='Y')");
-    Package pkg = loadPackage("foo");
+    Package pkg = getPackage("foo");
     assertThat(pkg.containsErrors()).isFalse();
 
     // X is a rule with a circular self-dependency.
@@ -296,8 +300,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
         .containsExactly(RuleVisibility.PUBLIC_LABEL);
     assertThat(((VisibilityLicenseSpecifiedInputFile) exportFileTarget).isLicenseSpecified())
         .isTrue();
-    assertThat(exportFileTarget.getLicense().getLicenseTypes())
-        .containsExactly(LicenseType.RESTRICTED);
+    assertThat(exportFileTarget.getLicense()).containsExactly("restricted");
 
     // A is an input file with private visibility
     Target inputFileTarget = pkg.getTarget("A");
@@ -326,20 +329,20 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
     scratch.file(
         "dup/BUILD",
         """
-        proto_library(name = 'dup_proto',
+        filegroup(name = 'dup_proto',
                       srcs  = ['dup.proto'])
 
         cc_library(name = 'dup_proto',
                    srcs = ['dup.pb.cc', 'dup.pb.h'])
         """);
-    Package pkg = loadPackage("dup");
-    assertContainsEvent("cc_library rule 'dup_proto' conflicts with existing proto_library rule");
+    Package pkg = getPackage("dup");
+    assertContainsEvent("cc_library rule 'dup_proto' conflicts with existing filegroup rule");
     assertThat(pkg.containsErrors()).isTrue();
 
     Rule dupProto = pkg.getRule("dup_proto");
     // Check that the first rule of the given name "wins", and that each of the
     // "winning" rule's outputs is a member of the package.
-    assertThat(dupProto.getRuleClass()).isEqualTo("proto_library");
+    assertThat(dupProto.getRuleClass()).isEqualTo("filegroup");
     for (OutputFile out : dupProto.getOutputFiles()) {
       assertThat(pkg.getTargets(FileTarget.class)).contains(out);
     }
@@ -365,7 +368,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
                 srcs = ['in3', 'in4'],
                 outs = ['out3', 'out2'])
         """);
-    Package pkg = loadPackage("conflict");
+    Package pkg = getPackage("conflict");
     assertContainsEvent(
         "generated file 'out2' in rule 'rule2' "
             + "conflicts with existing generated file from rule 'rule1'");
@@ -412,7 +415,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
                 cmd = ':',
                 outs = list)
         """);
-    Package pkg = loadPackage("error");
+    Package pkg = getPackage("error");
     assertContainsEvent("division by zero");
 
     assertThat(pkg.containsErrors()).isTrue();
@@ -432,7 +435,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
     scratch.file("x/y.cc");
     scratch.file("x/dir/dummy");
 
-    Package pkg = loadPackage("x");
+    Package pkg = getPackage("x");
 
     assertThat(pkg.getTarget("x.cc")).isNotNull(); // existing and mentioned.
 
@@ -467,16 +470,25 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
   @Test
   public void testTestSuitesImplicitlyDependOnAllRulesInPackage() throws Exception {
     scratch.file(
+        "x/foo_test.bzl",
+        """
+        def _impl(ctx):
+          pass
+        foo_test = rule(implementation = _impl, test = True,
+          attrs = {"srcs": attr.label_list(allow_files=True)})
+        """);
+    scratch.file(
         "x/BUILD",
         """
-        sh_test(name='s', srcs = ['foo.sh'])
+        load(':foo_test.bzl', 'foo_test')
+        foo_test(name='s', srcs = ['foo.sh'])
         test_suite(name='t1')
         test_suite(name='t2', tests=[])
         test_suite(name='t3', tests=['//foo'])
         test_suite(name='t4', tests=['//foo'])
         cc_test(name='c')
         """);
-    Package pkg = loadPackage("x");
+    Package pkg = getPackage("x");
 
     // Things to note:
     // - The '$implicit_tests' attribute is unset unless the 'tests' attribute is unset or empty.
@@ -498,7 +510,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
   @Test
   public void testPackageValidationFailureRegisteredAfterLoading() throws Exception {
     scratch.file("x/BUILD", "# old");
-    Package pkg = loadPackage("x");
+    Package pkg = getPackage("x");
     assertThat(pkg.containsErrors()).isFalse();
 
     // Install a validator.
@@ -517,8 +529,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
     scratch.overwriteFile("x/BUILD", "# new"); // change file to cause reloading
     invalidatePackages();
 
-    InvalidPackageException ex =
-        assertThrows(InvalidPackageException.class, () -> loadPackage("x"));
+    InvalidPackageException ex = assertThrows(InvalidPackageException.class, () -> getPackage("x"));
     assertThat(ex).hasMessageThat().contains("no such package 'x': nope");
     assertContainsEvent("warning event");
   }
@@ -535,7 +546,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
         cc_library(name = 'yes', srcs = glob(['data/*']))
         cc_library(name = 'no',  srcs = glob(['data/*'], exclude_directories=0))
         """);
-    Package pkg = loadPackage("fruit");
+    Package pkg = getPackage("fruit");
     assertNoEvents();
     List<Label> yesFiles = attributes(pkg.getRule("yes")).get("srcs", BuildType.LABEL_LIST);
     List<Label> noFiles = attributes(pkg.getRule("no")).get("srcs", BuildType.LABEL_LIST);
@@ -567,7 +578,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
         cc_library(name = 'ri', srcs = glob(['**/*.cc']))
         cc_library(name = 're', srcs = glob(['*.cc'], exclude=['**/*.c']))
         """);
-    Package pkg = loadPackage("rg");
+    Package pkg = getPackage("rg");
     assertNoEvents();
 
     assertGlob(
@@ -769,10 +780,11 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
         "p/BUILD",
         """
         name = glob(['*.txt'])[0]
+        # Note the prepended colon
         name == ':@f.txt' or fail('got %s' % name)
-        """); // observe
-    // prepended colon
-    loadPackage("p"); // no error
+        """);
+    Package pkg = getPackage("p"); // no error
+    assertThat(pkg.containsErrors()).isFalse();
   }
 
   /**
@@ -786,8 +798,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
     Path dir = scratch.dir("pkg/globs/unreadable");
     dir.setReadable(false);
 
-    NoSuchPackageException ex =
-        assertThrows(NoSuchPackageException.class, () -> loadPackage("pkg"));
+    NoSuchPackageException ex = assertThrows(NoSuchPackageException.class, () -> getPackage("pkg"));
     assertThat(ex)
         .hasMessageThat()
         .contains("error globbing [globs/**] op=FILES: " + dir + " (Permission denied)");
@@ -797,7 +808,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
   public void testNativeModuleIsDisabled() throws Exception {
     reporter.removeHandler(failFastHandler);
     scratch.file("pkg/BUILD", "native.cc_library(name='bar')");
-    Package pkg = loadPackage("pkg");
+    Package pkg = getPackage("pkg");
     assertThat(pkg.containsErrors()).isTrue();
   }
 
@@ -898,7 +909,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
     scratch.file(
         "foo/BUILD",
         "package(default_deprecation = \"" + msg + "\")",
-        "sh_library(name = 'bar', srcs=['b'])");
+        "filegroup(name = 'bar', srcs=['b'])");
     Rule fooRule = (Rule) getTarget("//foo:bar");
     String deprAttr =
         attributes(fooRule).get("deprecation", com.google.devtools.build.lib.packages.Type.STRING);
@@ -911,10 +922,10 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
         "foo/BUILD",
         """
         package(default_testonly = 1)
-        sh_library(name = 'foo', srcs=['b'])
-        sh_library(name = 'bar', srcs=['b'], testonly = 0)
+        filegroup(name = 'foo', srcs=['b'])
+        filegroup(name = 'bar', srcs=['b'], testonly = 0)
         """);
-    Package pkg = loadPackage("foo");
+    Package pkg = getPackage("foo");
 
     Rule fooRule = (Rule) pkg.getTarget("foo");
     assertThat(
@@ -936,8 +947,8 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
     scratch.file(
         "foo/BUILD",
         "package(default_deprecation = \"" + deceive + "\")",
-        "sh_library(name = 'bar', srcs=['b'], deprecation = \"" + msg + "\")");
-    Package pkg = loadPackage("foo");
+        "filegroup(name = 'bar', srcs=['b'], deprecation = \"" + msg + "\")");
+    Package pkg = getPackage("foo");
 
     Rule fooRule = (Rule) pkg.getTarget("bar");
     String deprAttr =
@@ -950,31 +961,31 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
     scratch.file(
         "a/BUILD",
         """
-        sh_library(name='before')
+        filegroup(name='before')
         package(features=['b', 'c'])
-        sh_library(name='after')
+        filegroup(name='after')
         """);
-    Package pkg = loadPackage("a");
+    Package pkg = getPackage("a");
     assertThat(pkg.getPackageArgs().features())
         .isEqualTo(FeatureSet.parse(ImmutableList.of("b", "c")));
   }
 
   @Test
   public void testTransientErrorsInGlobbing() throws Exception {
-    Path buildFile = scratch.file("e/BUILD", "sh_library(name = 'e', data = glob(['*']))");
+    Path buildFile = scratch.file("e/BUILD", "filegroup(name = 'e', srcs = glob(['*']))");
     throwOnReaddir = buildFile.getParentDirectory();
     invalidatePackages();
     reporter.removeHandler(failFastHandler);
-    assertThrows(NoSuchPackageException.class, () -> loadPackage("e")); // symlink cycle
+    assertThrows(NoSuchPackageException.class, () -> getPackage("e")); // symlink cycle
 
     throwOnReaddir = null;
     invalidatePackages();
 
     reporter.addHandler(failFastHandler);
-    Package pkg = loadPackage("e"); // no error
+    Package pkg = getPackage("e"); // no error
     assertThat(pkg.containsErrors()).isFalse();
     assertThat(pkg.getRule("e")).isNotNull();
-    List<?> globList = (List) pkg.getRule("e").getAttr("data");
+    List<?> globList = (List) pkg.getRule("e").getAttr("srcs");
     assertThat(globList).containsExactly(Label.parseCanonical("//e:BUILD"));
   }
 
@@ -1555,7 +1566,8 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
         macro 'abc_x' is a direct recursive call of 'abc'. Macro instantiation traceback (most \
         recent call last):
         \tPackage //pkg, macro 'abc' of type //pkg:recursive_macro.bzl%recursive_macro
-        \tPackage //pkg, macro 'abc_x' of type //pkg:recursive_macro.bzl%recursive_macro""",
+        \tPackage //pkg, macro 'abc_x' of type //pkg:recursive_macro.bzl%recursive_macro\
+        """,
         """
         load(":recursive_macro.bzl", "recursive_macro")
         recursive_macro(
@@ -1573,7 +1585,8 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
         macro 'abc_x' is a direct recursive call of 'abc'. Macro instantiation traceback (most \
         recent call last):
         \tPackage //pkg, macro 'abc' of type //pkg:recursive_macro.bzl%recursive_macro
-        \tPackage //pkg, macro 'abc_x' of type //pkg:recursive_macro.bzl%recursive_macro""",
+        \tPackage //pkg, macro 'abc_x' of type //pkg:recursive_macro.bzl%recursive_macro\
+        """,
         """
         load(":recursive_macro.bzl", "recursive_macro")
         recursive_macro(
@@ -1624,7 +1637,8 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
         \tPackage //pkg, macro 'abc' of type //pkg:recursive_macro.bzl%main_macro
         \tPackage //pkg, macro 'abc' of type //pkg:recursive_macro.bzl%macro_A
         \tPackage //pkg, macro 'abc_B' of type //pkg:recursive_macro.bzl%macro_B
-        \tPackage //pkg, macro 'abc_B_A' of type //pkg:recursive_macro.bzl%macro_A""",
+        \tPackage //pkg, macro 'abc_B_A' of type //pkg:recursive_macro.bzl%macro_A\
+        """,
         """
         load(":recursive_macro.bzl", "main_macro")
         main_macro(name = "abc")
@@ -1635,17 +1649,15 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
   // many macros overall, for both eager and deferred evaluation.
 
   /**
-   * Asserts that the target's RuleVisibility contains exactly the given labels.
-   *
-   * <p>For rule targets, this is effectively its visibility attribute, as possibly modified by the
-   * munging to include the declaration location.
+   * Asserts that the target's {@link Target#getActualVisibility actual visibility} contains exactly
+   * the given labels.
    */
   private void assertVisibilityIs(Target target, String... visibilityLabels) {
     ImmutableList.Builder<Label> labels = ImmutableList.builder();
     for (String item : visibilityLabels) {
       labels.add(Label.parseCanonicalUnchecked(item));
     }
-    assertThat(target.getVisibility().getDeclaredLabels())
+    assertThat(target.getActualVisibility().getDeclaredLabels())
         // Values are sorted by virtue of visibility being a label_list.
         .containsExactlyElementsIn(labels.build());
   }
@@ -1656,7 +1668,8 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
   }
 
   @Test
-  public void testDeclarationVisibilityUnioning_onlyOccursWithinMacros() throws Exception {
+  public void testDeclarationVisibilityUnioning_occursBothInsideAndOutsideMacros()
+      throws Exception {
     enableMacrosAndUsePrivateVisibility();
     scratch.file("lib/BUILD");
     scratch.file(
@@ -1682,7 +1695,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
         """);
 
     Package pkg = loadPackageAndAssertSuccess("pkg");
-    assertVisibilityIs(pkg.getTarget("foo"), "//other_pkg:__pkg__");
+    assertVisibilityIs(pkg.getTarget("foo"), "//other_pkg:__pkg__", "//pkg:__pkg__");
     assertVisibilityIs(pkg.getTarget("bar"), "//other_pkg:__pkg__", "//lib:__pkg__");
   }
 
@@ -1744,8 +1757,85 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
         """);
 
     Package pkg = loadPackageAndAssertSuccess("pkg");
-    assertVisibilityIs(pkg.getTarget("foo"), "//other_pkg:__pkg__");
+    assertVisibilityIs(pkg.getTarget("foo"), "//other_pkg:__pkg__", "//pkg:__pkg__");
+    // other_pkg doesn't propagate to bar, it only has its own instantiation location.
     assertVisibilityIs(pkg.getTarget("bar"), "//lib:__pkg__");
+  }
+
+  @Test
+  public void testImplicitVisibility_worksWithPackageDefaultVisibility() throws Exception {
+    enableMacrosAndUsePrivateVisibility();
+    scratch.file("lib/BUILD");
+    scratch.file(
+        "lib/macro.bzl",
+"""
+def _impl(name, visibility):
+    native.cc_library(name = name, visibility = native.package_default_visibility())
+my_macro = macro(implementation = _impl)
+""");
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load("//lib:macro.bzl", "my_macro")
+        package(default_visibility = ["//other_pkg:__pkg__"])
+
+        cc_library(name = "foo")
+        my_macro(name = "bar")
+        """);
+
+    Package pkg = loadPackageAndAssertSuccess("pkg");
+    assertVisibilityIs(pkg.getTarget("foo"), "//other_pkg:__pkg__", "//pkg:__pkg__");
+    // Package default visibility is propagated to bar via native.package_default_visibility()
+    // Visibility to the package where the macro is defined is propagated implicitly.
+    assertVisibilityIs(
+        pkg.getTarget("bar"), "//lib:__pkg__", "//other_pkg:__pkg__", "//pkg:__pkg__");
+  }
+
+  @Test
+  public void testPackageDefaultVisibility_playsWellWithPrivateVisibility() throws Exception {
+    enableMacrosAndUsePrivateVisibility();
+    scratch.file("lib/BUILD");
+    scratch.file(
+        "lib/macro.bzl",
+"""
+def _impl(name, visibility):
+    native.cc_library(name = name, visibility = native.package_default_visibility())
+my_macro = macro(implementation = _impl)
+""");
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load("//lib:macro.bzl", "my_macro")
+        package(default_visibility = ["//visibility:private"])
+
+        my_macro(name = "bar")
+        """);
+
+    Package pkg = loadPackageAndAssertSuccess("pkg");
+    assertVisibilityIs(pkg.getTarget("bar"), "//lib:__pkg__", "//pkg:__pkg__");
+  }
+
+  @Test
+  public void testPackageDefaultVisibility_succeedsIfNoDefaultVisibilitySet() throws Exception {
+    enableMacrosAndUsePrivateVisibility();
+    scratch.file("lib/BUILD");
+    scratch.file(
+        "lib/macro.bzl",
+"""
+def _impl(name, visibility):
+    native.cc_library(name = name, visibility = native.package_default_visibility())
+my_macro = macro(implementation = _impl)
+""");
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load("//lib:macro.bzl", "my_macro")
+
+        my_macro(name = "bar")
+        """);
+
+    Package pkg = loadPackageAndAssertSuccess("pkg");
+    assertVisibilityIs(pkg.getTarget("bar"), "//lib:__pkg__", "//pkg:__pkg__");
   }
 
   @Test
@@ -1936,14 +2026,14 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
     reporter.removeHandler(failFastHandler);
     scratch.overwriteFile("p/BUILD", content);
     invalidatePackages();
-    Package pkg = loadPackage("p");
+    Package pkg = getPackage("p");
     assertContainsEvent(expectedError);
     assertThat(pkg.containsErrors()).isTrue();
   }
 
   private Package expectEvalSuccess(String... content) throws Exception {
     scratch.file("pkg/BUILD", content);
-    Package pkg = loadPackage("pkg");
+    Package pkg = getPackage("pkg");
     assertThat(pkg.containsErrors()).isFalse();
     return pkg;
   }
@@ -1951,7 +2041,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
   private void expectEvalError(String expectedError, String... content) throws Exception {
     reporter.removeHandler(failFastHandler);
     scratch.file("pkg/BUILD", content);
-    Package pkg = loadPackage("pkg");
+    Package pkg = getPackage("pkg");
     assertWithMessage("Expected evaluation error, but none was not reported")
         .that(pkg.containsErrors())
         .isTrue();
@@ -2023,7 +2113,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
   private Package buildPackageWithGlob(String globCallExpression) throws Exception {
     scratch.deleteFile("dummypackage/BUILD");
     scratch.file("dummypackage/BUILD", "x = " + globCallExpression);
-    return loadPackage("dummypackage");
+    return getPackage("dummypackage");
   }
 
   /**
@@ -2082,7 +2172,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
             "result = glob(%s, exclude=%s, exclude_directories=%d, allow_empty = True)",
             Starlark.repr(includes), Starlark.repr(excludes), excludeDirs ? 1 : 0),
         resultAssertion);
-    return loadPackage("globs");
+    return getPackage("globs");
   }
 
   private void assertGlobProducesError(String pattern, boolean errorExpected) throws Exception {
@@ -2103,12 +2193,8 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
     assertThat(foundError).isEqualTo(errorExpected);
   }
 
-  private Package loadPackage(String pkgid) throws Exception {
-    return getTarget("//" + pkgid + ":BUILD").getPackage();
-  }
-
   private Package loadPackageAndAssertSuccess(String pkgid) throws Exception {
-    Package pkg = loadPackage(pkgid);
+    Package pkg = getPackage(pkgid);
     assertThat(pkg.containsErrors()).isFalse();
     return pkg;
   }

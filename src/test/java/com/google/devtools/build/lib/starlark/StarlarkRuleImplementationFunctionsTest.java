@@ -14,16 +14,17 @@
 
 package com.google.devtools.build.lib.starlark;
 
-import static com.google.common.collect.ImmutableSortedSet.toImmutableSortedSet;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createModuleKey;
 import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.when;
 
 import com.google.common.base.Joiner;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -34,9 +35,10 @@ import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
-import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.CommandHelper;
@@ -45,6 +47,7 @@ import com.google.devtools.build.lib.analysis.DefaultInfo;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.Runfiles;
+import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
@@ -63,15 +66,15 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
+import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.starlark.util.BazelEvaluationTestCase;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.OsUtils;
-import java.nio.charset.Charset;
-import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
-import java.util.Comparator;
+import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -79,6 +82,7 @@ import java.util.Optional;
 import java.util.regex.Pattern;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.Printer;
@@ -87,15 +91,16 @@ import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.syntax.Location;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
+import org.mockito.Mockito;
 
 /** Tests for Starlark functions relating to rule implementation. */
-@RunWith(JUnit4.class)
+@RunWith(TestParameterInjector.class)
 public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
 
   private final BazelEvaluationTestCase ev = new BazelEvaluationTestCase();
@@ -146,6 +151,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
         "foo/BUILD",
         """
         load("@rules_java//java:defs.bzl", "java_library")
+        load('//test_defs:foo_binary.bzl', 'foo_binary')
         genrule(name = 'foo',
           cmd = 'dummy_cmd',
           srcs = ['a.txt', 'b.img'],
@@ -167,7 +173,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
           output_to_bindir = 1,
         )
         # The target below is used by testResolveCommand and testResolveTools
-        sh_binary(name = 'mytool',
+        foo_binary(name = 'mytool',
           srcs = ['mytool.sh'],
           data = ['file1.dat', 'file2.dat'],
         )
@@ -513,8 +519,9 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
     scratch.file(
         "bar/BUILD",
         """
+        load('//test_defs:foo_binary.bzl', 'foo_binary')
         load('//bar:bar.bzl', 'my_rule')
-        sh_binary(
+        foo_binary(
           name = 'mytool',
           srcs = ['mytool.sh'],
           data = ['file1.dat', 'file2.dat'],
@@ -700,6 +707,134 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
     setRuleContext(ruleContext);
     assertThat((String) ev.eval("ruleContext.expand_location('${abc} $(echo) $$ $')"))
         .isEqualTo("${abc} $(echo) $$ $");
+  }
+
+  @Test
+  public void testExpandedLocationWithSingleFileDifferentFromExecutable(
+      @TestParameter boolean locationsPrefersExecutable) throws Exception {
+    setBuildLanguageOptions(
+        "--incompatible_locations_prefers_executable=" + locationsPrefersExecutable);
+
+    scratch.file(
+        "test/defs.bzl",
+        "def _my_binary_impl(ctx):",
+        "  executable = ctx.actions.declare_file(ctx.attr.name + '_executable')",
+        "  ctx.actions.write(executable, '', is_executable = True)",
+        "  file = ctx.actions.declare_file(ctx.attr.name + '_file')",
+        "  ctx.actions.write(file, '')",
+        "  return [DefaultInfo(executable = executable, files = depset([file]))]",
+        "my_binary = rule(",
+        "    implementation = _my_binary_impl,",
+        "    executable = True,",
+        ")",
+        "def _expand_location_rule_impl(ctx):",
+        "  expansions = []",
+        "  for data in ctx.attr.data:",
+        "    expansions.append(",
+        "        ctx.expand_location('$(location ' + str(data.label) + ')', ctx.attr.data),",
+        "    )",
+        "    expansions.append(",
+        "        ctx.expand_location('$(locations ' + str(data.label) + ')', ctx.attr.data)",
+        "    )",
+        "  file = ctx.actions.declare_file(ctx.attr.name)",
+        "  ctx.actions.write(file, '\\n'.join(expansions))",
+        "  return [DefaultInfo(files = depset([file]))]",
+        "expand_location_rule = rule(",
+        "    implementation = _expand_location_rule_impl,",
+        "    attrs = {",
+        "       'data': attr.label_list(),",
+        "    },",
+        ")");
+
+    scratch.file(
+        "test/BUILD",
+        "load('//test:defs.bzl', 'expand_location_rule', 'my_binary')",
+        "my_binary(name = 'main')",
+        "expand_location_rule(",
+        "  name = 'expand',",
+        "  data = [':main'],",
+        ")");
+
+    TransitiveInfoCollection expandTarget = getConfiguredTarget("//test:expand");
+    Artifact artifact =
+        Iterables.getOnlyElement(
+            expandTarget.getProvider(FileProvider.class).getFilesToBuild().toList());
+    FileWriteAction action = (FileWriteAction) getGeneratingAction(artifact);
+    assertThat(action.getFileContents())
+        .matches(
+            """
+            ^\\S*/bin/test/main_file
+            \\S*/bin/test/main_file$\
+            """);
+  }
+
+  @Test
+  public void testExpandedLocationsWithMultipleFilesAndExecutable(
+      @TestParameter boolean locationsPrefersExecutable) throws Exception {
+    setBuildLanguageOptions(
+        "--incompatible_locations_prefers_executable=" + locationsPrefersExecutable);
+
+    scratch.file(
+        "test/defs.bzl",
+        "def _my_binary_impl(ctx):",
+        "  executable = ctx.actions.declare_file(ctx.attr.name + '_executable')",
+        "  ctx.actions.write(executable, '', is_executable = True)",
+        "  file1 = ctx.actions.declare_file(ctx.attr.name + '_file1')",
+        "  file2 = ctx.actions.declare_file(ctx.attr.name + '_file2')",
+        "  ctx.actions.write(file1, '')",
+        "  ctx.actions.write(file2, '')",
+        "  return [DefaultInfo(executable = executable, files = depset([file1, file2]))]",
+        "my_binary = rule(",
+        "    implementation = _my_binary_impl,",
+        "    executable = True,",
+        ")",
+        "def _expand_location_rule_impl(ctx):",
+        "  expansions = []",
+        "  for data in ctx.attr.data:",
+        "    expansions.append(",
+        "        ctx.expand_location('$(location ' + str(data.label) + ')', ctx.attr.data),",
+        "    )",
+        "    expansions.append(",
+        "        ctx.expand_location('$(locations ' + str(data.label) + ')', ctx.attr.data)",
+        "    )",
+        "  file = ctx.actions.declare_file(ctx.attr.name)",
+        "  ctx.actions.write(file, '\\n'.join(expansions))",
+        "  return [DefaultInfo(files = depset([file]))]",
+        "expand_location_rule = rule(",
+        "    implementation = _expand_location_rule_impl,",
+        "    attrs = {",
+        "       'data': attr.label_list(),",
+        "    },",
+        ")");
+
+    scratch.file(
+        "test/BUILD",
+        "load('//test:defs.bzl', 'expand_location_rule', 'my_binary')",
+        "my_binary(name = 'main')",
+        "expand_location_rule(",
+        "  name = 'expand',",
+        "  data = [':main'],",
+        ")");
+
+    reporter.removeHandler(failFastHandler);
+    TransitiveInfoCollection expandTarget = getConfiguredTarget("//test:expand");
+    if (locationsPrefersExecutable) {
+      Artifact artifact =
+          Iterables.getOnlyElement(
+              expandTarget.getProvider(FileProvider.class).getFilesToBuild().toList());
+      FileWriteAction action = (FileWriteAction) getGeneratingAction(artifact);
+      assertThat(action.getFileContents())
+          .matches(
+              """
+              ^\\S*/bin/test/main_executable
+              \\S*/bin/test/main_executable$\
+              """);
+    } else {
+      assertContainsEvent(
+          "label '//test:main' in $(location) expression expands to more than one file");
+      assertContainsEvent("/bin/test/main_file1,");
+      assertContainsEvent("/bin/test/main_file2]");
+    }
   }
 
   /**
@@ -914,29 +1049,20 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
     assertThat(action.makeExecutable()).isFalse();
   }
 
-  /**
-   * Simulates the fact that the Parser currently uses Latin1 to read BUILD files, while users
-   * usually write those files using UTF-8 encoding. Currently, the string-valued 'substitutions'
-   * parameter of the template_action function contains a hack that assumes its input is a UTF-8
-   * encoded string which has been ingested as Latin 1. The hack converts the string to its
-   * "correct" UTF-8 value. Once Blaze starts calling {@link
-   * net.starlark.java.syntax.ParserInput#fromUTF8} instead of {@code fromLatin1} and the hack for
-   * the substitutions parameter is removed, this test will fail.
-   */
   @Test
-  public void testCreateTemplateActionWithWrongEncoding() throws Exception {
+  public void testCreateTemplateActionUnicode() throws Exception {
     // The following array contains bytes that represent a string of length two when treated as
     // UTF-8 and a string of length four when treated as ISO-8859-1 (a.k.a. Latin 1).
-    byte[] bytesToDecode = {(byte) 0xC2, (byte) 0xA2, (byte) 0xC2, (byte) 0xA2};
-    Charset latin1 = StandardCharsets.ISO_8859_1;
-    Charset utf8 = StandardCharsets.UTF_8;
+    String internalString =
+        new String(new byte[] {(byte) 0xC2, (byte) 0xA2, (byte) 0xC2, (byte) 0xA2}, ISO_8859_1);
     StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
     setRuleContext(ruleContext);
+    // In production, Bazel parses Starlark as raw bytes encoded as Latin-1.
     ev.exec(
         "ruleContext.actions.expand_template(",
         "  template = ruleContext.files.srcs[0],",
         "  output = ruleContext.files.srcs[1],",
-        "  substitutions = {'a': '" + new String(bytesToDecode, latin1) + "'},",
+        "  substitutions = {'a" + internalString + "': '" + internalString + "'},",
         "  is_executable = False)");
     TemplateExpansionAction action =
         (TemplateExpansionAction)
@@ -944,7 +1070,8 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
                 ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
     List<Substitution> substitutions = action.getSubstitutions();
     assertThat(substitutions).hasSize(1);
-    assertThat(substitutions.get(0).getValue()).isEqualTo(new String(bytesToDecode, utf8));
+    assertThat(substitutions.get(0).getKey()).isEqualTo("a" + internalString);
+    assertThat(substitutions.get(0).getValue()).isEqualTo(internalString);
   }
 
   @Test
@@ -1041,22 +1168,6 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
         .isEqualTo(ActionsTestUtil.baseArtifactNames(getRunfileArtifacts(result)));
   }
 
-  @Test
-  public void testRunfilesSymlinkConflict() throws Exception {
-    // Two different artifacts mapped to same path in runfiles
-    setRuleContext(createRuleContext("//foo:foo"));
-    ev.exec("prefix = ruleContext.workspace_name + '/' if ruleContext.workspace_name else ''");
-    Object result =
-        ev.eval(
-            "ruleContext.runfiles(",
-            "  root_symlinks = {prefix + 'sym1': ruleContext.files.srcs[0]},",
-            "  symlinks = {'sym1': ruleContext.files.srcs[1]})");
-    Runfiles runfiles = (Runfiles) result;
-    reporter.removeHandler(failFastHandler); // So it doesn't throw an exception.
-    var unused = runfiles.getRunfilesInputs(reporter, null, null);
-    assertContainsEvent("ERROR <no location>: overwrote runfile");
-  }
-
   private static Iterable<Artifact> getRunfileArtifacts(Object runfiles) {
     return ((Runfiles) runfiles).getAllArtifacts().toList();
   }
@@ -1087,9 +1198,15 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
   @Test
   public void testNoSuchProviderErrorMessage() throws Exception {
     setRuleContext(createRuleContext("//foo:bar"));
+    ev.update(
+        "MyInfo",
+        StarlarkProvider.builder(Location.BUILTIN)
+            .buildExported(
+                new StarlarkProvider.Key(
+                    keyForBuild(Label.parseCanonicalUnchecked("//myinfo:myinfo.bzl")), "MyInfo")));
     ev.checkEvalErrorContains(
-        "<target //foo:jl> (rule 'java_library') doesn't have provider 'my_provider'",
-        "ruleContext.attr.srcs[0].my_provider");
+        "<target //foo:jl> (rule 'java_library') doesn't contain declared provider 'MyInfo'",
+        "ruleContext.attr.srcs[0][MyInfo]");
   }
 
   @Test
@@ -1157,7 +1274,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
 
     Object provider = myInfo.getValue("provider");
     assertThat(provider).isInstanceOf(DefaultInfo.class);
-    assertThat(((StructImpl) provider).getProvider().getKey())
+    assertThat(((DefaultInfo) provider).getProvider().getKey())
         .isEqualTo(DefaultInfo.PROVIDER.getKey());
 
     assertThat(myInfo.getValue("dir"))
@@ -1241,7 +1358,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
 
     Object provider = myInfo.getValue("provider");
     assertThat(provider).isInstanceOf(DefaultInfo.class);
-    assertThat(((StructImpl) provider).getProvider().getKey())
+    assertThat(((DefaultInfo) provider).getProvider().getKey())
         .isEqualTo(DefaultInfo.PROVIDER.getKey());
 
     assertThat(myInfo.getValue("dir"))
@@ -1265,42 +1382,6 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
 
     assertThat(myInfo.getValue("rule_files")).isInstanceOf(Depset.class);
     assertThat(myInfo.getValue("rule_files_to_run")).isInstanceOf(FilesToRunProvider.class);
-  }
-
-  @Test
-  public void testDefaultProviderInvalidConfiguration() throws Exception {
-    setBuildLanguageOptions("--incompatible_disallow_struct_provider_syntax=false");
-    scratch.file(
-        "test/foo.bzl",
-        """
-        foo_provider = provider()
-        def _impl(ctx):
-            default = DefaultInfo(
-                runfiles=ctx.runfiles(ctx.files.runs),
-            )
-            foo = foo_provider()
-            return struct(providers=[foo, default], files=depset([]))
-        foo_rule = rule(
-            implementation = _impl,
-            attrs = {
-               'runs': attr.label_list(allow_files=True),
-            }
-        )
-        """);
-    scratch.file(
-        "test/BUILD",
-        """
-        load(':foo.bzl', 'foo_rule')
-        foo_rule(name = 'my_rule', runs = ['run.file', 'run2.file'])
-        """);
-
-    AssertionError expected =
-        assertThrows(AssertionError.class, () -> getConfiguredTarget("//test:my_rule"));
-    assertThat(expected)
-        .hasMessageThat()
-        .contains(
-            "Provider 'files' should be specified in DefaultInfo "
-                + "if it's provided explicitly.");
   }
 
   @Test
@@ -1340,7 +1421,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
 
     Object provider = myInfo.getValue("provider");
     assertThat(provider).isInstanceOf(DefaultInfo.class);
-    assertThat(((StructImpl) provider).getProvider().getKey())
+    assertThat(((DefaultInfo) provider).getProvider().getKey())
         .isEqualTo(DefaultInfo.PROVIDER.getKey());
 
     assertThat(myInfo.getValue("dir"))
@@ -1406,7 +1487,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
     ConfiguredTarget configuredTarget = getConfiguredTarget("//test:my_rule");
     Object provider = getMyInfoFromTarget(configuredTarget).getValue("default");
     assertThat(provider).isInstanceOf(DefaultInfo.class);
-    assertThat(((StructImpl) provider).getProvider().getKey())
+    assertThat(((DefaultInfo) provider).getProvider().getKey())
         .isEqualTo(DefaultInfo.PROVIDER.getKey());
   }
 
@@ -1579,6 +1660,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
     scratch.file(
         "test/foo.bzl",
         """
+        load("@rules_java//java/common:java_info.bzl", "JavaInfo")
         FooInfo = provider()
         def _impl(ctx):
             MyFooInfo = FooInfo()
@@ -2106,7 +2188,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
         """);
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test:my_glob");
-    assertContainsEvent("glob() can only be used while evaluating a BUILD file (or legacy macro)");
+    assertContainsEvent("glob() can only be used while evaluating a BUILD file or a legacy macro");
   }
 
   @Test
@@ -2127,7 +2209,9 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
     scratch.file("test/BUILD", "load('//test:ext.bzl', 'a')");
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test:x");
-    assertContainsEvent("Cannot instantiate a rule when loading a .bzl file");
+    assertContainsEvent(
+        "a rule can only be instantiated while evaluating a BUILD file or a legacy or symbolic"
+            + " macro");
   }
 
   @Test
@@ -3055,8 +3139,9 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
         "a/BUILD",
         """
         load(':a.bzl', 'r')
+        load('//test_defs:foo_binary.bzl', 'foo_binary')
         r(name='r')
-        sh_binary(name='tool', srcs=['tool.sh'], data=['data'])
+        foo_binary(name='tool', srcs=['tool.sh'], data=['data'])
         """);
 
     ConfiguredTarget r = getConfiguredTarget("//a:r");
@@ -3087,8 +3172,9 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
         "a/BUILD",
         """
         load(':a.bzl', 'r')
+        load('//test_defs:foo_binary.bzl', 'foo_binary')
         r(name='r')
-        sh_binary(name='tool', srcs=['tool.sh'], data=['data'])
+        foo_binary(name='tool', srcs=['tool.sh'], data=['data'])
         """);
 
     ConfiguredTarget r = getConfiguredTarget("//a:r");
@@ -3223,7 +3309,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
         () ->
             commandLine.addToFingerprint(
                 actionKeyContext,
-                /* artifactExpander= */ null,
+                /* inputMetadataProvider= */ null,
                 OutputPathsMode.OFF,
                 new Fingerprint()));
   }
@@ -3283,8 +3369,9 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
             "def mystr(file): return str(file)",
             "args.add_joined([directory], join_with=',', map_each=mystr, expand_directories=True)");
 
-    ArtifactExpander expander = createArtifactExpander("foo/dir", "file");
-    assertThat(getDigest(commandLine1, expander)).isEqualTo(getDigest(commandLine2, expander));
+    InputMetadataProvider inputMetadataProvider = createInputMetadataProvider("foo/dir", "file");
+    assertThat(getDigest(commandLine1, inputMetadataProvider))
+        .isEqualTo(getDigest(commandLine2, inputMetadataProvider));
   }
 
   @Test
@@ -3305,8 +3392,9 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
             "def _constant_for_dir(f): return 'constant' if f.path.endswith('dir') else 'value2'",
             "args.add_all([directory], map_each=_constant_for_dir, expand_directories=True)");
 
-    ArtifactExpander expander = createArtifactExpander("foo/dir", "file");
-    assertThat(getDigest(commandLine1, expander)).isNotEqualTo(getDigest(commandLine2, expander));
+    InputMetadataProvider inputMetadataProvider = createInputMetadataProvider("foo/dir", "file");
+    assertThat(getDigest(commandLine1, inputMetadataProvider))
+        .isNotEqualTo(getDigest(commandLine2, inputMetadataProvider));
   }
 
   @Test
@@ -3327,8 +3415,9 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
             "def _constant_for_dir(f): return 'constant' if f.path.endswith('dir') else 'value2'",
             "args.add_all(depset([dir]), map_each=_constant_for_dir, expand_directories=True)");
 
-    ArtifactExpander expander = createArtifactExpander("foo/dir", "file");
-    assertThat(getDigest(commandLine1, expander)).isNotEqualTo(getDigest(commandLine2, expander));
+    InputMetadataProvider inputMetadataProvider = createInputMetadataProvider("foo/dir", "file");
+    assertThat(getDigest(commandLine1, inputMetadataProvider))
+        .isNotEqualTo(getDigest(commandLine2, inputMetadataProvider));
   }
 
   @Test
@@ -3355,8 +3444,9 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
             "   return 'value2'",
             "args.add_all([directory], map_each=_fail_for_dir, expand_directories=True)");
 
-    ArtifactExpander expander = createArtifactExpander("foo/dir", "file");
-    assertThat(getDigest(commandLine1, expander)).isNotEqualTo(getDigest(commandLine2, expander));
+    InputMetadataProvider inputMetadataProvider = createInputMetadataProvider("foo/dir", "file");
+    assertThat(getDigest(commandLine1, inputMetadataProvider))
+        .isNotEqualTo(getDigest(commandLine2, inputMetadataProvider));
   }
 
   @Test
@@ -3371,9 +3461,10 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
             "def _get_path(file): return file.path",
             "args.add_all([directory], map_each=_get_path, expand_directories=True)");
 
-    ArtifactExpander expander1 = createArtifactExpander("foo/dir", "file1");
-    ArtifactExpander expander2 = createArtifactExpander("foo/dir", "file2");
-    assertThat(getDigest(commandLine, expander1)).isNotEqualTo(getDigest(commandLine, expander2));
+    InputMetadataProvider inputMetadataProvider1 = createInputMetadataProvider("foo/dir", "file1");
+    InputMetadataProvider inputMetadataProvider2 = createInputMetadataProvider("foo/dir", "file2");
+    assertThat(getDigest(commandLine, inputMetadataProvider1))
+        .isNotEqualTo(getDigest(commandLine, inputMetadataProvider2));
   }
 
   @Test
@@ -3386,9 +3477,10 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
             "directory = ruleContext.actions.declare_directory('dir')",
             "args.add_all([directory])");
 
-    ArtifactExpander expander1 = createArtifactExpander("foo/dir", "file1");
-    ArtifactExpander expander2 = createArtifactExpander("foo/dir", "file2");
-    assertThat(getDigest(commandLine, expander1)).isNotEqualTo(getDigest(commandLine, expander2));
+    InputMetadataProvider inputMetadataProvider1 = createInputMetadataProvider("foo/dir", "file1");
+    InputMetadataProvider inputMetadataProvider2 = createInputMetadataProvider("foo/dir", "file2");
+    assertThat(getDigest(commandLine, inputMetadataProvider1))
+        .isNotEqualTo(getDigest(commandLine, inputMetadataProvider2));
   }
 
   @Test
@@ -3401,8 +3493,8 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
             "directory = ruleContext.actions.declare_directory('dir')",
             "args.add_all([directory])");
 
-    ArtifactExpander expander1 = createArtifactExpander("foo/dir", "file1");
-    ArtifactExpander expander2 = createArtifactExpander("foo/dir", "file1", "file2");
+    InputMetadataProvider expander1 = createInputMetadataProvider("foo/dir", "file1");
+    InputMetadataProvider expander2 = createInputMetadataProvider("foo/dir", "file1", "file2");
     assertThat(getDigest(commandLine, expander1)).isNotEqualTo(getDigest(commandLine, expander2));
   }
 
@@ -3426,8 +3518,9 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
             "args.add_joined([directory], join_with=',', map_each=_constant_for_dir,"
                 + " expand_directories=True)");
 
-    ArtifactExpander expander = createArtifactExpander("foo/dir", "file");
-    assertThat(getDigest(commandLine1, expander)).isNotEqualTo(getDigest(commandLine2, expander));
+    InputMetadataProvider inputMetadataProvider = createInputMetadataProvider("foo/dir", "file");
+    assertThat(getDigest(commandLine1, inputMetadataProvider))
+        .isNotEqualTo(getDigest(commandLine2, inputMetadataProvider));
   }
 
   @Test
@@ -3502,7 +3595,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
     CommandLine commandLine1 =
         getCommandLine(
             mainRepoMapping,
-            """
+"""
 args = ruleContext.actions.args()
 args.add_all(depset([Label("@@canonical1+//foo:bar"), Label("@@canonical2+//foo:bar")]))
 """);
@@ -3713,7 +3806,7 @@ args.add_all(depset([Label("@@canonical1+//foo:bar"), Label("@@canonical2+//foo:
 
     CommandLine commandLine1 =
         getCommandLine(
-            """
+"""
 def _map_each(x):
   return x.field.root.path
 args = ruleContext.actions.args()
@@ -3722,7 +3815,7 @@ args.add_all(d, map_each = _map_each, uniquify = True)
 """);
     CommandLine commandLine2 =
         getCommandLine(
-            """
+"""
 def _map_each(x):
   return x.field
 args = ruleContext.actions.args()
@@ -3742,41 +3835,57 @@ args.add_all(d, map_each = _map_each, uniquify = True)
         .isNotEqualTo(getDigest(commandLine2, OutputPathsMode.STRIP));
   }
 
-  private static ArtifactExpander createArtifactExpander(String dirRelativePath, String... files) {
-    return treeArtifact -> {
-      Preconditions.checkArgument(
-          treeArtifact.getRootRelativePathString().equals(dirRelativePath), treeArtifact);
-      SpecialArtifact parent = (SpecialArtifact) treeArtifact;
-      if (!parent.hasGeneratingActionKey()) {
-        // Set a dummy generating action key so that we can create child TreeFileArtifacts.
-        parent.setGeneratingActionKey(ActionLookupData.create(parent.getArtifactOwner(), 0));
-      }
-      return Arrays.stream(files)
-          .map(f -> TreeFileArtifact.createTreeOutput(parent, f))
-          .collect(toImmutableSortedSet(Comparator.naturalOrder()));
-    };
+  private static InputMetadataProvider createInputMetadataProvider(
+      String dirRelativePath, String... files) {
+    InputMetadataProvider result = Mockito.mock(InputMetadataProvider.class);
+    when(result.getTreeMetadata(any()))
+        .thenAnswer(
+            invocation -> {
+              SpecialArtifact arg = invocation.getArgument(0);
+              if (!arg.getRootRelativePathString().equals(dirRelativePath)) {
+                throw new IllegalStateException();
+              }
+
+              if (!arg.hasGeneratingActionKey()) {
+                arg.setGeneratingActionKey(ActionLookupData.create(arg.getArtifactOwner(), 0));
+              }
+
+              TreeArtifactValue.Builder builder = TreeArtifactValue.newBuilder(arg);
+              for (String file : files) {
+                builder.putChild(
+                    TreeFileArtifact.createTreeOutput(arg, PathFragment.create(file)),
+                    FileArtifactValue.MISSING_FILE_MARKER);
+              }
+
+              return builder.build();
+            });
+
+    return result;
   }
 
   private String getDigest(CommandLine commandLine)
       throws CommandLineExpansionException, InterruptedException {
-    return getDigest(commandLine, /* artifactExpander= */ null, OutputPathsMode.OFF);
+    return getDigest(commandLine, /* inputMetadataProvider= */ null, OutputPathsMode.OFF);
   }
 
-  private String getDigest(CommandLine commandLine, ArtifactExpander artifactExpander)
+  private String getDigest(CommandLine commandLine, InputMetadataProvider inputMetadataProvider)
       throws CommandLineExpansionException, InterruptedException {
-    return getDigest(commandLine, artifactExpander, OutputPathsMode.OFF);
+    return getDigest(commandLine, inputMetadataProvider, OutputPathsMode.OFF);
   }
 
   private String getDigest(CommandLine commandLine, OutputPathsMode outputPathsMode)
       throws CommandLineExpansionException, InterruptedException {
-    return getDigest(commandLine, /* artifactExpander= */ null, outputPathsMode);
+    return getDigest(commandLine, /* inputMetadataProvider= */ null, outputPathsMode);
   }
 
   private String getDigest(
-      CommandLine commandLine, ArtifactExpander artifactExpander, OutputPathsMode outputPathsMode)
+      CommandLine commandLine,
+      InputMetadataProvider inputMetadataProvider,
+      OutputPathsMode outputPathsMode)
       throws CommandLineExpansionException, InterruptedException {
     Fingerprint fingerprint = new Fingerprint();
-    commandLine.addToFingerprint(actionKeyContext, artifactExpander, outputPathsMode, fingerprint);
+    commandLine.addToFingerprint(
+        actionKeyContext, inputMetadataProvider, outputPathsMode, fingerprint);
     return fingerprint.hexDigestAndReset();
   }
 
@@ -3795,7 +3904,8 @@ args.add_all(d, map_each = _map_each, uniquify = True)
 
   private List<String> getArguments(CommandLine commandLine, PathMapper pathMapper)
       throws CommandLineExpansionException, InterruptedException {
-    return ImmutableList.copyOf(commandLine.arguments(/* artifactExpander= */ null, pathMapper));
+    return ImmutableList.copyOf(
+        commandLine.arguments(/* inputMetadataProvider= */ null, pathMapper));
   }
 
   @Test
@@ -3830,9 +3940,9 @@ args.add_all(d, map_each = _map_each, uniquify = True)
     assertThat(commandLine.arguments()).containsExactly("foo/dir");
 
     // Now ask for one with an expanded directory
-    ArtifactExpander artifactExpander =
-        createArtifactExpander(directory.getRootRelativePathString(), "file1", "file2");
-    assertThat(commandLine.arguments(artifactExpander, PathMapper.NOOP))
+    InputMetadataProvider inputMetadataProvider =
+        createInputMetadataProvider(directory.getRootRelativePathString(), "file1", "file2");
+    assertThat(commandLine.arguments(inputMetadataProvider, PathMapper.NOOP))
         .containsExactly("foo/dir/file1", "foo/dir/file2");
   }
 
@@ -3850,10 +3960,10 @@ args.add_all(d, map_each = _map_each, uniquify = True)
     Artifact directory = (Artifact) result.get(1);
     CommandLine commandLine = args.build(() -> RepositoryMapping.ALWAYS_FALLBACK);
 
-    ArtifactExpander artifactExpander =
-        createArtifactExpander(directory.getRootRelativePathString(), "file1", "file2");
+    InputMetadataProvider inputMetadataProvider =
+        createInputMetadataProvider(directory.getRootRelativePathString(), "file1", "file2");
     // First expanded, then not expanded (two separate calls)
-    assertThat(commandLine.arguments(artifactExpander, PathMapper.NOOP))
+    assertThat(commandLine.arguments(inputMetadataProvider, PathMapper.NOOP))
         .containsExactly("foo/dir/file1", "foo/dir/file2", "foo/dir");
   }
 
@@ -3899,9 +4009,9 @@ args.add_all(d, map_each = _map_each, uniquify = True)
     Artifact directory = (Artifact) ev.eval("directory");
     CommandLine commandLine = args.build(() -> RepositoryMapping.ALWAYS_FALLBACK);
 
-    ArtifactExpander artifactExpander =
-        createArtifactExpander(directory.getRootRelativePathString(), "file1", "file2");
-    assertThat(commandLine.arguments(artifactExpander, PathMapper.NOOP))
+    InputMetadataProvider inputMetadataProvider =
+        createInputMetadataProvider(directory.getRootRelativePathString(), "file1", "file2");
+    assertThat(commandLine.arguments(inputMetadataProvider, PathMapper.NOOP))
         .containsExactly("foo/dir/file1", "foo/dir/file2", "foo/file3");
   }
 
@@ -4027,5 +4137,12 @@ args.add_all(d, map_each = _map_each, uniquify = True)
     assertThat(a2).isNotNull();
     assertThat(a2.getRoot().getExecPathString())
         .matches(getRelativeOutputPath() + "/[\\w\\-]+\\-exec/bin");
+  }
+
+  @Test
+  public void testHashableProviders() throws Exception {
+    ev.execAndExport("p = provider()");
+    Dict<?, ?> dict = (Dict<?, ?>) ev.eval("{k: None for k in [DefaultInfo, p, DefaultInfo, p]}");
+    assertThat(dict.size()).isEqualTo(2);
   }
 }

@@ -121,8 +121,10 @@ eof
 }
 
 function test_run_with_runfiles_env() {
+  add_rules_shell "MODULE.bazel"
   mkdir -p b
   cat > b/BUILD <<'EOF'
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 sh_binary(
   name = "binary",
   srcs = ["binary.sh"],
@@ -173,8 +175,11 @@ function test_run_test_exit_code() {
   # to test here, unset the variable.
   unset EXPERIMENTAL_SPLIT_XML_GENERATION
 
+  add_rules_shell "MODULE.bazel"
   mkdir -p foo
   cat > foo/BUILD <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
 sh_test(
   name = "exit0",
   srcs = ["exit0.sh"],

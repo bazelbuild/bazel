@@ -16,6 +16,8 @@ package net.starlark.java.eval;
 
 import javax.annotation.concurrent.Immutable;
 import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.types.StarlarkType;
+import net.starlark.java.types.Types;
 
 /** The type of the Starlark None value. */
 @StarlarkBuiltin(
@@ -24,6 +26,10 @@ import net.starlark.java.annot.StarlarkBuiltin;
     doc = "The type of the Starlark None value.")
 @Immutable
 public final class NoneType implements StarlarkValue {
+  @Override
+  public StarlarkType getStarlarkType() {
+    return Types.NONE;
+  }
 
   static final NoneType NONE = new NoneType();
 

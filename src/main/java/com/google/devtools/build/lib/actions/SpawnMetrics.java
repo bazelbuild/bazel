@@ -17,7 +17,9 @@ package com.google.devtools.build.lib.actions;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.primitives.Ints;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -68,26 +70,26 @@ public class SpawnMetrics {
     }
   }
 
-  ExecKind execKind;
-  int totalTimeInMs;
-  int parseTimeInMs;
-  int fetchTimeInMs;
-  int queueTimeInMs;
-  int uploadTimeInMs;
-  int setupTimeInMs;
-  int executionWallTimeInMs;
-  int processOutputsTimeInMs;
-  int networkTimeInMs;
+  private final ExecKind execKind;
+  private final int totalTimeInMs;
+  private final int parseTimeInMs;
+  private final int fetchTimeInMs;
+  private final int queueTimeInMs;
+  private final int uploadTimeInMs;
+  private final int setupTimeInMs;
+  private final int executionWallTimeInMs;
+  private final int processOutputsTimeInMs;
+  private final int networkTimeInMs;
   // error code to duration in ms
-  ImmutableMap<Integer, Integer> retryTimeInMs;
-  long inputBytes;
-  long inputFiles;
-  long memoryEstimateBytes;
+  private final ImmutableMap<Integer, Integer> retryTimeInMs;
+  private final long inputBytes;
+  private final long inputFiles;
+  private final long memoryEstimateBytes;
 
   /** Any non-important stats < than 10% will not be shown in the summary. */
-  static final double STATS_SHOW_THRESHOLD = 0.10;
+  private static final double STATS_SHOW_THRESHOLD = 0.10;
 
-  public static SpawnMetrics forLocalExecution(int wallTimeInMs) {
+  static SpawnMetrics forLocalExecution(int wallTimeInMs) {
     return SpawnMetrics.Builder.forLocalExec()
         .setTotalTimeInMs(wallTimeInMs)
         .setExecutionWallTimeInMs(wallTimeInMs)
@@ -367,9 +369,19 @@ public class SpawnMetrics {
     }
 
     @CanIgnoreReturnValue
+    public Builder setTotalTime(Duration totalTime) {
+      return setTotalTimeInMs(toMs(totalTime));
+    }
+
+    @CanIgnoreReturnValue
     public Builder setTotalTimeInMs(int totalTimeInMs) {
       this.totalTimeInMs = totalTimeInMs;
       return this;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder setParseTime(Duration parseTime) {
+      return setParseTimeInMs(toMs(parseTime));
     }
 
     @CanIgnoreReturnValue
@@ -379,9 +391,19 @@ public class SpawnMetrics {
     }
 
     @CanIgnoreReturnValue
+    public Builder setNetworkTime(Duration networkTime) {
+      return setNetworkTimeInMs(toMs(networkTime));
+    }
+
+    @CanIgnoreReturnValue
     public Builder setNetworkTimeInMs(int networkTimeInMs) {
       this.networkTimeInMs = networkTimeInMs;
       return this;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder setFetchTime(Duration fetchTime) {
+      return setFetchTimeInMs(toMs(fetchTime));
     }
 
     @CanIgnoreReturnValue
@@ -391,9 +413,30 @@ public class SpawnMetrics {
     }
 
     @CanIgnoreReturnValue
+    public Builder setQueueTime(Duration queueTime) {
+      return setQueueTimeInMs(toMs(queueTime));
+    }
+
+    @CanIgnoreReturnValue
     public Builder setQueueTimeInMs(int queueTimeInMs) {
       this.queueTimeInMs = queueTimeInMs;
       return this;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder addQueueTime(Duration queueTime) {
+      return addQueueTimeInMs(toMs(queueTime));
+    }
+
+    @CanIgnoreReturnValue
+    public Builder addQueueTimeInMs(int queueTimeInMs) {
+      this.queueTimeInMs += queueTimeInMs;
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder setSetupTime(Duration setupTime) {
+      return setSetupTimeInMs(toMs(setupTime));
     }
 
     @CanIgnoreReturnValue
@@ -403,9 +446,19 @@ public class SpawnMetrics {
     }
 
     @CanIgnoreReturnValue
+    public Builder addSetupTime(Duration setupTime) {
+      return addSetupTimeInMs(toMs(setupTime));
+    }
+
+    @CanIgnoreReturnValue
     public Builder addSetupTimeInMs(int setupTimeInMs) {
-      this.setupTimeInMs = this.setupTimeInMs + setupTimeInMs;
+      this.setupTimeInMs += setupTimeInMs;
       return this;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder setUploadTime(Duration uploadTime) {
+      return setUploadTimeInMs(toMs(uploadTime));
     }
 
     @CanIgnoreReturnValue
@@ -415,15 +468,24 @@ public class SpawnMetrics {
     }
 
     @CanIgnoreReturnValue
+    public Builder setExecutionWallTime(Duration executionWallTime) {
+      return setExecutionWallTimeInMs(toMs(executionWallTime));
+    }
+
+    @CanIgnoreReturnValue
     public Builder setExecutionWallTimeInMs(int executionWallTimeInMs) {
       this.executionWallTimeInMs = executionWallTimeInMs;
       return this;
     }
 
     @CanIgnoreReturnValue
+    public Builder addRetryTime(int errorCode, Duration retryTime) {
+      return addRetryTimeInMs(errorCode, toMs(retryTime));
+    }
+
+    @CanIgnoreReturnValue
     public Builder addRetryTimeInMs(int errorCode, int retryTimeInMs) {
-      Integer t = this.retryTimeInMs.getOrDefault(errorCode, 0);
-      this.retryTimeInMs.put(errorCode, t + retryTimeInMs);
+      this.retryTimeInMs.merge(errorCode, retryTimeInMs, Integer::sum);
       return this;
     }
 
@@ -431,6 +493,11 @@ public class SpawnMetrics {
     public Builder setRetryTimeInMs(ImmutableMap<Integer, Integer> retryTimeInMs) {
       this.retryTimeInMs = retryTimeInMs;
       return this;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder setProcessOutputsTime(Duration processOutputsTime) {
+      return setProcessOutputsTimeInMs(toMs(processOutputsTime));
     }
 
     @CanIgnoreReturnValue
@@ -536,6 +603,10 @@ public class SpawnMetrics {
       memoryBytesLimit = Long.max(memoryBytesLimit, metric.memoryLimit());
       timeLimitInMs = Integer.max(timeLimitInMs, metric.timeLimitInMs());
       return this;
+    }
+
+    private static int toMs(Duration duration) {
+      return Ints.saturatedCast(duration.toMillis());
     }
   }
 }

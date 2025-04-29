@@ -22,6 +22,7 @@ import com.google.common.collect.Range;
 import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.SubscriberExceptionHandler;
 import com.google.common.flogger.GoogleLogger;
+import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.cache.ActionCache;
 import com.google.devtools.build.lib.actions.cache.CompactPersistentActionCache;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
@@ -37,8 +38,8 @@ import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.memory.AllocationTracker;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
-import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecRegistry;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingServicesSupplier;
 import com.google.devtools.build.lib.util.io.CommandExtensionReporter;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -81,7 +82,8 @@ public final class BlazeWorkspace {
    * Null only during tests; should be created by a BlazeModule#workspaceInit hook for regular
    * operations.
    */
-  @Nullable private final FingerprintValueService.Factory fingerprintValueServiceFactory;
+  @Nullable
+  private final RemoteAnalysisCachingServicesSupplier remoteAnalysisCachingServicesSupplier;
 
   /**
    * Loaded lazily on the first build command that enables the action cache. Cleared on a build
@@ -106,7 +108,7 @@ public final class BlazeWorkspace {
       @Nullable AllocationTracker allocationTracker,
       SyscallCache syscallCache,
       Supplier<ObjectCodecRegistry> analysisCodecRegistrySupplier,
-      @Nullable FingerprintValueService.Factory fingerprintValueServiceFactory,
+      @Nullable RemoteAnalysisCachingServicesSupplier remoteAnalysisCachingServicesSupplier,
       boolean allowExternalRepositories) {
     this.runtime = runtime;
     this.eventBusExceptionHandler = Preconditions.checkNotNull(eventBusExceptionHandler);
@@ -121,7 +123,7 @@ public final class BlazeWorkspace {
     this.allowExternalRepositories = allowExternalRepositories;
     this.virtualPackageLocator = createPackageLocatorIfVirtual(directories, skyframeExecutor);
     this.analysisCodecRegistrySupplier = analysisCodecRegistrySupplier;
-    this.fingerprintValueServiceFactory = fingerprintValueServiceFactory;
+    this.remoteAnalysisCachingServicesSupplier = remoteAnalysisCachingServicesSupplier;
 
     if (directories.inWorkspace()) {
       writeOutputBaseReadmeFile();
@@ -189,12 +191,18 @@ public final class BlazeWorkspace {
   }
 
   /**
-   * Returns path to the cache directory. Path must be inside output base to ensure that users can
-   * run concurrent instances of blaze in different clients without attempting to concurrently write
-   * to the same action cache on disk, which might not be safe.
+   * Returns the path to the action cache directory.
+   *
+   * <p>This path must be a descendant of the output base, as the action cache cannot be safely
+   * shared between different workspaces.
    */
-  private Path getCacheDirectory() {
+  private Path getActionCacheDirectory() {
     return getOutputBase().getChild("action_cache");
+  }
+
+  /** Returns the path where an action cache previously determined to be corrupted is stored. */
+  private Path getCorruptedActionCacheDirectory() {
+    return getOutputBase().getChild("action_cache.bad");
   }
 
   void recordLastExecutionTime(long commandStartTime) {
@@ -233,7 +241,9 @@ public final class BlazeWorkspace {
       List<Any> commandExtensions,
       Consumer<String> shutdownReasonConsumer,
       CommandExtensionReporter commandExtensionReporter,
-      int attemptNumber) {
+      int attemptNumber,
+      @Nullable String buildRequestIdOverride,
+      ConfigFlagDefinitions configFlagDefinitions) {
     quiescingExecutors.resetParameters(options);
     CommandEnvironment env =
         new CommandEnvironment(
@@ -253,7 +263,10 @@ public final class BlazeWorkspace {
             commandExtensions,
             shutdownReasonConsumer,
             commandExtensionReporter,
-            attemptNumber);
+            attemptNumber,
+            buildRequestIdOverride,
+            configFlagDefinitions,
+            new ResourceManager());
     skyframeExecutor.setClientEnv(env.getClientEnv());
     BuildRequestOptions buildRequestOptions = options.getOptions(BuildRequestOptions.class);
     if (buildRequestOptions != null && !buildRequestOptions.useActionCache) {
@@ -283,31 +296,36 @@ public final class BlazeWorkspace {
       actionCache.clear();
     }
     actionCache = null;
-    getCacheDirectory().deleteTree();
-  }
-
-  /** Returns the reference to the action cache instance, without attempting to reload it. */
-  @Nullable
-  public ActionCache getInUseActionCacheWithoutFurtherLoading() {
-    return actionCache;
+    getActionCacheDirectory().deleteTree();
+    getCorruptedActionCacheDirectory().deleteTree();
   }
 
   /**
-   * Returns reference to the lazily instantiated persistent action cache instance. Note, that
-   * method may recreate instance between different build requests, so return value should not be
-   * cached.
+   * Returns the action cache, loading it from disk if it isn't already loaded.
+   *
+   * <p>The returned reference is only valid for the current build request, as build options may
+   * affect the presence of an action cache.
    */
   public ActionCache getOrLoadPersistentActionCache(Reporter reporter) throws IOException {
     if (actionCache == null) {
       try (AutoProfiler p = profiledAndLogged("Loading action cache", ProfilerTask.INFO)) {
         actionCache =
-            CompactPersistentActionCache.create(getCacheDirectory(), runtime.getClock(), reporter);
+            CompactPersistentActionCache.create(
+                getActionCacheDirectory(),
+                getCorruptedActionCacheDirectory(),
+                runtime.getClock(),
+                reporter);
       }
     }
     return actionCache;
   }
 
-  /** Returns reference to the lazily instantiated persistent action cache instance */
+  /**
+   * Returns the action cache, or null if it isn't already loaded.
+   *
+   * <p>The returned reference is only valid for the current build request, as build options may
+   * affect the presence of an action cache.
+   */
   @Nullable
   public ActionCache getPersistentActionCache() {
     return actionCache;
@@ -374,11 +392,8 @@ public final class BlazeWorkspace {
     return analysisCodecRegistrySupplier;
   }
 
-  public FingerprintValueService.Factory getFingerprintValueServiceFactory() {
-    if (fingerprintValueServiceFactory == null) {
-      return (unused) -> FingerprintValueService.createForTesting();
-    }
-    return fingerprintValueServiceFactory;
+  public RemoteAnalysisCachingServicesSupplier remoteAnalysisCachingServicesSupplier() {
+    return remoteAnalysisCachingServicesSupplier;
   }
 
   @Nullable

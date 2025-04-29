@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.actions.BuildConfigurationEvent;
 import com.google.devtools.build.lib.actions.CommandLineLimits;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
+import com.google.devtools.build.lib.analysis.test.TestConfiguration.TestOptions;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
@@ -165,9 +166,13 @@ public class BuildConfigurationValue
    * be inherited from the client environment.
    */
   private ActionEnvironment setupTestEnvironment() {
-    // We make a copy first to remove duplicate entries; last one wins.
+    if (!buildOptions.contains(TestOptions.class)) {
+      // TestOptions have been trimmed.
+      return ActionEnvironment.EMPTY;
+    }
+    // Order doesn't matter here as ActionEnvironment sorts by key.
     Map<String, String> testEnv = new HashMap<>();
-    for (Map.Entry<String, String> entry : options.testEnvironment) {
+    for (Map.Entry<String, String> entry : buildOptions.get(TestOptions.class).testEnvironment) {
       testEnv.put(entry.getKey(), entry.getValue());
     }
     return ActionEnvironment.split(testEnv);
@@ -595,11 +600,11 @@ public class BuildConfigurationValue
    * <p>Command-line definitions of make environments override variables defined by {@code
    * Fragment.addGlobalMakeVariables()}.
    */
-  public Map<String, String> getMakeEnvironment() {
-    Map<String, String> makeEnvironment = new HashMap<>();
+  public ImmutableMap<String, String> getMakeEnvironment() {
+    ImmutableMap.Builder<String, String> makeEnvironment = ImmutableMap.builder();
     makeEnvironment.putAll(globalMakeEnv);
     makeEnvironment.putAll(commandLineBuildVariables);
-    return ImmutableMap.copyOf(makeEnvironment);
+    return makeEnvironment.buildKeepingLast();
   }
 
   /**
@@ -845,18 +850,14 @@ public class BuildConfigurationValue
   }
 
   /**
-   * Describes how to create runfile symlink trees.
+   * Describes whether to create runfile symlink trees.
    *
    * <p>May be overridden if an {@link com.google.devtools.build.lib.vfs.OutputService} capable of
    * creating symlink trees is available.
    */
   public enum RunfileSymlinksMode {
-    /** Do not create. */
     SKIP,
-    /** Use the out-of-process implementation. */
-    EXTERNAL,
-    /** Use the in-process implementation. */
-    INTERNAL
+    CREATE
   }
 
   @VisibleForTesting
@@ -864,9 +865,7 @@ public class BuildConfigurationValue
     // TODO(buchgr): Revisit naming and functionality of this flag. See #9248 for details.
     if (options.enableRunfiles == TriState.YES
         || (options.enableRunfiles == TriState.AUTO && OS.getCurrent() != OS.WINDOWS)) {
-      return options.inProcessSymlinkCreation
-          ? RunfileSymlinksMode.INTERNAL
-          : RunfileSymlinksMode.EXTERNAL;
+      return RunfileSymlinksMode.CREATE;
     }
     return RunfileSymlinksMode.SKIP;
   }
@@ -876,7 +875,7 @@ public class BuildConfigurationValue
   }
 
   public static boolean runfilesEnabled(CoreOptions options) {
-    return getRunfileSymlinksMode(options) != RunfileSymlinksMode.SKIP;
+    return getRunfileSymlinksMode(options) == RunfileSymlinksMode.CREATE;
   }
 
   public boolean runfilesEnabled() {

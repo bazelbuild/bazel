@@ -34,12 +34,10 @@ def finalize_link_action(
         # Inputs:
         object_file_inputs,
         non_code_inputs,
-        unique_libraries,
+        libraries_to_link,
         linkstamp_map,
         linkstamp_object_artifacts,
         linkstamp_object_file_inputs,
-        toolchain_libraries_type,
-        toolchain_libraries_input,
         user_link_flags,
         # Custom user input files and variables:
         additional_linker_inputs,
@@ -75,14 +73,12 @@ def finalize_link_action(
         feature_configuration: (FeatureConfiguration) `feature_configuration` to be queried.
         cc_toolchain: (CcToolchainInfo) CcToolchainInfo provider to be used.
         progress_message: (str) The progress message of the action.
-        object_file_inputs: (list[LegacyLinkerInput]) Object files
+        object_file_inputs: (list[File]) Object files
         non_code_inputs: (list[File]) Additional inputs to the linker.
-        unique_libraries: (list[LegacyLinkerInput]) The libraries to link in.
+        libraries_to_link: (list[LibraryToLink]) The libraries to link in.
         linkstamp_map: (dict[Linkstamp, File]) Map from linkstamps to their object files.
         linkstamp_object_artifacts: (list[File]) Linkstamp object files.
-        linkstamp_object_file_inputs: (list[LegacyLinkerInput]) Linkstamp object files wrapped into LinkerInputs.
-        toolchain_libraries_type: (artifact_category) Type of toolchain libraries.
-        toolchain_libraries_input: (depset[File]) Toolchain libraries.
+        linkstamp_object_file_inputs: (list[File]) Linkstamp object files wrapped into LinkerInputs.
         user_link_flags: (list[str]) Additional list of linker options.
         additional_linker_inputs: (list[File]|depset[File]) For additional inputs to the linking action,
                   e.g.: linking scripts.
@@ -109,26 +105,17 @@ def finalize_link_action(
         cc_toolchain._cpp_configuration,
     )
 
-    must_keep_debug = any([lib.must_keep_debug for lib in unique_libraries])
+    must_keep_debug = any([lib.must_keep_debug() for lib in libraries_to_link])
 
     toolchain_libraries_solib_dir = ""
     if feature_configuration.is_enabled("static_link_cpp_runtimes"):
         toolchain_libraries_solib_dir = cc_toolchain.dynamic_runtime_solib_dir
 
-    # Linker inputs without any start/end lib expansions.
-    non_expanded_linker_inputs = object_file_inputs + linkstamp_object_file_inputs + \
-                                 unique_libraries
-
-    # Adding toolchain libraries without whole archive no-matter-what. People don't want to
-    # include whole libstdc++ in their binary ever.
-    non_expanded_linker_inputs.extend([
-        cc_internal.simple_linker_input(input, toolchain_libraries_type, True)
-        for input in toolchain_libraries_input.to_list()
-    ])
-
     solib_dir = output.root.path + "/" + cc_toolchain._solib_dir
     collected_libraries_to_link = collect_libraries_to_link(
-        non_expanded_linker_inputs,
+        object_file_inputs,
+        linkstamp_object_file_inputs,
+        libraries_to_link,
         cc_toolchain,
         feature_configuration,
         output,
@@ -146,7 +133,7 @@ def finalize_link_action(
     )
 
     expanded_linker_artifacts = depset([
-        lto_mapping.get(li.file, li.file)
+        lto_mapping.get(li, li)
         for li in collected_libraries_to_link.expanded_linker_inputs
     ])
 
@@ -221,11 +208,8 @@ def finalize_link_action(
         # A different value from use_pic
         needs_pic = (cc_toolchain._cpp_configuration.force_pic() or
                      (is_dynamic_library(link_type) and feature_configuration.is_enabled("supports_pic")))
-        seen_linkstamp_sources = {}
+
         for linkstamp, artifact in linkstamp_map.items():
-            if linkstamp.file() in seen_linkstamp_sources:
-                continue
-            seen_linkstamp_sources[linkstamp.file()] = True
             cc_common_internal.register_linkstamp_compile_action(
                 actions = actions,
                 cc_toolchain = cc_toolchain,
@@ -264,6 +248,7 @@ def finalize_link_action(
         action_outputs,
         progress_message,
         link_type,
+        interface_output,
     )
 
 def _create_action(
@@ -277,7 +262,8 @@ def _create_action(
         inputs,
         outputs,
         progress_message,
-        link_type):
+        link_type,
+        interface_output):
     """
     Creates C++ linking or LTO indexing action.
 
@@ -296,7 +282,12 @@ def _create_action(
     """
 
     parameter_file_type = None
-    if _can_split_command_line(link_type, cc_toolchain, feature_configuration):
+    if _can_split_command_line(
+        link_type,
+        cc_toolchain,
+        feature_configuration,
+        interface_output,
+    ):
         if feature_configuration.is_enabled("gcc_quoting_for_param_files"):
             parameter_file_type = "GCC_QUOTED"
         elif feature_configuration.is_enabled("windows_quoting_for_param_files"):
@@ -337,6 +328,10 @@ def _create_action(
         # TODO(b/338618120): ^ remove cheat, needs depot cleanup, always use a toolchain
         toolchain = semantics.toolchain
 
+    execution_info = semantics.get_cc_link_memlimit(
+        cc_toolchain._cpp_configuration.compilation_mode(),
+        execution_info,
+    )
     actions.run(
         mnemonic = mnemonic,
         executable = tool_path,
@@ -352,7 +347,11 @@ def _create_action(
         exec_group = exec_group,
     )
 
-def _can_split_command_line(link_type, cc_toolchain, feature_configuration):
+def _can_split_command_line(
+        link_type,
+        cc_toolchain,
+        feature_configuration,
+        interface_output):
     if not cc_toolchain._supports_param_files:
         return False
     elif is_dynamic_library(link_type):

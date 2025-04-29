@@ -24,10 +24,9 @@ import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.runfiles.Runfiles;
 import java.io.IOException;
+import java.util.Arrays;
 
-/**
- * Bazel implementation of {@link MockCcSupport}
- */
+/** Bazel implementation of {@link MockCcSupport} */
 public final class BazelMockCcSupport extends MockCcSupport {
   public static final BazelMockCcSupport INSTANCE = new BazelMockCcSupport();
 
@@ -43,20 +42,20 @@ public final class BazelMockCcSupport extends MockCcSupport {
 
   @Override
   protected String getRealFilesystemCrosstoolTopPath() {
-    // TODO(b/195425240): Make real-filesystem mode work.
-    return "";
+    if (OS.getCurrent() == OS.LINUX) {
+      return "src/test/java/com/google/devtools/build/lib/packages/util/real/linux";
+    }
+    throw new IllegalStateException("Unsupported OS: " + OS.getCurrent());
   }
 
   @Override
   protected String[] getRealFilesystemToolsToLink(String crosstoolTop) {
-    // TODO(b/195425240): Make real-filesystem mode work.
     return new String[0];
   }
 
   @Override
   protected String[] getRealFilesystemToolsToCopy(String crosstoolTop) {
-    // TODO(b/195425240): Make real-filesystem mode work.
-    return new String[0];
+    return new String[] {crosstoolTop + "/BUILD"};
   }
 
   @Override
@@ -74,9 +73,51 @@ public final class BazelMockCcSupport extends MockCcSupport {
     config.append(
         TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/cpp/BUILD",
         "alias(name='host_xcodes',actual='@local_config_xcode//:host_xcodes')");
+    if (config.isRealFileSystem() && shouldUseRealFileSystemCrosstool()) {
+      config.append(
+          TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/cpp/BUILD",
+          """
+          toolchain_type(name = 'toolchain_type')
+          cc_library(
+              name = 'link_extra_lib',
+              srcs = ['linkextra.cc'],
+              tags = ['__DONT_DEPEND_ON_DEF_PARSER__'],
+          )
+          cc_library(
+              name = 'malloc',
+              srcs = ['malloc.cc'],
+              tags = ['__DONT_DEPEND_ON_DEF_PARSER__'],
+          )
+          filegroup(
+              name = 'aggregate-ddi',
+              srcs = ['aggregate-ddi.sh'],
+          )
+          filegroup(
+              name = 'generate-modmap',
+              srcs = ['generate-modmap.sh'],
+          )
+          filegroup(
+              name = 'interface_library_builder',
+              srcs = ['interface_library_builder.sh'],
+          )
+          filegroup(
+              name = 'link_dynamic_library',
+              srcs = ['link_dynamic_library.sh'],
+          )
+          """);
+      for (String s :
+          Arrays.asList(
+              "linkextra.cc",
+              "malloc.cc",
+              "aggregate-ddi.sh",
+              "generate-modmap.sh",
+              "interface_library_builder.sh",
+              "link_dynamic_library.sh")) {
+        config.create(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/cpp/" + s);
+      }
+    }
 
     // Copies rules_cc from real @rules_cc
-    config.create("third_party/bazel_rules/rules_cc/WORKSPACE");
     config.create("third_party/bazel_rules/rules_cc/MODULE.bazel", "module(name='rules_cc')");
     Runfiles runfiles = Runfiles.preload().withSourceRepository("");
     PathFragment path = PathFragment.create(runfiles.rlocation("rules_cc/cc/defs.bzl"));
@@ -103,8 +144,7 @@ public final class BazelMockCcSupport extends MockCcSupport {
 
   @Override
   protected boolean shouldUseRealFileSystemCrosstool() {
-    // TODO(b/195425240): Workaround for lack of real-filesystem support.
-    return false;
+    return OS.getCurrent() == OS.LINUX;
   }
 
   private static ImmutableList<CcToolchainConfig> getToolchainConfigs() {

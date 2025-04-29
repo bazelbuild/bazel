@@ -89,7 +89,11 @@ EOF
 
   chmod +x dir/test.sh
 
+  add_rules_shell "MODULE.bazel"
+
   cat <<EOF > dir/BUILD
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
 sh_test(
   name = "test",
   srcs = [ "test.sh" ],

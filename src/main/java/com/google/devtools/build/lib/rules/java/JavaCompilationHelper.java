@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.rules.java;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.devtools.build.lib.packages.ExecGroup.DEFAULT_EXEC_GROUP_NAME;
+import static com.google.devtools.build.lib.packages.DeclaredExecGroup.DEFAULT_EXEC_GROUP_NAME;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -289,7 +289,7 @@ public final class JavaCompilationHelper {
     builder.setSourceFiles(sourceFiles);
     builder.setSourceJars(sourceJars);
     builder.setJavacOpts(javacopts);
-    builder.setUtf8Environment(semantics.utf8Environment());
+    builder.setUtf8Environment(semantics.utf8Environment(ruleContext.getExecutionPlatform()));
     builder.setJavacExecutionInfo(executionInfoInterner.intern(getExecutionInfo()));
     builder.setCompressJar(true);
     builder.setExtraData(JavaCommon.computePerPackageData(ruleContext, javaToolchain));
@@ -462,7 +462,7 @@ public final class JavaCompilationHelper {
     builder.setAdditionalInputs(additionalInputsForDatabinding);
     builder.setToolsJars(javaToolchain.getTools());
     builder.setExecGroup(execGroup);
-    builder.setUtf8Environment(semantics.utf8Environment());
+    builder.setUtf8Environment(semantics.utf8Environment(ruleContext.getExecutionPlatform()));
     return builder;
   }
 

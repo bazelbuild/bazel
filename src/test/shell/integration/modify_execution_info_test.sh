@@ -61,6 +61,7 @@ fi
 
 function set_up() {
     cd ${WORKSPACE_DIR}
+    add_rules_java MODULE.bazel
 }
 
 function tear_down() {
@@ -87,9 +88,11 @@ EOF
 }
 
 function test_modify_execution_info_multiple {
+  add_rules_cc "MODULE.bazel"
   local pkg="${FUNCNAME[0]}"
   mkdir -p "$pkg" || fail "mkdir -p $pkg"
   cat > "$pkg/BUILD" <<'EOF'
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 genrule(
     name = "bar",
     outs = ["bar_out.txt"],
@@ -148,12 +151,16 @@ function test_modify_execution_info_various_types() {
   if [[ "$PRODUCT_NAME" = "bazel" ]]; then
     add_rules_python "MODULE.bazel"
     add_protobuf "MODULE.bazel"
+    add_rules_shell "MODULE.bazel"
   fi
   local pkg="${FUNCNAME[0]}"
   mkdir -p "$pkg" || fail "mkdir -p $pkg"
   echo "load('//$pkg:shell.bzl', 'starlark_shell')" > "$pkg/BUILD"
   cat >> "$pkg/BUILD" <<'EOF'
+load("@rules_java//java:java_library.bzl", "java_library")
 load("@rules_python//python:py_binary.bzl", "py_binary")
+load("@com_google_protobuf//bazel:proto_library.bzl", "proto_library")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 
 starlark_shell(
   name = "shelly",
@@ -289,9 +296,13 @@ EOF
 
 # Regression test for b/130762259.
 function test_modify_execution_info_changes_test_runner_cache_key() {
+  add_rules_shell "MODULE.bazel"
   local pkg="${FUNCNAME[0]}"
   mkdir -p "$pkg"
-  echo "sh_test(name = 'test', srcs = ['test.sh'])" > "$pkg/BUILD"
+  cat  > "$pkg/BUILD" <<EOF
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+sh_test(name = 'test', srcs = ['test.sh'])
+EOF
   touch "$pkg/test.sh"
 
   bazel aquery "mnemonic(TestRunner,//$pkg:test)" --output=text \

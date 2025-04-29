@@ -18,8 +18,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.devtools.build.lib.actions.ActionAnalysisMetadata.mergeMaps;
 import static com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType.UNQUOTED;
-import static com.google.devtools.build.lib.packages.ExecGroup.DEFAULT_EXEC_GROUP_NAME;
-import static java.nio.charset.StandardCharsets.ISO_8859_1;
+import static com.google.devtools.build.lib.packages.DeclaredExecGroup.DEFAULT_EXEC_GROUP_NAME;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -173,8 +172,7 @@ public final class JavaHeaderCompileAction extends SpawnAction {
   /** Builder for {@link JavaHeaderCompileAction}. */
   public static final class Builder {
 
-    private static final ParamFileInfo PARAM_FILE_INFO =
-        ParamFileInfo.builder(UNQUOTED).setCharset(ISO_8859_1).build();
+    private static final ParamFileInfo PARAM_FILE_INFO = ParamFileInfo.builder(UNQUOTED).build();
 
     private final RuleContext ruleContext;
 
@@ -576,7 +574,8 @@ public final class JavaHeaderCompileAction extends SpawnAction {
                 // If classPathMode == BAZEL, also make sure to inject the dependencies to be
                 // available to downstream actions. Else just do enough work to locally create the
                 // full .jdeps from the .stripped .jdeps produced on the executor.
-                /* insertDependencies= */ classpathMode == JavaClasspathMode.BAZEL,
+                /* insertDependencies= */ classpathMode == JavaClasspathMode.BAZEL
+                    || classpathMode == JavaClasspathMode.BAZEL_NO_FALLBACK,
                 javaConfiguration.inmemoryJdepsFiles(),
                 additionalArtifactsForPathMapping));
         return;

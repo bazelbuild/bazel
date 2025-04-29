@@ -33,6 +33,7 @@ import static org.mockito.Mockito.verifyNoMoreInteractions;
 
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Predicates;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -90,6 +91,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Predicate;
 import javax.annotation.Nullable;
 import org.junit.After;
 import org.junit.Assume;
@@ -146,6 +148,16 @@ public class ParallelEvaluatorTest {
       boolean keepGoing,
       EventFilter storedEventFilter,
       Version evaluationVersion) {
+    return makeEvaluator(
+        graph, builders, storedEventFilter, evaluationVersion, unused -> keepGoing);
+  }
+
+  private ParallelEvaluator makeEvaluator(
+      ProcessableGraph graph,
+      ImmutableMap<SkyFunctionName, SkyFunction> builders,
+      EventFilter storedEventFilter,
+      Version evaluationVersion,
+      Predicate<SkyKey> keepGoingPredicate) {
     return new ParallelEvaluator(
         graph,
         evaluationVersion,
@@ -155,13 +167,14 @@ public class ParallelEvaluatorTest {
         new EmittedEventState(),
         storedEventFilter,
         ErrorInfoManager.UseChildErrorInfoIfNecessary.INSTANCE,
-        keepGoing,
         revalidationReceiver,
         GraphInconsistencyReceiver.THROWING,
         AbstractQueueVisitor.create("test-pool", 200, ParallelEvaluatorErrorClassifier.instance()),
         new SimpleCycleDetector(),
-        UnnecessaryTemporaryStateDropperReceiver.NULL);
+        UnnecessaryTemporaryStateDropperReceiver.NULL,
+        keepGoingPredicate);
   }
+
 
   private ParallelEvaluator makeEvaluator(
       ProcessableGraph graph,
@@ -3261,14 +3274,14 @@ public class ParallelEvaluatorTest {
             EventFilter.FULL_STORAGE,
             ErrorInfoManager.UseChildErrorInfoIfNecessary.INSTANCE,
             // Doesn't matter for this test case.
-            /* keepGoing= */ false,
             revalidationReceiver,
             GraphInconsistencyReceiver.THROWING,
             // We ought not need more than 1 thread for this test case.
             AbstractQueueVisitor.create(
                 "test-pool", 1, ParallelEvaluatorErrorClassifier.instance()),
             new SimpleCycleDetector(),
-            dropperReceiver);
+            dropperReceiver,
+            /* keepGoing= */ Predicates.alwaysFalse());
     // Then, when we evaluate key1,
     SkyValue resultValue = parallelEvaluator.eval(ImmutableList.of(key1)).get(key1);
     // It successfully produces the value we expect, confirming all our other expectations about
@@ -4114,13 +4127,13 @@ public class ParallelEvaluatorTest {
             EventFilter.FULL_STORAGE,
             ErrorInfoManager.UseChildErrorInfoIfNecessary.INSTANCE,
             // Doesn't matter for this test case.
-            /* keepGoing= */ false,
             revalidationReceiver,
             GraphInconsistencyReceiver.THROWING,
             // We ought not need more than 1 thread for this test case.
             testExecutor,
             new SimpleCycleDetector(),
-            UnnecessaryTemporaryStateDropperReceiver.NULL);
+            UnnecessaryTemporaryStateDropperReceiver.NULL,
+            /* keepGoing= */ Predicates.alwaysFalse());
 
     EvaluationResult<StringValue> result = parallelEvaluator.eval(ImmutableList.of(parentKey));
     assertThat(result.hasError()).isFalse();
@@ -4214,5 +4227,88 @@ public class ParallelEvaluatorTest {
 
     evalParallelSkyFunctionAndVerifyResults(
         testFunction, testExecutor, actualRunnableCount, expectRunnableCount);
+  }
+
+  @Test
+  public void customKeepGoingPredicate_sameForAllKeys(@TestParameter boolean keepGoing)
+      throws Exception {
+    Set<SkyKey> evaluatedValues = Sets.newConcurrentHashSet();
+    revalidationReceiver =
+        new DirtyAndInflightTrackingProgressReceiver(
+            new EvaluationProgressReceiver() {
+              @Override
+              public void evaluated(
+                  SkyKey skyKey,
+                  EvaluationState state,
+                  @Nullable SkyValue newValue,
+                  @Nullable ErrorInfo newError,
+                  @Nullable GroupedDeps directDeps) {
+                evaluatedValues.add(skyKey);
+              }
+            });
+    graph = new InMemoryGraphImpl();
+    SkyKey parentKey = skyKey("parent");
+    SkyKey midKey = skyKey("mid");
+    SkyKey errorKey = skyKey("error");
+    tester.getOrCreate(errorKey).setHasError(true);
+    tester.getOrCreate(parentKey).addDependency(midKey).setComputedValue(CONCATENATE);
+    tester.getOrCreate(midKey).addDependency(errorKey).setComputedValue(CONCATENATE);
+
+    Predicate<SkyKey> keepGoingPredicate = key -> keepGoing;
+    ParallelEvaluator evaluator =
+        makeEvaluator(
+            graph,
+            tester.getSkyFunctionMap(),
+            EventFilter.FULL_STORAGE,
+            Version.constant(),
+            keepGoingPredicate);
+
+    EvaluationResult<StringValue> result = evaluator.eval(ImmutableList.of(parentKey));
+
+    assertThat(result.hasError()).isTrue();
+    if (keepGoing) {
+      assertThat(evaluatedValues).hasSize(3);
+    } else {
+      assertThat(evaluatedValues).hasSize(1); // errorKey
+    }
+  }
+
+  @Test
+  public void customKeepGoingPredicate_differentPerKey() throws Exception {
+    Set<SkyKey> evaluatedValues = Sets.newConcurrentHashSet();
+    revalidationReceiver =
+        new DirtyAndInflightTrackingProgressReceiver(
+            new EvaluationProgressReceiver() {
+              @Override
+              public void evaluated(
+                  SkyKey skyKey,
+                  EvaluationState state,
+                  @Nullable SkyValue newValue,
+                  @Nullable ErrorInfo newError,
+                  @Nullable GroupedDeps directDeps) {
+                evaluatedValues.add(skyKey);
+              }
+            });
+    graph = new InMemoryGraphImpl();
+    SkyKey parentKey = skyKey("parent");
+    SkyKey midKey = skyKey("mid");
+    SkyKey errorKey = skyKey("error");
+    tester.getOrCreate(errorKey).setHasError(true);
+    tester.getOrCreate(parentKey).addDependency(midKey).setComputedValue(CONCATENATE);
+    tester.getOrCreate(midKey).addDependency(errorKey).setComputedValue(CONCATENATE);
+
+    Predicate<SkyKey> forceKeepGoingOnErrorKeyPredicate = key -> key.equals(errorKey);
+    ParallelEvaluator evaluator =
+        makeEvaluator(
+            graph,
+            tester.getSkyFunctionMap(),
+            EventFilter.FULL_STORAGE,
+            Version.constant(),
+            forceKeepGoingOnErrorKeyPredicate);
+
+    EvaluationResult<StringValue> result = evaluator.eval(ImmutableList.of(parentKey));
+
+    assertThat(result.hasError()).isTrue();
+    assertThat(evaluatedValues).hasSize(2); // errorKey and midKey
   }
 }

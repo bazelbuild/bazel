@@ -97,8 +97,10 @@ function test_cache_hit_on_source_edit_after_test_failure() {
   local -r CACHE_DIR="${TEST_TMPDIR}/cache"
   rm -rf "$CACHE_DIR"
 
+  add_rules_shell "MODULE.bazel"
   mkdir -p a
   cat > a/BUILD <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 sh_test(
     name = "test",
     srcs = ["test.sh"],

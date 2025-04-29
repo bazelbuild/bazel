@@ -70,8 +70,9 @@ public class CircularDependencyTest extends BuildViewTestCase {
         "cycle",
         "melon",
         selfEdgeMsg("//cycle:moebius"),
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
         "package_group(name='moebius', packages=[], includes=['//cycle:moebius'])",
-        "sh_library(name='melon', visibility=[':moebius'])");
+        "foo_library(name='melon', visibility=[':moebius'])");
   }
 
   @Test
@@ -93,7 +94,7 @@ public class CircularDependencyTest extends BuildViewTestCase {
         "package_group(name='paper', includes=['//cycle:scissors'])",
         "package_group(name='rock', includes=['//cycle:paper'])",
         "package_group(name='scissors', includes=['//cycle:rock'])",
-        "sh_library(name='superman', visibility=[':rock'])");
+        "filegroup(name='superman', visibility=[':rock'])");
 
     Event foundEvent = assertContainsEvent(expectedEvent);
     assertThat(foundEvent.getLocation().toString()).isEqualTo("/workspace/cycle/BUILD:3:14");

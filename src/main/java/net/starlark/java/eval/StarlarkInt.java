@@ -16,6 +16,8 @@ package net.starlark.java.eval;
 
 import java.math.BigInteger;
 import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.types.StarlarkType;
+import net.starlark.java.types.Types;
 
 /** The Starlark int data type. */
 @StarlarkBuiltin(
@@ -33,6 +35,10 @@ import net.starlark.java.annot.StarlarkBuiltin;
             + "int(\"18\")\n"
             + "</pre>")
 public abstract class StarlarkInt implements StarlarkValue, Comparable<StarlarkInt> {
+  @Override
+  public StarlarkType getStarlarkType() {
+    return Types.INT;
+  }
 
   // A cache of small integers >= LEAST_SMALLINT.
   private static final int LEAST_SMALLINT = -128;

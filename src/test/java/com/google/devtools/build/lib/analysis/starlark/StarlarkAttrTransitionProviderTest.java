@@ -1735,7 +1735,7 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
         )
         """);
 
-    useConfiguration("--//test/starlark:cmd-line-option=100", "--cpu=FOO");
+    useConfiguration("--//test/starlark:cmd-line-option=100", "--compilation_mode=opt");
 
     ConfiguredTarget test = getConfiguredTarget("//test/starlark:test");
 
@@ -1752,7 +1752,7 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
         .isEqualTo(StarlarkInt.of(100));
 
     // Assert native option set via command line.
-    assertThat(getCoreOptions(dep).cpu).isEqualTo("FOO");
+    assertThat(getCoreOptions(dep).compilationMode.toString()).isEqualTo("opt");
 
     // Assert that transitionDirectoryNameFragment is only affected by options
     // set via transitions. Not by native or starlark options set via command line,
@@ -1965,15 +1965,7 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
 
     // Until platforms is EXPLICIT_IN_OUTPUT_PATH, it will change here as well.
     // But, nothing else should be different.
-    assertThat(getMnemonic(dep))
-        .endsWith(
-            OutputPathMnemonicComputer.transitionDirectoryNameFragment(
-                ImmutableList.of(
-                    "//command_line_option:platforms="
-                        + getConfiguration(dep)
-                            .getOptions()
-                            .get(PlatformOptions.class)
-                            .platforms)));
+    assertThat(getMnemonic(dep)).endsWith("-exec");
   }
 
   @Test
@@ -2042,16 +2034,7 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
         .isNotEqualTo(dep.getConfigurationKey().getOptions().get(CppOptions.class).coptList);
     assertThat(getTargetConfiguration().getOptions().get(CppOptions.class).coptList)
         .isNotEqualTo(dep.getConfigurationKey().getOptions().get(CppOptions.class).coptList);
-    assertThat(getMnemonic(dep))
-        .endsWith(
-            OutputPathMnemonicComputer.transitionDirectoryNameFragment(
-                ImmutableList.of(
-                    // Until platforms is EXPLICIT_IN_OUTPUT_PATH, it will change here as well.
-                    "//command_line_option:platforms="
-                        + getConfiguration(dep)
-                            .getOptions()
-                            .get(PlatformOptions.class)
-                            .platforms)));
+    assertThat(getMnemonic(dep)).endsWith("-exec");
   }
 
   // Test that a no-op starlark transition to an already starlark transitioned configuration
@@ -2960,7 +2943,7 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
         RequiredConfigFragmentsProvider.builder();
     attrTransition.addRequiredFragments(
         requiredFragments, ct.getConfiguration().getBuildOptionDetails());
-    assertThat(requiredFragments.build().getOptionsClasses()).containsExactly(CppOptions.class);
+    assertThat(requiredFragments.build().optionsClasses()).containsExactly(CppOptions.class);
   }
 
   /**
@@ -3156,7 +3139,7 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
     // When --platforms is empty and no platform mapping triggers, PlatformMappingValue sets
     // --platforms to PlatformOptions.computeTargetPlatform(), which defaults to the host.
     assertThat(getConfiguration(dep).getOptions().get(PlatformOptions.class).platforms)
-        .containsExactly(Label.parseCanonicalUnchecked(TestConstants.PLATFORM_LABEL_ALIAS));
+        .containsExactly(Label.parseCanonicalUnchecked(TestConstants.PLATFORM_LABEL));
   }
 
   @Test

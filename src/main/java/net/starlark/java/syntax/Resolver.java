@@ -14,6 +14,9 @@
 
 package net.starlark.java.syntax;
 
+import static net.starlark.java.types.Types.NO_PARAMS_CALLABLE;
+
+import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -26,6 +29,8 @@ import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
 import net.starlark.java.spelling.SpellChecker;
+import net.starlark.java.types.StarlarkType;
+import net.starlark.java.types.Types;
 
 /**
  * The Resolver resolves each identifier in a syntax tree to its binding, and performs other
@@ -68,7 +73,7 @@ public final class Resolver extends NodeVisitor {
 
     @Override
     public String toString() {
-      return super.toString().toLowerCase();
+      return Ascii.toLowerCase(super.toString());
     }
   }
 
@@ -76,7 +81,7 @@ public final class Resolver extends NodeVisitor {
    * A Binding is a static abstraction of a variable. The Resolver maps each Identifier to a
    * Binding.
    */
-  public static final class Binding {
+  public static sealed class Binding permits ComprehensionBinding {
     private Scope scope;
     private final int index; // index within frame (LOCAL/CELL), freevars (FREE), or module (GLOBAL)
     @Nullable private final Identifier first; // first binding use, if syntactic
@@ -115,12 +120,46 @@ public final class Resolver extends NodeVisitor {
     }
   }
 
+  /** A {@link Binding} for a variable of a list or dict comprehension. */
+  public static final class ComprehensionBinding extends Binding {
+    // Used only for determining the range of locations encompassing the comprehension's lexical
+    // scope. Can be replaced with {start0, end0, start1, end1} positions if we switch to a
+    // non-AST-based evaluation model.
+    private final Comprehension node;
+
+    private ComprehensionBinding(Scope scope, int index, Identifier first, Comprehension node) {
+      super(scope, index, first);
+      this.node = node;
+    }
+
+    /** Returns true if the given location falls within the scope of the comprehension. */
+    public boolean inScope(Location loc) {
+      if (!loc.file().equals(node.getStartLocation().file())) {
+        return false;
+      }
+      // Following Python3, the first for clause of a comprehension is resolved outside the
+      // comprehension block. All the other loops are resolved in the scope of their own bindings,
+      // permitting forward references.
+      Comprehension.For for0 = (Comprehension.For) node.getClauses().get(0);
+      Expression iterable0 = for0.getIterable();
+      if (loc.compareTo(iterable0.getStartLocation()) >= 0
+          && loc.compareTo(iterable0.getEndLocation()) < 0) {
+        return false;
+      }
+      if (loc.compareTo(node.getStartLocation()) >= 0 && loc.compareTo(node.getEndLocation()) < 0) {
+        return true;
+      }
+      return false;
+    }
+  }
+
   /** A Resolver.Function records information about a resolved function. */
   public static final class Function {
 
     private final String name;
     private final Location location;
     private final ImmutableList<Parameter> params;
+    private final Types.CallableType functionType;
     private final ImmutableList<Statement> body;
     private final boolean hasVarargs;
     private final boolean hasKwargs;
@@ -136,6 +175,7 @@ public final class Resolver extends NodeVisitor {
         String name,
         Location loc,
         ImmutableList<Parameter> params,
+        Types.CallableType functionType,
         ImmutableList<Statement> body,
         boolean hasVarargs,
         boolean hasKwargs,
@@ -146,6 +186,7 @@ public final class Resolver extends NodeVisitor {
       this.name = name;
       this.location = loc;
       this.params = params;
+      this.functionType = functionType;
       this.body = body;
       this.hasVarargs = hasVarargs;
       this.hasKwargs = hasKwargs;
@@ -250,6 +291,10 @@ public final class Resolver extends NodeVisitor {
       return params;
     }
 
+    public Types.CallableType getFunctionType() {
+      return functionType;
+    }
+
     /**
      * Returns the effective statements of the function's body. (For the implicit function created
      * to evaluate a single standalone expression, this may contain a synthesized Return statement.)
@@ -275,6 +320,16 @@ public final class Resolver extends NodeVisitor {
      */
     public int numKeywordOnlyParams() {
       return numKeywordOnlyParams;
+    }
+
+    /** Returns the number of non-residual parameters. */
+    public int getNumNonResidualParameters() {
+      return params.size() - (hasKwargs ? 1 : 0) - (hasVarargs ? 1 : 0);
+    }
+
+    /** Returns the number of ordinary (non-residual, non-keyword-only) parameters. */
+    public int getNumOrdinaryParameters() {
+      return params.size() - (hasKwargs ? 1 : 0) - (hasVarargs ? 1 : 0) - numKeywordOnlyParams;
     }
 
     /** Returns the names of the parameters. Order is as for {@link #getParameters}. */
@@ -611,15 +666,13 @@ public final class Resolver extends NodeVisitor {
     pushLocalBlock(node, this.locals.frame, this.locals.freevars);
 
     for (Comprehension.Clause clause : clauses) {
-      if (clause instanceof Comprehension.For) {
-        Comprehension.For forClause = (Comprehension.For) clause;
+      if (clause instanceof Comprehension.For forClause) {
         createBindingsForLHS(forClause.getVars());
       }
     }
     for (int i = 0; i < clauses.size(); i++) {
       Comprehension.Clause clause = clauses.get(i);
-      if (clause instanceof Comprehension.For) {
-        Comprehension.For forClause = (Comprehension.For) clause;
+      if (clause instanceof Comprehension.For forClause) {
         if (i > 0) {
           visit(forClause.getIterable());
         }
@@ -776,6 +829,92 @@ public final class Resolver extends NodeVisitor {
     return bind;
   }
 
+  @Nullable
+  public StarlarkType resolveType(Resolver.Module module, Expression expr) {
+    switch (expr.kind()) {
+      case IDENTIFIER:
+        Identifier id = (Identifier) expr;
+        // TODO(ilist@): consider moving resolution/TYPE_UNIVERSE into Module interface
+        Object result = Types.TYPE_UNIVERSE.get(id.getName());
+        if (result == null) {
+          // TODO(ilist@): include possible candidates in the error message
+          errorf(expr, "type '%s' is not defined", id.getName());
+          return Types.ANY;
+        }
+        if (result instanceof StarlarkType type) {
+          return type;
+        }
+      // TODO(ilist@): full evaluation: type expressions, applications
+      // fall through
+      default:
+    }
+    errorf(expr, "expression '%s' is not a valid type.", expr);
+    return Types.ANY;
+  }
+
+  public Types.CallableType resolveFunctionType(
+      Resolver.Module module,
+      ImmutableList<Parameter> parameters,
+      @Nullable Expression returnTypeExpr) {
+    ImmutableList.Builder<String> names = ImmutableList.builder();
+    ImmutableList.Builder<StarlarkType> types = ImmutableList.builder();
+    ImmutableSet.Builder<String> mandatoryParameters = ImmutableSet.builder();
+
+    int nparams = parameters.size();
+    int numPositionalParameters = 0;
+    Parameter.Star star = null;
+    Parameter.StarStar starStar = null;
+    int i;
+    for (i = 0; i < nparams; i++) {
+      Parameter param = parameters.get(i);
+      if (param instanceof Parameter.Star pstar) {
+        star = pstar;
+        continue;
+      }
+      if (param instanceof Parameter.StarStar pstarstar) {
+        starStar = pstarstar;
+      }
+      if (star == null) {
+        numPositionalParameters++;
+      }
+
+      String name = param.getName();
+      Expression typeExpr = param.getType();
+
+      names.add(name);
+      types.add(typeExpr == null ? Types.ANY : resolveType(module, typeExpr));
+      if (param instanceof Parameter.Mandatory) {
+        mandatoryParameters.add(name);
+      }
+    }
+
+    StarlarkType varargsType = Types.NONE;
+    if (star != null && star.getIdentifier() != null) {
+      Expression typeExpr = star.getType();
+      varargsType = typeExpr == null ? Types.ANY : resolveType(module, typeExpr);
+    }
+
+    StarlarkType kwargsType = Types.NONE;
+    if (starStar != null) {
+      Expression typeExpr = starStar.getType();
+      kwargsType = typeExpr == null ? Types.ANY : resolveType(module, typeExpr);
+    }
+
+    StarlarkType returnType = Types.ANY;
+    if (returnTypeExpr != null) {
+      returnType = resolveType(module, returnTypeExpr);
+    }
+
+    return Types.callable(
+        names.build(),
+        types.build(),
+        numPositionalParameters,
+        mandatoryParameters.build(),
+        varargsType,
+        kwargsType,
+        returnType);
+  }
+
   // Common code for def, lambda.
   private Function resolveFunction(
       Node syntax, // DefStatement or LambdaExpression
@@ -872,10 +1011,19 @@ public final class Resolver extends NodeVisitor {
     visitAll(body);
     popLocalBlock();
 
+    Types.CallableType functionType = null;
+    if (syntax instanceof DefStatement def) {
+      functionType = resolveFunctionType(module, def.getParameters(), def.getReturnType());
+    } else if (syntax instanceof LambdaExpression lambda) {
+      functionType =
+          resolveFunctionType(module, lambda.getParameters(), /* returnTypeExpr= */ null);
+    }
+
     return new Function(
         name,
         loc,
         params.build(),
+        functionType,
         body,
         star != null && star.getIdentifier() != null,
         starStar != null,
@@ -931,7 +1079,13 @@ public final class Resolver extends NodeVisitor {
         // New local binding: add to current block's bindings map, current function's frame.
         // (These are distinct entities in the case where the current block is a comprehension.)
         isNew = true;
-        bind = new Binding(Scope.LOCAL, locals.frame.size(), id);
+        if (locals.syntax instanceof Comprehension comprehension) {
+          // Assumption: any block nested in a comprehension is either another comprehension or has
+          // its own frame (e.g. a lambda).
+          bind = new ComprehensionBinding(Scope.LOCAL, locals.frame.size(), id, comprehension);
+        } else {
+          bind = new Binding(Scope.LOCAL, locals.frame.size(), id);
+        }
         locals.bindings.put(name, bind);
         locals.frame.add(bind);
       }
@@ -1051,13 +1205,14 @@ public final class Resolver extends NodeVisitor {
         new Function(
             "<toplevel>",
             file.getStartLocation(),
-            /*params=*/ ImmutableList.of(),
-            /*body=*/ stmts,
-            /*hasVarargs=*/ false,
-            /*hasKwargs=*/ false,
-            /*numKeywordOnlyParams=*/ 0,
+            /* params= */ ImmutableList.of(),
+            /* functionType= */ NO_PARAMS_CALLABLE,
+            /* body= */ stmts,
+            /* hasVarargs= */ false,
+            /* hasKwargs= */ false,
+            /* numKeywordOnlyParams= */ 0,
             frame,
-            /*freevars=*/ ImmutableList.of(),
+            /* freevars= */ ImmutableList.of(),
             r.globals));
   }
 
@@ -1084,13 +1239,14 @@ public final class Resolver extends NodeVisitor {
     return new Function(
         "<expr>",
         expr.getStartLocation(),
-        /*params=*/ ImmutableList.of(),
+        /* params= */ ImmutableList.of(),
+        /* functionType= */ NO_PARAMS_CALLABLE,
         ImmutableList.of(ReturnStatement.make(expr)),
-        /*hasVarargs=*/ false,
-        /*hasKwargs=*/ false,
-        /*numKeywordOnlyParams=*/ 0,
+        /* hasVarargs= */ false,
+        /* hasKwargs= */ false,
+        /* numKeywordOnlyParams= */ 0,
         frame,
-        /*freevars=*/ ImmutableList.of(),
+        /* freevars= */ ImmutableList.of(),
         r.globals);
   }
 

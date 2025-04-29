@@ -387,7 +387,47 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
         .hasErrorEntryForKeyThat(key)
         .hasExceptionThat()
         .hasMessageThat()
-        .contains("No matching toolchains found for types //toolchain:test_toolchain");
+        .isEqualTo(
+            """
+No matching toolchains found for types:
+  //toolchain:test_toolchain
+To debug, rerun with --toolchain_resolution_debug='//toolchain:test_toolchain'
+For more information on platforms or toolchains see https://bazel.build/concepts/platforms-intro.\
+""");
+  }
+
+  @Test
+  public void resolve_mandatory_missing_customPlatformMessage() throws Exception {
+    scratch.appendFile(
+        "platforms/BUILD",
+        """
+        platform(
+            name = "linux_custom_message",
+            parents = [":linux"],
+            missing_toolchain_error = "Check custom docs for setup instructions",
+        )
+        """);
+
+    // There is no toolchain for the requested type.
+    useConfiguration("--platforms=//platforms:linux_custom_message");
+    ToolchainContextKey key =
+        ToolchainContextKey.key()
+            .configurationKey(targetConfigKey)
+            .toolchainTypes(testToolchainType)
+            .build();
+
+    EvaluationResult<UnloadedToolchainContext> result = invokeToolchainResolution(key);
+
+    assertThatEvaluationResult(result)
+        .hasErrorEntryForKeyThat(key)
+        .hasExceptionThat()
+        .hasMessageThat()
+        .contains("Check custom docs for setup instructions");
+    assertThatEvaluationResult(result)
+        .hasErrorEntryForKeyThat(key)
+        .hasExceptionThat()
+        .hasMessageThat()
+        .doesNotContain("see https://bazel.build/concepts/platforms-intro");
   }
 
   @Test
@@ -1289,7 +1329,6 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
 
         my_rule(
             name = "me",
-            transitive_configs = [":flag"],
         )
         """);
     // Need this so the feature flag actually gone from the configuration.
@@ -1298,7 +1337,7 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
     assertThat(getConfiguredTarget("//rule:me")).isNull();
     assertContainsEvent(
         "Unrecoverable errors resolving config_setting associated with"
-            + " //strange:strange_test_toolchain: For config_setting flagged, Feature flag"
+            + " //strange:strange_toolchain: For config_setting flagged, Feature flag"
             + " //strange:flag was accessed in a configuration it is not present in.");
   }
 

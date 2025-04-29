@@ -14,20 +14,44 @@
 
 package com.google.devtools.build.lib.rules.proto;
 
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
+
+import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.skyframe.BzlLoadValue;
+
+
 /** Constants used in Proto rules. */
 public final class ProtoConstants {
-  /** Default label for proto compiler. */
-  public static final String DEFAULT_PROTOC_LABEL =  "@@protobuf+//:protoc";
+
+  // Two keys support either bzlmod or WORKSPACE mode of cc_shared_library
+  public static final ImmutableList<BzlLoadValue.Key> EXTERNAL_PROTO_INFO_KEYS =
+      ImmutableList.of(
+          keyForBuild(  // WORKSPACE
+              Label.parseCanonicalUnchecked(
+                  "@com_google_protobuf//bazel/private:proto_info.bzl")),
+          keyForBuild(  // tests
+              Label.parseCanonicalUnchecked(
+                  "@com_google_protobuf+//bazel/private:proto_info.bzl")),
+          keyForBuild(  // bzlmod
+              Label.parseCanonicalUnchecked(
+                  "@@protobuf+//bazel/private:proto_info.bzl")));
+
+  public static final BzlLoadValue.Key PROTO_LANG_TOOLCHAIN_INFO = keyForBuild(Label.parseCanonicalUnchecked("@@com_google_protobuf+//bazel/common:proto_lang_toolchain_info.bzl"));
+  // The flags need to point to @bazel_tools, because this is a canonical repo
+  // name when either bzlmod or WORKSPACE mode is used.
+  /** Default label for proto compiler.*/
+  public static final String DEFAULT_PROTOC_LABEL =  "@bazel_tools//tools/proto:protoc";
 
   /** Default label for java proto toolchains. */
-  static final String DEFAULT_JAVA_PROTO_LABEL = "@@protobuf+//:java_toolchain";
+  static final String DEFAULT_JAVA_PROTO_LABEL = "@bazel_tools//tools/proto:java_toolchain";
 
   /** Default label for java lite proto toolchains. */
   static final String DEFAULT_JAVA_LITE_PROTO_LABEL =
-      "@@protobuf+//:javalite_toolchain";
+      "@bazel_tools//tools/proto:javalite_toolchain";
 
   /** Default label for cc proto toolchains. */
-  static final String DEFAULT_CC_PROTO_LABEL = "@@protobuf+//:cc_toolchain";
+  static final String DEFAULT_CC_PROTO_LABEL = "@bazel_tools//tools/proto:cc_toolchain";
 
   /** Default label for j2objc proto toolchains. */
   static final String DEFAULT_J2OBJC_PROTO_LABEL =

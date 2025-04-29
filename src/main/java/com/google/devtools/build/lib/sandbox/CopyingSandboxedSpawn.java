@@ -62,7 +62,7 @@ public class CopyingSandboxedSpawn extends AbstractContainerizingSandboxedSpawn 
   }
 
   @Override
-  public void copyOutputs(Path execRoot) throws IOException {
+  public void copyOutputs(Path execRoot) throws IOException, InterruptedException {
     successCallback.run();
     super.copyOutputs(execRoot);
   }
@@ -74,7 +74,7 @@ public class CopyingSandboxedSpawn extends AbstractContainerizingSandboxedSpawn 
       FileSystemUtils.copyFile(source, target);
     } else if (stat.isDirectory()) {
       target.createDirectory();
-      FileSystemUtils.copyTreesBelow(source, target, Symlinks.NOFOLLOW);
+      FileSystemUtils.copyTreesBelow(source, target);
     }
   }
 }

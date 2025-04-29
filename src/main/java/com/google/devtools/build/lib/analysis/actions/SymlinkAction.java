@@ -14,12 +14,13 @@
 
 package com.google.devtools.build.lib.analysis.actions;
 
-import static com.google.devtools.build.lib.unix.FileStatus.S_IXUSR;
+import static com.google.devtools.build.lib.unix.UnixFileStatus.S_IXUSR;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.AbstractAction;
+import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
@@ -27,9 +28,11 @@ import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
-import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
-import com.google.devtools.build.lib.actions.FileArtifactValue.SymlinkToSourceFileArtifactValue;
+import com.google.devtools.build.lib.actions.FilesetOutputTree;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
+import com.google.devtools.build.lib.actions.RichArtifactData;
+import com.google.devtools.build.lib.actions.RichDataProducingAction;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -51,7 +54,7 @@ import javax.annotation.Nullable;
  * Action to create a symlink to a known-to-exist target with alias semantics similar to a true copy
  * of the input (if any).
  */
-public final class SymlinkAction extends AbstractAction {
+public final class SymlinkAction extends AbstractAction implements RichDataProducingAction {
   private static final String GUID = "7f4fab4d-d0a7-4f0f-8649-1d0337a21fee";
 
   /** Null when {@link #getPrimaryInput} is the target of the symlink. */
@@ -198,6 +201,15 @@ public final class SymlinkAction extends AbstractAction {
     return actionExecutionContext.getInputPath(getPrimaryOutput());
   }
 
+  @Nullable
+  @Override
+  public RichArtifactData reconstructRichDataOnActionCacheHit(
+      InputMetadataProvider inputMetadataProvider) {
+    return targetType == TargetType.FILESET
+        ? FilesetOutputTree.forward(inputMetadataProvider.getFileset(getPrimaryInput()))
+        : null;
+  }
+
   @Override
   public ActionResult execute(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
@@ -245,7 +257,18 @@ public final class SymlinkAction extends AbstractAction {
       }
     }
 
-    maybeInjectMetadata(actionExecutionContext);
+    if (targetType == TargetType.FILESET) {
+      // Forward the Fileset metadata to the output artifact of this symlink: the metadata is
+      // created in an upstream (Google-specific) action, but the output of this action will appear
+      // on the inputs of actions that have the Fileset as an input. The Fileset metadata must be
+      // attached to that artifact so that the execution strategies of actions that take it as an
+      // input can recreate the Fileset.
+      actionExecutionContext.setRichArtifactData(
+          FilesetOutputTree.forward(
+              actionExecutionContext.getInputMetadataProvider().getFileset(getPrimaryInput())));
+    } else {
+      maybeInjectMetadata(this, actionExecutionContext);
+    }
     return ActionResult.EMPTY;
   }
 
@@ -331,7 +354,7 @@ public final class SymlinkAction extends AbstractAction {
   }
 
   /**
-   * Propagates metadata from the input artifact if possible.
+   * Propagates metadata from the input artifact (symlink target) if possible.
    *
    * <p>This is an optimization that saves filesystem operations - we know the output is just a
    * symlink to the input, so we may be able to skip constructing its metadata from the filesystem.
@@ -346,14 +369,11 @@ public final class SymlinkAction extends AbstractAction {
    * nothing. The output symlink will be read back from the filesystem after this action finishes
    * executing.
    */
-  private void maybeInjectMetadata(ActionExecutionContext ctx) {
+  public static void maybeInjectMetadata(Action symlinkAction, ActionExecutionContext ctx) {
     if (ctx.getActionFileSystem() != null) {
       return; // Action filesystems are responsible for their own metadata injection.
     }
-    if (targetType == TargetType.FILESET) {
-      return;
-    }
-    Artifact primaryInput = getPrimaryInput();
+    Artifact primaryInput = symlinkAction.getPrimaryInput();
     if (primaryInput == null || primaryInput.isDirectory()) {
       return;
     }
@@ -366,9 +386,10 @@ public final class SymlinkAction extends AbstractAction {
     if (metadata != null) {
       ctx.getOutputMetadataStore()
           .injectFile(
-              getPrimaryOutput(),
-              primaryInput instanceof SourceArtifact sourceArtifact
-                  ? SymlinkToSourceFileArtifactValue.toSourceArtifact(sourceArtifact, metadata)
+              symlinkAction.getPrimaryOutput(),
+              primaryInput instanceof SourceArtifact
+                  ? FileArtifactValue.createFromExistingWithResolvedPath(
+                      metadata, primaryInput.getPath().asFragment())
                   : metadata);
     }
   }
@@ -387,7 +408,7 @@ public final class SymlinkAction extends AbstractAction {
   @Override
   protected void computeKey(
       ActionKeyContext actionKeyContext,
-      @Nullable ArtifactExpander artifactExpander,
+      @Nullable InputMetadataProvider inputMetadataProvider,
       Fingerprint fp) {
     fp.addString(GUID);
     // We don't normally need to add inputs to the key. In this case, however, the inputPath can be
@@ -440,10 +461,8 @@ public final class SymlinkAction extends AbstractAction {
   }
 
   @Override
-  @Nullable
   public PlatformInfo getExecutionPlatform() {
-    // SymlinkAction is platform agnostic.
-    return null;
+    return PlatformInfo.EMPTY_PLATFORM_INFO;
   }
 
   @Override

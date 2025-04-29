@@ -92,16 +92,20 @@ public class IOExceptionsTest extends PackageLoadingTestCase {
   @Test
   public void testBasicFailure() throws Exception {
     reporter.removeHandler(failFastHandler); // expect errors
-    final Path buildPath = scratch.file("pkg/BUILD",
-        "sh_library(name = 'x')");
+    final Path buildPath =
+        scratch.file(
+            "pkg/BUILD",
+            "load('//test_defs:foo_library.bzl', 'foo_library')",
+            "foo_library(name = 'x')");
     crashMessage =
         path -> buildPath.asFragment().equals(path) ? "custom crash: " + buildPath : null;
     assertThat(visitTransitively(Label.parseCanonical("//pkg:x"))).isFalse();
     scratch.overwriteFile(
         "pkg/BUILD",
         """
+        load('//test_defs:foo_library.bzl', 'foo_library')
         # another comment to force reload
-        sh_library(name = "x")
+        foo_library(name = "x")
         """);
     crashMessage = IOExceptionsTest::nullFunction;
     syncPackages();
@@ -115,10 +119,15 @@ public class IOExceptionsTest extends PackageLoadingTestCase {
   @Test
   public void testNestedFailure() throws Exception {
     reporter.removeHandler(failFastHandler); // expect errors
-    scratch.file("top/BUILD",
-        "sh_library(name = 'top', deps = ['//pkg:x'])");
-    final Path buildPath = scratch.file("pkg/BUILD",
-        "sh_library(name = 'x')");
+    scratch.file(
+        "top/BUILD",
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
+        "foo_library(name = 'top', deps = ['//pkg:x'])");
+    final Path buildPath =
+        scratch.file(
+            "pkg/BUILD",
+            "load('//test_defs:foo_library.bzl', 'foo_library')",
+            "foo_library(name = 'x')");
     crashMessage =
         path -> buildPath.asFragment().equals(path) ? "custom crash: " + buildPath : null;
     assertThat(visitTransitively(Label.parseCanonical("//top:top"))).isFalse();
@@ -128,8 +137,9 @@ public class IOExceptionsTest extends PackageLoadingTestCase {
     scratch.overwriteFile(
         "pkg/BUILD",
         """
+        load('//test_defs:foo_library.bzl', 'foo_library')
         # another comment to force reload
-        sh_library(name = "x")
+        foo_library(name = "x")
         """);
     crashMessage = IOExceptionsTest::nullFunction;
     syncPackages();
@@ -142,8 +152,11 @@ public class IOExceptionsTest extends PackageLoadingTestCase {
   @Test
   public void testOneLevelUpFailure() throws Exception {
     reporter.removeHandler(failFastHandler); // expect errors
-    final Path buildPath = scratch.file("top/BUILD",
-        "sh_library(name = 'x')");
+    final Path buildPath =
+        scratch.file(
+            "top/BUILD",
+            "load('//test_defs:foo_library.bzl', 'foo_library')",
+            "foo_library(name = 'x')");
     buildPath.getParentDirectory().getRelative("pkg").createDirectory();
     crashMessage =
         path -> buildPath.asFragment().equals(path) ? "custom crash: " + buildPath : null;

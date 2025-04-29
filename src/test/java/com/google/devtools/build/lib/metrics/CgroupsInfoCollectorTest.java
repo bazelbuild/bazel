@@ -55,7 +55,7 @@ public class CgroupsInfoCollectorTest {
         CgroupsInfoCollector.instance()
             .collectResourceUsage(
                 ImmutableMap.of(1L, cgroupsInfo1, 2L, cgroupsInfo2, 3L, cgroupsInfo3), clock);
-    assertThat(snapshot.getPidToMemoryInKb()).containsExactly(1L, 1000, 3L, 3000);
+    assertThat(snapshot.pidToMemoryInKb()).containsExactly(1L, 1000, 3L, 3000);
   }
 
   @Test
@@ -70,7 +70,13 @@ public class CgroupsInfoCollectorTest {
         scratch.file(memoryPath + "/memory.current", String.valueOf(i * 1000 * 1024));
         memory = new UnifiedMemory(memoryPath);
       }
-      VirtualCgroup cgroup = VirtualCgroup.create(/* cpu= */ null, memory, ImmutableSet.of());
+      VirtualCgroup cgroup =
+          VirtualCgroup.create(
+              /* cpu= */ null,
+              memory,
+              ImmutableSet.of(),
+              com.google.devtools.build.lib.sandbox.cgroups.proto.CgroupsInfoProtos.CgroupsInfo
+                  .getDefaultInstance());
       pidToCgroups.put((long) i, cgroup);
     }
 
@@ -78,6 +84,6 @@ public class CgroupsInfoCollectorTest {
         CgroupsInfoCollector.instance().collectResourceUsage(pidToCgroups.buildOrThrow(), clock);
 
     // Results from cgroups 2 should not be in the snapshot since it doesn't exist.
-    assertThat(snapshot.getPidToMemoryInKb()).containsExactly(1L, 1000, 3L, 3000);
+    assertThat(snapshot.pidToMemoryInKb()).containsExactly(1L, 1000, 3L, 3000);
   }
 }

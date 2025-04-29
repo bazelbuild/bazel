@@ -30,7 +30,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableTable;
-import com.google.common.collect.Interner;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
@@ -39,19 +38,16 @@ import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory.TransitionType;
+import com.google.devtools.build.lib.analysis.platform.PlatformConstants;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
-import com.google.devtools.build.lib.packages.Attribute.StarlarkComputedDefaultTemplate;
 import com.google.devtools.build.lib.packages.Attribute.StarlarkComputedDefaultTemplate.CannotPrecomputeDefaultsException;
-import com.google.devtools.build.lib.packages.BuildType.SelectorList;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.MissingFragmentPolicy;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.RuleFactory.AttributeValues;
-import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.packages.Type.LabelClass;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
@@ -63,13 +59,9 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.annotations.FormatMethod;
 import java.io.Serializable;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.BitSet;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -83,7 +75,6 @@ import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkCallable;
 import net.starlark.java.eval.StarlarkFunction;
 import net.starlark.java.eval.StarlarkThread;
-import net.starlark.java.spelling.SpellChecker;
 
 /**
  * Instances of RuleClass encapsulate the set of attributes of a given "class" of rule, such as
@@ -160,6 +151,15 @@ public class RuleClass implements RuleClassData {
   public static final String APPLICABLE_METADATA_ATTR = "package_metadata";
 
   public static final String APPLICABLE_METADATA_ATTR_ALT = "applicable_licenses";
+
+  public static final String DEFAULT_TEST_RUNNER_EXEC_GROUP_NAME = "test";
+  public static final DeclaredExecGroup DEFAULT_TEST_RUNNER_EXEC_GROUP =
+      DeclaredExecGroup.builder()
+          .addToolchainType(
+              ToolchainTypeRequirement.builder(PlatformConstants.DEFAULT_TEST_TOOLCHAIN_TYPE)
+                  .mandatory(false)
+                  .build())
+          .build();
 
   /** Interface for determining whether a rule needs toolchain resolution or not. */
   @FunctionalInterface
@@ -258,9 +258,15 @@ public class RuleClass implements RuleClassData {
 
   /**
    * For Bazel's constraint system: the attribute that declares the list of constraints that the
-   * execution platform must satisfy to be considered compatible.
+   * default exec group's execution platform must satisfy to be considered compatible.
    */
   public static final String EXEC_COMPATIBLE_WITH_ATTR = "exec_compatible_with";
+
+  /**
+   * For Bazel's constraint system: the attribute that declares the list of constraints that the
+   * given exec groups' execution platforms must satisfy to be considered compatible.
+   */
+  public static final String EXEC_GROUP_COMPATIBLE_WITH_ATTR = "exec_group_compatible_with";
 
   /**
    * The attribute that declares execution properties that should be added to actions created by
@@ -749,11 +755,11 @@ public class RuleClass implements RuleClassData {
     private boolean supportsConstraintChecking = true;
 
     private final Map<String, Attribute> attributes = new LinkedHashMap<>();
-    private final Set<ToolchainTypeRequirement> toolchainTypes = new HashSet<>();
+    private final Set<ToolchainTypeRequirement> toolchainTypes = new LinkedHashSet<>();
     private ToolchainResolutionMode toolchainResolutionMode = ToolchainResolutionMode.ENABLED;
-    private final Set<Label> executionPlatformConstraints = new HashSet<>();
+    private final Set<Label> executionPlatformConstraints = new LinkedHashSet<>();
     private OutputFile.Kind outputFileKind = OutputFile.Kind.FILE;
-    private final Map<String, ExecGroup> execGroups = new HashMap<>();
+    private final Map<String, DeclaredExecGroup> execGroups = new LinkedHashMap<>();
     private AutoExecGroupsMode autoExecGroupsMode = AutoExecGroupsMode.DYNAMIC;
 
     /**
@@ -801,7 +807,7 @@ public class RuleClass implements RuleClassData {
         addToolchainTypes(parent.getToolchainTypes());
         addExecutionPlatformConstraints(parent.getExecutionPlatformConstraints());
         try {
-          addExecGroups(parent.getExecGroups());
+          addExecGroups(parent.getDeclaredExecGroups());
         } catch (DuplicateExecGroupError e) {
           throw new IllegalArgumentException(
               String.format(
@@ -812,7 +818,7 @@ public class RuleClass implements RuleClassData {
 
         this.autoExecGroupsMode = parent.getAutoExecGroupsMode();
 
-        for (Attribute attribute : parent.getAttributes()) {
+        for (Attribute attribute : parent.getAttributeProvider().getAttributes()) {
           String attrName = attribute.getName();
           Preconditions.checkArgument(
               !attributes.containsKey(attrName) || attributes.get(attrName).equals(attribute),
@@ -1604,14 +1610,14 @@ public class RuleClass implements RuleClassData {
      * same name are added.
      */
     @CanIgnoreReturnValue
-    public Builder addExecGroups(Map<String, ExecGroup> execGroups) {
-      for (Map.Entry<String, ExecGroup> group : execGroups.entrySet()) {
+    public Builder addExecGroups(Map<String, DeclaredExecGroup> execGroups) {
+      for (Map.Entry<String, DeclaredExecGroup> group : execGroups.entrySet()) {
         String name = group.getKey();
         if (this.execGroups.containsKey(name)) {
           // If trying to add a new execution group with the same name as a execution group that
           // already exists, check if they are equivalent and error out if not.
-          ExecGroup existingGroup = this.execGroups.get(name);
-          ExecGroup newGroup = group.getValue();
+          DeclaredExecGroup existingGroup = this.execGroups.get(name);
+          DeclaredExecGroup newGroup = group.getValue();
           if (!existingGroup.equals(newGroup)) {
             throw new DuplicateExecGroupError(name);
           }
@@ -1622,12 +1628,7 @@ public class RuleClass implements RuleClassData {
       return this;
     }
 
-    /** Adds an exec group that copies its toolchains and constraints from the rule. */
-    public Builder addExecGroup(String name) {
-      return addExecGroups(ImmutableMap.of(name, ExecGroup.copyFromDefault()));
-    }
-
-    /** An error to help report {@link ExecGroup}s with the same name */
+    /** An error to help report {@link DeclaredExecGroup}s with the same name */
     static class DuplicateExecGroupError extends RuntimeException {
       private final String duplicateGroup;
 
@@ -1729,22 +1730,9 @@ public class RuleClass implements RuleClassData {
   private final boolean isAnalysisTest;
   private final boolean hasAnalysisTestTransition;
   private final ImmutableList<AllowlistChecker> allowlistCheckers;
-  private final boolean ignoreLicenses;
   private final boolean hasAspects;
 
-  /**
-   * A (unordered) mapping from attribute names to small integers indexing into the {@code
-   * attributes} array.
-   */
-  private final Map<String, Integer> attributeIndex;
-
-  /**
-   * All attributes of this rule class (including inherited ones) ordered by attributeIndex value.
-   */
-  private final ImmutableList<Attribute> attributes;
-
-  /** Names of the non-configurable attributes of this rule class. */
-  private final ImmutableList<String> nonConfigurableAttributes;
+  private final AttributeProvider attributeProvider;
 
   /** The set of implicit outputs generated by a rule, expressed as a function of that rule. */
   private final ImplicitOutputsFunction implicitOutputsFunction;
@@ -1811,7 +1799,7 @@ public class RuleClass implements RuleClassData {
   private final ImmutableSet<ToolchainTypeRequirement> toolchainTypes;
   private final ToolchainResolutionMode toolchainResolutionMode;
   private final ImmutableSet<Label> executionPlatformConstraints;
-  private final ImmutableMap<String, ExecGroup> execGroups;
+  private final ImmutableMap<String, DeclaredExecGroup> declaredExecGroups;
   private final AutoExecGroupsMode autoExecGroupsMode;
 
   /**
@@ -1874,7 +1862,7 @@ public class RuleClass implements RuleClassData {
       Set<ToolchainTypeRequirement> toolchainTypes,
       ToolchainResolutionMode toolchainResolutionMode,
       Set<Label> executionPlatformConstraints,
-      Map<String, ExecGroup> execGroups,
+      Map<String, DeclaredExecGroup> declaredExecGroups,
       AutoExecGroupsMode autoExecGroupsMode,
       OutputFile.Kind outputFileKind,
       ImmutableList<Attribute> attributes,
@@ -1905,20 +1893,18 @@ public class RuleClass implements RuleClassData {
     this.ruleDefinitionEnvironmentDigest = ruleDefinitionEnvironmentDigest;
     this.ruleDefinitionEnvironmentRepoMappingEntries = ruleDefinitionEnvironmentRepoMappingEntries;
     this.outputFileKind = outputFileKind;
-    this.attributes = attributes;
     this.workspaceOnly = workspaceOnly;
     this.dependencyResolutionRule = dependencyResolutionRule;
     this.isExecutableStarlark = isExecutableStarlark;
     this.isAnalysisTest = isAnalysisTest;
     this.hasAnalysisTestTransition = hasAnalysisTestTransition;
     this.allowlistCheckers = allowlistCheckers;
-    this.ignoreLicenses = ignoreLicenses;
     this.configurationFragmentPolicy = configurationFragmentPolicy;
     this.supportsConstraintChecking = supportsConstraintChecking;
     this.toolchainTypes = ImmutableSet.copyOf(toolchainTypes);
     this.toolchainResolutionMode = toolchainResolutionMode;
     this.executionPlatformConstraints = ImmutableSet.copyOf(executionPlatformConstraints);
-    this.execGroups = ImmutableMap.copyOf(execGroups);
+    this.declaredExecGroups = ImmutableMap.copyOf(declaredExecGroups);
     this.autoExecGroupsMode = autoExecGroupsMode;
     this.buildSetting = buildSetting;
     this.subrules = ImmutableSet.copyOf(subrules);
@@ -1928,7 +1914,7 @@ public class RuleClass implements RuleClassData {
         "Rule %s does not have name as its first attribute: %s",
         name,
         attributes);
-    attributeIndex = Maps.newHashMapWithExpectedSize(attributes.size());
+    Map<String, Integer> attributeIndex = Maps.newHashMapWithExpectedSize(attributes.size());
     Map<String, Attribute> publicToPrivateNames =
         Maps.newHashMapWithExpectedSize(attributes.size());
     boolean computedHasAspects = false;
@@ -1949,9 +1935,10 @@ public class RuleClass implements RuleClassData {
         nonConfigurableAttributes.add(attribute.getName());
       }
     }
-
+    this.attributeProvider =
+        new AttributeProvider(
+            attributes, attributeIndex, nonConfigurableAttributes.build(), name, ignoreLicenses);
     this.hasAspects = computedHasAspects;
-    this.nonConfigurableAttributes = nonConfigurableAttributes.build();
   }
 
   /**
@@ -2033,63 +2020,11 @@ public class RuleClass implements RuleClassData {
   }
 
   /**
-   * Returns true iff the attribute 'attrName' is defined for this rule class, and has type 'type'.
+   * Returns the attribute provider for this rule class. This can be queried to understand the
+   * attribute schema associated with the rule.
    */
-  public boolean hasAttr(String attrName, Type<?> type) {
-    Integer index = getAttributeIndex(attrName);
-    return index != null && getAttribute(index).getType() == type;
-  }
-
-  /**
-   * Returns the index of the specified attribute name. Use of indices allows space-efficient
-   * storage of attribute values in rules, since hashtables are not required. (The index mapping is
-   * specific to each RuleClass and an attribute may have a different index in the parent
-   * RuleClass.)
-   *
-   * <p>Returns null if the named attribute is not defined for this class of Rule.
-   */
-  Integer getAttributeIndex(String attrName) {
-    return attributeIndex.get(attrName);
-  }
-
-  /** Returns the attribute whose index is 'attrIndex'. Fails if attrIndex is not in range. */
-  Attribute getAttribute(int attrIndex) {
-    return attributes.get(attrIndex);
-  }
-
-  /**
-   * Returns the attribute whose name is 'attrName'; fails with NullPointerException if not found.
-   */
-  public Attribute getAttributeByName(String attrName) {
-    Integer attrIndex =
-        Preconditions.checkNotNull(
-            getAttributeIndex(attrName), "Attribute %s does not exist", attrName);
-    return attributes.get(attrIndex);
-  }
-
-  /** Returns the attribute whose name is {@code attrName}, or null if not found. */
-  @Nullable
-  public Attribute getAttributeByNameMaybe(String attrName) {
-    Integer i = getAttributeIndex(attrName);
-    return i == null ? null : attributes.get(i);
-  }
-
-  /** Returns the number of attributes defined for this rule class. */
-  int getAttributeCount() {
-    return attributeIndex.size();
-  }
-
-  /**
-   * Returns an (immutable) list of all Attributes defined for this class of rule, ordered by
-   * increasing index.
-   */
-  public List<Attribute> getAttributes() {
-    return attributes;
-  }
-
-  /** Returns set of non-configurable attribute names defined for this class of rule. */
-  List<String> getNonConfigurableAttributes() {
-    return nonConfigurableAttributes;
+  public AttributeProvider getAttributeProvider() {
+    return attributeProvider;
   }
 
   /**
@@ -2123,12 +2058,12 @@ public class RuleClass implements RuleClassData {
   }
 
   /**
-   * Creates a new {@link Rule} {@code r} where {@code r.getPackage()} is the {@link Package}
-   * associated with {@code pkgBuilder}.
+   * Creates a new {@link Rule} {@code r} where {@code r.getPackageoid()} is the {@link Packageoid}
+   * associated with {@code targetDefinitionContext}.
    *
    * <p>The created {@link Rule} will be populated with attribute values from {@code
    * attributeValues} or the default attribute values associated with this {@link RuleClass} and
-   * {@code pkgBuilder}.
+   * {@code targetDefinitionContext}.
    *
    * <p>The created {@link Rule} will also be populated with output files. These output files will
    * have been collected from the explicitly provided values of type {@link BuildType#OUTPUT} and
@@ -2141,18 +2076,19 @@ public class RuleClass implements RuleClassData {
    * eventHandler}.
    */
   <T> Rule createRule(
-      Package.Builder pkgBuilder,
+      TargetDefinitionContext targetDefinitionContext,
       Label ruleLabel,
       AttributeValues<T> attributeValues,
       boolean failOnUnknownAttributes,
       List<StarlarkThread.CallStackEntry> callstack)
       throws LabelSyntaxException, InterruptedException, CannotPrecomputeDefaultsException {
-    EventHandler eventHandler = pkgBuilder.getLocalEventHandler();
+    EventHandler eventHandler = targetDefinitionContext.getLocalEventHandler();
 
-    Rule rule = pkgBuilder.createRule(ruleLabel, this, callstack);
-    populateRuleAttributeValues(rule, pkgBuilder, attributeValues, failOnUnknownAttributes);
+    Rule rule = targetDefinitionContext.createRule(ruleLabel, this, callstack);
+    attributeProvider.populateRuleAttributeValues(
+        rule, targetDefinitionContext, attributeValues, failOnUnknownAttributes, isStarlark);
     checkAspectAllowedValues(rule, eventHandler);
-    rule.populateOutputFiles(eventHandler, pkgBuilder.getPackageIdentifier());
+    rule.populateOutputFiles(eventHandler, targetDefinitionContext.getPackageIdentifier());
     checkForDuplicateLabels(rule, eventHandler);
 
     checkForValidSizeAndTimeoutValues(rule, eventHandler);
@@ -2165,313 +2101,22 @@ public class RuleClass implements RuleClassData {
    * <p>Don't call this function unless you know what you're doing.
    */
   <T> Rule createRuleUnchecked(
-      Package.Builder pkgBuilder,
+      TargetDefinitionContext targetDefinitionContext,
       Label ruleLabel,
       AttributeValues<T> attributeValues,
       CallStack.Node callstack,
       ImplicitOutputsFunction implicitOutputsFunction)
       throws InterruptedException, CannotPrecomputeDefaultsException {
-    Rule rule = pkgBuilder.createRule(ruleLabel, this, callstack.toLocation(), callstack.next());
-    populateRuleAttributeValues(rule, pkgBuilder, attributeValues, true);
-    rule.populateOutputFilesUnchecked(pkgBuilder, implicitOutputsFunction);
+    Rule rule =
+        targetDefinitionContext.createRule(
+            ruleLabel, this, callstack.toLocation(), callstack.next());
+    attributeProvider.populateRuleAttributeValues(
+        rule, targetDefinitionContext, attributeValues, true, isStarlark);
+    rule.populateOutputFilesUnchecked(targetDefinitionContext, implicitOutputsFunction);
     return rule;
   }
 
-  /**
-   * Populates the attributes table of the new {@link Rule} with the values in the {@code
-   * attributeValues} map and with default values provided by this {@link RuleClass} and the {@code
-   * pkgBuilder}.
-   *
-   * <p>Errors are reported on {@code eventHandler}.
-   */
-  private <T> void populateRuleAttributeValues(
-      Rule rule,
-      Package.Builder pkgBuilder,
-      AttributeValues<T> attributeValues,
-      boolean failOnUnknownAttributes)
-      throws InterruptedException, CannotPrecomputeDefaultsException {
-
-    BitSet definedAttrIndices =
-        populateDefinedRuleAttributeValues(
-            rule,
-            pkgBuilder.getLabelConverter(),
-            attributeValues,
-            failOnUnknownAttributes,
-            pkgBuilder.getListInterner(),
-            pkgBuilder.getLocalEventHandler(),
-            pkgBuilder.simplifyUnconditionalSelectsInRuleAttrs());
-    populateDefaultRuleAttributeValues(rule, pkgBuilder, definedAttrIndices);
-    // Now that all attributes are bound to values, collect and store configurable attribute keys.
-    populateConfigDependenciesAttribute(rule);
-  }
-
-  /**
-   * Populates the attributes table of the new {@link Rule} with the values in the {@code
-   * attributeValues} map.
-   *
-   * <p>Handles the special cases of the attribute named {@code "name"} and attributes with value
-   * {@link Starlark#NONE}.
-   *
-   * <p>Returns a bitset {@code b} where {@code b.get(i)} is {@code true} if this method set a value
-   * for the attribute with index {@code i} in this {@link RuleClass}. Errors are reported on {@code
-   * eventHandler}.
-   */
-  private <T> BitSet populateDefinedRuleAttributeValues(
-      Rule rule,
-      LabelConverter labelConverter,
-      AttributeValues<T> attributeValues,
-      boolean failOnUnknownAttributes,
-      Interner<ImmutableList<?>> listInterner,
-      EventHandler eventHandler,
-      boolean simplifyUnconditionalSelects) {
-    BitSet definedAttrIndices = new BitSet();
-    for (T attributeAccessor : attributeValues.getAttributeAccessors()) {
-      String attributeName = attributeValues.getName(attributeAccessor);
-      Object attributeValue = attributeValues.getValue(attributeAccessor);
-      // Ignore all None values.
-      if (attributeValue == Starlark.NONE && !failOnUnknownAttributes) {
-        continue;
-      }
-
-      // If the user sets "applicable_liceneses", change it to the correct name.
-      // TODO(aiuto): In the time frame of Bazel 9, remove this alternate spelling.
-      if (attributeName.equals(APPLICABLE_METADATA_ATTR_ALT)) {
-        attributeName = APPLICABLE_METADATA_ATTR;
-      }
-
-      // Check that the attribute's name belongs to a valid attribute for this rule class.
-      Integer attrIndex = getAttributeIndex(attributeName);
-      if (attrIndex == null) {
-        rule.reportError(
-            String.format(
-                "%s: no such attribute '%s' in '%s' rule%s",
-                rule.getLabel(),
-                attributeName,
-                ruleClassId.name(),
-                SpellChecker.didYouMean(
-                    attributeName,
-                    rule.getAttributes().stream()
-                        .filter(Attribute::isDocumented)
-                        .map(Attribute::getName)
-                        .collect(ImmutableList.toImmutableList()))),
-            eventHandler);
-        continue;
-      }
-      // Ignore all None values (after reporting an error)
-      if (attributeValue == Starlark.NONE) {
-        continue;
-      }
-
-      Attribute attr = getAttribute(attrIndex);
-
-      if (attributeName.equals("licenses") && ignoreLicenses) {
-        rule.setAttributeValue(attr, License.NO_LICENSE, /* explicit= */ false);
-        definedAttrIndices.set(attrIndex);
-        continue;
-      }
-
-      // Convert the build-lang value to a native value, if necessary.
-      Object nativeAttributeValue;
-      if (attributeValues.valuesAreBuildLanguageTyped()) {
-        try {
-          nativeAttributeValue =
-              BuildType.convertFromBuildLangType(
-                  rule.getRuleClass(),
-                  attr,
-                  attributeValue,
-                  labelConverter,
-                  listInterner,
-                  simplifyUnconditionalSelects);
-        } catch (ConversionException e) {
-          rule.reportError(String.format("%s: %s", rule.getLabel(), e.getMessage()), eventHandler);
-          continue;
-        }
-        // Ignore select({"//conditions:default": None}) values for attr types with null default.
-        if (nativeAttributeValue == null) {
-          continue;
-        }
-      } else {
-        nativeAttributeValue = attributeValue;
-      }
-
-      if (attr.getName().equals("visibility")) {
-        @SuppressWarnings("unchecked")
-        List<Label> vis = (List<Label>) nativeAttributeValue;
-        try {
-          nativeAttributeValue = RuleVisibility.validateAndSimplify(vis);
-        } catch (EvalException e) {
-          rule.reportError(rule.getLabel() + " " + e.getMessage(), eventHandler);
-        }
-      }
-
-      boolean explicit = attributeValues.isExplicitlySpecified(attributeAccessor);
-      rule.setAttributeValue(attr, nativeAttributeValue, explicit);
-      checkAllowedValues(rule, attr, eventHandler);
-      definedAttrIndices.set(attrIndex);
-    }
-    return definedAttrIndices;
-  }
-
-  /**
-   * Populates the attributes table of the new {@link Rule} with default values provided by this
-   * {@link RuleClass} and the {@code pkgBuilder}. This will only provide values for attributes that
-   * haven't already been populated, using {@code definedAttrIndices} to determine whether an
-   * attribute was populated.
-   *
-   * <p>Errors are reported on {@code eventHandler}.
-   */
-  private void populateDefaultRuleAttributeValues(
-      Rule rule, Package.Builder pkgBuilder, BitSet definedAttrIndices)
-      throws InterruptedException, CannotPrecomputeDefaultsException {
-    // Set defaults; ensure that every mandatory attribute has a value. Use the default if none
-    // is specified.
-    List<Attribute> attrsWithComputedDefaults = new ArrayList<>();
-    int numAttributes = getAttributeCount();
-    for (int attrIndex = 0; attrIndex < numAttributes; ++attrIndex) {
-      if (definedAttrIndices.get(attrIndex)) {
-        continue;
-      }
-      Attribute attr = getAttribute(attrIndex);
-      if (attr.isMandatory()) {
-        rule.reportError(
-            String.format(
-                "%s: missing value for mandatory attribute '%s' in '%s' rule",
-                rule.getLabel(), attr.getName(), ruleClassId.name()),
-            pkgBuilder.getLocalEventHandler());
-      }
-
-      // We must check both the name and the type of each attribute below in case a Starlark rule
-      // defines a licenses or distributions attribute of another type.
-
-      if (attr.hasComputedDefault()) {
-        // Note that it is necessary to set all non-computed default values before calling
-        // Attribute#getDefaultValue for computed default attributes. Computed default attributes
-        // may have a condition predicate (i.e. the predicate returned by Attribute#getCondition)
-        // that depends on non-computed default attribute values, and that condition predicate is
-        // evaluated by the call to Attribute#getDefaultValue.
-        attrsWithComputedDefaults.add(attr);
-
-      } else if (attr.isLateBound()) {
-        rule.setAttributeValue(attr, attr.getLateBoundDefault(), /* explicit= */ false);
-      } else if (attr.isMaterializing()) {
-        rule.setAttributeValue(attr, attr.getMaterializer(), false);
-      } else if (attr.getName().equals(APPLICABLE_METADATA_ATTR)
-          && attr.getType() == BuildType.LABEL_LIST) {
-        // The check here is preventing against a corner case where the license()/package_info()
-        // rule can get itself as applicable_metadata. This breaks the graph because there is now a
-        // self-edge.
-        //
-        // There are two ways that I can see to resolve this. The first, what is shown here, simply
-        // prunes the attribute if the source is a new-style license/metadata rule, based on what's
-        // been provided publicly. This does create a tight coupling to the implementation, but this
-        // is unavoidable since licenses are no longer a first-class type but we want first class
-        // behavior in Bazel core.
-        //
-        // A different approach that would not depend on the implementation of the rule could filter
-        // the list of default_applicable_metadata and not include the metadata rule if it matches
-        // the name of the current rule. This obviously fixes the self-assignment rule, but the
-        // resulting graph is semantically strange. The interpretation of the graph would be that
-        // the metadata rule is subject to the metadata of the *other* default metadata, but not
-        // itself. That looks very odd, and it's not semantically accurate.
-        // As an alternate, if the self-edge is detected, why not simply drop all the
-        // default_applicable_metadata attributes and avoid this oddness? That would work and
-        // fix the self-edge problem, but for nodes that don't have the self-edge problem, they
-        // would get all default_applicable_metadata and now the graph is inconsistent in that some
-        // license() rules have applicable_metadata while others do not.
-        if (rule.getRuleClassObject().isPackageMetadataRule()) {
-          rule.setAttributeValue(attr, ImmutableList.of(), /* explicit= */ false);
-        }
-
-      } else if (attr.getName().equals("licenses") && attr.getType() == BuildType.LICENSE) {
-        rule.setAttributeValue(
-            attr,
-            ignoreLicenses ? License.NO_LICENSE : pkgBuilder.getPartialPackageArgs().license(),
-            /* explicit= */ false);
-
-      } else if (attr.getName().equals("distribs") && attr.getType() == BuildType.DISTRIBUTIONS) {
-        rule.setAttributeValue(attr, License.DEFAULT_DISTRIB, /* explicit= */ false);
-      }
-      // Don't store default values, querying materializes them at read time.
-    }
-
-    // An instance of the built-in 'test_suite' rule with an undefined or empty 'tests' attribute
-    // attribute gets an '$implicit_tests' attribute, whose value is a shared per-package list of
-    // all test labels, populated later.
-    // TODO(blaze-rules-team): This should be in test_suite's implementation, not here.
-    if (this.ruleClassId.name().equals("test_suite") && !this.isStarlark) {
-      Attribute implicitTests = this.getAttributeByName("$implicit_tests");
-      NonconfigurableAttributeMapper attributeMapper = NonconfigurableAttributeMapper.of(rule);
-      if (implicitTests != null && attributeMapper.get("tests", BuildType.LABEL_LIST).isEmpty()) {
-        boolean explicit = true; // so that it appears in query output
-        rule.setAttributeValue(
-            implicitTests,
-            pkgBuilder.getTestSuiteImplicitTestsRef(attributeMapper.get("tags", Types.STRING_LIST)),
-            explicit);
-      }
-    }
-
-    // Set computed default attribute values now that all other (i.e. non-computed) default values
-    // have been set.
-    for (Attribute attr : attrsWithComputedDefaults) {
-      // If Attribute#hasComputedDefault was true above, Attribute#getDefaultValue returns the
-      // computed default function object or a Starlark computed default template. Note that we
-      // cannot determine the exact value of the computed default function here because it may
-      // depend on other attribute values that are configurable (i.e. they came from select({..})
-      // expressions in the build language, and they require configuration data from the analysis
-      // phase to be resolved). Instead, we're setting the attribute value to a reference to the
-      // computed default function, or if #getDefaultValue is a Starlark computed default
-      // template, setting the attribute value to a reference to the StarlarkComputedDefault
-      // returned from StarlarkComputedDefaultTemplate#computePossibleValues.
-      //
-      // StarlarkComputedDefaultTemplate#computePossibleValues pre-computes all possible values the
-      // function may evaluate to, and records them in a lookup table. By calling it here, with an
-      // EventHandler, any errors that might occur during the function's evaluation can
-      // be discovered and propagated here.
-      Object valueToSet;
-      Object defaultValue = attr.getDefaultValue(null);
-      if (defaultValue instanceof StarlarkComputedDefaultTemplate) {
-        StarlarkComputedDefaultTemplate template = (StarlarkComputedDefaultTemplate) defaultValue;
-        valueToSet = template.computePossibleValues(attr, rule, pkgBuilder.getLocalEventHandler());
-      } else if (defaultValue instanceof ComputedDefault) {
-        // Compute all possible values to verify that the ComputedDefault is well-defined. This was
-        // previously done implicitly as part of visiting all labels to check for null-ness in
-        // Rule.checkForNullLabels, but that was changed to skip non-label attributes to improve
-        // performance.
-        // TODO: b/287492305 - This is technically an illegal call to getPossibleValues as the
-        // package has not yet finished loading. Do we even need this still?
-        ((ComputedDefault) defaultValue).getPossibleValues(attr.getType(), rule);
-        valueToSet = defaultValue;
-      } else {
-        valueToSet = defaultValue;
-      }
-      rule.setAttributeValue(attr, valueToSet, /* explicit= */ false);
-    }
-  }
-
-  /**
-   * Collects all labels used as keys for configurable attributes and places them into the special
-   * implicit attribute that tracks them.
-   */
-  private static void populateConfigDependenciesAttribute(Rule rule) {
-    RawAttributeMapper attributes = RawAttributeMapper.of(rule);
-    Attribute configDepsAttribute =
-        attributes.getAttributeDefinition(CONFIG_SETTING_DEPS_ATTRIBUTE);
-    if (configDepsAttribute == null) {
-      return;
-    }
-
-    LinkedHashSet<Label> configLabels = new LinkedHashSet<>();
-    for (Attribute attr : rule.getAttributes()) {
-      SelectorList<?> selectorList = attributes.getSelectorList(attr.getName(), attr.getType());
-      if (selectorList != null) {
-        configLabels.addAll(selectorList.getKeyLabels());
-      }
-    }
-
-    rule.setAttributeValue(
-        configDepsAttribute, ImmutableList.copyOf(configLabels), /* explicit= */ false);
-  }
-
+ 
   /**
    * Report an error for each label that appears more than once in a LABEL_LIST attribute of the
    * given rule.
@@ -2481,7 +2126,7 @@ public class RuleClass implements RuleClassData {
    */
   private static void checkForDuplicateLabels(Rule rule, EventHandler eventHandler) {
     AggregatingAttributeMapper mapper = AggregatingAttributeMapper.of(rule);
-    for (Attribute attribute : rule.getAttributes()) {
+    for (Attribute attribute : rule.getAttributeProvider().getAttributes()) {
       if (attribute.getType() != BuildType.LABEL_LIST) {
         continue;
       }
@@ -2504,7 +2149,7 @@ public class RuleClass implements RuleClassData {
    * @param eventHandler the eventHandler to use to report the duplicated deps
    */
   private static void checkForValidSizeAndTimeoutValues(Rule rule, EventHandler eventHandler) {
-    if (rule.getRuleClassObject().hasAttr("size", Type.STRING)) {
+    if (rule.getRuleClassObject().getAttributeProvider().hasAttr("size", Type.STRING)) {
       String size = NonconfigurableAttributeMapper.of(rule).get("size", Type.STRING);
       if (TestSize.getTestSize(size) == null) {
         rule.reportError(
@@ -2512,7 +2157,7 @@ public class RuleClass implements RuleClassData {
             eventHandler);
       }
     }
-    if (rule.getRuleClassObject().hasAttr("timeout", Type.STRING)) {
+    if (rule.getRuleClassObject().getAttributeProvider().hasAttr("timeout", Type.STRING)) {
       String timeout = NonconfigurableAttributeMapper.of(rule).get("timeout", Type.STRING);
       if (TestTimeout.getTestTimeout(timeout) == null) {
         rule.reportError(
@@ -2523,37 +2168,9 @@ public class RuleClass implements RuleClassData {
     }
   }
 
-  /**
-   * Verifies that the rule has a valid value for the attribute according to its allowed values.
-   *
-   * <p>If the value for the given attribute on the given rule is invalid, an error will be recorded
-   * in the given EventHandler.
-   *
-   * <p>If the rule is configurable, all of its potential values are evaluated, and errors for each
-   * of the invalid values are reported.
-   */
-  private static void checkAllowedValues(
-      Rule rule, Attribute attribute, EventHandler eventHandler) {
-    if (attribute.checkAllowedValues()) {
-      PredicateWithMessage<Object> allowedValues = attribute.getAllowedValues();
-      Iterable<?> values =
-          AggregatingAttributeMapper.of(rule)
-              .visitAttribute(attribute.getName(), attribute.getType());
-      for (Object value : values) {
-        if (!allowedValues.apply(value)) {
-          rule.reportError(
-              String.format(
-                  "%s: invalid value in '%s' attribute: %s",
-                  rule.getLabel(), attribute.getName(), allowedValues.getErrorReason(value)),
-              eventHandler);
-        }
-      }
-    }
-  }
-
   private static void checkAspectAllowedValues(Rule rule, EventHandler eventHandler) {
     if (rule.hasAspects()) {
-      for (Attribute attrOfRule : rule.getAttributes()) {
+      for (Attribute attrOfRule : rule.getAttributeProvider().getAttributes()) {
         for (Aspect aspect : attrOfRule.getAspects(rule)) {
           for (Attribute attrOfAspect : aspect.getDefinition().getAttributes().values()) {
             // By this point the AspectDefinition has been created and values assigned.
@@ -2751,7 +2368,7 @@ public class RuleClass implements RuleClassData {
    * <p>This is useful for rule types that don't make sense for license checking.
    */
   boolean ignoreLicenses() {
-    return ignoreLicenses;
+    return attributeProvider.ignoreLicenses();
   }
 
   public ImmutableSet<ToolchainTypeRequirement> getToolchainTypes() {
@@ -2766,8 +2383,8 @@ public class RuleClass implements RuleClassData {
     return executionPlatformConstraints;
   }
 
-  public ImmutableMap<String, ExecGroup> getExecGroups() {
-    return execGroups;
+  public ImmutableMap<String, DeclaredExecGroup> getDeclaredExecGroups() {
+    return declaredExecGroups;
   }
 
   public AutoExecGroupsMode getAutoExecGroupsMode() {

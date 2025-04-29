@@ -128,6 +128,7 @@ function test_configured_query() {
 function test_top_level_aspect() {
   mkdir -p "foo" || fail "Couldn't make directory"
   cat > foo/simpleaspect.bzl <<'EOF' || fail "Couldn't write bzl file"
+AspectInfo = provider()
 def _simple_aspect_impl(target, ctx):
   result=[]
   for orig_out in target.files.to_list():
@@ -138,10 +139,13 @@ def _simple_aspect_impl(target, ctx):
     result += [aspect_out]
 
   result = depset(result,
-      transitive = [src.aspectouts for src in ctx.rule.attr.srcs])
+      transitive = [src[AspectInfo].aspectouts for src in ctx.rule.attr.srcs])
 
-  return struct(output_groups={
-      "aspect-out" : result }, aspectouts = result)
+  return [
+      OutputGroupInfo(**{"aspect-out" : result}),
+      AspectInfo(aspectouts = result),
+  ]
+
 
 simple_aspect = aspect(implementation=_simple_aspect_impl,
                        attr_aspects = ["srcs"])
@@ -274,7 +278,7 @@ function test_packages_cleared() {
   # is still low (external packages don't contribute there). We can lower this
   # number again once we remove WORKSPACE logic and move repo rules to not use
   # Package anymore.
-  [[ "$package_count" -le 56 ]] \
+  [[ "$package_count" -le 60 ]] \
       || fail "package count $package_count too high"
   globs_count="$(extract_histogram_count "$histo_file" "GlobsValue$")"
   [[ "$globs_count" -le 1 ]] \

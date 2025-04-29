@@ -21,7 +21,6 @@ import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo.ValidationMode;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
-import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment;
 import com.google.devtools.build.lib.query2.common.CqueryNode;
@@ -29,7 +28,6 @@ import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.QueryParser;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -39,14 +37,13 @@ import org.junit.Before;
 import org.junit.Test;
 
 /** Tests cquery's {@link --output=files} format. */
-public class FilesOutputFormatterCallbackTest extends ConfiguredTargetQueryTest {
+public final class FilesOutputFormatterCallbackTest extends ConfiguredTargetQueryTest {
 
-  private CqueryOptions options;
-  private Reporter reporter;
-  private final List<Event> events = new ArrayList<>();
+  private final CqueryOptions options = new CqueryOptions();
+  private final Reporter reporter = new Reporter(new EventBus());
 
   @Before
-  public final void defineSimpleRule() throws Exception {
+  public void defineSimpleRule() throws Exception {
     writeFile(
         "defs/rules.bzl",
         "def _r_impl(ctx):",
@@ -105,12 +102,6 @@ public class FilesOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
         """);
   }
 
-  @Before
-  public final void setUpCqueryOptions() {
-    this.options = new CqueryOptions();
-    this.reporter = new Reporter(new EventBus(), events::add);
-  }
-
   private List<String> getOutput(String queryExpression, List<String> outputGroups)
       throws Exception {
     QueryExpression expression = QueryParser.parse(queryExpression, getDefaultFunctions());
@@ -131,10 +122,9 @@ public class FilesOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
             new TopLevelArtifactContext(
                 false,
                 false,
-                false,
                 OutputGroupInfo.determineOutputGroups(outputGroups, ValidationMode.OFF, false)));
     env.evaluateQuery(expression, callback);
-    return Arrays.asList(output.toString(UTF_8).split(System.lineSeparator()));
+    return Arrays.asList(output.toString(UTF_8).split("\n"));
   }
 
   @Test
@@ -170,7 +160,7 @@ public class FilesOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
         sourceAndGeneratedFiles.get(true), "pkg/other_output_group_only");
   }
 
-  private void assertContainsExactlyWithBinDirPrefix(
+  private static void assertContainsExactlyWithBinDirPrefix(
       List<String> output, String... binDirRelativePaths) {
     if (binDirRelativePaths.length == 0) {
       assertThat(output).isEmpty();

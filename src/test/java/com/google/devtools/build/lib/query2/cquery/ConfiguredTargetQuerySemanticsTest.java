@@ -544,7 +544,7 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
     Path parent =
         getHelper()
             .getScratch()
-            .file("parent/BUILD", "sh_library(name = 'parent')")
+            .file("parent/BUILD", "filegroup(name = 'parent')")
             .getParentDirectory();
     Path child = parent.getRelative("child");
     child.createDirectory();
@@ -571,9 +571,9 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
   // Regression test for b/175739699
   @Test
   public void testRecursiveTargetPatternOutsideOfScopeFailsGracefully() throws Exception {
-    writeFile("testA/BUILD", "sh_library(name = 'testA')");
-    writeFile("testB/BUILD", "sh_library(name = 'testB')");
-    writeFile("testB/testC/BUILD", "sh_library(name = 'testC')");
+    writeFile("testA/BUILD", "filegroup(name = 'testA')");
+    writeFile("testB/BUILD", "filegroup(name = 'testB')");
+    writeFile("testB/testC/BUILD", "filegroup(name = 'testC')");
     helper.setUniverseScope("//testA");
     QueryException e = assertThrows(QueryException.class, () -> eval("//testB/..."));
     assertThat(e.getFailureDetail().getQuery().getCode())

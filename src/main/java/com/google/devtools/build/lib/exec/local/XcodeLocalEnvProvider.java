@@ -92,7 +92,12 @@ public final class XcodeLocalEnvProvider implements LocalEnvProvider {
     String developerDir = "";
     if (containsXcodeVersion && !containsDeveloperDir) {
       String version = env.get(AppleConfiguration.XCODE_VERSION_ENV_NAME);
-      developerDir = getDeveloperDir(binTools, DottedVersion.fromStringUnchecked(version));
+      // Directly use version as DEVELOPER_DIR when a path is passed
+      if (version.startsWith("/")) {
+        developerDir = version;
+      } else {
+        developerDir = getDeveloperDir(binTools, DottedVersion.fromStringUnchecked(version));
+      }
       newEnvBuilder.put("DEVELOPER_DIR", developerDir);
     }
     if (containsAppleSdkPlatform) {
@@ -132,7 +137,7 @@ public final class XcodeLocalEnvProvider implements LocalEnvProvider {
 
       return new String(xcrunResult.getStdout(), StandardCharsets.UTF_8).trim();
     } catch (AbnormalTerminationException e) {
-      TerminationStatus terminationStatus = e.getResult().getTerminationStatus();
+      TerminationStatus terminationStatus = e.getResult().terminationStatus();
 
       if (terminationStatus.exited()) {
         throw new IOException(
@@ -152,7 +157,7 @@ public final class XcodeLocalEnvProvider implements LocalEnvProvider {
       String message =
           String.format(
               "xcrun failed.\n" + "%s\n" + "stdout: %s\n" + "stderr: %s",
-              e.getResult().getTerminationStatus(),
+              e.getResult().terminationStatus(),
               new String(e.getResult().getStdout(), StandardCharsets.UTF_8),
               new String(e.getResult().getStderr(), StandardCharsets.UTF_8));
       throw new IOException(message, e);
@@ -232,10 +237,10 @@ public final class XcodeLocalEnvProvider implements LocalEnvProvider {
 
       return new String(xcodeLocatorResult.getStdout(), StandardCharsets.UTF_8).trim();
     } catch (AbnormalTerminationException e) {
-      TerminationStatus terminationStatus = e.getResult().getTerminationStatus();
+      TerminationStatus terminationStatus = e.getResult().terminationStatus();
 
       String message;
-      if (e.getResult().getTerminationStatus().exited()) {
+      if (e.getResult().terminationStatus().exited()) {
         message =
             String.format(
                 "Running '%s %s' failed with code %s.\n"
@@ -257,7 +262,7 @@ public final class XcodeLocalEnvProvider implements LocalEnvProvider {
                 "Running '%s %s' failed.\n" + "%s\n" + "stdout: %s\n" + "stderr: %s",
                 xcodeLocatorPath,
                 version,
-                e.getResult().getTerminationStatus(),
+                e.getResult().terminationStatus(),
                 new String(e.getResult().getStdout(), StandardCharsets.UTF_8),
                 new String(e.getResult().getStderr(), StandardCharsets.UTF_8));
       }

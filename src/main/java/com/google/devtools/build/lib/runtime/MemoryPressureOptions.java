@@ -106,6 +106,19 @@ public final class MemoryPressureOptions extends OptionsBase {
               + " GcThrashingDetector is disabled.")
   public int gcThrashingThreshold;
 
+  @Option(
+      name = "gc_churning_threshold",
+      defaultValue = "100",
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
+      converter = PercentageConverter.class,
+      help =
+          "At any point after an invocation has been running for at least one minute, if Blaze has"
+              + " spent at least this percentage of the invocation's wall time doing full GCs,"
+              + " Blaze will give up and fail with an OOM. A value of 100 effectively means to"
+              + " never give up for this reason.")
+  public int gcChurningThreshold;
+
   // NOTE: 2024-06-11, this matches both known patterns of:
   // jdk.internal.vm.Filler[Array|Element[]] but does not match the thread
   // related jdk.internal.vm entries which we do not currently want to count.

@@ -7,7 +7,6 @@
 //third_party/ijar:platform_utils
 //third_party/def_parser:def_parser
 //third_party/def_parser:def_parser_lib
-//third_party/zlib:zlib_checked_in
 //src/tools/launcher:launcher
 //src/tools/launcher:launcher_maker
 //src/tools/launcher:python_launcher
@@ -29,3 +28,5 @@
 //tools/cpp/modules_tools:common
 //tools/cpp/modules_tools:generate-modmap
 //tools/cpp/modules_tools:generate-modmap-lib
+@@rules_cc+//cc/runfiles:runfiles
+@@zlib+//:z

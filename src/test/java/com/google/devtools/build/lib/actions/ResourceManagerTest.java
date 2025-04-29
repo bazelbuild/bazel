@@ -68,7 +68,7 @@ public final class ResourceManagerTest {
 
   private final FileSystem fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
   private final ActionExecutionMetadata resourceOwner = new ResourceOwnerStub();
-  private final ResourceManager manager = ResourceManager.instanceForTestingOnly();
+  private final ResourceManager manager = new ResourceManager();
   private Worker worker;
   private WorkerProcessStatus workerStatus;
   private AtomicInteger counter;
@@ -903,7 +903,7 @@ public final class ResourceManagerTest {
 
     @Override
     public String getKey(
-        ActionKeyContext actionKeyContext, @Nullable ArtifactExpander artifactExpander) {
+        ActionKeyContext actionKeyContext, @Nullable InputMetadataProvider inputMetadataProvider) {
       throw new IllegalStateException();
     }
 
@@ -921,11 +921,6 @@ public final class ResourceManagerTest {
     @Override
     public ImmutableSet<Artifact> getMandatoryOutputs() {
       return ImmutableSet.of();
-    }
-
-    @Override
-    public MiddlemanType getActionType() {
-      throw new IllegalStateException();
     }
 
     @Override

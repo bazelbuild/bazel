@@ -42,16 +42,20 @@ import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkCallable;
 import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.SymbolGenerator.Symbol;
+import net.starlark.java.syntax.Location;
 
 /** A Starlark value that is a result of an 'aspect(..)' function call. */
 public final class StarlarkDefinedAspect implements StarlarkExportable, StarlarkAspect {
   private final StarlarkCallable implementation;
   // @Nullable rather than Optional for the sake of serialization.
   @Nullable private final String documentation;
-  private final ImmutableList<String> attributeAspects;
 
-  // Toolchain types for which the aspect will propagate to matching resolved toolchains.
-  private final ImmutableSet<Label> toolchainsAspects;
+  // Supplier of the attributes to which the aspect will propagate.
+  private final AspectPropagationEdgesSupplier<String> attributeAspects;
+
+  // Supplier of the toolchains types for which the aspect will propagate to matching resolved
+  // toolchains.
+  private final AspectPropagationEdgesSupplier<Label> toolchainsAspects;
 
   private final ImmutableList<Attribute> attributes;
   private final ImmutableList<ImmutableSet<StarlarkProviderIdentifier>> requiredProviders;
@@ -62,11 +66,12 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
   private final ImmutableSet<String> paramAttributes;
 
   private final ImmutableSet<StarlarkAspect> requiredAspects;
+  @Nullable private final AspectPropagationPredicate propagationPredicate;
   private final ImmutableSet<String> fragments;
   private final ImmutableSet<ToolchainTypeRequirement> toolchainTypes;
   private final boolean applyToGeneratingRules;
   private final ImmutableSet<Label> execCompatibleWith;
-  private final ImmutableMap<String, ExecGroup> execGroups;
+  private final ImmutableMap<String, DeclaredExecGroup> execGroups;
   private final ImmutableSet<? extends StarlarkSubruleApi> subrules;
 
   /** {@link Symbol} before {@link #export} and a {@link StarlarkAspectClass} after. */
@@ -81,19 +86,20 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
   public StarlarkDefinedAspect(
       StarlarkCallable implementation,
       Optional<String> documentation,
-      ImmutableList<String> attributeAspects,
-      ImmutableSet<Label> toolchainsAspects,
+      AspectPropagationEdgesSupplier<String> attributeAspects,
+      AspectPropagationEdgesSupplier<Label> toolchainsAspects,
       ImmutableList<Attribute> attributes,
       ImmutableList<ImmutableSet<StarlarkProviderIdentifier>> requiredProviders,
       ImmutableList<ImmutableSet<StarlarkProviderIdentifier>> requiredAspectProviders,
       ImmutableSet<StarlarkProviderIdentifier> provides,
       ImmutableSet<String> paramAttributes,
       ImmutableSet<StarlarkAspect> requiredAspects,
+      @Nullable AspectPropagationPredicate propagationPredicate,
       ImmutableSet<String> fragments,
       ImmutableSet<ToolchainTypeRequirement> toolchainTypes,
       boolean applyToGeneratingRules,
       ImmutableSet<Label> execCompatibleWith,
-      ImmutableMap<String, ExecGroup> execGroups,
+      ImmutableMap<String, DeclaredExecGroup> execGroups,
       ImmutableSet<? extends StarlarkSubruleApi> subrules,
       Symbol<BzlLoadValue.Key> identityToken) {
     this.implementation = implementation;
@@ -106,6 +112,7 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
     this.provides = provides;
     this.paramAttributes = paramAttributes;
     this.requiredAspects = requiredAspects;
+    this.propagationPredicate = propagationPredicate;
     this.fragments = fragments;
     this.toolchainTypes = toolchainTypes;
     this.applyToGeneratingRules = applyToGeneratingRules;
@@ -127,14 +134,17 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
     return Optional.ofNullable(documentation);
   }
 
-  /** Returns the names of rule attributes along which the aspect will propagate. */
-  public ImmutableList<String> getAttributeAspects() {
+  /** Returns the supplier of the attributes to which the aspect will propagate. */
+  public AspectPropagationEdgesSupplier<String> getAttributeAspects() {
     return attributeAspects;
   }
 
-  /** Returns toolchain types to which resolved toolchains the aspect can propagate. */
+  /**
+   * Returns the supplier of the toolchain types to which resolved toolchains the aspect can
+   * propagate.
+   */
   @VisibleForTesting
-  public ImmutableSet<Label> getToolchainsAspects() {
+  public AspectPropagationEdgesSupplier<Label> getToolchainsAspects() {
     return toolchainsAspects;
   }
 
@@ -168,8 +178,10 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
     return paramAttributes;
   }
 
+  // TODO(bazel-team): use exportedLocation as the callable symbol's location.
   @Override
-  public void export(EventHandler handler, Label extensionLabel, String name) {
+  public void export(
+      EventHandler handler, Label extensionLabel, String name, Location exportedLocation) {
     Preconditions.checkArgument(!isExported());
     @SuppressWarnings("unchecked")
     var identityToken = (Symbol<BzlLoadValue.Key>) aspectClassOrIdentityToken;
@@ -182,8 +194,6 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
         owner);
     this.aspectClassOrIdentityToken = new StarlarkAspectClass(owner, name);
   }
-
-  private static final ImmutableList<String> ALL_ATTR_ASPECTS = ImmutableList.of("*");
 
   /**
    * The <code>AspectDefinition</code> is a function of the aspect's parameters, so we can cache
@@ -206,14 +216,9 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
   private AspectDefinition buildDefinition(AspectParameters aspectParams) {
     AspectDefinition.Builder builder =
         new AspectDefinition.Builder((StarlarkAspectClass) aspectClassOrIdentityToken);
-    if (ALL_ATTR_ASPECTS.equals(attributeAspects)) {
-      builder.propagateAlongAllAttributes();
-    } else {
-      for (String attributeAspect : attributeAspects) {
-        builder.propagateAlongAttribute(attributeAspect);
-      }
-    }
+    builder.propagateToAttributes(attributeAspects);
     builder.propagateToToolchainsTypes(toolchainsAspects);
+
     for (Attribute attribute : attributes) {
       Attribute attr = attribute; // Might be reassigned.
       if (!aspectParams.getAttribute(attr.getName()).isEmpty()) {
@@ -250,6 +255,7 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
       requiredAspectsClasses.add(requiredAspect.getAspectClass());
     }
     builder.requiredAspectClasses(requiredAspectsClasses.build());
+    builder.propagationPredicate(propagationPredicate);
     builder.execCompatibleWith(execCompatibleWith);
     builder.execGroups(execGroups);
     builder.subrules(subrules);
@@ -419,6 +425,11 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
     return requiredAspects;
   }
 
+  @Nullable
+  public AspectPropagationPredicate getPropagationPredicate() {
+    return propagationPredicate;
+  }
+
   @Override
   public boolean equals(Object o) {
     if (this == o) {
@@ -430,12 +441,14 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
     StarlarkDefinedAspect that = (StarlarkDefinedAspect) o;
     return Objects.equals(implementation, that.implementation)
         && Objects.equals(attributeAspects, that.attributeAspects)
+        && Objects.equals(toolchainsAspects, that.toolchainsAspects)
         && Objects.equals(attributes, that.attributes)
         && Objects.equals(requiredProviders, that.requiredProviders)
         && Objects.equals(requiredAspectProviders, that.requiredAspectProviders)
         && Objects.equals(provides, that.provides)
         && Objects.equals(paramAttributes, that.paramAttributes)
         && Objects.equals(requiredAspects, that.requiredAspects)
+        && Objects.equals(propagationPredicate, that.propagationPredicate)
         && Objects.equals(fragments, that.fragments)
         && Objects.equals(toolchainTypes, that.toolchainTypes)
         && Objects.equals(aspectClassOrIdentityToken, that.aspectClassOrIdentityToken);
@@ -446,12 +459,14 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
     return Objects.hash(
         implementation,
         attributeAspects,
+        toolchainsAspects,
         attributes,
         requiredProviders,
         requiredAspectProviders,
         provides,
         paramAttributes,
         requiredAspects,
+        propagationPredicate,
         fragments,
         toolchainTypes,
         aspectClassOrIdentityToken);

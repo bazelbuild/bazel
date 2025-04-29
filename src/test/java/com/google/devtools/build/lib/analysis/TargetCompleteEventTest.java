@@ -42,7 +42,6 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Fil
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
-import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -236,7 +235,10 @@ public class TargetCompleteEventTest extends AnalysisTestCase {
 
   @Test
   public void baselineCoverage_referencedWithMetadata() throws Exception {
-    scratch.file("foo/BUILD", "sh_test(name = 'test', srcs = ['test.sh'])");
+    scratch.file(
+        "foo/BUILD",
+        "load('//test_defs:foo_test.bzl', 'foo_test')",
+        "foo_test(name = 'test', srcs = ['test.sh'])");
     Path testSh = scratch.file("foo/test.sh");
     useConfiguration("--collect_code_coverage");
     ConfiguredTargetAndData ctAndData = getCtAndData("//foo:test");
@@ -253,7 +255,7 @@ public class TargetCompleteEventTest extends AnalysisTestCase {
     CompletionContext completionContext =
         getCompletionContext(
             artifactsToBuild.getAllArtifacts().toList().stream()
-                .filter(a -> !a.isMiddlemanArtifact())
+                .filter(a -> !a.isRunfilesTree())
                 .collect(toImmutableMap(a -> a, a -> testShMetadata)),
             ImmutableMap.of(),
             baselineCoverageMetadata);
@@ -285,38 +287,29 @@ public class TargetCompleteEventTest extends AnalysisTestCase {
 
   private static ArtifactsToBuild getArtifactsToBuild(ConfiguredTargetAndData ctAndData) {
     TopLevelArtifactContext context =
-        new TopLevelArtifactContext(false, false, false, OutputGroupInfo.DEFAULT_GROUPS);
+        new TopLevelArtifactContext(false, false, OutputGroupInfo.DEFAULT_GROUPS);
     return TopLevelArtifactHelper.getAllArtifactsToBuild(ctAndData.getConfiguredTarget(), context);
   }
 
-  private CompletionContext getCompletionContext(
+  private static CompletionContext getCompletionContext(
       Map<Artifact, FileArtifactValue> metadata,
       Map<SpecialArtifact, TreeArtifactValue> treeMetadata) {
     return getCompletionContext(metadata, treeMetadata, /* baselineCoverageValue= */ null);
   }
 
-  private CompletionContext getCompletionContext(
+  private static CompletionContext getCompletionContext(
       Map<Artifact, FileArtifactValue> metadata,
       Map<SpecialArtifact, TreeArtifactValue> treeMetadata,
       @Nullable FileArtifactValue baselineCoverageValue) {
     ActionInputMap inputMap = new ActionInputMap(0);
-
-    for (Map.Entry<Artifact, FileArtifactValue> entry : metadata.entrySet()) {
-      inputMap.put(entry.getKey(), entry.getValue(), /* depOwner= */ null);
-    }
-
-    for (Map.Entry<SpecialArtifact, TreeArtifactValue> entry : treeMetadata.entrySet()) {
-      inputMap.putTreeArtifact(entry.getKey(), entry.getValue(), /* depOwner= */ null);
-    }
-
+    metadata.forEach(inputMap::put);
+    treeMetadata.forEach(inputMap::putTreeArtifact);
     return new CompletionContext(
-        directories.getExecRoot(TestConstants.WORKSPACE_NAME),
         ImmutableMap.copyOf(treeMetadata),
         /* filesets= */ ImmutableMap.of(),
         baselineCoverageValue,
         ArtifactPathResolver.IDENTITY,
         inputMap,
-        /* expandFilesets= */ false,
-        /* fullyResolveFilesetLinks= */ false);
+        /* expandFilesets= */ false);
   }
 }

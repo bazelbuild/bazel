@@ -113,11 +113,6 @@ public class BazelRuleClassProviderTest extends BuildViewTestCase {
   }
 
   @Test
-  public void shConsistency() {
-    checkModule(ShRules.INSTANCE);
-  }
-
-  @Test
   public void protoConsistency() {
     checkModule(BazelRuleClassProvider.PROTO_RULES);
   }

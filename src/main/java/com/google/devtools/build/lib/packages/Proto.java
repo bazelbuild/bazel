@@ -13,18 +13,23 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages;
 
+import com.google.common.collect.Ordering;
 import com.google.devtools.build.docgen.annot.DocCategory;
-import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import net.starlark.java.annot.Param;
+import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkCallable;
 import net.starlark.java.eval.StarlarkFloat;
 import net.starlark.java.eval.StarlarkInt;
+import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkValue;
 import net.starlark.java.eval.Structure;
 
@@ -95,8 +100,15 @@ public class Proto implements StarlarkValue {
               + "#   value: 1\n"
               + "# }\n"
               + "</pre>",
-      parameters = {@Param(name = "x")})
-  public String encodeText(Structure x) throws EvalException {
+      parameters = {
+        @Param(
+            name = "x",
+            allowedTypes = {
+              @ParamType(type = Structure.class),
+              @ParamType(type = NativeInfo.class)
+            })
+      })
+  public String encodeText(StarlarkValue x) throws EvalException, InterruptedException {
     TextEncoder enc = new TextEncoder();
     enc.message(x);
     return enc.out.toString();
@@ -108,13 +120,21 @@ public class Proto implements StarlarkValue {
     private int indent = 0;
 
     // Encodes Structure x as a protocol message.
-    private void message(Structure x) throws EvalException {
+    private void message(StarlarkValue x) throws EvalException, InterruptedException {
       // For determinism, sort fields.
-      String[] fields = x.getFieldNames().toArray(new String[0]);
-      Arrays.sort(fields);
+      List<String> fields =
+          Ordering.natural()
+              .sortedCopy(Starlark.dir(Mutability.IMMUTABLE, StarlarkSemantics.DEFAULT, x));
       for (String field : fields) {
         try {
-          field(field, x.getValue(field));
+          Object value =
+              Starlark.getattr(Mutability.IMMUTABLE, StarlarkSemantics.DEFAULT, x, field, null);
+          // This preserves legacy behavior where only struct_fields from NativeInfo were emitted
+          // When serializing non NativeInfo, just let it fail on functions
+          if (x instanceof NativeInfo && value instanceof StarlarkCallable) {
+            continue;
+          }
+          field(field, value);
         } catch (EvalException ex) {
           throw Starlark.errorf("in %s field .%s: %s", Starlark.type(x), field, ex.getMessage());
         }
@@ -123,7 +143,7 @@ public class Proto implements StarlarkValue {
 
     // Encodes Structure field (name, v) as a message field
     // (a repeated field, if v is a dict or sequence.)
-    private void field(String name, Object v) throws EvalException {
+    private void field(String name, Object v) throws EvalException, InterruptedException {
       // dict?
       if (v instanceof Dict) {
         Dict<?, ?> dict = (Dict<?, ?>) v;
@@ -171,7 +191,7 @@ public class Proto implements StarlarkValue {
 
     // Emits field (name, v) as a message field, or one element of a repeated field.
     // v must be an int, float, string, bool, or Structure.
-    private void fieldElement(String name, Object v) throws EvalException {
+    private void fieldElement(String name, Object v) throws EvalException, InterruptedException {
       if (v instanceof Structure) {
         emitLine(name, " {");
         indent++;
@@ -179,8 +199,7 @@ public class Proto implements StarlarkValue {
         indent--;
         emitLine("}");
 
-      } else if (v instanceof String) {
-        String s = (String) v;
+      } else if (v instanceof String s) {
         emitLine(
             name, ": \"", s.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n"), "\"");
 

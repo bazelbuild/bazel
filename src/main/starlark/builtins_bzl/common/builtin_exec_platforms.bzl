@@ -16,6 +16,9 @@
 See https://github.com/bazelbuild/bazel/discussions/19213.
 """
 
+# TODO: Remove when get_current_os_name is no longer needed
+load("@_builtins//:common/python/py_internal.bzl", "py_internal")
+
 # The fragments that make up Bazel's exec transition. The fragment() calls in
 # this file fill out this map.
 bazel_fragments = {}
@@ -291,7 +294,6 @@ bazel_fragments["CppOptions"] = fragment(
         "//command_line_option:host_copt",
         "//command_line_option:host_conlyopt",
         "//command_line_option:host_compiler",
-        "//command_line_option:host_crosstool_top",
         "//command_line_option:host_cxxopt",
         "//command_line_option:host_per_file_copt",
         "//command_line_option:host_grte_top",
@@ -314,19 +316,15 @@ bazel_fragments["CppOptions"] = fragment(
         "//command_line_option:strict_system_includes",
         "//command_line_option:experimental_use_cpp_compile_action_args_params_file",
         "//command_line_option:experimental_unsupported_and_brittle_include_scanning",
-        "//command_line_option:incompatible_enable_cc_test_feature",
         "//command_line_option:incompatible_use_cpp_compile_header_mnemonic",
-        "//command_line_option:experimental_starlark_cc_import",
-        "//command_line_option:incompatible_macos_set_install_name",
         "//command_line_option:experimental_cpp_compile_resource_estimation",
         "//command_line_option:experimental_generate_llvm_lcov",
         "//command_line_option:experimental_omitfp",
-        "//command_line_option:experimental_platform_cc_test",
         "//command_line_option:experimental_save_feature_state",
         "//command_line_option:experimental_use_llvm_covmap",
+        "//command_line_option:experimental_starlark_compiling",
     ],
     outputs = [
-        "//command_line_option:crosstool_top",
         "//command_line_option:compiler",
         "//command_line_option:grte_top",
         "//command_line_option:copt",
@@ -337,11 +335,11 @@ bazel_fragments["CppOptions"] = fragment(
         "//command_line_option:strip",
     ],
     func = lambda settings: {
-        "//command_line_option:crosstool_top": settings["//command_line_option:host_crosstool_top"],
         "//command_line_option:compiler": settings["//command_line_option:host_compiler"],
         "//command_line_option:grte_top": settings["//command_line_option:host_grte_top"],
-        "//command_line_option:copt": settings["//command_line_option:host_copt"] + ["-g0"],  # Don't add for Windows
-        "//command_line_option:cxxopt": settings["//command_line_option:host_cxxopt"] + ["-g0"],  # Don't add for Windows
+        # TODO: Properly fix https://github.com/bazelbuild/bazel/issues/24545 with features.
+        "//command_line_option:copt": settings["//command_line_option:host_copt"] + ([] if py_internal.get_current_os_name() == "windows" else ["-g0"]),
+        "//command_line_option:cxxopt": settings["//command_line_option:host_cxxopt"] + ([] if py_internal.get_current_os_name() == "windows" else ["-g0"]),
         "//command_line_option:conlyopt": settings["//command_line_option:host_conlyopt"],
         "//command_line_option:per_file_copt": settings["//command_line_option:host_per_file_copt"],
         "//command_line_option:linkopt": settings["//command_line_option:host_linkopt"],
@@ -352,15 +350,6 @@ bazel_fragments["CppOptions"] = fragment(
 bazel_fragments["GenQueryConfiguration$GenQueryOptions"] = fragment(
     propagate = [
         "//command_line_option:experimental_skip_ttvs_for_genquery",
-    ],
-)
-
-bazel_fragments["J2ObjcCommandLineOptions"] = fragment(
-    propagate = [
-        "//command_line_option:j2objc_translation_flags",
-        "//command_line_option:incompatible_j2objc_library_migration",
-        "//command_line_option:experimental_j2objc_header_map",
-        "//command_line_option:experimental_j2objc_shorter_header_path",
     ],
 )
 
@@ -391,7 +380,6 @@ bazel_fragments["JavaOptions"] = fragment(
         "//command_line_option:experimental_allow_runtime_deps_on_neverlink",
         "//command_line_option:experimental_add_test_support_to_compile_time_deps",
         "//command_line_option:jplPropagateCcLinkParamsStore",
-        "//command_line_option:incompatible_disallow_resource_jars",
         "//command_line_option:java_runtime_version",
         "//command_line_option:java_language_version",
         "//command_line_option:experimental_bytecode_optimizers",
@@ -428,6 +416,7 @@ bazel_fragments["JavaOptions"] = fragment(
 bazel_fragments["ObjcCommandLineOptions"] = fragment(
     propagate = [
         "//command_line_option:incompatible_avoid_hardcoded_objc_compilation_flags",
+        "//command_line_option:incompatible_builtin_objc_strip_action",
         "//command_line_option:incompatible_disallow_sdk_frameworks_attributes",
         "//command_line_option:incompatible_objc_alwayslink_by_default",
         "//command_line_option:incompatible_strip_executable_safely",

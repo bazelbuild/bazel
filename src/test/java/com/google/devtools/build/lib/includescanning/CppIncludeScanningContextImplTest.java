@@ -232,7 +232,6 @@ public final class CppIncludeScanningContextImplTest extends BuildViewTestCase {
         new ActionKeyContext(),
         new FileOutErr(),
         scratch.resolve("/execroot"),
-        /* outputMetadataStore= */ null,
         environment,
         DiscoveredModulesPruner.DEFAULT);
   }

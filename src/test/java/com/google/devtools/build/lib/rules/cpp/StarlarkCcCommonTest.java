@@ -531,7 +531,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
             ruleContext.getFragment(CppConfiguration.class));
     assertThat(commandLine)
         .containsExactlyElementsIn(
-            featureConfiguration.getCommandLine("c++-link-executable", CcToolchainVariables.EMPTY));
+            featureConfiguration.getCommandLine(
+                "c++-link-executable", CcToolchainVariables.empty()));
   }
 
   @Test
@@ -588,7 +589,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     assertThat(environmentVariables)
         .containsExactlyEntriesIn(
             featureConfiguration.getEnvironmentVariables(
-                CppActionNames.CPP_COMPILE, CcToolchainVariables.EMPTY, PathMapper.NOOP));
+                CppActionNames.CPP_COMPILE, CcToolchainVariables.empty(), PathMapper.NOOP));
   }
 
   @Test
@@ -7468,13 +7469,11 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     List<String> cppConfigurationOptions =
         ImmutableList.of(
             "strip_opts()",
-            "incompatible_enable_cc_test_feature()",
             "build_test_dwp()",
             "grte_top()",
             "experimental_cc_implementation_deps()",
             "experimental_cpp_modules()",
-            "share_native_deps()",
-            "experimental_platform_cc_test()");
+            "share_native_deps()");
     scratch.file(
         "foo/BUILD",
         """
@@ -7690,7 +7689,6 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
             String.format(callFormatString, "additional_linkstamp_defines=[]"),
             String.format(callFormatString, "whole_archive=False"),
             String.format(callFormatString, "native_deps=False"),
-            String.format(callFormatString, "only_for_dynamic_libs=False"),
             String.format(callFormatString, "emit_interface_shared_library=True"));
     for (String call : calls) {
       scratch.overwriteFile(

@@ -17,6 +17,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelValidator;
@@ -33,8 +34,14 @@ import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.repository.ExternalPackageHelper;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
-import com.google.devtools.build.lib.server.FailureDetails;
+import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue.Failure;
+import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue.Success;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.PackageLoading;
+import com.google.devtools.build.lib.server.FailureDetails.PackageLoading.Code;
+import com.google.devtools.build.lib.skyframe.PackageLookupValue.NoRepositoryPackageLookupValue;
 import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.vfs.DetailedIOException;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -107,7 +114,7 @@ public class PackageLookupFunction implements SkyFunction {
       if (env.valuesMissing()) {
         return null;
       }
-      return new PackageLookupValue.NoRepositoryPackageLookupValue(
+      return new NoRepositoryPackageLookupValue(
           repoName,
           String.format(
               "No repository visible as '@%s' from %s%s",
@@ -130,8 +137,8 @@ public class PackageLookupFunction implements SkyFunction {
     }
 
     // Check .bazelignore file under main repository.
-    IgnoredPackagePrefixesValue ignoredPatternsValue =
-        (IgnoredPackagePrefixesValue) env.getValue(IgnoredPackagePrefixesValue.key());
+    IgnoredSubdirectoriesValue ignoredPatternsValue =
+        (IgnoredSubdirectoriesValue) env.getValue(IgnoredSubdirectoriesValue.key());
     if (ignoredPatternsValue == null) {
       return null;
     }
@@ -225,15 +232,30 @@ public class PackageLookupFunction implements SkyFunction {
               packageIdentifier,
               message,
               DetailedExitCode.of(
-                  FailureDetails.FailureDetail.newBuilder()
+                  FailureDetail.newBuilder()
                       .setMessage(message)
                       .setPackageLoading(
-                          FailureDetails.PackageLoading.newBuilder()
-                              .setCode(
-                                  FailureDetails.PackageLoading.Code
-                                      .SYMLINK_CYCLE_OR_INFINITE_EXPANSION))
+                          PackageLoading.newBuilder()
+                              .setCode(Code.SYMLINK_CYCLE_OR_INFINITE_EXPANSION))
                       .build())),
           Transience.PERSISTENT);
+    } catch (DetailedIOException e) {
+      String message =
+          "IO errors while looking for "
+              + basename
+              + " file reading "
+              + fileRootedPath.asPath()
+              + ": "
+              + e.getMessage();
+      throw new PackageLookupFunctionException(
+          new BuildFileNotFoundException(
+              packageIdentifier,
+              message,
+              DetailedExitCode.of(
+                  e.getDetailedExitCode().getFailureDetail().toBuilder()
+                      .setMessage(message)
+                      .build())),
+          e.getTransience());
     } catch (IOException e) {
       String message =
           "IO errors while looking for "
@@ -247,11 +269,10 @@ public class PackageLookupFunction implements SkyFunction {
               packageIdentifier,
               message,
               DetailedExitCode.of(
-                  FailureDetails.FailureDetail.newBuilder()
+                  FailureDetail.newBuilder()
                       .setMessage(message)
                       .setPackageLoading(
-                          FailureDetails.PackageLoading.newBuilder()
-                              .setCode(FailureDetails.PackageLoading.Code.OTHER_IO_EXCEPTION))
+                          PackageLoading.newBuilder().setCode(Code.OTHER_IO_EXCEPTION))
                       .build())),
           Transience.PERSISTENT);
     }
@@ -391,15 +412,14 @@ public class PackageLookupFunction implements SkyFunction {
       throw new PackageLookupFunctionException(
           new RepositoryFetchException(id, e.getMessage()), Transience.PERSISTENT);
     }
-    if (!repositoryValue.repositoryExists()) {
-      return new PackageLookupValue.NoRepositoryPackageLookupValue(
-          id.getRepository(), repositoryValue.getErrorMsg());
+    if (repositoryValue instanceof Failure f) {
+      return new NoRepositoryPackageLookupValue(id.getRepository(), f.getErrorMsg());
     }
 
     // Check .bazelignore file after fetching the external repository.
-    IgnoredPackagePrefixesValue ignoredPatternsValue =
-        (IgnoredPackagePrefixesValue)
-            env.getValue(IgnoredPackagePrefixesValue.key(id.getRepository()));
+    IgnoredSubdirectoriesValue ignoredPatternsValue =
+        (IgnoredSubdirectoriesValue)
+            env.getValue(IgnoredSubdirectoriesValue.key(id.getRepository()));
     if (ignoredPatternsValue == null) {
       return null;
     }
@@ -409,7 +429,7 @@ public class PackageLookupFunction implements SkyFunction {
       return PackageLookupValue.DELETED_PACKAGE_VALUE;
     }
 
-    Root root = Root.fromPath(repositoryValue.getPath());
+    Root root = Root.fromPath(((Success) repositoryValue).getPath());
 
     // This checks for the build file names in the correct precedence order.
     for (BuildFileName buildFileName : buildFilesByPriority) {
@@ -422,8 +442,7 @@ public class PackageLookupFunction implements SkyFunction {
       }
 
       if (fileValue.isFile()) {
-        return PackageLookupValue.successfulExternalPackageLookup(
-            repositoryValue, root, buildFileName);
+        return PackageLookupValue.success(root, buildFileName);
       }
     }
 
@@ -434,11 +453,10 @@ public class PackageLookupFunction implements SkyFunction {
    * Used to declare all the exception types that can be wrapped in the exception thrown by {@link
    * PackageLookupFunction#compute}. Note that {@link InconsistentFilesystemException} can only be
    * thrown during target pattern parsing because of Bazel's end-to-end behavior: {@link
-   * com.google.devtools.build.lib.actions.FileStateValue} throws {@link
-   * InconsistentFilesystemException} only if a cached-on-this-evaluation directory listing said
-   * that an entry was a file but the stat had no result. However, the only time Bazel lists a
-   * directory without first accessing its BUILD/BUILD.bazel file is during evaluation of a
-   * recursive target pattern (like foo/...).
+   * FileStateValue} throws {@link InconsistentFilesystemException} only if a
+   * cached-on-this-evaluation directory listing said that an entry was a file but the stat had no
+   * result. However, the only time Bazel lists a directory without first accessing its
+   * BUILD/BUILD.bazel file is during evaluation of a recursive target pattern (like foo/...).
    */
   private static final class PackageLookupFunctionException extends SkyFunctionException {
     PackageLookupFunctionException(BuildFileNotFoundException e, Transience transience) {

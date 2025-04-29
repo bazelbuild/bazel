@@ -58,9 +58,11 @@ add_to_bazelrc "build --package_path=%workspace%"
 #### TESTS #############################################################
 
 function test_basic_query() {
+  add_rules_shell "MODULE.bazel"
   local -r pkg=$FUNCNAME
   mkdir -p $pkg
   cat > $pkg/BUILD <<'EOF'
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
 sh_library(name='maple', deps=[':japanese'])
 sh_library(name='japanese')
 EOF
@@ -72,9 +74,11 @@ EOF
 }
 
 function test_basic_query_output_textproto() {
+  add_rules_shell "MODULE.bazel"
   local -r pkg=$FUNCNAME
   mkdir -p $pkg
   cat > $pkg/BUILD <<'EOF'
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
 sh_library(name='maple', deps=[':japanese'])
 sh_library(name='japanese')
 EOF
@@ -86,9 +90,14 @@ EOF
 }
 
 function test_basic_query_output_labelkind() {
+  add_rules_cc "MODULE.bazel"
+  add_rules_shell "MODULE.bazel"
   local -r pkg=$FUNCNAME
   mkdir -p $pkg
   cat > $pkg/BUILD <<'EOF'
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+
 sh_library(name='maple', data=[':japanese'])
 cc_binary(name='japanese', srcs = ['japanese.cc'])
 EOF
@@ -101,9 +110,11 @@ EOF
 }
 
 function test_config_checksum_determinism() {
+  add_rules_shell "MODULE.bazel"
   local -r pkg=$FUNCNAME
   mkdir -p $pkg
   cat > $pkg/BUILD <<'EOF'
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
 sh_library(name = 'lib')
 EOF
 
@@ -127,9 +138,11 @@ EOF
 }
 
 function test_respects_selects() {
+  add_rules_shell "MODULE.bazel"
   local -r pkg=$FUNCNAME
   mkdir -p $pkg
   cat > $pkg/BUILD <<'EOF'
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
 sh_library(
     name = "ash",
     deps = select({
@@ -156,9 +169,11 @@ EOF
 }
 
 function test_empty_results_printed() {
+  add_rules_shell "MODULE.bazel"
   local -r pkg=$FUNCNAME
   mkdir -p $pkg
   cat > $pkg/BUILD <<'EOF'
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
 sh_library(name='redwood', deps=[':sequoia',':sequoiadendron'])
 sh_library(name='sequoia')
 sh_library(name='sequoiadendron')
@@ -185,7 +200,7 @@ function test_universe_scope_specified() {
   # Trim to just configurations.
   HOST_CONFIG=${PKG_HOST/"//$pkg:host"}
   TARGET_CONFIG=${PKG_TARGET/"//$pkg:target"}
-  # Ensure they are are not equal.
+  # Ensure they are not equal.
   assert_not_equals $HOST_CONFIG $TARGET_CONFIG
 }
 
@@ -1321,7 +1336,7 @@ EOF
   # A file
   bazel cquery "//$pkg:srcfile.txt" --output=starlark --starlark:file="$pkg/outfunc.bzl" >output \
     2>"$TEST_log" || fail "Expected success"
-  assert_contains "//$pkg:srcfile.txt:providers=.*FileProvider.*FilesToRunProvider.*LicensesProvider.*VisibilityProvider" \
+  assert_contains "//$pkg:srcfile.txt:providers=.*FileProvider.*FilesToRunProvider.*VisibilityProvider" \
     output
   assert_contains "VisibilityProvider.label:@@\?//$pkg:srcfile.txt" output
 }
@@ -1419,8 +1434,8 @@ function test_external_repo_scope() {
   mkdir -p $dir/repo
   touch $dir/repo/REPO.bazel
   cat > $dir/repo/BUILD <<EOF
-sh_library(name='maple', deps=[':japanese'])
-sh_library(name='japanese')
+filegroup(name='maple', srcs=[':japanese'])
+filegroup(name='japanese')
 EOF
 
   mkdir -p $dir/main
@@ -1449,8 +1464,8 @@ function test_external_repo_scope_with_bazelignore() {
   mkdir -p $dir/repo
   touch $dir/repo/REPO.bazel
   cat > $dir/repo/BUILD <<EOF
-sh_library(name='maple', deps=[':japanese'])
-sh_library(name='japanese')
+filegroup(name='maple', srcs=[':japanese'])
+filegroup(name='japanese')
 EOF
 
   mkdir -p $dir/main
@@ -1470,10 +1485,12 @@ EOF
 }
 
 function test_test_arg_in_bazelrc() {
+  add_rules_shell "MODULE.bazel"
   local -r pkg=$FUNCNAME
   mkdir -p $pkg
 
   cat >$pkg/BUILD <<EOF
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 sh_test(
     name = "test",
     srcs = ["test.sh"],
@@ -1493,6 +1510,7 @@ EOF
 }
 
 function set_up_config_test() {
+  add_rules_shell "MODULE.bazel"
   mkdir -p $pkg
 
   # Use a rule that has a configuration transition.
@@ -1516,6 +1534,7 @@ EOF
 
   cat > $pkg/BUILD <<EOF
 load("//$pkg:rule.bzl", "demo_rule")
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 
 sh_binary(name = "tool", srcs = ["tool.sh"])
 
@@ -1570,9 +1589,11 @@ function test_config_function_invalid_config() {
 }
 
 function test_error_keep_going() {
+  add_rules_shell "MODULE.bazel"
   local -r pkg=$FUNCNAME
   mkdir -p $pkg
   cat > $pkg/BUILD <<'EOF'
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
 sh_library(name='maple', deps=[':japanese'])
 sh_library(name='japanese')
 EOF
@@ -1584,9 +1605,11 @@ EOF
 }
 
 function test_does_not_fail_horribly_with_file() {
+  add_rules_shell "MODULE.bazel"
   rm -rf peach
   mkdir -p peach
   cat > peach/BUILD <<EOF
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
 sh_library(name='brighton', deps=[':harken'])
 sh_library(name='harken')
 EOF
@@ -1610,6 +1633,32 @@ EOF
   bazel cquery --output=files //$pkg:all > output 2>"$TEST_log" || fail "Unexpected failure"
   assert_contains "$pkg/BUILD" output
   assert_contains "$pkg/single_file" output
+}
+
+# Regression test for b/381071645.
+function test_invalid_select_no_crash() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+  cat > $pkg/BUILD <<'EOF'
+platform(
+    name = "platform",
+    constraint_values = [],
+)
+
+filegroup(
+    name = "demo",
+    srcs = select({
+        # :platform is not valid as a select key.
+        ":platform": [],
+    }),
+)
+EOF
+
+  bazel cquery \
+    --experimental_use_validation_aspect \
+    "//$pkg:demo" &>"$TEST_log" && fail "Expected failure"
+  expect_not_log "crashed due to an internal error"
+  expect_log "//${pkg}:platform is not a valid select.. condition"
 }
 
 run_suite "${PRODUCT_NAME} configured query tests"

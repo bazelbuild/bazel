@@ -34,10 +34,10 @@ import com.google.devtools.build.lib.actions.ThreadStateReceiver;
 import com.google.devtools.build.lib.analysis.util.ActionTester;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
+import com.google.devtools.build.lib.cmdline.BazelModuleKey;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.events.StoredEventHandler;
-import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.exec.util.TestExecutorBuilder;
 import com.google.devtools.build.lib.skyframe.WorkspaceStatusValue;
 import com.google.devtools.build.lib.util.io.FileOutErr;
@@ -76,7 +76,8 @@ public class BuildInfoFileWriteActionTest extends BuildViewTestCase {
               StarlarkSemantics.DEFAULT,
               ImmutableMap.of(),
               BazelModuleContext.create(
-                  Label.parseCanonicalUnchecked("//test:label"),
+                  BazelModuleKey.createFakeModuleKeyForTesting(
+                      Label.parseCanonicalUnchecked("//test:label")),
                   RepositoryMapping.ALWAYS_FALLBACK,
                   "test/label.bzl",
                   /* loads= */ ImmutableList.of(),
@@ -94,8 +95,7 @@ public class BuildInfoFileWriteActionTest extends BuildViewTestCase {
 
   @Before
   public final void createExecutorAndContext() throws Exception {
-    BinTools binTools = BinTools.forUnitTesting(directories, analysisMock.getEmbeddedTools());
-    executor = new TestExecutorBuilder(fileSystem, directories, binTools).build();
+    executor = new TestExecutorBuilder(fileSystem, directories).build();
     context =
         new ActionExecutionContext(
             executor,
@@ -108,10 +108,7 @@ public class BuildInfoFileWriteActionTest extends BuildViewTestCase {
             new FileOutErr(),
             new StoredEventHandler(),
             /* clientEnv= */ ImmutableMap.of(),
-            /* topLevelFilesets= */ ImmutableMap.of(),
-            /* artifactExpander= */ null,
             /* actionFileSystem= */ null,
-            /* skyframeDepsResult= */ null,
             DiscoveredModulesPruner.DEFAULT,
             SyscallCache.NO_CACHE,
             ThreadStateReceiver.NULL_INSTANCE);

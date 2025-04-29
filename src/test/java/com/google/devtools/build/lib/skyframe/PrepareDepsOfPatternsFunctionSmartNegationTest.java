@@ -59,8 +59,6 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class PrepareDepsOfPatternsFunctionSmartNegationTest extends FoundationTestCase {
   private SkyframeExecutor skyframeExecutor;
-  private static final String ADDITIONAL_IGNORED_PACKAGE_PREFIXES_FILE_PATH_STRING =
-      "config/ignored.txt";
 
   private static SkyKey getKeyForLabel(Label label) {
     // Note that these tests used to look for TargetMarker SkyKeys before TargetMarker was
@@ -95,9 +93,6 @@ public class PrepareDepsOfPatternsFunctionSmartNegationTest extends FoundationTe
             .setActionKeyContext(new ActionKeyContext())
             .setExtraSkyFunctions(analysisMock.getSkyFunctions(directories))
             .setSyscallCache(SyscallCache.NO_CACHE)
-            .setIgnoredPackagePrefixesFunction(
-                new IgnoredPackagePrefixesFunction(
-                    PathFragment.create(ADDITIONAL_IGNORED_PACKAGE_PREFIXES_FILE_PATH_STRING)))
             .build();
     SkyframeExecutorTestHelper.process(skyframeExecutor);
     OptionsParser optionsParser =
@@ -116,7 +111,7 @@ public class PrepareDepsOfPatternsFunctionSmartNegationTest extends FoundationTe
         new TimestampGranularityMonitor(null));
     skyframeExecutor.setActionEnv(ImmutableMap.of());
     skyframeExecutor.injectExtraPrecomputedValues(analysisMock.getPrecomputedValues());
-    scratch.file(ADDITIONAL_IGNORED_PACKAGE_PREFIXES_FILE_PATH_STRING);
+    scratch.file(".bazelignore");
   }
 
   @Test
@@ -161,7 +156,7 @@ public class PrepareDepsOfPatternsFunctionSmartNegationTest extends FoundationTe
     ImmutableList<String> patternSequence = ImmutableList.of("//foo/...");
 
     // and an ignored entry for the malformed package,
-    scratch.overwriteFile(ADDITIONAL_IGNORED_PACKAGE_PREFIXES_FILE_PATH_STRING, "foo/foo");
+    scratch.overwriteFile(".bazelignore", "foo/foo");
 
     assertSkipsFoo(patternSequence);
   }

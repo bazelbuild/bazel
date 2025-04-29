@@ -39,7 +39,6 @@ import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.In
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.skyframe.DefaultSyscallCache;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
-import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.unix.UnixFileSystem;
 import com.google.devtools.build.lib.util.ExitCode;
@@ -214,11 +213,15 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
       String dep = Integer.toString(i);
       depString += "'" + dep + "', ";
       expected.add("//foo:" + dep);
-      targets += "sh_library(name = '" + dep + "')\n";
+      targets += "foo_library(name = '" + dep + "')\n";
     }
     expected.add("//foo:a");
     Collections.sort(expected, Collections.reverseOrder());
-    write("foo/BUILD", "sh_library(name = 'a', deps = [" + depString + "])", targets);
+    write(
+        "foo/BUILD",
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
+        "foo_library(name = 'a', deps = [" + depString + "])",
+        targets);
     ProtoQueryOutput result = getProtoQueryResult("deps(//foo:a)");
     assertSameElementsDifferentOrder(getTargetNames(result.getQueryResult()), expected);
     options.add("--order_output=full");
@@ -235,14 +238,14 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
   private void assertRankUnorderedAndOrdered(boolean minRank) throws Exception {
     List<String> expected = new ArrayList<>(2 * NUM_DEPS + 1);
     // The build file looks like:
-    // sh_library(name = 'a', deps = ['cycle1', '1', '2', ..., ]
-    // sh_library(name = '1')
+    // foo_library(name = 'a', deps = ['cycle1', '1', '2', ..., ]
+    // foo_library(name = '1')
     // ...
-    // sh_library(name = 'n')
-    // sh_library(name = 'cycle0', deps = ['cyclen'])
-    // sh_library(name = 'cycle1', deps = ['cycle0'])
+    // foo_library(name = 'n')
+    // foo_library(name = 'cycle0', deps = ['cyclen'])
+    // foo_library(name = 'cycle1', deps = ['cycle0'])
     // ...
-    // sh_library(name = 'cyclen', deps = ['cycle{n-1}'])
+    // foo_library(name = 'cyclen', deps = ['cycle{n-1}'])
     String targets = "";
     String depString = "";
     for (int i = 0; i < NUM_DEPS; i++) {
@@ -250,8 +253,8 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
       depString += "'" + dep + "', ";
       expected.add("1 //foo:" + dep);
       expected.add("1 //foo:cycle" + dep);
-      targets += "sh_library(name = '" + dep + "')\n";
-      targets += "sh_library(name = 'cycle" + dep + "', deps = ['cycle";
+      targets += "foo_library(name = '" + dep + "')\n";
+      targets += "foo_library(name = 'cycle" + dep + "', deps = ['cycle";
       if (i > 0) {
         targets += i - 1;
       } else {
@@ -263,7 +266,11 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
     expected.add(0, "0 //foo:a");
     options.add("--output=" + (minRank ? "minrank" : "maxrank"));
     options.add("--keep_going");
-    write("foo/BUILD", "sh_library(name = 'a', deps = ['cycle0', " + depString + "])", targets);
+    write(
+        "foo/BUILD",
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
+        "foo_library(name = 'a', deps = ['cycle0', " + depString + "])",
+        targets);
     List<String> result = getStringQueryResult("deps(//foo:a)");
     assertWithMessage(result.toString()).that(result.get(0)).isEqualTo("0 //foo:a");
     assertSameElementsDifferentOrder(result, expected);
@@ -292,11 +299,15 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
       String dep = Integer.toString(i);
       depString += "'" + dep + "', ";
       expected.add("//foo:" + dep);
-      targets += "sh_library(name = '" + dep + "')\n";
+      targets += "foo_library(name = '" + dep + "')\n";
     }
     expected.add("//foo:a");
     Collections.sort(expected);
-    write("foo/BUILD", "sh_library(name = 'a', deps = [" + depString + "])", targets);
+    write(
+        "foo/BUILD",
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
+        "foo_library(name = 'a', deps = [" + depString + "])",
+        targets);
     List<String> result = getStringQueryResult("deps(//foo:a)");
     assertThat(result).containsExactlyElementsIn(expected).inOrder();
     options.add("--order_output=deps");
@@ -334,7 +345,8 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
     write(
         "donut/BUILD",
         """
-        sh_binary(
+        load('//test_defs:foo_binary.bzl', 'foo_binary')
+        foo_binary(
             name = "thief",
             srcs = ["thief.sh"],
         )
@@ -366,7 +378,8 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
     write(
         "donut/BUILD",
         """
-        sh_binary(
+        load('//test_defs:foo_binary.bzl', 'foo_binary')
+        foo_binary(
             name = "thief",
             srcs = ["thief.sh"],
         )
@@ -387,7 +400,11 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
   }
 
   private void createBadBarBuild() throws IOException {
-    Path barBuildFile = write("bar/BUILD", "sh_library(name = 'bar/baz')");
+    Path barBuildFile =
+        write(
+            "bar/BUILD",
+            "load('//test_defs:foo_library.bzl', 'foo_library')",
+            "foo_library(name = 'bar/baz')");
     FileStatus inconsistentFileStatus =
         new FileStatus() {
           @Override
@@ -457,7 +474,10 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
 
   @Test
   public void depInconsistentFileSystem(@TestParameter boolean keepGoing) throws Exception {
-    write("foo/BUILD", "sh_library(name = 'foo', deps = ['//bar:baz'])");
+    write(
+        "foo/BUILD",
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
+        "foo_library(name = 'foo', deps = ['//bar:baz'])");
     createBadBarBuild();
     if (keepGoing) {
       options.add("--keep_going");
@@ -494,15 +514,17 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
     write(
         "foo/BUILD",
         """
-        sh_library(name = "t1")
+        load('//test_defs:foo_library.bzl', 'foo_library')
 
-        sh_library(name = "t2")
+        foo_library(name = "t1")
 
-        sh_library(name = "t3")
+        foo_library(name = "t2")
 
-        sh_library(name = "t4")
+        foo_library(name = "t3")
 
-        sh_library(name = "t5")
+        foo_library(name = "t4")
+
+        foo_library(name = "t5")
         """);
 
     QueryOutput result = getQueryResult("siblings(//foo:t1)");
@@ -515,17 +537,19 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
     write(
         "foo/BUILD",
         """
-        sh_library(
+        load('//test_defs:foo_library.bzl', 'foo_library')
+
+        foo_library(
             name = "t1",
             srcs = ["t1.sh"],
         )
 
-        sh_library(
+        foo_library(
             name = "t2",
             srcs = ["t2.sh"],
         )
 
-        sh_library(
+        foo_library(
             name = "t3",
             srcs = ["t2.sh"],
         )
@@ -540,7 +564,10 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
 
   @Test
   public void graphlessQuery() throws Exception {
-    write("foo/BUILD", "sh_library(name='foo', srcs=['foo.sh'])");
+    write(
+        "foo/BUILD",
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
+        "foo_library(name='foo', srcs=['foo.sh'])");
 
     QueryOutput result =
         getQueryResult("//foo", "--experimental_graphless_query", "--order_output=no");
@@ -550,7 +577,10 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
 
   @Test
   public void graphlessQueryRequiresUnorderedOutput() throws Exception {
-    write("foo/BUILD", "sh_library(name='foo', srcs=['foo.sh'])");
+    write(
+        "foo/BUILD",
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
+        "foo_library(name='foo', srcs=['foo.sh'])");
 
     QueryOutput result =
         getQueryResult("//foo", "--experimental_graphless_query", "--order_output=deps");
@@ -562,7 +592,10 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
 
   @Test
   public void graphlessQueryWithLexicographicalOutput() throws Exception {
-    write("foo/BUILD", "sh_library(name='foo', srcs=['foo.sh'])");
+    write(
+        "foo/BUILD",
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
+        "foo_library(name='foo', srcs=['foo.sh'])");
 
     QueryOutput result =
         getQueryResult(
@@ -576,7 +609,10 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
 
   @Test
   public void graphlessQueryRequiresStreamedFormatter() throws Exception {
-    write("foo/BUILD", "sh_library(name='foo', srcs=['foo.sh'])");
+    write(
+        "foo/BUILD",
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
+        "foo_library(name='foo', srcs=['foo.sh'])");
 
     QueryOutput result =
         getQueryResult(
@@ -771,13 +807,16 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
     write(
         "depth/BUILD",
         """
-        sh_binary(
+        load('//test_defs:foo_binary.bzl', 'foo_binary')
+        load('//test_defs:foo_library.bzl', 'foo_library')
+
+        foo_binary(
             name = "one",
             srcs = ["one.sh"],
             deps = [":two"],
         )
 
-        sh_library(
+        foo_library(
             name = "two",
             srcs = ["two.sh"],
             deps = [
@@ -787,13 +826,13 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
             ],
         )
 
-        sh_library(
+        foo_library(
             name = "three",
             srcs = ["three.sh"],
             deps = [":four"],
         )
 
-        sh_library(
+        foo_library(
             name = "four",
             srcs = ["four.sh"],
             deps = [
@@ -802,18 +841,21 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
             ],
         )
 
-        sh_library(
+        foo_library(
             name = "five",
             srcs = ["five.sh"],
         )
 
-        sh_library(
+        foo_library(
             name = "div2",
             srcs = ["two.sh"],
         )
         """);
 
-    write("depth2/BUILD", "sh_library(name = 'three', srcs = ['three.sh'])");
+    write(
+        "depth2/BUILD",
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
+        "foo_library(name = 'three', srcs = ['three.sh'])");
     write("depth/one.sh", "");
     write("depth/two.sh", "");
     write("depth/three.sh", "");
@@ -999,8 +1041,15 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
 
   @Test
   public void nokeepGoingStopsLoadingPackages() throws Exception {
-    Path fooBuild = write("foo/BUILD", "sh_library(name = 'foo', deps = ['//deppackage'])");
-    write("bar/BUILD", "sh_library(name = 'bar', deps= ['//missing'])");
+    Path fooBuild =
+        write(
+            "foo/BUILD",
+            "load('//test_defs:foo_library.bzl', 'foo_library')",
+            "foo_library(name = 'foo', deps = ['//deppackage'])");
+    write(
+        "bar/BUILD",
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
+        "foo_library(name = 'bar', deps= ['//missing'])");
     fs.watchedPaths.put(
         fooBuild.getParentDirectory().getChild("deppackage").asFragment(),
         () -> fail("deppackage should not have been statted"));
@@ -1059,8 +1108,7 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
 
   private QueryOutput getQueryResult(String queryString, String... flags) throws Exception {
     Collections.addAll(options, flags);
-    runtimeWrapper.resetOptions();
-    runtimeWrapper.addOptions(TestConstants.PRODUCT_SPECIFIC_BUILD_LANG_OPTIONS);
+    setupOptions();
     runtimeWrapper.addOptions(options);
     runtimeWrapper.addOptions(queryString);
     CommandEnvironment env = runtimeWrapper.newCommand(QueryCommand.class);

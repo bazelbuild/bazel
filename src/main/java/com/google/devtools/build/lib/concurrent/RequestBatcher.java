@@ -20,6 +20,7 @@ import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.devtools.build.lib.concurrent.PaddedAddresses.createPaddedBaseAddress;
 import static com.google.devtools.build.lib.concurrent.PaddedAddresses.getAlignedAddress;
 import static java.lang.Math.min;
+import static java.util.concurrent.Executors.newFixedThreadPool;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -28,6 +29,7 @@ import com.google.common.util.concurrent.AbstractFuture;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.unsafe.UnsafeProvider;
+
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.lang.ref.Cleaner;
 import java.util.List;
@@ -46,7 +48,7 @@ import sun.misc.Unsafe;
 public final class RequestBatcher<RequestT, ResponseT> {
   /* This class employs concurrent workers that perform the following cycle:
    *
-   *   1. Collect all available request-response pairs from the queue up to `BATCH_SIZE`.
+   *   1. Collect all available request-response pairs from the queue up to `maxBatchSize`.
    *   2. Execute the collected pairs as a batch.
    *
    * We guarantee that every submitted request is handled. The following traces all possible paths a
@@ -60,8 +62,8 @@ public final class RequestBatcher<RequestT, ResponseT> {
    *
    * Step 1: Initial part of `submit`
    *
-   * A. We check the active-workers count. If it's less than `targetWorkerCount`, a new worker is
-   *    started and the pair is directly assigned to it.
+   * A. We check the active-workers count. If it's less than `maxConcurrentRequests`, a new worker
+   *    is started and the pair is directly assigned to it.
    *
    * B. Otherwise, we enqueue the pair. When the queue is full, we sleep and try again until
    *    enqueuing succeeds. After enqueuing, we proceed to Step 2.
@@ -73,7 +75,7 @@ public final class RequestBatcher<RequestT, ResponseT> {
    * Step 2 is not atomic with Step 1, so the counters might have changed. We re-check
    * active-workers count.
    *
-   * A. If it's already at `targetWorkerCount`, we attempt to increment request-responses count
+   * A. If it's already at `maxConcurrentRequests`, we attempt to increment request-responses count
    *    atomically, ensuring active-workers count remains unchanged during the increment. Success
    *    leads to Step 3.
    *
@@ -87,7 +89,7 @@ public final class RequestBatcher<RequestT, ResponseT> {
    *
    * The atomic request-responses count increment only happens in Step 2 if active-workers count is
    * already at the target. Workers only stop if request-responses count is 0. Since
-   * `targetWorkerCount` > 0, there's always at least one active worker to handle the
+   * `maxConcurrentRequests` > 0, there's always at least one active worker to handle the
    * request-response.
    */
 
@@ -101,18 +103,43 @@ public final class RequestBatcher<RequestT, ResponseT> {
   private static final long QUEUE_FULL_SLEEP_MS = 100;
 
   /**
+   * Executor provided by the client to invoke callbacks for individual responses within a batched
+   * response.
+   *
+   * <p><b>Important:</b> For each batch, response callbacks are executed sequentially on a single
+   * thread. If a callback involves significant processing, the client should offload the work to
+   * separate threads to prevent delays in processing subsequent responses.
+   */
+  private final Executor responseDistributionExecutor;
+
+  /**
+   * Executor dedicated to draining the queue, specifically the {@link
+   * #continueToNextBatchOrBecomeIdle} method.
+   *
+   * <p><b>Purpose of Isolation:</b> This executor is isolated to prevent potential deadlocks. The
+   * {@link #submit} method can block if the task queue is full. If all threads in the client's
+   * executor become blocked waiting to submit tasks, only {@link #continueToNextBatchOrBecomeIdle}
+   * can free up space in the queue. Scheduling this continuation logic on the same, potentially
+   * blocked, client executor would lead to a deadlock.
+   *
+   * <p><b>Deadlock Avoidance:</b> As long as {@link #continueToNextBatchOrBecomeIdle} does not
+   * contain blocking operations (which is true in the current implementation), using a separate
+   * executor is sufficient to prevent this specific deadlock scenario.
+   */
+  private final Executor queueDrainingExecutor;
+
+  private final Multiplexer<RequestT, ResponseT> multiplexer;
+
+  /**
    * Reads this many at a time when constructing a batch.
    *
    * <p>Note that since {@link #populateBatch} always begins with 1 pair, the resulting batch size
    * is one more than this.
    */
-  @VisibleForTesting static final int BATCH_SIZE = 4095;
-
-  private final Executor executor;
-  private final Multiplexer<RequestT, ResponseT> multiplexer;
+  private final int maxBatchSize;
 
   /** Number of active workers to target. */
-  private final int targetWorkerCount;
+  private final int maxConcurrentRequests;
 
   /**
    * Address of an integer containing two counters.
@@ -146,7 +173,10 @@ public final class RequestBatcher<RequestT, ResponseT> {
   }
 
   public static <RequestT, ResponseT> RequestBatcher<RequestT, ResponseT> create(
-      Executor executor, Multiplexer<RequestT, ResponseT> multiplexer, int targetWorkerCount) {
+      Executor responseDistributionExecutor,
+      Multiplexer<RequestT, ResponseT> multiplexer,
+      int maxBatchSize,
+      int maxConcurrentRequests) {
     long baseAddress = createPaddedBaseAddress(4);
     long countersAddress = getAlignedAddress(baseAddress, /* offset= */ 0);
 
@@ -159,7 +189,17 @@ public final class RequestBatcher<RequestT, ResponseT> {
 
     var batcher =
         new RequestBatcher<RequestT, ResponseT>(
-            executor, multiplexer, targetWorkerCount, countersAddress, queue);
+            /* responseDistributionExecutor= */ responseDistributionExecutor,
+            // `maxConcurrentRequests` is the maximum level of invocation concurrency possible for
+            // the
+            // `queueDrainingExecutor`. It is possible for this to overrun, but the work is
+            // relatively lightweight and the batch round trip latency is expected to dominate.
+            /* queueDrainingExecutor= */ newFixedThreadPool(maxConcurrentRequests),
+            multiplexer,
+            maxBatchSize,
+            maxConcurrentRequests,
+            countersAddress,
+            queue);
 
     cleaner.register(batcher, new AddressFreer(baseAddress));
 
@@ -172,22 +212,28 @@ public final class RequestBatcher<RequestT, ResponseT> {
    * <p>Caller owns memory addresses used by {@code queue} and cleanup of memory at {@code
    * countersAddress}.
    */
+  // TODO: b/386384684 - remove Unsafe usage
   @VisibleForTesting
   RequestBatcher(
-      Executor executor,
+      Executor responseDistributionExecutor,
+      Executor queueDrainingExecutor,
       Multiplexer<RequestT, ResponseT> multiplexer,
-      int targetWorkerCount,
+      int maxBatchSize,
+      int maxConcurrentRequests,
       long countersAddress,
       ConcurrentFifo<RequestResponse<RequestT, ResponseT>> queue) {
-    checkArgument(targetWorkerCount > 0, "targetWorkerCount=%s < 1", targetWorkerCount);
+    checkArgument(maxConcurrentRequests > 0, "maxConcurrentRequests=%s < 1", maxConcurrentRequests);
     checkArgument(
-        targetWorkerCount <= ACTIVE_WORKERS_COUNT_MAX,
-        "targetWorkerCount=%s > %s",
-        targetWorkerCount,
+        maxConcurrentRequests <= ACTIVE_WORKERS_COUNT_MAX,
+        "maxConcurrentRequests=%s > %s",
+        maxConcurrentRequests,
         ACTIVE_WORKERS_COUNT_MAX);
-    this.executor = executor;
+    checkArgument(maxBatchSize > 0);
+    this.responseDistributionExecutor = responseDistributionExecutor;
+    this.queueDrainingExecutor = queueDrainingExecutor;
     this.multiplexer = multiplexer;
-    this.targetWorkerCount = targetWorkerCount;
+    this.maxBatchSize = maxBatchSize;
+    this.maxConcurrentRequests = maxConcurrentRequests;
     this.countersAddress = countersAddress;
     this.queue = queue;
 
@@ -198,17 +244,21 @@ public final class RequestBatcher<RequestT, ResponseT> {
   /**
    * Submits a request, subject to batching.
    *
+   * <p>This method <em>blocks</em> when the queue is full.
+   *
    * <p>Callers should consider processing the response on a different executor if processing is
    * expensive to avoid delaying work pending other responses in the batch.
    */
+  // TODO: b/386384684 - remove Unsafe usage
   public ListenableFuture<ResponseT> submit(RequestT request) {
     var requestResponse = new RequestResponse<RequestT, ResponseT>(request);
 
-    // Tries to start a worker as long as the active worker count is less than `targetWorkerCount`.
+    // Tries to start a worker as long as the active worker count is less than
+    // `maxConcurrentRequests`.
     while (true) {
       int snapshot = UNSAFE.getIntVolatile(null, countersAddress);
       int activeWorkers = snapshot >>> ACTIVE_WORKERS_COUNT_BIT_OFFSET;
-      if (activeWorkers >= targetWorkerCount) {
+      if (activeWorkers >= maxConcurrentRequests) {
         break;
       }
       if (UNSAFE.compareAndSwapInt(null, countersAddress, snapshot, snapshot + ONE_ACTIVE_WORKER)) {
@@ -234,7 +284,7 @@ public final class RequestBatcher<RequestT, ResponseT> {
     while (true) {
       int snapshot = UNSAFE.getIntVolatile(null, countersAddress); // pessimistic read
       int activeWorkers = snapshot >>> ACTIVE_WORKERS_COUNT_BIT_OFFSET;
-      if (activeWorkers >= targetWorkerCount) {
+      if (activeWorkers >= maxConcurrentRequests) {
         // Increments the request-responses count.
         if (UNSAFE.compareAndSwapInt(null, countersAddress, snapshot, snapshot + ONE_REQUEST)) {
           // This must not be reached if `activeWorkers` is 0. Guaranteed by the enclosing check.
@@ -254,6 +304,7 @@ public final class RequestBatcher<RequestT, ResponseT> {
     }
   }
 
+  // TODO: b/386384684 - remove Unsafe usage
   @Override
   public String toString() {
     int snapshot = UNSAFE.getIntVolatile(null, countersAddress);
@@ -276,7 +327,7 @@ public final class RequestBatcher<RequestT, ResponseT> {
     ListenableFuture<List<ResponseT>> futureResponses =
         multiplexer.execute(Lists.transform(batch, RequestResponse::request));
 
-    futureResponses.addListener(this::continueToNextBatchOrBecomeIdle, executor);
+    futureResponses.addListener(this::continueToNextBatchOrBecomeIdle, queueDrainingExecutor);
 
     addCallback(
         futureResponses,
@@ -304,14 +355,15 @@ public final class RequestBatcher<RequestT, ResponseT> {
             }
           }
         },
-        executor);
+        responseDistributionExecutor);
   }
 
   /**
-   * Polls at most {@link #BATCH_SIZE} elements from the {@link #queue} and creates a batch.
+   * Polls at most {@link #maxBatchSize} elements from the {@link #queue} and creates a batch.
    *
    * @param requestResponse an element to add to the batch.
    */
+  // TODO: b/386384684 - remove Unsafe usage
   private ImmutableList<RequestResponse<RequestT, ResponseT>> populateBatch(
       RequestResponse<RequestT, ResponseT> requestResponse) {
     var accumulator =
@@ -322,7 +374,7 @@ public final class RequestBatcher<RequestT, ResponseT> {
       if (requestCount == 0) {
         break;
       }
-      int toRead = min(BATCH_SIZE, requestCount);
+      int toRead = min(maxBatchSize, requestCount);
       if (!UNSAFE.compareAndSwapInt(null, countersAddress, snapshot, snapshot - toRead)) {
         continue;
       }
@@ -340,6 +392,7 @@ public final class RequestBatcher<RequestT, ResponseT> {
    * <p>Tries to process the next batch if enqueued requests are available. Otherwise, stops working
    * and decrements the active worker count.
    */
+  // TODO: b/386384684 - remove Unsafe usage
   private void continueToNextBatchOrBecomeIdle() {
     while (true) {
       int snapshot = UNSAFE.getIntVolatile(null, countersAddress);

@@ -16,10 +16,11 @@ package com.google.devtools.build.lib.buildtool;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Sets;
 import com.google.common.eventbus.EventBus;
-import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.ActionChangePrunedEvent;
 import com.google.devtools.build.lib.actions.ActionExecutionStatusReporter;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
+import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.skyframe.ActionExecutionInactivityWatchdog;
 import com.google.devtools.build.lib.skyframe.AspectCompletionValue;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator;
@@ -62,7 +63,6 @@ public final class ExecutionProgressReceiver
 
   private final Set<ActionLookupData> enqueuedActions = Sets.newConcurrentHashSet();
   private final Set<ActionLookupData> completedActions = Sets.newConcurrentHashSet();
-  private final Set<ActionLookupData> ignoredActions = Sets.newConcurrentHashSet();
   private final EventBus eventBus;
 
   /** Number of exclusive tests. To be accounted for in progress messages. */
@@ -81,24 +81,11 @@ public final class ExecutionProgressReceiver
   public void enqueueing(SkyKey skyKey) {
     if (skyKey.functionName().equals(SkyFunctions.ACTION_EXECUTION)) {
       ActionLookupData actionLookupData = (ActionLookupData) skyKey.argument();
-      if (!ignoredActions.contains(actionLookupData)) {
-        // Remember all enqueued actions for the benefit of progress reporting.
-        // We discover most actions early in the build, well before we start executing them.
-        // Some of these will be cache hits and won't be executed, so we'll need to account for them
-        // in the evaluated method too.
-        enqueuedActions.add(actionLookupData);
-      }
-    }
-  }
-
-  @Override
-  public void noteActionEvaluationStarted(ActionLookupData actionLookupData, Action action) {
-    if (!isActionReportWorthy(action)) {
-      ignoredActions.add(actionLookupData);
-      // There is no race here because this is called synchronously during action execution, so no
-      // other thread can concurrently enqueue the action for execution under the Skyframe model.
-      completedActions.remove(actionLookupData);
-      enqueuedActions.remove(actionLookupData);
+      // Remember all enqueued actions for the benefit of progress reporting.
+      // We discover most actions early in the build, well before we start executing them.
+      // Some of these will be cache hits and won't be executed, so we'll need to account for them
+      // in the evaluated method too.
+      enqueuedActions.add(actionLookupData);
     }
   }
 
@@ -160,6 +147,14 @@ public final class ExecutionProgressReceiver
     }
   }
 
+  @Override
+  public void changePruned(SkyKey skyKey) {
+    if (skyKey.functionName().equals(SkyFunctions.ACTION_EXECUTION)) {
+      eventBus.post(
+          new ActionChangePrunedEvent((ActionLookupData) skyKey.argument(), BlazeClock.nanoTime()));
+    }
+  }
+
   /**
    * {@inheritDoc}
    *
@@ -176,14 +171,8 @@ public final class ExecutionProgressReceiver
    */
   @Override
   public void actionCompleted(ActionLookupData actionLookupData) {
-    if (!ignoredActions.contains(actionLookupData)) {
-      enqueuedActions.add(actionLookupData);
-      completedActions.add(actionLookupData);
-    }
-  }
-
-  private static boolean isActionReportWorthy(Action action) {
-    return !action.getActionType().isMiddleman();
+    enqueuedActions.add(actionLookupData);
+    completedActions.add(actionLookupData);
   }
 
   @Override

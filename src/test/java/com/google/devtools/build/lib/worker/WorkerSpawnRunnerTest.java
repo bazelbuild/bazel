@@ -33,7 +33,6 @@ import static org.mockito.Mockito.when;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
@@ -54,7 +53,6 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.exec.SpawnExecutingEvent;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
-import com.google.devtools.build.lib.sandbox.SandboxHelpers;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -100,7 +98,6 @@ public class WorkerSpawnRunnerTest {
   @Before
   public void setUp() throws Exception {
     when(spawn.getInputFiles()).thenReturn(NestedSetBuilder.emptySet(Order.COMPILE_ORDER));
-    when(context.getArtifactExpander()).thenReturn(treeArtifact -> ImmutableSortedSet.of());
     doNothing()
         .when(metricsCollector)
         .registerWorker(
@@ -146,7 +143,6 @@ public class WorkerSpawnRunnerTest {
 
     WorkerSpawnRunner runner =
         new WorkerSpawnRunner(
-            new SandboxHelpers(),
             execRoot,
             WorkerTestUtils.createTestWorkerPool(worker),
             reporter,
@@ -537,7 +533,6 @@ public class WorkerSpawnRunnerTest {
 
   private WorkerSpawnRunner createWorkerSpawnRunner(WorkerOptions workerOptions) {
     return new WorkerSpawnRunner(
-        new SandboxHelpers(),
         fs.getPath("/execRoot"),
         WorkerTestUtils.createTestWorkerPool(worker),
         reporter,

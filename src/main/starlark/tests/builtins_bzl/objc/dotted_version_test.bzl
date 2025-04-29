@@ -19,7 +19,7 @@ load("@bazel_skylib//lib:unittest.bzl", "asserts", "unittest")
 # TODO: b/331163027 - Remove loading dotted_version once the starlark dotted_version() has the
 # full functionality of the native DottedVersion and is placed in apple_common.
 load(
-    "//third_party/bazel/src/main/starlark/tests/builtins_bzl:objc/dotted_version.bzl",
+    "//src/main/starlark/tests/builtins_bzl:objc/dotted_version.bzl",
     "dotted_version",
 )
 

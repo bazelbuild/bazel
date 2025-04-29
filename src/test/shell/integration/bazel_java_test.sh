@@ -53,20 +53,30 @@ EOF
 function test_java_runtime() {
   add_rules_java "MODULE.bazel"
   add_platforms "MODULE.bazel"
-  cat << EOF >> MODULE.bazel
-_local_java_repository_rule = use_repo_rule("@rules_java//toolchains:local_java_repository.bzl", "_local_java_repository_rule")
-_local_java_repository_rule(
-    name = "host_javabase",
-    runtime_name = "host_javabase",
-    java_home = "$PWD/foobar",
-    version = "11",
+  touch BUILD
+  cat << EOF > extensions.bzl
+load("@rules_java//toolchains:local_java_repository.bzl", "local_java_repository")
+
+local_java_repo_ext = module_extension(
+    implementation =
+    lambda ctx: local_java_repository(
+        name = "host_javabase",
+        java_home = "$PWD/foobar",
+        version = "11",
+    ),
 )
+EOF
+  cat << EOF >> MODULE.bazel
+local_java_repo_ext = use_extension("//:extensions.bzl", "local_java_repo_ext")
+use_repo(local_java_repo_ext, "host_javabase")
 register_toolchains("@host_javabase//:runtime_toolchain_definition")
 register_toolchains("@host_javabase//:bootstrap_runtime_toolchain_definition")
 EOF
 
   mkdir java
   cat << EOF > java/BUILD
+load("@rules_java//java:java_library.bzl", "java_library")
+
 java_library(
     name = "javalib",
     srcs = ["HelloWorld.java"],
@@ -98,8 +108,12 @@ EOF
 # compatibility between JDK and Javabuilder, and ability to compile desired source.
 # Testing: Javabuilder in target configuration.
 function test_toolchain_java_runtime_set_from_toolchain() {
+  add_rules_java "MODULE.bazel"
+
   mkdir java
   cat << EOF > java/BUILD
+load("@rules_java//java:java_library.bzl", "java_library")
+
 java_library(
     name = "javalib",
     srcs = ["HelloWorld.java"],
@@ -125,14 +139,22 @@ EOF
 function test_exec_toolchain_java_runtime_not_set_from_tool_java_runtime_version() {
   add_rules_java "MODULE.bazel"
   add_platforms "MODULE.bazel"
-  cat << EOF >> MODULE.bazel
-_local_java_repository_rule = use_repo_rule("@rules_java//toolchains:local_java_repository.bzl", "_local_java_repository_rule")
-_local_java_repository_rule(
-    name = "host_javabase",
-    runtime_name = "host_javabase",
-    java_home = "$PWD/foobar",
-    version = "11",
+  touch BUILD
+  cat << EOF > extensions.bzl
+load("@rules_java//toolchains:local_java_repository.bzl", "local_java_repository")
+
+local_java_repo_ext = module_extension(
+    implementation =
+    lambda ctx: local_java_repository(
+        name = "host_javabase",
+        java_home = "$PWD/foobar",
+        version = "11",
+    ),
 )
+EOF
+  cat << EOF >> MODULE.bazel
+local_java_repo_ext = use_extension("//:extensions.bzl", "local_java_repo_ext")
+use_repo(local_java_repo_ext, "host_javabase")
 register_toolchains("@host_javabase//:runtime_toolchain_definition")
 register_toolchains("@host_javabase//:bootstrap_runtime_toolchain_definition")
 EOF
@@ -151,6 +173,7 @@ EOF
 
   cat << EOF > java/BUILD
 load(":rule.bzl", "sample_rule")
+load("@rules_java//java:java_library.bzl", "java_library")
 
 java_library(
     name = "javalib",
@@ -192,14 +215,22 @@ EOF
 function test_javabase() {
   add_rules_java "MODULE.bazel"
   add_platforms "MODULE.bazel"
-  cat << EOF >> MODULE.bazel
-_local_java_repository_rule = use_repo_rule("@rules_java//toolchains:local_java_repository.bzl", "_local_java_repository_rule")
-_local_java_repository_rule(
-    name = "javabase",
-    runtime_name = "javabase",
-    java_home = "$PWD/zoo",
-    version = "11",
+  touch BUILD
+  cat << EOF > extensions.bzl
+load("@rules_java//toolchains:local_java_repository.bzl", "local_java_repository")
+
+local_java_repo_ext = module_extension(
+    implementation =
+    lambda ctx: local_java_repository(
+        name = "javabase",
+        java_home = "$PWD/zoo",
+        version = "11",
+    ),
 )
+EOF
+  cat << EOF >> MODULE.bazel
+local_java_repo_ext = use_extension("//:extensions.bzl", "local_java_repo_ext")
+use_repo(local_java_repo_ext, "javabase")
 register_toolchains("@javabase//:runtime_toolchain_definition")
 register_toolchains("@javabase//:bootstrap_runtime_toolchain_definition")
 
@@ -211,7 +242,7 @@ EOF
   touch zoo/bin/java
 
   cat << EOF > BUILD
-load("@bazel_tools//tools/jdk:default_java_toolchain.bzl", "default_java_toolchain")
+load("@rules_java//toolchains:default_java_toolchain.bzl", "default_java_toolchain")
 default_java_toolchain(
     name = "toolchain",
     # Implicitly use the host_javabase bootclasspath, since the target doesn't
@@ -226,6 +257,8 @@ EOF
 
   mkdir java
   cat << EOF > java/BUILD
+load("@rules_java//java:java_binary.bzl", "java_binary")
+
 java_binary(
     name = "javabin",
     srcs = ["HelloWorld.java"],
@@ -249,6 +282,8 @@ EOF
 function write_javabase_files() {
   mkdir -p javabase_test
   cat << EOF > javabase_test/BUILD
+load("@rules_java//java:java_binary.bzl", "java_binary")
+
 java_binary(
     name = "a",
     srcs = ["A.java"],
@@ -293,14 +328,22 @@ function test_no_javabase() {
 function test_no_java_home_path() {
   add_rules_java "MODULE.bazel"
   add_platforms "MODULE.bazel"
-  cat << EOF >> MODULE.bazel
-_local_java_repository_rule = use_repo_rule("@rules_java//toolchains:local_java_repository.bzl", "_local_java_repository_rule")
-_local_java_repository_rule(
-    name = "host_javabase",
-    runtime_name = "host_javabase",
-    java_home = "$PWD/idontexist",
-    version = "11",
+  touch BUILD
+  cat << EOF > extensions.bzl
+load("@rules_java//toolchains:local_java_repository.bzl", "local_java_repository")
+
+local_java_repo_ext = module_extension(
+    implementation =
+    lambda ctx: local_java_repository(
+        name = "host_javabase",
+        java_home = "$PWD/idontexist",
+        version = "11",
+    ),
 )
+EOF
+  cat << EOF >> MODULE.bazel
+local_java_repo_ext = use_extension("//:extensions.bzl", "local_java_repo_ext")
+use_repo(local_java_repo_ext, "host_javabase")
 register_toolchains("@host_javabase//:runtime_toolchain_definition")
 register_toolchains("@host_javabase//:bootstrap_runtime_toolchain_definition")
 EOF
@@ -313,21 +356,29 @@ EOF
 function test_genrule() {
   add_rules_java "MODULE.bazel"
   add_platforms "MODULE.bazel"
-  cat << EOF >> MODULE.bazel
-_local_java_repository_rule = use_repo_rule("@rules_java//toolchains:local_java_repository.bzl", "_local_java_repository_rule")
-_local_java_repository_rule(
-    name = "foo_javabase",
-    runtime_name = "foo_javabase",
-    java_home = "$PWD/foo",
-    version = "11",
+  touch BUILD
+  cat << EOF > extensions.bzl
+load("@rules_java//toolchains:local_java_repository.bzl", "local_java_repository")
+
+local_java_repo_ext = module_extension(
+    implementation =
+    lambda ctx: local_java_repository(
+        name = "foo_javabase",
+        java_home = "$PWD/foo",
+        version = "11",
+    ),
 )
+EOF
+  cat << EOF >> MODULE.bazel
+local_java_repo_ext = use_extension("//:extensions.bzl", "local_java_repo_ext")
+use_repo(local_java_repo_ext, "foo_javabase")
 register_toolchains("@foo_javabase//:runtime_toolchain_definition")
 register_toolchains("@foo_javabase//:bootstrap_runtime_toolchain_definition")
 EOF
 
   mkdir -p foo/bin bar/bin
   cat << EOF > BUILD
-
+load("@rules_java//java/toolchains:java_runtime.bzl", "java_runtime")
 
 java_runtime(
     name = "bar_runtime",

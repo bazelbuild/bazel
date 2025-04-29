@@ -17,6 +17,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
+import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -76,7 +77,7 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   private static final int MAX_DEPTH_FULL_SCAN_LIMIT = 20;
   private final Map<String, Collection<Target>> resolvedTargetPatterns = new HashMap<>();
   private final TargetPatternPreloader targetPatternPreloader;
-  private final TargetPattern.Parser mainRepoTargetParser;
+  private final TargetPattern.Parser targetParser;
   @Nullable private final QueryTransitivePackagePreloader queryTransitivePackagePreloader;
   private final TargetProvider targetProvider;
   private final CachingPackageLocator cachingPackageLocator;
@@ -106,7 +107,7 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
       TargetProvider targetProvider,
       CachingPackageLocator cachingPackageLocator,
       TargetPatternPreloader targetPatternPreloader,
-      Parser mainRepoTargetParser,
+      Parser targetParser,
       boolean keepGoing,
       boolean strictScope,
       int loadingPhaseThreads,
@@ -118,7 +119,7 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     super(
         keepGoing, strictScope, labelFilter, eventHandler, settings, extraFunctions, labelPrinter);
     this.targetPatternPreloader = targetPatternPreloader;
-    this.mainRepoTargetParser = mainRepoTargetParser;
+    this.targetParser = targetParser;
     this.queryTransitivePackagePreloader = queryTransitivePackagePreloader;
     this.targetProvider = targetProvider;
     this.cachingPackageLocator = cachingPackageLocator;
@@ -148,7 +149,8 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
 
   @Override
   public Collection<Target> getSiblingTargetsInPackage(Target target) {
-    Collection<Target> siblings = target.getPackage().getTargets().values();
+    // TODO(https://github.com/bazelbuild/bazel/issues/23852): support lazy macro expansion
+    ImmutableCollection<Target> siblings = target.getPackage().getTargets().values();
     // Ensure that the sibling targets are in the graph being built-up.
     siblings.forEach(this::getNode);
     return siblings;
@@ -349,7 +351,7 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     return new TransitiveLoadFilesHelperForTargets() {
       @Override
       public Target getLoadFileTarget(Target originalTarget, Label bzlLabel) {
-        return getNode(new FakeLoadTarget(bzlLabel, originalTarget.getPackage())).getLabel();
+        return getNode(new FakeLoadTarget(bzlLabel, originalTarget.getPackageoid())).getLabel();
       }
 
       @Nullable
@@ -364,7 +366,7 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
         return getNode(
                 new FakeLoadTarget(
                     Label.createUnvalidated(pkgIdOfBzlLabel, baseName),
-                    originalTarget.getPackage()))
+                    originalTarget.getPackageoid()))
             .getLabel();
       }
     };
@@ -446,7 +448,7 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     // being called from within a SkyFunction.
     resolvedTargetPatterns.putAll(
         targetPatternPreloader.preloadTargetPatterns(
-            eventHandler, mainRepoTargetParser, patterns, keepGoing));
+            eventHandler, targetParser, patterns, keepGoing));
   }
 
   @Override

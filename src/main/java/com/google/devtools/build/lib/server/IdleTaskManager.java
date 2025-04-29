@@ -11,10 +11,10 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 package com.google.devtools.build.lib.server;
 
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -32,7 +32,6 @@ import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 /**
@@ -53,6 +52,30 @@ public final class IdleTaskManager {
     INITIALIZED,
     IDLE,
     BUSY
+  }
+
+  private static final class IdleTaskWrapper implements Runnable {
+    private final IdleTask task;
+
+    IdleTaskWrapper(IdleTask task) {
+      this.task = task;
+    }
+
+    @Override
+    public void run() {
+      String name = task.displayName();
+      try {
+        logger.atInfo().log("%s idle task started", name);
+        task.run();
+        logger.atInfo().log("%s idle task finished", name);
+      } catch (IdleTaskException e) {
+        logger.atWarning().withCause(e.getCause()).log("%s idle task failed", name);
+      } catch (InterruptedException e) {
+        // There's no point in restoring the interrupt bit since this thread belongs to an executor
+        // service that is shutting down.
+        logger.atWarning().withCause(e).log("%s idle task interrupted", name);
+      }
+    }
   }
 
   @GuardedBy("this")
@@ -90,7 +113,8 @@ public final class IdleTaskManager {
 
     // Schedule tasks in the order they were registered.
     for (IdleTask task : registeredTasks) {
-      taskFutures.add(executor.schedule(task::run, task.delay().toSeconds(), TimeUnit.SECONDS));
+      taskFutures.add(
+          executor.schedule(new IdleTaskWrapper(task), task.delay().toSeconds(), SECONDS));
     }
 
     // Schedule the final task to run after everything else.
@@ -102,7 +126,7 @@ public final class IdleTaskManager {
             // If state was kept after the build, wait for a few seconds before triggering GC, to
             // avoid unnecessarily slowing down an immediately following incremental build.
             stateKeptAfterBuild ? 10 : 0,
-            TimeUnit.SECONDS));
+            SECONDS));
   }
 
   /**
@@ -121,19 +145,21 @@ public final class IdleTaskManager {
     boolean interrupted = false;
     while (true) {
       try {
-        executor.awaitTermination(Long.MAX_VALUE, TimeUnit.HOURS);
+        executor.awaitTermination(Long.MAX_VALUE, SECONDS);
         break;
       } catch (InterruptedException e) {
-        // It's unsafe to leak tasks - keep trying and reset the interrupt bit later.
+        // It's unsafe to leak tasks - keep trying and restore the interrupt bit later.
         interrupted = true;
       }
     }
 
     for (ScheduledFuture<?> taskFuture : taskFutures) {
       try {
-        taskFuture.get(0, TimeUnit.SECONDS);
+        taskFuture.get(0, SECONDS);
       } catch (ExecutionException e) {
-        logger.atWarning().withCause(e.getCause()).log("Unexpected exception from idle task");
+        // Must be an unchecked exception since all checked exceptions thrown by an IdleTask are
+        // handled by its IdleTaskWrapper.
+        throw new IllegalStateException("Unexpected exception thrown by idle task", e.getCause());
       } catch (TimeoutException | CancellationException e) {
         // Expected if the task hadn't yet started running or was interrupted mid-run.
       } catch (InterruptedException e) {

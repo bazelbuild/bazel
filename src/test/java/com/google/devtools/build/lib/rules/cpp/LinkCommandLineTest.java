@@ -19,21 +19,21 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
-import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
-import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.exec.util.FakeActionInputFileCache;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.LibraryToLinkValue;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.SequenceBuilder;
 import com.google.devtools.build.lib.rules.cpp.CppActionConfigs.CppPlatform;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
+import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
@@ -49,7 +49,7 @@ import org.junit.runners.JUnit4;
  * presence of certain build variables.
  */
 @RunWith(JUnit4.class)
-public final class LinkCommandLineTest extends BuildViewTestCase {
+public final class LinkCommandLineTest extends LinkBuildVariablesTestCase {
 
   private static CcToolchainVariables.Builder getMockBuildVariables() {
     return getMockBuildVariables(ImmutableList.of());
@@ -272,7 +272,7 @@ public final class LinkCommandLineTest extends BuildViewTestCase {
     assertThat(linkConfig.getCommandLines().unpack().get(0).commandLine.arguments())
         .containsExactly("foo/bar/ar");
     assertThat(linkConfig.getCommandLines().unpack().get(1).paramFileInfo.always()).isTrue();
-    assertThat(linkConfig.getParamCommandLine(null))
+    assertThat(linkConfig.getParamCommandLine(null, PathMapper.NOOP))
         .containsExactly("rcsD", "a/FakeOutput")
         .inOrder();
   }
@@ -295,7 +295,7 @@ public final class LinkCommandLineTest extends BuildViewTestCase {
             .build();
     assertThat(linkConfig.getCommandLines().unpack().get(0).commandLine.arguments())
         .containsExactly("foo/bar/linker");
-    assertThat(linkConfig.getParamCommandLine(null))
+    assertThat(linkConfig.getParamCommandLine(null, PathMapper.NOOP))
         .containsExactly("-shared", "-o", "a/FakeOutput", "")
         .inOrder();
   }
@@ -339,7 +339,7 @@ public final class LinkCommandLineTest extends BuildViewTestCase {
 
     assertThat(linkConfig.getCommandLines().unpack().get(0).commandLine.arguments())
         .containsExactly("foo/bar/ar");
-    assertThat(linkConfig.getParamCommandLine(null))
+    assertThat(linkConfig.getParamCommandLine(null, PathMapper.NOOP))
         .containsExactly("rcsD", "a/FakeOutput", "foo.o", "bar.o")
         .inOrder();
   }
@@ -367,11 +367,15 @@ public final class LinkCommandLineTest extends BuildViewTestCase {
     TreeFileArtifact library0 = TreeFileArtifact.createTreeOutput(testTreeArtifact, "library0.o");
     TreeFileArtifact library1 = TreeFileArtifact.createTreeOutput(testTreeArtifact, "library1.o");
 
-    ArtifactExpander expander =
-        treeArtifact ->
-            treeArtifact.equals(testTreeArtifact)
-                ? ImmutableSortedSet.of(library0, library1)
-                : ImmutableSortedSet.of();
+    // We don't read the tree artifact or its contents, so MISSING_FILE_MARKER is OK
+    TreeArtifactValue treeArtifactValue =
+        TreeArtifactValue.newBuilder(testTreeArtifact)
+            .putChild(library0, FileArtifactValue.MISSING_FILE_MARKER)
+            .putChild(library1, FileArtifactValue.MISSING_FILE_MARKER)
+            .build();
+
+    FakeActionInputFileCache fakeActionInputFileCache = new FakeActionInputFileCache();
+    fakeActionInputFileCache.putTreeArtifact(testTreeArtifact, treeArtifactValue);
 
     Iterable<String> treeArtifactsPaths = ImmutableList.of(testTreeArtifact.getExecPathString());
     Iterable<String> treeFileArtifactsPaths =
@@ -398,16 +402,22 @@ public final class LinkCommandLineTest extends BuildViewTestCase {
         linkConfig.arguments(null, PathMapper.NOOP), treeArtifactsPaths, treeFileArtifactsPaths);
     verifyArguments(linkConfig.arguments(), treeArtifactsPaths, treeFileArtifactsPaths);
     verifyArguments(
-        linkConfig.getParamCommandLine(null), treeArtifactsPaths, treeFileArtifactsPaths);
+        linkConfig.getParamCommandLine(null, PathMapper.NOOP),
+        treeArtifactsPaths,
+        treeFileArtifactsPaths);
 
     // Should only reference tree file artifacts.
     verifyArguments(
-        linkConfig.arguments(expander, PathMapper.NOOP),
+        linkConfig.arguments(fakeActionInputFileCache, PathMapper.NOOP),
         treeFileArtifactsPaths,
         treeArtifactsPaths);
     verifyArguments(
-        linkConfig.arguments(expander, null), treeFileArtifactsPaths, treeArtifactsPaths);
+        linkConfig.arguments(fakeActionInputFileCache, PathMapper.NOOP),
+        treeFileArtifactsPaths,
+        treeArtifactsPaths);
     verifyArguments(
-        linkConfig.getParamCommandLine(expander), treeFileArtifactsPaths, treeArtifactsPaths);
+        linkConfig.getParamCommandLine(fakeActionInputFileCache, PathMapper.NOOP),
+        treeFileArtifactsPaths,
+        treeArtifactsPaths);
   }
 }

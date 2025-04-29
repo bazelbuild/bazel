@@ -16,14 +16,15 @@ package com.google.devtools.build.lib.bazel.repository;
 
 import static com.google.devtools.build.lib.bazel.repository.StripPrefixedPath.maybeDeprefixSymlink;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
-import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.auto.service.AutoService;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.bazel.repository.DecompressorValue.Decompressor;
+import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -56,7 +57,9 @@ import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
  * representation of raw bytes stored as latin-1 strings.
  */
 public abstract class CompressedTarFunction implements Decompressor {
-  protected abstract InputStream getDecompressorStream(DecompressorDescriptor descriptor)
+  private static final int BUFFER_SIZE = 32 * 1024;
+
+  protected abstract InputStream getDecompressorStream(BufferedInputStream compressedInputStream)
       throws IOException;
 
   @Override
@@ -72,7 +75,9 @@ public abstract class CompressedTarFunction implements Decompressor {
     // Store link, target info of symlinks, we create them after regular files are extracted.
     Map<Path, PathFragment> symlinks = new HashMap<>();
 
-    try (InputStream decompressorStream = getDecompressorStream(descriptor)) {
+    try (InputStream compressedInputStream = descriptor.archivePath().getInputStream();
+        InputStream decompressorStream =
+            getDecompressorStream(new BufferedInputStream(compressedInputStream, BUFFER_SIZE))) {
       // USTAR tar headers use an unspecified encoding whereas PAX tar headers always use UTF-8.
       // We can specify the encoding to use for USTAR headers, but the Charset used for PAX headers
       // is fixed to UTF-8. We thus specify a custom Charset for the former so that we can
@@ -168,10 +173,9 @@ public abstract class CompressedTarFunction implements Decompressor {
    */
   private static String toRawBytesString(String name) {
     // Marked strings are already encoded in ISO-8859-1. Other strings originate from PAX headers
-    // and are thus encoded in UTF-8, which we decode to the raw bytes and then re-encode trivially
-    // in ISO-8859-1.
+    // and are thus Unicode.
     return MarkedIso88591Charset.getRawBytesStringIfMarked(name)
-        .orElseGet(() -> new String(name.getBytes(UTF_8), ISO_8859_1));
+        .orElseGet(() -> StringEncoding.unicodeToInternal(name));
   }
 
   /** A provider of {@link MarkedIso88591Charset}s. */

@@ -21,7 +21,6 @@ import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.AnalysisOptions;
 import com.google.devtools.build.lib.analysis.AspectCollection;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
@@ -185,6 +184,7 @@ public class BuildRequest implements OptionsProvider {
   private final UUID id;
   private final LoadingCache<Class<? extends OptionsBase>, Optional<OptionsBase>> optionsCache;
   private final Map<String, Object> starlarkOptions;
+  private final Map<String, String> scopesAttributes;
 
   /** A human-readable description of all the non-default option settings. */
   private final String optionsDescription;
@@ -202,7 +202,7 @@ public class BuildRequest implements OptionsProvider {
   private final boolean runTests;
   private final boolean checkForActionConflicts;
   private final boolean reportIncompatibleTargets;
-  private final ImmutableSet<String> userOptions;
+  private final ImmutableMap<String, String> userOptions;
 
   private BuildRequest(
       String commandName,
@@ -223,7 +223,7 @@ public class BuildRequest implements OptionsProvider {
     this.id = id;
     this.startTimeMillis = startTimeMillis;
     this.userOptions =
-        options.getUserOptions() == null ? ImmutableSet.of() : options.getUserOptions();
+        options.getUserOptions() == null ? ImmutableMap.of() : options.getUserOptions();
     this.optionsCache =
         Caffeine.newBuilder()
             .build(
@@ -236,6 +236,7 @@ public class BuildRequest implements OptionsProvider {
                   return Optional.fromNullable(result);
                 });
     this.starlarkOptions = options.getStarlarkOptions();
+    this.scopesAttributes = options.getScopesAttributes();
     this.needsInstrumentationFilter = needsInstrumentationFilter;
     this.runTests = runTests;
     this.checkForActionConflicts = checkForActionConflicts;
@@ -272,6 +273,11 @@ public class BuildRequest implements OptionsProvider {
   }
 
   @Override
+  public Map<String, String> getScopesAttributes() {
+    return scopesAttributes;
+  }
+
+  @Override
   public Map<String, Object> getExplicitStarlarkOptions(
       Predicate<? super ParsedOptionDescription> filter) {
     throw new UnsupportedOperationException("No known callers to this implementation");
@@ -282,7 +288,7 @@ public class BuildRequest implements OptionsProvider {
    * line.
    */
   @Override
-  public ImmutableSet<String> getUserOptions() {
+  public ImmutableMap<String, String> getUserOptions() {
     return userOptions;
   }
 
@@ -397,11 +403,6 @@ public class BuildRequest implements OptionsProvider {
               localTestJobs, jobs, jobs));
     }
 
-    // Validate other BuildRequest options.
-    if (getBuildOptions().verboseExplanations && getBuildOptions().explanationPath == null) {
-      warnings.add("--verbose_explanations has no effect when --explain=<file> is not enabled");
-    }
-
     return warnings;
   }
 
@@ -411,7 +412,6 @@ public class BuildRequest implements OptionsProvider {
     return new TopLevelArtifactContext(
         getOptions(ExecutionOptions.class).testStrategy.equals("exclusive"),
         getOptions(BuildEventProtocolOptions.class).expandFilesets,
-        getOptions(BuildEventProtocolOptions.class).fullyResolveFilesetSymlinks,
         OutputGroupInfo.determineOutputGroups(
             buildOptions.outputGroups, validationMode(), /* shouldRunTests= */ shouldRunTests()));
   }

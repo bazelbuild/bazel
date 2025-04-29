@@ -32,7 +32,7 @@ public class RepoFileFunctionTest extends BuildViewTestCase {
   @Test
   public void defaultVisibility() throws Exception {
     scratch.overwriteFile("REPO.bazel", "repo(default_visibility=['//some:thing'])");
-    scratch.overwriteFile("p/BUILD", "sh_library(name = 't')");
+    scratch.overwriteFile("p/BUILD", "filegroup(name = 't')");
     invalidatePackages();
     Target t = getTarget("//p:t");
     assertThat(t.getVisibility().getDeclaredLabels())
@@ -56,7 +56,6 @@ public class RepoFileFunctionTest extends BuildViewTestCase {
     scratch.overwriteFile("MODULE.bazel", "bazel_dep(name='foo',version='1.0')");
     scratch.overwriteFile("abc/def/BUILD", "filegroup(name='what')");
     registry.addModule(createModuleKey("foo", "1.0"), "module(name='foo',version='1.0')");
-    scratch.overwriteFile(moduleRoot.getRelative("foo+1.0/WORKSPACE.bazel").getPathString());
     scratch.overwriteFile(
         moduleRoot.getRelative("foo+1.0/REPO.bazel").getPathString(),
         "repo(default_deprecation='EVERYTHING IS DEPRECATED')");

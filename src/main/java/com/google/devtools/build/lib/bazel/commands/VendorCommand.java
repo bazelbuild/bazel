@@ -35,10 +35,11 @@ import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
-import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
+import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue.Failure;
+import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue.Success;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.Command;
@@ -193,11 +194,6 @@ public final class VendorCommand implements BlazeCommand {
 
   @Nullable
   private BlazeCommandResult validateOptions(CommandEnvironment env, OptionsParsingResult options) {
-    if (!options.getOptions(BuildLanguageOptions.class).enableBzlmod) {
-      return createFailedBlazeCommandResult(
-          env.getReporter(),
-          "Bzlmod has to be enabled for vendoring to work, run with --enable_bzlmod");
-    }
     if (options.getOptions(RepositoryOptions.class).vendorDirectory == null) {
       return createFailedBlazeCommandResult(
           env.getReporter(),
@@ -234,7 +230,7 @@ public final class VendorCommand implements BlazeCommand {
 
     BazelFetchAllValue fetchAllValue = (BazelFetchAllValue) evaluationResult.get(fetchKey);
     env.getReporter().handle(Event.info("Vendoring all external repositories..."));
-    vendor(env, fetchAllValue.getReposToVendor());
+    vendor(env, fetchAllValue.reposToVendor());
     env.getReporter().handle(Event.info("All external dependencies vendored successfully."));
     return BlazeCommandResult.success();
   }
@@ -257,12 +253,13 @@ public final class VendorCommand implements BlazeCommand {
     List<String> notFoundRepoErrors = new ArrayList<>();
     for (Entry<RepositoryName, RepositoryDirectoryValue> entry :
         repositoryNamesAndValues.entrySet()) {
-      if (entry.getValue().repositoryExists()) {
-        if (!entry.getValue().excludeFromVendoring()) {
-          reposToVendor.add(entry.getKey());
+      switch (entry.getValue()) {
+        case Success s -> {
+          if (!s.excludeFromVendoring()) {
+            reposToVendor.add(entry.getKey());
+          }
         }
-      } else {
-        notFoundRepoErrors.add(entry.getValue().getErrorMsg());
+        case Failure f -> notFoundRepoErrors.add(f.getErrorMsg());
       }
     }
 
@@ -314,8 +311,7 @@ public final class VendorCommand implements BlazeCommand {
       SkyKey key = nodes.remove();
       visited.add(key);
       NodeEntry nodeEntry = inMemoryGraph.get(null, Reason.VENDOR_EXTERNAL_REPOS, key);
-      if (nodeEntry.getValue() instanceof RepositoryDirectoryValue repoDirValue
-          && repoDirValue.repositoryExists()
+      if (nodeEntry.getValue() instanceof RepositoryDirectoryValue.Success repoDirValue
           && !repoDirValue.excludeFromVendoring()) {
         repos.add((RepositoryName) key.argument());
       }

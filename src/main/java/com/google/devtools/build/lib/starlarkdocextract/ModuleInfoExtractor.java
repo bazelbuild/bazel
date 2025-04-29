@@ -14,8 +14,9 @@
 
 package com.google.devtools.build.lib.starlarkdocextract;
 
+import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
+
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleClassFunctions.MacroFunction;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleClassFunctions.StarlarkRuleFunction;
@@ -23,6 +24,8 @@ import com.google.devtools.build.lib.bazel.bzlmod.ModuleExtension;
 import com.google.devtools.build.lib.bazel.bzlmod.TagClass;
 import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryModule.RepositoryRuleFunction;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
+import com.google.devtools.build.lib.packages.AspectPropagationEdgesSupplier.FixedListSupplier;
+import com.google.devtools.build.lib.packages.AspectPropagationEdgesSupplier.FunctionSupplier;
 import com.google.devtools.build.lib.packages.MacroClass;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.StarlarkDefinedAspect;
@@ -40,6 +43,7 @@ import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.Orig
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.ProviderFieldInfo;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.ProviderInfo;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.RepositoryRuleInfo;
+import com.google.devtools.build.lib.util.StringEncoding;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -55,14 +59,43 @@ public final class ModuleInfoExtractor {
   private final LabelRenderer labelRenderer;
 
   @VisibleForTesting
-  public static final ImmutableList<AttributeInfo> IMPLICIT_REPOSITORY_RULE_ATTRIBUTES =
-      ImmutableList.of(
+  public static final ImmutableMap<String, AttributeInfo> IMPLICIT_MACRO_ATTRIBUTES =
+      ImmutableMap.of(
+          "name",
+          AttributeInfo.newBuilder()
+              .setName("name")
+              .setType(AttributeType.NAME)
+              .setMandatory(true)
+              .setDocString(
+                  "A unique name for this macro instance. Normally, this is also the name for the"
+                      + " macro's main or only target. The names of any other targets that this"
+                      + " macro might create will be this name with a string suffix.")
+              .build(),
+          "visibility",
+          AttributeInfo.newBuilder()
+              .setName("visibility")
+              .setType(AttributeType.LABEL_LIST)
+              .setMandatory(false)
+              .setNonconfigurable(true)
+              .setNativelyDefined(true)
+              .setDocString(
+                  "The visibility to be passed to this macro's exported targets. It always"
+                      + " implicitly includes the location where this macro is instantiated, so"
+                      + " this attribute only needs to be explicitly set if you want the macro's"
+                      + " targets to be additionally visible somewhere else.")
+              .build());
+
+  @VisibleForTesting
+  public static final ImmutableMap<String, AttributeInfo> IMPLICIT_REPOSITORY_RULE_ATTRIBUTES =
+      ImmutableMap.of(
+          "name",
           AttributeInfo.newBuilder()
               .setName("name")
               .setType(AttributeType.NAME)
               .setMandatory(true)
               .setDocString("A unique name for this repository.")
               .build(),
+          "repo_mapping",
           AttributeInfo.newBuilder()
               .setName("repo_mapping")
               .setType(AttributeType.STRING_DICT)
@@ -72,7 +105,7 @@ public final class ModuleInfoExtractor {
                       + " resolution for dependencies of this repository.\n\n"
                       + "For example, an entry `\"@foo\": \"@bar\"` declares that, for any time"
                       + " this repository depends on `@foo` (such as a dependency on"
-                      + " `@foo//some:target`, it should actually resolve that dependency within"
+                      + " `@foo//some:target`), it should actually resolve that dependency within"
                       + " globally-declared `@bar` (`@bar//some:target`).\n\n"
                       + "This attribute is _not_ supported in `MODULE.bazel` context (when invoking"
                       + " a repository rule inside a module extension's implementation function).")
@@ -96,9 +129,13 @@ public final class ModuleInfoExtractor {
   /** Extracts structured documentation for the loadable symbols of a given module. */
   public ModuleInfo extractFrom(Module module) throws ExtractionException {
     ModuleInfo.Builder builder = ModuleInfo.newBuilder();
-    Optional.ofNullable(module.getDocumentation()).ifPresent(builder::setModuleDocstring);
+    Optional.ofNullable(module.getDocumentation())
+        .map(StringEncoding::internalToUnicode)
+        .ifPresent(builder::setModuleDocstring);
     Optional.ofNullable(BazelModuleContext.of(module))
-        .map(bazelModuleContext -> labelRenderer.render(bazelModuleContext.label()))
+        .map(
+            bazelModuleContext ->
+                internalToUnicode(labelRenderer.render(bazelModuleContext.label())))
         .ifPresent(builder::setFile);
 
     // We do two traversals over the module's globals: (1) find qualified names (including any
@@ -337,19 +374,33 @@ public final class ModuleInfoExtractor {
       MacroInfo.Builder macroInfoBuilder = MacroInfo.newBuilder();
       // Record the name under which this symbol is made accessible, which may differ from the
       // symbol's exported name
-      macroInfoBuilder.setMacroName(qualifiedName);
+      macroInfoBuilder.setMacroName(internalToUnicode(qualifiedName));
       // ... but record the origin rule key for cross references.
       macroInfoBuilder.setOriginKey(
           OriginKey.newBuilder()
-              .setName(macroFunction.getName())
-              .setFile(context.labelRenderer().render(macroFunction.getExtensionLabel())));
-      macroFunction.getDocumentation().ifPresent(macroInfoBuilder::setDocString);
+              .setName(internalToUnicode(macroFunction.getName()))
+              .setFile(
+                  internalToUnicode(
+                      context.labelRenderer().render(macroFunction.getExtensionLabel()))));
+      macroFunction
+          .getDocumentation()
+          .map(StringEncoding::internalToUnicode)
+          .ifPresent(macroInfoBuilder::setDocString);
 
       MacroClass macroClass = macroFunction.getMacroClass();
-      // inject the name attribute; addDocumentableAttributes skips non-Starlark-defined attributes.
-      macroInfoBuilder.addAttribute(AttributeInfoExtractor.IMPLICIT_MACRO_NAME_ATTRIBUTE_INFO);
+      if (macroClass.isFinalizer()) {
+        macroInfoBuilder.setFinalizer(true);
+      }
+      // For symbolic macros, always extract non-Starlark attributes (to support inherit_attrs).
+      ExtractorContext contextForImplicitMacroAttributes =
+          context.extractNativelyDefinedAttrs()
+              ? context
+              : context.toBuilder().extractNativelyDefinedAttrs(true).build();
       AttributeInfoExtractor.addDocumentableAttributes(
-          context, macroClass.getAttributes().values(), macroInfoBuilder::addAttribute);
+          contextForImplicitMacroAttributes,
+          IMPLICIT_MACRO_ATTRIBUTES,
+          macroClass.getAttributeProvider().getAttributes(),
+          macroInfoBuilder::addAttribute);
 
       moduleInfoBuilder.addMacroInfo(macroInfoBuilder);
     }
@@ -370,20 +421,28 @@ public final class ModuleInfoExtractor {
       // existing Stardoc templates). Note that for backwards compatibility,
       // ProviderNameGroup.provider_name would still need to refer to only the first qualified name
       // under which a given provider is made accessible by the module.
-      providerInfoBuilder.setProviderName(qualifiedName);
+      providerInfoBuilder.setProviderName(internalToUnicode(qualifiedName));
       // Record the origin provider key for cross references.
       providerInfoBuilder.setOriginKey(
           OriginKey.newBuilder()
-              .setName(provider.getName())
-              .setFile(context.labelRenderer().render(provider.getKey().getExtensionLabel())));
-      provider.getDocumentation().ifPresent(providerInfoBuilder::setDocString);
+              .setName(internalToUnicode(provider.getName()))
+              .setFile(
+                  internalToUnicode(
+                      context.labelRenderer().render(provider.getKey().getExtensionLabel()))));
+      provider
+          .getDocumentation()
+          .map(StringEncoding::internalToUnicode)
+          .ifPresent(providerInfoBuilder::setDocString);
       ImmutableMap<String, Optional<String>> schema = provider.getSchema();
       if (schema != null) {
         for (Map.Entry<String, Optional<String>> entry : schema.entrySet()) {
           if (ExtractorContext.isPublicName(entry.getKey())) {
             ProviderFieldInfo.Builder fieldInfoBuilder = ProviderFieldInfo.newBuilder();
-            fieldInfoBuilder.setName(entry.getKey());
-            entry.getValue().ifPresent(fieldInfoBuilder::setDocString);
+            fieldInfoBuilder.setName(internalToUnicode(entry.getKey()));
+            entry
+                .getValue()
+                .map(StringEncoding::internalToUnicode)
+                .ifPresent(fieldInfoBuilder::setDocString);
             providerInfoBuilder.addFieldInfo(fieldInfoBuilder.build());
           }
         }
@@ -406,23 +465,35 @@ public final class ModuleInfoExtractor {
       AspectInfo.Builder aspectInfoBuilder = AspectInfo.newBuilder();
       // Record the name under which this symbol is made accessible, which may differ from the
       // symbol's exported name
-      aspectInfoBuilder.setAspectName(qualifiedName);
+      aspectInfoBuilder.setAspectName(internalToUnicode(qualifiedName));
       // ... but record the origin aspect key for cross references.
       aspectInfoBuilder.setOriginKey(
           OriginKey.newBuilder()
-              .setName(aspect.getAspectClass().getExportedName())
+              .setName(internalToUnicode(aspect.getAspectClass().getExportedName()))
               .setFile(
-                  context.labelRenderer().render(aspect.getAspectClass().getExtensionLabel())));
-      aspect.getDocumentation().ifPresent(aspectInfoBuilder::setDocString);
-      for (String aspectAttribute : aspect.getAttributeAspects()) {
-        if (ExtractorContext.isPublicName(aspectAttribute)) {
-          aspectInfoBuilder.addAspectAttribute(aspectAttribute);
-        }
+                  internalToUnicode(
+                      context
+                          .labelRenderer()
+                          .render(aspect.getAspectClass().getExtensionLabel()))));
+      aspect
+          .getDocumentation()
+          .map(StringEncoding::internalToUnicode)
+          .ifPresent(aspectInfoBuilder::setDocString);
+      switch (aspect.getAttributeAspects()) {
+        case FixedListSupplier<String> s:
+          for (String aspectAttribute : s.getList()) {
+            if (ExtractorContext.isPublicName(aspectAttribute)) {
+              aspectInfoBuilder.addAspectAttribute(aspectAttribute);
+            }
+          }
+          break;
+        case FunctionSupplier<String> s:
+          // TODO(b/394400334): Make {@code attr_aspects} function avaiable in {@code AspectInfo}.
+          break;
       }
-      aspectInfoBuilder.addAttribute(
-          AttributeInfoExtractor.IMPLICIT_NAME_ATTRIBUTE_INFO); // name comes first
+
       AttributeInfoExtractor.addDocumentableAttributes(
-          context, aspect.getAttributes(), aspectInfoBuilder::addAttribute);
+          context, ImmutableMap.of(), aspect.getAttributes(), aspectInfoBuilder::addAttribute);
       moduleInfoBuilder.addAspectInfo(aspectInfoBuilder);
     }
 
@@ -430,7 +501,7 @@ public final class ModuleInfoExtractor {
     protected void visitModuleExtension(String qualifiedName, ModuleExtension moduleExtension)
         throws ExtractionException {
       ModuleExtensionInfo.Builder moduleExtensionInfoBuilder = ModuleExtensionInfo.newBuilder();
-      moduleExtensionInfoBuilder.setExtensionName(qualifiedName);
+      moduleExtensionInfoBuilder.setExtensionName(internalToUnicode(qualifiedName));
       moduleExtensionInfoBuilder.setOriginKey(
           OriginKey.newBuilder()
               // TODO(arostovtsev): attempt to retrieve the name under which the module was
@@ -438,15 +509,27 @@ public final class ModuleInfoExtractor {
               // make ModuleExtension a StarlarkExportable (partially reverting cl/513213080).
               // Alternatively, we'd need to search the defining module's globals, similarly to what
               // we do in FunctionUtil#getFunctionOriginKey.
-              .setFile(context.labelRenderer().render(moduleExtension.getDefiningBzlFileLabel())));
-      moduleExtension.getDoc().ifPresent(moduleExtensionInfoBuilder::setDocString);
-      for (Map.Entry<String, TagClass> entry : moduleExtension.getTagClasses().entrySet()) {
+              .setFile(
+                  internalToUnicode(
+                      context.labelRenderer().render(moduleExtension.definingBzlFileLabel()))));
+      moduleExtension
+          .doc()
+          .map(StringEncoding::internalToUnicode)
+          .ifPresent(moduleExtensionInfoBuilder::setDocString);
+      for (Map.Entry<String, TagClass> entry : moduleExtension.tagClasses().entrySet()) {
         ModuleExtensionTagClassInfo.Builder tagClassInfoBuilder =
             ModuleExtensionTagClassInfo.newBuilder();
-        tagClassInfoBuilder.setTagName(entry.getKey());
-        entry.getValue().getDoc().ifPresent(tagClassInfoBuilder::setDocString);
+        tagClassInfoBuilder.setTagName(internalToUnicode(entry.getKey()));
+        entry
+            .getValue()
+            .doc()
+            .map(StringEncoding::internalToUnicode)
+            .ifPresent(tagClassInfoBuilder::setDocString);
         AttributeInfoExtractor.addDocumentableAttributes(
-            context, entry.getValue().getAttributes(), tagClassInfoBuilder::addAttribute);
+            context,
+            ImmutableMap.of(),
+            entry.getValue().attributes(),
+            tagClassInfoBuilder::addAttribute);
         moduleExtensionInfoBuilder.addTagClass(tagClassInfoBuilder);
       }
       moduleInfoBuilder.addModuleExtensionInfo(moduleExtensionInfoBuilder);
@@ -457,21 +540,32 @@ public final class ModuleInfoExtractor {
         String qualifiedName, RepositoryRuleFunction repositoryRuleFunction)
         throws ExtractionException {
       RepositoryRuleInfo.Builder repositoryRuleInfoBuilder = RepositoryRuleInfo.newBuilder();
-      repositoryRuleInfoBuilder.setRuleName(qualifiedName);
-      repositoryRuleFunction.getDocumentation().ifPresent(repositoryRuleInfoBuilder::setDocString);
+      repositoryRuleInfoBuilder.setRuleName(internalToUnicode(qualifiedName));
+      repositoryRuleFunction
+          .getDocumentation()
+          .map(StringEncoding::internalToUnicode)
+          .ifPresent(repositoryRuleInfoBuilder::setDocString);
       RuleClass ruleClass = repositoryRuleFunction.getRuleClass();
-      repositoryRuleInfoBuilder
-          .setOriginKey(
-              OriginKey.newBuilder()
-                  .setName(ruleClass.getName())
-                  .setFile(
-                      context.labelRenderer().render(repositoryRuleFunction.getExtensionLabel())))
-          .addAllAttribute(IMPLICIT_REPOSITORY_RULE_ATTRIBUTES);
+      repositoryRuleInfoBuilder.setOriginKey(
+          OriginKey.newBuilder()
+              .setName(internalToUnicode(ruleClass.getName()))
+              .setFile(
+                  internalToUnicode(
+                      context.labelRenderer().render(repositoryRuleFunction.getExtensionLabel()))));
       AttributeInfoExtractor.addDocumentableAttributes(
-          context, ruleClass.getAttributes(), repositoryRuleInfoBuilder::addAttribute);
-      if (ruleClass.hasAttr("$environ", Types.STRING_LIST)) {
-        repositoryRuleInfoBuilder.addAllEnviron(
-            Types.STRING_LIST.cast(ruleClass.getAttributeByName("$environ").getDefaultValue(null)));
+          context,
+          IMPLICIT_REPOSITORY_RULE_ATTRIBUTES,
+          ruleClass.getAttributeProvider().getAttributes(),
+          repositoryRuleInfoBuilder::addAttribute);
+      if (ruleClass.getAttributeProvider().hasAttr("$environ", Types.STRING_LIST)) {
+        for (String env :
+            Types.STRING_LIST.cast(
+                ruleClass
+                    .getAttributeProvider()
+                    .getAttributeByName("$environ")
+                    .getDefaultValue(null))) {
+          repositoryRuleInfoBuilder.addEnviron(internalToUnicode(env));
+        }
       }
       moduleInfoBuilder.addRepositoryRuleInfo(repositoryRuleInfoBuilder);
     }

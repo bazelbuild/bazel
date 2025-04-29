@@ -84,8 +84,7 @@ public final class LinuxSandboxedSpawnRunnerTest extends SandboxedSpawnRunnerTes
                 new ParamFileActionInput(
                     PathFragment.create("params/param-file"),
                     ImmutableList.of("--foo", "--bar"),
-                    ParameterFileType.UNQUOTED,
-                    UTF_8))
+                    ParameterFileType.UNQUOTED))
             .withOutput("out")
             .build();
     SpawnExecutionContext policy = createSpawnExecutionContext(spawn);
@@ -142,8 +141,8 @@ public final class LinuxSandboxedSpawnRunnerTest extends SandboxedSpawnRunnerTes
     Spawn spawn =
         new SpawnBuilder(
                 cpuTimeSpenderPath.getPathString(),
-                String.valueOf(minimumUserTimeToSpend.getSeconds()),
-                String.valueOf(minimumSystemTimeToSpend.getSeconds()))
+                String.valueOf(minimumUserTimeToSpend.toSeconds()),
+                String.valueOf(minimumSystemTimeToSpend.toSeconds()))
             .build();
     SpawnExecutionContextForTesting policy = createSpawnExecutionContext(spawn);
 
@@ -214,10 +213,9 @@ public final class LinuxSandboxedSpawnRunnerTest extends SandboxedSpawnRunnerTes
     sandboxBase.createDirectory();
 
     return LinuxSandboxedStrategy.create(
-        new SandboxHelpers(),
         commandEnvironment,
         sandboxBase,
-        /*timeoutKillDelay=*/ Duration.ofSeconds(2),
+        /* timeoutKillDelay= */ Duration.ofSeconds(2),
         treeDeleter);
   }
 

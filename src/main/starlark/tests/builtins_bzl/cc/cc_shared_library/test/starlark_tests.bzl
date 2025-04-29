@@ -15,6 +15,7 @@
 """Starlark tests for cc_shared_library"""
 
 load("@bazel_skylib//lib:paths.bzl", "paths")
+load("@com_google_protobuf//bazel/common:proto_info.bzl", "ProtoInfo")
 load("@rules_testing//lib:analysis_test.bzl", "analysis_test")
 load("@rules_testing//lib:truth.bzl", "matching")
 load(":semantics.bzl", "semantics")
@@ -53,7 +54,14 @@ def _linking_order_test_impl(env, target):
                 break
 
         args = target_action.argv
-        user_libs = [paths.basename(arg) for arg in args if arg.endswith(".o")]
+
+        # Exclude implicitly added runtimes libraries by restricting to objects
+        # in or under the current package.
+        user_libs = [
+            paths.basename(arg)
+            for arg in args
+            if arg.endswith(".o") and env.ctx.label.package in arg
+        ]
 
         env.expect.that_collection(user_libs).contains_at_least_predicates([
             matching.contains("foo.pic.o"),

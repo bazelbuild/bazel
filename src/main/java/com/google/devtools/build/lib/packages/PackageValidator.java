@@ -40,6 +40,18 @@ public interface PackageValidator {
     }
   }
 
+  /** Thrown when a package piece is deemed invalid. */
+  class InvalidPackagePieceException extends NoSuchPackagePieceException {
+    public InvalidPackagePieceException(PackagePieceIdentifier packagePieceId, String message) {
+      super(packagePieceId, message);
+    }
+
+    public InvalidPackagePieceException(
+        PackagePieceIdentifier packagePieceId, String message, DetailedExitCode detailedExitCode) {
+      super(packagePieceId, message, detailedExitCode);
+    }
+  }
+
   default void configureThreadWhileLoading(StarlarkThread thread) {}
 
   /**

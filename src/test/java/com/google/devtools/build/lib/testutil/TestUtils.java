@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.testutil;
 
+import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
@@ -25,6 +26,7 @@ import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import java.io.File;
 import java.io.IOException;
+import java.time.Duration;
 import java.util.Collection;
 import java.util.UUID;
 import javax.annotation.Nullable;
@@ -79,7 +81,10 @@ public final class TestUtils {
       fileSystem = new JavaIoFileSystem(DigestHashFunction.SHA256);
     }
     File tmpDirRoot = tmpDirRoot();
-    Path path = fileSystem.getPath(tmpDirRoot.getPath()).getRelative(UUID.randomUUID().toString());
+    Path path =
+        fileSystem
+            .getPath(StringEncoding.platformToInternal(tmpDirRoot.getPath()))
+            .getRelative(UUID.randomUUID().toString());
     path.createDirectoryAndParents();
     return path;
   }
@@ -116,7 +121,6 @@ public final class TestUtils {
       try {
         randomSeed = Integer.parseInt(value);
       } catch (NumberFormatException e) {
-        // throw new AssertionError("TEST_RANDOM_SEED must be an integer");
         throw new RuntimeException("TEST_RANDOM_SEED must be an integer", e);
       }
     }
@@ -189,6 +193,8 @@ public final class TestUtils {
   public static final long WAIT_TIMEOUT_MILLISECONDS = Long.MAX_VALUE;
 
   public static final long WAIT_TIMEOUT_SECONDS = WAIT_TIMEOUT_MILLISECONDS / 1000;
+
+  public static final Duration WAIT_TIMEOUT_DURATION = Duration.ofMillis(WAIT_TIMEOUT_MILLISECONDS);
 
   private TestUtils() {}
 }

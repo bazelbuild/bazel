@@ -47,6 +47,10 @@ import javax.annotation.Nullable;
  * {@link
  * com.google.devtools.build.lib.skyframe.PackageFunction.GlobbingStrategy#SINGLE_GLOBS_HYBRID}. All
  * globs defined in the package's {@code BUILD} file are combined into a single GLOBS node.
+ *
+ * <p>For an overview of the problem space and our approach, see the https://youtu.be/ZrevTeuU-gQ
+ * talk from BazelCon 2024 (slides:
+ * https://docs.google.com/presentation/d/e/2PACX-1vSjmiGyHDiCDowgc5ar7f7MLAPCzYAAoH1APmnTjqdTpcWv12ysFvgT_aVwj82vLa7JJA8esnp2jtMJ/pub).
  */
 final class PackageFunctionWithSingleGlobsDep extends PackageFunction {
 
@@ -80,7 +84,9 @@ final class PackageFunctionWithSingleGlobsDep extends PackageFunction {
     private final ImmutableSet<GlobRequest> globRequests;
 
     private LoadedPackageWithGlobRequests(
-        Package.Builder builder, long loadTimeNanos, ImmutableSet<GlobRequest> globRequests) {
+        Package.AbstractBuilder builder,
+        long loadTimeNanos,
+        ImmutableSet<GlobRequest> globRequests) {
       super(builder, loadTimeNanos);
       this.globRequests = globRequests;
     }
@@ -207,7 +213,7 @@ final class PackageFunctionWithSingleGlobsDep extends PackageFunction {
 
   @Override
   protected LoadedPackage newLoadedPackage(
-      Package.Builder packageBuilder, @Nullable Globber globber, long loadTimeNanos) {
+      Package.AbstractBuilder packageBuilder, @Nullable Globber globber, long loadTimeNanos) {
     return new LoadedPackageWithGlobRequests(
         packageBuilder, loadTimeNanos, ((GlobsGlobber) globber).getGlobRequests());
   }

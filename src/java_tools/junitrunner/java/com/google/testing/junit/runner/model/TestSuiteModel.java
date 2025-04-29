@@ -33,7 +33,6 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import javax.annotation.Nullable;
-import javax.inject.Inject;
 import org.junit.runner.Description;
 import org.junit.runner.manipulation.Filter;
 
@@ -302,7 +301,6 @@ public class TestSuiteModel {
     private Filter shardingFilter = Filter.ALL;
     private boolean buildWasCalled = false;
 
-    @Inject
     public Builder(
         TestClock testClock,
         ShardingFilters shardingFilters,

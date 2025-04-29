@@ -63,12 +63,13 @@ public class GraphlessQueryTest extends AbstractQueryTest<Target> {
     writeFile(
         "foo/BUILD",
         """
-        sh_library(
+        load('//test_defs:foo_library.bzl', 'foo_library')
+        foo_library(
             name = "foo",
             deps = [":dep"],
         )
 
-        sh_library(
+        foo_library(
             name = "dep",
             deps = ["//bar:missing"],
         )
@@ -107,7 +108,7 @@ public class GraphlessQueryTest extends AbstractQueryTest<Target> {
               TargetProvider targetProvider,
               CachingPackageLocator cachingPackageLocator,
               TargetPatternPreloader targetPatternPreloader,
-              TargetPattern.Parser mainRepoTargetParser,
+              TargetPattern.Parser targetParser,
               PathFragment relativeWorkingDirectory,
               boolean keepGoing,
               boolean strictScope,
@@ -126,7 +127,7 @@ public class GraphlessQueryTest extends AbstractQueryTest<Target> {
                 targetProvider,
                 cachingPackageLocator,
                 targetPatternPreloader,
-                mainRepoTargetParser,
+                targetParser,
                 keepGoing,
                 strictScope,
                 loadingPhaseThreads,

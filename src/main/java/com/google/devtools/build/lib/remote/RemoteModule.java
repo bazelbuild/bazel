@@ -32,6 +32,7 @@ import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ImportantOutputHandler;
 import com.google.devtools.build.lib.analysis.AnalysisResult;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
@@ -89,6 +90,7 @@ import com.google.devtools.build.lib.server.FailureDetails.Execution;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution.Code;
+import com.google.devtools.build.lib.skyframe.SkyframeExecutorWrappingWalkableGraph;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
@@ -542,7 +544,7 @@ public final class RemoteModule extends BlazeModule {
             invocationId,
             remoteOptions.remoteInstanceName,
             callCredentials,
-            remoteOptions.remoteTimeout.getSeconds(),
+            remoteOptions.remoteTimeout.toSeconds(),
             retrier);
 
     ReferenceCountedChannel execChannel = null;
@@ -685,8 +687,7 @@ public final class RemoteModule extends BlazeModule {
               buildRequestId,
               invocationId,
               remoteOptions.remoteInstanceName,
-              remoteOptions.remoteAcceptCached,
-              env.getReporter()));
+              remoteOptions.remoteAcceptCached));
     } else {
       if (enableDiskCache) {
         try {
@@ -980,6 +981,20 @@ public final class RemoteModule extends BlazeModule {
       return;
     }
     actionContextProvider.registerSpawnCache(registryBuilder);
+
+    // For skymeld, a non-toplevel target might become a toplevel after it has been executed. This
+    // is the last chance to download the missing toplevel outputs in this case before sending out
+    // TargetCompleteEvent. See https://github.com/bazelbuild/bazel/issues/20737.
+    if (env.withMergedAnalysisAndExecutionSourceOfTruth()
+        && actionInputFetcher != null
+        && remoteOutputChecker != null) {
+      registryBuilder.register(
+          ImportantOutputHandler.class,
+          new RemoteImportantOutputHandler(
+              SkyframeExecutorWrappingWalkableGraph.of(env.getSkyframeExecutor()),
+              remoteOutputChecker,
+              actionInputFetcher));
+    }
   }
 
   private TempPathGenerator getTempPathGenerator(CommandEnvironment env)
@@ -1192,7 +1207,7 @@ public final class RemoteModule extends BlazeModule {
           && !credentials.getRequestMetadata(new URI(remoteOptions.remoteCache)).isEmpty()) {
         // TODO(yannic): Make this a error aborting the build.
         credentialHelperEnvironment
-            .getEventReporter()
+            .eventReporter()
             .handle(
                 Event.warn(
                     "Credentials are transmitted in plaintext to "
@@ -1210,4 +1225,5 @@ public final class RemoteModule extends BlazeModule {
   Downloader getRemoteDownloader() {
     return remoteDownloader;
   }
+
 }

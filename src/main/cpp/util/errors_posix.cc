@@ -13,9 +13,11 @@
 // limitations under the License.
 
 #include <errno.h>
-#include <string.h>  // strerror
+#include <string.h>
+
 #include <sstream>
 #include <string>
+
 #include "src/main/cpp/util/errors.h"
 
 namespace blaze_util {

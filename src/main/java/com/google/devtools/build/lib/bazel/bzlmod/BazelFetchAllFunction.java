@@ -66,7 +66,7 @@ public class BazelFetchAllFunction implements SkyFunction {
       if (singleExtensionValue == null) {
         return null;
       }
-      reposToFetch.addAll(singleExtensionValue.getCanonicalRepoNameToInternalNames().keySet());
+      reposToFetch.addAll(singleExtensionValue.canonicalRepoNameToInternalNames().keySet());
     }
 
     // 3. If this is fetch configure, get repo rules and only collect repos marked as configure
@@ -98,7 +98,7 @@ public class BazelFetchAllFunction implements SkyFunction {
       if (repoDirValue == null) {
         return null;
       }
-      if (!repoDirValue.excludeFromVendoring()) {
+      if (repoDirValue instanceof RepositoryDirectoryValue.Success s && !s.excludeFromVendoring()) {
         shouldVendor.add((RepositoryName) repoDelegatorKey.argument());
       }
     }

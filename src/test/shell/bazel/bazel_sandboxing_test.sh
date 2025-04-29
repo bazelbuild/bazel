@@ -132,11 +132,14 @@ function test_can_enable_pseudoterminals() {
     return 0
   fi
 
+  add_rules_python "MODULE.bazel"
   cat > test.py <<'EOF'
 import pty
 pty.openpty()
 EOF
   cat > BUILD <<'EOF'
+load("@rules_python//python:py_test.bzl", "py_test")
+
 py_test(
   name = "test",
   srcs = ["test.py"],
@@ -179,7 +182,7 @@ EOF
 }
 
 function test_sandbox_expands_tree_artifacts_in_runfiles_tree() {
-
+  add_rules_shell "MODULE.bazel"
   cat > def.bzl <<'EOF'
 def _mkdata_impl(ctx):
     out = ctx.actions.declare_directory(ctx.label.name + ".d")
@@ -217,6 +220,7 @@ EOF
 
   cat > BUILD <<'EOF'
 load("//:def.bzl", "mkdata")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 
 mkdata(name = "mkdata")
 
@@ -325,8 +329,11 @@ EOF
 function setup_tmp_hermeticity_check() {
   local -r tmpdir=$1
 
+  add_rules_cc "MODULE.bazel"
   mkdir -p test
   cat > test/BUILD <<'EOF'
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+
 cc_binary(
     name = "create_file",
     srcs = ["create_file.cc"],
@@ -706,8 +713,11 @@ function test_hermetic_tmp_under_tmp {
 local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(name="repo", path="${temp_dir}/repo")
 EOF
+  add_rules_shell "MODULE.bazel"
 
   cat > a/BUILD <<'EOF'
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+
 genrule(
   name = "g",
   outs = ["go"],
@@ -733,7 +743,7 @@ genrule(
     "  echo reading $$i",
     "  cat $$i >> $@",
     "done",
-    "for i in a/s a/go b/s b/go ../+_repo_rules+repo/c/s ../+_repo_rules+repo/c/go; do",
+    "for i in a/s a/go b/s b/go ../+local_repository+repo/c/s ../+local_repository+repo/c/go; do",
     "  echo reading $$RUNFILES/$$i",
     "  cat $$RUNFILES/$$i >> $@",
     "done",

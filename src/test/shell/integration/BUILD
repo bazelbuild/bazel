@@ -1,3 +1,4 @@
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
 load("//:workspace_deps.bzl", "gen_workspace_stanza")
 
 package(default_visibility = ["//visibility:private"])
@@ -8,7 +9,7 @@ filegroup(
     visibility = ["//src/test/shell:__pkg__"],
 )
 
-filegroup(
+sh_library(
     name = "test-deps",
     testonly = 1,
     srcs = [
@@ -16,7 +17,7 @@ filegroup(
     ],
 )
 
-filegroup(
+sh_library(
     name = "test-deps-minimal-bazel",
     testonly = 1,
     srcs = [
@@ -26,7 +27,7 @@ filegroup(
     ],
 )
 
-filegroup(
+sh_library(
     name = "test-deps-nojdk",
     testonly = 1,
     srcs = [
@@ -194,7 +195,7 @@ sh_test(
     tags = [
         "no_windows",
     ],
-    toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
+    toolchains = ["@rules_java//toolchains:current_java_runtime"],
 )
 
 sh_test(
@@ -250,7 +251,7 @@ sh_test(
     tags = [
         "no_windows",
     ],
-    toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
+    toolchains = ["@rules_java//toolchains:current_java_runtime"],
 )
 
 sh_test(
@@ -375,8 +376,8 @@ sh_test(
     data = [
         ":protobuf_stanza.txt",
         ":test-deps",
-        "//third_party/zlib",
         "@bazel_tools//tools/bash/runfiles",
+        "@zlib",
     ],
     tags = ["requires-network"],  # Allow this test to access internet to fetch protobuf dependencies.
 )
@@ -474,7 +475,7 @@ sh_test(
     ],
     shard_count = 8,
     tags = ["no_windows"],
-    toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
+    toolchains = ["@rules_java//toolchains:current_java_runtime"],
 )
 
 sh_test(
@@ -487,7 +488,7 @@ sh_test(
         ":test-deps",
         "@bazel_tools//tools/bash/runfiles",
     ],
-    toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
+    toolchains = ["@rules_java//toolchains:current_java_runtime"],
 )
 
 sh_test(
@@ -653,6 +654,7 @@ sh_test(
     size = "large",
     srcs = ["client_test.sh"],
     data = [":test-deps"],
+    shard_count = 8,
     tags = ["no_windows"],
 )
 
@@ -776,9 +778,9 @@ sh_test(
 )
 
 sh_test(
-    name = "load_removed_symbols_test",
+    name = "incompatible_autoload_externally_test",
     size = "medium",
-    srcs = ["load_removed_symbols_test.sh"],
+    srcs = ["incompatible_autoload_externally_test.sh"],
     data = [":test-deps"],
     tags = [
         "no_windows",
@@ -893,7 +895,10 @@ sh_test(
         ":test-deps",
         "@bazel_tools//tools/bash/runfiles",
     ],
-    tags = ["no_windows"],
+    tags = [
+        "exclusive",
+        "no_windows",
+    ],
 )
 
 sh_test(
@@ -1004,6 +1009,15 @@ sh_test(
 sh_test(
     name = "platform_based_flags_test",
     srcs = ["platform_based_flags_test.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+)
+
+sh_test(
+    name = "flags_scoping_integration_tests",
+    srcs = ["flags_scoping_integration_tests.sh"],
     data = [
         ":test-deps",
         "@bazel_tools//tools/bash/runfiles",

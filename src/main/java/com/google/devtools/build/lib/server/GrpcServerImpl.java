@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.server;
 
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
@@ -106,7 +108,7 @@ import javax.annotation.Nullable;
  * to cancel it. Cancellation is done by the client sending the server a {@code cancel()} RPC call
  * which results in the main thread of the command being interrupted.
  */
-public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase implements RPCServer {
+public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   public static GrpcServerImpl create(
@@ -137,7 +139,6 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
         idleServerTasks,
         slowInterruptMessageSuffix);
   }
-
 
   @VisibleForTesting
   enum StreamType {
@@ -398,13 +399,12 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
    * It also disables the "die when the PID file changes" handler so that it doesn't kill the server
    * while the "clean --expunge" command is running.
    */
-  @Override
   public void prepareForAbruptShutdown() {
     shutdownHooks.disable();
     pidFileWatcher.signalShutdown();
   }
 
-  @Override
+  /** Interrupts (cancels) in-flight commands. */
   public void interrupt() {
     commandManager.interruptInflightCommands();
   }
@@ -429,10 +429,10 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
     return server;
   }
 
+  /** Starts serving and block until the shutdown command is received. */
   // Suppress ErrorProne warnings for hardcoding "[::1]" and "127.0.0.1" instead of
   // InetAddress.getLoopbackAddress().
   @SuppressWarnings("AddressSelection")
-  @Override
   public void serve() throws AbruptExitException {
     Preconditions.checkState(!serving);
 
@@ -565,11 +565,10 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
     ImmutableList.Builder<Pair<String, String>> startupOptions = ImmutableList.builder();
     for (StartupOption option : request.getStartupOptionsList()) {
       // UTF-8 won't do because we want to be able to pass arbitrary binary strings.
-      // Not that the internals of Bazel handle that correctly, but why not make at least this
-      // little part correct?
-      startupOptions.add(new Pair<>(
-          option.getSource().toString(StandardCharsets.ISO_8859_1),
-          option.getOption().toString(StandardCharsets.ISO_8859_1)));
+      startupOptions.add(
+          new Pair<>(
+              platformBytesToInternalString(option.getSource()),
+              platformBytesToInternalString(option.getOption())));
     }
 
     commandManager.preemptEligibleCommands();
@@ -595,12 +594,11 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
               new RpcOutputStream(command.getId(), responseCookie, StreamType.STDERR, observer));
 
       try {
-        // UTF-8 won't do because we want to be able to pass arbitrary binary strings.
-        // Not that the internals of Bazel handle that correctly, but why not make at least this
-        // little part correct?
-        ImmutableList<String> args = request.getArgList().stream()
-            .map(arg -> arg.toString(StandardCharsets.ISO_8859_1))
-            .collect(ImmutableList.toImmutableList());
+        // Transform args into Bazel's internal string representation.
+        ImmutableList<String> args =
+            request.getArgList().stream()
+                .map(GrpcServerImpl::platformBytesToInternalString)
+                .collect(ImmutableList.toImmutableList());
 
         InvocationPolicy policy = InvocationPolicyParser.parsePolicy(request.getInvocationPolicy());
         logger.atInfo().log("%s", SafeRequestLogging.getRequestLogString(args));
@@ -745,5 +743,9 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
         .setMessage(message)
         .setGrpcServer(GrpcServer.newBuilder().setCode(detailedCode))
         .build();
+  }
+
+  private static String platformBytesToInternalString(ByteString bytes) {
+    return bytes.toString(ISO_8859_1);
   }
 }

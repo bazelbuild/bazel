@@ -15,7 +15,7 @@ package com.google.devtools.build.lib.query2.aquery;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.devtools.build.lib.query2.aquery.AqueryUtils.getActionInputs;
-import static com.google.devtools.build.lib.util.StringUtil.reencodeInternalToExternal;
+import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.collect.ImmutableList;
@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetAccess
 import com.google.devtools.build.lib.skyframe.RuleConfiguredTargetValue;
 import com.google.devtools.build.lib.util.CommandDescriptionForm;
 import com.google.devtools.build.lib.util.CommandFailureUtils;
+import com.google.devtools.build.lib.util.ScriptUtil;
 import com.google.devtools.build.lib.util.ShellEscaper;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -58,8 +59,19 @@ import net.starlark.java.eval.EvalException;
 
 /** Output callback for aquery, prints human readable output. */
 class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
+  public enum OutputType {
+    TEXT("text"),
+    COMMANDS("commands");
+
+    final String formatName;
+
+    OutputType(String formatName) {
+      this.formatName = formatName;
+    }
+  }
 
   private final ActionKeyContext actionKeyContext = new ActionKeyContext();
+  private final OutputType outputType;
   private final AqueryActionFilter actionFilters;
   private final LabelPrinter labelPrinter;
   private Map<String, String> paramFileNameToContentMap;
@@ -69,16 +81,18 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
       AqueryOptions options,
       OutputStream out,
       TargetAccessor<ConfiguredTargetValue> accessor,
+      OutputType outputType,
       AqueryActionFilter actionFilters,
       LabelPrinter labelPrinter) {
     super(eventHandler, options, out, accessor);
+    this.outputType = outputType;
     this.actionFilters = actionFilters;
     this.labelPrinter = labelPrinter;
   }
 
   @Override
   public String getName() {
-    return "text";
+    return outputType.formatName;
   }
 
   @Override
@@ -128,8 +142,17 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
       return;
     }
 
-    ActionOwner actionOwner = action.getOwner();
     StringBuilder stringBuilder = new StringBuilder();
+    switch (outputType) {
+      case TEXT -> writeText(action, stringBuilder);
+      case COMMANDS -> writeCommand(action, stringBuilder);
+    }
+    printStream.write(stringBuilder.toString().getBytes(UTF_8));
+  }
+
+  private void writeText(ActionAnalysisMetadata action, StringBuilder stringBuilder)
+      throws IOException, CommandLineExpansionException, InterruptedException, EvalException {
+    ActionOwner actionOwner = action.getOwner();
     stringBuilder
         .append(action.prettyPrint())
         .append('\n')
@@ -196,7 +219,8 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
     if (action instanceof ActionExecutionMetadata actionExecutionMetadata) {
       stringBuilder
           .append("  ActionKey: ")
-          .append(actionExecutionMetadata.getKey(actionKeyContext, /*artifactExpander=*/ null))
+          .append(
+              actionExecutionMetadata.getKey(actionKeyContext, /* inputMetadataProvider= */ null))
           .append('\n');
     }
 
@@ -207,7 +231,7 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
           .append("  Inputs: [")
           .append(
               inputs.toList().stream()
-                  .map(input -> escapeBytestringUtf8(input.getExecPathString()))
+                  .map(input -> internalToEscapedUnicode(input.getExecPathString()))
                   .sorted()
                   .collect(Collectors.joining(", ")))
           .append("]\n");
@@ -218,7 +242,7 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
               action.getOutputs().stream()
                   .map(
                       output ->
-                          escapeBytestringUtf8(
+                          internalToEscapedUnicode(
                               output.isTreeArtifact()
                                   ? output.getExecPathString() + " (TreeArtifact)"
                                   : output.getExecPathString()))
@@ -239,7 +263,7 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
                 Streams.stream(fixedEnvironment)
                     .map(
                         environmentVariable ->
-                            escapeBytestringUtf8(
+                            internalToEscapedUnicode(
                                 environmentVariable.getKey()
                                     + "="
                                     + environmentVariable.getValue()))
@@ -257,7 +281,7 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
                   /* prettyPrintArgs= */ true,
                   ((CommandAction) action)
                       .getArguments().stream()
-                          .map(a -> escapeBytestringUtf8(a))
+                          .map(a -> internalToEscapedUnicode(a))
                           .collect(toImmutableList()),
                   /* environment= */ null,
                   /* environmentVariablesToClear= */ null,
@@ -265,7 +289,8 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
                   action.getOwner().getConfigurationChecksum(),
                   action.getExecutionPlatform() != null
                       ? action.getExecutionPlatform().label()
-                      : null))
+                      : null,
+                  /* spawnRunner= */ null))
           .append("\n");
     }
 
@@ -338,8 +363,28 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
     }
 
     stringBuilder.append('\n');
+  }
 
-    printStream.write(stringBuilder.toString().getBytes(UTF_8));
+  private void writeCommand(ActionAnalysisMetadata action, StringBuilder stringBuilder)
+      throws IOException, CommandLineExpansionException, InterruptedException, EvalException {
+    if (!(action instanceof CommandAction)) {
+      return;
+    }
+
+    boolean first = true;
+    for (String arg :
+        ((CommandAction) action)
+            .getArguments().stream()
+                .map(a -> internalToEscapedUnicode(a))
+                .collect(toImmutableList())) {
+      if (!first) {
+        stringBuilder.append(' ');
+      }
+      ScriptUtil.emitCommandElement(
+          /* message= */ stringBuilder, /* commandElement= */ arg, /* isBinary= */ first);
+      first = false;
+    }
+    stringBuilder.append('\n');
   }
 
   /** Lazy initialization of paramFileNameToContentMap. */
@@ -351,24 +396,20 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
   }
 
   /**
-   * Decode a bytestring that might contain UTF-8, and escape any characters outside the basic
-   * printable ASCII range.
-   *
-   * <p>This function is intended for human consumption in debug output that needs to be durable
-   * against unusual encoding settings, and does not guarantee that the escaping process is
-   * reverseable.
+   * Convert an internal string (see {@link com.google.devtools.build.lib.util.StringEncoding}) to a
+   * Unicode string with any character outside the basic printable ASCII range escaped.
    *
    * <p>Characters other than printable ASCII but within the Basic Multilingual Plane are formatted
    * with `\\uXXXX`. Characters outside the BMP are formatted as `\\UXXXXXXXX`.
    */
-  public static String escapeBytestringUtf8(String maybeUtf8) {
-    if (maybeUtf8.chars().allMatch(c -> c >= 0x20 && c < 0x7F)) {
-      return maybeUtf8;
+  public static String internalToEscapedUnicode(String internal) {
+    if (internal.chars().allMatch(c -> c >= 0x20 && c < 0x7F)) {
+      return internal;
     }
 
-    final String decoded = reencodeInternalToExternal(maybeUtf8);
-    final StringBuilder sb = new StringBuilder(decoded.length() * 8);
-    decoded
+    final String unicode = internalToUnicode(internal);
+    final StringBuilder sb = new StringBuilder(unicode.length() * 8);
+    unicode
         .codePoints()
         .forEach(
             c -> {

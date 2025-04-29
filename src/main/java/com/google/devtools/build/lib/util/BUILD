@@ -1,5 +1,4 @@
 load("@rules_java//java:defs.bzl", "java_library")
-load("//src:build_defs.bzl", "java_11_library")
 
 package(
     default_applicable_licenses = ["//:license"],
@@ -18,7 +17,6 @@ java_library(
     name = "logging",
     srcs = ["LoggingUtil.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
@@ -31,7 +29,7 @@ java_library(
     ],
 )
 
-java_11_library(
+java_library(
     name = "os",
     srcs = ["OS.java"],
 )
@@ -46,6 +44,7 @@ java_library(
     name = "file_system_lock",
     srcs = ["FileSystemLock.java"],
     deps = [
+        ":string_encoding",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//third_party:guava",
     ],
@@ -76,6 +75,7 @@ java_library(
     deps = [
         ":os",
         ":single_line_formatter",
+        ":string_encoding",
         ":util",
         "//third_party:error_prone_annotations",
         "//third_party:guava",
@@ -174,7 +174,7 @@ java_library(
     name = "object_graph_traverser",
     srcs = ["ObjectGraphTraverser.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/collect",
+        "//src/main/java/com/google/devtools/build/lib/collect:concurrent_identity_set",
         "//third_party:flogger",
         "//third_party:guava",
         "//third_party:jsr305",
@@ -202,7 +202,7 @@ java_library(
     ],
 )
 
-java_11_library(
+java_library(
     name = "pair",
     srcs = [
         "Pair.java",
@@ -227,6 +227,7 @@ java_library(
         "LogHandlerQuerier.java",
         "LoggingUtil.java",
         "LongArrayList.java",
+        "MapCodec.java",
         "NetUtil.java",
         "OnDemandString.java",
         "OptionsUtils.java",
@@ -245,13 +246,15 @@ java_library(
     exports = [
         # vfs depends on the profiler and creates a cycle since we use Pair in profiler
         ":pair",
-        ":stream_writer",
+        ":deterministic_writer",
     ],
     deps = [
         ":os",
         ":shell_escaper",
+        ":string_encoding",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/util/io",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/common/options",
@@ -259,14 +262,31 @@ java_library(
         "//third_party:flogger",
         "//third_party:guava",
         "//third_party:jsr305",
-        "@protobuf//:protobuf_java",
+        "@com_google_protobuf//:protobuf_java",
     ],
 )
 
-java_11_library(
-    name = "stream_writer",
-    srcs = [
-        "StreamWriter.java",
+java_library(
+    name = "deterministic_writer",
+    srcs = ["DeterministicWriter.java"],
+    deps = ["@com_google_protobuf//:protobuf_java"],
+)
+
+java_library(
+    name = "byte_string_deterministic_writer",
+    srcs = ["ByteStringDeterministicWriter.java"],
+    deps = [
+        ":deterministic_writer",
+        "@com_google_protobuf//:protobuf_java",
+    ],
+)
+
+java_library(
+    name = "proto_deterministic_writer",
+    srcs = ["ProtoDeterministicWriter.java"],
+    deps = [
+        ":deterministic_writer",
+        "@com_google_protobuf//:protobuf_java",
     ],
 )
 
@@ -318,6 +338,16 @@ java_library(
 )
 
 java_library(
+    name = "string_encoding",
+    srcs = ["StringEncoding.java"],
+    deps = [
+        ":os",
+        "//src/main/java/com/google/devtools/build/lib/unsafe:string",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
     name = "string",
     srcs = [
         "StringUtil.java",
@@ -336,7 +366,7 @@ java_library(
     ],
 )
 
-java_11_library(
+java_library(
     name = "exit_code",
     srcs = [
         "ExitCode.java",
@@ -352,6 +382,7 @@ java_library(
     name = "custom_exit_code_publisher",
     srcs = ["CustomExitCodePublisher.java"],
     deps = [
+        "//third_party:flogger",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
@@ -375,7 +406,7 @@ java_library(
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party:guava",
         "//third_party:jsr305",
-        "@protobuf//:protobuf_java",
+        "@com_google_protobuf//:protobuf_java",
     ],
 )
 
@@ -400,6 +431,7 @@ java_library(
     name = "heap_offset_helper",
     srcs = ["HeapOffsetHelper.java"],
     deps = [
+        ":TestType",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//third_party:flogger",
         "//third_party:guava",
@@ -448,4 +480,9 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//third_party:jsr305",
     ],
+)
+
+java_library(
+    name = "cleaner",
+    srcs = ["BazelCleaner.java"],
 )

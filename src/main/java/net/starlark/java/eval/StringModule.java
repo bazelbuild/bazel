@@ -188,8 +188,20 @@ final class StringModule implements StarlarkValue {
   // whitespace, matching Python 3.
   private static final CharMatcher LATIN1_WHITESPACE =
       CharMatcher.anyOf(
-          "\u0009" + "\n" + "\u000B" + "\u000C" + "\r" + "\u001C" + "\u001D" + "\u001E" + "\u001F "
-              + "\u0085" + "\u00A0");
+          Joiner.on("") // to prevent autoformatter from concatenating the strings
+              .join(
+                  "\u0009", "\n", "\u000B", "\u000C", "\r", "\u001C", "\u001D", "\u001E", "\u001F",
+                  " ", "\u0085", "\u00A0"));
+
+  // This is used instead of LATIN1_WHITESPACE when strings are represented as raw UTF-8 byte
+  // arrays. In that case, we should not strip any bytes that are not ASCII whitespace, but part of
+  // a multibyte UTF-8 character.
+  private static final CharMatcher ASCII_WHITESPACE =
+      CharMatcher.anyOf(
+          Joiner.on("") // to prevent autoformatter from concatenating the strings
+              .join(
+                  "\u0009", "\n", "\u000B", "\u000C", "\r", "\u001C", "\u001D", "\u001E", "\u001F",
+                  " "));
 
   private static String stringLStrip(String self, CharMatcher matcher) {
     for (int i = 0; i < self.length(); i++) {
@@ -232,11 +244,15 @@ final class StringModule implements StarlarkValue {
             },
             doc = "The characters to remove, or all whitespace if None.",
             defaultValue = "None")
-      })
-  public String lstrip(String self, Object charsOrNone) {
-    CharMatcher matcher =
-        charsOrNone != Starlark.NONE ? CharMatcher.anyOf((String) charsOrNone) : LATIN1_WHITESPACE;
-    return stringLStrip(self, matcher);
+      },
+      useStarlarkThread = true)
+  public String lstrip(String self, Object charsOrNone, StarlarkThread starlarkThread) {
+    return lstripSemantics(self, charsOrNone, starlarkThread.getSemantics());
+  }
+
+  public String lstripSemantics(
+      String self, Object charsOrNone, StarlarkSemantics starlarkSemantics) {
+    return stringLStrip(self, matcher(charsOrNone, starlarkSemantics));
   }
 
   @StarlarkMethod(
@@ -258,11 +274,15 @@ final class StringModule implements StarlarkValue {
             },
             doc = "The characters to remove, or all whitespace if None.",
             defaultValue = "None")
-      })
-  public String rstrip(String self, Object charsOrNone) {
-    CharMatcher matcher =
-        charsOrNone != Starlark.NONE ? CharMatcher.anyOf((String) charsOrNone) : LATIN1_WHITESPACE;
-    return stringRStrip(self, matcher);
+      },
+      useStarlarkThread = true)
+  public String rstrip(String self, Object charsOrNone, StarlarkThread starlarkThread) {
+    return rstripSemantics(self, charsOrNone, starlarkThread.getSemantics());
+  }
+
+  public String rstripSemantics(
+      String self, Object charsOrNone, StarlarkSemantics starlarkSemantics) {
+    return stringRStrip(self, matcher(charsOrNone, starlarkSemantics));
   }
 
   @StarlarkMethod(
@@ -285,11 +305,26 @@ final class StringModule implements StarlarkValue {
             },
             doc = "The characters to remove, or all whitespace if None.",
             defaultValue = "None")
-      })
-  public String strip(String self, Object charsOrNone) {
-    CharMatcher matcher =
-        charsOrNone != Starlark.NONE ? CharMatcher.anyOf((String) charsOrNone) : LATIN1_WHITESPACE;
-    return stringStrip(self, matcher);
+      },
+      useStarlarkThread = true)
+  public String strip(String self, Object charsOrNone, StarlarkThread starlarkThread) {
+    return stripSemantics(self, charsOrNone, starlarkThread.getSemantics());
+  }
+
+  public String stripSemantics(
+      String self, Object charsOrNone, StarlarkSemantics starlarkSemantics) {
+    return stringStrip(self, matcher(charsOrNone, starlarkSemantics));
+  }
+
+  private static CharMatcher matcher(Object charsOrNone, StarlarkSemantics starlarkSemantics) {
+    return charsOrNone != Starlark.NONE
+        // When using the latin-1 hack, each utf-8 code unit is stored as a distinct string element.
+        // To avoid matching an element that doesn't correspond to a whole code point, we exclude
+        // anything that's not in the ASCII range.
+        ? CharMatcher.anyOf((String) charsOrNone)
+        : (starlarkSemantics.getBool(StarlarkSemantics.INTERNAL_BAZEL_ONLY_UTF_8_BYTE_STRINGS)
+            ? ASCII_WHITESPACE
+            : LATIN1_WHITESPACE);
   }
 
   @StarlarkMethod(
@@ -532,15 +567,12 @@ final class StringModule implements StarlarkValue {
     long indices = substringIndices(self, start, end);
     int startpos = lo(indices);
     int endpos = hi(indices);
-    // Unfortunately Java forces us to allocate here in the general case, even
-    // though String has a private indexOf method that accepts indices.
-    // The common cases of a search of the full string or a forward search with
-    // a custom start position do not require allocations.
-    if (forward && endpos == self.length()) {
-      return self.indexOf(sub, startpos);
+    if (forward) {
+      return self.indexOf(sub, startpos, endpos);
     }
-    String substr = self.substring(startpos, endpos);
-    int subpos = forward ? substr.indexOf(sub) : substr.lastIndexOf(sub);
+    // String#lastIndexOf can't be used to implement rfind() because it only
+    // confines the start position of the substring, not the entire substring.
+    int subpos = self.substring(startpos, endpos).lastIndexOf(sub);
     return subpos < 0
         ? subpos //
         : subpos + startpos;

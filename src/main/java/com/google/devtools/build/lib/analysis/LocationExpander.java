@@ -121,7 +121,7 @@ public final class LocationExpander {
             () -> LocationExpander.buildLocationMap(ruleContext, labelMap, allowData, true)),
         execPaths,
         ruleContext.getConfiguration().legacyExternalRunfiles(),
-        ruleContext.getRule().getPackage().getRepositoryMapping());
+        ruleContext.getRule().getPackageMetadata().repositoryMapping());
   }
 
   /**
@@ -340,7 +340,7 @@ public final class LocationExpander {
       TreeSet<String> paths = Sets.newTreeSet();
       for (Artifact artifact : artifacts) {
         PathFragment path = getPath(artifact, workspaceRunfilesDirectory);
-        if (path != null) { // omit middlemen etc
+        if (path != null) {
           paths.add(path.getCallablePathString());
         }
       }

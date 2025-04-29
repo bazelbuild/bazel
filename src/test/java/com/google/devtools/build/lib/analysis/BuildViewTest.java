@@ -106,13 +106,14 @@ public class BuildViewTest extends BuildViewTestBase {
     scratch.file(
         "tests/BUILD",
         """
-        sh_test(name = 'small_test_1',
+        load('//test_defs:foo_test.bzl', 'foo_test')
+        foo_test(name = 'small_test_1',
                 srcs = ['small_test_1.sh'],
                 data = [':xUnit'],
                 size = 'small',
                 tags = ['tag1'])
 
-        sh_test(name = 'small_test_2',
+        foo_test(name = 'small_test_2',
                 srcs = ['small_test_2.sh'],
                 size = 'small',
                 tags = ['tag2'])
@@ -419,8 +420,14 @@ public class BuildViewTest extends BuildViewTestBase {
 
   @Test
   public void testAnalysisReportsDependencyCycle() throws Exception {
-    scratch.file("foo/BUILD", "sh_library(name='foo',deps=['//bar'])");
-    scratch.file("bar/BUILD", "sh_library(name='bar',deps=[':bar'])");
+    scratch.file(
+        "foo/BUILD",
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
+        "foo_library(name='foo',deps=['//bar'])");
+    scratch.file(
+        "bar/BUILD",
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
+        "foo_library(name='bar',deps=[':bar'])");
 
     reporter.removeHandler(failFastHandler);
     AnalysisFailureRecorder recorder = new AnalysisFailureRecorder();
@@ -476,10 +483,14 @@ public class BuildViewTest extends BuildViewTestBase {
 
   @Test
   public void testMultipleRootCauseReporting() throws Exception {
-    scratch.file("gp/BUILD",
-        "sh_library(name = 'gp', deps = ['//p:p'])");
-    scratch.file("p/BUILD",
-        "sh_library(name = 'p', deps = ['//c1:not', '//c2:not'])");
+    scratch.file(
+        "gp/BUILD",
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
+        "foo_library(name = 'gp', deps = ['//p:p'])");
+    scratch.file(
+        "p/BUILD",
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
+        "foo_library(name = 'p', deps = ['//c1:not', '//c2:not'])");
     scratch.file("c1/BUILD");
     scratch.file("c2/BUILD");
     reporter.removeHandler(failFastHandler);
@@ -530,8 +541,9 @@ public class BuildViewTest extends BuildViewTestBase {
     scratch.file(
         "package/BUILD",
         """
+        load('//test_defs:foo_library.bzl', 'foo_library')
         filegroup(name='top', srcs=[':inner', 'file'])
-        sh_binary(name='inner', srcs=['script.sh'])
+        foo_library(name='inner', srcs=['script.sh'])
         """);
     update("//package:top");
     ConfiguredTarget top = getConfiguredTarget("//package:top", getTargetConfiguration());
@@ -598,7 +610,21 @@ public class BuildViewTest extends BuildViewTestBase {
 
   @Test
   public void testAnalysisErrorMessageWithKeepGoing() throws Exception {
-    scratch.file("a/BUILD", "sh_binary(name='a', srcs=['a1.sh', 'a2.sh'])");
+    scratch.file(
+        "a/foo_one.bzl",
+        """
+        def _impl(ctx):
+          if len(ctx.files.srcs) != 1:
+             fail("you must specify exactly one file in 'srcs'", attr = "srcs")
+        foo_one = rule(
+          implementation = _impl,
+          attrs = {
+            "srcs": attr.label_list(allow_files=True),
+          },
+        )
+        """);
+    scratch.file(
+        "a/BUILD", "load(':foo_one.bzl', 'foo_one')", "foo_one(name='a', srcs=['a1.sh', 'a2.sh'])");
     reporter.removeHandler(failFastHandler);
     AnalysisResult result = update(defaultFlags().with(Flag.KEEP_GOING), "//a");
     assertThat(result.hasError()).isTrue();
@@ -618,17 +644,18 @@ public class BuildViewTest extends BuildViewTestBase {
     scratch.file(
         "foo/BUILD",
         """
-        sh_library(name = 'top1', srcs = ['top1.sh'], deps = [':rec1'])
-        sh_library(name = 'top2', srcs = ['top2.sh'], deps = [':rec1'])
-        sh_library(name = 'rec1', srcs = ['rec1.sh'], deps = [':rec2'])
-        sh_library(name = 'rec2', srcs = ['rec2.sh'], deps = [':rec1'])
+        load('//test_defs:foo_library.bzl', 'foo_library')
+        foo_library(name = 'top1', srcs = ['top1.sh'], deps = [':rec1'])
+        foo_library(name = 'top2', srcs = ['top2.sh'], deps = [':rec1'])
+        foo_library(name = 'rec1', srcs = ['rec1.sh'], deps = [':rec2'])
+        foo_library(name = 'rec2', srcs = ['rec2.sh'], deps = [':rec1'])
         """);
     reporter.removeHandler(failFastHandler);
     AnalysisResult result =
         update(defaultFlags().with(Flag.KEEP_GOING), "//foo:top1", "//foo:top2");
     assertThat(result.hasError()).isTrue();
-    assertContainsEvent("in sh_library rule //foo:rec1: cycle in dependency graph:\n");
-    assertContainsEvent("in sh_library rule //foo:top");
+    assertContainsEvent("in foo_library rule //foo:rec1: cycle in dependency graph:\n");
+    assertContainsEvent("in foo_library rule //foo:top");
   }
 
   // Regression test: cycle node depends on error.
@@ -641,11 +668,12 @@ public class BuildViewTest extends BuildViewTestBase {
     scratch.file(
         "foo/BUILD",
         """
-        sh_library(name = 'top', deps = ['mid'])
-        sh_library(name = 'mid', deps = ['bad', 'cycle1'])
-        sh_library(name = 'bad', srcs = ['//badbuild:isweird'])
-        sh_library(name = 'cycle1', deps = ['cycle2', 'mid'])
-        sh_library(name = 'cycle2', deps = ['cycle1'])
+        load('//test_defs:foo_library.bzl', 'foo_library')
+        foo_library(name = 'top', deps = ['mid'])
+        foo_library(name = 'mid', deps = ['bad', 'cycle1'])
+        foo_library(name = 'bad', srcs = ['//badbuild:isweird'])
+        foo_library(name = 'cycle1', deps = ['cycle2', 'mid'])
+        foo_library(name = 'cycle2', deps = ['cycle1'])
         """);
     scratch.file("badbuild/BUILD", "");
     reporter.removeHandler(failFastHandler);
@@ -654,7 +682,7 @@ public class BuildViewTest extends BuildViewTestBase {
     assertContainsEvent("no such target '//badbuild:isweird': target 'isweird' not declared in "
         + "package 'badbuild'");
     assertContainsEvent("and referenced by '//foo:bad'");
-    assertContainsEvent("in sh_library rule //foo");
+    assertContainsEvent("in foo_library rule //foo");
     assertContainsEvent("cycle in dependency graph");
     assertEventCountAtLeast(2, eventCollector);
   }
@@ -668,11 +696,12 @@ public class BuildViewTest extends BuildViewTestBase {
     scratch.file(
         "foo/BUILD",
         """
-        sh_library(name = 'top', deps = ['mid'])
-        sh_library(name = 'mid', deps = ['bad', 'cycle1'])
-        sh_library(name = 'bad', srcs = ['//badbuild:isweird'])
-        sh_library(name = 'cycle1', deps = ['cycle2', 'mid'])
-        sh_library(name = 'cycle2', deps = ['cycle1'])
+        load('//test_defs:foo_library.bzl', 'foo_library')
+        foo_library(name = 'top', deps = ['mid'])
+        foo_library(name = 'mid', deps = ['bad', 'cycle1'])
+        foo_library(name = 'bad', srcs = ['//badbuild:isweird'])
+        foo_library(name = 'cycle1', deps = ['cycle2', 'mid'])
+        foo_library(name = 'cycle2', deps = ['cycle1'])
         """);
     scratch.file("badbuild/BUILD", "");
     reporter.removeHandler(failFastHandler);
@@ -680,7 +709,7 @@ public class BuildViewTest extends BuildViewTestBase {
     assertContainsEvent("no such target '//badbuild:isweird': target 'isweird' not declared in "
         + "package 'badbuild'");
     assertContainsEvent("and referenced by '//foo:bad'");
-    assertContainsEvent("in sh_library rule //foo");
+    assertContainsEvent("in foo_library rule //foo");
     assertContainsEvent("cycle in dependency graph");
     // This error is triggered both in configuration trimming (which visits the transitive target
     // closure) and in the normal configured target cycle detection path. So we get an additional
@@ -695,10 +724,11 @@ public class BuildViewTest extends BuildViewTestBase {
     scratch.file(
         "foo/BUILD",
         """
+        load('//test_defs:foo_library.bzl', 'foo_library')
         genquery(name = 'foo',
                  expression = 'deps(//foo:nosuchtarget)',
                  scope = ['//foo:a'])
-        sh_library(name = 'a')
+        foo_library(name = 'a')
         """);
     reporter.removeHandler(failFastHandler);
     assertThrows(ViewCreationFailedException.class, () -> update("//foo:foo"));
@@ -789,7 +819,8 @@ public class BuildViewTest extends BuildViewTestBase {
     scratch.file(
         "parent/BUILD",
         """
-        sh_library(name = 'foo',
+        load('//test_defs:foo_library.bzl', 'foo_library')
+        foo_library(name = 'foo',
                    srcs = ['//badpkg1:okay-target', '//okaypkg:transitively-bad-target'])
         """);
     Path badpkg1BuildFile =
@@ -802,14 +833,16 @@ public class BuildViewTest extends BuildViewTestBase {
     scratch.file(
         "okaypkg/BUILD",
         """
-        sh_library(name = 'transitively-bad-target',
+        load('//test_defs:foo_library.bzl', 'foo_library')
+        foo_library(name = 'transitively-bad-target',
                    srcs = ['//badpkg2:bad-target'])
         """);
     Path badpkg2BuildFile =
         scratch.file(
             "badpkg2/BUILD",
             """
-            sh_library(name = 'bad-target')
+            load('//test_defs:foo_library.bzl', 'foo_library')
+            foo_library(name = 'bad-target')
             fail()
             """);
     update(defaultFlags().with(Flag.KEEP_GOING), "//parent:foo");
@@ -846,8 +879,9 @@ public class BuildViewTest extends BuildViewTestBase {
     scratch.file(
         "cycles/BUILD",
         """
-        sh_library(name = 'a', deps = [':b'])
-        sh_library(name = 'b', deps = [':a'])
+        load('//test_defs:foo_library.bzl', 'foo_library')
+        foo_library(name = 'a', deps = [':b'])
+        foo_library(name = 'b', deps = [':a'])
         x = 1//0
         """); // dynamic error
     update(defaultFlags().with(Flag.KEEP_GOING), "//cycles:a");
@@ -865,13 +899,15 @@ public class BuildViewTest extends BuildViewTestBase {
     scratch.file(
         "parent/BUILD",
         """
-        sh_library(name = 'a', deps = ['//child:b'])
+        load('//test_defs:foo_library.bzl', 'foo_library')
+        foo_library(name = 'a', deps = ['//child:b'])
         fail('parentisbad')
         """);
     scratch.file(
         "child/BUILD",
         """
-        sh_library(name = 'b')
+        load('//test_defs:foo_library.bzl', 'foo_library')
+        foo_library(name = 'b')
         fail('childisbad')
         """);
     update(defaultFlags().with(Flag.KEEP_GOING), "//parent:a");
@@ -999,21 +1035,32 @@ public class BuildViewTest extends BuildViewTestBase {
    */
   @Test
   public void testRootCauseReportingFileSymlinks() throws Exception {
-    scratch.file("gp/BUILD",
-        "sh_library(name = 'gp', deps = ['//p'])");
-    scratch.file("p/BUILD",
-        "sh_library(name = 'p', deps = ['//c'])");
+    scratch.file(
+        "gp/BUILD",
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
+        "foo_library(name = 'gp', deps = ['//p'])");
+    scratch.file(
+        "p/BUILD",
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
+        "foo_library(name = 'p', deps = ['//c'])");
     scratch.file(
         "c/BUILD",
         """
-        sh_library(name = 'c', deps = [':c1', ':c2'])
-        sh_library(name = 'c1', deps = ['//cycles1'])
-        sh_library(name = 'c2', deps = ['//cycles2'])
+        load('//test_defs:foo_library.bzl', 'foo_library')
+        foo_library(name = 'c', deps = [':c1', ':c2'])
+        foo_library(name = 'c1', deps = ['//cycles1'])
+        foo_library(name = 'c2', deps = ['//cycles2'])
         """);
-    Path cycles1BuildFilePath = scratch.file("cycles1/BUILD",
-        "sh_library(name = 'cycles1', srcs = glob(['*.sh']))");
-    Path cycles2BuildFilePath = scratch.file("cycles2/BUILD",
-        "sh_library(name = 'cycles2', srcs = glob(['*.sh']))");
+    Path cycles1BuildFilePath =
+        scratch.file(
+            "cycles1/BUILD",
+            "load('//test_defs:foo_library.bzl', 'foo_library')",
+            "foo_library(name = 'cycles1', srcs = glob(['*.sh']))");
+    Path cycles2BuildFilePath =
+        scratch.file(
+            "cycles2/BUILD",
+            "load('//test_defs:foo_library.bzl', 'foo_library')",
+            "foo_library(name = 'cycles2', srcs = glob(['*.sh']))");
     cycles1BuildFilePath.getParentDirectory().getRelative("cycles1.sh").createSymbolicLink(
         PathFragment.create("cycles1.sh"));
     cycles2BuildFilePath.getParentDirectory().getRelative("cycles2.sh").createSymbolicLink(
@@ -1049,15 +1096,16 @@ public class BuildViewTest extends BuildViewTestBase {
     scratch.file(
         "foo/BUILD",
         """
+        load('//test_defs:foo_library.bzl', 'foo_library')
         genquery(name = 'query',
                  expression = 'deps(//foo:b) except //foo:nosuchtarget except //foo:z',
                  scope = ['//foo:a'])
         genquery(name = 'zquery',
                  expression = 'deps(//foo:nosuchtarget)',
                  scope = ['//foo:a'])
-        sh_library(name = 'a')
-        sh_library(name = 'b')
-        sh_library(name = 'z')
+        foo_library(name = 'a')
+        foo_library(name = 'b')
+        foo_library(name = 'z')
         """);
     reporter.removeHandler(failFastHandler);
     ViewCreationFailedException e =
@@ -1127,10 +1175,11 @@ public class BuildViewTest extends BuildViewTestBase {
 
   @Test
   public void testDependsOnBrokenTarget() throws Exception {
-    scratch.file("foo/BUILD",
-        "sh_test(name = 'test', srcs = ['test.sh'], data = ['//bar:data'])");
-    scratch.file("bar/BUILD",
-        "BROKEN BROKEN BROKEN!!!");
+    scratch.file(
+        "foo/BUILD",
+        "load('//test_defs:foo_test.bzl', 'foo_test')",
+        "foo_test(name = 'test', srcs = ['test.sh'], data = ['//bar:data'])");
+    scratch.file("bar/BUILD", "BROKEN BROKEN BROKEN!!!");
     reporter.removeHandler(failFastHandler);
     ViewCreationFailedException expected =
         assertThrows(ViewCreationFailedException.class, () -> update("//foo:test"));
@@ -1250,12 +1299,15 @@ public class BuildViewTest extends BuildViewTestBase {
       // TODO(b/67651960): fix or justify disabling.
       return;
     }
-    scratch.file("parent/BUILD",
-        "sh_library(name = 'a', deps = ['//child:b'])");
+    scratch.file(
+        "parent/BUILD",
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
+        "foo_library(name = 'a', deps = ['//child:b'])");
     scratch.file(
         "child/BUILD",
         """
-        sh_library(name = 'b')
+        load('//test_defs:foo_library.bzl', 'foo_library')
+        foo_library(name = 'b')
         fail('some error')
         """);
     reporter.removeHandler(failFastHandler);
@@ -1272,12 +1324,15 @@ public class BuildViewTest extends BuildViewTestBase {
       // TODO(b/67651960): fix or justify disabling.
       return;
     }
-    scratch.file("parent/BUILD",
-        "sh_library(name = 'a', deps = ['//child:b'])");
+    scratch.file(
+        "parent/BUILD",
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
+        "foo_library(name = 'a', deps = ['//child:b'])");
     scratch.file(
         "child/BUILD",
         """
-        sh_library(name = 'b')
+        load('//test_defs:foo_library.bzl', 'foo_library')
+        foo_library(name = 'b')
         fail('some error')
         """);
     reporter.removeHandler(failFastHandler);
@@ -1294,16 +1349,21 @@ public class BuildViewTest extends BuildViewTestBase {
       // TODO(b/67651960): fix or justify disabling.
       return;
     }
-    scratch.file("parent/BUILD",
-        "sh_library(name = 'a', deps = ['//child:b'])");
+    scratch.file(
+        "parent/BUILD",
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
+        "foo_library(name = 'a', deps = ['//child:b'])");
     scratch.file(
         "child/BUILD",
         """
-        sh_library(name = 'b')
+        load('//test_defs:foo_library.bzl', 'foo_library')
+        foo_library(name = 'b')
         fail('some error')
         """);
-    scratch.file("okay/BUILD",
-        "sh_binary(name = 'okay', srcs = ['okay.sh'])");
+    scratch.file(
+        "okay/BUILD",
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
+        "foo_library(name = 'okay', srcs = ['okay.sh'])");
     useConfiguration("--experimental_action_listener=//parent:a");
     reporter.removeHandler(failFastHandler);
     assertThrows(ViewCreationFailedException.class, () -> update("//okay"));
@@ -1319,16 +1379,22 @@ public class BuildViewTest extends BuildViewTestBase {
       // TODO(b/67651960): fix or justify disabling.
       return;
     }
-    scratch.file("parent/BUILD",
-        "sh_library(name = 'a', deps = ['//child:b'])");
+    scratch.file(
+        "parent/BUILD",
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
+        "foo_library(name = 'a', deps = ['//child:b'])");
     scratch.file(
         "child/BUILD",
         """
-        sh_library(name = 'b')
+        load('//test_defs:foo_library.bzl', 'foo_library')
+        foo_library(name = 'b')
         fail('some error')
         """);
-    scratch.file("okay/BUILD",
-        "sh_binary(name = 'okay', srcs = ['okay.sh'])");
+    scratch.file(
+        "okay/BUILD",
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
+        "foo_library(name = 'okay', srcs = ['okay.sh'])");
     useConfiguration("--experimental_action_listener=//parent:a");
     reporter.removeHandler(failFastHandler);
     update(defaultFlags().with(Flag.KEEP_GOING), "//okay");
@@ -1456,13 +1522,13 @@ public class BuildViewTest extends BuildViewTestBase {
         "foo/BUILD",
         """
         custom_rule(name = 'foo')
-        sh_library(name = 'dep')
+        filegroup(name = 'dep')
         """);
     scratch.file(
         "bad/BUILD",
         """
-        sh_library(name = 'other_label', nonexistent_attribute = 'blah')
-        sh_library(name = 'label')
+        filegroup(name = 'other_label', nonexistent_attribute = 'blah')
+        filegroup(name = 'label')
         """);
     // bad2/BUILD is completely missing.
     reporter.removeHandler(failFastHandler);

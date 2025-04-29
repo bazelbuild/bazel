@@ -155,13 +155,13 @@ public class EagerInvalidatorTest {
             new EmittedEventState(),
             EventFilter.FULL_STORAGE,
             ErrorInfoManager.UseChildErrorInfoIfNecessary.INSTANCE,
-            keepGoing,
             new DirtyAndInflightTrackingProgressReceiver(EvaluationProgressReceiver.NULL),
             inconsistencyReceiver,
             AbstractQueueVisitor.create(
                 "test-pool", 200, ParallelEvaluatorErrorClassifier.instance()),
             new SimpleCycleDetector(),
-            UnnecessaryTemporaryStateDropperReceiver.NULL);
+            UnnecessaryTemporaryStateDropperReceiver.NULL,
+            unused -> keepGoing);
     graphVersion = graphVersion.next();
     return evaluator.eval(ImmutableList.copyOf(keys));
   }

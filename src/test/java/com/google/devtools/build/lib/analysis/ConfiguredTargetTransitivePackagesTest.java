@@ -58,17 +58,17 @@ public final class ConfiguredTargetTransitivePackagesTest extends AnalysisTestCa
             skyframeExecutor, Label.parseCanonical(target), config);
     ImmutableSet<String> packageNames =
         ctValue.getTransitivePackages().toList().stream()
-            .map(pkg -> pkg.getPackageIdentifier().toString())
+            .map(pkgMetadata -> pkgMetadata.packageIdentifier().toString())
             .collect(toImmutableSet());
     assertThat(packageNames).containsAtLeastElementsIn(Sets.newHashSet(packages));
   }
 
   @Test
   public void testSimpleConfiguredTarget() throws Exception {
-    scratch.file("a/BUILD", "sh_library(name = 'a', deps = [ '//a/b:b' ])");
-    scratch.file("a/b/BUILD", "sh_library(name = 'b', deps = [ '//c:c', '//d:d'] )");
-    scratch.file("c/BUILD", "sh_library(name = 'c')");
-    scratch.file("d/BUILD", "sh_library(name = 'd')");
+    scratch.file("a/BUILD", "filegroup(name = 'a', srcs = [ '//a/b:b' ])");
+    scratch.file("a/b/BUILD", "filegroup(name = 'b', srcs = [ '//c:c', '//d:d'] )");
+    scratch.file("c/BUILD", "filegroup(name = 'c')");
+    scratch.file("d/BUILD", "filegroup(name = 'd')");
 
     ConfiguredTarget target = Iterables.getOnlyElement(update("//a:a").getTargetsToBuild());
     BuildConfigurationValue config = getConfiguration(target);

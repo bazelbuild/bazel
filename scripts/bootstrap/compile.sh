@@ -34,7 +34,7 @@ DIRS=$(echo src/{java_tools/singlejar/java/com/google/devtools/build/zip,main/ja
 EXCLUDE_FILES="src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/testing/* src/main/java/com/google/devtools/build/lib/collect/nestedset/NestedSetCodecTestUtils.java"
 # Exclude whole directories under the bazel src tree that bazel itself
 # doesn't depend on.
-EXCLUDE_DIRS="src/main/java/com/google/devtools/build/docgen tools/java/runfiles/testing src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils src/main/java/com/google/devtools/common/options/testing src/main/java/com/google/devtools/build/lib/testing"
+EXCLUDE_DIRS="src/main/java/com/google/devtools/build/docgen src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils src/main/java/com/google/devtools/common/options/testing src/main/java/com/google/devtools/build/lib/testing"
 for d in $EXCLUDE_DIRS ; do
   for f in $(find $d -type f) ; do
     EXCLUDE_FILES+=" $f"
@@ -264,17 +264,17 @@ EOF
 
   link_dir ${PWD}/third_party ${BAZEL_TOOLS_REPO}/third_party
 
+  # Set up the function_transition_allowlist target, which needs to exist for
+  # Starlark rules that use Starlark transitions.
+  mkdir -p "${BAZEL_TOOLS_REPO}/tools/allowlists/function_transition_allowlist"
+  link_file "${PWD}/tools/allowlists/function_transition_allowlist/BUILD.tools" \
+      "${BAZEL_TOOLS_REPO}/tools/allowlists/function_transition_allowlist/BUILD"
+  link_children "${PWD}" tools/allowlists "${BAZEL_TOOLS_REPO}"
+
   # Create @bazel_tools//tools/cpp/runfiles
   mkdir -p ${BAZEL_TOOLS_REPO}/tools/cpp/runfiles
-  link_file "${PWD}/tools/cpp/runfiles/runfiles_src.h" \
+  link_file "${PWD}/tools/cpp/runfiles/runfiles.h" \
       "${BAZEL_TOOLS_REPO}/tools/cpp/runfiles/runfiles.h"
-  # Transform //tools/cpp/runfiles:runfiles_src.cc to
-  # @bazel_tools//tools/cpp/runfiles:runfiles.cc
-  # Keep this transformation logic in sync with the
-  # //tools/cpp/runfiles:srcs_for_embedded_tools genrule.
-  sed 's|^#include.*/runfiles_src.h.*|#include \"tools/cpp/runfiles/runfiles.h\"|' \
-      "${PWD}/tools/cpp/runfiles/runfiles_src.cc" > \
-      "${BAZEL_TOOLS_REPO}/tools/cpp/runfiles/runfiles.cc"
   link_file "${PWD}/tools/cpp/runfiles/BUILD.tools" \
       "${BAZEL_TOOLS_REPO}/tools/cpp/runfiles/BUILD"
 
@@ -284,7 +284,6 @@ EOF
 
   # Create @bazel_tools//tools/sh
   mkdir -p ${BAZEL_TOOLS_REPO}/tools/sh
-  link_file "${PWD}/tools/sh/sh_configure.bzl" "${BAZEL_TOOLS_REPO}/tools/sh/sh_configure.bzl"
   link_file "${PWD}/tools/sh/sh_toolchain.bzl" "${BAZEL_TOOLS_REPO}/tools/sh/sh_toolchain.bzl"
   link_file "${PWD}/tools/sh/BUILD.tools" "${BAZEL_TOOLS_REPO}/tools/sh/BUILD"
 
@@ -295,8 +294,6 @@ EOF
 
   # Create @bazel_tools//tools/java/runfiles
   mkdir -p ${BAZEL_TOOLS_REPO}/tools/java/runfiles
-  link_file "${PWD}/tools/java/runfiles/Runfiles.java" "${BAZEL_TOOLS_REPO}/tools/java/runfiles/Runfiles.java"
-  link_file "${PWD}/tools/java/runfiles/Util.java" "${BAZEL_TOOLS_REPO}/tools/java/runfiles/Util.java"
   link_file "${PWD}/tools/java/runfiles/BUILD.tools" "${BAZEL_TOOLS_REPO}/tools/java/runfiles/BUILD"
 
   # Create @bazel_tools/tools/python/BUILD
@@ -320,51 +317,6 @@ log "Creating Bazel install base..."
 ARCHIVE_DIR=${OUTPUT_DIR}/archive
 mkdir -p ${ARCHIVE_DIR}
 
-# Dummy build-runfiles (we can't compile C++ yet, so we can't have the real one)
-if [ "${PLATFORM}" = "windows" ]; then
-  # We don't rely on runfiles trees on Windows
-  cat <<'EOF' >${ARCHIVE_DIR}/build-runfiles${EXE_EXT}
-#!/bin/sh
-# Skip over --allow_relative.
-mkdir -p $3
-cp $2 $3/MANIFEST
-EOF
-else
-  cat <<'EOF' >${ARCHIVE_DIR}/build-runfiles${EXE_EXT}
-#!/bin/sh
-# This is bash implementation of build-runfiles: reads space-separated paths
-# from each line in the file in $1, then creates a symlink under $2 for the
-# first element of the pair that points to the second element of the pair.
-#
-# bash is a terrible tool for this job, but in this case, that's the only one
-# we have (we could hand-compile a little .jar file like we hand-compile the
-# bootstrap version of Bazel, but we'd still need a shell wrapper around it, so
-# it's not clear whether that would be a win over a few lines of Lovecraftian
-# code)
-# Skip over --allow_relative.
-MANIFEST="$2"
-TREE="$3"
-
-rm -fr "$TREE"
-mkdir -p "$TREE"
-
-# Read the lines in $MANIFEST. the usual "for VAR in $(cat FILE)" idiom won't do
-# because the lines in FILE contain spaces.
-while read LINE; do
-  # Split each line into two parts on the first space
-  SYMLINK_PATH="${LINE%% *}"
-  TARGET_PATH="${LINE#* }"
-  ABSOLUTE_SYMLINK_PATH="$TREE/$SYMLINK_PATH"
-  mkdir -p "$(dirname $ABSOLUTE_SYMLINK_PATH)"
-  ln -s "$TARGET_PATH" "$ABSOLUTE_SYMLINK_PATH"
-done < "$MANIFEST"
-
-cp "$MANIFEST" "$TREE/MANIFEST"
-EOF
-fi
-
-chmod 0755 ${ARCHIVE_DIR}/build-runfiles${EXE_EXT}
-
 function build_jni() {
   local -r output_dir=$1
 
@@ -379,9 +331,8 @@ function build_jni() {
     mkdir -p "$(dirname "$tmp_output")"
     mkdir -p "$(dirname "$output")"
 
-    # Keep this `find` command in sync with the `srcs` of
-    # //src/main/native/windows:windows_jni
-    local srcs=$(find src/main/native/windows -name '*.cc' -o -name '*.h')
+    # Keep this in sync with the `srcs` of //src/main/native/windows:windows_jni
+    local -r srcs="src/main/native/common.cc $(find src/main/native/windows -name '*.cc' -o -name '*.h')"
     [ -n "$srcs" ] || fail "Could not find sources for Windows JNI library"
 
     # do not quote $srcs because we need to expand it to multiple args

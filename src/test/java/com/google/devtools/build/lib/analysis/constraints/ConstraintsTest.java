@@ -43,9 +43,9 @@ public class ConstraintsTest extends AbstractConstraintsTest {
     scratch.file(
         "helpers/BUILD",
         """
-        sh_library(name = 'implicit', srcs = ['implicit.sh'])
-        sh_library(name = 'latebound', srcs = ['latebound.sh'])
-        sh_library(name = 'default', srcs = ['default.sh'])
+        filegroup(name = 'implicit', srcs = ['implicit.sh'])
+        filegroup(name = 'latebound', srcs = ['latebound.sh'])
+        filegroup(name = 'default', srcs = ['default.sh'])
         """);
     scratch.file(
         "config/BUILD",
@@ -570,12 +570,15 @@ public class ConstraintsTest extends AbstractConstraintsTest {
   @Test
   public void oneDependencyIsInvalid() throws Exception {
     new EnvironmentGroupMaker("buildenv/foo").setEnvironments("a", "b").setDefaults("a").make();
-    scratch.file("hello/BUILD",
-        getRuleDef("sh_library", "bad_dep", constrainedTo("//buildenv/foo:b")),
-        getRuleDef("sh_library", "good_dep", compatibleWith("//buildenv/foo:b")),
-        getRuleDef("sh_library", "depender",
+    scratch.file(
+        "hello/BUILD",
+        getRuleDef("filegroup", "bad_dep", constrainedTo("//buildenv/foo:b")),
+        getRuleDef("filegroup", "good_dep", compatibleWith("//buildenv/foo:b")),
+        getRuleDef(
+            "filegroup",
+            "depender",
             constrainedTo("//buildenv/foo:a", "//buildenv/foo:b"),
-            getAttrDef("deps", "good_dep", "bad_dep")));
+            getAttrDef("srcs", "good_dep", "bad_dep")));
     reporter.removeHandler(failFastHandler);
     assertThat(getConfiguredTarget("//hello:depender")).isNull();
     assertContainsEvent("//hello:bad_dep doesn't support expected environment: //buildenv/foo:a");
@@ -705,7 +708,8 @@ public class ConstraintsTest extends AbstractConstraintsTest {
     scratch.file(
         "hello/BUILD",
         """
-        sh_binary(name = 'host_tool',
+        load('//test_defs:foo_binary.bzl', 'foo_binary')
+        foo_binary(name = 'host_tool',
             srcs = ['host_tool.sh'],
             restricted_to = ['//buildenv/foo:b'])
         genrule(
@@ -739,7 +743,8 @@ public class ConstraintsTest extends AbstractConstraintsTest {
         "hello/BUILD",
         """
         load(':rule.bzl', 'my_rule')
-        sh_binary(name = 'host_tool',
+        load('//test_defs:foo_binary.bzl', 'foo_binary')
+        foo_binary(name = 'host_tool',
             srcs = ['host_tool.sh'],
             restricted_to = ['//buildenv/foo:b'])
         my_rule(
@@ -757,7 +762,8 @@ public class ConstraintsTest extends AbstractConstraintsTest {
     scratch.file(
         "hello/BUILD",
         """
-        sh_binary(name = 'tool',
+        load('//test_defs:foo_binary.bzl', 'foo_binary')
+        foo_binary(name = 'tool',
             srcs = ['tool.sh'],
             restricted_to = ['//buildenv/foo:b'])
         genrule(
@@ -791,7 +797,8 @@ public class ConstraintsTest extends AbstractConstraintsTest {
         "hello/BUILD",
         """
         load(':rule.bzl', 'my_rule')
-        sh_binary(name = 'exec_tool',
+        load('//test_defs:foo_binary.bzl', 'foo_binary')
+        foo_binary(name = 'exec_tool',
             srcs = ['exec_tool.sh'],
             restricted_to = ['//buildenv/foo:b'])
         my_rule(
@@ -890,8 +897,9 @@ public class ConstraintsTest extends AbstractConstraintsTest {
     scratch.file(
         "hello/BUILD",
         """
+        load('//test_defs:foo_binary.bzl', 'foo_binary')
         genrule(name = 'gen', srcs = [], outs = ['shlib.sh'], cmd = '')
-        sh_library(
+        foo_binary(
             name = 'shlib',
             srcs = ['shlib.sh'],
             data = ['whatever.txt'],
@@ -909,7 +917,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
     scratch.file(
         "hello/BUILD",
         """
-        sh_library(
+        filegroup(
             name = 'shlib',
             srcs = select({
                 '//config:a': ['shlib.sh'],

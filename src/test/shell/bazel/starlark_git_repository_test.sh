@@ -147,8 +147,11 @@ git_repository(
     $shallow_since
 )
 EOF
+  add_rules_shell "MODULE.bazel"
   mkdir -p planets
   cat > planets/BUILD <<EOF
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+
 sh_binary(
     name = "planet-info",
     srcs = ["planet_info.sh"],
@@ -158,7 +161,7 @@ EOF
 
   cat > planets/planet_info.sh <<EOF
 #!/bin/sh
-cat ../+_repo_rules+pluto/info
+cat ../+git_repository+pluto/info
 EOF
   chmod +x planets/planet_info.sh
 
@@ -166,7 +169,7 @@ EOF
     || echo "Expected build/run to succeed"
   expect_log "Pluto is a dwarf planet"
 
-  git_repos_count=$(find $(bazel info output_base)/external/+_repo_rules+pluto -type d -name .git | wc -l)
+  git_repos_count=$(find $(bazel info output_base)/external/+git_repository+pluto -type d -name .git | wc -l)
   assert_equals $git_repos_count 0
 }
 
@@ -272,9 +275,12 @@ filegroup(
 )
 EOF
   fi
+  add_rules_shell "MODULE.bazel"
 
   mkdir -p planets
   cat > planets/BUILD <<EOF
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+
 sh_binary(
     name = "planet-info",
     srcs = ["planet_info.sh"],
@@ -284,7 +290,7 @@ EOF
 
   cat > planets/planet_info.sh <<EOF
 #!/bin/sh
-cat ../+_repo_rules+pluto/info
+cat ../+new_git_repository+pluto/info
 EOF
   chmod +x planets/planet_info.sh
 
@@ -296,7 +302,7 @@ EOF
       expect_log "Pluto is a dwarf planet"
   fi
 
-  git_repos_count=$(find $(bazel info output_base)/external/+_repo_rules+pluto -type d -name .git | wc -l)
+  git_repos_count=$(find $(bazel info output_base)/external/+new_git_repository+pluto -type d -name .git | wc -l)
   assert_equals $git_repos_count 0
 }
 
@@ -337,6 +343,7 @@ new_git_repository(
     build_file = "//:outer_planets.BUILD",
 )
 EOF
+  add_rules_shell "MODULE.bazel"
 
   cat > BUILD <<EOF
 exports_files(['outer_planets.BUILD'])
@@ -357,6 +364,8 @@ EOF
 
   mkdir -p planets
   cat > planets/BUILD <<EOF
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+
 sh_binary(
     name = "planet-info",
     srcs = ["planet_info.sh"],
@@ -369,8 +378,8 @@ EOF
 
   cat > planets/planet_info.sh <<EOF
 #!/bin/sh
-cat ../+_repo_rules+outer_planets/neptune/info
-cat ../+_repo_rules+outer_planets/pluto/info
+cat ../+new_git_repository+outer_planets/neptune/info
+cat ../+new_git_repository+outer_planets/pluto/info
 EOF
   chmod +x planets/planet_info.sh
 
@@ -394,6 +403,7 @@ new_git_repository(
     build_file = "//:outer_planets.BUILD",
 )
 EOF
+  add_rules_shell "MODULE.bazel"
 
   cat > BUILD <<EOF
 exports_files(['outer_planets.BUILD'])
@@ -414,6 +424,8 @@ EOF
 
   mkdir -p planets
   cat > planets/BUILD <<EOF
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+
 sh_binary(
     name = "planet-info",
     srcs = ["planet_info.sh"],
@@ -426,8 +438,8 @@ EOF
 
   cat > planets/planet_info.sh <<EOF
 #!/bin/sh
-cat ../+_repo_rules+outer_planets/neptune/info
-cat ../+_repo_rules+outer_planets/pluto/info
+cat ../+new_git_repository+outer_planets/neptune/info
+cat ../+new_git_repository+outer_planets/pluto/info
 EOF
   chmod +x planets/planet_info.sh
 
@@ -449,12 +461,12 @@ EOF
   # Use batch to force server restarts.
   bazel --batch build @g//:g >& $TEST_log || fail "Build failed"
   expect_log "Cloning"
-  assert_contains "GIT 1" bazel-genfiles/external/+_repo_rules+g/go
+  assert_contains "GIT 1" bazel-genfiles/external/+git_repository+g/go
 
   # Without changing anything, restart the server, which should not cause the checkout to be re-cloned.
   bazel --batch build @g//:g >& $TEST_log || fail "Build failed"
   expect_not_log "Cloning"
-  assert_contains "GIT 1" bazel-genfiles/external/+_repo_rules+g/go
+  assert_contains "GIT 1" bazel-genfiles/external/+git_repository+g/go
 
   # Change the commit id, which should cause the checkout to be re-cloned.
   rm MODULE.bazel
@@ -465,7 +477,7 @@ EOF
 
   bazel --batch build @g//:g >& $TEST_log || fail "Build failed"
   expect_log "Cloning"
-  assert_contains "GIT 2" bazel-genfiles/external/+_repo_rules+g/go
+  assert_contains "GIT 2" bazel-genfiles/external/+git_repository+g/go
 
   # Change the MODULE.bazel but not the commit id, which should not cause the checkout to be re-cloned.
   rm MODULE.bazel
@@ -478,7 +490,7 @@ EOF
 
   bazel --batch build @g//:g >& $TEST_log || fail "Build failed"
   expect_not_log "Cloning"
-  assert_contains "GIT 2" bazel-genfiles/external/+_repo_rules+g/go
+  assert_contains "GIT 2" bazel-genfiles/external/+git_repository+g/go
 }
 
 function test_git_repository_not_refetched_on_server_restart_strip_prefix() {
@@ -491,7 +503,7 @@ git_repository(name='g', remote='$repo_dir', commit='17ea13b242e4cbcc27a6ef74593
 EOF
   bazel --batch build @g//gdir:g >& $TEST_log || fail "Build failed"
   expect_log "Cloning"
-  assert_contains "GIT 2" bazel-genfiles/external/+_repo_rules+g/gdir/go
+  assert_contains "GIT 2" bazel-genfiles/external/+git_repository+g/gdir/go
 
   rm MODULE.bazel
   cat >> MODULE.bazel <<EOF
@@ -500,7 +512,7 @@ git_repository(name='g', remote='$repo_dir', commit='17ea13b242e4cbcc27a6ef74593
 EOF
   bazel --batch build @g//:g >& $TEST_log || fail "Build failed"
   expect_log "Cloning"
-  assert_contains "GIT 2" bazel-genfiles/external/+_repo_rules+g/go
+  assert_contains "GIT 2" bazel-genfiles/external/+git_repository+g/go
 }
 
 
@@ -515,7 +527,7 @@ EOF
 
   bazel build @g//:g >& $TEST_log || fail "Build failed"
   expect_log "Cloning"
-  assert_contains "GIT 1" bazel-genfiles/external/+_repo_rules+g/go
+  assert_contains "GIT 1" bazel-genfiles/external/+git_repository+g/go
 
   # Change the commit id, which should cause the checkout to be re-cloned.
   rm MODULE.bazel
@@ -526,7 +538,7 @@ EOF
 
   bazel build @g//:g >& $TEST_log || fail "Build failed"
   expect_log "Cloning"
-  assert_contains "GIT 2" bazel-genfiles/external/+_repo_rules+g/go
+  assert_contains "GIT 2" bazel-genfiles/external/+git_repository+g/go
 }
 
 function test_git_repository_and_nofetch() {
@@ -541,7 +553,7 @@ EOF
   bazel build --nofetch @g//:g >& $TEST_log && fail "Build succeeded"
   expect_log "fetching repositories is disabled"
   bazel build @g//:g >& $TEST_log || fail "Build failed"
-  assert_contains "GIT 1" bazel-genfiles/external/+_repo_rules+g/go
+  assert_contains "GIT 1" bazel-genfiles/external/+git_repository+g/go
 
   rm MODULE.bazel
   cat >> MODULE.bazel <<EOF
@@ -550,10 +562,10 @@ git_repository(name='g', remote='$repo_dir', commit='db134ae9b644d8237954a8e6f1e
 EOF
 
   bazel build --nofetch @g//:g >& $TEST_log || fail "Build failed"
-  expect_log "External repository '+_repo_rules+g' is not up-to-date"
-  assert_contains "GIT 1" bazel-genfiles/external/+_repo_rules+g/go
+  expect_log "External repository '+git_repository+g' is not up-to-date"
+  assert_contains "GIT 1" bazel-genfiles/external/+git_repository+g/go
   bazel build  @g//:g >& $TEST_log || fail "Build failed"
-  assert_contains "GIT 2" bazel-genfiles/external/+_repo_rules+g/go
+  assert_contains "GIT 2" bazel-genfiles/external/+git_repository+g/go
 
   rm MODULE.bazel
   cat >> MODULE.bazel <<EOF
@@ -562,9 +574,9 @@ git_repository(name='g', remote='$repo_dir', commit='17ea13b242e4cbcc27a6ef74593
 EOF
 
   bazel build --nofetch @g//:g >& $TEST_log || fail "Build failed"
-  expect_log "External repository '+_repo_rules+g' is not up-to-date"
+  expect_log "External repository '+git_repository+g' is not up-to-date"
   bazel build  @g//:g >& $TEST_log || fail "Build failed"
-  assert_contains "GIT 2" bazel-genfiles/external/+_repo_rules+g/go
+  assert_contains "GIT 2" bazel-genfiles/external/+git_repository+g/go
 
 }
 
@@ -576,13 +588,16 @@ EOF
 #     planet_info.sh
 #     BUILD
 function setup_error_test() {
+  add_rules_shell "MODULE.bazel"
   mkdir -p planets
   cat > planets/planet_info.sh <<EOF
 #!/bin/sh
-cat external/+_repo_rules+pluto/info
+cat external/+git_repository+pluto/info
 EOF
 
   cat > planets/BUILD <<EOF
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+
 sh_binary(
     name = "planet-info",
     srcs = ["planet_info.sh"],
@@ -719,6 +734,86 @@ load("@foo//:defs.bzl", "FOO")
 EOF
 
   bazel build //:all >& $TEST_log || fail "Expect bazel build to succeed."
+}
+
+# Message printed by the rule to indicate that the Git executable does not support sparse checkout,
+# and that it is falling back to a full checkout.
+sparse_checkout_fallback_message="WARNING: Sparse checkout is not supported\. Doing a full checkout\."
+
+function test_git_repository_with_sparse_checkout_patterns() {
+  local pluto_repo_dir=$(get_pluto_repo)
+
+  # Use sparse-checkout to only checkout the BUILD and WORKSPACE files.
+  cat >> MODULE.bazel <<EOF
+git_repository = use_repo_rule('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
+git_repository(
+    name = "pluto",
+    remote = "$pluto_repo_dir",
+    tag = "1-build",
+    sparse_checkout_patterns = ["BUILD", "WORKSPACE"],
+)
+EOF
+  bazel fetch --noshow_progress @pluto >& $TEST_log
+
+  repo_dir=$(bazel info output_base)/external/+git_repository+pluto
+  assert_exists "$repo_dir/BUILD"
+  assert_exists "$repo_dir/WORKSPACE"
+  # If the Git executable does not support sparse checkout, then the implementation will fall back
+  # to a full checkout.
+  if grep -sq -- "$sparse_checkout_fallback_message" $TEST_log; then
+    assert_exists "$repo_dir/info"
+  else
+    assert_not_exists "$repo_dir/info"
+  fi
+}
+
+function test_git_repository_with_sparse_checkout_file() {
+  local pluto_repo_dir=$(get_pluto_repo)
+
+  # Use sparse-checkout to checkout everything but the `info` file
+  cat >> pluto-sparse-checkout.txt <<EOF
+/*
+!/info
+EOF
+  touch BUILD
+
+  cat >> MODULE.bazel <<EOF
+git_repository = use_repo_rule('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
+git_repository(
+    name = "pluto",
+    remote = "$pluto_repo_dir",
+    tag = "1-build",
+    sparse_checkout_file = "pluto-sparse-checkout.txt",
+)
+EOF
+  bazel fetch --noshow_progress @pluto >& $TEST_log
+
+  repo_dir=$(bazel info output_base)/external/+git_repository+pluto
+  echo $repo_dir
+  assert_exists "$repo_dir/BUILD"
+  assert_exists "$repo_dir/WORKSPACE"
+  # If the Git executable does not support sparse checkout, then the implementation will fall back
+  # to a full checkout.
+  if grep -sq -- "$sparse_checkout_fallback_message" $TEST_log; then
+    assert_exists "$repo_dir/info"
+  else
+    assert_not_exists "$repo_dir/info"
+  fi
+}
+
+function test_git_repository_with_sparse_checkout_patterns_and_file_fails() {
+  cat >> MODULE.bazel <<EOF
+git_repository = use_repo_rule('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
+git_repository(
+    name = "pluto",
+    remote = "does-not-matter",
+    tag = "1-build",
+    sparse_checkout_file = "foobar",
+    sparse_checkout_patterns = ["foo", "bar"],
+)
+EOF
+  bazel fetch @pluto >& $TEST_log && fail "Fetch succeeded"
+  expect_log "Only one of sparse_checkout_patterns and sparse_checkout_file can be provided."
 }
 
 run_suite "Starlark git_repository tests"

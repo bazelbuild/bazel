@@ -17,16 +17,21 @@ import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactSerializationContext;
 import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
+import com.google.devtools.build.lib.analysis.config.BuildOptions.MapBackedChecksumCache;
+import com.google.devtools.build.lib.analysis.config.BuildOptions.OptionsChecksumCache;
 
 /** Utilities for testing with serialization dependencies. */
 public final class SerializationDepsUtils {
 
   /** Default serialization dependencies for testing. */
   public static final ImmutableClassToInstanceMap<?> SERIALIZATION_DEPS_FOR_TEST =
-      ImmutableClassToInstanceMap.of(
-          ArtifactSerializationContext.class,
-          (execPath, root, owner) ->
-              new SourceArtifact(ArtifactRoot.asSourceRoot(root), execPath, owner));
+      ImmutableClassToInstanceMap.builder()
+          .put(
+              ArtifactSerializationContext.class,
+              (execPath, root, owner) ->
+                  new SourceArtifact(ArtifactRoot.asSourceRoot(root), execPath, owner))
+          .put(OptionsChecksumCache.class, new MapBackedChecksumCache())
+          .build();
 
   private SerializationDepsUtils() {}
 }

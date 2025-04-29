@@ -178,7 +178,8 @@ public final class LibrariesToLinkCollectorTest extends BuildViewTestCase {
     SpawnAction linkAction = (SpawnAction) getGeneratingAction(binary);
     assertThat(linkAction).isNotNull();
 
-    String workspace = getTarget("//toolchain:toolchain").getPackage().getWorkspaceName();
+    String workspace =
+        getTarget("//toolchain:toolchain").getPackageDeclarations().getWorkspaceName();
     List<String> linkArgs = linkAction.getArguments();
     assertThat(linkArgs)
         .contains(

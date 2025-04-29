@@ -97,8 +97,7 @@ public class WorkerParser {
         localEnvProvider.rewriteLocalEnv(spawn.getEnvironment(), binTools, "/tmp");
 
     SortedMap<PathFragment, byte[]> workerFiles =
-        WorkerFilesHash.getWorkerFilesWithDigests(
-            spawn, context.getArtifactExpander(), context.getInputMetadataProvider());
+        WorkerFilesHash.getWorkerFilesWithDigests(spawn, context.getInputMetadataProvider());
 
     HashCode workerFilesCombinedHash = WorkerFilesHash.getCombinedHash(workerFiles);
 
@@ -211,7 +210,7 @@ public class WorkerParser {
     ImmutableList.Builder<String> mnemonicFlags = ImmutableList.builder();
 
     workerOptions.workerExtraFlags.stream()
-        .filter(entry -> entry.getKey().equals(spawn.getMnemonic()))
+        .filter(entry -> entry.getKey().equals(Spawns.getWorkerKeyMnemonic(spawn)))
         .forEach(entry -> mnemonicFlags.add(entry.getValue()));
 
     return workerArgs.add("--persistent_worker").addAll(mnemonicFlags.build()).build();

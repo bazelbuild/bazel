@@ -24,21 +24,17 @@ import com.google.devtools.build.lib.analysis.AnalysisResult;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
-import com.google.devtools.build.lib.analysis.LicensesProvider;
-import com.google.devtools.build.lib.analysis.LicensesProvider.TargetLicense;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.packages.License.LicenseType;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.testutil.TestConstants;
-import java.util.Set;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -407,53 +403,6 @@ public class AliasTest extends BuildViewTestCase {
   }
 
   @Test
-  public void licensesAreCollected() throws Exception {
-    scratch.file(
-        "a/BUILD",
-        """
-        filegroup(
-            name = "a",
-            licenses = ["restricted"],
-            output_licenses = ["unencumbered"],
-        )
-
-        alias(
-            name = "b",
-            actual = ":a",
-        )
-
-        filegroup(
-            name = "c",
-            srcs = [":b"],
-        )
-
-        genrule(
-            name = "d",
-            outs = ["do"],
-            cmd = "cmd",
-            tools = [":b"],
-        )
-
-        genrule(
-            name = "e",
-            srcs = [":b"],
-            outs = ["eo"],
-            cmd = "cmd",
-        )
-        """);
-    useConfiguration("--check_licenses");
-    assertThat(getLicenses("//a:d", "//a:a")).containsExactly(LicenseType.UNENCUMBERED);
-    assertThat(getLicenses("//a:e", "//a:a")).containsExactly(LicenseType.RESTRICTED);
-    assertThat(getLicenses("//a:b", "//a:a")).containsExactly(LicenseType.RESTRICTED);
-    assertThat(
-            getConfiguredTarget("//a:b")
-                .get(LicensesProvider.PROVIDER)
-                .getTransitiveLicenses()
-                .toList())
-        .hasSize(1);
-  }
-
-  @Test
   public void assertNoLicensesAttribute() throws Exception {
     scratch.file(
         "a/BUILD",
@@ -470,19 +419,6 @@ public class AliasTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//a:b");
     assertContainsEvent("no such attribute 'licenses' in 'alias' rule");
-  }
-
-  private Set<LicenseType> getLicenses(String topLevelTarget, String licenseTarget)
-      throws Exception {
-    LicensesProvider licenses = getConfiguredTarget(topLevelTarget).get(LicensesProvider.PROVIDER);
-    for (TargetLicense license : licenses.getTransitiveLicenses().toList()) {
-      if (license.getLabel().toString().equals(licenseTarget)) {
-        return license.getLicense().getLicenseTypes();
-      }
-    }
-
-    throw new IllegalStateException("License for '" + licenseTarget
-        + "' not found in the transitive closure of '" + topLevelTarget + "'");
   }
 
   @Test
@@ -591,8 +527,10 @@ public class AliasTest extends BuildViewTestCase {
 
   @Test
   public void aliasedTestSuiteDep() throws Exception {
-    scratch.file("a/BUILD",
-        "sh_test(name='a', srcs=['a.sh'])");
+    scratch.file(
+        "a/BUILD",
+        "load('//test_defs:foo_test.bzl', 'foo_test')",
+        "foo_test(name='a', srcs=['a.sh'])");
     scratch.file(
         "b/BUILD",
         """

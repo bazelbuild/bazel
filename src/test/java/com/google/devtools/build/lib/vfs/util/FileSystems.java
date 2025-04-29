@@ -28,7 +28,7 @@ public final class FileSystems {
   /** Constructs a platform native (Unix or Windows) file system. */
   public static FileSystem getNativeFileSystem(DigestHashFunction digestHashFunction) {
     if (OS.getCurrent() == OS.WINDOWS) {
-      return new WindowsFileSystem(digestHashFunction, /*createSymbolicLinks=*/ false);
+      return new WindowsFileSystem(digestHashFunction, /* createSymbolicLinks= */ true);
     }
     try {
       return Class.forName(TestConstants.TEST_REAL_UNIX_FILE_SYSTEM)

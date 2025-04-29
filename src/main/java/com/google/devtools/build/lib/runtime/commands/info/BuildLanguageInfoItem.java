@@ -20,7 +20,6 @@ import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -28,10 +27,9 @@ import com.google.devtools.build.lib.packages.Attribute.StarlarkComputedDefaultT
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.ProtoUtils;
 import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.packages.RuleFunction;
+import com.google.devtools.build.lib.packages.RuleClassUtils;
 import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.packages.Type;
-import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.AllowedRuleClassInfo;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.AttributeDefinition;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.AttributeValue;
@@ -43,13 +41,13 @@ import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.skyframe.StarlarkBuiltinsValue;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
-import net.starlark.java.eval.StarlarkFunction;
 import net.starlark.java.eval.StarlarkInt;
 
 /**
@@ -76,7 +74,12 @@ public final class BuildLanguageInfoItem extends InfoItem {
       throws AbruptExitException {
     checkNotNull(env);
     StarlarkBuiltinsValue builtins = loadStarlarkBuiltins(env);
-    return print(getBuildLanguageDefinition(getRuleClasses(builtins, env)));
+    return print(
+        getBuildLanguageDefinition(
+            RuleClassUtils.getBuiltinRuleClasses(
+                builtins,
+                env.getRuntime().getRuleClassProvider(),
+                /* includeMacroWrappedRules= */ true)));
   }
 
   private StarlarkBuiltinsValue loadStarlarkBuiltins(CommandEnvironment env)
@@ -98,46 +101,6 @@ public final class BuildLanguageInfoItem extends InfoItem {
     return (StarlarkBuiltinsValue) result.get(StarlarkBuiltinsValue.key());
   }
 
-  private ImmutableList<RuleClass> getRuleClasses(
-      StarlarkBuiltinsValue builtins, CommandEnvironment env) {
-    ImmutableMap<String, RuleClass> nativeRuleClasses =
-        env.getRuntime().getRuleClassProvider().getRuleClassMap();
-
-    // The conditional for selecting whether or not to load symbols from @_builtins is the same as
-    // in PackageFunction.compileBuildFile
-    if (builtins
-        .starlarkSemantics
-        .get(BuildLanguageOptions.EXPERIMENTAL_BUILTINS_BZL_PATH)
-        .isEmpty()) {
-      return ImmutableList.sortedCopyOf(
-          Comparator.comparing(RuleClass::getName), nativeRuleClasses.values());
-    } else {
-      ImmutableList.Builder<RuleClass> ruleClasses = ImmutableList.builder();
-      for (Map.Entry<String, Object> entry : builtins.predeclaredForBuild.entrySet()) {
-        if (entry.getValue() instanceof RuleFunction) {
-          ruleClasses.add(((RuleFunction) entry.getValue()).getRuleClass());
-        } else if (entry.getValue() instanceof StarlarkFunction) {
-          // entry.getValue() is a Starlark macro in @_builtins overriding a native rule. We
-          // cannot extract the macro's metadata (other than by, perhaps, parsing its Starlark
-          // docstring via starlark_doc_extract, but that does not have sufficient fidelity to
-          // get rule attribute metadata), so we try to find the rule function if it's exposed to
-          // native, else extract it from the legacy rule instead.
-          // Note that we *cannot* rely on StarlarkFunction.getName() because under which the
-          // macro is defined may not match the name under which @_builtins exports it.
-          if (builtins.exportedToJava.containsKey(entry.getKey() + "_rule_function")) {
-            ruleClasses.add(
-                ((RuleFunction) builtins.exportedToJava.get(entry.getKey() + "_rule_function"))
-                    .getRuleClass());
-          } else if (nativeRuleClasses.containsKey(entry.getKey())) {
-            ruleClasses.add(nativeRuleClasses.get(entry.getKey()));
-          }
-        }
-      }
-      return ImmutableList.sortedCopyOf(
-          Comparator.comparing(RuleClass::getName), ruleClasses.build());
-    }
-  }
-
   /**
    * Returns a byte array containing a proto-buffer describing the build language.
    *
@@ -155,7 +118,8 @@ public final class BuildLanguageInfoItem extends InfoItem {
 
       ImmutableList<Attribute> sortedAttributeDefinitions =
           ImmutableList.sortedCopyOf(
-              Comparator.comparing(Attribute::getName), ruleClass.getAttributes());
+              Comparator.comparing(Attribute::getName),
+              ruleClass.getAttributeProvider().getAttributes());
       for (Attribute attr : sortedAttributeDefinitions) {
         Type<?> t = attr.getType();
         AttributeDefinition.Builder attrPb = AttributeDefinition.newBuilder();
@@ -203,14 +167,8 @@ public final class BuildLanguageInfoItem extends InfoItem {
       for (Object elem : (List<?>) v) {
         b.addList(convertAttrValue(t.getListElementType(), elem));
       }
-    } else if (t == BuildType.LICENSE) {
-      // TODO(adonovan): need dual function of parseLicense.
-      // Treat as empty list for now.
-    } else if (t == BuildType.DISTRIBUTIONS) {
-      // TODO(adonovan): need dual function of parseDistributions.
-      // Treat as empty list for now.
     } else if (t == Type.STRING) {
-      b.setString((String) v);
+      b.setString(StringEncoding.internalToUnicode((String) v));
     } else if (t == Type.INTEGER) {
       b.setInt(((StarlarkInt) v).toIntUnchecked());
     } else if (t == Type.BOOLEAN) {
@@ -218,7 +176,7 @@ public final class BuildLanguageInfoItem extends InfoItem {
     } else if (t == BuildType.TRISTATE) {
       b.setInt(((TriState) v).toInt());
     } else if (BuildType.isLabelType(t)) { // case order matters!
-      b.setString(v.toString());
+      b.setString(StringEncoding.internalToUnicode(v.toString()));
     } else {
       // No native rule attribute of this type (FilesetEntry?) has a default value.
       throw new IllegalStateException("unexpected type of attribute default value: " + t);

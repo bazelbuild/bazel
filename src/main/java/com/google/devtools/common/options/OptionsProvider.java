@@ -14,7 +14,6 @@
 package com.google.devtools.common.options;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import java.util.Map;
 import java.util.function.Predicate;
 import javax.annotation.Nullable;
@@ -33,7 +32,12 @@ public interface OptionsProvider {
         }
 
         @Override
-        public Map<String, Object> getStarlarkOptions() {
+        public ImmutableMap<String, Object> getStarlarkOptions() {
+          return ImmutableMap.of();
+        }
+
+        @Override
+        public ImmutableMap<String, String> getScopesAttributes() {
           return ImmutableMap.of();
         }
 
@@ -44,8 +48,8 @@ public interface OptionsProvider {
         }
 
         @Override
-        public ImmutableSet<String> getUserOptions() {
-          return ImmutableSet.of();
+        public ImmutableMap<String, String> getUserOptions() {
+          return ImmutableMap.of();
         }
       };
 
@@ -78,7 +82,9 @@ public interface OptionsProvider {
 
   /**
    * Returns the options that were parsed from either a user blazerc file or the command line as a
-   * map of option name to option value.
+   * map of option name to the option's {@code expandedFrom}, or "" if the option was not expanded.
    */
-  ImmutableSet<String> getUserOptions();
+  ImmutableMap<String, String> getUserOptions();
+
+  Map<String, String> getScopesAttributes();
 }

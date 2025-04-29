@@ -16,11 +16,9 @@ package com.google.devtools.build.lib.remote.util;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.collect.ClassToInstanceMap;
-import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
@@ -106,13 +104,8 @@ public class FakeSpawnExecutionContext implements SpawnExecutionContext {
   }
 
   @Override
-  public ArtifactExpander getArtifactExpander() {
-    return treeArtifact -> ImmutableSortedSet.of();
-  }
-
-  @Override
   public SpawnInputExpander getSpawnInputExpander() {
-    return new SpawnInputExpander(execRoot);
+    return new SpawnInputExpander();
   }
 
   @Override
@@ -134,8 +127,7 @@ public class FakeSpawnExecutionContext implements SpawnExecutionContext {
   public SortedMap<PathFragment, ActionInput> getInputMapping(
       PathFragment baseDirectory, boolean willAccessRepeatedly)
       throws ForbiddenActionInputException {
-    return getSpawnInputExpander()
-        .getInputMapping(spawn, getArtifactExpander(), inputMetadataProvider, baseDirectory);
+    return getSpawnInputExpander().getInputMapping(spawn, inputMetadataProvider, baseDirectory);
   }
 
   @Override

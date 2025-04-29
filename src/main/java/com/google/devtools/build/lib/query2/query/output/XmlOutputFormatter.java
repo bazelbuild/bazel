@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.packages.DependencyFilter;
 import com.google.devtools.build.lib.packages.EnvironmentGroup;
 import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.LabelPrinter;
-import com.google.devtools.build.lib.packages.License;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.PackageGroup;
 import com.google.devtools.build.lib.packages.Rule;
@@ -38,11 +37,13 @@ import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.SynchronizedDelegatingOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.ThreadSafeOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.query.aspectresolvers.AspectResolver;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.OutputStream;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import javax.annotation.Nullable;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.transform.OutputKeys;
@@ -56,9 +57,7 @@ import org.w3c.dom.DOMException;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 
-/**
- * An output formatter that prints the result as XML.
- */
+/** An output formatter that prints the result as XML. */
 class XmlOutputFormatter extends AbstractUnorderedFormatter {
 
   private AspectResolver aspectResolver;
@@ -66,6 +65,7 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
   private boolean packageGroupIncludesDoubleSlash;
   private boolean relativeLocations;
   private QueryOptions queryOptions;
+  @Nullable private PathFragment overrideSourceRoot;
 
   @Override
   public String getName() {
@@ -90,6 +90,11 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
 
     Preconditions.checkArgument(options instanceof QueryOptions);
     this.queryOptions = (QueryOptions) options;
+  }
+
+  @Override
+  public void setOverrideSourceRoot(PathFragment overrideSourceRoot) {
+    this.overrideSourceRoot = overrideSourceRoot;
   }
 
   @Override
@@ -189,7 +194,8 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
         outputElem.setAttribute("name", labelPrinter.toString(outputFile.getLabel()));
         elem.appendChild(outputElem);
       }
-      for (String feature : rule.getPackage().getPackageArgs().features().toStringList()) {
+      for (String feature :
+          rule.getPackageDeclarations().getPackageArgs().features().toStringList()) {
         Element outputElem = doc.createElement("rule-default-setting");
         outputElem.setAttribute("name", feature);
         elem.appendChild(outputElem);
@@ -218,10 +224,12 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
       if (inputFile.getName().equals("BUILD")) {
         addStarlarkFilesToElement(doc, elem, inputFile, labelPrinter);
         addFeaturesToElement(doc, elem, inputFile);
-        elem.setAttribute("package_contains_errors",
-            String.valueOf(inputFile.getPackage().containsErrors()));
+        elem.setAttribute(
+            "package_contains_errors", String.valueOf(inputFile.getPackageoid().containsErrors()));
       }
 
+      // TODO(bazel-team): We're being inconsistent about whether we include the package's
+      // default_visibility in the target. For files we do, but for rules we don't.
       addPackageGroupsToElement(doc, elem, inputFile, labelPrinter);
     } else if (target instanceof EnvironmentGroup envGroup) {
       elem = doc.createElement("environment-group");
@@ -241,7 +249,7 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
     }
 
     elem.setAttribute("name", labelPrinter.toString(target.getLabel()));
-    String location = FormatUtils.getLocation(target, relativeLocations);
+    String location = FormatUtils.getLocation(target, relativeLocations, overrideSourceRoot);
     if (!queryOptions.xmlLineNumbers) {
       int firstColon = location.indexOf(':');
       if (firstColon != -1) {
@@ -269,7 +277,8 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
   }
 
   private static void addFeaturesToElement(Document doc, Element parent, InputFile inputFile) {
-    for (String feature : inputFile.getPackage().getPackageArgs().features().toStringList()) {
+    for (String feature :
+        inputFile.getPackageDeclarations().getPackageArgs().features().toStringList()) {
       Element elem = doc.createElement("feature");
       elem.setAttribute("name", feature);
       parent.appendChild(elem);
@@ -279,6 +288,7 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
   private void addStarlarkFilesToElement(
       Document doc, Element parent, InputFile inputFile, LabelPrinter labelPrinter)
       throws InterruptedException {
+    // TODO(https://github.com/bazelbuild/bazel/issues/23852): support lazy macro expansion
     Iterable<Label> dependencies =
         aspectResolver.computeBuildFileDependencies(inputFile.getPackage());
 
@@ -328,22 +338,7 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
           }
         }
       }
-    } else if (type == BuildType.LICENSE) {
-      elem = createSingleValueElement(doc, "license", hasMultipleValues);
-      if (!hasMultipleValues) {
-        License license = (License) Iterables.getOnlyElement(values);
-
-        Element exceptions =
-            createValueElement(doc, BuildType.LABEL_LIST, license.getExceptions(), labelPrinter);
-        exceptions.setAttribute("name", "exceptions");
-        elem.appendChild(exceptions);
-
-        Element licenseTypes =
-            createValueElement(doc, Types.STRING_LIST, license.getLicenseTypes(), labelPrinter);
-        licenseTypes.setAttribute("name", "license-types");
-        elem.appendChild(licenseTypes);
-      }
-    } else { // INTEGER STRING LABEL DISTRIBUTION OUTPUT
+    } else { // INTEGER STRING LABEL OUTPUT
       elem = createSingleValueElement(doc, type.toString(), hasMultipleValues);
       if (!hasMultipleValues && !Iterables.isEmpty(values)) {
         Object value = Iterables.getOnlyElement(values);

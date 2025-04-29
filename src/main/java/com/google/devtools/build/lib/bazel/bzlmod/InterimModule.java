@@ -15,10 +15,13 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
+import static java.util.Objects.requireNonNull;
+
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Optional;
 import java.util.function.UnaryOperator;
@@ -49,16 +52,15 @@ public abstract class InterimModule extends ModuleBase {
   public abstract ImmutableList<String> getBazelCompatibility();
 
   /** The specification of a dependency. */
-  @AutoValue
-  public abstract static class DepSpec {
-    public abstract String getName();
-
-    public abstract Version getVersion();
-
-    public abstract int getMaxCompatibilityLevel();
+  @AutoCodec
+  public record DepSpec(String name, Version version, int maxCompatibilityLevel) {
+    public DepSpec {
+      requireNonNull(name, "name");
+      requireNonNull(version, "version");
+    }
 
     public static DepSpec create(String name, Version version, int maxCompatibilityLevel) {
-      return new AutoValue_InterimModule_DepSpec(name, version, maxCompatibilityLevel);
+      return new DepSpec(name, version, maxCompatibilityLevel);
     }
 
     public static DepSpec fromModuleKey(ModuleKey key) {
@@ -66,7 +68,7 @@ public abstract class InterimModule extends ModuleBase {
     }
 
     public final ModuleKey toModuleKey() {
-      return new ModuleKey(getName(), getVersion());
+      return new ModuleKey(name(), version());
     }
   }
 
@@ -83,6 +85,13 @@ public abstract class InterimModule extends ModuleBase {
    * key type is the repo name of the dep.
    */
   public abstract ImmutableMap<String, DepSpec> getOriginalDeps();
+
+  /**
+   * The "nodep" dependencies of this module: these don't actually add a dependency on the specified
+   * module, but if specified module is somehow in the dependency graph, it'll be at least at this
+   * version.
+   */
+  public abstract ImmutableList<DepSpec> getNodepDeps();
 
   /**
    * The registry where this module came from. Must be null iff the module has a {@link
@@ -159,6 +168,16 @@ public abstract class InterimModule extends ModuleBase {
 
     public abstract Builder setDeps(ImmutableMap<String, DepSpec> value);
 
+    abstract ImmutableList.Builder<DepSpec> nodepDepsBuilder();
+
+    @CanIgnoreReturnValue
+    public final Builder addNodepDep(DepSpec value) {
+      nodepDepsBuilder().add(value);
+      return this;
+    }
+
+    public abstract Builder setNodepDeps(ImmutableList<DepSpec> value);
+
     public abstract Builder setRegistry(Registry value);
 
     public abstract Builder setExtensionUsages(ImmutableList<ModuleExtensionUsage> value);
@@ -214,40 +233,14 @@ public abstract class InterimModule extends ModuleBase {
     if (!(override instanceof SingleVersionOverride singleVersion)) {
       return repoSpec;
     }
-    if (singleVersion.getPatches().isEmpty()) {
+    if (singleVersion.patches().isEmpty()) {
       return repoSpec;
     }
     ImmutableMap.Builder<String, Object> attrBuilder = ImmutableMap.builder();
     attrBuilder.putAll(repoSpec.attributes().attributes());
-    attrBuilder.put("patches", singleVersion.getPatches());
-    attrBuilder.put("patch_cmds", singleVersion.getPatchCmds());
-    attrBuilder.put("patch_args", ImmutableList.of("-p" + singleVersion.getPatchStrip()));
-    return RepoSpec.builder()
-        .setBzlFile(repoSpec.bzlFile())
-        .setRuleClassName(repoSpec.ruleClassName())
-        .setAttributes(AttributeValues.create(attrBuilder.buildOrThrow()))
-        .build();
-  }
-
-  static UnaryOperator<DepSpec> applyOverrides(
-      ImmutableMap<String, ModuleOverride> overrides, String rootModuleName) {
-    return depSpec -> {
-      if (rootModuleName.equals(depSpec.getName())) {
-        return DepSpec.fromModuleKey(ModuleKey.ROOT);
-      }
-
-      Version newVersion = depSpec.getVersion();
-      @Nullable ModuleOverride override = overrides.get(depSpec.getName());
-      if (override instanceof NonRegistryOverride) {
-        newVersion = Version.EMPTY;
-      } else if (override instanceof SingleVersionOverride singleVersionOverride) {
-        Version overrideVersion = singleVersionOverride.getVersion();
-        if (!overrideVersion.isEmpty()) {
-          newVersion = overrideVersion;
-        }
-      }
-
-      return DepSpec.create(depSpec.getName(), newVersion, depSpec.getMaxCompatibilityLevel());
-    };
+    attrBuilder.put("patches", singleVersion.patches());
+    attrBuilder.put("patch_cmds", singleVersion.patchCmds());
+    attrBuilder.put("patch_args", ImmutableList.of("-p" + singleVersion.patchStrip()));
+    return new RepoSpec(repoSpec.repoRuleId(), AttributeValues.create(attrBuilder.buildOrThrow()));
   }
 }

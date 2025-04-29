@@ -179,14 +179,16 @@ EOF
 
   # TODO: https://github.com/bazelbuild/bazel/issues/23240
   # Create a new event id type that doesn't use "//external"
-  expect_log 'label: "//external:+_repo_rules+remote"'
+  expect_log 'label: "//external:+failing+remote"'
   expect_log 'description:.*This is the error message'
-  expect_not_log 'label.*@+_repo_rules+remote//file'
+  expect_not_log 'label.*@+failing+remote//file'
 }
 
 function test_residue_in_run_bep(){
+  add_rules_shell "MODULE.bazel"
   mkdir -p a
   cat > a/BUILD <<'EOF'
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 sh_binary(
     name = 'arg',
     srcs = ['arg.sh'],
@@ -221,8 +223,10 @@ EOF
 }
 
 function test_no_residue_in_run_bep(){
+  add_rules_shell "MODULE.bazel"
   mkdir -p a
   cat > a/BUILD <<'EOF'
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 sh_binary(
     name = 'arg',
     srcs = ['arg.sh'],
@@ -261,8 +265,10 @@ EOF
 
 
 function test_residue_in_run_test_bep(){
+  add_rules_shell "MODULE.bazel"
   mkdir -p a
   cat > a/BUILD <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 sh_test(
     name = 'arg',
     srcs = ['arg_test.sh'],
@@ -297,8 +303,10 @@ EOF
 }
 
 function test_no_residue_in_run_test_bep(){
+  add_rules_shell "MODULE.bazel"
   mkdir -p a
   cat > a/BUILD <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 sh_test(
     name = 'arg',
     srcs = ['arg_test.sh'],

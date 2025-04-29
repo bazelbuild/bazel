@@ -13,19 +13,31 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Collections.reverse;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMultimap;
 import com.google.devtools.build.lib.analysis.AspectCollection.AspectCycleOnPathException;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkAspectPropagationContext;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.packages.AdvertisedProviderSet;
 import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.AspectClass;
+import com.google.devtools.build.lib.packages.AspectDefinition;
+import com.google.devtools.build.lib.packages.AspectPropagationEdgesSupplier.FixedListSupplier;
+import com.google.devtools.build.lib.packages.AspectPropagationEdgesSupplier.FunctionSupplier;
 import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
+import com.google.devtools.build.lib.packages.RuleClass;
+import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.skyframe.toolchains.UnloadedToolchainContext;
+import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import java.util.ArrayList;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.syntax.Location;
 
 /** Helpers for aspect resolution. */
 public final class AspectResolutionHelpers {
@@ -51,12 +63,15 @@ public final class AspectResolutionHelpers {
   public static ImmutableList<Aspect> computePropagatingAspects(
       DependencyKind kind,
       ImmutableList<Aspect> aspectsPath,
+      ImmutableMultimap<Aspect, String> computedAttributeAspects,
+      ImmutableMultimap<Aspect, Label> computedToolchainsAspects,
       Rule rule,
       @Nullable ToolchainCollection<UnloadedToolchainContext> baseTargetToolchainContext) {
     if (DependencyKind.isBaseTargetToolchain(kind)) {
       return computePropagatingAspectsToToolchainDep(
           (DependencyKind.BaseTargetToolchainDependencyKind) kind,
           aspectsPath,
+          computedToolchainsAspects,
           baseTargetToolchainContext);
     }
 
@@ -66,7 +81,11 @@ public final class AspectResolutionHelpers {
     }
     var aspectsBuilder = new ImmutableList.Builder<Aspect>().addAll(attribute.getAspects(rule));
     collectPropagatingAspects(
-        aspectsPath, attribute.getName(), kind.getOwningAspect(), aspectsBuilder);
+        aspectsPath,
+        computedAttributeAspects,
+        attribute.getName(),
+        kind.getOwningAspect(),
+        aspectsBuilder);
     return aspectsBuilder.build();
   }
 
@@ -77,6 +96,7 @@ public final class AspectResolutionHelpers {
   private static ImmutableList<Aspect> computePropagatingAspectsToToolchainDep(
       DependencyKind.BaseTargetToolchainDependencyKind kind,
       ImmutableList<Aspect> aspectsPath,
+      ImmutableMultimap<Aspect, Label> computedToolchainsAspects,
       @Nullable ToolchainCollection<UnloadedToolchainContext> baseTargetToolchainContext) {
     var toolchainContext = baseTargetToolchainContext.getToolchainContext(kind.getExecGroupName());
     var toolchainType =
@@ -94,7 +114,7 @@ public final class AspectResolutionHelpers {
     for (int i = aspectsCount - 1; i >= 0; i--) {
       Aspect aspect = aspectsPath.get(i);
       if (allToolchainTypelabels.stream()
-              .anyMatch(label -> aspect.getDefinition().canPropagateToToolchainType(label))
+              .anyMatch(t -> propagatesTo(t, aspect, computedToolchainsAspects))
           || isAspectRequired(aspect, filteredAspectPath)) {
         // Adds the aspect if it propagates to the toolchain type or it is
         // required by an aspect already in the {@code filteredAspectPath}.
@@ -106,6 +126,11 @@ public final class AspectResolutionHelpers {
     return ImmutableList.copyOf(filteredAspectPath);
   }
 
+  private static <T> boolean propagatesTo(
+      T edge, Aspect aspect, ImmutableMultimap<Aspect, T> computedEdges) {
+    return computedEdges.containsEntry(aspect, edge) || computedEdges.containsEntry(aspect, "*");
+  }
+
   /**
    * Computes the way aspects should be computed for the direct dependencies.
    *
@@ -115,41 +140,63 @@ public final class AspectResolutionHelpers {
    * propagating aspects.
    */
   public static AspectCollection computeAspectCollection(
-      ConfiguredTargetAndData prerequisite, ImmutableList<Aspect> propagatingAspects)
-      throws InconsistentAspectOrderException {
-    var aspects = propagatingAspects;
-    if (prerequisite.isTargetOutputFile()) {
-      // If `applyToGeneratingRules` holds, the aspect has no required providers so some of the
-      // filtering logic below may be skipped, but it doesn't seem to be worth added complexity.
-      aspects =
-          aspects.stream()
-              .filter(aspect -> aspect.getDefinition().applyToGeneratingRules())
-              .collect(toImmutableList());
-    }
-
-    if (aspects.isEmpty() || (!prerequisite.isTargetOutputFile() && !prerequisite.isTargetRule())) {
-      return AspectCollection.EMPTY;
-    }
+      ImmutableList<Aspect> aspects,
+      AdvertisedProviderSet advertisedProviders,
+      Label targetLabel,
+      RuleClass ruleClass,
+      ImmutableList<String> tags,
+      Location targetLocation,
+      ExtendedEventHandler eventHandler)
+      throws InconsistentAspectOrderException, InterruptedException, EvalException {
 
     var filteredAspectPath = new ArrayList<Aspect>();
 
     int aspectsCount = aspects.size();
     for (int i = aspectsCount - 1; i >= 0; i--) {
       Aspect aspect = aspects.get(i);
-      if (prerequisite.satisfies(aspect.getDefinition().getRequiredProviders())
+      if (AspectDefinition.satisfies(aspect, advertisedProviders)
           || isAspectRequired(aspect, filteredAspectPath)) {
-        // Adds the aspect if the configured target satisfies its required providers or it is
+        // Considers the aspect if the target satisfies its required providers or it is
         // required by an aspect already in the {@code filteredAspectPath}.
-        filteredAspectPath.add(aspect);
+        if (evaluatePropagationPredicate(aspect, targetLabel, ruleClass, tags, eventHandler)) {
+          // Only add the aspect if its propagation predicate is satisfied by the target.
+          filteredAspectPath.add(aspect);
+        }
       }
     }
+
     reverse(filteredAspectPath);
+    return computeAspectCollectionNoAspectsFiltering(
+        ImmutableList.copyOf(filteredAspectPath), targetLabel, targetLocation);
+  }
+
+  public static AspectCollection computeAspectCollectionNoAspectsFiltering(
+      ImmutableList<Aspect> aspects, Label targetLabel, Location targetLocation)
+      throws InconsistentAspectOrderException {
     try {
-      return AspectCollection.create(filteredAspectPath);
+      return AspectCollection.create(aspects);
     } catch (AspectCycleOnPathException e) {
-      throw new InconsistentAspectOrderException(
-          prerequisite.getTargetLabel(), prerequisite.getLocation(), e);
+      throw new InconsistentAspectOrderException(targetLabel, targetLocation, e);
     }
+  }
+
+  private static boolean evaluatePropagationPredicate(
+      Aspect aspect,
+      Label label,
+      RuleClass ruleClass,
+      ImmutableList<String> tags,
+      ExtendedEventHandler eventHandler)
+      throws InterruptedException, EvalException {
+    if (aspect.getDefinition().getPropagationPredicate() == null) {
+      return true;
+    }
+    return aspect
+        .getDefinition()
+        .getPropagationPredicate()
+        .evaluate(
+            StarlarkAspectPropagationContext.createForPropagationPredicate(
+                aspect, label, ruleClass, tags),
+            eventHandler);
   }
 
   /**
@@ -162,6 +209,7 @@ public final class AspectResolutionHelpers {
    */
   private static void collectPropagatingAspects(
       ImmutableList<Aspect> aspectsPath,
+      ImmutableMultimap<Aspect, String> computedAttributeAspects,
       String attributeName,
       @Nullable AspectClass aspectOwningAttribute,
       ImmutableList.Builder<Aspect> allFilteredAspects) {
@@ -177,8 +225,7 @@ public final class AspectResolutionHelpers {
         // Do not propagate over the aspect's own attributes.
         continue;
       }
-
-      if (aspect.getDefinition().propagateAlong(attributeName)
+      if (propagatesTo(attributeName, aspect, computedAttributeAspects)
           || isAspectRequired(aspect, filteredAspectsPath)) {
         // Add the aspect if it can propagate over this {@code attributeName} based on its
         // attr_aspects or it is required by an aspect already in the {@code filteredAspectsPath}.
@@ -198,5 +245,56 @@ public final class AspectResolutionHelpers {
       }
     }
     return false;
+  }
+
+  public static ImmutableMultimap<Aspect, String> computeAttributeAspects(
+      ImmutableList<Aspect> aspects,
+      Target target,
+      ConfiguredAttributeMapper attributeMap,
+      OrderedSetMultimap<DependencyKind, Label> dependencyLabels,
+      ExtendedEventHandler eventHandler)
+      throws InterruptedException, EvalException {
+    var result = ImmutableMultimap.<Aspect, String>builder();
+    for (Aspect aspect : aspects) {
+      var attributeAspects = aspect.getDefinition().getAttributeAspects();
+
+      switch (attributeAspects) {
+        case FixedListSupplier<String> s -> result.putAll(aspect, s.getList());
+        case FunctionSupplier<String> s when target.isRule() ->
+            result.putAll(
+                aspect,
+                s.computeList(
+                    StarlarkAspectPropagationContext.createForPropagationEdges(
+                        aspect, (Rule) target, attributeMap, dependencyLabels),
+                    eventHandler));
+        default -> {}
+      }
+    }
+    return result.build();
+  }
+
+  public static ImmutableMultimap<Aspect, Label> computeToolchainsAspects(
+      ImmutableList<Aspect> aspects,
+      Target target,
+      ConfiguredAttributeMapper attributeMap,
+      OrderedSetMultimap<DependencyKind, Label> dependencyLabels,
+      ExtendedEventHandler eventHandler)
+      throws InterruptedException, EvalException {
+    var result = ImmutableMultimap.<Aspect, Label>builder();
+    for (Aspect aspect : aspects) {
+      var toolchainsAspects = aspect.getDefinition().getToolchainsAspects();
+      switch (toolchainsAspects) {
+        case FixedListSupplier<Label> s -> result.putAll(aspect, s.getList());
+        case FunctionSupplier<Label> s when target.isRule() ->
+            result.putAll(
+                aspect,
+                s.computeList(
+                    StarlarkAspectPropagationContext.createForPropagationEdges(
+                        aspect, (Rule) target, attributeMap, dependencyLabels),
+                    eventHandler));
+        default -> {}
+      }
+    }
+    return result.build();
   }
 }

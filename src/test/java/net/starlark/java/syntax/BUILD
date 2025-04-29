@@ -27,10 +27,12 @@ java_test(
         "ParserTest.java",
         "ResolverTest.java",
         "StarlarkFileTest.java",
+        "StarlarkTypesTest.java",
         "SyntaxTests.java",  # (suite)
     ],
     deps = [
         "//src/main/java/net/starlark/java/syntax",
+        "//src/main/java/net/starlark/java/types",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",

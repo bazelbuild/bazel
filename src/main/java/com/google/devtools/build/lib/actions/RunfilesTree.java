@@ -17,8 +17,9 @@ package com.google.devtools.build.lib.actions;
 import com.google.devtools.build.lib.analysis.SymlinkEntry;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.RunfileSymlinksMode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.util.Map;
+import java.util.SortedMap;
 import javax.annotation.Nullable;
 
 /** Lazy wrapper for a single runfiles tree. */
@@ -29,7 +30,7 @@ public interface RunfilesTree {
   PathFragment getExecPath();
 
   /** Returns the mapping from the location in the runfiles tree to the artifact that's there. */
-  Map<PathFragment, Artifact> getMapping();
+  SortedMap<PathFragment, Artifact> getMapping();
 
   /**
    * Returns artifacts the runfiles tree contain symlinks to.
@@ -78,4 +79,7 @@ public interface RunfilesTree {
 
   /** Whether {@link #getMapping()} is cached due to potential reuse within a single build. */
   boolean isMappingCached();
+
+  /** Fingerprints this runfiles tree. */
+  void fingerprint(ActionKeyContext actionKeyContext, Fingerprint fp, boolean digestAbsolutePaths);
 }

@@ -369,6 +369,7 @@ _static_env_feature = feature(
                 ACTION_NAMES.cpp_compile,
                 ACTION_NAMES.cpp_header_parsing,
                 ACTION_NAMES.cpp_module_compile,
+                ACTION_NAMES.lto_backend,
             ],
             env_entries = [
                 env_entry(
@@ -656,7 +657,7 @@ _split_functions_feature = feature(
                 flag_group(
                     flags = [
                         "-fsplit-machine-functions",
-                        "-DBUILD_PROPELLER_TYPE=\"split\"",
+                        "-DBUILD_MFS_ENABLED=1",
                     ],
                 ),
             ],

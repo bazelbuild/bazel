@@ -23,6 +23,7 @@ import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
+import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.skyframe.TransitiveTargetKey;
 import com.google.protobuf.ByteString;
@@ -41,16 +42,11 @@ import org.junit.runner.RunWith;
 @RunWith(TestParameterInjector.class)
 public class GenQueryIntegrationTest extends BuildIntegrationTestCase {
 
-  @TestParameter private boolean ttvFree;
   @TestParameter private boolean keepGoing;
 
   @Override
   protected void setupOptions() throws Exception {
     super.setupOptions();
-    runtimeWrapper.addOptions(
-        ttvFree
-            ? "--experimental_skip_ttvs_for_genquery"
-            : "--noexperimental_skip_ttvs_for_genquery");
     runtimeWrapper.addOptions(keepGoing ? "--keep_going" : "--nokeep_going");
   }
 
@@ -59,12 +55,13 @@ public class GenQueryIntegrationTest extends BuildIntegrationTestCase {
     write(
         "fruits/BUILD",
         """
-        sh_library(
+        load('//test_defs:foo_library.bzl', 'foo_library')
+        foo_library(
             name = "melon",
             deps = [":papaya"],
         )
 
-        sh_library(name = "papaya")
+        foo_library(name = "papaya")
 
         genquery(
             name = "q",
@@ -80,7 +77,8 @@ public class GenQueryIntegrationTest extends BuildIntegrationTestCase {
     write(
         "fruits/BUILD",
         """
-        sh_library(
+        load('//test_defs:foo_library.bzl', 'foo_library')
+        foo_library(
             name = "melon",
             deps = [
                 ":apple",
@@ -88,22 +86,22 @@ public class GenQueryIntegrationTest extends BuildIntegrationTestCase {
             ],
         )
 
-        sh_library(
+        foo_library(
             name = "papaya",
             deps = [":banana"],
         )
 
-        sh_library(
+        foo_library(
             name = "banana",
             deps = [":apple"],
         )
 
-        sh_library(
+        foo_library(
             name = "apple",
             deps = [":cherry"],
         )
 
-        sh_library(name = "cherry")
+        foo_library(name = "cherry")
 
         genquery(
             name = "q",
@@ -120,12 +118,19 @@ public class GenQueryIntegrationTest extends BuildIntegrationTestCase {
 
   @Test
   public void testDuplicateName() throws Exception {
-    write("one/BUILD", "sh_library(name='foo')");
-    write("two/BUILD", "sh_library(name='foo')");
+    write(
+        "one/BUILD",
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
+        "foo_library(name='foo')");
+    write(
+        "two/BUILD",
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
+        "foo_library(name='foo')");
     write(
         "query/BUILD",
         """
-        sh_library(
+        load('//test_defs:foo_library.bzl', 'foo_library')
+        foo_library(
             name = "common",
             deps = [
                 "//one:foo",
@@ -147,12 +152,13 @@ public class GenQueryIntegrationTest extends BuildIntegrationTestCase {
     write(
         "vegetables/BUILD",
         """
-        sh_library(
+        load('//test_defs:foo_library.bzl', 'foo_library')
+        foo_library(
             name = "tomato",
             deps = [":cabbage"],
         )
 
-        sh_library(name = "cabbage")
+        foo_library(name = "cabbage")
 
         genquery(
             name = "q",
@@ -230,8 +236,8 @@ public class GenQueryIntegrationTest extends BuildIntegrationTestCase {
             }),
         )
         """);
-    // d exists but is missing "srcs"
-    write("d/BUILD", "sh_binary(name = 'd')");
+    // d exists but has nonexistent "deps"
+    write("d/BUILD", "filegroup(name = 'd', deps = [])");
 
     addOptions("--define=D=1");
     assertThrows(expectedExceptionClass(), () -> buildTarget("//q"));
@@ -247,7 +253,8 @@ public class GenQueryIntegrationTest extends BuildIntegrationTestCase {
     write(
         "fruits/BUILD",
         """
-        sh_library(
+        load('//test_defs:foo_library.bzl', 'foo_library')
+        foo_library(
             name = "melon",
             deps = [
                 ":1",
@@ -260,13 +267,13 @@ public class GenQueryIntegrationTest extends BuildIntegrationTestCase {
             ],
         )
 
-        sh_library(name = "a")
+        foo_library(name = "a")
 
-        sh_library(name = "z")
+        foo_library(name = "z")
 
-        sh_library(name = "1")
+        foo_library(name = "1")
 
-        sh_library(name = "c")
+        foo_library(name = "c")
 
         genquery(
             name = "q",
@@ -274,9 +281,14 @@ public class GenQueryIntegrationTest extends BuildIntegrationTestCase {
             scope = [":melon"],
         )
         """);
-    write("z/BUILD", "sh_library(name = 'a')");
-    write("a/BUILD", "sh_library(name = 'z')");
-    write("c/BUILD", "sh_library(name = 'c', deps = ['//z:a'])");
+    write(
+        "z/BUILD", "load('//test_defs:foo_library.bzl', 'foo_library')", "foo_library(name = 'a')");
+    write(
+        "a/BUILD", "load('//test_defs:foo_library.bzl', 'foo_library')", "foo_library(name = 'z')");
+    write(
+        "c/BUILD",
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
+        "foo_library(name = 'c', deps = ['//z:a'])");
     assertQueryResult(
         "//fruits:q",
         // Results are ordered in lexicographical order (uses graphless genquery by default).
@@ -295,7 +307,8 @@ public class GenQueryIntegrationTest extends BuildIntegrationTestCase {
     write(
         "food/BUILD",
         """
-        sh_library(
+        load('//test_defs:foo_library.bzl', 'foo_library')
+        foo_library(
             name = "fruit_salad",
             deps = ["//fruits:tropical"],
         )
@@ -310,12 +323,13 @@ public class GenQueryIntegrationTest extends BuildIntegrationTestCase {
     write(
         "fruits/BUILD",
         """
-        sh_library(
+        load('//test_defs:foo_library.bzl', 'foo_library')
+        foo_library(
             name = "tropical",
             deps = [":papaya"],
         )
 
-        sh_library(name = "papaya")
+        foo_library(name = "papaya")
         """);
 
     assertQueryResult("//food:q", "//food:fruit_salad", "//fruits:papaya", "//fruits:tropical");
@@ -323,7 +337,8 @@ public class GenQueryIntegrationTest extends BuildIntegrationTestCase {
     write(
         "fruits/BUILD",
         """
-        sh_library(
+        load('//test_defs:foo_library.bzl', 'foo_library')
+        foo_library(
             name = "tropical",
             deps = [
                 ":coconut",
@@ -331,9 +346,9 @@ public class GenQueryIntegrationTest extends BuildIntegrationTestCase {
             ],
         )
 
-        sh_library(name = "papaya")
+        foo_library(name = "papaya")
 
-        sh_library(name = "coconut")
+        foo_library(name = "coconut")
         """);
 
     assertQueryResult(
@@ -349,12 +364,13 @@ public class GenQueryIntegrationTest extends BuildIntegrationTestCase {
     write(
         "spices/BUILD",
         """
-        sh_library(
+        load('//test_defs:foo_library.bzl', 'foo_library')
+        foo_library(
             name = "cinnamon",
             deps = [":nutmeg"],
         )
 
-        sh_library(name = "nutmeg")
+        foo_library(name = "nutmeg")
 
         genquery(
             name = "q",
@@ -366,12 +382,13 @@ public class GenQueryIntegrationTest extends BuildIntegrationTestCase {
     write(
         "fruits/BUILD",
         """
-        sh_library(
+        load('//test_defs:foo_library.bzl', 'foo_library')
+        foo_library(
             name = "pear",
             deps = [":plum"],
         )
 
-        sh_library(name = "plum")
+        foo_library(name = "plum")
 
         genquery(
             name = "q",
@@ -400,7 +417,10 @@ public class GenQueryIntegrationTest extends BuildIntegrationTestCase {
     write(
         "a/BUILD",
         "genquery(name='query', scope=['//b:target'], expression='deps(//b:nosuchtarget)')");
-    write("b/BUILD", "sh_library(name = 'target')");
+    write(
+        "b/BUILD",
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
+        "foo_library(name = 'target')");
     assertThrows(expectedExceptionClass(), () -> buildTarget("//a:query"));
     events.assertContainsError(
         "in genquery rule //a:query: query failed: no such target '//b:nosuchtarget'");
@@ -425,13 +445,14 @@ public class GenQueryIntegrationTest extends BuildIntegrationTestCase {
     write(
         "a/BUILD",
         """
+        load('//test_defs:foo_library.bzl', 'foo_library')
         genquery(
             name = "query",
             expression = "set()",
             scope = [":missingdep"],
         )
 
-        sh_library(
+        foo_library(
             name = "missingdep",
             deps = ["//b:target"],
         )
@@ -466,13 +487,14 @@ public class GenQueryIntegrationTest extends BuildIntegrationTestCase {
     write(
         "a/BUILD",
         """
+        load('//test_defs:foo_library.bzl', 'foo_library')
         genquery(
             name = "query",
             expression = "set()",
             scope = [":missingdep"],
         )
 
-        sh_library(
+        foo_library(
             name = "missingdep",
             deps = ["//b:target"],
         )
@@ -490,13 +512,13 @@ public class GenQueryIntegrationTest extends BuildIntegrationTestCase {
 
   @Test
   public void testMultiplePatternsInQuery() throws Exception {
-    String buildFile = "";
+    String buildFile = "load('//test_defs:foo_library.bzl', 'foo_library')\n";
     String genQuery =
         "genquery(name = 'q', scope = [':top'], expression = 'deps(//spices:top) ' + \n";
-    String topTarget = "sh_library(name = 'top', deps = [\n";
+    String topTarget = "foo_library(name = 'top', deps = [\n";
     for (int i = 0; i < 20; i++) {
       String targetName = (i % 2 == 0 ? "in" : "out") + i;
-      buildFile += "sh_library(name = '" + targetName + "')\n";
+      buildFile += "foo_library(name = '" + targetName + "')\n";
       if (i % 2 != 0) {
         genQuery += "' - //spices:" + targetName + " ' + \n";
       }
@@ -519,7 +541,8 @@ public class GenQueryIntegrationTest extends BuildIntegrationTestCase {
     write(
         "fruits/BUILD",
         """
-        sh_library(
+        load('//test_defs:foo_library.bzl', 'foo_library')
+        foo_library(
             name = "melon",
             deps = [
                 ":coconut",
@@ -528,11 +551,11 @@ public class GenQueryIntegrationTest extends BuildIntegrationTestCase {
             ],
         )
 
-        sh_library(name = "papaya")
+        foo_library(name = "papaya")
 
-        sh_library(name = "mango")
+        foo_library(name = "mango")
 
-        sh_library(name = "coconut")
+        foo_library(name = "coconut")
 
         genquery(
             name = "q",
@@ -553,7 +576,8 @@ public class GenQueryIntegrationTest extends BuildIntegrationTestCase {
     write(
         "fruits/BUILD",
         """
-        sh_library(
+        load('//test_defs:foo_library.bzl', 'foo_library')
+        foo_library(
             name = "melon",
             deps = [
                 ":coconut",
@@ -562,11 +586,11 @@ public class GenQueryIntegrationTest extends BuildIntegrationTestCase {
             ],
         )
 
-        sh_library(name = "papaya")
+        foo_library(name = "papaya")
 
-        sh_library(name = "mango")
+        foo_library(name = "mango")
 
-        sh_library(name = "coconut")
+        foo_library(name = "coconut")
 
         genquery(
             name = "q",
@@ -597,7 +621,7 @@ public class GenQueryIntegrationTest extends BuildIntegrationTestCase {
         """
         load("//foo:bzl.bzl", "x")
 
-        sh_library(name = "foo")
+        filegroup(name = "foo")
 
         genquery(
             name = "gen-loadfiles",
@@ -627,7 +651,7 @@ public class GenQueryIntegrationTest extends BuildIntegrationTestCase {
         """
         load("//foo:bzl.bzl", "x")
 
-        sh_library(name = "foo")
+        filegroup(name = "foo")
 
         genquery(
             name = "gen-buildfiles",
@@ -675,13 +699,34 @@ public class GenQueryIntegrationTest extends BuildIntegrationTestCase {
             ],
         )
         """);
-    write("top/BUILD", "sh_library(name = 'top', deps = ['//mid1', '//mid2', '//mid3', '//mid4'])");
-    write("mid1/BUILD", "sh_library(name = 'mid1', deps = ['//lower'])");
-    write("mid2/BUILD", "sh_library(name = 'mid2', deps = ['//lower'])");
-    write("mid3/BUILD", "sh_library(name = 'mid3', deps = ['//bottom'])");
-    write("mid4/BUILD", "sh_library(name = 'mid4', deps = ['//bottom'])");
-    write("lower/BUILD", "sh_library(name = 'lower', deps = ['//bottom'])");
-    write("bottom/BUILD", "sh_library(name = 'bottom')");
+    write(
+        "top/BUILD",
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
+        "foo_library(name = 'top', deps = ['//mid1', '//mid2', '//mid3', '//mid4'])");
+    write(
+        "mid1/BUILD",
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
+        "foo_library(name = 'mid1', deps = ['//lower'])");
+    write(
+        "mid2/BUILD",
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
+        "foo_library(name = 'mid2', deps = ['//lower'])");
+    write(
+        "mid3/BUILD",
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
+        "foo_library(name = 'mid3', deps = ['//bottom'])");
+    write(
+        "mid4/BUILD",
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
+        "foo_library(name = 'mid4', deps = ['//bottom'])");
+    write(
+        "lower/BUILD",
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
+        "foo_library(name = 'lower', deps = ['//bottom'])");
+    write(
+        "bottom/BUILD",
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
+        "foo_library(name = 'bottom')");
 
     String firstResult = getQueryResult("//query");
     for (int i = 0; i < 10; i++) {
@@ -695,7 +740,8 @@ public class GenQueryIntegrationTest extends BuildIntegrationTestCase {
     write(
         "foo/BUILD",
         """
-        sh_library(
+        load('//test_defs:foo_library.bzl', 'foo_library')
+        foo_library(
             name = "t1",
             visibility = [
                 ":pg",
@@ -704,7 +750,7 @@ public class GenQueryIntegrationTest extends BuildIntegrationTestCase {
             deps = [":t2"],
         )
 
-        sh_library(name = "t2")
+        foo_library(name = "t2")
 
         package_group(name = "pg")
         """);
@@ -746,27 +792,23 @@ public class GenQueryIntegrationTest extends BuildIntegrationTestCase {
   @Test
   public void testLoadingPhaseCycle() throws Exception {
     // This test uses a target in a self-cycle to demonstrate that a genquery rule having a cycle in
-    // its scope causes it to fail, unless --experimental_skip_ttvs_for_genquery is used.
+    // its scope does not cause it to fail.
     write(
         "cycle/BUILD",
         """
+        load('//test_defs:foo_library.bzl', 'foo_library')
         genquery(
             name = "gen",
             expression = "//cycle",
             scope = [":cycle"],
         )
 
-        sh_library(
+        foo_library(
             name = "cycle",
             deps = [":cycle"],
         )
         """);
-    if (ttvFree) {
-      assertQueryResult("//cycle:gen", "//cycle:cycle");
-    } else {
-      assertThrows(expectedExceptionClass(), () -> buildTarget("//cycle:gen"));
-      assertContainsEvent("in sh_library rule //cycle:cycle: cycle in dependency graph");
-    }
+    assertQueryResult("//cycle:gen", "//cycle:cycle");
   }
 
   private void writeAspectDefinition(String aspectPackage, String extraDep) throws Exception {
@@ -798,6 +840,7 @@ public class GenQueryIntegrationTest extends BuildIntegrationTestCase {
         "start/BUILD",
         """
         load("//aspect1:aspect.bzl", "aspect_rule")
+        load('//test_defs:foo_library.bzl', 'foo_library')
 
         genquery(
             name = "gen",
@@ -810,29 +853,31 @@ public class GenQueryIntegrationTest extends BuildIntegrationTestCase {
             attr = [":startdep"],
         )
 
-        sh_library(name = "startdep")
+        foo_library(name = "startdep")
         """);
     write(
         "middle/BUILD",
         """
         load("//aspect2:aspect.bzl", "aspect_rule")
+        load('//test_defs:foo_library.bzl', 'foo_library')
 
         aspect_rule(
             name = "middle",
             attr = [":middledep"],
         )
 
-        sh_library(name = "middledep")
+        foo_library(name = "middledep")
         """);
     write(
         "end/BUILD",
         """
-        sh_library(
+        load('//test_defs:foo_library.bzl', 'foo_library')
+        foo_library(
             name = "end",
             deps = [":enddep"],
         )
 
-        sh_library(name = "enddep")
+        foo_library(name = "enddep")
         """);
     assertQueryResult(
         "//start:gen",
@@ -849,12 +894,13 @@ public class GenQueryIntegrationTest extends BuildIntegrationTestCase {
     write(
         "fruits/BUILD",
         """
-        sh_library(
+        load('//test_defs:foo_library.bzl', 'foo_library')
+        foo_library(
             name = "melon",
             deps = [":papaya"],
         )
 
-        sh_library(name = "papaya")
+        foo_library(name = "papaya")
 
         genquery(
             name = "q",
@@ -876,6 +922,72 @@ public class GenQueryIntegrationTest extends BuildIntegrationTestCase {
     assertThat(decompressedOut.toString(UTF_8)).isEqualTo("//fruits:melon\n//fruits:papaya\n");
   }
 
+  @Test
+  public void testConsistentLabels() throws Exception {
+    write(
+        "fruits/BUILD",
+        """
+        load('//test_defs:foo_library.bzl', 'foo_library')
+        foo_library(
+            name = "melon",
+            deps = [":papaya"],
+        )
+
+        foo_library(name = "papaya")
+
+        genquery(
+            name = "q",
+            expression = "deps(//fruits:melon)",
+            scope = [":melon"],
+            opts = ["--consistent_labels"],
+        )
+        """);
+    assertQueryResult("//fruits:q", "@@//fruits:melon", "@@//fruits:papaya");
+  }
+
+  @Test
+  public void testGenQueryInExternalRepo() throws Exception {
+    if (!AnalysisMock.get().isThisBazel()) {
+      return;
+    }
+    write(
+        "MODULE.bazel",
+        """
+        bazel_dep(name = "other_module")
+        local_path_override(
+            module_name = "other_module",
+            path = "other_module",
+        )
+        """);
+    write(
+        "other_module/MODULE.bazel",
+        """
+        module(name = 'other_module')
+        """);
+    write(
+        "other_module/fruits/BUILD",
+        """
+        load('@@//test_defs:foo_library.bzl', 'foo_library')
+        foo_library(
+            name = "melon",
+            deps = [":papaya"],
+        )
+
+        foo_library(name = "papaya")
+
+        genquery(
+            name = "q",
+            expression = "deps(//fruits:melon)",
+            scope = [":melon"],
+        )
+        """);
+
+    assertQueryResult(
+        "@@other_module+//fruits:q",
+        "@@other_module+//fruits:melon",
+        "@@other_module+//fruits:papaya");
+  }
+
   private void assertQueryResult(String queryTarget, String... expected) throws Exception {
     assertThat(getQueryResult(queryTarget).split("\n"))
         .asList()
@@ -894,7 +1006,7 @@ public class GenQueryIntegrationTest extends BuildIntegrationTestCase {
     buildTarget(queryTarget);
     Artifact output = Iterables.getOnlyElement(getArtifacts(queryTarget));
     assertThat(getAllKeysInGraph().stream().anyMatch(key -> key instanceof TransitiveTargetKey))
-        .isEqualTo(!ttvFree);
+        .isFalse();
     return readContentAsLatin1String(output);
   }
 

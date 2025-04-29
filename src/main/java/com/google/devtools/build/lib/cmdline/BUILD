@@ -17,6 +17,7 @@ java_library(
     srcs = [
         "BazelCompileContext.java",
         "BazelModuleContext.java",
+        "BazelModuleKey.java",
         "IgnoredSubdirectories.java",
         "Label.java",
         "LabelConstants.java",
@@ -51,6 +52,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
         "//src/main/java/com/google/devtools/build/lib/util:hash_codes",
         "//src/main/java/com/google/devtools/build/lib/util:string",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:ospathpolicy",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",

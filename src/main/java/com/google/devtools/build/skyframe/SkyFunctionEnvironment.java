@@ -648,14 +648,18 @@ public class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
     // set valuesMissing.
     if (!errorInfo.getCycleInfo().isEmpty()
         || (errorInfo.getException() != null
-            && !evaluatorContext.keepGoing()
+            && !shouldKeepGoingWhenEvaluatingDep(depKey)
             && bubbleErrorInfo == null)) {
       valuesMissing = true;
       // We arbitrarily record the first child error if we are about to abort.
-      if (!evaluatorContext.keepGoing() && depErrorKey == null) {
+      if (!shouldKeepGoingWhenEvaluatingDep(depKey) && depErrorKey == null) {
         depErrorKey = depKey;
       }
     }
+  }
+
+  private boolean shouldKeepGoingWhenEvaluatingDep(SkyKey depKey) {
+    return evaluatorContext.keepGoing(depKey);
   }
 
   @Nullable
@@ -761,7 +765,7 @@ public class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
    */
   @Nullable
   private Object handleError(SkyKey depKey, ValueWithMetadata wrappedError) {
-    if (evaluatorContext.keepGoing()) {
+    if (shouldKeepGoingWhenEvaluatingDep(depKey)) {
       // In keepGoing mode, returns any computed value to the caller.
       SkyValue justValue = wrappedError.getValue();
       if (justValue != null) {
@@ -781,7 +785,7 @@ public class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
           depKey,
           errorInfo,
           wrappedError);
-    } else if (evaluatorContext.keepGoing() || bubbleErrorInfo != null) {
+    } else if (shouldKeepGoingWhenEvaluatingDep(depKey) || bubbleErrorInfo != null) {
       // The exception may only propagate in keepGoing mode or during error bubbling.
       return exception;
     }

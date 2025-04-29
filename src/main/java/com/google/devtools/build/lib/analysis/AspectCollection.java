@@ -13,7 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis;
 
-import com.google.auto.value.AutoValue;
+import static java.util.Objects.requireNonNull;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -186,6 +187,14 @@ public final class AspectCollection {
     return this.usedAspects.equals(that.usedAspects);
   }
 
+  public ImmutableList<AspectKey> createAspectKeys(ConfiguredTargetKey baseKey) {
+    Map<AspectDescriptor, AspectKey> descriptorToAspectKey = new HashMap<>();
+    for (AspectCollection.AspectDeps aspectDeps : getUsedAspects()) {
+      buildAspectKey(aspectDeps, descriptorToAspectKey, baseKey);
+    }
+    return ImmutableList.copyOf(descriptorToAspectKey.values());
+  }
+
   /**
    * Represents an aspect with all the aspects it depends on (within an {@link AspectCollection}.
    *
@@ -202,15 +211,15 @@ public final class AspectCollection {
    * <p>(a list of (dependent aspect, visible) pairs would work, though and the code would probably
    * be somewhat simpler)
    */
-  @AutoValue
-  public abstract static class AspectDeps {
-    public abstract AspectDescriptor getAspect();
-
-    public abstract ImmutableList<AspectDeps> getUsedAspects();
+  public record AspectDeps(AspectDescriptor aspect, ImmutableList<AspectDeps> usedAspects) {
+    public AspectDeps {
+      requireNonNull(aspect, "aspect");
+      requireNonNull(usedAspects, "usedAspects");
+    }
 
     private static AspectDeps create(
         AspectDescriptor aspect, ImmutableList<AspectDeps> usedAspects) {
-      return new AutoValue_AspectCollection_AspectDeps(aspect, usedAspects);
+      return new AspectDeps(aspect, usedAspects);
     }
   }
 
@@ -230,13 +239,13 @@ public final class AspectCollection {
       AspectDeps aspectDeps,
       Map<AspectDescriptor, AspectKey> visited,
       ConfiguredTargetKey baseKey) {
-    AspectDescriptor aspect = aspectDeps.getAspect();
+    AspectDescriptor aspect = aspectDeps.aspect();
     AspectKey aspectKey = visited.get(aspect);
     if (aspectKey != null) {
       return aspectKey;
     }
 
-    ImmutableList<AspectDeps> usedAspects = aspectDeps.getUsedAspects();
+    ImmutableList<AspectDeps> usedAspects = aspectDeps.usedAspects();
     var usedAspectKeys = ImmutableList.<AspectKey>builderWithExpectedSize(usedAspects.size());
     for (AspectCollection.AspectDeps usedAspect : usedAspects) {
       usedAspectKeys.add(buildAspectKey(usedAspect, visited, baseKey));

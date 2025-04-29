@@ -20,7 +20,6 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Sets;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -60,6 +59,7 @@ import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.util.FileSystems;
 import com.google.devtools.common.options.Options;
@@ -73,9 +73,7 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 import org.mockito.Mockito;
 
-/**
- * Test StandaloneSpawnStrategy.
- */
+/** Test StandaloneSpawnStrategy. */
 @RunWith(JUnit4.class)
 public class StandaloneSpawnStrategyTest {
   private static final String WINDOWS_SYSTEM_DRIVE = "C:";
@@ -131,14 +129,13 @@ public class StandaloneSpawnStrategyTest {
     optionsParser.parse("--verbose_failures");
     LocalExecutionOptions localExecutionOptions = Options.getDefaults(LocalExecutionOptions.class);
 
-    ResourceManager resourceManager = ResourceManager.instanceForTestingOnly();
+    ResourceManager resourceManager = new ResourceManager();
     resourceManager.setAvailableResources(
         ResourceSet.create(/* memoryMb= */ 1, /* cpu= */ 1, /* localTestCount= */ 1));
     Path execRoot = directories.getExecRoot(TestConstants.WORKSPACE_NAME);
     BinTools binTools = BinTools.forIntegrationTesting(directories, ImmutableList.of());
     StandaloneSpawnStrategy strategy =
         new StandaloneSpawnStrategy(
-            execRoot,
             new LocalSpawnRunner(
                 execRoot,
                 localExecutionOptions,
@@ -149,7 +146,7 @@ public class StandaloneSpawnStrategyTest {
                 Mockito.mock(RunfilesTreeUpdater.class)),
             new ExecutionOptions());
     this.executor =
-        new TestExecutorBuilder(fileSystem, directories, binTools)
+        new TestExecutorBuilder(fileSystem, directories)
             .addStrategy(strategy, "standalone")
             .setDefaultStrategies("standalone")
             .build();
@@ -171,6 +168,7 @@ public class StandaloneSpawnStrategyTest {
   private String out() {
     return outErr.outAsLatin1();
   }
+
   private String err() {
     return outErr.errAsLatin1();
   }
@@ -195,7 +193,10 @@ public class StandaloneSpawnStrategyTest {
     return new ActionExecutionContext(
         executor,
         new SingleBuildFileCache(
-            execRoot.getPathString(), execRoot.getFileSystem(), SyscallCache.NO_CACHE),
+            execRoot.getPathString(),
+            PathFragment.create("dummy-output-path"),
+            execRoot.getFileSystem(),
+            SyscallCache.NO_CACHE),
         ActionInputPrefetcher.NONE,
         new ActionKeyContext(),
         /* outputMetadataStore= */ null,
@@ -204,10 +205,7 @@ public class StandaloneSpawnStrategyTest {
         outErr,
         reporter,
         /* clientEnv= */ ImmutableMap.of(),
-        /* topLevelFilesets= */ ImmutableMap.of(),
-        treeArtifact -> ImmutableSortedSet.of(),
         /* actionFileSystem= */ null,
-        /* skyframeDepsResult= */ null,
         DiscoveredModulesPruner.DEFAULT,
         SyscallCache.NO_CACHE,
         ThreadStateReceiver.NULL_INSTANCE);
@@ -274,10 +272,10 @@ public class StandaloneSpawnStrategyTest {
             OS.getCurrent() == OS.WINDOWS
                 ? ImmutableList.of(CMD_EXE, "/c", "set")
                 : ImmutableList.of("/usr/bin/env"),
-            /*environment=*/ ImmutableMap.of("foo", "bar", "baz", "boo"),
-            /*executionInfo=*/ ImmutableMap.of(),
-            /*inputs=*/ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-            /*outputs=*/ ImmutableSet.of(),
+            /* environment= */ ImmutableMap.of("foo", "bar", "baz", "boo"),
+            /* executionInfo= */ ImmutableMap.of(),
+            /* inputs= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+            /* outputs= */ ImmutableSet.of(),
             ResourceSet.ZERO);
     run(spawn);
     HashSet<String> environment = Sets.newHashSet(out().split(System.lineSeparator()));

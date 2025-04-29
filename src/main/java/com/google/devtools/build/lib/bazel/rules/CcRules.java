@@ -54,8 +54,6 @@ public class CcRules implements RuleSet {
     builder.addConfigurationFragment(CppConfiguration.class);
     builder.addBzlToplevel("CcSharedLibraryInfo", Starlark.NONE);
     builder.addBzlToplevel("CcSharedLibraryHintInfo", Starlark.NONE);
-    builder.addBzlToplevel("cc_proto_aspect", Starlark.NONE);
-    builder.addRuleDefinition(new EmptyRule("cc_proto_library") {});
 
     builder.addRuleDefinition(new EmptyRule("cc_toolchain") {});
     builder.addRuleDefinition(new CcToolchainSuiteRule());

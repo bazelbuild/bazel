@@ -21,7 +21,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Interner;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Iterators;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.common.collect.UnmodifiableIterator;
@@ -29,25 +29,24 @@ import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ArgChunk;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
-import com.google.devtools.build.lib.actions.ArtifactExpander;
-import com.google.devtools.build.lib.actions.ArtifactExpander.MissingExpansionException;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.CommandLineItem;
 import com.google.devtools.build.lib.actions.CommandLineLimits;
 import com.google.devtools.build.lib.actions.CommandLines;
 import com.google.devtools.build.lib.actions.CommandLines.ParamFileActionInput;
+import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.FilesetOutputTree;
-import com.google.devtools.build.lib.actions.FilesetOutputTree.RelativeSymlinkBehaviorWithoutError;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.SingleStringArgFormatter;
-import com.google.devtools.build.lib.analysis.actions.PathMappers;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
+import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.starlarkbuildapi.DirectoryExpander;
@@ -89,22 +88,24 @@ import net.starlark.java.syntax.Location;
  * on. Additionally, {@link CommandLine#addToFingerprint} supports computing a fingerprint without
  * actually constructing the expanded command line.
  *
- * <p>Second, right before an action executes, {@link #expand(ArtifactExpander, PathMapper)} is
+ * <p>Second, right before an action executes, {@link #expand(InputMetadataProvider, PathMapper)} is
  * called to "preprocess" the recipe into a {@link PreprocessedCommandLine}. This step includes
  * flattening nested sets and applying any operations that can throw an exception, such as expanding
  * directories and invoking {@code map_each} functions. At this point, the representation stores a
  * string for each individual argument, but string formatting (including {@code format}, {@code
  * format_each}, {@code before_each}, {@code join_with}, {@code format_joined}, and {@code
- * flag_per_line}), is not yet applied. This means that in the common case of an {@link Artifact}
- * with no {@code map_each} function, the string representation is still its {@link
- * Artifact#getExecPathString}, which is not a novel string instance - it is already stored in the
- * {@link Artifact}. This is crucial because for param files (the longest command lines), the
- * preprocessed representation is retained throughout the action's execution.
+ * flag_per_line}), is not yet applied. If {@code map_each} is not used, path mapping is also not
+ * applied yet. This means that in the common case of an {@link Artifact} with no {@code map_each}
+ * function, the string representation is still its {@link Artifact#getExecPathString}, which is not
+ * a novel string instance - it is already stored in the {@link Artifact}. This is crucial because
+ * for param files (the longest command lines), the preprocessed representation is retained
+ * throughout the action's execution. If {@code map_each} is used, path mapping affects the result
+ * of the callback and thus needs to be applied eagerly.
  *
- * <p>Finally, string formatting is applied lazily during iteration over a {@link
+ * <p>Finally, string formatting and path mapping are applied lazily during iteration over a {@link
  * PreprocessedCommandLine}. When there is no param file, this happens up front during {@link
- * CommandLines#expand(ArtifactExpander, PathFragment, PathMapper, CommandLineLimits)}. When a param
- * file is used, the lazy {@link PreprocessedCommandLine#arguments} is stored in a {@link
+ * CommandLines#expand(InputMetadataProvider, PathFragment, PathMapper, CommandLineLimits)}. When a
+ * param file is used, the lazy {@link PreprocessedCommandLine#arguments} is stored in a {@link
  * ParamFileActionInput}, which is processed by the action execution strategy. Strategies should
  * respect the laziness of {@link ParamFileActionInput#getArguments} by iterating as few times as
  * possible and not retaining elements longer than necessary.
@@ -122,12 +123,10 @@ import net.starlark.java.syntax.Location;
  * set is flattened and {@link Artifact#expandToCommandLine} is called for each element, but this
  * returns an exec path string instance already stored inside the artifact. {@code format_each} is
  * not yet applied, so no new strings are created. {@link SingleStringArgFormatter#format} is only
- * called during iteration over the {@link PreprocessedCommandLine#arguments}.
+ * called during iteration over the {@link PreprocessedCommandLine#arguments}. If path mapping is
+ * used, the artifact instances are kept around instead and the mapped exec paths strings are only
+ * created during iteration, together with the formatted strings.
  */
-// TODO: b/327187486 - PathMapper is currently invoked during the preprocessing step. If path
-//  stripping is enabled, this means that the lazy approach to string formatted described above is
-//  defeated. Ideally, PathMapper should be invoked lazily during iteration over a
-//  PreprocessedCommandLine.
 public class StarlarkCustomCommandLine extends CommandLine {
 
   private static final Joiner LINE_JOINER = Joiner.on("\n").skipNulls();
@@ -310,7 +309,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
         List<Object> arguments,
         int argi,
         PreprocessedCommandLine.Builder builder,
-        @Nullable ArtifactExpander artifactExpander,
+        @Nullable InputMetadataProvider inputMetadataProvider,
         PathMapper pathMapper,
         @Nullable RepositoryMapping mainRepoMapping)
         throws CommandLineExpansionException, InterruptedException {
@@ -336,41 +335,45 @@ public class StarlarkCustomCommandLine extends CommandLine {
         argi += count;
       }
       List<Object> expandedValues =
-          maybeExpandDirectories(artifactExpander, originalValues, pathMapper);
-      List<String> stringValues;
+          maybeExpandDirectories(inputMetadataProvider, originalValues, pathMapper);
+      List<Object /* String | DerivedArtifact */> values;
       if (mapEach != null) {
-        stringValues = new ArrayList<>(expandedValues.size());
+        values = new ArrayList<>(expandedValues.size());
         applyMapEach(
             mapEach,
             expandedValues,
-            stringValues::add,
+            values::add,
             location,
-            artifactExpander,
+            inputMetadataProvider,
             pathMapper,
             starlarkSemantics);
       } else {
         int count = expandedValues.size();
-        stringValues = new ArrayList<>(expandedValues.size());
+        values = new ArrayList<>(expandedValues.size());
         for (int i = 0; i < count; ++i) {
-          stringValues.add(expandToCommandLine(expandedValues.get(i), pathMapper, mainRepoMapping));
+          values.add(expandToCommandLine(expandedValues.get(i), mainRepoMapping));
         }
       }
       // It's safe to uniquify at this stage, any transformations after this
       // will ensure continued uniqueness of the values
       if ((features & UNIQUIFY) != 0) {
-        int count = stringValues.size();
+        int count = values.size();
         HashSet<String> seen = Sets.newHashSetWithExpectedSize(count);
         int addIndex = 0;
         for (int i = 0; i < count; ++i) {
-          String val = stringValues.get(i);
-          if (seen.add(val)) {
-            stringValues.set(addIndex++, val);
+          Object /* String | DerivedArtifact */ val = values.get(i);
+          // If the path mapper is a no-op, an artifact behaves just like its (trivially mapped)
+          // exec path string. If the path mapper is not a no-op, mapped paths are always distinct
+          // from unmapped paths. We can thus uniquify based on the mapped exec path string in each
+          // case.
+          if (seen.add(maybePathMap(val, pathMapper))) {
+            values.set(addIndex++, val);
           }
         }
-        stringValues = stringValues.subList(0, addIndex);
+        values = values.subList(0, addIndex);
       }
       boolean omitIfEmpty = (features & OMIT_IF_EMPTY) != 0;
-      boolean isEmptyAndShouldOmit = omitIfEmpty && stringValues.isEmpty();
+      boolean isEmptyAndShouldOmit = omitIfEmpty && values.isEmpty();
       if ((features & HAS_ARG_NAME) != 0) {
         String argName = (String) arguments.get(argi++);
         if (!isEmptyAndShouldOmit) {
@@ -394,13 +397,13 @@ public class StarlarkCustomCommandLine extends CommandLine {
         }
       }
 
-      // If !omitIfEmpty, joining yields a single argument even if stringValues is empty. Note that
+      // If !omitIfEmpty, joining yields a single argument even if values is empty. Note that
       // the argument may still be non-empty if format_joined is used.
-      if (!stringValues.isEmpty() || (!omitIfEmpty && joinWith != null)) {
+      if (!values.isEmpty() || (!omitIfEmpty && joinWith != null)) {
         PreprocessedArg arg =
             joinWith != null
-                ? new JoinedPreprocessedVectorArg(stringValues, formatEach, joinWith, formatJoined)
-                : new UnjoinedPreprocessedVectorArg(stringValues, formatEach, beforeEach);
+                ? new JoinedPreprocessedVectorArg(values, formatEach, joinWith, formatJoined)
+                : new UnjoinedPreprocessedVectorArg(values, formatEach, beforeEach);
         builder.addPreprocessedArg(arg);
       }
 
@@ -414,24 +417,24 @@ public class StarlarkCustomCommandLine extends CommandLine {
     }
 
     /**
-     * Expands the directories if {@code expand_directories} feature is enabled and a
-     * ArtifactExpander is available.
+     * Expands the directories if {@code expand_directories} feature is enabled and an
+     * InputMetadataProvider is available.
      *
      * <p>Technically, we should always expand the directories if the feature is requested, however
-     * we cannot do that in the absence of the {@link ArtifactExpander}.
+     * we cannot do that in the absence of the {@link InputMetadataProvider}.
      */
     private List<Object> maybeExpandDirectories(
-        @Nullable ArtifactExpander artifactExpander,
+        @Nullable InputMetadataProvider inputMetadataProvider,
         List<Object> originalValues,
         PathMapper pathMapper)
         throws CommandLineExpansionException {
       if ((features & EXPAND_DIRECTORIES) == 0
-          || artifactExpander == null
+          || inputMetadataProvider == null
           || !hasDirectory(originalValues)) {
         return originalValues;
       }
 
-      return expandDirectories(artifactExpander, originalValues, pathMapper);
+      return expandDirectories(inputMetadataProvider, originalValues, pathMapper);
     }
 
     private static boolean hasDirectory(List<Object> originalValues) {
@@ -450,27 +453,28 @@ public class StarlarkCustomCommandLine extends CommandLine {
     }
 
     private static List<Object> expandDirectories(
-        ArtifactExpander artifactExpander, List<Object> originalValues, PathMapper pathMapper)
+        InputMetadataProvider inputMetadataProvider,
+        List<Object> originalValues,
+        PathMapper pathMapper)
         throws CommandLineExpansionException {
       List<Object> expandedValues = new ArrayList<>(originalValues.size());
       for (Object object : originalValues) {
         if (isDirectory(object)) {
           Artifact artifact = (Artifact) object;
           if (artifact.isTreeArtifact()) {
-            try {
-              expandedValues.addAll(artifactExpander.expandTreeArtifact(artifact));
-            } catch (MissingExpansionException e) {
+            TreeArtifactValue treeArtifactValue = inputMetadataProvider.getTreeMetadata(artifact);
+            if (treeArtifactValue == null) {
               throw new CommandLineExpansionException(
                   String.format(
                       "Failed to expand directory %s. Either add the directory as an input of the"
                           + " action or set 'expand_directories = False' in the 'add_all' or"
                           + " 'add_joined' call to have the path of the directory added to the"
                           + " command line instead of its contents.",
-                      Starlark.repr(artifact)),
-                  e);
+                      Starlark.repr(artifact)));
             }
+            expandedValues.addAll(treeArtifactValue.getChildren());
           } else if (artifact.isFileset()) {
-            expandFileset(artifactExpander, artifact, expandedValues, pathMapper);
+            expandFileset(inputMetadataProvider, artifact, expandedValues, pathMapper);
           } else {
             throw new AssertionError("Unknown artifact type.");
           }
@@ -482,36 +486,31 @@ public class StarlarkCustomCommandLine extends CommandLine {
     }
 
     private static void expandFileset(
-        ArtifactExpander artifactExpander,
+        InputMetadataProvider inputMetadataProvider,
         Artifact fileset,
         List<Object> expandedValues,
         PathMapper pathMapper)
         throws CommandLineExpansionException {
-      FilesetOutputTree filesetOutput;
-      try {
-        filesetOutput = artifactExpander.expandFileset(fileset);
-      } catch (MissingExpansionException e) {
+      FilesetOutputTree filesetOutput = inputMetadataProvider.getFileset(fileset);
+      if (filesetOutput == null) {
         throw new CommandLineExpansionException(
             String.format(
                 "Could not expand fileset: %s. Did you forget to add it as an input of the action?",
-                fileset),
-            e);
+                fileset));
       }
       PathFragment mappedExecPath = pathMapper.map(fileset.getExecPath());
-      filesetOutput.visitSymlinks(
-          RelativeSymlinkBehaviorWithoutError.IGNORE,
-          (name, target, metadata) ->
-              expandedValues.add(
-                  new FilesetSymlinkFile(fileset, mappedExecPath.getRelative(name))));
+      for (FilesetOutputSymlink link : filesetOutput.symlinks()) {
+        expandedValues.add(
+            new FilesetSymlinkFile(fileset, mappedExecPath.getRelative(link.name())));
+      }
     }
-
 
     private int addToFingerprint(
         List<Object> arguments,
         int argi,
         ActionKeyContext actionKeyContext,
         Fingerprint fingerprint,
-        @Nullable ArtifactExpander artifactExpander,
+        @Nullable InputMetadataProvider inputMetadataProvider,
         CoreOptions.OutputPathsMode outputPathsMode)
         throws CommandLineExpansionException, InterruptedException {
       StarlarkCallable mapEach = null;
@@ -550,20 +549,20 @@ public class StarlarkCustomCommandLine extends CommandLine {
                   mapEach,
                   location,
                   starlarkSemantics,
-                  (features & EXPAND_DIRECTORIES) != 0 ? artifactExpander : null,
+                  (features & EXPAND_DIRECTORIES) != 0 ? inputMetadataProvider : null,
                   outputPathsMode);
           try {
             actionKeyContext.addNestedSetToFingerprint(commandLineItemMapFn, fingerprint, values);
           } finally {
-            // The cache holds an entry for a NestedSet for every (map_fn, hasArtifactExpanderBit,
-            // pathMapperCacheKey).
-            // Clearing the artifactExpander itself saves us from storing the contents of it in the
-            // cache keys (it is no longer needed after we evaluate the value).
-            // NestedSet cache is cleared after every build, which means that the artifactExpander
-            // for a given action, if present, cannot change within the lifetime of the fingerprint
-            // cache (we call getKey with artifactExpander to check action key, when we are ready to
-            // execute the action in case of a cache miss).
-            commandLineItemMapFn.clearArtifactExpander();
+            // The cache holds an entry for a NestedSet for every (map_fn, hasInputMetadataProvider
+            // bit, pathMapperCacheKey).
+            // Clearing the input metadata provider itself saves us from storing the contents of it
+            // in the cache keys (it is no longer needed after we evaluate the value).
+            // NestedSet cache is cleared after every build, which means that the input metadata
+            // provider for a given action, if present, cannot change within the lifetime of the
+            // fingerprintcache (we call getKey with inputMetadataProvider to check action key, when
+            // we are ready to execute the action in case of a cache miss).
+            commandLineItemMapFn.clearInputMetadataProvider();
           }
         } else {
           fingerprint.addInt(stringificationType.ordinal());
@@ -573,24 +572,25 @@ public class StarlarkCustomCommandLine extends CommandLine {
         int count = (features & HAS_SINGLE_ARG) != 0 ? 1 : (Integer) arguments.get(argi++);
         List<Object> maybeExpandedValues =
             maybeExpandDirectories(
-                artifactExpander,
+                inputMetadataProvider,
                 arguments.subList(argi, argi + count),
-                PathMappers.forActionKey(outputPathsMode));
+                PathMapper.forActionKey(outputPathsMode));
         argi += count;
         if (mapEach != null) {
-          // TODO(b/160181927): If artifactExpander == null (which happens in the analysis phase)
+          // TODO(b/160181927): If inputMetadataProvider == null (happens in the analysis phase)
           // but expandDirectories is true, we run the map_each function on directory values without
           // actually expanding them. This differs from the real evaluation behavior. This means
           // that we can erroneously produce the same digest for two command lines that differ only
           // in their directory expansion. Fortunately, this is only a problem for shared action
-          // conflict checking/aquery result, since at execution time we have an artifactExpander.
+          // conflict checking/aquery result, since at execution time we have an input metadata
+          // provider.
           applyMapEach(
               mapEach,
               maybeExpandedValues,
               fingerprint::addString,
               location,
-              artifactExpander,
-              PathMappers.forActionKey(outputPathsMode),
+              inputMetadataProvider,
+              PathMapper.forActionKey(outputPathsMode),
               starlarkSemantics);
         } else {
           for (Object value : maybeExpandedValues) {
@@ -796,7 +796,6 @@ public class StarlarkCustomCommandLine extends CommandLine {
      *     be directly preceded by {@link #MARKER}
      * @param builder the {@link PreprocessedCommandLine.Builder} in which to add a preprocessed
      *     representation of this arg
-     * @param pathMapper mapper for exec paths
      * @param mainRepoMapping the repository mapping to use for formatting labels if needed
      * @return index in {@code arguments} where the next arg begins, or {@code arguments.size()} if
      *     there are no more arguments
@@ -805,13 +804,17 @@ public class StarlarkCustomCommandLine extends CommandLine {
         List<Object> arguments,
         int argi,
         PreprocessedCommandLine.Builder builder,
-        PathMapper pathMapper,
         @Nullable RepositoryMapping mainRepoMapping) {
       Object object = arguments.get(argi++);
       String formatStr = (String) arguments.get(argi++);
-      String stringValue =
-          StarlarkCustomCommandLine.expandToCommandLine(object, pathMapper, mainRepoMapping);
-      builder.addPreprocessedArg(new PreprocessedSingleFormattedArg(formatStr, stringValue));
+      switch (expandToCommandLine(object, mainRepoMapping)) {
+        case DerivedArtifact derivedArtifact ->
+            builder.addPreprocessedArg(
+                new PreprocessedSingleFormattedArtifactArg(formatStr, derivedArtifact));
+        case String stringValue ->
+            builder.addPreprocessedArg(new PreprocessedSingleFormattedArg(formatStr, stringValue));
+        default -> throw new AssertionError("Unexpected object type: " + object);
+      }
       return argi;
     }
 
@@ -901,7 +904,8 @@ public class StarlarkCustomCommandLine extends CommandLine {
   }
 
   @Override
-  public ArgChunk expand(@Nullable ArtifactExpander artifactExpander, PathMapper pathMapper)
+  public ArgChunk expand(
+      @Nullable InputMetadataProvider inputMetadataProvider, PathMapper pathMapper)
       throws CommandLineExpansionException, InterruptedException {
     PreprocessedCommandLine.Builder builder = new PreprocessedCommandLine.Builder();
     List<Object> arguments = rawArgsAsList();
@@ -924,11 +928,11 @@ public class StarlarkCustomCommandLine extends CommandLine {
         argi =
             ((VectorArg) arg)
                 .preprocess(
-                    arguments, argi, builder, artifactExpander, pathMapper, mainRepoMapping);
+                    arguments, argi, builder, inputMetadataProvider, pathMapper, mainRepoMapping);
       } else if (arg == SingleFormattedArg.MARKER) {
-        argi = SingleFormattedArg.preprocess(arguments, argi, builder, pathMapper, mainRepoMapping);
+        argi = SingleFormattedArg.preprocess(arguments, argi, builder, mainRepoMapping);
       } else {
-        builder.addString(expandToCommandLine(arg, pathMapper, mainRepoMapping));
+        builder.addArg(expandToCommandLine(arg, mainRepoMapping));
       }
     }
     return pathMapper.mapCustomStarlarkArgs(builder.build());
@@ -937,26 +941,26 @@ public class StarlarkCustomCommandLine extends CommandLine {
   @Override
   public final Iterable<String> arguments()
       throws CommandLineExpansionException, InterruptedException {
-    return expand().arguments();
+    return expand().arguments(PathMapper.NOOP);
   }
 
   @Override
-  public final Iterable<String> arguments(ArtifactExpander artifactExpander, PathMapper pathMapper)
+  public final Iterable<String> arguments(
+      InputMetadataProvider inputMetadataProvider, PathMapper pathMapper)
       throws CommandLineExpansionException, InterruptedException {
-    return expand(artifactExpander, pathMapper).arguments();
+    return expand(inputMetadataProvider, pathMapper).arguments(pathMapper);
   }
 
-  private static String expandToCommandLine(
-      Object object, PathMapper pathMapper, @Nullable RepositoryMapping mainRepoMapping) {
+  private static Object /* String | DerivedArtifact */ expandToCommandLine(
+      Object object, @Nullable RepositoryMapping mainRepoMapping) {
+    // Label arguments are rare, so we don't bother rendering them lazily.
     if (mainRepoMapping != null && object instanceof Label label) {
       return label.getDisplayForm(mainRepoMapping);
     }
 
-    // It'd be nice to build this into DerivedArtifact's CommandLine interface so we don't have
-    // to explicitly check if an object is a DerivedArtifact. Unfortunately that would require
-    // a lot more dependencies on the Java library DerivedArtifact is built into.
+    // DerivedArtifacts are path mapped lazily.
     return object instanceof DerivedArtifact derivedArtifact
-        ? pathMapper.map(derivedArtifact.getExecPath()).getPathString()
+        ? derivedArtifact
         : CommandLineItem.expandToCommandLine(object);
   }
 
@@ -988,7 +992,8 @@ public class StarlarkCustomCommandLine extends CommandLine {
     }
 
     @Override
-    public ArgChunk expand(@Nullable ArtifactExpander artifactExpander, PathMapper pathMapper)
+    public ArgChunk expand(
+        @Nullable InputMetadataProvider inputMetadataProvider, PathMapper pathMapper)
         throws CommandLineExpansionException, InterruptedException {
       PreprocessedCommandLine.Builder builder = new PreprocessedCommandLine.Builder();
       List<Object> arguments = ((StarlarkCustomCommandLine) this).rawArgsAsList();
@@ -1014,12 +1019,11 @@ public class StarlarkCustomCommandLine extends CommandLine {
             argi =
                 ((VectorArg) arg)
                     .preprocess(
-                        arguments, argi, line, artifactExpander, pathMapper, mainRepoMapping);
+                        arguments, argi, line, inputMetadataProvider, pathMapper, mainRepoMapping);
           } else if (arg == SingleFormattedArg.MARKER) {
-            argi =
-                SingleFormattedArg.preprocess(arguments, argi, line, pathMapper, mainRepoMapping);
+            argi = SingleFormattedArg.preprocess(arguments, argi, line, mainRepoMapping);
           } else {
-            line.addString(expandToCommandLine(arg, pathMapper, mainRepoMapping));
+            line.addArg(expandToCommandLine(arg, mainRepoMapping));
           }
         }
 
@@ -1033,8 +1037,8 @@ public class StarlarkCustomCommandLine extends CommandLine {
   @Override
   public void addToFingerprint(
       ActionKeyContext actionKeyContext,
-      @Nullable ArtifactExpander artifactExpander,
-      CoreOptions.OutputPathsMode outputPathsMode,
+      @Nullable InputMetadataProvider inputMetadataProvider,
+      CoreOptions.OutputPathsMode effectiveOutputPathsMode,
       Fingerprint fingerprint)
       throws CommandLineExpansionException, InterruptedException {
     List<Object> arguments = rawArgsAsList();
@@ -1056,8 +1060,8 @@ public class StarlarkCustomCommandLine extends CommandLine {
                     argi,
                     actionKeyContext,
                     fingerprint,
-                    artifactExpander,
-                    outputPathsMode);
+                    inputMetadataProvider,
+                    effectiveOutputPathsMode);
       } else if (arg == SingleFormattedArg.MARKER) {
         argi = SingleFormattedArg.addToFingerprint(arguments, argi, fingerprint);
       } else {
@@ -1066,7 +1070,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
     }
   }
 
-  /** Used during action key evaluation when we don't have an artifact expander. */
+  /** Used during action key evaluation when we don't have an input metadata provider. */
   private static class NoopExpander implements DirectoryExpander {
     @Override
     public ImmutableList<FileApi> list(FileApi file) {
@@ -1077,24 +1081,25 @@ public class StarlarkCustomCommandLine extends CommandLine {
   }
 
   private static final class FullExpander implements DirectoryExpander {
-    private final ArtifactExpander expander;
+    private final InputMetadataProvider inputMetadataProvider;
 
-    FullExpander(ArtifactExpander expander) {
-      this.expander = expander;
+    FullExpander(InputMetadataProvider inputMetadataProvider) {
+      this.inputMetadataProvider = inputMetadataProvider;
     }
 
     @Override
     public ImmutableList<FileApi> list(FileApi file) throws EvalException {
       Artifact artifact = (Artifact) file;
       if (artifact.isTreeArtifact()) {
-        try {
-          return ImmutableList.copyOf(expander.expandTreeArtifact(artifact));
-        } catch (MissingExpansionException unused) {
+        TreeArtifactValue treeArtifactValue = inputMetadataProvider.getTreeMetadata(artifact);
+        if (treeArtifactValue == null) {
           throw Starlark.errorf(
               "Failed to expand directory %s. Only directories that are action inputs can be"
                   + " expanded.",
               Starlark.repr(artifact));
         }
+
+        return ImmutableList.copyOf(treeArtifactValue.getChildren());
       } else {
         return ImmutableList.of(file);
       }
@@ -1106,7 +1111,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
       List<Object> originalValues,
       Consumer<String> consumer,
       Location loc,
-      @Nullable ArtifactExpander artifactExpander,
+      @Nullable InputMetadataProvider inputMetadataProvider,
       PathMapper pathMapper,
       StarlarkSemantics starlarkSemantics)
       throws CommandLineExpansionException, InterruptedException {
@@ -1127,8 +1132,8 @@ public class StarlarkCustomCommandLine extends CommandLine {
       args.add(null); // This will be overwritten each iteration.
       if (wantsDirectoryExpander) {
         DirectoryExpander expander;
-        if (artifactExpander != null) {
-          expander = new FullExpander(artifactExpander);
+        if (inputMetadataProvider != null) {
+          expander = new FullExpander(inputMetadataProvider);
         } else {
           expander = NoopExpander.INSTANCE;
         }
@@ -1171,51 +1176,53 @@ public class StarlarkCustomCommandLine extends CommandLine {
     private final StarlarkSemantics starlarkSemantics;
 
     /**
-     * Indicates whether artifactExpander was provided on construction. This is used to distinguish
-     * the case where it's not provided from the case where it was provided but subsequently
-     * cleared.
+     * Indicates whether an input metadata provider was provided on construction. This is used to
+     * distinguish the case where it's not provided from the case where it was provided but
+     * subsequently cleared.
      */
-    private final boolean hasArtifactExpander;
+    private final boolean hasInputMetadataProvider;
 
     private final CoreOptions.OutputPathsMode outputPathsMode;
 
-    @Nullable private ArtifactExpander artifactExpander;
+    @Nullable private InputMetadataProvider inputMetadataProvider;
 
     CommandLineItemMapEachAdaptor(
         StarlarkCallable mapFn,
         Location location,
         StarlarkSemantics starlarkSemantics,
-        @Nullable ArtifactExpander artifactExpander,
+        @Nullable InputMetadataProvider inputMetadataProvider,
         CoreOptions.OutputPathsMode outputPathsMode) {
       this.mapFn = mapFn;
       this.location = location;
       this.starlarkSemantics = starlarkSemantics;
-      this.hasArtifactExpander = artifactExpander != null;
-      this.artifactExpander = artifactExpander;
+      this.hasInputMetadataProvider = inputMetadataProvider != null;
+      this.inputMetadataProvider = inputMetadataProvider;
       this.outputPathsMode = outputPathsMode;
     }
 
     @Override
     public void expandToCommandLine(Object object, Consumer<String> args)
         throws CommandLineExpansionException, InterruptedException {
-      checkState(artifactExpander != null || !hasArtifactExpander);
+      checkState(inputMetadataProvider != null || !hasInputMetadataProvider);
       applyMapEach(
           mapFn,
           maybeExpandDirectory(object),
           args,
           location,
-          artifactExpander,
-          PathMappers.forActionKey(outputPathsMode),
+          inputMetadataProvider,
+          PathMapper.forActionKey(outputPathsMode),
           starlarkSemantics);
     }
 
     private List<Object> maybeExpandDirectory(Object object) throws CommandLineExpansionException {
-      if (artifactExpander == null || !VectorArg.isDirectory(object)) {
+      if (inputMetadataProvider == null || !VectorArg.isDirectory(object)) {
         return ImmutableList.of(object);
       }
 
       return VectorArg.expandDirectories(
-          artifactExpander, ImmutableList.of(object), PathMappers.forActionKey(outputPathsMode));
+          inputMetadataProvider,
+          ImmutableList.of(object),
+          PathMapper.forActionKey(outputPathsMode));
     }
 
     @Override
@@ -1226,11 +1233,11 @@ public class StarlarkCustomCommandLine extends CommandLine {
       // Instance compare intentional
       // The normal implementation uses location + name of function,
       // which can conceivably conflict in tests
-      // We only compare presence of artifactExpander vs absence of it since the nestedset
+      // We only compare presence of inputMetadataProvider vs absence of it since the nested set
       // fingerprint cache is emptied after every build, therefore if the artifact expander is
       // provided, it will be the same.
       return mapFn == other.mapFn
-          && hasArtifactExpander == other.hasArtifactExpander
+          && hasInputMetadataProvider == other.hasInputMetadataProvider
           && outputPathsMode == other.outputPathsMode;
     }
 
@@ -1241,7 +1248,8 @@ public class StarlarkCustomCommandLine extends CommandLine {
       // as map_each functions, but doesn't hurt to be safe...).
       return outputPathsMode.hashCode()
           + 31
-              * (Boolean.hashCode(hasArtifactExpander) + 31 * (System.identityHashCode(mapFn) + 1));
+              * (Boolean.hashCode(hasInputMetadataProvider)
+                  + 31 * (System.identityHashCode(mapFn) + 1));
     }
 
     @Override
@@ -1252,15 +1260,15 @@ public class StarlarkCustomCommandLine extends CommandLine {
     }
 
     /**
-     * Clears the artifact expander in order not to prolong the lifetime of it unnecessarily.
+     * Clears the input metadata provider in order not to prolong the lifetime of it unnecessarily.
      *
      * <p>Although this operation technically changes this object, it can be called after we add the
-     * object to a {@link HashSet}. Clearing the artifactExpander does not affect the result of
+     * object to a {@link HashSet}. Clearing inputMetadataProvider does not affect the result of
      * {@link #equals} or {@link #hashCode}. Please note that once we call this function, we can no
      * longer call {@link #expandToCommandLine}.
      */
-    void clearArtifactExpander() {
-      artifactExpander = null;
+    void clearInputMetadataProvider() {
+      inputMetadataProvider = null;
     }
   }
 
@@ -1378,20 +1386,22 @@ public class StarlarkCustomCommandLine extends CommandLine {
   }
 
   /** An element in a {@link PreprocessedCommandLine}. */
-  private interface PreprocessedArg extends Iterable<String> {
+  private interface PreprocessedArg {
+    Iterable<String> toIterable(PathMapper pathMapper);
+
     int numArgs();
 
-    int totalArgLength();
+    int totalArgLength(PathMapper pathMapper);
   }
 
   /**
    * Intermediate command line representation with directory expansion and {@code map_each} already
-   * applied, but with string formatting not yet applied. See {@link StarlarkCustomCommandLine}
-   * class-level documentation for details.
+   * applied, but with string formatting and path mapping not yet applied. See {@link
+   * StarlarkCustomCommandLine} class-level documentation for details.
    *
-   * <p>Implements {@link #totalArgLength} without applying string formatting so that the total
-   * command line length can be efficiently tested against {@link CommandLineLimits} and param file
-   * thresholds.
+   * <p>Implements {@link #totalArgLength} without applying string formatting and path mapping so
+   * that the total command line length can be efficiently tested against {@link CommandLineLimits}
+   * and param file thresholds.
    */
   private static final class PreprocessedCommandLine implements ArgChunk {
     private final ImmutableList<PreprocessedArg> preprocessedArgs;
@@ -1401,15 +1411,15 @@ public class StarlarkCustomCommandLine extends CommandLine {
     }
 
     @Override
-    public Iterable<String> arguments() {
-      return Iterables.concat(preprocessedArgs);
+    public Iterable<String> arguments(PathMapper pathMapper) {
+      return Iterables.concat(Lists.transform(preprocessedArgs, arg -> arg.toIterable(pathMapper)));
     }
 
     @Override
-    public int totalArgLength() {
+    public int totalArgLength(PathMapper pathMapper) {
       int total = 0;
       for (PreprocessedArg arg : preprocessedArgs) {
-        total += arg.totalArgLength();
+        total += arg.totalArgLength(pathMapper);
       }
       return total;
     }
@@ -1424,8 +1434,17 @@ public class StarlarkCustomCommandLine extends CommandLine {
         numArgs += arg.numArgs();
       }
 
-      void addString(String arg) {
-        addPreprocessedArg(new PreprocessedStringArg(arg));
+      void addString(String string) {
+        addPreprocessedArg(new PreprocessedStringArg(string));
+      }
+
+      void addArg(Object /* String | DerivedArtifact */ arg) {
+        switch (arg) {
+          case String string -> addPreprocessedArg(new PreprocessedStringArg(string));
+          case DerivedArtifact artifact ->
+              addPreprocessedArg(new PreprocessedArtifactArg(artifact));
+          default -> throw new IllegalStateException("Unexpected arg type: " + arg);
+        }
       }
 
       void addLineForFlagPerLine(PreprocessedCommandLine.Builder line) {
@@ -1454,8 +1473,8 @@ public class StarlarkCustomCommandLine extends CommandLine {
     }
 
     @Override
-    public Iterator<String> iterator() {
-      return Iterators.singletonIterator(arg);
+    public ImmutableList<String> toIterable(PathMapper pathMapper) {
+      return ImmutableList.of(arg);
     }
 
     @Override
@@ -1464,8 +1483,33 @@ public class StarlarkCustomCommandLine extends CommandLine {
     }
 
     @Override
-    public int totalArgLength() {
+    public int totalArgLength(PathMapper pathMapper) {
       return arg.length() + 1;
+    }
+  }
+
+  private static final class PreprocessedArtifactArg implements PreprocessedArg {
+    private final DerivedArtifact artifact;
+
+    PreprocessedArtifactArg(DerivedArtifact artifact) {
+      this.artifact = artifact;
+    }
+
+    @Override
+    public ImmutableList<String> toIterable(PathMapper pathMapper) {
+      return ImmutableList.of(pathMapper.getMappedExecPathString(artifact));
+    }
+
+    @Override
+    public int numArgs() {
+      return 1;
+    }
+
+    @Override
+    public int totalArgLength(PathMapper pathMapper) {
+      return artifact.getExecPathString().length()
+          - pathMapper.computeExecPathLengthDiff(artifact)
+          + 1;
     }
   }
 
@@ -1480,8 +1524,8 @@ public class StarlarkCustomCommandLine extends CommandLine {
     }
 
     @Override
-    public Iterator<String> iterator() {
-      return Iterators.singletonIterator(SingleStringArgFormatter.format(format, stringValue));
+    public ImmutableList<String> toIterable(PathMapper pathMapper) {
+      return ImmutableList.of(SingleStringArgFormatter.format(format, stringValue));
     }
 
     @Override
@@ -1490,52 +1534,86 @@ public class StarlarkCustomCommandLine extends CommandLine {
     }
 
     @Override
-    public int totalArgLength() {
+    public int totalArgLength(PathMapper pathMapper) {
       return SingleStringArgFormatter.formattedLength(format) + stringValue.length() + 1;
+    }
+  }
+
+  /** Preprocessed version of a {@link SingleFormattedArg} for a {@link DerivedArtifact}. */
+  private static final class PreprocessedSingleFormattedArtifactArg implements PreprocessedArg {
+    private final String format;
+    private final DerivedArtifact artifact;
+
+    PreprocessedSingleFormattedArtifactArg(String format, DerivedArtifact artifact) {
+      this.format = format;
+      this.artifact = artifact;
+    }
+
+    @Override
+    public ImmutableList<String> toIterable(PathMapper pathMapper) {
+      return ImmutableList.of(
+          SingleStringArgFormatter.format(format, pathMapper.getMappedExecPathString(artifact)));
+    }
+
+    @Override
+    public int numArgs() {
+      return 1;
+    }
+
+    @Override
+    public int totalArgLength(PathMapper pathMapper) {
+      return SingleStringArgFormatter.formattedLength(format)
+          + artifact.getExecPathString().length()
+          - pathMapper.computeExecPathLengthDiff(artifact)
+          + 1;
     }
   }
 
   /** Preprocessed version of a {@link VectorArg} originating from {@code Args.add_all}. */
   private static final class UnjoinedPreprocessedVectorArg implements PreprocessedArg {
-    private final List<String> stringValues;
+    private final List<Object /* String | DerivedArtifact */> values;
     @Nullable private final String formatEach;
     @Nullable private final String beforeEach;
 
     UnjoinedPreprocessedVectorArg(
-        List<String> stringValues, @Nullable String formatEach, @Nullable String beforeEach) {
-      this.stringValues = stringValues;
+        List<Object /* String | DerivedArtifact */> values,
+        @Nullable String formatEach,
+        @Nullable String beforeEach) {
+      this.values = values;
       this.formatEach = formatEach;
       this.beforeEach = beforeEach;
     }
 
     @Override
-    public Iterator<String> iterator() {
-      Iterator<String> it = stringValues.iterator();
+    public Iterable<String> toIterable(PathMapper pathMapper) {
+      List<String> list = Lists.transform(values, value -> maybePathMap(value, pathMapper));
       if (formatEach != null) {
-        it = Iterators.transform(it, s -> SingleStringArgFormatter.format(formatEach, s));
+        list = Lists.transform(list, s -> SingleStringArgFormatter.format(formatEach, s));
       }
-      if (beforeEach != null) {
-        it = new BeforeEachIterator(it, beforeEach);
+      if (beforeEach == null) {
+        return list;
+      } else {
+        List<String> finalList = list;
+        return () -> new BeforeEachIterator(finalList.iterator(), beforeEach);
       }
-      return it;
     }
 
     @Override
     public int numArgs() {
-      return (beforeEach != null ? 2 : 1) * stringValues.size();
+      return (beforeEach != null ? 2 : 1) * values.size();
     }
 
     @Override
-    public int totalArgLength() {
+    public int totalArgLength(PathMapper pathMapper) {
       int total = 0;
-      for (String arg : stringValues) {
-        total += arg.length();
+      for (Object arg : values) {
+        total += argLength(arg, pathMapper);
       }
       if (formatEach != null) {
-        total += SingleStringArgFormatter.formattedLength(formatEach) * stringValues.size();
+        total += SingleStringArgFormatter.formattedLength(formatEach) * values.size();
       }
       if (beforeEach != null) {
-        total += beforeEach.length() * stringValues.size();
+        total += beforeEach.length() * values.size();
       }
       return total + numArgs();
     }
@@ -1543,33 +1621,33 @@ public class StarlarkCustomCommandLine extends CommandLine {
 
   /** Preprocessed version of a {@link VectorArg} originating from {@code Args.add_joined}. */
   private static final class JoinedPreprocessedVectorArg implements PreprocessedArg {
-    private final List<String> stringValues;
+    private final List<Object /* String | DerivedArtifact */> values;
     @Nullable private final String formatEach;
     private final String joinWith;
     @Nullable private final String formatJoined;
 
     JoinedPreprocessedVectorArg(
-        List<String> stringValues,
+        List<Object /* String | DerivedArtifact */> values,
         @Nullable String formatEach,
         String joinWith,
         @Nullable String formatJoined) {
-      this.stringValues = stringValues;
+      this.values = values;
       this.formatEach = formatEach;
       this.joinWith = joinWith;
       this.formatJoined = formatJoined;
     }
 
     @Override
-    public Iterator<String> iterator() {
-      Iterator<String> it = stringValues.iterator();
+    public ImmutableList<String> toIterable(PathMapper pathMapper) {
+      List<String> it = Lists.transform(values, value -> maybePathMap(value, pathMapper));
       if (formatEach != null) {
-        it = Iterators.transform(it, s -> SingleStringArgFormatter.format(formatEach, s));
+        it = Lists.transform(it, s -> SingleStringArgFormatter.format(formatEach, s));
       }
       String result = Joiner.on(joinWith).join(it);
       if (formatJoined != null) {
         result = SingleStringArgFormatter.format(formatJoined, result);
       }
-      return Iterators.singletonIterator(result);
+      return ImmutableList.of(result);
     }
 
     @Override
@@ -1578,16 +1656,16 @@ public class StarlarkCustomCommandLine extends CommandLine {
     }
 
     @Override
-    public int totalArgLength() {
+    public int totalArgLength(PathMapper pathMapper) {
       int total = 0;
-      for (String arg : stringValues) {
-        total += arg.length();
+      for (Object arg : values) {
+        total += argLength(arg, pathMapper);
       }
       if (formatEach != null) {
-        total += SingleStringArgFormatter.formattedLength(formatEach) * stringValues.size();
+        total += SingleStringArgFormatter.formattedLength(formatEach) * values.size();
       }
-      if (stringValues.size() > 1) {
-        total += joinWith.length() * (stringValues.size() - 1);
+      if (values.size() > 1) {
+        total += joinWith.length() * (values.size() - 1);
       }
       if (formatJoined != null) {
         total += SingleStringArgFormatter.formattedLength(formatJoined);
@@ -1607,12 +1685,13 @@ public class StarlarkCustomCommandLine extends CommandLine {
     }
 
     @Override
-    public Iterator<String> iterator() {
-      Iterator<String> it = Iterables.concat(args).iterator();
+    public ImmutableList<String> toIterable(PathMapper pathMapper) {
+      Iterator<String> it =
+          Iterables.concat(Lists.transform(args, arg -> arg.toIterable(pathMapper))).iterator();
       String first = it.next();
       String rest = SPACE_JOINER.join(it);
       String line = first.isEmpty() ? rest : first + '=' + rest;
-      return Iterators.singletonIterator(line);
+      return ImmutableList.of(line);
     }
 
     @Override
@@ -1621,17 +1700,38 @@ public class StarlarkCustomCommandLine extends CommandLine {
     }
 
     @Override
-    public int totalArgLength() {
+    public int totalArgLength(PathMapper pathMapper) {
       int total = 0;
       for (PreprocessedArg arg : args) {
-        total += arg.totalArgLength();
+        total += arg.totalArgLength(pathMapper);
       }
-      String first = Iterables.concat(args).iterator().next();
+      String first =
+          Iterables.concat(Lists.transform(args, arg -> arg.toIterable(pathMapper)))
+              .iterator()
+              .next();
       if (first.isEmpty()) {
         total--;
       }
       return total;
     }
+  }
+
+  private static String maybePathMap(
+      Object /* String | DerivedArtifact */ arg, PathMapper pathMapper) {
+    return switch (arg) {
+      case String string -> string;
+      case DerivedArtifact artifact -> pathMapper.getMappedExecPathString(artifact);
+      default -> throw new AssertionError("Unexpected arg type: " + arg);
+    };
+  }
+
+  private static int argLength(Object /* String | DerivedArtifact */ arg, PathMapper pathMapper) {
+    return switch (arg) {
+      case String string -> string.length();
+      case DerivedArtifact artifact ->
+          artifact.getExecPathString().length() - pathMapper.computeExecPathLengthDiff(artifact);
+      default -> throw new AssertionError("Unexpected arg type: " + arg);
+    };
   }
 
   /** Implements the {@code before_each} behavior of {@code Args.add_all}. */

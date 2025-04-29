@@ -75,6 +75,9 @@ public interface RemotePathResolver {
    */
   Path outputPathToLocalPath(String outputPath);
 
+  /** Returns the exec path for the given local path. */
+  PathFragment localPathToExecPath(PathFragment localPath);
+
   /** Creates the default {@link RemotePathResolver}. */
   static RemotePathResolver createDefault(Path execRoot) {
     return new DefaultRemotePathResolver(execRoot);
@@ -112,7 +115,6 @@ public interface RemotePathResolver {
           .getSpawnInputExpander()
           .walkInputs(
               spawn,
-              context.getArtifactExpander(),
               context.getInputMetadataProvider(),
               PathFragment.EMPTY_FRAGMENT,
               visitor);
@@ -131,6 +133,11 @@ public interface RemotePathResolver {
     @Override
     public Path outputPathToLocalPath(String outputPath) {
       return execRoot.getRelative(outputPath);
+    }
+
+    @Override
+    public PathFragment localPathToExecPath(PathFragment localPath) {
+      return localPath.relativeTo(execRoot.asFragment());
     }
   }
 
@@ -173,7 +180,6 @@ public interface RemotePathResolver {
           .getSpawnInputExpander()
           .walkInputs(
               spawn,
-              context.getArtifactExpander(),
               context.getInputMetadataProvider(),
               PathFragment.create(checkNotNull(getWorkingDirectory())),
               visitor);
@@ -198,6 +204,10 @@ public interface RemotePathResolver {
       return getBase().getRelative(outputPath);
     }
 
+    @Override
+    public PathFragment localPathToExecPath(PathFragment localPath) {
+      return localPath.relativeTo(getBase().asFragment());
+    }
   }
 
   /**
@@ -245,6 +255,11 @@ public interface RemotePathResolver {
       public Path outputPathToLocalPath(String outputPath) {
         return execRoot.getRelative(
             inverseMap(base.outputPathToLocalPath(outputPath).relativeTo(execRoot)));
+      }
+
+      @Override
+      public PathFragment localPathToExecPath(PathFragment localPath) {
+        return base.localPathToExecPath(localPath);
       }
 
       private PathFragment map(PathFragment path) {

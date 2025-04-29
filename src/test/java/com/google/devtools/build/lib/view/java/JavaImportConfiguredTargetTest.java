@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.prettyArtifactNames;
 import static com.google.devtools.build.lib.rules.java.JavaCompileActionTestHelper.getDirectJars;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -30,14 +31,17 @@ import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.configuredtargets.OutputFileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.packages.StarlarkInfo;
+import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompilationInfoProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompileAction;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
-import com.google.devtools.build.lib.rules.java.ProguardSpecProvider;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaModuleFlagsProviderApi;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import java.util.Arrays;
@@ -113,7 +117,7 @@ public class JavaImportConfiguredTargetTest extends BuildViewTestCase {
     ConfiguredTarget configuredTarget = getConfiguredTarget("//java:java_imp");
     Artifact compiledArtifact =
         JavaInfo.getProvider(JavaCompilationArgsProvider.class, configuredTarget)
-            .getDirectCompileTimeJars()
+            .directCompileTimeJars()
             .toList()
             .get(0);
     SpawnAction action = (SpawnAction) getGeneratingAction(compiledArtifact);
@@ -217,13 +221,13 @@ public class JavaImportConfiguredTargetTest extends BuildViewTestCase {
     // JavaCompilationArgs should hold classpaths of the transitive closure.
     JavaCompilationArgsProvider recursiveCompilationArgs =
         JavaInfo.getProvider(JavaCompilationArgsProvider.class, importJar);
-    assertThat(prettyArtifactNames(recursiveCompilationArgs.getTransitiveCompileTimeJars()))
+    assertThat(prettyArtifactNames(recursiveCompilationArgs.transitiveCompileTimeJars()))
         .containsExactly(
             "java/jarlib2/_ijar/import-jar/java/jarlib2/import-ijar.jar",
             "java/jarlib2/_ijar/exportjar/java/jarlib2/exportjar-ijar.jar",
             "java/jarlib2/_ijar/depjar/java/jarlib2/depjar-ijar.jar")
         .inOrder();
-    assertThat(prettyArtifactNames(recursiveCompilationArgs.getRuntimeJars()))
+    assertThat(prettyArtifactNames(recursiveCompilationArgs.runtimeJars()))
         .containsExactly(
             "java/jarlib2/import.jar", "java/jarlib2/exportjar.jar", "java/jarlib2/depjar.jar")
         .inOrder();
@@ -231,12 +235,12 @@ public class JavaImportConfiguredTargetTest extends BuildViewTestCase {
     // Recursive deps work the same as with java_library.
     JavaCompilationArgsProvider compilationArgsProvider =
         JavaInfo.getProvider(JavaCompilationArgsProvider.class, importJar);
-    assertThat(prettyArtifactNames(compilationArgsProvider.getDirectCompileTimeJars()))
+    assertThat(prettyArtifactNames(compilationArgsProvider.directCompileTimeJars()))
         .containsExactly(
             "java/jarlib2/_ijar/import-jar/java/jarlib2/import-ijar.jar",
             "java/jarlib2/_ijar/exportjar/java/jarlib2/exportjar-ijar.jar")
         .inOrder();
-    assertThat(prettyArtifactNames(compilationArgsProvider.getRuntimeJars()))
+    assertThat(prettyArtifactNames(compilationArgsProvider.runtimeJars()))
         .containsExactly(
             "java/jarlib2/import.jar", "java/jarlib2/exportjar.jar", "java/jarlib2/depjar.jar")
         .inOrder();
@@ -349,16 +353,16 @@ public class JavaImportConfiguredTargetTest extends BuildViewTestCase {
 
     JavaCompilationArgsProvider compilationArgs =
         JavaInfo.getProvider(JavaCompilationArgsProvider.class, jarLib);
-    assertThat(prettyArtifactNames(compilationArgs.getTransitiveCompileTimeJars()))
+    assertThat(prettyArtifactNames(compilationArgs.transitiveCompileTimeJars()))
         .containsExactly(
             "java/genrules/_ijar/library-jar/java/genrules/generated-ijar.jar",
             "java/jarlib/_ijar/libraryjar/java/jarlib/library-ijar.jar")
         .inOrder();
-    assertThat(prettyArtifactNames(compilationArgs.getRuntimeJars()))
+    assertThat(prettyArtifactNames(compilationArgs.runtimeJars()))
         .containsExactly("java/genrules/generated.jar", "java/jarlib/library.jar")
         .inOrder();
 
-    Artifact jar = compilationArgs.getRuntimeJars().toList().get(0);
+    Artifact jar = compilationArgs.runtimeJars().toList().get(0);
     assertThat(getGeneratingAction(jar).prettyPrint())
         .isEqualTo("action 'Executing genrule //java/genrules:generated_jar'");
   }
@@ -492,10 +496,16 @@ public class JavaImportConfiguredTargetTest extends BuildViewTestCase {
             runtime_deps = [":runtime_dep"],
         )
         """);
+    StarlarkProvider.Key key =
+        new StarlarkProvider.Key(
+            keyForBuild(
+                Label.parseCanonicalUnchecked(
+                    "@rules_java//java/common:proguard_spec_info.bzl")),
+            "ProguardSpecInfo");
+    StarlarkInfo proguardSpecInfo =
+        (StarlarkInfo) getConfiguredTarget("//java/com/google/android/hello:lib").get(key);
     NestedSet<Artifact> providedSpecs =
-        getConfiguredTarget("//java/com/google/android/hello:lib")
-            .get(ProguardSpecProvider.PROVIDER)
-            .getTransitiveProguardSpecs();
+        proguardSpecInfo.getValue("specs", Depset.class).getSet(Artifact.class);
     assertThat(ActionsTestUtil.baseArtifactNames(providedSpecs))
         .containsAtLeast("lib.pro_valid", "export.pro_valid", "runtime_dep.pro_valid");
   }
@@ -577,7 +587,7 @@ public class JavaImportConfiguredTargetTest extends BuildViewTestCase {
         )
         """);
     ConfiguredTarget processorTarget = getConfiguredTarget("//java/com/google/test:jar");
-    JavaInfo javaInfo = processorTarget.get(JavaInfo.PROVIDER);
+    JavaInfo javaInfo = JavaInfo.getJavaInfo(processorTarget);
     assertThat(javaInfo.isNeverlink()).isTrue();
   }
 
@@ -598,7 +608,7 @@ public class JavaImportConfiguredTargetTest extends BuildViewTestCase {
     getConfiguredTarget("//java/my:a");
     Set<String> inputs =
         artifactsToStrings(
-            JavaInfo.getProvider(JavaSourceJarsProvider.class, aTarget).getTransitiveSourceJars());
+            JavaInfo.getProvider(JavaSourceJarsProvider.class, aTarget).transitiveSourceJars());
     assertThat(inputs)
         .isEqualTo(Sets.newHashSet("src java/my/dummy-src.jar", "bin java/my/libb-src.jar"));
   }
@@ -744,7 +754,7 @@ public class JavaImportConfiguredTargetTest extends BuildViewTestCase {
     ConfiguredTarget jarLib = getConfiguredTarget("//java/jarlib:libraryjar");
     JavaCompilationArgsProvider compilationArgsProvider =
         JavaInfo.getProvider(JavaCompilationArgsProvider.class, jarLib);
-    assertThat(prettyArtifactNames(compilationArgsProvider.getRuntimeJars()))
+    assertThat(prettyArtifactNames(compilationArgsProvider.runtimeJars()))
         .containsExactly("java/jarlib/library.jar");
   }
 
@@ -762,7 +772,7 @@ public class JavaImportConfiguredTargetTest extends BuildViewTestCase {
     List<String> jars =
         ActionsTestUtil.baseArtifactNames(
             JavaInfo.getProvider(JavaCompilationArgsProvider.class, lib)
-                .getTransitiveCompileTimeJars());
+                .transitiveCompileTimeJars());
     assertThat(jars).doesNotContain("b-ijar.jar");
     assertThat(jars).contains("b.jar");
   }

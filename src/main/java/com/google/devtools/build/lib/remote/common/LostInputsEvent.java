@@ -13,21 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote.common;
 
-import build.bazel.remote.execution.v2.Digest;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 
 /**
- * An event sent when an input to an action was previously determined to exist remotely, but has
- * since been evicted.
+ * An event sent when CAS objects were previously determined to exist remotely, but have since been
+ * evicted.
  */
-public class LostInputsEvent implements Postable {
-  private final Digest missingDigest;
-
-  public LostInputsEvent(Digest missingDigest) {
-    this.missingDigest = missingDigest;
-  }
-
-  public Digest getMissingDigest() {
-    return missingDigest;
-  }
-}
+public record LostInputsEvent(ImmutableSet<String> missingDigests) implements Postable {}

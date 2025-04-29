@@ -16,10 +16,7 @@ package com.google.devtools.build.lib.rules.java;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.google.common.flogger.LazyArgs.lazy;
 import static com.google.devtools.build.lib.actions.ActionAnalysisMetadata.mergeMaps;
-import static java.nio.charset.StandardCharsets.ISO_8859_1;
-import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.joining;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -32,7 +29,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
-import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -42,7 +38,6 @@ import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.BaseSpawn;
 import com.google.devtools.build.lib.actions.CommandAction;
 import com.google.devtools.build.lib.actions.CommandLine;
@@ -52,6 +47,7 @@ import com.google.devtools.build.lib.actions.CommandLines.CommandLineAndParamFil
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile;
 import com.google.devtools.build.lib.actions.PathMapper;
@@ -101,16 +97,12 @@ import net.starlark.java.eval.StarlarkList;
 @ThreadCompatible
 @Immutable
 public final class JavaCompileAction extends AbstractAction implements CommandAction {
-  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
   private static final ResourceSet LOCAL_RESOURCES =
       ResourceSet.createWithRamCpu(/* memoryMb= */ 750, /* cpu= */ 1);
   private static final UUID GUID = UUID.fromString("e423747c-2827-49e6-b961-f6c08c10bb51");
 
   private static final ParamFileInfo PARAM_FILE_INFO =
-      ParamFileInfo.builder(ParameterFile.ParameterFileType.UNQUOTED)
-          .setCharset(ISO_8859_1)
-          .setUseAlways(true)
-          .build();
+      ParamFileInfo.builder(ParameterFile.ParameterFileType.UNQUOTED).setUseAlways(true).build();
 
   enum CompilationType {
     JAVAC("Javac"),
@@ -191,7 +183,9 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
     this.outputDepsProto = outputDepsProto;
     this.classpathMode = classpathMode;
     checkState(
-        outputDepsProto != null || classpathMode != JavaClasspathMode.BAZEL,
+        outputDepsProto != null
+            || (classpathMode != JavaClasspathMode.BAZEL
+                && classpathMode != JavaClasspathMode.BAZEL_NO_FALLBACK),
         "Cannot have null outputDepsProto with reduced class path mode BAZEL %s",
         describe());
   }
@@ -226,14 +220,18 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
   @Override
   protected void computeKey(
       ActionKeyContext actionKeyContext,
-      @Nullable ArtifactExpander artifactExpander,
+      @Nullable InputMetadataProvider inputMetadataProvider,
       Fingerprint fp)
       throws CommandLineExpansionException, InterruptedException {
     fp.addUUID(GUID);
     fp.addInt(classpathMode.ordinal());
     CoreOptions.OutputPathsMode outputPathsMode = PathMappers.getOutputPathsMode(configuration);
-    executableLine.addToFingerprint(actionKeyContext, artifactExpander, outputPathsMode, fp);
-    flagLine.addToFingerprint(actionKeyContext, artifactExpander, outputPathsMode, fp);
+    CoreOptions.OutputPathsMode effectiveOutputPathsMode =
+        PathMappers.getEffectiveOutputPathsMode(outputPathsMode, getMnemonic(), getExecutionInfo());
+    executableLine.addToFingerprint(
+        actionKeyContext, inputMetadataProvider, effectiveOutputPathsMode, fp);
+    flagLine.addToFingerprint(
+        actionKeyContext, inputMetadataProvider, effectiveOutputPathsMode, fp);
     // As the classpath is no longer part of commandLines implicitly, we need to explicitly add
     // the transitive inputs to the key here.
     actionKeyContext.addNestedSetToFingerprint(fp, transitiveInputs);
@@ -313,10 +311,16 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
     } else {
       classpathLine.addExecPaths("--classpath", reducedClasspath.reducedJars);
     }
-    // These flags instruct JavaBuilder that this is a compilation with a reduced classpath and
-    // that it should report a special value back if a compilation error occurs that suggests
-    // retrying with the full classpath.
-    classpathLine.add("--reduce_classpath_mode", fallback ? "BAZEL_FALLBACK" : "BAZEL_REDUCED");
+
+    if (classpathMode == JavaClasspathMode.BAZEL_NO_FALLBACK) {
+      // No need of fallback logic, invoke SimpleJavaLibraryBuilder with a reduced --classpath
+      classpathLine.add("--reduce_classpath_mode", "NONE");
+    } else {
+      // These flags instruct JavaBuilder that this is a compilation with a reduced classpath and
+      // that it should report a special value back if a compilation error occurs that suggests
+      // retrying with the full classpath.
+      classpathLine.add("--reduce_classpath_mode", fallback ? "BAZEL_FALLBACK" : "BAZEL_REDUCED");
+    }
     classpathLine.add("--full_classpath_length", Integer.toString(reducedClasspath.fullLength));
     classpathLine.add(
         "--reduced_classpath_length", Integer.toString(reducedClasspath.reducedLength));
@@ -329,7 +333,7 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
             .build();
     CommandLines.ExpandedCommandLines expandedCommandLines =
         reducedCommandLine.expand(
-            actionExecutionContext.getArtifactExpander(),
+            actionExecutionContext.getInputMetadataProvider(),
             getPrimaryOutput().getExecPath(),
             pathMapper,
             configuration.getCommandLineLimits());
@@ -355,7 +359,7 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
     CommandLines.ExpandedCommandLines expandedCommandLines =
         getCommandLines()
             .expand(
-                actionExecutionContext.getArtifactExpander(),
+                actionExecutionContext.getInputMetadataProvider(),
                 getPrimaryOutput().getExecPath(),
                 pathMapper,
                 configuration.getCommandLineLimits());
@@ -402,7 +406,8 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
     ReducedClasspath reducedClasspath;
     Spawn spawn;
     try {
-      if (classpathMode == JavaClasspathMode.BAZEL) {
+      if (classpathMode == JavaClasspathMode.BAZEL
+          || classpathMode == JavaClasspathMode.BAZEL_NO_FALLBACK) {
         JavaCompileActionContext context =
             actionExecutionContext.getContext(JavaCompileActionContext.class);
         try {
@@ -445,8 +450,6 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
       return ActionResult.create(primaryResults);
     }
 
-    logger.atInfo().atMostEvery(1, SECONDS).log(
-        "Failed reduced classpath compilation for %s", lazy(JavaCompileAction.this::prettyPrint));
     // Fall back to running with the full classpath. This requires first deleting potential
     // artifacts generated by the reduced action and clearing the metadata caches.
     try {

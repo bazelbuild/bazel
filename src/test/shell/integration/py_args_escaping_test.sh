@@ -88,6 +88,8 @@ function create_build_file_for_untokenizable_args() {
   local -r ws="$1"; shift
   mkdir -p "$ws" || fail "mkdir -p $ws"
   cat >"$ws/BUILD" <<'eof'
+load("@rules_python//python:py_binary.bzl", "py_binary")
+
 py_binary(
     name = "cannot_tokenize",
     srcs = ["a.py"],
@@ -107,6 +109,8 @@ function create_build_file_with_many_args() {
   local -r ws="$1"; shift
   mkdir -p "$ws" || fail "mkdir -p $ws"
   cat >"$ws/BUILD" <<'eof'
+load("@rules_python//python:py_binary.bzl", "py_binary")
+
 py_binary(
     name = "x",
     srcs = ["a.py"],
@@ -223,6 +227,7 @@ function test_args_escaping() {
   local -r ws="$TEST_TMPDIR/${FUNCNAME[0]}"  # unique workspace for this test
   mkdir -p "$ws"
   setup_module_dot_bazel "$ws/MODULE.bazel"
+  add_rules_python "$ws/MODULE.bazel"
 
   create_py_file_that_prints_args "$ws"
   create_build_file_with_many_args "$ws"
@@ -245,6 +250,7 @@ function test_untokenizable_args() {
   local -r ws="$TEST_TMPDIR/${FUNCNAME[0]}"  # unique workspace for this test
   mkdir -p "$ws"
   setup_module_dot_bazel "$ws/MODULE.bazel"
+  add_rules_python "$ws/MODULE.bazel"
 
   create_py_file_that_prints_args "$ws"
   create_build_file_for_untokenizable_args "$ws"
@@ -260,9 +266,11 @@ function test_host_config() {
   local -r ws="$TEST_TMPDIR/${FUNCNAME[0]}"  # unique workspace for this test
   mkdir -p "$ws"
   setup_module_dot_bazel "$ws/MODULE.bazel"
+  add_rules_python "$ws/MODULE.bazel"
 
   cat >"$ws/BUILD" <<'eof'
 load("//:rule.bzl", "run_host_configured")
+load("@rules_python//python:py_binary.bzl", "py_binary")
 
 run_host_configured(
     name = "x",

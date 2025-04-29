@@ -47,6 +47,20 @@ types are supported:
 * [list](lib/list)
 * [string](lib/string)
 
+## Type annotations {:#StarlarkTypes}
+
+**Experimental**. Type annotations are an experimental feature and may change
+at any time. Don't depend on it. It may be enabled in Bazel at HEAD
+by using the `--experimental_starlark_types` flag.
+
+Starlark in Bazel at HEAD is incrementally adding support for type annotations
+with a syntax inspired by [PEP 484](https://peps.python.org/pep-0484/).
+
+- Starlark type annotations are under active development. The progress is
+  tracked on [issue#22935](https://github.com/bazelbuild/bazel/issues/22935).
+- The specification is incrementally extended: [starlark-with-types/spec.md](https://github.com/bazelbuild/starlark/blob/starlark-with-types/spec.md)
+- Initial proposal: {# disableFinding(LINK_DOCS) #}[SEP-001 Bootstrapping Starlark types](https://docs.google.com/document/d/1Sid7EAbBd_w_T7D94Li_f_bK3zMTztFbzIMvcpzo1wY/edit?tab=t.0#heading=h.5mcn15i0e1ch)
+
 ## Mutability
 
 Starlark favors immutability. Two mutable data structures are available:

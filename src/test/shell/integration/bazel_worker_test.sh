@@ -46,6 +46,8 @@ function set_up() {
   BINS=$(bazel info $PRODUCT_NAME-bin)/${WORKSPACE_SUBDIR}
   OUTPUT_BASE="$(bazel info output_base)"
 
+  add_rules_java ${WORKSPACE_DIR}/MODULE.bazel
+
   # Tell Bazel to shut down all running workers. Faster than a full shutdown.
   bazel build --worker_quit_after_build &> $TEST_log \
     || fail "'bazel build --worker_quit_after_build' during test set_up failed"
@@ -59,6 +61,8 @@ function tear_down() {
 function write_hello_library_files() {
   mkdir -p java/main
   cat >java/main/BUILD <<EOF
+load("@rules_java//java:java_binary.bzl", "java_binary")
+load("@rules_java//java:java_library.bzl", "java_library")
 java_binary(name = 'main',
     deps = [':hello_library'],
     srcs = ['Main.java'],
@@ -94,7 +98,7 @@ function test_compiles_hello_library_using_persistent_javac() {
 
   bazel build java/main:main &> "$TEST_log" \
     || fail "build failed"
-  expect_log "Created new ${WORKER_TYPE} Javac worker (id [0-9]\+, key hash -\?[0-9]\+)"
+  expect_log "Created new ${WORKER_TYPE} singleplex Javac worker (id [0-9]\+, key hash -\?[0-9]\+)"
   $BINS/java/main/main | grep -q "Hello, Library!;Hello, World!" \
     || fail "comparison failed"
 }
@@ -106,7 +110,7 @@ function test_compiles_hello_library_using_persistent_javac_sibling_layout() {
     --experimental_sibling_repository_layout java/main:main \
     --worker_max_instances=Javac=1 \
     &> "$TEST_log" || fail "build failed"
-  expect_log "Created new ${WORKER_TYPE} Javac worker (id [0-9]\+, key hash -\?[0-9]\+)"
+  expect_log "Created new ${WORKER_TYPE} singleplex Javac worker (id [0-9]\+, key hash -\?[0-9]\+)"
   $BINS/java/main/main | grep -q "Hello, Library!;Hello, World!" \
     || fail "comparison failed"
 }
@@ -174,6 +178,8 @@ work = rule(
 )
 EOF
   cat >BUILD <<EOF
+load("@rules_java//java:java_binary.bzl", "java_binary")
+load("@rules_java//java:java_import.bzl", "java_import")
 load(":work.bzl", "work")
 
 java_import(
@@ -320,6 +326,30 @@ EOF
   worker_uuid_1=$(cat $BINS/hello_world.out | grep UUID | cut -d' ' -f2)
   worker_uuid_2=$(cat $BINS/goodbye_world.out | grep UUID | cut -d' ' -f2)
   assert_equals "$worker_uuid_1" "$worker_uuid_2"
+}
+
+function test_worker_extra_flag() {
+  prepare_example_worker
+  cat >>BUILD <<EOF
+work(
+  name = "hello_world",
+  worker = ":worker",
+  worker_args = ["--worker_protocol=${WORKER_PROTOCOL}"],
+  action_mnemonic = "Hello",
+  worker_key_mnemonic = "World",
+)
+EOF
+
+  bazel build :hello_world --worker_extra_flag=World=--ignored_argument \
+      &> "$TEST_log" || fail "build failed"
+
+  local -r worker_log=$(egrep -o -- 'logging to .*/b(azel|laze)-workers/worker-[0-9]+-World.log' "$TEST_log" | sed 's/^logging to //')
+
+  if ! [[ -e "$worker_log" ]]; then
+    fail "Worker log was not found"
+  fi
+
+  assert_contains "Worker args: .* --ignored_argument" "$worker_log"
 }
 
 function test_multiple_flagfiles() {
@@ -571,7 +601,7 @@ EOF
 
   bazel build --worker_quit_after_build :hello_world_1 &> "$TEST_log" \
     || fail "build failed"
-  expect_log "Created new ${WORKER_TYPE} Work worker (id [0-9]\+, key hash -\?[0-9]\+)"
+  expect_log "Created new ${WORKER_TYPE} singleplex Work worker (id [0-9]\+, key hash -\?[0-9]\+)"
   expect_log "Destroying Work worker (id [0-9]\+, key hash -\?[0-9]\+)"
   expect_log "Build completed, shutting down worker pool..."
 }
@@ -590,12 +620,13 @@ EOF
   bazel build --worker_quit_after_build :hello_world_1 &> "$TEST_log" \
     || fail "build failed"
 
-  expect_log "Created new ${WORKER_TYPE} Work worker (id [0-9]\+, key hash -\?[0-9]\+)"
+  expect_log "Created new ${WORKER_TYPE} singleplex Work worker (id [0-9]\+, key hash -\?[0-9]\+)"
 
-  worker_log=$(egrep -o -- 'logging to .*/b(azel|laze)-workers/worker-[0-9]-Work.log' "$TEST_log" | sed 's/^logging to //')
+  local -r worker_log=$(egrep -o -- 'logging to .*/b(azel|laze)-workers/worker-[0-9]+-Work.log' "$TEST_log" | sed 's/^logging to //')
 
-  [ -e "$worker_log" ] \
-    || fail "Worker log was not found"
+  if ! [[ -e "$worker_log" ]]; then
+    fail "Worker log was not found"
+  fi
 
   # Running a build after a server shutdown should trigger the removal of old worker log files.
   bazel shutdown &> $TEST_log
@@ -650,7 +681,7 @@ EOF
   bazel build --worker_quit_after_build :hello_world &> "$TEST_log" \
     || fail "build failed"
 
-  expect_not_log "Created new ${WORKER_TYPE} Work worker (id [0-9]\+, key hash -\?[0-9]\+)"
+  expect_not_log "Created new ${WORKER_TYPE} singleplex Work worker (id [0-9]\+, key hash -\?[0-9]\+)"
   expect_not_log "Destroying Work worker (id [0-9]\+, key hash -\?[0-9]\+)"
 
   # WorkerSpawnStrategy falls back to standalone strategy, so we still expect the output to be generated.
@@ -692,7 +723,7 @@ EOF
   bazel build :hello_clean &> "$TEST_log" \
     || fail "build failed"
   assert_equals "hello clean" "$(cat $BINS/hello_clean.out)"
-  expect_log "Created new ${WORKER_TYPE} Work worker (id [0-9]\+, key hash -\?[0-9]\+)"
+  expect_log "Created new ${WORKER_TYPE} singleplex Work worker (id [0-9]\+, key hash -\?[0-9]\+)"
 
   bazel clean &> "$TEST_log" \
     || fail "clean failed"
@@ -800,15 +831,17 @@ EOF
       --experimental_collect_worker_data_in_profiler \
       :hello_world_1 &> "$TEST_log" \
     || fail "build failed"
-  expect_log "Created new ${WORKER_TYPE} Work worker (id [0-9]\+, key hash -\?[0-9]\+)"
+  expect_log "Created new ${WORKER_TYPE} singleplex Work worker (id [0-9]\+, key hash -\?[0-9]\+)"
   # Now see that we have metrics in the build event log.
   mv "${TEST_log}".build.json "${TEST_log}"
   expect_log "mnemonic: \"Work\""
   expect_log "worker_memory_in_kb: [0-9][0-9]*"
   # And see that we collected metrics several times
   mv "${TEST_log}".profile "${TEST_log}"
-  local metric_events=$(grep -sc -- "Workers memory usage" $TEST_log)
-  (( metric_events >= 2 )) || fail "Expected at least 2 worker metric collections"
+  local metric_events=$(grep -sc -- "Total worker memory usage" $TEST_log)
+  (( metric_events >= 2 )) || fail "Expected at least 2 \"Total worker memory usage\"metric collections"
+  local metric_events=$(grep -sc -- "Per-mnemonic worker memory usage" $TEST_log)
+  (( metric_events >= 2 )) || fail "Expected at least 2 \"Per-mnemonic worker memory usage\"metric collections"
 }
 
 function do_test_sandbox_cleanup {

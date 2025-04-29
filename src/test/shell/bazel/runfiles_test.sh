@@ -22,39 +22,16 @@ CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${CURRENT_DIR}/../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-# TODO - ilist@: reenable when java_tools depends on protobuf
-function disable_test_runfiles_without_bzlmod() {
-  name="blorp_malorp"
-  echo "workspace(name = '$name')" > WORKSPACE
-  mkdir foo
-  cat > foo/BUILD <<EOF
-java_test(
-    name = "foo",
-    srcs = ["Noise.java"],
-    test_class = "Noise",
-)
-EOF
-  cat > foo/Noise.java <<EOF
-public class Noise {
-  public static void main(String[] args) {
-    System.err.println(System.getenv("I'm a test."));
-  }
-}
-EOF
-
-  bazel build --noenable_bzlmod --enable_workspace //foo:foo >& $TEST_log || fail "Build failed"
-  [[ -d bazel-bin/foo/foo.runfiles/$name ]] || fail "$name runfiles directory not created"
-  [[ -d bazel-bin/foo/foo.runfiles/$name/foo ]] || fail "No foo subdirectory under $name"
-  [[ -x bazel-bin/foo/foo.runfiles/$name/foo/foo ]] || fail "No foo executable under $name"
-}
-
 function test_runfiles_bzlmod() {
   cat > MODULE.bazel <<EOF
 module(name="blep")
 EOF
+  add_rules_java "MODULE.bazel"
 
   mkdir foo
   cat > foo/BUILD <<EOF
+load("@rules_java//java:java_test.bzl", "java_test")
+
 java_test(
     name = "foo",
     srcs = ["Noise.java"],
@@ -84,7 +61,11 @@ new_local_repository(
     build_file = "//:BUILD",
 )
 EOF
+  add_rules_cc "MODULE.bazel"
+
   cat > BUILD <<EOF
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+
 exports_files(glob(["*"]))
 
 cc_binary(
@@ -98,17 +79,17 @@ int main() { return 0; }
 EOF
   bazel build --legacy_external_runfiles //:thing &> $TEST_log \
     || fail "Build failed"
-  [[ -d bazel-bin/thing.runfiles/_main/external/+_repo_rules+bar ]] \
+  [[ -d bazel-bin/thing.runfiles/_main/external/+new_local_repository+bar ]] \
     || fail "bar not found"
 
   bazel build --nolegacy_external_runfiles //:thing &> $TEST_log \
     || fail "Build failed"
-  [[ ! -d bazel-bin/thing.runfiles/_main/external/+_repo_rules+bar ]] \
+  [[ ! -d bazel-bin/thing.runfiles/_main/external/+new_local_repository+bar ]] \
     || fail "Old bar still found"
 
   bazel build --legacy_external_runfiles //:thing &> $TEST_log \
     || fail "Build failed"
-  [[ -d bazel-bin/thing.runfiles/_main/external/+_repo_rules+bar ]] \
+  [[ -d bazel-bin/thing.runfiles/_main/external/+new_local_repository+bar ]] \
     || fail "bar not recreated"
 }
 
@@ -119,7 +100,11 @@ function test_enable_runfiles_change() {
   touch bin.sh
   chmod 755 bin.sh
 
+  add_rules_shell "MODULE.bazel"
+
   cat > BUILD <<'EOF'
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+
 sh_binary(
   name = "bin",
   srcs = ["bin.sh"],
@@ -156,7 +141,10 @@ EOF
 
   chmod 755 test.sh
 
+  add_rules_shell "MODULE.bazel"
   cat > BUILD <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
 sh_test(
   name = "test",
   srcs = ["test.sh"],
@@ -202,7 +190,10 @@ EOF
 
   chmod 755 hello.sh world.sh
 
+  add_rules_shell "MODULE.bazel"
   cat > BUILD <<'EOF'
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+
 sh_binary(
   name = "hello",
   srcs = ["hello.sh"],
@@ -234,9 +225,12 @@ EOF
 }
 
 function test_switch_runfiles_from_enabled_to_disabled {
+    add_rules_shell "MODULE.bazel"
     echo '#!/bin/bash' > cmd.sh
     chmod 755 cmd.sh
     cat > BUILD <<'EOF'
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+
 sh_binary(
   name = "cmd",
   srcs = ["cmd.sh"],
@@ -371,34 +365,6 @@ function test_runfiles_tree_file_type_changes_individual_to_tree {
   [[ -f bazel-bin/pkg/output.runfiles/_main/lib/sample2.txt ]] || fail "sample2.txt not found"
 
   bazel build --//pkg:use_tree=True //pkg:output || fail "Build failed"
-  [[ -f bazel-bin/pkg/output.runfiles/_main/lib/sample1.txt ]] || fail "sample1.txt not found"
-  [[ -f bazel-bin/pkg/output.runfiles/_main/lib/sample2.txt ]] || fail "sample2.txt not found"
-}
-
-function test_runfiles_tree_file_type_changes_tree_to_individual_inprocess {
-  setup_runfiles_tree_file_type_changes
-
-  bazel build --experimental_inprocess_symlink_creation \
-    --//pkg:use_tree=True //pkg:output || fail "Build failed"
-  [[ -f bazel-bin/pkg/output.runfiles/_main/lib/sample1.txt ]] || fail "sample1.txt not found"
-  [[ -f bazel-bin/pkg/output.runfiles/_main/lib/sample2.txt ]] || fail "sample2.txt not found"
-
-  bazel build --experimental_inprocess_symlink_creation \
-    --//pkg:use_tree=False //pkg:output || fail "Build failed"
-  [[ -f bazel-bin/pkg/output.runfiles/_main/lib/sample1.txt ]] || fail "sample1.txt not found"
-  [[ -f bazel-bin/pkg/output.runfiles/_main/lib/sample2.txt ]] || fail "sample2.txt not found"
-}
-
-function test_runfiles_tree_file_type_changes_individual_to_tree_inprocess {
-  setup_runfiles_tree_file_type_changes
-
-  bazel build --experimental_inprocess_symlink_creation \
-    --//pkg:use_tree=False //pkg:output || fail "Build failed"
-  [[ -f bazel-bin/pkg/output.runfiles/_main/lib/sample1.txt ]] || fail "sample1.txt not found"
-  [[ -f bazel-bin/pkg/output.runfiles/_main/lib/sample2.txt ]] || fail "sample2.txt not found"
-
-  bazel build --experimental_inprocess_symlink_creation \
-    --//pkg:use_tree=True //pkg:output || fail "Build failed"
   [[ -f bazel-bin/pkg/output.runfiles/_main/lib/sample1.txt ]] || fail "sample1.txt not found"
   [[ -f bazel-bin/pkg/output.runfiles/_main/lib/sample2.txt ]] || fail "sample2.txt not found"
 }

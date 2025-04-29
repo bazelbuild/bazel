@@ -15,7 +15,10 @@ filegroup(
 
 java_library(
     name = "idle_task",
-    srcs = ["IdleTask.java"],
+    srcs = [
+        "IdleTask.java",
+        "IdleTaskException.java",
+    ],
 )
 
 java_library(
@@ -29,7 +32,6 @@ java_library(
     deps = [
         ":idle_task",
         ":pid_file_watcher",
-        ":rpc_server",
         ":shutdown_hooks",
         "//src/main/java/com/google/devtools/build/lib:runtime/blaze_command_result",
         "//src/main/java/com/google/devtools/build/lib:runtime/command_dispatcher",
@@ -61,7 +63,7 @@ java_library(
         "//third_party:jsr305",
         "//third_party:netty",
         "//third_party/grpc-java:grpc-jar",
-        "@protobuf//:protobuf_java",
+        "@com_google_protobuf//:protobuf_java",
     ],
 )
 
@@ -93,11 +95,15 @@ java_library(
 )
 
 java_library(
-    name = "rpc_server",
+    name = "install_base_garbage_collector",
     srcs = [
-        "RPCServer.java",
+        "InstallBaseGarbageCollector.java",
+        "InstallBaseGarbageCollectorIdleTask.java",
     ],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
+        ":idle_task",
+        "//src/main/java/com/google/devtools/build/lib/util:file_system_lock",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//third_party:guava",
     ],
 )

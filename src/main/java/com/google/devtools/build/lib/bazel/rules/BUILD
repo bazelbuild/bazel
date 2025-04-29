@@ -13,7 +13,6 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/genrule:srcs",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/java:srcs",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/python:srcs",
-        "//src/main/java/com/google/devtools/build/lib/bazel/rules/sh:srcs",
     ],
     visibility = ["//src:__subpackages__"],
 )
@@ -35,21 +34,20 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:actions/template_expansion_action",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/analysis:common_prerequisite_validator",
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/build_configuration",
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/build_options",
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/core_options",
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/fragment",
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/fragment_options",
         "//src/main/java/com/google/devtools/build/lib/analysis:constraints/environment_rule",
         "//src/main/java/com/google/devtools/build/lib/analysis:platform_configuration",
         "//src/main/java/com/google/devtools/build/lib/analysis:statically_linked_marker_provider",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:build_configuration",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:build_options",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:core_options",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:fragment",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:fragment_options",
         "//src/main/java/com/google/devtools/build/lib/bazel:bazel_configuration",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/cpp",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/genrule",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/java:bazel_java_semantics",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/python",
-        "//src/main/java/com/google/devtools/build/lib/bazel/rules/sh",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/exec:execution_options",
         "//src/main/java/com/google/devtools/build/lib/exec:module_action_context_registry",
@@ -87,9 +85,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/cpp",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/java",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/objc",
-        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/proto",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/python",
-        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/stubs",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
@@ -132,11 +128,17 @@ gen_workspace_stanza(
     name = "rules_suffix",
     out = "rules_suffix.WORKSPACE",
     postamble = """
-        load("@rules_java//java:repositories.bzl", "rules_java_dependencies", "rules_java_toolchains")
+        load("@rules_java//java:rules_java_deps.bzl", "rules_java_dependencies")
         rules_java_dependencies()
-        rules_java_toolchains()
         load("@rules_python//python:repositories.bzl", "py_repositories")
         py_repositories()
+        load("@com_google_protobuf//:protobuf_deps.bzl", "protobuf_deps")
+        protobuf_deps()
+        load("@rules_java//java:repositories.bzl", "rules_java_toolchains")
+        rules_java_toolchains()
+        load("@rules_shell//shell:repositories.bzl", "rules_shell_dependencies", "rules_shell_toolchains")
+        rules_shell_dependencies()
+        rules_shell_toolchains()
     """,
     preamble = """
         load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
@@ -144,11 +146,12 @@ gen_workspace_stanza(
     """,
     repos = [
         "bazel_skylib",  # Dependency of other rules
-        "protobuf",  # dependency of rules_java
+        "com_google_protobuf",  # dependency of rules_java
         "rules_java",  # For auto-load java rules symbols
         "rules_cc",  # For auto-load cc rules symbols
         "rules_python",  # For auto-load python rules symbols
         "rules_license",  # for license attestations
+        "rules_shell",  # For auto-load of shell rules symbols
     ],
     use_maybe = 1,
     visibility = ["//:__pkg__"],

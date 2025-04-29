@@ -183,7 +183,21 @@ public class ActionGraphQueryEnvironment
             AqueryOutputHandler.OutputType.JSON,
             actionFilters),
         new ActionGraphTextOutputFormatterCallback(
-            eventHandler, aqueryOptions, out, accessor, actionFilters, getLabelPrinter()),
+            eventHandler,
+            aqueryOptions,
+            out,
+            accessor,
+            ActionGraphTextOutputFormatterCallback.OutputType.TEXT,
+            actionFilters,
+            getLabelPrinter()),
+        new ActionGraphTextOutputFormatterCallback(
+            eventHandler,
+            aqueryOptions,
+            out,
+            accessor,
+            ActionGraphTextOutputFormatterCallback.OutputType.COMMANDS,
+            actionFilters,
+            getLabelPrinter()),
         new ActionGraphSummaryOutputFormatterCallback(
             eventHandler, aqueryOptions, out, accessor, actionFilters));
   }
@@ -330,7 +344,7 @@ public class ActionGraphQueryEnvironment
         Futures.catchingAsync(
             patternToEval.evalAdaptedForAsync(
                 resolver,
-                getIgnoredPackagePrefixesPathFragments(patternToEval.getRepository()),
+                getIgnoredSubdirectories(patternToEval.getRepository()),
                 /* excludedSubdirectories= */ ImmutableSet.of(),
                 (Callback<Target>)
                     partialResult -> {

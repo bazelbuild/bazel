@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.analysis;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Root;
 import org.junit.Before;
@@ -46,7 +45,7 @@ public class LocationExpanderIntegrationTest extends BuildViewTestCase {
             ],
         )
 
-        sh_library(
+        filegroup(
             name = "lib",
             srcs = [":files"],
         )
@@ -79,7 +78,7 @@ public class LocationExpanderIntegrationTest extends BuildViewTestCase {
             actual = "//files:files",
         )
 
-        sh_library(
+        filegroup(
             name = "lib",
             srcs = [":files_alias"],
         )
@@ -110,7 +109,7 @@ public class LocationExpanderIntegrationTest extends BuildViewTestCase {
             actual = ":files_alias",
         )
 
-        sh_library(
+        filegroup(
             name = "lib",
             srcs = [":files_alias_alias"],
         )
@@ -141,7 +140,7 @@ public class LocationExpanderIntegrationTest extends BuildViewTestCase {
             ],
         )
 
-        sh_library(
+        filegroup(
             name = "lib",
             srcs = [":files"],
         )
@@ -165,7 +164,7 @@ public class LocationExpanderIntegrationTest extends BuildViewTestCase {
             cmd = "never executed",
         )
 
-        sh_library(
+        filegroup(
             name = "lib",
             srcs = [":foo"],
         )
@@ -205,9 +204,7 @@ public class LocationExpanderIntegrationTest extends BuildViewTestCase {
 
   @Test
   public void otherPathExternalExpansionLegacyExternalRunfiles() throws Exception {
-    scratch.file(
-        "expansion/BUILD",
-        "sh_library(name='lib', srcs=['@r//p:foo'])");
+    scratch.file("expansion/BUILD", "filegroup(name='lib', srcs=['@r//p:foo'])");
     scratch.appendFile(
         "MODULE.bazel",
         "bazel_dep(name = 'r')",
@@ -218,7 +215,7 @@ public class LocationExpanderIntegrationTest extends BuildViewTestCase {
         .invalidateFilesUnderPathForTesting(
             reporter, ModifiedFileSet.EVERYTHING_MODIFIED, Root.fromPath(rootDirectory));
 
-    FileSystemUtils.createDirectoryAndParents(scratch.resolve("/foo/bar"));
+    scratch.resolve("/foo/bar").createDirectoryAndParents();
     scratch.file("/r/MODULE.bazel", "module(name = 'r')");
     scratch.file("/r/p/BUILD", "genrule(name='foo', outs=['foo.txt'], cmd='never executed')");
 
@@ -240,7 +237,7 @@ public class LocationExpanderIntegrationTest extends BuildViewTestCase {
 
   @Test
   public void otherPathExternalExpansionNoLegacyExternalRunfiles() throws Exception {
-    scratch.file("expansion/BUILD", "sh_library(name='lib', srcs=['@r//p:foo'])");
+    scratch.file("expansion/BUILD", "filegroup(name='lib', srcs=['@r//p:foo'])");
     scratch.appendFile(
         "MODULE.bazel",
         "bazel_dep(name = 'r')",
@@ -251,7 +248,7 @@ public class LocationExpanderIntegrationTest extends BuildViewTestCase {
         .invalidateFilesUnderPathForTesting(
             reporter, ModifiedFileSet.EVERYTHING_MODIFIED, Root.fromPath(rootDirectory));
 
-    FileSystemUtils.createDirectoryAndParents(scratch.resolve("/foo/bar"));
+    scratch.resolve("/foo/bar").createDirectoryAndParents();
     scratch.file("/r/MODULE.bazel", "module(name = 'r')");
     scratch.file("/r/p/BUILD", "genrule(name='foo', outs=['foo.txt'], cmd='never executed')");
 
@@ -274,7 +271,7 @@ public class LocationExpanderIntegrationTest extends BuildViewTestCase {
   @Test
   public void otherPathExternalExpansionNoLegacyExternalRunfilesSiblingRepositoryLayout()
       throws Exception {
-    scratch.file("expansion/BUILD", "sh_library(name='lib', srcs=['@r//p:foo'])");
+    scratch.file("expansion/BUILD", "filegroup(name='lib', srcs=['@r//p:foo'])");
     scratch.appendFile(
         "MODULE.bazel",
         "bazel_dep(name = 'r')",
@@ -285,7 +282,7 @@ public class LocationExpanderIntegrationTest extends BuildViewTestCase {
         .invalidateFilesUnderPathForTesting(
             reporter, ModifiedFileSet.EVERYTHING_MODIFIED, Root.fromPath(rootDirectory));
 
-    FileSystemUtils.createDirectoryAndParents(scratch.resolve("/foo/bar"));
+    scratch.resolve("/foo/bar").createDirectoryAndParents();
     scratch.file("/r/MODULE.bazel", "module(name = 'r')");
     scratch.file("/r/p/BUILD", "genrule(name='foo', outs=['foo.txt'], cmd='never executed')");
 
@@ -320,7 +317,7 @@ public class LocationExpanderIntegrationTest extends BuildViewTestCase {
             cmd = "never executed",
         )
 
-        sh_library(
+        filegroup(
             name = "lib",
             srcs = [":foo"],
         )

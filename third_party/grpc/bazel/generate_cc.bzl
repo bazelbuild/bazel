@@ -17,7 +17,7 @@ This is an internal rule used by cc_grpc_library, and shouldn't be used
 directly.
 """
 
-load("@protobuf//bazel/common:proto_info.bzl", "ProtoInfo")
+load("@com_google_protobuf//bazel/common:proto_info.bzl", "ProtoInfo")
 load(
     ":protobuf.bzl",
     "get_include_directory",
@@ -152,7 +152,6 @@ generate_cc = rule(
         ),
         "plugin": attr.label(
             executable = True,
-            providers = ["files_to_run"],
             cfg = "exec",
         ),
         "flags": attr.string_list(

@@ -20,6 +20,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Collections.singletonList;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -38,12 +39,14 @@ import com.google.common.io.ByteStreams;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.authandtls.StaticCredentials;
-import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache.KeyType;
+import com.google.devtools.build.lib.bazel.repository.cache.DownloadCache.KeyType;
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import com.google.devtools.build.lib.bazel.repository.downloader.Downloader;
 import com.google.devtools.build.lib.bazel.repository.downloader.UnrecoverableHttpException;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId.FetchId;
+import com.google.devtools.build.lib.buildeventstream.FetchEvent;
 import com.google.devtools.build.lib.clock.BlazeClock;
-import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.remote.ChannelConnectionWithServerCapabilitiesFactory;
 import com.google.devtools.build.lib.remote.ReferenceCountedChannel;
 import com.google.devtools.build.lib.remote.RemoteRetrier;
@@ -64,6 +67,8 @@ import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.common.options.Options;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.util.Timestamps;
+import com.google.rpc.Code;
+import com.google.rpc.Status;
 import io.grpc.CallCredentials;
 import io.grpc.ManagedChannel;
 import io.grpc.Server;
@@ -101,6 +106,7 @@ public class GrpcRemoteDownloaderTest {
 
   private final MutableHandlerRegistry serviceRegistry = new MutableHandlerRegistry();
   private final String fakeServerName = "fake server for " + getClass();
+  private final StoredEventHandler eventHandler = new StoredEventHandler();
   private Server fakeServer;
   private RemoteActionExecutionContext context;
   private ListeningScheduledExecutorService retryService;
@@ -179,13 +185,11 @@ public class GrpcRemoteDownloaderTest {
         fallbackDownloader);
   }
 
-  private static byte[] downloadBlob(
-      GrpcRemoteDownloader downloader, URL url, Optional<Checksum> checksum)
+  private byte[] downloadBlob(GrpcRemoteDownloader downloader, URL url, Optional<Checksum> checksum)
       throws IOException, InterruptedException {
     final List<URL> urls = ImmutableList.of(url);
 
     final String canonicalId = "";
-    final ExtendedEventHandler eventHandler = mock(ExtendedEventHandler.class);
     final Map<String, String> clientEnv = ImmutableMap.of();
 
     Scratch scratch = new Scratch();
@@ -199,7 +203,8 @@ public class GrpcRemoteDownloaderTest {
         destination,
         eventHandler,
         clientEnv,
-        Optional.<String>empty());
+        Optional.<String>empty(),
+        "context");
 
     try (InputStream in = destination.getInputStream()) {
       return ByteStreams.toByteArray(in);
@@ -239,6 +244,10 @@ public class GrpcRemoteDownloaderTest {
             downloader, new URL("http://example.com/content.txt"), Optional.<Checksum>empty());
 
     assertThat(downloaded).isEqualTo(content);
+    assertThat(eventHandler.getPosts())
+        .contains(
+            new FetchEvent(
+                "http://example.com/content.txt", FetchId.Downloader.GRPC, /* success= */ true));
   }
 
   @Test
@@ -264,7 +273,7 @@ public class GrpcRemoteDownloaderTest {
               return null;
             })
         .when(fallbackDownloader)
-        .download(any(), any(), any(), any(), any(), any(), any(), any(), any());
+        .download(any(), any(), any(), any(), any(), any(), any(), any(), any(), eq("context"));
     final GrpcRemoteDownloader downloader = newDownloader(cacheClient, fallbackDownloader);
 
     final byte[] downloaded =
@@ -272,6 +281,57 @@ public class GrpcRemoteDownloaderTest {
             downloader, new URL("http://example.com/content.txt"), Optional.<Checksum>empty());
 
     assertThat(downloaded).isEqualTo(content);
+    assertThat(eventHandler.getPosts())
+        .containsExactly(
+            new FetchEvent(
+                "http://example.com/content.txt", FetchId.Downloader.GRPC, /* success= */ false));
+  }
+
+  @Test
+  public void testStatusHandling() throws Exception {
+    serviceRegistry.addService(
+        new FetchImplBase() {
+          @Override
+          public void fetchBlob(
+              FetchBlobRequest request, StreamObserver<FetchBlobResponse> responseObserver) {
+            assertThat(request)
+                .isEqualTo(
+                    FetchBlobRequest.newBuilder()
+                        .setDigestFunction(DIGEST_UTIL.getDigestFunction())
+                        .setOldestContentAccepted(
+                            Timestamps.fromMillis(clock.advance(Duration.ofHours(1))))
+                        .addUris("http://example.com/content.txt")
+                        .build());
+            responseObserver.onNext(
+                FetchBlobResponse.newBuilder()
+                    .setStatus(
+                        Status.newBuilder()
+                            .setCode(Code.PERMISSION_DENIED_VALUE)
+                            .setMessage("permission denied")
+                            .build())
+                    .setUri("http://example.com/other.txt")
+                    .build());
+            responseObserver.onCompleted();
+          }
+        });
+    final RemoteCacheClient cacheClient = new InMemoryCacheClient();
+    final GrpcRemoteDownloader downloader =
+        newDownloader(cacheClient, /* fallbackDownloader= */ null);
+    // Add a cache entry for the empty Digest to verify that the implementation checks the status
+    // before fetching the digest.
+    getFromFuture(cacheClient.uploadBlob(context, Digest.getDefaultInstance(), ByteString.EMPTY));
+
+    var exception =
+        assertThrows(
+            IOException.class,
+            () ->
+                downloadBlob(
+                    downloader, new URL("http://example.com/content.txt"), Optional.empty()));
+    assertThat(exception).hasMessageThat().contains("permission denied");
+    assertThat(eventHandler.getPosts())
+        .containsExactly(
+            new FetchEvent(
+                "http://example.com/other.txt", FetchId.Downloader.GRPC, /* success= */ false));
   }
 
   @Test

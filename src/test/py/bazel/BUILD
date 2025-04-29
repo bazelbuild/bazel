@@ -1,5 +1,6 @@
 load("@bazel_pip_dev_deps//:requirements.bzl", "requirement")
 load("@rules_python//python:defs.bzl", "py_library", "py_test")
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
 load("//:workspace_deps.bzl", "gen_workspace_stanza")
 
 package(default_visibility = ["//visibility:private"])
@@ -10,7 +11,7 @@ filegroup(
     visibility = ["//src:__pkg__"],
 )
 
-filegroup(
+sh_library(
     name = "test-deps",
     testonly = 1,
     srcs = ["//src:bazel"],
@@ -55,6 +56,7 @@ gen_workspace_stanza(
         "rules_cc",
         "rules_python",
         "rules_shell",
+        "com_google_protobuf",
     ],
 )
 
@@ -268,12 +270,6 @@ py_test(
     deps = [":test_base"],
 )
 
-py_test(
-    name = "bazel_workspace_test",
-    srcs = ["bazel_workspace_test.py"],
-    deps = [":test_base"],
-)
-
 py_library(
     name = "bzlmod_test_utils",
     srcs = ["bzlmod/test_utils.py"],
@@ -311,7 +307,7 @@ py_test(
     name = "bazel_fetch_test",
     size = "medium",
     srcs = ["bzlmod/bazel_fetch_test.py"],
-    data = ["//tools/build_defs/repo:http_src"],
+    data = ["//tools/build_defs/repo:mock_srcs"],
     shard_count = 5,
     tags = [
         "requires-network",
@@ -326,7 +322,7 @@ py_test(
     name = "bazel_vendor_test",
     size = "large",
     srcs = ["bzlmod/bazel_vendor_test.py"],
-    data = ["//tools/build_defs/repo:http_src"],
+    data = ["//tools/build_defs/repo:mock_srcs"],
     shard_count = 5,
     tags = [
         "requires-network",

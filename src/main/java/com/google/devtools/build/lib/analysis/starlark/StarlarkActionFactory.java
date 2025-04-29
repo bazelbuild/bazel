@@ -16,8 +16,10 @@ package com.google.devtools.build.lib.analysis.starlark;
 import static com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Interner;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
@@ -55,8 +57,9 @@ import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.packages.BuiltinRestriction;
-import com.google.devtools.build.lib.packages.ExecGroup;
+import com.google.devtools.build.lib.packages.DeclaredExecGroup;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.server.FailureDetails;
@@ -120,7 +123,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
   private static void checkToolchainParameterIsSet(
       RuleContext ruleContext, Object toolchainUnchecked) throws EvalException {
     if ((ruleContext.getToolchainContexts() == null
-            || ruleContext.getToolchainContexts().getContextMap().size() > 1)
+            || ruleContext.getToolchainContexts().contextMap().size() > 1)
         && toolchainUnchecked == Starlark.UNBOUND) {
       throw Starlark.errorf(
           "Couldn't identify if tools are from implicit dependencies or a toolchain. Please"
@@ -482,7 +485,12 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
   }
 
   private void validateActionCreation() throws EvalException {
-    if (getRuleContext().getRule().getRuleClassObject().isDependencyResolutionRule()) {
+    // We check if the rule is a dependency resolution rule but allow aspects attached to them.
+    // The idea is that dependency resolution rules should not depend on anything other than
+    // dependency resolution rules but since there is no such thing as "dependency resolution
+    // aspect", there is no risk of that with aspects.
+    if (getRuleContext().getAspectDescriptors().isEmpty()
+        && getRuleContext().getRule().getRuleClassObject().isDependencyResolutionRule()) {
       throw Starlark.errorf("rules that can be required for materializers shouldn't have actions");
     }
 
@@ -535,7 +543,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
   private static PlatformInfo getExecutionPlatform(Object execGroupUnchecked, RuleContext ctx)
       throws EvalException {
     if (execGroupUnchecked == Starlark.NONE) {
-      return ctx.getExecutionPlatform(ExecGroup.DEFAULT_EXEC_GROUP_NAME);
+      return ctx.getExecutionPlatform(DeclaredExecGroup.DEFAULT_EXEC_GROUP_NAME);
     } else {
       String execGroup = (String) execGroupUnchecked;
       verifyExecGroupExists(execGroup, ctx);
@@ -762,19 +770,13 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       builder.setProgressMessageFromStarlark((String) progressMessage);
     }
 
-    ImmutableMap<String, String> env = null;
+    ImmutableMap<String, String> env = ImmutableMap.of();
     if (envUnchecked != Starlark.NONE) {
       env = ImmutableMap.copyOf(Dict.cast(envUnchecked, String.class, String.class, "env"));
     }
     if (Starlark.truth(useDefaultShellEnv)) {
-      if (env != null
-          && getSemantics()
-              .getBool(BuildLanguageOptions.INCOMPATIBLE_MERGE_FIXED_AND_DEFAULT_SHELL_ENV)) {
-        builder.useDefaultShellEnvironmentWithOverrides(env);
-      } else {
-        builder.useDefaultShellEnvironment();
-      }
-    } else if (env != null) {
+      builder.useDefaultShellEnvironment(env);
+    } else {
       builder.setEnvironment(env);
     }
 
@@ -785,6 +787,27 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
             getSemantics().getBool(BuildLanguageOptions.INCOMPATIBLE_ALLOW_TAGS_PROPAGATION));
     builder.setExecutionInfo(executionInfo);
 
+    String execGroup = determineExecGroup(ruleContext, execGroupUnchecked, toolchainUnchecked);
+    builder.setExecGroup(execGroup);
+
+    if (shadowedActionUnchecked != Starlark.NONE) {
+      builder.setShadowedAction(Optional.of((Action) shadowedActionUnchecked));
+    }
+
+    if (resourceSetUnchecked != Starlark.NONE) {
+      validateResourceSetBuilder(resourceSetUnchecked);
+      builder.setResources(
+          StarlarkActionResourceSetBuilder.create(
+              (StarlarkCallable) resourceSetUnchecked, mnemonic, getSemantics()));
+    }
+
+    // Always register the action
+    registerAction(builder.build(ruleContext));
+  }
+
+  public static String determineExecGroup(
+      RuleContext ruleContext, Object execGroupUnchecked, Object toolchainUnchecked)
+      throws EvalException {
     Label toolchainLabel = null;
     if (toolchainUnchecked instanceof Label label) {
       toolchainLabel = label;
@@ -804,7 +827,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       checkValidGroupName(execGroup);
 
       // If toolchain and exec_groups are both defined, verify they are compatible.
-      if (useAutoExecGroups && toolchainLabel != null) {
+      if (ruleContext.useAutoExecGroups() && toolchainLabel != null) {
         if (ruleContext.getExecGroups().getExecGroup(execGroup).toolchainTypes().stream()
             .map(ToolchainTypeRequirement::toolchainType)
             .noneMatch(toolchainLabel::equals)) {
@@ -815,40 +838,33 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
         }
       }
 
-      builder.setExecGroup(execGroup);
-    } else if (useAutoExecGroups && toolchainLabel != null) {
+      return execGroup;
+    } else if (ruleContext.useAutoExecGroups() && toolchainLabel != null) {
       verifyAutomaticExecGroupExists(toolchainLabel.toString(), ruleContext);
-      builder.setExecGroup(toolchainLabel.toString());
-    } else {
-      builder.setExecGroup(ExecGroup.DEFAULT_EXEC_GROUP_NAME);
+      return toolchainLabel.toString();
     }
 
-    if (shadowedActionUnchecked != Starlark.NONE) {
-      builder.setShadowedAction(Optional.of((Action) shadowedActionUnchecked));
-    }
-
-    if (getSemantics().getBool(BuildLanguageOptions.EXPERIMENTAL_ACTION_RESOURCE_SET)
-        && resourceSetUnchecked != Starlark.NONE) {
-      validateResourceSetBuilder(resourceSetUnchecked);
-      builder.setResources(
-          new StarlarkActionResourceSetBuilder(
-              (StarlarkCallable) resourceSetUnchecked, mnemonic, getSemantics()));
-    }
-
-    // Always register the action
-    registerAction(builder.build(ruleContext));
+    return DeclaredExecGroup.DEFAULT_EXEC_GROUP_NAME;
   }
 
   private static class StarlarkActionResourceSetBuilder implements ResourceSetOrBuilder {
+    private static final Interner<StarlarkActionResourceSetBuilder> resourceSetBuilderInterner =
+        BlazeInterners.newWeakInterner();
     private final StarlarkCallable fn;
     private final String mnemonic;
     private final StarlarkSemantics semantics;
 
-    StarlarkActionResourceSetBuilder(
+    private StarlarkActionResourceSetBuilder(
         StarlarkCallable fn, String mnemonic, StarlarkSemantics semantics) {
       this.fn = fn;
       this.mnemonic = mnemonic;
       this.semantics = semantics;
+    }
+
+    public static StarlarkActionResourceSetBuilder create(
+        StarlarkCallable fn, String mnemonic, StarlarkSemantics semantics) {
+      return resourceSetBuilderInterner.intern(
+          new StarlarkActionResourceSetBuilder(fn, mnemonic, semantics));
     }
 
     @Override
@@ -861,11 +877,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
                 mu, semantics, "resource_set callback", SymbolGenerator.createTransient());
         StarlarkInt inputInt = StarlarkInt.of(inputsSize);
         Object response =
-            Starlark.call(
-                thread,
-                this.fn,
-                ImmutableList.of(os.getCanonicalName(), inputInt),
-                ImmutableMap.of());
+            Starlark.positionalOnlyCall(thread, this.fn, os.getCanonicalName(), inputInt);
         Map<String, Object> resourceSetMapRaw =
             Dict.cast(response, String.class, Object.class, "resource_set");
 
@@ -924,6 +936,24 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
               "Illegal resource value type for key %s: got %s, want int or float",
               key, Starlark.type(value)));
     }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (!(o instanceof StarlarkActionResourceSetBuilder that)) {
+        return false;
+      }
+      return Objects.equal(fn, that.fn)
+          && Objects.equal(mnemonic, that.mnemonic)
+          && Objects.equal(semantics, that.semantics);
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hashCode(fn, mnemonic, semantics);
+    }
   }
 
   private static void validateResourceSetBuilder(Object fn) throws EvalException {
@@ -977,13 +1007,8 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     ImmutableMap.Builder<String, Substitution> substitutionsBuilder = ImmutableMap.builder();
     for (Map.Entry<String, String> substitution :
         Dict.cast(substitutionsUnchecked, String.class, String.class, "substitutions").entrySet()) {
-      // Blaze calls ParserInput.fromLatin1 when reading BUILD files, which might
-      // contain UTF-8 encoded symbols as part of template substitution.
-      // As a quick fix, the substitution values are corrected before being passed on.
-      // In the long term, avoiding ParserInput.fromLatin would be a better approach.
       substitutionsBuilder.put(
-          substitution.getKey(),
-          Substitution.of(substitution.getKey(), convertLatin1ToUtf8(substitution.getValue())));
+          substitution.getKey(), Substitution.of(substitution.getKey(), substitution.getValue()));
     }
     if (!Starlark.UNBOUND.equals(computedSubstitutions)) {
       for (Substitution substitution : ((TemplateDict) computedSubstitutions).getAll()) {
@@ -1005,16 +1030,6 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
             substitutionMap.values().asList(),
             executable);
     registerAction(action);
-  }
-
-  /**
-   * Returns the proper UTF-8 representation of a String that was erroneously read using Latin1.
-   *
-   * @param latin1 Input string
-   * @return The input string, UTF8 encoded
-   */
-  private static String convertLatin1ToUtf8(String latin1) {
-    return new String(latin1.getBytes(StandardCharsets.ISO_8859_1), StandardCharsets.UTF_8);
   }
 
   @Override

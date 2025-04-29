@@ -27,10 +27,10 @@ import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
-import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.CommandLineItem;
 import com.google.devtools.build.lib.actions.CommandLineItem.ExceptionlessMapFn;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.SingleStringArgFormatter;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -656,9 +657,10 @@ public class CustomCommandLine extends AbstractCommandLine {
   private abstract static class TreeArtifactExpansionArgvFragment extends StandardArgvFragment {
     /**
      * Evaluates this argument fragment into an argument string and adds it into {@code builder}.
-     * The enclosed TreeArtifact will be expanded using {@code artifactExpander}.
+     * The enclosed TreeArtifact will be expanded using {@code inputMetadataProvider}.
      */
-    abstract void eval(ImmutableList.Builder<String> builder, ArtifactExpander artifactExpander);
+    abstract void eval(
+        ImmutableList.Builder<String> builder, InputMetadataProvider inputMetadataProvider);
 
     /**
      * Evaluates this argument fragment by serializing it into a string. Note that the returned
@@ -691,8 +693,12 @@ public class CustomCommandLine extends AbstractCommandLine {
     }
 
     @Override
-    void eval(ImmutableList.Builder<String> builder, ArtifactExpander artifactExpander) {
-      for (TreeFileArtifact child : artifactExpander.tryExpandTreeArtifact(treeArtifact)) {
+    void eval(ImmutableList.Builder<String> builder, InputMetadataProvider inputMetadataProvider) {
+      TreeArtifactValue treeArtifactValue = inputMetadataProvider.getTreeMetadata(treeArtifact);
+      if (treeArtifactValue == null) {
+        return;
+      }
+      for (TreeFileArtifact child : treeArtifactValue.getChildren()) {
         builder.add(child.getExecPathString());
       }
     }
@@ -1289,7 +1295,7 @@ public class CustomCommandLine extends AbstractCommandLine {
    */
   @Override
   public ImmutableList<String> arguments(
-      @Nullable ArtifactExpander artifactExpander, PathMapper pathMapper)
+      @Nullable InputMetadataProvider inputMetadataProvider, PathMapper pathMapper)
       throws CommandLineExpansionException, InterruptedException {
     ImmutableList.Builder<String> builder = ImmutableList.builder();
     List<Object> arguments = rawArgsAsList();
@@ -1307,9 +1313,9 @@ public class CustomCommandLine extends AbstractCommandLine {
       } else if (arg instanceof Iterable) {
         evalSimpleVectorArg((Iterable<?>) arg, builder, pathMapper, previousFlag);
       } else if (arg instanceof ArgvFragment) {
-        if (artifactExpander != null
+        if (inputMetadataProvider != null
             && arg instanceof TreeArtifactExpansionArgvFragment expansionArg) {
-          expansionArg.eval(builder, artifactExpander);
+          expansionArg.eval(builder, inputMetadataProvider);
         } else {
           i = ((ArgvFragment) arg).eval(arguments, i, builder, pathMapper);
         }
@@ -1359,8 +1365,8 @@ public class CustomCommandLine extends AbstractCommandLine {
   @SuppressWarnings("unchecked")
   public void addToFingerprint(
       ActionKeyContext actionKeyContext,
-      @Nullable ArtifactExpander artifactExpander,
-      CoreOptions.OutputPathsMode outputPathsMode,
+      @Nullable InputMetadataProvider inputMetadataProvider,
+      CoreOptions.OutputPathsMode effectiveOutputPathsMode,
       Fingerprint fingerprint)
       throws CommandLineExpansionException, InterruptedException {
     List<Object> arguments = rawArgsAsList();

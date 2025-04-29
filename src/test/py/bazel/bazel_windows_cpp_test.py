@@ -384,7 +384,7 @@ class BazelWindowsCppTest(test_base.TestBase):
     # Test if A.dll is copied to the directory of main.exe
     main_bin = os.path.join(bazel_bin, 'main.exe')
     self.assertTrue(os.path.exists(main_bin))
-    self.assertTrue(os.path.exists(os.path.join(bazel_bin, 'A_729d833d.dll')))
+    self.assertEqual(len(glob.glob(os.path.join(bazel_bin, 'A_*.dll'))), 1)
 
     # Run the binary to see if it runs successfully
     _, stdout, _ = self.RunProgram([main_bin])
@@ -763,79 +763,6 @@ class BazelWindowsCppTest(test_base.TestBase):
     )
     self.AssertExitCode(exit_code, 1, stderr)
     self.assertIn('this_is_an_error', ''.join(stdout))
-
-  def testBuildWithClangClByToolchainResolution(self):
-    self.DisableBzlmod()
-    self.ScratchFile(
-        'WORKSPACE',
-        [
-            'register_execution_platforms(',
-            '  ":windows_clang"',
-            ')',
-            '',
-            'register_toolchains(',
-            '  "@local_config_cc//:cc-toolchain-x64_windows-clang-cl",',
-            ')',
-        ],
-    )
-    self.ScratchFile(
-        'BUILD',
-        [
-            'platform(',
-            '  name = "windows_clang",',
-            '  constraint_values = [',
-            '    "@platforms//cpu:x86_64",',
-            '    "@platforms//os:windows",',
-            '    "@bazel_tools//tools/cpp:clang-cl",',
-            '  ]',
-            ')',
-            '',
-            'cc_binary(',
-            '  name = "main",',
-            '  srcs = [    "main.cc",',
-            '    "inc.asm",',  # Test assemble action_config
-            '    "dec.S",',  # Test preprocess-assemble action_config
-            '  ],',
-            ')',
-        ],
-    )
-    self.ScratchFile(
-        'main.cc',
-        [
-            'int main() {',
-            '  return 0;',
-            '}',
-        ],
-    )
-    self.ScratchFile(
-        'inc.asm',
-        [
-            '.code',
-            'PUBLIC increment',
-            'increment PROC x:WORD',
-            '  xchg rcx,rax',
-            '  inc rax',
-            '  ret',
-            'increment EndP',
-            'END',
-        ],
-    )
-    self.ScratchFile(
-        'dec.S',
-        [
-            '.code',
-            'PUBLIC decrement',
-            'decrement PROC x:WORD',
-            '  xchg rcx,rax',
-            '  dec rax',
-            '  ret',
-            'decrement EndP',
-            'END',
-        ],
-    )
-    exit_code, _, stderr = self.RunBazel(['build', '-s', '//:main'])
-    self.AssertExitCode(exit_code, 0, stderr)
-    self.assertIn('clang-cl.exe', ''.join(stderr))
 
   def createSimpleCppWorkspace(self, name):
     work_dir = self.ScratchDir(name)
@@ -1277,6 +1204,33 @@ class BazelWindowsCppTest(test_base.TestBase):
     ])
     self.AssertExitCode(exit_code, 0, stderr)
 
+  def testNoUnknownOptionsLeakedToMSVC(self):
+    # Regression test for https://github.com/bazelbuild/bazel/issues/24545.
+    self.createModuleDotBazel()
+    self.ScratchFile(
+        'BUILD',
+        [
+            'cc_binary(',
+            '    name = "main",',
+            '    srcs = ["main.cc"],',
+            ')',
+            'genrule(',
+            '    name = "gen",',
+            '    cmd = "echo $(location :main) > $@",',
+            '    outs = ["output.txt"],',
+            '    tools = [":main"],',
+            ')',
+        ],
+    )
+    self.ScratchFile('main.cc', ['int main() { return 0; }'])
+
+    exit_code, _, stderr = self.RunBazel([
+        'build',
+        '//...',
+        '--copt=/options:strict',
+        '--host_copt=/options:strict',
+    ])
+    self.AssertExitCode(exit_code, 0, stderr)
 
 if __name__ == '__main__':
   absltest.main()

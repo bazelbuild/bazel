@@ -45,6 +45,10 @@ esac
 
 add_to_bazelrc "build --package_path=%workspace%"
 
+function set_up() {
+  add_rules_java MODULE.bazel
+}
+
 function has_iso_8859_1_locale() {
   charmap="$(LC_ALL=en_US.ISO-8859-1 locale charmap 2>/dev/null)"
   [[ "${charmap}" == "ISO-8859-1" ]]
@@ -142,6 +146,25 @@ EOF
   bazel aquery --output=text --noinclude_commandline "//$pkg:bar" > output \
     2> "$TEST_log" || fail "Expected success"
   assert_not_contains "echo unused" output
+}
+
+function test_basic_aquery_commands() {
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg" || fail "mkdir -p $pkg"
+  cat > "$pkg/BUILD" <<'EOF'
+genrule(
+    name = "bar",
+    srcs = ["dummy.txt"],
+    outs = ["bar_out.txt"],
+    cmd = "echo unused > $(OUTS)",
+)
+EOF
+  echo "hello aquery" > "$pkg/in.txt"
+
+  bazel aquery --output=commands "//$pkg:bar" > output 2> "$TEST_log" \
+    || fail "Expected success"
+  cat output >> "$TEST_log"
+  assert_contains "echo unused" output
 }
 
 function test_basic_aquery_proto() {
@@ -360,6 +383,8 @@ EOF
 }
 
 function test_unused_inputs() {
+  add_rules_shell "MODULE.bazel"
+
   local pkg="${FUNCNAME[0]}"
   mkdir -p "$pkg" || fail "mkdir -p $pkg"
   cat > "$pkg/defs.bzl" <<EOF
@@ -385,6 +410,8 @@ foo = rule(
 EOF
   cat > "$pkg/BUILD" <<'EOF'
 load(":defs.bzl", "foo")
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+
 sh_binary(
     name = "tool",
     srcs = ["tool.sh"],
@@ -643,6 +670,7 @@ function test_aquery_all_filters_only_match_foo() {
   local pkg="${FUNCNAME[0]}"
   mkdir -p "$pkg" || fail "mkdir -p $pkg"
   cat > "$pkg/BUILD" <<'EOF'
+load("@rules_java//java:java_library.bzl", "java_library")
 genrule(
     name = "foo",
     srcs = ["foo_matching_in.java"],
@@ -749,6 +777,7 @@ function test_aquery_mnemonic_filter_only_mach_foo() {
   local pkg="${FUNCNAME[0]}"
   mkdir -p "$pkg" || fail "mkdir -p $pkg"
   cat > "$pkg/BUILD" <<'EOF'
+load("@rules_java//java:java_library.bzl", "java_library")
 genrule(
     name = "foo",
     srcs = ["foo_matching_in.java"],
@@ -840,6 +869,7 @@ function test_aquery_mnemonic_filter_exact_mnemonic_only_mach_foo() {
   local pkg="${FUNCNAME[0]}"
   mkdir -p "$pkg" || fail "mkdir -p $pkg"
   cat > "$pkg/BUILD" <<'EOF'
+load("@rules_java//java:java_library.bzl", "java_library")
 genrule(
     name = "foo",
     srcs = ["foo_matching_in.java"],
@@ -890,6 +920,7 @@ function test_aquery_filters_chain_inputs_only_match_one() {
   local pkg="${FUNCNAME[0]}"
   mkdir -p "$pkg" || fail "mkdir -p $pkg"
   cat > "$pkg/BUILD" <<'EOF'
+load("@rules_java//java:java_library.bzl", "java_library")
 genrule(
     name='foo',
     srcs=['foo_matching_in.java'],
@@ -964,6 +995,7 @@ function test_aquery_filters_chain_mnemonic_only_match_one() {
   local pkg="${FUNCNAME[0]}"
   mkdir -p "$pkg" || fail "mkdir -p $pkg"
   cat > "$pkg/BUILD" <<'EOF'
+load("@rules_java//java:java_library.bzl", "java_library")
 java_library(
     name='foo',
     srcs=['Foo.java']
@@ -1229,7 +1261,7 @@ def _my_jpl_aspect_imp(target, ctx):
 
 my_jpl_aspect = aspect(
   attr_aspects = ['deps', 'exports'],
-  required_aspect_providers = [['proto_java']],
+  required_aspect_providers = [],
   attrs = {
     'aspect_param': attr.string(default = 'x', values = ['x', 'y'])
   },
@@ -1985,10 +2017,12 @@ EOF
 }
 
 function test_source_symlink_manifest() {
+  add_rules_shell "MODULE.bazel"
   local pkg="${FUNCNAME[0]}"
   mkdir -p "$pkg" || fail "mkdir -p $pkg"
   touch "$pkg/foo.sh"
   cat > "$pkg/BUILD" <<'EOF'
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 sh_binary(name = "foo",
           srcs = ["foo.sh"],
 )
@@ -2006,7 +2040,8 @@ EOF
   # Verify file contents if we can decode base64-encoded data.
   if which base64 >/dev/null; then
     sed -nr 's/^ *FileWriteContents: \[(.*)\]/echo \1 | base64 -d/p' output | \
-       sh | tee -a "$TEST_log"  | assert_contains "$pkg/foo\.sh" -
+       sh | tee -a "$TEST_log"  > contents
+    assert_contains "$pkg/foo\.sh" contents
   fi
 }
 

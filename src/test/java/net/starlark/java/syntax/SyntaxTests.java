@@ -29,5 +29,6 @@ import org.junit.runners.Suite;
   ParserTest.class,
   ResolverTest.class,
   StarlarkFileTest.class,
+  StarlarkTypesTest.class,
 })
 public class SyntaxTests {}

@@ -338,7 +338,7 @@ public final class Depset implements StarlarkValue, Debug.ValueWithDebugAttribut
   public static Depset fromDirectAndTransitive(
       Order order, List<Object> direct, List<Depset> transitive, boolean strict)
       throws EvalException {
-    NestedSetBuilder<Object> builder = new NestedSetBuilder<>(order);
+    NestedSetBuilder<Object> builder = NestedSetBuilder.newBuilder(order);
     Class<?> type = null;
 
     // Check direct elements' type is equal to elements already added.

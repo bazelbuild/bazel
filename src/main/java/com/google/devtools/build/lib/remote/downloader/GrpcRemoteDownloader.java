@@ -28,11 +28,14 @@ import com.google.common.base.Strings;
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import com.google.devtools.build.lib.bazel.repository.downloader.Downloader;
 import com.google.devtools.build.lib.bazel.repository.downloader.HashOutputStream;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId.FetchId;
+import com.google.devtools.build.lib.buildeventstream.FetchEvent;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.remote.ReferenceCountedChannel;
 import com.google.devtools.build.lib.remote.RemoteRetrier;
+import com.google.devtools.build.lib.remote.common.OutputDigestMismatchException;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
@@ -40,9 +43,11 @@ import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.util.Timestamps;
+import com.google.rpc.Code;
 import io.grpc.CallCredentials;
 import io.grpc.Channel;
 import io.grpc.StatusRuntimeException;
+import io.grpc.protobuf.StatusProto;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.URISyntaxException;
@@ -135,10 +140,17 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
       Path destination,
       ExtendedEventHandler eventHandler,
       Map<String, String> clientEnv,
-      Optional<String> type)
+      Optional<String> type,
+      String context)
       throws IOException, InterruptedException {
     RequestMetadata metadata =
-        TracingMetadataUtils.buildMetadata(buildRequestId, commandId, "remote_downloader", null);
+        TracingMetadataUtils.buildMetadata(
+            buildRequestId,
+            commandId,
+            "remote_downloader",
+            /* mnemonic= */ null,
+            /* label= */ context,
+            /* configurationId= */ null);
     RemoteActionExecutionContext remoteActionExecutionContext =
         RemoteActionExecutionContext.create(metadata);
 
@@ -152,6 +164,7 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
             digestFunction,
             headers,
             credentials);
+    String eventUri = urls.getFirst().toString();
     try {
       FetchBlobResponse response =
           retrier.execute(
@@ -160,6 +173,14 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
                       channel ->
                           fetchBlockingStub(remoteActionExecutionContext, channel)
                               .fetchBlob(request)));
+      if (!response.getUri().isEmpty()) {
+        eventUri = response.getUri();
+      }
+      if (response.getStatus().getCode() == Code.OK_VALUE) {
+        eventHandler.post(new FetchEvent(eventUri, FetchId.Downloader.GRPC, /* success= */ true));
+      } else {
+        throw StatusProto.toStatusRuntimeException(response.getStatus());
+      }
       final Digest blobDigest = response.getBlobDigest();
 
       retrier.execute(
@@ -167,11 +188,15 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
             try (OutputStream out = newOutputStream(destination, checksum)) {
               Utils.getFromFuture(
                   cacheClient.downloadBlob(remoteActionExecutionContext, blobDigest, out));
+            } catch (OutputDigestMismatchException e) {
+              e.setOutputPath(destination.getPathString());
+              throw e;
             }
             return null;
           });
 
     } catch (StatusRuntimeException | IOException e) {
+      eventHandler.post(new FetchEvent(eventUri, FetchId.Downloader.GRPC, /* success= */ false));
       if (fallbackDownloader == null) {
         if (e instanceof StatusRuntimeException) {
           throw new IOException(e);
@@ -189,7 +214,8 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
           destination,
           eventHandler,
           clientEnv,
-          type);
+          type,
+          context);
     }
   }
 
@@ -271,7 +297,7 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
             TracingMetadataUtils.attachMetadataInterceptor(context.getRequestMetadata()))
         .withInterceptors(TracingMetadataUtils.newDownloaderHeadersInterceptor(options))
         .withCallCredentials(credentials.orElse(null))
-        .withDeadlineAfter(options.remoteTimeout.getSeconds(), TimeUnit.SECONDS);
+        .withDeadlineAfter(options.remoteTimeout.toSeconds(), TimeUnit.SECONDS);
   }
 
   private OutputStream newOutputStream(Path destination, Optional<Checksum> checksum)

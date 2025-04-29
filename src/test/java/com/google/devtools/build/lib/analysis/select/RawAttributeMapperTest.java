@@ -43,7 +43,8 @@ public class RawAttributeMapperTest extends AbstractAttributeMapperTest {
         "x",
         "myrule",
         """
-        sh_binary(
+        load('//test_defs:foo_binary.bzl', 'foo_binary')
+        foo_binary(
             name = "myrule",
             srcs = select({
                 "//conditions:a": ["a.sh"],
@@ -76,7 +77,7 @@ public class RawAttributeMapperTest extends AbstractAttributeMapperTest {
     assertThat(e)
         .hasMessageThat()
         .contains(
-            "Unexpected configurable attribute \"srcs\" in sh_binary rule //x:myrule: "
+            "Unexpected configurable attribute \"srcs\" in foo_binary rule //x:myrule: "
                 + "expected list(label), is select");
   }
 
@@ -110,7 +111,7 @@ public class RawAttributeMapperTest extends AbstractAttributeMapperTest {
     assertThat(e)
         .hasMessageThat()
         .contains(
-            "Unexpected configurable attribute \"srcs\" in sh_binary rule //x:myrule: "
+            "Unexpected configurable attribute \"srcs\" in foo_binary rule //x:myrule: "
                 + "expected list(label), is select");
   }
 
@@ -132,7 +133,8 @@ public class RawAttributeMapperTest extends AbstractAttributeMapperTest {
             "x",
             "myrule",
             """
-            sh_binary(
+            load('//test_defs:foo_binary.bzl', 'foo_binary')
+            foo_binary(
                 name = "myrule",
                 srcs = select({
                     "//conditions:a": ["a.sh", "b.sh"],
@@ -156,7 +158,8 @@ public class RawAttributeMapperTest extends AbstractAttributeMapperTest {
             "x",
             "myrule",
             """
-            sh_binary(
+            load('//test_defs:foo_binary.bzl', 'foo_binary')
+            foo_binary(
                 name = "myrule",
                 srcs = select({
                     "//conditions:a1": ["a1.sh"],

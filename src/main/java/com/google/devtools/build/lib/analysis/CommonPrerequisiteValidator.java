@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.packages.FunctionSplitTransitionAllowlist;
 import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.MacroInstance;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
-import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
@@ -173,13 +172,13 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
   // MacroInstance.
   private boolean isVisibleToDeclaration(
       ConfiguredTargetAndData prerequisite, Object consumingDeclaration) {
-    Package pkg;
+    PackageIdentifier consumingDeclarationPkg;
     @Nullable MacroInstance declaringMacro;
     if (consumingDeclaration instanceof Rule target) {
-      pkg = target.getPackage();
+      consumingDeclarationPkg = target.getPackageMetadata().packageIdentifier();
       declaringMacro = target.getDeclaringMacro();
     } else if (consumingDeclaration instanceof MacroInstance macroInstance) {
-      pkg = macroInstance.getPackage();
+      consumingDeclarationPkg = macroInstance.getPackageMetadata().packageIdentifier();
       declaringMacro = macroInstance.getParent();
     } else {
       throw new IllegalArgumentException(
@@ -200,14 +199,19 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
       }
     }
 
-    PackageIdentifier ruleTargetLocation =
-        declaringMacro != null
-            // Macro's location.
-            ? declaringMacro.getMacroClass().getDefiningBzlLabel().getPackageIdentifier()
-            // BUILD file's location.
-            : pkg.getPackageIdentifier();
-
-    return isVisibleToLocation(prerequisite, ruleTargetLocation);
+    if (declaringMacro != null) {
+      if (declaringMacro.getMacroClass().isFinalizer()
+          && isVisibleToLocation(prerequisite, consumingDeclarationPkg)) {
+        // Finalizers, unlike ordinary symbolic macros, are also granted the same visibility
+        // privileges as the consuming package's BUILD file.
+        return true;
+      }
+      PackageIdentifier macroLocation =
+          declaringMacro.getMacroClass().getDefiningBzlLabel().getPackageIdentifier();
+      return isVisibleToLocation(prerequisite, macroLocation);
+    } else {
+      return isVisibleToLocation(prerequisite, consumingDeclarationPkg);
+    }
   }
 
   /**
@@ -228,8 +232,7 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
     // same-logical-package as this location, a property that doesn't apply to targets created in
     // symbolic macros. Calling isSameLogicalPackage() takes care of both of these checks. Note that
     // we don't need to worry about the package's default_visibility at this stage because
-    // it is already accounted for at loading time by the target's getVisibility() accessor (or
-    // earlier).
+    // it is already accounted for at loading time by the target's getVisibility() accessor.
     //
     // TODO: #19922 - The same-logical-package logic should also be applied in the loading phase, to
     // the propagated visibility attribute inside symbolic macros, so that it applies to targets
@@ -299,38 +302,32 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
 
   private void handleVisibilityConflict(
       RuleContext.Builder context, ConfiguredTargetAndData prerequisite, Label rule) {
+    if (!context.getConfiguration().checkVisibility()) {
+      return;
+    }
     if (packageUnderExperimental(rule.getPackageIdentifier())
         && !checkVisibilityForExperimental(context)) {
       return;
     }
 
-    if (!context.getConfiguration().checkVisibility()) {
-      String errorMessage =
-          String.format(
-              "Target '%s' violates visibility of "
-                  + "%s. Continuing because --nocheck_visibility is active",
-              rule, AliasProvider.describeTargetWithAliases(prerequisite, TargetMode.WITHOUT_KIND));
-      context.ruleWarning(errorMessage);
-    } else {
-      // Visibility error:
-      //   target '//land:land' is not visible from
-      //   target '//red_delicious:apple'
-      // Recommendation: ...
-      String errorMessage =
-          String.format(
-              "Visibility error:\n"
-                  + "%s is not visible from\n"
-                  + "target '%s'\n"
-                  + "Recommendation: modify the visibility declaration if you think the dependency"
-                  + " is legitimate. For more info see https://bazel.build/concepts/visibility",
-              AliasProvider.describeTargetWithAliases(prerequisite, TargetMode.WITHOUT_KIND), rule);
+    // Visibility error:
+    //   target '//land:land' is not visible from
+    //   target '//red_delicious:apple'
+    // Recommendation: ...
+    String errorMessage =
+        String.format(
+            "Visibility error:\n"
+                + "%s is not visible from\n"
+                + "target '%s'\n"
+                + "Recommendation: modify the visibility declaration if you think the dependency"
+                + " is legitimate. For more info see https://bazel.build/concepts/visibility",
+            AliasProvider.describeTargetWithAliases(prerequisite, TargetMode.WITHOUT_KIND), rule);
 
-      if (prerequisite.getTargetKind().equals(InputFile.targetKind())) {
-        errorMessage +=
-            ". To set the visibility of that source file target, use the exports_files() function";
-      }
-      context.ruleError(errorMessage);
+    if (prerequisite.getTargetKind().equals(InputFile.targetKind())) {
+      errorMessage +=
+          ". To set the visibility of that source file target, use the exports_files() function";
     }
+    context.ruleError(errorMessage);
   }
 
   private void validateDirectPrerequisiteLocation(

@@ -13,17 +13,22 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.devtools.build.skyframe.SkyFunctionException.Transience.PERSISTENT;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.packages.StarlarkInfoNoSchema;
+import com.google.devtools.build.lib.skyframe.ProjectValue.BuildableUnit;
+import com.google.devtools.build.lib.skyframe.ProjectValue.EnforcementPolicy;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import java.util.Arrays;
 import java.util.Collection;
-import java.util.Map;
+import java.util.List;
+import java.util.Locale;
 import java.util.Map.Entry;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
@@ -33,9 +38,11 @@ public class ProjectFunction implements SkyFunction {
 
   /** The top level reserved globals in the PROJECT.scl file. */
   private enum ReservedGlobals {
-    OWNED_CODE_PATHS("owned_code_paths"),
-
-    ACTIVE_DIRECTORIES("active_directories");
+    /**
+     * Forward-facing PROJECT.scl structure: a single top-level "project" variable that contains all
+     * project data in nested data structures.
+     */
+    PROJECT("project");
 
     private final String key;
 
@@ -47,6 +54,8 @@ public class ProjectFunction implements SkyFunction {
       return key;
     }
   }
+
+  private static final String ENFORCEMENT_POLICY = "enforcement_policy";
 
   @Nullable
   @Override
@@ -66,12 +75,217 @@ public class ProjectFunction implements SkyFunction {
     if (bzlLoadValue == null) {
       return null;
     }
+    Object projectRaw = bzlLoadValue.getModule().getGlobal(ReservedGlobals.PROJECT.getKey());
+    switch (projectRaw) {
+      case null -> {
+        throw new ProjectFunctionException(
+            new TypecheckFailureException(
+                "Project files must define exactly one top-level variable called \"project\""));
+      }
+      case Dict<?, ?> asDict -> {
+        Label actualProjectFile = maybeResolveAlias(key.getProjectFile(), asDict, bzlLoadValue);
+        if (!actualProjectFile.equals(key.getProjectFile())) {
+          // This is an alias for another project file. Delegate there.
+          // TODO: b/382265245 - handle cycles, including self references.
+          return env.getValueOrThrow(
+              new ProjectValue.Key(actualProjectFile), ProjectFunctionException.class);
+        }
+        return parseLegacyProjectSchema(asDict, key.getProjectFile());
+      }
+      case StarlarkInfoNoSchema starlarkInfo -> {
+        return parseProtoProjectSchema(starlarkInfo, key.getProjectFile());
+      }
+      default ->
+          throw new ProjectFunctionException(
+              new TypecheckFailureException(
+                  String.format(
+                      "%s variable: expected a map of string to objects, got %s",
+                      ReservedGlobals.PROJECT.getKey(), projectRaw.getClass())));
+    }
+  }
 
-    Object activeDirectoriesRaw =
-        bzlLoadValue.getModule().getGlobal(ReservedGlobals.ACTIVE_DIRECTORIES.getKey());
+  /**
+   * Parses the proto-based PROJECT.scl implementation.
+   *
+   * @param starlarkInfo the raw Starlark {@link StarlarkInfoNoSchema} that {@code project} is set
+   *     to
+   * @param projectFile name of the project file
+   */
+  private static ProjectValue parseProtoProjectSchema(
+      StarlarkInfoNoSchema starlarkInfo, Label projectFile) throws ProjectFunctionException {
+    ImmutableMap.Builder<String, BuildableUnit> buildableUnitsBuilder = ImmutableMap.builder();
+    Collection<?> buildableUnits =
+        checkAndCast(
+            starlarkInfo.getValue("buildable_units"),
+            Collection.class,
+            "buildable_units must be a list of buildable unit definitions");
+    for (Object buildableUnit : buildableUnits) {
+      ImmutableList.Builder<String> targetPatternsBuilder = ImmutableList.builder();
+      ImmutableList.Builder<String> flagsBuilder = ImmutableList.builder();
+      StarlarkInfoNoSchema buildableUnitStruct =
+          checkAndCast(
+              buildableUnit,
+              StarlarkInfoNoSchema.class,
+              "buildable_units entries must be structured objects");
+      String buildableUnitName =
+          checkAndCast(
+              buildableUnitStruct.getValue("name"),
+              String.class,
+              "buildable_unit names must be strings");
+      String buildableUnitDescription =
+          checkAndCast(
+              buildableUnitStruct.getValue("description"),
+              String.class,
+              "buildable_unit descriptions must be strings");
+      boolean isDefault =
+          checkAndCast(
+              buildableUnitStruct.getValue("is_default"),
+              Boolean.class,
+              "is_default must a boolean");
+      Collection<?> targetPatterns =
+          checkAndCast(
+              buildableUnitStruct.getValue("target_patterns"),
+              Collection.class,
+              "target_patterns must be a list of strings");
+      for (Object targetPattern : targetPatterns) {
+        targetPatternsBuilder.add(
+            checkAndCast(targetPattern, String.class, "target_patterns entries must be strings"));
+      }
+      Collection<?> flags =
+          checkAndCast(
+              buildableUnitStruct.getValue("flags"),
+              Collection.class,
+              "flags must be a list of strings");
+      for (Object flag : flags) {
+        flagsBuilder.add(checkAndCast(flag, String.class, "flags entries must be strings"));
+      }
+      // TODO: b/413130912: cleanly fail when multiple buildable units have the same name.
+      buildableUnitsBuilder.put(
+          buildableUnitName,
+          BuildableUnit.create(
+              targetPatternsBuilder.build(),
+              buildableUnitDescription,
+              flagsBuilder.build(),
+              isDefault));
+    }
+    return new ProjectValue(
+        parseEnforcementPolicy(starlarkInfo.getValue(ENFORCEMENT_POLICY), projectFile),
+        parseProjectDirectories(starlarkInfo.getValue("project_directories")),
+        buildableUnitsBuilder.buildOrThrow(),
+        // TODO: b/411173830 - supported always_allowed_configs in the new schema.
+        /* alwaysAllowedConfigs= */ null,
+        projectFile);
+  }
 
-    // Crude typechecking to prevent server crashes.
-    // TODO: all of these typechecking should probably be handled by a proto spec.
+  /**
+   * Parses the first PROJECT.scl implementation (pre-proto schema).
+   *
+   * @param dict the raw Starlark {@link Dict} that {@code project} is set to
+   * @param projectFile name of the project file
+   */
+  private static ProjectValue parseLegacyProjectSchema(Dict<?, ?> dict, Label projectFile)
+      throws ProjectFunctionException {
+    ImmutableMap.Builder<String, BuildableUnit> buildableUnitsBuilder = ImmutableMap.builder();
+    for (Object k : dict.keySet()) {
+      if (!(k instanceof String)) {
+        throw new ProjectFunctionException(
+            new TypecheckFailureException(
+                String.format(
+                    "%s variable: expected string key, got element of %s",
+                    ReservedGlobals.PROJECT.getKey(), k.getClass())));
+      }
+    }
+    String defaultConfig = null;
+    Object defaultConfigRaw = dict.get("default_config");
+    if (defaultConfigRaw != null) {
+      String defaultConfigString =
+          checkAndCast(
+              defaultConfigRaw,
+              String.class,
+              "default_config must be a string matching a configs variable definition");
+      defaultConfig = defaultConfigString;
+    }
+    boolean foundDefaultConfig = false;
+    if (dict.containsKey("configs")) {
+      ImmutableMap<String, Collection<String>> configs =
+          parseConfigs(dict.get("configs"), "configs");
+      for (String config : configs.keySet()) {
+        boolean isDefault = defaultConfig != null && config.equals(defaultConfig);
+        if (isDefault) {
+          foundDefaultConfig = true;
+        }
+        buildableUnitsBuilder.put(
+            config,
+            BuildableUnit.create(
+                /* targetPatterns= */ ImmutableList.of(),
+                /* description= */ "",
+                ImmutableList.copyOf(configs.get(config)),
+                isDefault));
+      }
+    }
+    if (defaultConfig != null && !foundDefaultConfig) {
+      throw new ProjectFunctionException(
+          new BadProjectFileException(
+              "default_config must be a string matching a configs variable definition"));
+    }
+    ImmutableList.Builder<String> alwaysAllowedConfigsBuilder = ImmutableList.builder();
+    if (dict.containsKey("always_allowed_configs")
+        && dict.get("always_allowed_configs") instanceof List<?> alwaysAllowedConfigs) {
+      for (Object config : alwaysAllowedConfigs) {
+        if (!(config instanceof String string)) {
+          throw new ProjectFunctionException(
+              new TypecheckFailureException(
+                  "always_allowed_configs must be a list of strings, got " + config.getClass()));
+        }
+        alwaysAllowedConfigsBuilder.add(string);
+      }
+    }
+    return new ProjectValue(
+        parseEnforcementPolicy(dict.get(ENFORCEMENT_POLICY), projectFile),
+        parseProjectDirectories(dict.get("active_directories")),
+        dict.containsKey("configs") ? buildableUnitsBuilder.buildOrThrow() : null,
+        alwaysAllowedConfigsBuilder.build(),
+        projectFile);
+  }
+
+  private static ImmutableMap<String, Collection<String>> parseConfigs(
+      Object configsRaw, String variableName) throws ProjectFunctionException {
+    // This project file doesn't define configs, so it must not be used for canonical configs.
+    if (configsRaw == null) {
+      return ImmutableMap.of();
+    }
+    ImmutableMap.Builder<String, Collection<String>> configs = ImmutableMap.builder();
+    boolean expectedConfigsType = false;
+    if (configsRaw instanceof Dict<?, ?> configsAsDict) {
+      expectedConfigsType = true;
+      for (var entry : configsAsDict.entrySet()) {
+        if (!(entry.getKey() instanceof String key
+            && entry.getValue() instanceof Collection<?> values)) {
+          expectedConfigsType = false;
+          break;
+        }
+        ImmutableList.Builder<String> valuesBuilder = ImmutableList.builder();
+        for (var value : values) {
+          if (!(value instanceof String val)) {
+            expectedConfigsType = false;
+            break;
+          }
+          valuesBuilder.add(val);
+        }
+        configs.put(key, valuesBuilder.build());
+      }
+    }
+    if (!expectedConfigsType) {
+      throw new ProjectFunctionException(
+          new TypecheckFailureException(
+              String.format(
+                  "%s variable must be a map of strings to lists of strings", variableName)));
+    }
+    return configs.buildOrThrow();
+  }
+
+  private static ImmutableMap<String, Collection<String>> parseProjectDirectories(
+      Object activeDirectoriesRaw) throws ProjectFunctionException {
     @SuppressWarnings("unchecked")
     ImmutableMap<String, Collection<String>> activeDirectories =
         switch (activeDirectoriesRaw) {
@@ -108,6 +322,17 @@ public class ProjectFunction implements SkyFunction {
 
             yield builder.buildOrThrow();
           }
+          case List<?> list -> {
+            // The proto schema doesn't need a map. Read a list and store as a {"default": [list}]}
+            // map to preserve backward compatibility.
+            ImmutableList.Builder<String> builder = ImmutableList.builder();
+            for (Object activeDirectory : list) {
+              builder.add(
+                  checkAndCast(
+                      activeDirectory, String.class, "project_directories is a list of strings"));
+            }
+            yield ImmutableMap.of("default", builder.build());
+          }
           default ->
               throw new ProjectFunctionException(
                   new TypecheckFailureException(
@@ -115,21 +340,66 @@ public class ProjectFunction implements SkyFunction {
                           + activeDirectoriesRaw.getClass()));
         };
 
-    ImmutableMap<String, Object> residualGlobals =
-        bzlLoadValue.getModule().getGlobals().entrySet().stream()
-            .filter(
-                entry ->
-                    Arrays.stream(ReservedGlobals.values())
-                        .noneMatch(global -> entry.getKey().equals(global.getKey())))
-            .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
-
     if (!activeDirectories.isEmpty() && activeDirectories.get("default") == null) {
       throw new ProjectFunctionException(
           new ActiveDirectoriesException(
               "non-empty active_directories must contain the 'default' key"));
     }
+    return activeDirectories;
+  }
 
-    return new ProjectValue(activeDirectories, residualGlobals);
+  private static EnforcementPolicy parseEnforcementPolicy(
+      Object enforcementPolicyRaw, Label projectFile) throws ProjectFunctionException {
+    EnforcementPolicy enforcementPolicy = EnforcementPolicy.WARN;
+    if (enforcementPolicyRaw != null) {
+      try {
+        enforcementPolicy =
+            EnforcementPolicy.fromString(enforcementPolicyRaw.toString().toLowerCase(Locale.ROOT));
+      } catch (IllegalArgumentException e) {
+        throw new ProjectFunctionException(
+            new TypecheckFailureException(e.getMessage() + " in " + projectFile));
+      }
+    }
+    return enforcementPolicy;
+  }
+
+  /**
+   * If this is an alias for another project file, returns its label. Else returns the original
+   * key's label.
+   *
+   * <p>See {@link ProjectValue#maybeResolveAlias} for schema details.
+   *
+   * @throws ProjectFunctionException if the alias schema isn't valid or the actual reference isn't
+   *     a valid label.
+   */
+  private static Label maybeResolveAlias(
+      Label originalProjectFile, Dict<?, ?> project, BzlLoadValue bzlLoadValue)
+      throws ProjectFunctionException {
+    if (project.get("actual") == null) {
+      return originalProjectFile;
+    } else if (!(project.get("actual") instanceof String)) {
+      throw new ProjectFunctionException(
+          new TypecheckFailureException(
+              String.format(
+                  "project[\"actual\"]: expected string, got %s", project.get("actual"))));
+    } else if (project.keySet().size() > 1) {
+      throw new ProjectFunctionException(
+          new TypecheckFailureException(
+              String.format(
+                  "project[\"actual\"] is present, but other keys are present as well: %s",
+                  project.keySet())));
+    } else if (bzlLoadValue.getModule().getGlobals().keySet().size() > 1) {
+      throw new ProjectFunctionException(
+          new TypecheckFailureException(
+              String.format(
+                  "project global variable is present, but other globals are present as well: %s",
+                  bzlLoadValue.getModule().getGlobals().keySet())));
+    }
+    try {
+      return Label.parseCanonical((String) project.get("actual"));
+    } catch (LabelSyntaxException e) {
+      throw new ProjectFunctionException(e);
+    }
   }
 
   private static final class TypecheckFailureException extends Exception {
@@ -144,7 +414,14 @@ public class ProjectFunction implements SkyFunction {
     }
   }
 
-  private static final class ProjectFunctionException extends SkyFunctionException {
+  private static final class BadProjectFileException extends Exception {
+    BadProjectFileException(String msg) {
+      super(msg);
+    }
+  }
+
+  /** Exception thrown by {@link ProjectFunction}. */
+  public static final class ProjectFunctionException extends SkyFunctionException {
     ProjectFunctionException(TypecheckFailureException cause) {
       super(cause, PERSISTENT);
     }
@@ -156,5 +433,27 @@ public class ProjectFunction implements SkyFunction {
     ProjectFunctionException(BzlLoadFailedException e, Transience transience) {
       super(e, transience);
     }
+
+    ProjectFunctionException(LabelSyntaxException cause) {
+      super(cause, PERSISTENT);
+    }
+
+    ProjectFunctionException(BadProjectFileException cause) {
+      super(cause, PERSISTENT);
+    }
+  }
+
+  /**
+   * Checks that {@code rawValue} is an instance of {@code clazz}. If so, returns it cast to that
+   * type. Else throws a {@link ProjectFunctionException}.
+   */
+  private static <T> T checkAndCast(Object rawValue, Class<T> clazz, String errorMessage)
+      throws ProjectFunctionException {
+    if (clazz.isInstance(rawValue)) {
+      return clazz.cast(rawValue);
+    }
+    throw new ProjectFunctionException(
+        new TypecheckFailureException(
+            String.format("%s, got %s", errorMessage, rawValue.getClass())));
   }
 }

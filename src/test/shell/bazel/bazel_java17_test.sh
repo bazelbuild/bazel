@@ -61,12 +61,16 @@ override_java_tools "${RULES_JAVA_REPO_NAME}" "${JAVA_TOOLS_ZIP}" "${JAVA_TOOLS_
 add_to_bazelrc "build --java_runtime_version=11"
 add_to_bazelrc "build --tool_java_runtime_version=11"
 
-add_protobuf "MODULE.bazel"
+function set_up(){
+  add_protobuf "MODULE.bazel"
+  add_rules_java "MODULE.bazel"
+}
 
 # Java source files version shall match --java_language_version_flag version.
 function test_java17_text_block() {
   mkdir -p java/main
   cat >java/main/BUILD <<EOF
+load("@rules_java//java:java_binary.bzl", "java_binary")
 java_binary(
     name = 'Javac17Example',
     srcs = ['Javac17Example.java'],
@@ -107,7 +111,9 @@ function test_incompatible_system_classpath() {
   # This test defines a custom Java toolchain as it relies on the availability of a runtime that is
   # strictly newer than the one specified as the toolchain's java_runtime.
   cat >pkg/BUILD <<'EOF'
-load("@bazel_tools//tools/jdk:default_java_toolchain.bzl", "default_java_toolchain")
+load("@rules_java//toolchains:default_java_toolchain.bzl", "default_java_toolchain")
+load("@rules_java//java:java_binary.bzl", "java_binary")
+
 java_binary(
     name = "Main",
     srcs = ["Main.java"],
@@ -117,7 +123,7 @@ default_java_toolchain(
     name = "java_toolchain",
     source_version = "17",
     target_version = "17",
-    java_runtime = "@bazel_tools//tools/jdk:remotejdk_17",
+    java_runtime = "@rules_java//toolchains:remotejdk_17",
 )
 EOF
 
@@ -148,7 +154,9 @@ function test_incompatible_tool_system_classpath() {
   # This test defines a custom Java toolchain as it relies on the availability of a runtime that is
   # strictly newer than the one specified as the toolchain's java_runtime.
   cat >pkg/BUILD <<'EOF'
-load("@bazel_tools//tools/jdk:default_java_toolchain.bzl", "default_java_toolchain")
+load("@rules_java//toolchains:default_java_toolchain.bzl", "default_java_toolchain")
+load("@rules_java//java:java_binary.bzl", "java_binary")
+
 java_binary(
     name = "Main",
     srcs = ["Main.java"],

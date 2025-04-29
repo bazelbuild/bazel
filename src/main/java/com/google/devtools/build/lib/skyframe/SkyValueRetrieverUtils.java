@@ -19,14 +19,18 @@ import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.concurrent.RequestBatcher;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.DefaultDependOnFutureShim;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievalResult;
-import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.SerializationStateProvider;
+import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.SerializableSkyKeyComputeState;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingDependenciesProvider;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyKey;
+import com.google.protobuf.ByteString;
+import java.util.function.Supplier;
+import javax.annotation.Nullable;
 
 /**
  * A wrapper around {@link SkyValueRetriever} to handle Bazel-on-Skyframe specific logic, metrics
@@ -34,32 +38,41 @@ import com.google.devtools.build.skyframe.SkyKey;
  */
 public final class SkyValueRetrieverUtils {
 
-  public static RetrievalResult maybeFetchSkyValueRemotely(
+  public static RetrievalResult fetchRemoteSkyValue(
       SkyKey key,
       Environment env,
       RemoteAnalysisCachingDependenciesProvider analysisCachingDeps,
-      SerializationStateProvider state)
+      Supplier<? extends SerializableSkyKeyComputeState> stateSupplier)
       throws InterruptedException {
     Label label =
         switch (key) {
           case ActionLookupKey alk -> alk.getLabel();
           case ActionLookupData ald -> ald.getLabel();
           case Artifact artifact -> artifact.getOwnerLabel();
-          default -> throw new IllegalStateException("unexpected key: " + key);
+          default -> throw new IllegalStateException("unexpected key: " + key.getCanonicalName());
         };
 
-    if (analysisCachingDeps.withinActiveDirectories(label.getPackageIdentifier())) {
+    @Nullable
+    RequestBatcher<ByteString, ByteString> analysisCacheClient =
+        analysisCachingDeps.getAnalysisCacheClient();
+    if (label == null
+        || (analysisCacheClient == null
+            && analysisCachingDeps.withinActiveDirectories(label.getPackageIdentifier()))) {
+      // If there's no label, there's no cached data. Also, in the absence of the
+      // AnalysisCacheService, avoids fetches inside the active directories.
       return NO_CACHED_DATA;
     }
 
     RetrievalResult retrievalResult;
     try {
+      SerializableSkyKeyComputeState state = env.getState(stateSupplier);
       retrievalResult =
           SkyValueRetriever.tryRetrieve(
               env,
               new DefaultDependOnFutureShim(env),
               analysisCachingDeps.getObjectCodecs(),
               analysisCachingDeps.getFingerprintValueService(),
+              analysisCacheClient,
               key,
               state,
               /* frontierNodeVersion= */ analysisCachingDeps.getSkyValueVersion());

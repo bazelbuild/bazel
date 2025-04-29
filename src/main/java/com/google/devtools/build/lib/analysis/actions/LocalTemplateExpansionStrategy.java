@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.analysis.actions;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.AbstractAction;
@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.server.FailureDetails.Execution;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.util.DeterministicWriter;
 import com.google.devtools.build.lib.util.StringUtilities;
 import java.io.IOException;
 import java.util.List;
@@ -47,7 +48,8 @@ public class LocalTemplateExpansionStrategy implements TemplateExpansionContext 
       final String expandedTemplate =
           getExpandedTemplateUnsafe(
               templateMetadata.template(), templateMetadata.substitutions(), ctx.getPathResolver());
-      DeterministicWriter deterministicWriter = out -> out.write(expandedTemplate.getBytes(UTF_8));
+      DeterministicWriter deterministicWriter =
+          out -> out.write(expandedTemplate.getBytes(ISO_8859_1));
       return ctx.getContext(FileWriteActionContext.class)
           .writeOutputToFile(
               action,

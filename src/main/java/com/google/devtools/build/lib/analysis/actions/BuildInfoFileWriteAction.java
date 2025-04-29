@@ -18,7 +18,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
@@ -26,7 +25,7 @@ import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.ArtifactExpander;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -130,11 +129,7 @@ public final class BuildInfoFileWriteAction extends AbstractAction {
                 // in any reference-equals objects.
                 SymbolGenerator.createTransient());
         substitutionDictObject =
-            Starlark.call(
-                thread,
-                translationCallback,
-                ImmutableList.of(Dict.immutableCopyOf(values)),
-                ImmutableMap.of());
+            Starlark.positionalOnlyCall(thread, translationCallback, Dict.immutableCopyOf(values));
       } catch (EvalException e) {
         String message =
             String.format(
@@ -193,7 +188,7 @@ public final class BuildInfoFileWriteAction extends AbstractAction {
   @Override
   protected void computeKey(
       ActionKeyContext actionKeyContext,
-      @Nullable ArtifactExpander artifactExpander,
+      @Nullable InputMetadataProvider inputMetadataProvider,
       Fingerprint fp) {
     fp.addString(GUID);
     fp.addBoolean(isVolatile);

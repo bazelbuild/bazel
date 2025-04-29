@@ -109,8 +109,7 @@ public interface RepositoryModuleApi {
             doc = "Compatible with remote execution",
             named = true,
             positional = false,
-            enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_REPO_REMOTE_EXEC,
-            valueWhenDisabled = "False"),
+            enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_REPO_REMOTE_EXEC),
         @Param(
             name = "doc",
             allowedTypes = {

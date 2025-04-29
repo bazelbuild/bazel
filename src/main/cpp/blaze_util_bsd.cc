@@ -25,13 +25,13 @@
 # define DEFAULT_SYSTEM_JAVABASE STANDARD_JAVABASE
 #endif
 
-#include <errno.h>  // errno, ENAMETOOLONG
+#include <errno.h>
 #include <limits.h>
 #include <pwd.h>
 #include <signal.h>
 #include <spawn.h>
 #include <stdlib.h>
-#include <string.h>  // strerror
+#include <string.h>
 #include <sys/mount.h>
 #include <sys/param.h>
 #include <sys/queue.h>
@@ -62,7 +62,7 @@ using std::string;
 
 // ${XDG_CACHE_HOME}/bazel, a.k.a. ~/.cache/bazel by default (which is the
 // fallback when XDG_CACHE_HOME is not set)
-string GetOutputRoot() {
+string GetCacheDir() {
   string xdg_cache_home = GetPathEnv("XDG_CACHE_HOME");
   if (xdg_cache_home.empty()) {
     char buf[2048];

@@ -330,9 +330,11 @@ EOF
 }
 
 function test_sandboxed_genrule_with_tools() {
+  add_rules_shell "MODULE.bazel"
   mkdir -p examples/genrule
 
   cat << 'EOF' > examples/genrule/BUILD
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 sh_binary(
     name = "tool",
     srcs = ["tool.sh"],
@@ -597,13 +599,14 @@ function test_requires_root() {
     echo "Skipping test: fake usernames not supported in this system" 1>&2
     return 0
   fi
-
+  add_rules_shell "MODULE.bazel"
   cat > test.sh <<'EOF'
 #!/bin/sh
 ([ $(id -u) = "0" ] && [ $(id -g) = "0" ]) || exit 1
 EOF
   chmod +x test.sh
   cat > BUILD <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 sh_test(
   name = "test",
   srcs = ["test.sh"],
@@ -646,7 +649,9 @@ function test_succeeding_action_with_ioexception_while_copying_outputs_throws_co
 genrule(
   name = "test",
   outs = ["readonlydir/output.txt"],
-  cmd = "touch $(location readonlydir/output.txt); chmod 0 $(location readonlydir/output.txt); chmod 0500 `dirname $(location readonlydir/output.txt)`",
+  cmd = """touch $(location readonlydir/output.txt) && \
+           chmod 0 $(location readonlydir/output.txt) && \
+           chmod 0 `dirname $(location readonlydir/output.txt)`""",
 )
 EOF
   bazel build :test &> $TEST_log \
@@ -674,7 +679,10 @@ function test_failing_action_with_ioexception_while_copying_outputs_throws_corre
 genrule(
   name = "test",
   outs = ["readonlydir/output.txt"],
-  cmd = "touch $(location readonlydir/output.txt); chmod 0 $(location readonlydir/output.txt); chmod 0500 `dirname $(location readonlydir/output.txt)`; exit 1",
+  cmd = """touch $(location readonlydir/output.txt) && \
+           chmod 0 $(location readonlydir/output.txt) && \
+           chmod 0 `dirname $(location readonlydir/output.txt)` && \
+           exit 1""",
 )
 EOF
   bazel build :test &> $TEST_log \
@@ -698,8 +706,10 @@ function test_read_non_hermetic_tmp {
   temp_dir=$(mktemp -d /tmp/test.XXXXXX)
   trap 'rm -rf ${temp_dir}' EXIT
 
+  add_rules_shell "MODULE.bazel"
   mkdir -p pkg
   cat > pkg/BUILD <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 sh_test(
   name = "tmp_test",
   srcs = ["tmp_test.sh"],
@@ -726,8 +736,10 @@ function test_read_hermetic_tmp {
   temp_dir=$(mktemp -d /tmp/test.XXXXXX)
   trap 'rm -rf ${temp_dir}' EXIT
 
+  add_rules_shell "MODULE.bazel"
   mkdir -p pkg
   cat > pkg/BUILD <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 sh_test(
   name = "tmp_test",
   srcs = ["tmp_test.sh"],
@@ -753,8 +765,10 @@ function test_read_hermetic_tmp_user_override {
   temp_dir=$(mktemp -d /tmp/test.XXXXXX)
   trap 'rm -rf ${temp_dir}' EXIT
 
+  add_rules_shell "MODULE.bazel"
   mkdir -p pkg
   cat > pkg/BUILD <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 sh_test(
   name = "tmp_test",
   srcs = ["tmp_test.sh"],
@@ -775,8 +789,10 @@ function test_write_non_hermetic_tmp {
   temp_dir=$(mktemp -d /tmp/test.XXXXXX)
   trap 'rm -rf ${temp_dir}' EXIT
 
+  add_rules_shell "MODULE.bazel"
   mkdir -p pkg
   cat > pkg/BUILD <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 sh_test(
   name = "tmp_test",
   srcs = ["tmp_test.sh"],
@@ -803,8 +819,10 @@ function test_write_hermetic_tmp {
   temp_dir=$(mktemp -d /tmp/test.XXXXXX)
   trap 'rm -rf ${temp_dir}' EXIT
 
+  add_rules_shell "MODULE.bazel"
   mkdir -p pkg
   cat > pkg/BUILD <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 sh_test(
   name = "tmp_test",
   srcs = ["tmp_test.sh"],
@@ -831,8 +849,10 @@ function test_write_hermetic_tmp_user_override {
   temp_dir=$(mktemp -d /tmp/test.XXXXXX)
   trap 'rm -rf ${temp_dir}' EXIT
 
+  add_rules_shell "MODULE.bazel"
   mkdir -p pkg
   cat > pkg/BUILD <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 sh_test(
   name = "tmp_test",
   srcs = ["tmp_test.sh"],

@@ -125,6 +125,12 @@ public final class BzlmodTestUtil {
     }
 
     @CanIgnoreReturnValue
+    public InterimModuleBuilder addNodepDep(ModuleKey key) {
+      builder.addNodepDep(DepSpec.fromModuleKey(key));
+      return this;
+    }
+
+    @CanIgnoreReturnValue
     public InterimModuleBuilder setKey(ModuleKey value) {
       this.key = value;
       this.builder.setKey(value);
@@ -193,7 +199,11 @@ public final class BzlmodTestUtil {
       AugmentedModuleBuilder myBuilder = new AugmentedModuleBuilder();
       myBuilder.key = key;
       myBuilder.builder =
-          AugmentedModule.builder(key).setName(name).setVersion(version).setLoaded(loaded);
+          AugmentedModule.builder(key)
+              .setName(name)
+              .setVersion(version)
+              .setRepoName(name)
+              .setLoaded(loaded);
       return myBuilder;
     }
 

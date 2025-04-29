@@ -13,7 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -26,54 +28,156 @@ import javax.annotation.Nullable;
 
 /** A SkyValue representing the parsed definitions from a PROJECT.scl file. */
 public final class ProjectValue implements SkyValue {
+  /**
+   * Represents the enforcement policy for a PROJECT.scl file.
+   *
+   * <p>"warn" (default) - warn if the user set any output-affecting options that are not present in
+   * the selected config in a blazerc or on the command line.
+   *
+   * <p>"compatible" - fail if the user set any options that are present in the selected config to a
+   * different value than the one in the config. Also warn for other output-affecting options
+   *
+   * <p>"strict" - fail if the user set any output-affecting options that are not present in the
+   * selected config.
+   */
+  public enum EnforcementPolicy {
+    WARN("warn"), // Default, enforced in ProjectFunction#compute.
+    COMPATIBLE("compatible"),
+    STRICT("strict");
 
-  private final ImmutableMap<String, Collection<String>> activeDirectories;
+    EnforcementPolicy(String value) {
+      this.value = value;
+    }
 
-  private final ImmutableMap<String, Object> residualGlobals;
+    private final String value;
+
+    public static EnforcementPolicy fromString(String value) {
+      for (EnforcementPolicy policy : EnforcementPolicy.values()) {
+        if (policy.value.equals(value)) {
+          return policy;
+        }
+      }
+      throw new IllegalArgumentException(String.format("invalid enforcement_policy '%s'", value));
+    }
+  }
+
+  private final EnforcementPolicy enforcementPolicy;
+  private final ImmutableMap<String, Collection<String>> projectDirectories;
+  @Nullable private final ImmutableMap<String, BuildableUnit> buildableUnits;
+  @Nullable private final ImmutableList<String> alwaysAllowedConfigs;
+  @Nullable private final Label actualProjectFile;
+
+  /**
+   * A project's buildable units.
+   *
+   * <p>A buildable unit is a named pair of build flags and target patterns. The name is stored as a
+   * map key in {@link ProjectValue#getBuildableUnits()}
+   *
+   * <p>See {@code third_party/bazel/src/main/protobuf/project/project.proto} for precise
+   * definitions.
+   */
+  @AutoValue
+  public abstract static class BuildableUnit {
+    /**
+     * Creates a buildable unit.
+     *
+     * @param targetPatterns the buildable unit's target patterns, or empty if they weren't set
+     * @param description the buildable unit's user-friendly description, or empty if not set
+     * @param flags the buildable unit's flags
+     * @param isDefault whether this is the default buildable unit
+     */
+    public static BuildableUnit create(
+        ImmutableList<String> targetPatterns,
+        String description,
+        ImmutableList<String> flags,
+        boolean isDefault) {
+      return new AutoValue_ProjectValue_BuildableUnit(
+          targetPatterns, description, flags, isDefault);
+    }
+
+    public abstract ImmutableList<String> targetPatterns();
+
+    public abstract String description();
+
+    public abstract ImmutableList<String> flags();
+
+    public abstract boolean isDefault();
+  }
 
   public ProjectValue(
-      ImmutableMap<String, Collection<String>> activeDirectories,
-      ImmutableMap<String, Object> residualGlobals) {
-    this.activeDirectories = activeDirectories;
-    this.residualGlobals = residualGlobals;
+      EnforcementPolicy enforcementPolicy,
+      ImmutableMap<String, Collection<String>> projectDirectories,
+      @Nullable ImmutableMap<String, BuildableUnit> buildableUnits,
+      @Nullable ImmutableList<String> alwaysAllowedConfigs,
+      @Nullable Label actualProjectFile) {
+    this.enforcementPolicy = enforcementPolicy;
+    this.projectDirectories = projectDirectories;
+    this.buildableUnits = buildableUnits;
+    this.alwaysAllowedConfigs = alwaysAllowedConfigs;
+    this.actualProjectFile = actualProjectFile;
   }
 
   /**
-   * Returns the residual global referenced by the {@code key} found in the PROJECT file.
-   *
-   * <p>This returns null for non-existent keys and reserved globals. Use the dedicated getters to
-   * access the reserved globals. See {@code ProjectFunction.ReservedGlobals} for the list.
+   * Return the "default" {@code project_directories} map entry. If there are zero entries, returns
+   * an empty set.
    */
-  @Nullable
-  public Object getResidualGlobal(String key) {
-    return residualGlobals.get(key);
-  }
-
-  @Nullable
-  public Object getResidualGlobals() {
-    return residualGlobals;
-  }
-
-  /**
-   * Return the default active directory. If there are zero active directories, return the empty
-   * set.
-   */
-  public ImmutableSet<String> getDefaultActiveDirectory() {
-    if (activeDirectories.isEmpty()) {
+  public ImmutableSet<String> getDefaultProjectDirectories() {
+    if (projectDirectories.isEmpty()) {
       return ImmutableSet.of();
     }
+    // TODO: b/409377907 - Make sure this check still makes sense with the new format.
     Preconditions.checkArgument(
-        activeDirectories.containsKey("default"),
-        "active_directories must contain the 'default' key");
-    return ImmutableSet.copyOf(activeDirectories.get("default"));
+        projectDirectories.containsKey("default"),
+        "project_directories must contain the 'default' key");
+    return ImmutableSet.copyOf(projectDirectories.get("default"));
   }
 
   /**
-   * Returns the map of named active directories in the project. If the map is not defined in the
-   * file, returns an empty map.
+   * If a project file has the content
+   *
+   * {@snippet :
+   *   project = {
+   *     "actual": "//other:PROJECT.scl"
+   *   }
+   * }
+   *
+   * <p>then this is the same project defined canonically in {@code //other:PROJECT.scl} and this
+   * method returns {@code //other:PROJECT.scl}. Else returns the {@link ProjectValue.Key} label
+   * that produces this value.
+   *
+   * <p>Files that define "actual" cannot define any other content. That's considered a parsing
+   * error.
    */
-  public ImmutableMap<String, Collection<String>> getActiveDirectories() {
-    return activeDirectories;
+  public Label getActualProjectFile() {
+    return actualProjectFile;
+  }
+
+  public EnforcementPolicy getEnforcementPolicy() {
+    return enforcementPolicy;
+  }
+
+  /**
+   * Maps buildable unit names to definitions. Null if not specified. Note that an empty list is not
+   * the same as unspecified.
+   *
+   * <p>Builds can trigger a buildable unit by setting {@code --scl_config=<name>}.
+   */
+  @Nullable
+  public ImmutableMap<String, BuildableUnit> getBuildableUnits() {
+    return buildableUnits;
+  }
+
+  @Nullable
+  public ImmutableList<String> getAlwaysAllowedConfigs() {
+    return alwaysAllowedConfigs;
+  }
+
+  /**
+   * Returns the map of named {@code project_directories} in the project. If the map is not defined
+   * in the file, returns an empty map.
+   */
+  public ImmutableMap<String, Collection<String>> getProjectDirectories() {
+    return projectDirectories;
   }
 
   /** The SkyKey. Uses the label of the project file as the input. */

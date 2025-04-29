@@ -34,11 +34,9 @@ import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.TriState;
-import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeSet;
@@ -95,9 +93,20 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   public String starlarkExecConfig;
 
   @Option(
+      name = "incompatible_disable_select_on",
+      defaultValue = "",
+      converter = CommaSeparatedOptionSetConverter.class,
+      documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help = "List of flags for which the use in select() is disabled.")
+  public ImmutableList<String> disabledSelectOptions;
+
+  @Option(
       name = "experimental_propagate_custom_flag",
       defaultValue = "null",
       allowMultiple = true,
+      converter = CoreOptionConverters.CustomFlagConverter.class,
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
@@ -201,7 +210,11 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       converter = AutoCpuConverter.class,
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.CHANGES_INPUTS, OptionEffectTag.AFFECTS_OUTPUTS},
-      help = "The target CPU.")
+      // Don't set an actual deprecation notice: this is still heavily used and will be ignored.
+      help =
+          "Deprecated: this flag is not used internally by Blaze although there are legacy platform"
+              + " mappings to allow for backwards compatibility. Do not use this flag, instead use"
+              + " --platforms with an appropriate platform definition.")
   public String cpu;
 
   @Option(
@@ -420,24 +433,6 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       help = "Specifies a suffix to be added to the configuration directory.")
   public String platformSuffix;
 
-  // TODO(bazel-team): The test environment is actually computed in BlazeRuntime and this option
-  // is not read anywhere else. Thus, it should be in a different options class, preferably one
-  // specific to the "test" command or maybe in its own configuration fragment.
-  @Option(
-      name = "test_env",
-      converter = Converters.OptionalAssignmentConverter.class,
-      allowMultiple = true,
-      defaultValue = "null",
-      documentationCategory = OptionDocumentationCategory.TESTING,
-      effectTags = {OptionEffectTag.TEST_RUNNER},
-      help =
-          "Specifies additional environment variables to be injected into the test runner "
-              + "environment. Variables can be either specified by name, in which case its value "
-              + "will be read from the Bazel client environment, or by the name=value pair. "
-              + "This option can be used multiple times to specify several variables. "
-              + "Used only by the 'bazel test' command.")
-  public List<Map.Entry<String, String>> testEnvironment;
-
   // TODO(bazel-team): The set of available variables from the client environment for actions
   // is computed independently in CommandEnvironment to inject a more restricted client
   // environment to skyframe.
@@ -581,12 +576,9 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   @Option(
       name = "check_licenses",
       defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
-      help =
-          "Check that licensing constraints imposed by dependent packages "
-              + "do not conflict with distribution modes of the targets being built. "
-              + "By default, licenses are not checked.")
+      help = "Deprecated in favor of --config=check_licenses.")
   public boolean checkLicenses;
 
   @Option(
@@ -840,7 +832,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
 
   @Option(
       name = "incompatible_modify_execution_info_additive",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
       effectTags = {
         OptionEffectTag.EXECUTION,
@@ -855,7 +847,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
 
   @Option(
       name = "incompatible_bazel_test_exec_run_under",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
       effectTags = {
         OptionEffectTag.AFFECTS_OUTPUTS,
@@ -898,9 +890,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
       metadataTags = OptionMetadataTag.EXPERIMENTAL,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.EXECUTION},
-      help =
-          "Whether to make direct filesystem calls to create symlink trees instead of delegating"
-              + " to a helper process.")
+      help = "No-op.")
   public boolean inProcessSymlinkCreation;
 
   @Option(
@@ -958,6 +948,21 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       help = "Whether to throttle the check whether an action is cached.")
   public boolean throttleActionCacheCheck;
 
+  // This cannot be in TestOptions since the default test toolchain needs to be enabled
+  // conditionally based on its value and test trimming would drop it when evaluating the toolchain
+  // target.
+  @Option(
+      name = "use_target_platform_for_tests",
+      deprecationWarning =
+          "Tests select an execution platform matching all constraints of the target platform by"
+              + " default. Instead of using this flag, make sure that all test target platform are"
+              + " registered as execution platforms.",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help = "If true, use the target platform for running tests rather than the test exec group.")
+  public boolean useTargetPlatformForTests;
+
   /** Ways configured targets may provide the {@link Fragment}s they require. */
   public enum IncludeConfigFragmentsEnum {
     /**
@@ -983,20 +988,6 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   public ImmutableMap<String, String> getNormalizedCommandLineBuildVariables() {
     return sortEntries(normalizeEntries(commandLineBuildVariables)).stream()
         .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
-  }
-
-  // Normalizes list of map entries by keeping only the last entry for each key.
-  private static List<Map.Entry<String, String>> normalizeEntries(
-      List<Map.Entry<String, String>> entries) {
-    LinkedHashMap<String, String> normalizedEntries = new LinkedHashMap<>();
-    for (Map.Entry<String, String> entry : entries) {
-      normalizedEntries.put(entry.getKey(), entry.getValue());
-    }
-    // If we made no changes, return the same instance we got to reduce churn.
-    if (normalizedEntries.size() == entries.size()) {
-      return entries;
-    }
-    return normalizedEntries.entrySet().stream().map(SimpleEntry::new).collect(toImmutableList());
   }
 
   // Sort the map entries by key.
@@ -1056,7 +1047,6 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
 
     result.actionEnvironment = normalizeEntries(actionEnvironment);
     result.hostActionEnvironment = normalizeEntries(hostActionEnvironment);
-    result.testEnvironment = normalizeEntries(testEnvironment);
     result.commandLineFlagAliases = sortEntries(normalizeEntries(commandLineFlagAliases));
 
     return result;

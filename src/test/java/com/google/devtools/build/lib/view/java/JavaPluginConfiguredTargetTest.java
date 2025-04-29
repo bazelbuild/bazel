@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.prettyArtifactNames;
 import static com.google.devtools.build.lib.rules.java.JavaCompileActionTestHelper.getProcessorpath;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
@@ -26,10 +27,13 @@ import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.configuredtargets.FileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.packages.StarlarkInfo;
+import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompileAction;
 import com.google.devtools.build.lib.rules.java.JavaPluginInfo;
-import com.google.devtools.build.lib.rules.java.ProguardSpecProvider;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -86,11 +90,10 @@ public class JavaPluginConfiguredTargetTest extends BuildViewTestCase {
     setupEmptyProcessorClass();
 
     ConfiguredTarget processorTarget = getConfiguredTarget("//java/com/google/test:processor");
-    assertThat(processorTarget.get(JavaPluginInfo.PROVIDER).plugins().processorClasses().toList())
+    assertThat(JavaPluginInfo.get(processorTarget).plugins().processorClasses().toList())
         .containsExactly("com.google.test.Processor");
     assertThat(
-            prettyArtifactNames(
-                processorTarget.get(JavaPluginInfo.PROVIDER).plugins().processorClasspath()))
+            prettyArtifactNames(JavaPluginInfo.get(processorTarget).plugins().processorClasspath()))
         .containsExactly(
             "java/com/google/test/libprocessor.jar", "java/com/google/test/libdeps.jar");
   }
@@ -100,12 +103,12 @@ public class JavaPluginConfiguredTargetTest extends BuildViewTestCase {
     setupEmptyProcessorClass();
 
     ConfiguredTarget bugcheckerTarget = getConfiguredTarget("//java/com/google/test:bugchecker");
-    assertThat(bugcheckerTarget.get(JavaPluginInfo.PROVIDER).plugins().processorClasses().toList())
+    assertThat(JavaPluginInfo.get(bugcheckerTarget).plugins().processorClasses().toList())
         .isEmpty();
 
     assertThat(
             prettyArtifactNames(
-                bugcheckerTarget.get(JavaPluginInfo.PROVIDER).plugins().processorClasspath()))
+                JavaPluginInfo.get(bugcheckerTarget).plugins().processorClasspath()))
         .containsExactly(
             "java/com/google/test/libbugchecker.jar", "java/com/google/test/libdeps.jar");
   }
@@ -120,11 +123,7 @@ public class JavaPluginConfiguredTargetTest extends BuildViewTestCase {
         (JavaCompileAction) getGeneratingAction(emptyOutput.getArtifact());
     assertThat(
             Artifact.toRootRelativePaths(
-                bugcheckerTarget
-                    .get(JavaPluginInfo.PROVIDER)
-                    .plugins()
-                    .processorClasspath()
-                    .toList()))
+                JavaPluginInfo.get(bugcheckerTarget).plugins().processorClasspath().toList()))
         .containsExactlyElementsIn(
             Artifact.toRootRelativePaths(getInputs(javacAction, getProcessorpath(javacAction))));
   }
@@ -158,10 +157,16 @@ public class JavaPluginConfiguredTargetTest extends BuildViewTestCase {
             deps = [":dep"],
         )
         """);
+    StarlarkProvider.Key key =
+        new StarlarkProvider.Key(
+            keyForBuild(
+                Label.parseCanonicalUnchecked(
+                    "@rules_java//java/common:proguard_spec_info.bzl")),
+            "ProguardSpecInfo");
+    StarlarkInfo proguardSpecInfo =
+        (StarlarkInfo) getConfiguredTarget("//java/com/google/android/hello:top").get(key);
     NestedSet<Artifact> providedSpecs =
-        getConfiguredTarget("//java/com/google/android/hello:top")
-            .get(ProguardSpecProvider.PROVIDER)
-            .getTransitiveProguardSpecs();
+        proguardSpecInfo.getValue("specs", Depset.class).getSet(Artifact.class);
     assertThat(ActionsTestUtil.baseArtifactNames(providedSpecs))
         .containsAtLeast("top.pro_valid", "dep.pro_valid");
     assertThat(ActionsTestUtil.baseArtifactNames(providedSpecs)).doesNotContain("plugin.pro_valid");
@@ -240,7 +245,7 @@ public class JavaPluginConfiguredTargetTest extends BuildViewTestCase {
         """);
 
     JavaPluginInfo plugin =
-        getConfiguredTarget("//java/com/google/test:api_generating").get(JavaPluginInfo.PROVIDER);
+        JavaPluginInfo.get(getConfiguredTarget("//java/com/google/test:api_generating"));
     assertThat(plugin.plugins().processorClasses().toList()).containsExactly("ApiGeneratingPlugin");
     assertThat(plugin.apiGeneratingPlugins().processorClasses().toList())
         .containsExactly("ApiGeneratingPlugin");
@@ -266,7 +271,7 @@ public class JavaPluginConfiguredTargetTest extends BuildViewTestCase {
         """);
 
     JavaPluginInfo plugin =
-        getConfiguredTarget("//java/com/google/test:impl_generating").get(JavaPluginInfo.PROVIDER);
+        JavaPluginInfo.get(getConfiguredTarget("//java/com/google/test:impl_generating"));
     assertThat(plugin.plugins().processorClasses().toList())
         .containsExactly("ImplGeneratingPlugin");
     assertThat(plugin.apiGeneratingPlugins().processorClasses().toList()).isEmpty();
@@ -298,7 +303,7 @@ public class JavaPluginConfiguredTargetTest extends BuildViewTestCase {
         """);
 
     JavaPluginInfo plugin =
-        getConfiguredTarget("//java/com/google/test:impl_generating").get(JavaPluginInfo.PROVIDER);
+        JavaPluginInfo.get(getConfiguredTarget("//java/com/google/test:impl_generating"));
     assertThat(prettyArtifactNames(plugin.plugins().data()))
         .containsExactly("java/com/google/test/data.txt");
     FileConfiguredTarget libJar = getFileConfiguredTarget("//java/com/google/test:liblib.jar");

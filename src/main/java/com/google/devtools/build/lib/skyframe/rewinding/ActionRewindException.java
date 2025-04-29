@@ -13,28 +13,49 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.rewinding;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
 import com.google.devtools.build.lib.server.FailureDetails.ActionRewinding;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.Spawn;
 import com.google.devtools.build.lib.skyframe.DetailedException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 
 /** Exception thrown by {@link ActionRewindStrategy} when it cannot compute a rewind plan. */
-public final class ActionRewindException extends Exception implements DetailedException {
-  private final ActionRewinding.Code code;
+public abstract sealed class ActionRewindException extends Exception implements DetailedException {
 
-  ActionRewindException(String message, ActionRewinding.Code code) {
+  ActionRewindException(String message) {
     super(message);
-    this.code = checkNotNull(code);
   }
 
-  @Override
-  public DetailedExitCode getDetailedExitCode() {
-    return DetailedExitCode.of(
-        FailureDetail.newBuilder()
-            .setMessage(getMessage())
-            .setActionRewinding(ActionRewinding.newBuilder().setCode(code))
-            .build());
+  static final class GenericActionRewindException extends ActionRewindException {
+    private final ActionRewinding.Code code;
+
+    GenericActionRewindException(String message, ActionRewinding.Code code) {
+      super(message);
+      this.code = code;
+    }
+
+    @Override
+    public DetailedExitCode getDetailedExitCode() {
+      return DetailedExitCode.of(
+          FailureDetail.newBuilder()
+              .setMessage(getMessage())
+              .setActionRewinding(ActionRewinding.newBuilder().setCode(code))
+              .build());
+    }
+  }
+
+  static final class FallbackToBuildRewindingException extends ActionRewindException {
+    FallbackToBuildRewindingException(String message) {
+      super(message);
+    }
+
+    @Override
+    public DetailedExitCode getDetailedExitCode() {
+      return DetailedExitCode.of(
+          FailureDetail.newBuilder()
+              .setMessage(getMessage())
+              .setSpawn(Spawn.newBuilder().setCode(Spawn.Code.REMOTE_CACHE_EVICTED))
+              .build());
+    }
   }
 }

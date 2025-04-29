@@ -186,9 +186,11 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
 
   /** The object available as the {@code ctx} argument of materializers. */
   private static class StarlarkMaterializerContext implements StarlarkValue {
+    private final Label label;
     private final StructImpl attrs;
 
-    private StarlarkMaterializerContext(Map<String, Object> attributeMap) {
+    private StarlarkMaterializerContext(Label label, Map<String, Object> attributeMap) {
+      this.label = label;
       attrs =
           StructProvider.STRUCT.create(
               attributeMap,
@@ -202,6 +204,14 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
         doc = "A struct to access the attributes of the rule in a materializer function.")
     public StructApi getAttr() {
       return attrs;
+    }
+
+    @StarlarkMethod(
+        name = "label",
+        structField = true,
+        doc = "The label of the rule whose attribute the materializer is computing.")
+    public Label getLabel() {
+      return label;
     }
   }
 
@@ -245,7 +255,7 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
         result.put(attribute.getPublicName(), starlarkValue);
       }
 
-      return new StarlarkMaterializerContext(ImmutableMap.copyOf(result));
+      return new StarlarkMaterializerContext(rule.getLabel(), ImmutableMap.copyOf(result));
     }
 
     @Override
@@ -290,7 +300,7 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
         thread.setPrintHandler(Event.makeDebugPrintHandler(eventHandler));
 
         new MaterializationContext().storeInThread(thread);
-        return Starlark.fastcall(thread, implementation, new Object[] {ctx}, new Object[0]);
+        return Starlark.positionalOnlyCall(thread, implementation, ctx);
       }
     }
   }
@@ -649,8 +659,11 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
       Type<?> type,
       StarlarkThread thread)
       throws EvalException {
-    String whyNotConfigurableReason =
-        Preconditions.checkNotNull(BuildType.maybeGetNonConfigurableReason(type), type);
+    // BuildType types have good reasons associated with themselves.
+    String whyNotConfigurableReason = BuildType.maybeGetNonConfigurableReason(type);
+    if (whyNotConfigurableReason == null) {
+      whyNotConfigurableReason = "not configurable";
+    }
     try {
       // We use an empty name now so that we can set it later.
       // This trick makes sense only in the context of Starlark (builtin rules should not use it).
@@ -939,7 +952,7 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
       Sequence<?> aspects,
       StarlarkThread thread)
       throws EvalException {
-    checkContext(thread, "attr.label_keyed_string_dict()");
+    checkContext(thread, "attr.string_keyed_label_dict()");
     Map<String, Object> kwargs =
         optionMap(
             CONFIGURABLE_ARG,
@@ -986,6 +999,7 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
       Object forDependencyResolution,
       Sequence<?> flags,
       Boolean mandatory,
+      Boolean skipValidations,
       Object cfg,
       Sequence<?> aspects,
       StarlarkThread thread)
@@ -1009,6 +1023,8 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
             flags,
             MANDATORY_ARG,
             mandatory,
+            SKIP_VALIDATIONS_ARG,
+            skipValidations,
             ALLOW_EMPTY_ARG,
             allowEmpty,
             CONFIGURATION_ARG,
@@ -1135,7 +1151,7 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
         "license",
         Starlark.toJavaOptional(doc, String.class),
         optionMap(DEFAULT_ARG, defaultValue, MANDATORY_ARG, mandatory),
-        BuildType.LICENSE,
+        Types.STRING_LIST,
         thread);
   }
 

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <errno.h>  // errno, ENAMETOOLONG
+#include <errno.h>
 #include <limits.h>
 #include <linux/magic.h>
 #include <pwd.h>
@@ -20,7 +20,7 @@
 #include <spawn.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>  // strerror
+#include <string.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/statfs.h>
@@ -44,7 +44,7 @@ using std::vector;
 
 // ${XDG_CACHE_HOME}/bazel, a.k.a. ~/.cache/bazel by default (which is the
 // fallback when XDG_CACHE_HOME is not set)
-string GetOutputRoot() {
+string GetCacheDir() {
   string xdg_cache_home = GetPathEnv("XDG_CACHE_HOME");
   if (xdg_cache_home.empty()) {
     string home = GetHomeDir();  // via $HOME env variable

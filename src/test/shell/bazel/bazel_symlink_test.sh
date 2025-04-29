@@ -70,6 +70,7 @@ function expect_symlink() {
 }
 
 function set_up() {
+  add_rules_python "MODULE.bazel"
   mkdir -p symlink
   touch symlink/BUILD
   cat > symlink/symlink.bzl <<EOF
@@ -98,6 +99,7 @@ EOF
   # Windows.
   mkdir -p symlink_helper
   cat > symlink_helper/BUILD <<EOF
+load("@rules_python//python:py_binary.bzl", "py_binary")
 py_binary(
     name = "symlink_helper",
     srcs = ["symlink_helper.py"],
@@ -785,7 +787,6 @@ function test_unresolved_symlink_as_input_local_inprocess() {
 
   setup_unresolved_symlink_as_input
   add_to_bazelrc build --spawn_strategy=local
-  add_to_bazelrc build --experimental_inprocess_symlink_creation
 
   bazel build //pkg:b && fail "symlink should not resolve"
 
@@ -909,7 +910,6 @@ function test_unresolved_symlink_as_runfile_local_inprocess() {
 
   setup_unresolved_symlink_as_runfile
   add_to_bazelrc build --spawn_strategy=local
-  add_to_bazelrc build --experimental_inprocess_symlink_creation
 
   bazel build //pkg:use_tool || fail "local build failed"
   # Keep the implicitly built //pkg:a around to make the symlink resolve

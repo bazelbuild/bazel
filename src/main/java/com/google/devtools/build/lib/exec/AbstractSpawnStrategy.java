@@ -29,7 +29,7 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher.Priority;
-import com.google.devtools.build.lib.actions.ArtifactExpander;
+import com.google.devtools.build.lib.actions.ActionInputPrefetcher.Reason;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
@@ -58,7 +58,6 @@ import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
 import com.google.devtools.build.lib.util.CommandFailureUtils;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystem;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.io.InterruptedIOException;
@@ -79,13 +78,11 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
    */
   private static final AtomicInteger execCount = new AtomicInteger();
 
-  private final SpawnInputExpander spawnInputExpander;
+  private final SpawnInputExpander spawnInputExpander = new SpawnInputExpander();
   private final SpawnRunner spawnRunner;
   private final ExecutionOptions executionOptions;
 
-  protected AbstractSpawnStrategy(
-      Path execRoot, SpawnRunner spawnRunner, ExecutionOptions executionOptions) {
-    this.spawnInputExpander = new SpawnInputExpander(execRoot);
+  protected AbstractSpawnStrategy(SpawnRunner spawnRunner, ExecutionOptions executionOptions) {
     this.spawnRunner = spawnRunner;
     this.executionOptions = executionOptions;
   }
@@ -124,7 +121,7 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
       ActionExecutionContext actionExecutionContext,
       @Nullable SandboxedSpawnStrategy.StopConcurrentSpawns stopConcurrentSpawns)
       throws ExecException, InterruptedException {
-    actionExecutionContext.maybeReportSubcommand(spawn);
+    actionExecutionContext.maybeReportSubcommand(spawn, spawnRunner.getName());
 
     final Duration timeout = Spawns.getTimeout(spawn);
     SpawnExecutionContext context =
@@ -156,14 +153,21 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
             Instant.ofEpochMilli(actionExecutionContext.getClock().currentTimeMillis());
         // Actual execution.
         spawnResult = spawnRunner.exec(spawn, context);
+
+        String spawnIdentifier = null;
+        if (spawnResult.getDigest() != null) {
+          spawnIdentifier = spawnResult.getDigest().getHash();
+        }
         actionExecutionContext
             .getEventHandler()
             .post(
                 new SpawnExecutedEvent(
                     spawn,
                     actionExecutionContext.getInputMetadataProvider(),
+                    actionExecutionContext.getFileOutErr(),
                     spawnResult,
-                    startTime));
+                    startTime,
+                    spawnIdentifier));
         if (cacheHandle.willStore()) {
           cacheHandle.store(spawnResult);
         }
@@ -289,34 +293,20 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
                     spawn.getResourceOwner(),
                     getInputMapping(PathFragment.EMPTY_FRAGMENT, /* willAccessRepeatedly= */ true)
                         .values(),
-                    getInputMetadataProvider()::getInputMetadata,
-                    Priority.MEDIUM),
+                    getInputMetadataProvider(),
+                    Priority.MEDIUM,
+                    Reason.INPUTS),
             BulkTransferException.class,
             (BulkTransferException e) -> {
-              if (executionOptions.useNewExitCodeForLostInputs
-                  || executionOptions.remoteRetryOnTransientCacheError > 0) {
-                var message =
-                    BulkTransferException.allCausedByCacheNotFoundException(e)
-                        ? "Failed to fetch blobs because they do not exist remotely."
-                        : "Failed to fetch blobs because of a remote cache error.";
-                throw new EnvironmentalExecException(
-                    e,
-                    FailureDetail.newBuilder()
-                        .setMessage(message)
-                        .setSpawn(
-                            FailureDetails.Spawn.newBuilder().setCode(Code.REMOTE_CACHE_EVICTED))
-                        .build());
-              } else if (BulkTransferException.allCausedByCacheNotFoundException(e)) {
-                throw new EnvironmentalExecException(
-                    e,
-                    FailureDetail.newBuilder()
-                        .setMessage("Failed to fetch blobs because they do not exist remotely.")
-                        .setSpawn(
-                            FailureDetails.Spawn.newBuilder().setCode(Code.REMOTE_CACHE_FAILED))
-                        .build());
-              } else {
-                throw e;
-              }
+              e.getLostArtifacts(actionExecutionContext.getInputMetadataProvider()::getInput)
+                  .throwIfNotEmpty();
+              throw new EnvironmentalExecException(
+                  e,
+                  FailureDetail.newBuilder()
+                      .setMessage("Failed to fetch blobs because of a remote cache error.")
+                      .setSpawn(
+                          FailureDetails.Spawn.newBuilder().setCode(Code.REMOTE_CACHE_EVICTED))
+                      .build());
             },
             directExecutor());
       }
@@ -328,14 +318,10 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
     public InputMetadataProvider getInputMetadataProvider() {
       return actionExecutionContext.getInputMetadataProvider();
     }
+
     @Override
     public <T extends ActionContext> T getContext(Class<T> identifyingType) {
       return actionExecutionContext.getContext(identifyingType);
-    }
-
-    @Override
-    public ArtifactExpander getArtifactExpander() {
-      return actionExecutionContext.getArtifactExpander();
     }
 
     @Override
@@ -386,7 +372,6 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
         inputMapping =
             spawnInputExpander.getInputMapping(
                 spawn,
-                actionExecutionContext.getArtifactExpander(),
                 actionExecutionContext.getInputMetadataProvider(),
                 baseDirectory);
       }

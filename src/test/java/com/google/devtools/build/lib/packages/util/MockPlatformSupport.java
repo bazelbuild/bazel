@@ -41,6 +41,19 @@ public class MockPlatformSupport {
         "package(default_visibility=['//visibility:public'])",
         "licenses(['notice'])");
     mockToolsConfig.create(
+        constraintsPath + "/env/BUILD",
+        "package(default_visibility=['//visibility:public'])",
+        "licenses(['notice'])",
+        "constraint_setting(name = 'target_environment')",
+        "constraint_value(",
+        "    name = 'device',",
+        "    constraint_setting = ':target_environment',",
+        ")",
+        "constraint_value(",
+        "    name = 'simulator',",
+        "    constraint_setting = ':target_environment',",
+        ")");
+    mockToolsConfig.create(
         constraintsPath + "/cpu/BUILD",
         "package(default_visibility=['//visibility:public'])",
         "licenses(['notice'])",

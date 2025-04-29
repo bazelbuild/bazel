@@ -180,7 +180,7 @@ public abstract class AbstractContainerizingSandboxedSpawn implements SandboxedS
   protected abstract void copyFile(Path source, Path target) throws IOException;
 
   @Override
-  public void copyOutputs(Path execRoot) throws IOException {
+  public void copyOutputs(Path execRoot) throws IOException, InterruptedException {
     SandboxHelpers.moveOutputs(outputs, sandboxExecRoot, execRoot);
   }
 

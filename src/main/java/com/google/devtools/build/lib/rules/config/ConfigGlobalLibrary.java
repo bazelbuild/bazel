@@ -57,11 +57,14 @@ public class ConfigGlobalLibrary implements ConfigGlobalLibraryApi {
     List<String> inputsList = Sequence.cast(inputs, String.class, "inputs");
     List<String> outputsList = Sequence.cast(outputs, String.class, "outputs");
     validateBuildSettingKeys(
-        inputsList, Settings.INPUTS, /* isExecTransition= */ false, moduleContext.packageContext());
+        inputsList,
+        Settings.INPUTS,
+        /* allowIncompatibleAndExperimentalOptions= */ false,
+        moduleContext.packageContext());
     validateBuildSettingKeys(
         outputsList,
         Settings.OUTPUTS,
-        /* isExecTransition= */ false,
+        /* allowIncompatibleAndExperimentalOptions= */ false,
         moduleContext.packageContext());
     Location location = thread.getCallerLocation();
     return StarlarkDefinedConfigTransition.newRegularTransition(
@@ -91,11 +94,14 @@ public class ConfigGlobalLibrary implements ConfigGlobalLibraryApi {
     List<String> inputsList = Sequence.cast(inputs, String.class, "inputs");
     List<String> outputsList = Sequence.cast(outputs, String.class, "outputs");
     validateBuildSettingKeys(
-        inputsList, Settings.INPUTS, /* isExecTransition= */ true, moduleContext.packageContext());
+        inputsList,
+        Settings.INPUTS,
+        /* allowIncompatibleAndExperimentalOptions= */ true,
+        moduleContext.packageContext());
     validateBuildSettingKeys(
         outputsList,
         Settings.OUTPUTS,
-        /* isExecTransition= */ true,
+        /* allowIncompatibleAndExperimentalOptions= */ true,
         moduleContext.packageContext());
     Location location = thread.getCallerLocation();
     return StarlarkDefinedConfigTransition.newExecTransition(
@@ -120,7 +126,7 @@ public class ConfigGlobalLibrary implements ConfigGlobalLibraryApi {
     validateBuildSettingKeys(
         changedSettingsMap.keySet(),
         Settings.OUTPUTS,
-        /* isExecTransition= */ false,
+        /* allowIncompatibleAndExperimentalOptions= */ true,
         moduleContext.packageContext());
     Location location = thread.getCallerLocation();
     return StarlarkDefinedConfigTransition.newAnalysisTestTransition(
@@ -130,7 +136,7 @@ public class ConfigGlobalLibrary implements ConfigGlobalLibraryApi {
   private void validateBuildSettingKeys(
       Iterable<String> optionKeys,
       Settings keyErrorDescriptor,
-      boolean isExecTransition,
+      boolean allowIncompatibleAndExperimentalOptions,
       Label.PackageContext packageContext)
       throws EvalException {
 
@@ -157,7 +163,7 @@ public class ConfigGlobalLibrary implements ConfigGlobalLibraryApi {
         }
       } else {
         String optionName = optionKey.substring(COMMAND_LINE_OPTION_PREFIX.length());
-        if (!isExecTransition && !validOptionName(optionName)) {
+        if (!allowIncompatibleAndExperimentalOptions && !validOptionName(optionName)) {
           throw Starlark.errorf(
               "Invalid transition %s '%s'. Cannot transition on --experimental_* or "
                   + "--incompatible_* options",

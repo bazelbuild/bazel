@@ -11,14 +11,13 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 package com.google.devtools.build.lib.server;
 
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.util.concurrent.Uninterruptibles;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -33,7 +32,7 @@ public class IdleTaskManagerTest {
 
     long idleCalled = System.nanoTime();
     manager.idle();
-    Thread.sleep(100); // give task a chance to run
+    Thread.sleep(250); // give tasks a chance to run
     manager.busy();
     long busyReturned = System.nanoTime();
 
@@ -42,14 +41,35 @@ public class IdleTaskManagerTest {
   }
 
   @Test
-  public void registeredTask_runTaskThenGcAndShrinkInterners() throws Exception {
+  public void registeredTask_runSuccessfulTaskThenGcAndShrinkInterners() throws Exception {
     AtomicLong taskCalled = new AtomicLong();
     IdleTask task = () -> taskCalled.set(System.nanoTime());
     IdleTaskManager manager = new IdleTaskManager(ImmutableList.of(task), false);
 
     long idleCalled = System.nanoTime();
     manager.idle();
-    Thread.sleep(100); // give task a chance to run
+    Thread.sleep(250); // give tasks a chance to run
+    manager.busy();
+    long busyReturned = System.nanoTime();
+
+    assertThat(idleCalled).isLessThan(taskCalled.get());
+    assertThat(taskCalled.get()).isLessThan(manager.runGcAndMaybeShrinkInternersCalled);
+    assertThat(manager.runGcAndMaybeShrinkInternersCalled).isLessThan(busyReturned);
+  }
+
+  @Test
+  public void registeredTask_runFailedTaskThenGcAndShrinkInterners() throws Exception {
+    AtomicLong taskCalled = new AtomicLong();
+    IdleTask task =
+        () -> {
+          taskCalled.set(System.nanoTime());
+          throw new IdleTaskException(new RuntimeException("failed"));
+        };
+    IdleTaskManager manager = new IdleTaskManager(ImmutableList.of(task), false);
+
+    long idleCalled = System.nanoTime();
+    manager.idle();
+    Thread.sleep(250); // give tasks a chance to run
     manager.busy();
     long busyReturned = System.nanoTime();
 
@@ -61,27 +81,26 @@ public class IdleTaskManagerTest {
   @Test
   public void registeredTask_interruptTaskThenSkipGcAndShrinkInterners() throws Exception {
     CountDownLatch taskRunning = new CountDownLatch(1);
-    AtomicLong taskInterrupted = new AtomicLong();
+    AtomicBoolean taskInterrupted = new AtomicBoolean();
     IdleTask task =
         () -> {
           taskRunning.countDown();
-          while (true) {
-            try {
-              Thread.sleep(100);
-            } catch (InterruptedException e) {
-              taskInterrupted.set(System.nanoTime());
-              return;
+          try {
+            while (true) {
+              Thread.sleep(1000);
             }
+          } catch (InterruptedException e) {
+            taskInterrupted.set(true);
+            throw e;
           }
         };
     IdleTaskManager manager = new IdleTaskManager(ImmutableList.of(task), false);
 
     manager.idle();
-    Uninterruptibles.awaitUninterruptibly(taskRunning);
+    taskRunning.await();
     manager.busy();
-    long busyReturned = System.nanoTime();
 
-    assertThat(taskInterrupted.get()).isLessThan(busyReturned);
+    assertThat(taskInterrupted.get()).isTrue();
     assertThat(manager.runGcAndMaybeShrinkInternersCalled).isEqualTo(0);
   }
 }

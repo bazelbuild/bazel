@@ -141,7 +141,7 @@ public class ResourceManager implements ResourceEstimator {
         worker.getStatus().maybeUpdateStatus(Status.PENDING_KILL_DUE_TO_UNKNOWN);
       }
 
-      manager.workerPool.invalidateObject(request.getResourceSet().getWorkerKey(), worker);
+      manager.workerPool.invalidateWorker(worker);
       worker = null;
       this.close();
     }
@@ -163,16 +163,6 @@ public class ResourceManager implements ResourceEstimator {
     LOCAL(), // Local execution not under dynamic execution
     DYNAMIC_WORKER(),
     DYNAMIC_STANDALONE();
-  }
-
-  /** Singleton reference defined in a separate class to ensure thread-safe lazy initialization. */
-  private static class Singleton {
-    static final ResourceManager instance = new ResourceManager();
-  }
-
-  /** Returns singleton instance of the resource manager. */
-  public static ResourceManager instance() {
-    return Singleton.instance;
   }
 
   /** Returns prediction of RAM in Mb used by registered actions. */
@@ -292,11 +282,6 @@ public class ResourceManager implements ResourceEstimator {
     processAllWaitingRequests();
   }
 
-  @VisibleForTesting
-  public static ResourceManager instanceForTestingOnly() {
-    return new ResourceManager();
-  }
-
   /**
    * Resets resource manager state and releases all thread locks.
    *
@@ -332,6 +317,7 @@ public class ResourceManager implements ResourceEstimator {
     Preconditions.checkNotNull(resources);
     resetResourceUsage();
     availableResources = resources;
+    logger.atInfo().log("Set available resources: %s", resources);
   }
 
   public synchronized void scheduleCpuLoadWindowUpdate() {
@@ -441,7 +427,7 @@ public class ResourceManager implements ResourceEstimator {
     windowEstimationCpu += resources.getResources().getOrDefault(ResourceSet.CPU, 0.0);
     usedLocalTestCount += resources.getLocalTestCount();
     if (resources.getWorkerKey() != null) {
-      return this.workerPool.borrowObject(resources.getWorkerKey());
+      return this.workerPool.borrowWorker(resources.getWorkerKey());
     }
 
     runningActions++;
@@ -525,14 +511,11 @@ public class ResourceManager implements ResourceEstimator {
     return waitingRequest.getResourceLatch();
   }
 
-  /**
-   * Release resources and process the queues of waiting threads. Return true when any new thread
-   * processed.
-   */
+  /** Release resources and process the queues of waiting threads. */
   private synchronized void release(ResourceRequest request, @Nullable Worker worker)
       throws IOException, InterruptedException {
     if (worker != null) {
-      this.workerPool.returnObject(worker.getWorkerKey(), worker);
+      this.workerPool.returnWorker(worker.getWorkerKey(), worker);
     }
 
     ResourceSet resources = request.getResourceSet();

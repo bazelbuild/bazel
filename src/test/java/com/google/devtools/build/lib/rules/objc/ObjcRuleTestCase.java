@@ -77,9 +77,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
 
   private static final Provider.Key APPLE_EXECUTABLE_BINARY_PROVIDER_KEY =
       new StarlarkProvider.Key(
-          keyForBuild(
-              Label.parseCanonicalUnchecked(
-                  TestConstants.TOOLS_REPOSITORY + "//test_starlark:apple_binary_starlark.bzl")),
+          keyForBuild(Label.parseCanonicalUnchecked("//test_starlark:apple_binary_starlark.bzl")),
           "AppleExecutableBinaryInfo");
 
   @Before
@@ -268,12 +266,15 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
   }
 
   protected static void addAppleBinaryStarlarkRule(Scratch scratch) throws Exception {
-    scratch.file("test_starlark/BUILD");
-    RepositoryName toolsRepo = TestConstants.TOOLS_REPOSITORY;
-    String toolsLoc = toolsRepo + "//tools/objc";
     scratch.file(
-        TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/objc/dummy/BUILD",
-        "objc_library(name = 'dummy_lib', srcs = ['objc_dummy.mm'], alwayslink = False)");
+        "test_starlark/BUILD",
+        """
+        load(":cc_toolchain_forwarder.bzl", "cc_toolchain_forwarder")
+        cc_toolchain_forwarder(
+            name = "default_cc_toolchain_forwarder",
+        )
+        """);
+    RepositoryName toolsRepo = TestConstants.TOOLS_REPOSITORY;
 
     scratch.file(
         "test_starlark/apple_binary_starlark.bzl",
@@ -306,9 +307,18 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         "    '//command_line_option:grte_top',",
         "    '//command_line_option:platforms',",
         "]",
+        "ApplePlatformInfo = provider(",
+        "    fields = ['target_os', 'target_arch', 'target_environment'],)",
+        "",
+        "AppleDynamicFrameworkInfo = provider(",
+        "    fields = ['framework_dirs', 'framework_files', 'binary', 'cc_info'],)",
+        "",
         "AppleExecutableBinaryInfo = provider(",
-        "    fields = ['binary', 'cc_info'],",
-        "    )",
+        "    fields = ['binary', 'cc_info'],)",
+        "",
+        "AppleDebugOutputsInfo = provider(",
+        "    fields = ['outputs_map'],)",
+        "",
         "def _command_line_options(*, environment_arch = None, platform_type, settings):",
         "    cpu = ('darwin_' + environment_arch if platform_type == 'macos'",
         "            else platform_type + '_' +  environment_arch)",
@@ -351,6 +361,201 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         "    inputs = _apple_platform_transition_inputs,",
         "    outputs = _apple_rule_base_transition_outputs,",
         ")",
+        "def _build_avoid_library_set(avoid_dep_linking_contexts):",
+        "    avoid_library_set = dict()",
+        "    for linking_context in avoid_dep_linking_contexts:",
+        "        for linker_input in linking_context.linker_inputs.to_list():",
+        "            for library_to_link in linker_input.libraries:",
+        "                library_artifact ="
+            + " apple_common.compilation_support.get_static_library_for_linking(library_to_link)",
+        "                if library_artifact:",
+        "                    avoid_library_set[library_artifact.short_path] = True",
+        "    return avoid_library_set",
+        "",
+        "def subtract_linking_contexts(owner, linking_contexts, avoid_dep_linking_contexts):",
+        "    libraries = []",
+        "    user_link_flags = []",
+        "    additional_inputs = []",
+        "    linkstamps = []",
+        "    avoid_library_set = _build_avoid_library_set(avoid_dep_linking_contexts)",
+        "    for linking_context in linking_contexts:",
+        "        for linker_input in linking_context.linker_inputs.to_list():",
+        "            for library_to_link in linker_input.libraries:",
+        "                library_artifact ="
+            + " apple_common.compilation_support.get_library_for_linking(library_to_link)",
+        "                if library_artifact.short_path not in avoid_library_set:",
+        "                    libraries.append(library_to_link)",
+        "            user_link_flags.extend(linker_input.user_link_flags)",
+        "            additional_inputs.extend(linker_input.additional_inputs)",
+        "            linkstamps.extend(linker_input.linkstamps)",
+        "    linker_input = cc_common.create_linker_input(",
+        "        owner = owner,",
+        "        libraries = depset(libraries, order = 'topological'),",
+        "        user_link_flags = user_link_flags,",
+        "        additional_inputs = depset(additional_inputs),",
+        "        linkstamps = depset(linkstamps),",
+        "    )",
+        "    return cc_common.create_linking_context(",
+        "        linker_inputs = depset([linker_input]),",
+        "        owner = owner,",
+        "    )",
+        "",
+        "def _link_multi_arch_binary(",
+        "        *,",
+        "        ctx,",
+        "        avoid_deps = [],",
+        "        cc_toolchains = {},",
+        "        extra_linkopts = [],",
+        "        extra_link_inputs = [],",
+        "        extra_requested_features = [],",
+        "        extra_disabled_features = [],",
+        "        stamp = -1,",
+        "        variables_extension = {}):",
+        "",
+        "    split_build_configs = apple_common.get_split_build_configs(ctx)",
+        "    split_deps = ctx.split_attr.deps",
+        "",
+        "    if split_deps and split_deps.keys() != cc_toolchains.keys():",
+        "        fail(('Split transition keys are different between deps [%s] and ' +",
+        "              '_cc_toolchain_forwarder [%s]') % (",
+        "            split_deps.keys(),",
+        "            cc_toolchains.keys(),",
+        "        ))",
+        "",
+        "    avoid_cc_infos = [",
+        "        dep[AppleDynamicFrameworkInfo].cc_info",
+        "        for dep in avoid_deps",
+        "        if AppleDynamicFrameworkInfo in dep",
+        "    ]",
+        "    avoid_cc_infos.extend([",
+        "        dep[AppleExecutableBinaryInfo].cc_info",
+        "        for dep in avoid_deps",
+        "        if AppleExecutableBinaryInfo in dep",
+        "    ])",
+        "    avoid_cc_infos.extend([dep[CcInfo] for dep in avoid_deps if CcInfo in dep])",
+        "    avoid_cc_linking_contexts = [dep.linking_context for dep in avoid_cc_infos]",
+        "",
+        "    outputs = []",
+        "    cc_infos = []",
+        "    legacy_debug_outputs = {}",
+        "",
+        "    cc_infos.extend(avoid_cc_infos)",
+        "",
+        "    additional_linker_inputs = getattr(ctx.attr, 'additional_linker_inputs', [])",
+        "    attr_linkopts = [",
+        "        ctx.expand_location(opt, targets = additional_linker_inputs)",
+        "        for opt in getattr(ctx.attr, 'linkopts', [])",
+        "    ]",
+        "    attr_linkopts = [token for opt in attr_linkopts for token in ctx.tokenize(opt)]",
+        "",
+        "    for split_transition_key, child_toolchain in cc_toolchains.items():",
+        "        cc_toolchain = child_toolchain[cc_common.CcToolchainInfo]",
+        "        deps = split_deps.get(split_transition_key, [])",
+        "        platform_info = child_toolchain[ApplePlatformInfo]",
+        "",
+        "        common_variables = apple_common.compilation_support.build_common_variables(",
+        "            ctx = ctx,",
+        "            toolchain = cc_toolchain,",
+        "            deps = deps,",
+        "            extra_disabled_features = extra_disabled_features,",
+        "            extra_enabled_features = extra_requested_features,",
+        "            attr_linkopts = attr_linkopts,",
+        "        )",
+        "",
+        "        cc_infos.append(CcInfo(",
+        "            compilation_context = cc_common.merge_compilation_contexts(",
+        "                compilation_contexts =",
+        "                    common_variables.objc_compilation_context.cc_compilation_contexts,",
+        "            ),",
+        "            linking_context = cc_common.merge_linking_contexts(",
+        "                linking_contexts ="
+            + " common_variables.objc_linking_context.cc_linking_contexts,",
+        "            ),",
+        "        ))",
+        "",
+        "        cc_linking_context = subtract_linking_contexts(",
+        "            owner = ctx.label,",
+        "            linking_contexts = common_variables.objc_linking_context.cc_linking_contexts"
+            + " +",
+        "                               avoid_cc_linking_contexts,",
+        "            avoid_dep_linking_contexts = avoid_cc_linking_contexts,",
+        "        )",
+        "",
+        "        child_config = split_build_configs.get(split_transition_key)",
+        "",
+        "        additional_outputs = []",
+        "        extensions = {}",
+        "",
+        "        dsym_binary = None",
+        "        if ctx.fragments.cpp.apple_generate_dsym:",
+        "            if ctx.fragments.cpp.objc_should_strip_binary:",
+        "                suffix = '_bin_unstripped.dwarf'",
+        "            else:",
+        "                suffix = '_bin.dwarf'",
+        "            dsym_binary = ctx.actions.declare_shareable_artifact(",
+        "                ctx.label.package + '/' + ctx.label.name + suffix,",
+        "                child_config.bin_dir,",
+        "            )",
+        "            extensions['dsym_path'] = dsym_binary.path  # dsym symbol file",
+        "            additional_outputs.append(dsym_binary)",
+        "            legacy_debug_outputs.setdefault(platform_info.target_arch,"
+            + " {})['dsym_binary'] = dsym_binary",
+        "",
+        "        linkmap = None",
+        "        if ctx.fragments.cpp.objc_generate_linkmap:",
+        "            linkmap = ctx.actions.declare_shareable_artifact(",
+        "                ctx.label.package + '/' + ctx.label.name + '.linkmap',",
+        "                child_config.bin_dir,",
+        "            )",
+        "            extensions['linkmap_exec_path'] = linkmap.path  # linkmap file",
+        "            additional_outputs.append(linkmap)",
+        "            legacy_debug_outputs.setdefault(platform_info.target_arch, {})['linkmap'] ="
+            + " linkmap",
+        "",
+        "        name = ctx.label.name + '_bin'",
+        "        executable ="
+            + " apple_common.compilation_support.register_configuration_specific_link_actions(",
+        "            name = name,",
+        "            common_variables = common_variables,",
+        "            cc_linking_context = cc_linking_context,",
+        "            build_config = child_config,",
+        "            extra_link_args = extra_linkopts,",
+        "            stamp = stamp,",
+        "            user_variable_extensions = variables_extension | extensions,",
+        "            additional_outputs = additional_outputs,",
+        "            deps = deps,",
+        "            extra_link_inputs = extra_link_inputs,",
+        "            attr_linkopts = attr_linkopts,",
+        "        )",
+        "",
+        "        output = {",
+        "            'binary': executable,",
+        "            'platform': platform_info.target_os,",
+        "            'architecture': platform_info.target_arch,",
+        "            'environment': platform_info.target_environment,",
+        "            'dsym_binary': dsym_binary,",
+        "            'linkmap': linkmap,",
+        "        }",
+        "",
+        "        outputs.append(struct(**output))",
+        "",
+        "    header_tokens = []",
+        "    for _, deps in split_deps.items():",
+        "        for dep in deps:",
+        "            if CcInfo in dep:",
+        "               "
+            + " header_tokens.append(dep[CcInfo].compilation_context.validation_artifacts)",
+        "",
+        "    output_groups = {'_validation': depset(transitive = header_tokens)}",
+        "",
+        "    return struct(",
+        "        cc_info = cc_common.merge_cc_infos(direct_cc_infos = cc_infos),",
+        "        output_groups = output_groups,",
+        "        outputs = outputs,",
+        "        debug_outputs_provider = AppleDebugOutputsInfo(outputs_map ="
+            + " legacy_debug_outputs),",
+        "    )",
+        "",
         "def apple_binary_starlark_impl(ctx):",
         "    all_avoid_deps = list(ctx.attr.avoid_deps)",
         "    binary_type = ctx.attr.binary_type",
@@ -371,9 +576,10 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         "        all_avoid_deps.append(bundle_loader)",
         "        linkopts.extend(['-bundle_loader', bundle_loader_file.path])",
         "        link_inputs.append(bundle_loader_file)",
-        "    link_result = apple_common.link_multi_arch_binary(",
+        "    link_result = _link_multi_arch_binary(",
         "        ctx = ctx,",
         "        avoid_deps = all_avoid_deps,",
+        "        cc_toolchains = ctx.split_attr._cc_toolchain_forwarder,",
         "        extra_linkopts = linkopts,",
         "        extra_link_inputs = link_inputs,",
         "        extra_requested_features = ctx.attr.extra_requested_features,",
@@ -413,7 +619,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         "        link_result.debug_outputs_provider,",
         "    ]",
         "    if binary_type == 'executable':",
-        "        providers.append(apple_common.new_executable_binary_provider(",
+        "        providers.append(AppleExecutableBinaryInfo(",
         "            binary = processed_binary,",
         "            cc_info = link_result.cc_info,",
         "        ))",
@@ -424,13 +630,10 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         "        '_child_configuration_dummy': attr.label(",
         "            cfg=apple_platform_split_transition,",
         "            default=Label('" + toolsRepo + "//tools/cpp:current_cc_toolchain'),),",
-        "        '_dummy_lib': attr.label(",
-        "            default = Label('" + toolsLoc + "/dummy:dummy_lib'),),",
-        "        '_j2objc_dead_code_pruner': attr.label(",
-        "            executable = True,",
-        "            allow_files=True,",
-        "            cfg = config.exec('j2objc'),",
-        "            default = Label('" + toolsLoc + ":j2objc_dead_code_pruner_binary'),),",
+        "        '_cc_toolchain_forwarder': attr.label(",
+        "            cfg = apple_platform_split_transition,",
+        "            providers = [cc_common.CcToolchainInfo, ApplePlatformInfo],",
+        "            default = Label(':default_cc_toolchain_forwarder'),),",
         "        '_xcode_config': attr.label(",
         "            default=configuration_field(",
         "                fragment='apple', name='xcode_config_label'),),",
@@ -455,10 +658,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         "        'string_variables_extension': attr.string_dict(),",
         "        'string_list_variables_extension': attr.string_list_dict(),",
         "    },",
-        "    exec_groups = {",
-        "        'j2objc': exec_group()",
-        "    },",
-        "    fragments = ['apple', 'objc', 'cpp', 'j2objc'],",
+        "    fragments = ['apple', 'objc', 'cpp']",
         ")");
     scratch.overwriteFile(
         "tools/allowlists/function_transition_allowlist/BUILD",
@@ -470,6 +670,123 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
             ],
         )
         """);
+    scratch.file(
+        "test_starlark/cc_toolchain_forwarder.bzl",
+        """
+load("@rules_cc//cc:find_cc_toolchain.bzl", "find_cc_toolchain", "use_cc_toolchain")
+load(":apple_binary_starlark.bzl", "ApplePlatformInfo")
+
+def _target_os_from_rule_ctx(ctx):
+  ios_constraint = ctx.attr._ios_constraint[platform_common.ConstraintValueInfo]
+  macos_constraint = ctx.attr._macos_constraint[platform_common.ConstraintValueInfo]
+  tvos_constraint = ctx.attr._tvos_constraint[platform_common.ConstraintValueInfo]
+  visionos_constraint = ctx.attr._visionos_constraint[platform_common.ConstraintValueInfo]
+  watchos_constraint = ctx.attr._watchos_constraint[platform_common.ConstraintValueInfo]
+
+  if ctx.target_platform_has_constraint(ios_constraint):
+      return str(apple_common.platform_type.ios)
+  elif ctx.target_platform_has_constraint(macos_constraint):
+      return str(apple_common.platform_type.macos)
+  elif ctx.target_platform_has_constraint(tvos_constraint):
+      return str(apple_common.platform_type.tvos)
+  elif ctx.target_platform_has_constraint(visionos_constraint):
+      return str(apple_common.platform_type.visionos)
+  elif ctx.target_platform_has_constraint(watchos_constraint):
+      return str(apple_common.platform_type.watchos)
+  fail("ERROR: A valid Apple platform constraint could not be found " +
+          "from the resolved toolchain.")
+
+def _target_arch_from_rule_ctx(ctx):
+  arm64_constraint = ctx.attr._arm64_constraint[platform_common.ConstraintValueInfo]
+  arm64e_constraint = ctx.attr._arm64e_constraint[platform_common.ConstraintValueInfo]
+  arm64_32_constraint = ctx.attr._arm64_32_constraint[platform_common.ConstraintValueInfo]
+  armv7k_constraint = ctx.attr._armv7k_constraint[platform_common.ConstraintValueInfo]
+  x86_64_constraint = ctx.attr._x86_64_constraint[platform_common.ConstraintValueInfo]
+
+  if ctx.target_platform_has_constraint(arm64_constraint):
+      return "arm64"
+  elif ctx.target_platform_has_constraint(arm64e_constraint):
+      return "arm64e"
+  elif ctx.target_platform_has_constraint(arm64_32_constraint):
+      return "arm64_32"
+  elif ctx.target_platform_has_constraint(armv7k_constraint):
+      return "armv7k"
+  elif ctx.target_platform_has_constraint(x86_64_constraint):
+      return "x86_64"
+  fail("ERROR: A valid Apple cpu constraint could not be" +
+           " found from the resolved toolchain.")
+
+def _target_environment_from_rule_ctx(ctx):
+  device_constraint = ctx.attr._apple_device_constraint[platform_common.ConstraintValueInfo]
+  simulator_constraint = ctx.attr._apple_simulator_constraint[platform_common.ConstraintValueInfo]
+
+  if ctx.target_platform_has_constraint(device_constraint):
+      return "device"
+  elif ctx.target_platform_has_constraint(simulator_constraint):
+      return "simulator"
+
+  fail("ERROR: A valid Apple environment (device, simulator) constraint could not be found from" +
+      " the resolved toolchain.")
+
+def _cc_toolchain_forwarder_impl(ctx):
+  return [
+      find_cc_toolchain(ctx),
+      ApplePlatformInfo(
+          target_os = _target_os_from_rule_ctx(ctx),
+          target_arch = _target_arch_from_rule_ctx(ctx),
+          target_environment = _target_environment_from_rule_ctx(ctx),
+      ),
+  ]
+
+cc_toolchain_forwarder = rule(
+  implementation = _cc_toolchain_forwarder_impl,
+  attrs = {
+      "_cc_toolchain": attr.label(
+          default = Label("TOOLS_REPOSITORY//tools/cpp:current_cc_toolchain"),
+      ),
+      "_ios_constraint": attr.label(
+          default = Label("CONSTRAINTS_PACKAGE_ROOTos:ios"),
+      ),
+      "_macos_constraint": attr.label(
+          default = Label("CONSTRAINTS_PACKAGE_ROOTos:osx"),
+      ),
+      "_tvos_constraint": attr.label(
+          default = Label("CONSTRAINTS_PACKAGE_ROOTos:tvos"),
+      ),
+      "_visionos_constraint": attr.label(
+          default = Label("CONSTRAINTS_PACKAGE_ROOTos:visionos"),
+      ),
+      "_watchos_constraint": attr.label(
+          default = Label("CONSTRAINTS_PACKAGE_ROOTos:watchos"),
+      ),
+      "_arm64_constraint": attr.label(
+          default = Label("CONSTRAINTS_PACKAGE_ROOTcpu:arm64"),
+      ),
+      "_arm64e_constraint": attr.label(
+          default = Label("CONSTRAINTS_PACKAGE_ROOTcpu:arm64e"),
+      ),
+      "_arm64_32_constraint": attr.label(
+          default = Label("CONSTRAINTS_PACKAGE_ROOTcpu:arm64_32"),
+      ),
+      "_armv7k_constraint": attr.label(
+          default = Label("CONSTRAINTS_PACKAGE_ROOTcpu:armv7k"),
+      ),
+      "_x86_64_constraint": attr.label(
+          default = Label("CONSTRAINTS_PACKAGE_ROOTcpu:x86_64"),
+      ),
+      "_apple_device_constraint": attr.label(
+          default = Label("CONSTRAINTS_PACKAGE_ROOTenv:device"),
+      ),
+      "_apple_simulator_constraint": attr.label(
+          default = Label("CONSTRAINTS_PACKAGE_ROOTenv:simulator"),
+      ),
+  },
+  provides = [cc_common.CcToolchainInfo, ApplePlatformInfo],
+  toolchains = use_cc_toolchain(),
+)
+"""
+            .replace("TOOLS_REPOSITORY", toolsRepo.toString())
+            .replace("CONSTRAINTS_PACKAGE_ROOT", TestConstants.CONSTRAINTS_PACKAGE_ROOT));
   }
 
   protected CommandAction compileAction(String ownerLabel, String objFileName) throws Exception {

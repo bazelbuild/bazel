@@ -15,7 +15,7 @@ package com.google.devtools.build.lib.packages;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
-import static com.google.devtools.build.lib.analysis.testing.ExecGroupSubject.assertThat;
+import static com.google.devtools.build.lib.analysis.testing.DeclaredExecGroupSubject.assertThat;
 import static com.google.devtools.build.lib.analysis.testing.RuleClassSubject.assertThat;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
@@ -127,7 +127,7 @@ public final class RuleClassTest extends PackageLoadingTestCase {
 
   private static RuleClass createRuleClassB(RuleClass ruleClassA) {
     // emulates attribute inheritance
-    List<Attribute> attributes = new ArrayList<>(ruleClassA.getAttributes());
+    List<Attribute> attributes = new ArrayList<>(ruleClassA.getAttributeProvider().getAttributes());
     attributes.add(attr("another-string-attr", STRING).mandatory().build());
     return newRuleClass(
         "ruleB",
@@ -166,44 +166,54 @@ public final class RuleClassTest extends PackageLoadingTestCase {
     RuleClass ruleClassA = createRuleClassA();
 
     assertThat(ruleClassA.getName()).isEqualTo("ruleA");
-    assertThat(ruleClassA.getAttributeCount()).isEqualTo(8);
+    assertThat(ruleClassA.getAttributeProvider().getAttributeCount()).isEqualTo(8);
 
-    assertThat(ruleClassA.getAttributeIndex("name")).isEqualTo(0);
-    assertThat(ruleClassA.getAttributeIndex("my-string-attr")).isEqualTo(1);
-    assertThat(ruleClassA.getAttributeIndex("my-label-attr")).isEqualTo(2);
-    assertThat(ruleClassA.getAttributeIndex("my-labellist-attr")).isEqualTo(3);
-    assertThat(ruleClassA.getAttributeIndex("my-integer-attr")).isEqualTo(4);
-    assertThat(ruleClassA.getAttributeIndex("my-string-attr2")).isEqualTo(5);
-    assertThat(ruleClassA.getAttributeIndex("my-stringlist-attr")).isEqualTo(6);
-    assertThat(ruleClassA.getAttributeIndex("my-sorted-stringlist-attr")).isEqualTo(7);
+    assertThat(ruleClassA.getAttributeProvider().getAttributeIndex("name")).isEqualTo(0);
+    assertThat(ruleClassA.getAttributeProvider().getAttributeIndex("my-string-attr")).isEqualTo(1);
+    assertThat(ruleClassA.getAttributeProvider().getAttributeIndex("my-label-attr")).isEqualTo(2);
+    assertThat(ruleClassA.getAttributeProvider().getAttributeIndex("my-labellist-attr"))
+        .isEqualTo(3);
+    assertThat(ruleClassA.getAttributeProvider().getAttributeIndex("my-integer-attr")).isEqualTo(4);
+    assertThat(ruleClassA.getAttributeProvider().getAttributeIndex("my-string-attr2")).isEqualTo(5);
+    assertThat(ruleClassA.getAttributeProvider().getAttributeIndex("my-stringlist-attr"))
+        .isEqualTo(6);
+    assertThat(ruleClassA.getAttributeProvider().getAttributeIndex("my-sorted-stringlist-attr"))
+        .isEqualTo(7);
 
-    assertThat(ruleClassA.getAttributeByName("name")).isEqualTo(ruleClassA.getAttribute(0));
-    assertThat(ruleClassA.getAttributeByName("my-string-attr"))
-        .isEqualTo(ruleClassA.getAttribute(1));
-    assertThat(ruleClassA.getAttributeByName("my-label-attr"))
-        .isEqualTo(ruleClassA.getAttribute(2));
-    assertThat(ruleClassA.getAttributeByName("my-labellist-attr"))
-        .isEqualTo(ruleClassA.getAttribute(3));
-    assertThat(ruleClassA.getAttributeByName("my-integer-attr"))
-        .isEqualTo(ruleClassA.getAttribute(4));
-    assertThat(ruleClassA.getAttributeByName("my-string-attr2"))
-        .isEqualTo(ruleClassA.getAttribute(5));
-    assertThat(ruleClassA.getAttributeByName("my-stringlist-attr"))
-        .isEqualTo(ruleClassA.getAttribute(6));
-    assertThat(ruleClassA.getAttributeByName("my-sorted-stringlist-attr"))
-        .isEqualTo(ruleClassA.getAttribute(7));
+    assertThat(ruleClassA.getAttributeProvider().getAttributeByName("name"))
+        .isEqualTo(ruleClassA.getAttributeProvider().getAttribute(0));
+    assertThat(ruleClassA.getAttributeProvider().getAttributeByName("my-string-attr"))
+        .isEqualTo(ruleClassA.getAttributeProvider().getAttribute(1));
+    assertThat(ruleClassA.getAttributeProvider().getAttributeByName("my-label-attr"))
+        .isEqualTo(ruleClassA.getAttributeProvider().getAttribute(2));
+    assertThat(ruleClassA.getAttributeProvider().getAttributeByName("my-labellist-attr"))
+        .isEqualTo(ruleClassA.getAttributeProvider().getAttribute(3));
+    assertThat(ruleClassA.getAttributeProvider().getAttributeByName("my-integer-attr"))
+        .isEqualTo(ruleClassA.getAttributeProvider().getAttribute(4));
+    assertThat(ruleClassA.getAttributeProvider().getAttributeByName("my-string-attr2"))
+        .isEqualTo(ruleClassA.getAttributeProvider().getAttribute(5));
+    assertThat(ruleClassA.getAttributeProvider().getAttributeByName("my-stringlist-attr"))
+        .isEqualTo(ruleClassA.getAttributeProvider().getAttribute(6));
+    assertThat(ruleClassA.getAttributeProvider().getAttributeByName("my-sorted-stringlist-attr"))
+        .isEqualTo(ruleClassA.getAttributeProvider().getAttribute(7));
 
     // default based on type
-    assertThat(ruleClassA.getAttribute(0).getDefaultValue(null)).isEqualTo("");
-    assertThat(ruleClassA.getAttribute(1).getDefaultValue(null)).isEqualTo("");
-    assertThat(ruleClassA.getAttribute(2).getDefaultValue(null))
+    assertThat(ruleClassA.getAttributeProvider().getAttribute(0).getDefaultValue(null))
+        .isEqualTo("");
+    assertThat(ruleClassA.getAttributeProvider().getAttribute(1).getDefaultValue(null))
+        .isEqualTo("");
+    assertThat(ruleClassA.getAttributeProvider().getAttribute(2).getDefaultValue(null))
         .isEqualTo(Label.parseCanonical("//default:label"));
-    assertThat(ruleClassA.getAttribute(3).getDefaultValue(null)).isEqualTo(ImmutableList.of());
-    assertThat(ruleClassA.getAttribute(4).getDefaultValue(null)).isEqualTo(StarlarkInt.of(42));
+    assertThat(ruleClassA.getAttributeProvider().getAttribute(3).getDefaultValue(null))
+        .isEqualTo(ImmutableList.of());
+    assertThat(ruleClassA.getAttributeProvider().getAttribute(4).getDefaultValue(null))
+        .isEqualTo(StarlarkInt.of(42));
     // default explicitly specified
-    assertThat(ruleClassA.getAttribute(5).getDefaultValue(null)).isNull();
-    assertThat(ruleClassA.getAttribute(6).getDefaultValue(null)).isEqualTo(ImmutableList.of());
-    assertThat(ruleClassA.getAttribute(7).getDefaultValue(null)).isEqualTo(ImmutableList.of());
+    assertThat(ruleClassA.getAttributeProvider().getAttribute(5).getDefaultValue(null)).isNull();
+    assertThat(ruleClassA.getAttributeProvider().getAttribute(6).getDefaultValue(null))
+        .isEqualTo(ImmutableList.of());
+    assertThat(ruleClassA.getAttributeProvider().getAttribute(7).getDefaultValue(null))
+        .isEqualTo(ImmutableList.of());
   }
 
   @Test
@@ -212,35 +222,40 @@ public final class RuleClassTest extends PackageLoadingTestCase {
     RuleClass ruleClassB = createRuleClassB(ruleClassA);
 
     assertThat(ruleClassB.getName()).isEqualTo("ruleB");
-    assertThat(ruleClassB.getAttributeCount()).isEqualTo(9);
+    assertThat(ruleClassB.getAttributeProvider().getAttributeCount()).isEqualTo(9);
 
-    assertThat(ruleClassB.getAttributeIndex("name")).isEqualTo(0);
-    assertThat(ruleClassB.getAttributeIndex("my-string-attr")).isEqualTo(1);
-    assertThat(ruleClassB.getAttributeIndex("my-label-attr")).isEqualTo(2);
-    assertThat(ruleClassB.getAttributeIndex("my-labellist-attr")).isEqualTo(3);
-    assertThat(ruleClassB.getAttributeIndex("my-integer-attr")).isEqualTo(4);
-    assertThat(ruleClassB.getAttributeIndex("my-string-attr2")).isEqualTo(5);
-    assertThat(ruleClassB.getAttributeIndex("my-stringlist-attr")).isEqualTo(6);
-    assertThat(ruleClassB.getAttributeIndex("my-sorted-stringlist-attr")).isEqualTo(7);
-    assertThat(ruleClassB.getAttributeIndex("another-string-attr")).isEqualTo(8);
+    assertThat(ruleClassB.getAttributeProvider().getAttributeIndex("name")).isEqualTo(0);
+    assertThat(ruleClassB.getAttributeProvider().getAttributeIndex("my-string-attr")).isEqualTo(1);
+    assertThat(ruleClassB.getAttributeProvider().getAttributeIndex("my-label-attr")).isEqualTo(2);
+    assertThat(ruleClassB.getAttributeProvider().getAttributeIndex("my-labellist-attr"))
+        .isEqualTo(3);
+    assertThat(ruleClassB.getAttributeProvider().getAttributeIndex("my-integer-attr")).isEqualTo(4);
+    assertThat(ruleClassB.getAttributeProvider().getAttributeIndex("my-string-attr2")).isEqualTo(5);
+    assertThat(ruleClassB.getAttributeProvider().getAttributeIndex("my-stringlist-attr"))
+        .isEqualTo(6);
+    assertThat(ruleClassB.getAttributeProvider().getAttributeIndex("my-sorted-stringlist-attr"))
+        .isEqualTo(7);
+    assertThat(ruleClassB.getAttributeProvider().getAttributeIndex("another-string-attr"))
+        .isEqualTo(8);
 
-    assertThat(ruleClassB.getAttributeByName("name")).isEqualTo(ruleClassB.getAttribute(0));
-    assertThat(ruleClassB.getAttributeByName("my-string-attr"))
-        .isEqualTo(ruleClassB.getAttribute(1));
-    assertThat(ruleClassB.getAttributeByName("my-label-attr"))
-        .isEqualTo(ruleClassB.getAttribute(2));
-    assertThat(ruleClassB.getAttributeByName("my-labellist-attr"))
-        .isEqualTo(ruleClassB.getAttribute(3));
-    assertThat(ruleClassB.getAttributeByName("my-integer-attr"))
-        .isEqualTo(ruleClassB.getAttribute(4));
-    assertThat(ruleClassB.getAttributeByName("my-string-attr2"))
-        .isEqualTo(ruleClassB.getAttribute(5));
-    assertThat(ruleClassB.getAttributeByName("my-stringlist-attr"))
-        .isEqualTo(ruleClassB.getAttribute(6));
-    assertThat(ruleClassB.getAttributeByName("my-sorted-stringlist-attr"))
-        .isEqualTo(ruleClassB.getAttribute(7));
-    assertThat(ruleClassB.getAttributeByName("another-string-attr"))
-        .isEqualTo(ruleClassB.getAttribute(8));
+    assertThat(ruleClassB.getAttributeProvider().getAttributeByName("name"))
+        .isEqualTo(ruleClassB.getAttributeProvider().getAttribute(0));
+    assertThat(ruleClassB.getAttributeProvider().getAttributeByName("my-string-attr"))
+        .isEqualTo(ruleClassB.getAttributeProvider().getAttribute(1));
+    assertThat(ruleClassB.getAttributeProvider().getAttributeByName("my-label-attr"))
+        .isEqualTo(ruleClassB.getAttributeProvider().getAttribute(2));
+    assertThat(ruleClassB.getAttributeProvider().getAttributeByName("my-labellist-attr"))
+        .isEqualTo(ruleClassB.getAttributeProvider().getAttribute(3));
+    assertThat(ruleClassB.getAttributeProvider().getAttributeByName("my-integer-attr"))
+        .isEqualTo(ruleClassB.getAttributeProvider().getAttribute(4));
+    assertThat(ruleClassB.getAttributeProvider().getAttributeByName("my-string-attr2"))
+        .isEqualTo(ruleClassB.getAttributeProvider().getAttribute(5));
+    assertThat(ruleClassB.getAttributeProvider().getAttributeByName("my-stringlist-attr"))
+        .isEqualTo(ruleClassB.getAttributeProvider().getAttribute(6));
+    assertThat(ruleClassB.getAttributeProvider().getAttributeByName("my-sorted-stringlist-attr"))
+        .isEqualTo(ruleClassB.getAttributeProvider().getAttribute(7));
+    assertThat(ruleClassB.getAttributeProvider().getAttributeByName("another-string-attr"))
+        .isEqualTo(ruleClassB.getAttributeProvider().getAttribute(8));
   }
 
   private static final String TEST_PACKAGE_NAME = "testpackage";
@@ -542,7 +557,8 @@ public final class RuleClassTest extends PackageLoadingTestCase {
         Arrays.asList(
                 """
                 expected value of type 'list(label)' for attribute 'my-labellist-attr' \
-                of 'ruleA', but got \"foobar\" (string)""",
+                of 'ruleA', but got \"foobar\" (string)\
+                """,
                 "no such attribute 'bogus-attr' in 'ruleA' rule",
                 "missing value for mandatory attribute 'my-string-attr' in 'ruleA' rule",
                 "missing value for mandatory attribute 'my-label-attr' in 'ruleA' rule",
@@ -1060,7 +1076,7 @@ public final class RuleClassTest extends PackageLoadingTestCase {
         /* toolchainTypes= */ ImmutableSet.of(),
         /* toolchainResolutionMode= */ ToolchainResolutionMode.ENABLED,
         /* executionPlatformConstraints= */ ImmutableSet.of(),
-        /* execGroups= */ ImmutableMap.of(),
+        /* declaredExecGroups= */ ImmutableMap.of(),
         AutoExecGroupsMode.DYNAMIC,
         OutputFile.Kind.FILE,
         attributes.length > 0 && attributes[0].equals(RuleClass.NAME_ATTRIBUTE)
@@ -1190,7 +1206,7 @@ public final class RuleClassTest extends PackageLoadingTestCase {
   }
 
   @Test
-  public void testExecGroups() {
+  public void testDeclaredExecGroups() {
     RuleClass.Builder ruleClassBuilder =
         new RuleClass.Builder("ruleClass", RuleClassType.NORMAL, false)
             .factory(DUMMY_CONFIGURED_TARGET_FACTORY)
@@ -1203,18 +1219,19 @@ public final class RuleClassTest extends PackageLoadingTestCase {
     ruleClassBuilder.addExecGroups(
         ImmutableMap.of(
             "cherry",
-            ExecGroup.builder()
+            DeclaredExecGroup.builder()
                 .addToolchainType(ToolchainTypeRequirement.create(toolchain))
                 .execCompatibleWith(ImmutableSet.of(constraint))
-                .copyFrom(null)
                 .build()));
 
     RuleClass ruleClass = ruleClassBuilder.build();
 
-    assertThat(ruleClass.getExecGroups()).hasSize(1);
-    assertThat(ruleClass.getExecGroups().get("cherry")).hasToolchainType(toolchain);
-    assertThat(ruleClass.getExecGroups().get("cherry")).toolchainType(toolchain).isMandatory();
-    assertThat(ruleClass.getExecGroups().get("cherry")).hasExecCompatibleWith(constraint);
+    assertThat(ruleClass.getDeclaredExecGroups()).hasSize(1);
+    assertThat(ruleClass.getDeclaredExecGroups().get("cherry")).hasToolchainType(toolchain);
+    assertThat(ruleClass.getDeclaredExecGroups().get("cherry"))
+        .toolchainType(toolchain)
+        .isMandatory();
+    assertThat(ruleClass.getDeclaredExecGroups().get("cherry")).hasExecCompatibleWith(constraint);
   }
 
   @Test
@@ -1232,8 +1249,16 @@ public final class RuleClassTest extends PackageLoadingTestCase {
             .setBuildSetting(BuildSetting.create(false, STRING))
             .build();
 
-    assertThat(labelFlag.hasAttr(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME, NODEP_LABEL)).isTrue();
-    assertThat(stringSetting.hasAttr(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME, STRING)).isTrue();
+    assertThat(
+            labelFlag
+                .getAttributeProvider()
+                .hasAttr(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME, NODEP_LABEL))
+        .isTrue();
+    assertThat(
+            stringSetting
+                .getAttributeProvider()
+                .hasAttr(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME, STRING))
+        .isTrue();
   }
 
   @Test
@@ -1244,7 +1269,11 @@ public final class RuleClassTest extends PackageLoadingTestCase {
             .add(attr("tags", STRING_LIST))
             .build();
 
-    assertThat(stringSetting.hasAttr(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME, LABEL)).isFalse();
+    assertThat(
+            stringSetting
+                .getAttributeProvider()
+                .hasAttr(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME, LABEL))
+        .isFalse();
   }
 
   @Test

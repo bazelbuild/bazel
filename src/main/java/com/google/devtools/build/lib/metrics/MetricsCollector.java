@@ -14,8 +14,8 @@
 package com.google.devtools.build.lib.metrics;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.util.Objects.requireNonNull;
 
-import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.eventbus.AllowConcurrentEvents;
@@ -355,16 +355,21 @@ class MetricsCollector {
   private ActionData buildActionData(ActionStats actionStats) {
     NanosToMillisSinceEpochConverter nanosToMillisSinceEpochConverter =
         BlazeClock.createNanosToMillisSinceEpochConverter();
+    long numActionsExecuted = actionStats.numActionsExecuted.get();
     ActionData.Builder builder =
         ActionData.newBuilder()
             .setMnemonic(actionStats.mnemonic)
-            .setFirstStartedMs(
-                nanosToMillisSinceEpochConverter.toEpochMillis(
-                    actionStats.firstStarted.longValue()))
-            .setLastEndedMs(
-                nanosToMillisSinceEpochConverter.toEpochMillis(actionStats.lastEnded.longValue()))
-            .setActionsExecuted(actionStats.numActionsExecuted.get())
+            .setActionsExecuted(numActionsExecuted)
             .setActionsCreated(actionStats.numActionsRegistered.get());
+
+    if (numActionsExecuted > 0) {
+      builder
+          .setFirstStartedMs(
+              nanosToMillisSinceEpochConverter.toEpochMillis(actionStats.firstStarted.longValue()))
+          .setLastEndedMs(
+              nanosToMillisSinceEpochConverter.toEpochMillis(actionStats.lastEnded.longValue()));
+    }
+
     long systemTime = actionStats.systemTime.get();
     if (systemTime > 0) {
       builder.setSystemTime(Durations.fromMillis(systemTime));
@@ -655,17 +660,15 @@ class MetricsCollector {
       }
     }
 
-    @AutoValue
-    abstract static class RaceIdentifier {
-      abstract String mnemonic();
-
-      abstract String localName();
-
-      abstract String remoteName();
+    record RaceIdentifier(String mnemonic, String localName, String remoteName) {
+      RaceIdentifier {
+        requireNonNull(mnemonic, "mnemonic");
+        requireNonNull(localName, "localName");
+        requireNonNull(remoteName, "remoteName");
+      }
 
       static RaceIdentifier create(String mnemonic, String localName, String remoteName) {
-        return new AutoValue_MetricsCollector_DynamicExecutionStats_RaceIdentifier(
-            mnemonic, localName, remoteName);
+        return new RaceIdentifier(mnemonic, localName, remoteName);
       }
     }
 

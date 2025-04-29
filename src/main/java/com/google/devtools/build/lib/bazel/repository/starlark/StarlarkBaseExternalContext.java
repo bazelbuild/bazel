@@ -24,19 +24,21 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Maps;
+import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.Futures;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.bazel.debug.WorkspaceRuleEvent;
 import com.google.devtools.build.lib.bazel.repository.DecompressorDescriptor;
 import com.google.devtools.build.lib.bazel.repository.DecompressorValue;
-import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache;
-import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache.KeyType;
+import com.google.devtools.build.lib.bazel.repository.cache.DownloadCache;
+import com.google.devtools.build.lib.bazel.repository.cache.DownloadCache.KeyType;
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.bazel.repository.downloader.HttpUtils;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.FetchProgress;
@@ -57,6 +59,7 @@ import com.google.devtools.build.lib.runtime.ProcessWrapper;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor.ExecutionResult;
 import com.google.devtools.build.lib.skyframe.ActionEnvironmentFunction;
+import com.google.devtools.build.lib.unsafe.StringUnsafe;
 import com.google.devtools.build.lib.util.OsUtils;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -75,18 +78,20 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
-import java.nio.file.Paths;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -145,6 +150,8 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
     void close();
   }
 
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
+
   /** Max. length of command line args added as a profiler description. */
   private static final int MAX_PROFILE_ARGS_LEN = 512;
 
@@ -168,6 +175,7 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
 
   private boolean wasSuccessful = false;
 
+  @SuppressWarnings("AllowVirtualThreads")
   protected StarlarkBaseExternalContext(
       Path workingDirectory,
       BlazeDirectories directories,
@@ -261,11 +269,11 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
 
   /** Returns the file digests used by this context object so far. */
   public ImmutableMap<RepoRecordedInput.File, String> getRecordedFileInputs() {
-    return ImmutableMap.copyOf(recordedFileInputs);
+    return ImmutableSortedMap.copyOf(recordedFileInputs);
   }
 
   public ImmutableMap<Dirents, String> getRecordedDirentsInputs() {
-    return ImmutableMap.copyOf(recordedDirentsInputs);
+    return ImmutableSortedMap.copyOf(recordedDirentsInputs);
   }
 
   public ImmutableMap<RepoRecordedInput.EnvVar, Optional<String>> getRecordedEnvVarInputs()
@@ -497,7 +505,7 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
       return originalChecksum.get();
     }
     try {
-      return Checksum.fromString(KeyType.SHA256, RepositoryCache.getChecksum(KeyType.SHA256, path));
+      return Checksum.fromString(KeyType.SHA256, DownloadCache.getChecksum(KeyType.SHA256, path));
     } catch (Checksum.InvalidChecksumException e) {
       throw new IllegalStateException(
           "Unexpected invalid checksum from internal computation of SHA-256 checksum on "
@@ -635,7 +643,7 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
   @StarlarkMethod(
       name = "download",
       doc =
-          """
+"""
 Downloads a file to the output path for the provided url and returns a struct \
 containing <code>success</code>, a flag which is <code>true</code> if the \
 download completed successfully, and if successful, a hash of the file \
@@ -842,7 +850,7 @@ When <code>sha256</code> or <code>integrity</code> is user specified, setting an
   @StarlarkMethod(
       name = "download_and_extract",
       doc =
-          """
+"""
 Downloads a file to the output path for the provided url, extracts it, and returns a \
 struct containing <code>success</code>, a flag which is <code>true</code> if the \
 download completed successfully, and if successful, a hash of the file with the \
@@ -968,7 +976,7 @@ When <code>sha256</code> or <code>integrity</code> is user specified, setting an
             named = true,
             positional = false,
             doc =
-                """
+"""
 An optional dict specifying files to rename during the extraction. Archive entries \
 with names exactly matching a key will be renamed to the value, prior to \
 any directory prefix adjustment. This can be used to extract archives that \
@@ -1041,10 +1049,7 @@ the same path on case-insensitive filesystems.
     Path downloadDirectory;
     try {
       // Download to temp directory inside the outputDirectory and delete it after extraction
-      java.nio.file.Path tempDirectory =
-          Files.createTempDirectory(Paths.get(outputPath.toString()), "temp");
-      downloadDirectory =
-          workingDirectory.getFileSystem().getPath(tempDirectory.toFile().getAbsolutePath());
+      downloadDirectory = outputPath.getPath().createTempDirectory("temp");
 
       Phaser downloadPhaser = new Phaser();
       Future<Path> pendingDownload =
@@ -1106,21 +1111,55 @@ the same path on case-insensitive filesystems.
     }
 
     StructImpl downloadResult = calculateDownloadResult(checksum, downloadedPath);
-    try {
-      if (downloadDirectory.exists()) {
-        downloadDirectory.deleteTree();
-      }
-    } catch (IOException e) {
-      throw new RepositoryFunctionException(
-          new IOException(
-              "Couldn't delete temporary directory ("
-                  + downloadDirectory.getPathString()
-                  + "): "
-                  + e.getMessage(),
-              e),
-          Transience.TRANSIENT);
-    }
+    deleteTreeWithRetries(downloadDirectory);
     return downloadResult;
+  }
+
+  /**
+   * This method wraps the deleteTree method in a retry loop, to solve an issue when trying to
+   * recursively clean up temporary directories during dependency downloads when they are stored on
+   * filesystems where unlinking a file may not be immediately reflected in a list of its parent
+   * directory. Specifically, the symptom of this problem was the entire bazel build aborting
+   * because during the cleanup of a dependency download (e.g Rust crate), there was an IOException
+   * because the parent directory being removed was "not empty" (yet). Please see
+   * https://github.com/bazelbuild/bazel/issues/23687 and
+   * https://github.com/bazelbuild/bazel/issues/20013 for further details.
+   *
+   * @param downloadDirectory
+   * @throws RepositoryFunctionException
+   */
+  private static void deleteTreeWithRetries(Path downloadDirectory)
+      throws RepositoryFunctionException {
+    Instant start = Instant.now();
+    Instant deadline = start.plus(Duration.ofSeconds(5));
+
+    for (int attempts = 1; ; attempts++) {
+      try {
+        if (downloadDirectory.exists()) {
+          downloadDirectory.deleteTree();
+        }
+        if (attempts > 1) {
+          long elapsedMillis = Duration.between(start, Instant.now()).toMillis();
+          logger.atInfo().log(
+              "Deleting %s took %d attempts over %dms.",
+              downloadDirectory.getPathString(), attempts, elapsedMillis);
+        }
+        break;
+      } catch (IOException e) {
+        if (Instant.now().isAfter(deadline)) {
+          throw new RepositoryFunctionException(
+              new IOException(
+                  "Couldn't delete temporary directory ("
+                      + downloadDirectory.getPathString()
+                      + ") after "
+                      + attempts
+                      + " attempts: "
+                      + e.getMessage(),
+                  e),
+              Transience.TRANSIENT);
+        }
+      }
+    }
   }
 
   @StarlarkMethod(
@@ -1321,23 +1360,17 @@ the same path on case-insensitive filesystems.
         @Param(
             name = "legacy_utf8",
             named = true,
-            defaultValue = "True",
+            defaultValue = "False",
             doc =
                 """
-                Encode file content to UTF-8, true by default. Future versions will change \
-                the default and remove this parameter.
+                No-op. This parameter is deprecated and will be removed in a future version of \
+                Bazel.
                 """),
       })
   public void createFile(
       Object path, String content, Boolean executable, Boolean legacyUtf8, StarlarkThread thread)
       throws RepositoryFunctionException, EvalException, InterruptedException {
     StarlarkPath p = getPath(path);
-    byte[] contentBytes;
-    if (legacyUtf8) {
-      contentBytes = content.getBytes(UTF_8);
-    } else {
-      contentBytes = content.getBytes(ISO_8859_1);
-    }
     WorkspaceRuleEvent w =
         WorkspaceRuleEvent.newFileEvent(
             p.toString(),
@@ -1351,7 +1384,7 @@ the same path on case-insensitive filesystems.
       makeDirectories(p.getPath());
       p.getPath().delete();
       try (OutputStream stream = p.getPath().getOutputStream()) {
-        stream.write(contentBytes);
+        stream.write(StringUnsafe.getInternalStringBytes(content));
       }
       if (executable) {
         p.getPath().setExecutable(true);
@@ -1411,10 +1444,13 @@ the same path on case-insensitive filesystems.
       name = "path",
       doc =
           """
-          Returns a path from a string, label or path. If the path is relative, it will resolve \
-          relative to the repository directory. If the path is a label, it will resolve to \
-          the path of the corresponding file. Note that remote repositories are executed \
-          during the analysis phase and thus cannot depends on a target result (the \
+          Returns a path from a string, label, or path. If this context is a \
+          <code>repository_ctx</code>, a relative path will resolve relative to the \
+          repository directory. If it is a <code>module_ctx</code>, a relative path will \
+          resolve relative to a temporary working directory for this module extension. \
+          If the path is a label, it will resolve to \
+          the path of the corresponding file. Note that remote repositories and module extensions \
+          are executed during the analysis phase and thus cannot depends on a target result (the \
           label should point to a non-generated file). If path is a path, it will return \
           that path as is.
           """,
@@ -1517,11 +1553,16 @@ the same path on case-insensitive filesystems.
       PathFragment relPath = path.relativeTo(outputBaseExternal);
       if (!relPath.isEmpty()) {
         // The file is under a repo root.
-        String repoName = relPath.getSegment(0);
+        RepositoryName repoName;
+        try {
+          repoName = RepositoryName.create(relPath.getSegment(0));
+        } catch (LabelSyntaxException e) {
+          throw Starlark.errorf(
+              "attempted to watch path under external repository directory: %s", e.getMessage());
+        }
         PathFragment repoRelPath =
-            relPath.relativeTo(PathFragment.createAlreadyNormalized(repoName));
-        return RepoCacheFriendlyPath.createInsideWorkspace(
-            RepositoryName.createUnvalidated(repoName), repoRelPath);
+            relPath.relativeTo(PathFragment.createAlreadyNormalized(repoName.getName()));
+        return RepoCacheFriendlyPath.createInsideWorkspace(repoName, repoRelPath);
       }
     }
     // The file is just under a random absolute path.
@@ -1835,7 +1876,11 @@ the same path on case-insensitive filesystems.
             name = "environment",
             defaultValue = "{}",
             named = true,
-            doc = "Force some environment variables to be set to be passed to the process."),
+            doc =
+                """
+                Force some environment variables to be set to be passed to the process. The value \
+                can be <code>None</code> to remove the environment variable.
+                """),
         @Param(
             name = "quiet",
             defaultValue = "True",
@@ -1855,7 +1900,7 @@ the same path on case-insensitive filesystems.
   public StarlarkExecutionResult execute(
       Sequence<?> arguments, // <String> or <StarlarkPath> or <Label> expected
       StarlarkInt timeoutI,
-      Dict<?, ?> uncheckedEnvironment, // <String, String> expected
+      Dict<?, ?> uncheckedEnvironment, // <String, Object> expected
       boolean quiet,
       String overrideWorkingDirectory,
       StarlarkThread thread)
@@ -1863,10 +1908,25 @@ the same path on case-insensitive filesystems.
     validateExecuteArguments(arguments);
     int timeout = Starlark.toInt(timeoutI, "timeout");
 
-    Map<String, String> forceEnvVariables =
-        Dict.cast(uncheckedEnvironment, String.class, String.class, "environment");
+    Map<String, Object> forceEnvVariablesRaw =
+        Dict.cast(uncheckedEnvironment, String.class, Object.class, "environment");
+    Map<String, String> forceEnvVariables = new LinkedHashMap<>();
+    Set<String> removeEnvVariables = new LinkedHashSet<>();
+    for (Map.Entry<String, Object> entry : forceEnvVariablesRaw.entrySet()) {
+      String key = entry.getKey();
+      Object value = entry.getValue();
+      if (value == Starlark.NONE) {
+        removeEnvVariables.add(key);
+      } else if (value instanceof String s) {
+        forceEnvVariables.put(key, s);
+      } else {
+        throw Starlark.errorf("environment values must be strings or None, got %s", value);
+      }
+    }
 
     if (canExecuteRemote()) {
+      // Remote execution only sees the explicitly set environment variables, so removing env vars
+      // isn't necessary.
       return executeRemote(arguments, timeout, forceEnvVariables, quiet, overrideWorkingDirectory);
     }
 
@@ -1886,7 +1946,7 @@ the same path on case-insensitive filesystems.
         WorkspaceRuleEvent.newExecuteEvent(
             args,
             timeout,
-            envVariables,
+            Maps.filterKeys(envVariables, k -> !removeEnvVariables.contains(k)),
             forceEnvVariables,
             workingDirectory.getPathString(),
             quiet,
@@ -1920,6 +1980,7 @@ the same path on case-insensitive filesystems.
           .addArguments(args)
           .setDirectory(workingDirectoryPath.getPathFile())
           .addEnvironmentVariables(forceEnvVariables)
+          .removeEnvironmentVariables(removeEnvVariables)
           .setTimeout(timeoutMillis)
           .setQuiet(quiet)
           .execute();

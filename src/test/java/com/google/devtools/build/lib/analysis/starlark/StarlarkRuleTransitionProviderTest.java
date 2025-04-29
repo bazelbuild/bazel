@@ -1156,6 +1156,42 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
   }
 
   @Test
+  public void testAnalysisTestsCanTransitionOnExperimentalFlag() throws Exception {
+    scratch.file(
+        "test/analysis_test.bzl",
+        """
+        def make_test(name, target, settings):
+          testing.analysis_test(
+            name,
+            lambda ctx: None,
+            attrs = {
+              "target" : attr.label(
+                default = target,
+                cfg = analysis_test_transition(settings = settings)
+              )
+            },
+          )
+
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load("//test:analysis_test.bzl", "make_test")
+        filegroup(name = "foo")
+        make_test(name = "test", target = ":foo", settings = {
+          "//command_line_option:experimental_something_something": True
+        })
+        """);
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test");
+    assertDoesNotContainEvent("Cannot transition on --experimental_* or --incompatible_* options");
+    assertContainsEvent(
+        "transition outputs [//command_line_option:experimental_something_something] do not"
+            + " correspond to valid settings");
+  }
+
+  @Test
   public void testTransitionIsCheckedAgainstDefaultAllowlist() throws Exception {
     scratch.overwriteFile(
         TestConstants.TOOLS_REPOSITORY_SCRATCH
@@ -1534,7 +1570,7 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
 
     scratch.overwriteFile("MODULE.bazel", "bazel_dep(name='rules_x',version='1.0')");
     registry.addModule(createModuleKey("rules_x", "1.0"), "module(name='rules_x', version='1.0')");
-    scratch.file("modules/rules_x+1.0/WORKSPACE");
+    scratch.file("modules/rules_x+1.0/REPO.bazel");
     scratch.file("modules/rules_x+1.0/BUILD");
     scratch.file(
         "modules/rules_x+1.0/defs.bzl",
@@ -1790,7 +1826,7 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
         RequiredConfigFragmentsProvider.builder();
     ruleTransition.addRequiredFragments(
         requiredFragments, ct.getConfiguration().getBuildOptionDetails());
-    assertThat(requiredFragments.build().getOptionsClasses()).containsExactly(CppOptions.class);
+    assertThat(requiredFragments.build().optionsClasses()).containsExactly(CppOptions.class);
   }
 
   /**
@@ -2047,7 +2083,7 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
                 .getOptions()
                 .get(PlatformOptions.class)
                 .platforms)
-        .containsExactly(Label.parseCanonicalUnchecked(TestConstants.PLATFORM_LABEL_ALIAS));
+        .containsExactly(Label.parseCanonicalUnchecked(TestConstants.PLATFORM_LABEL));
   }
 
   @Test

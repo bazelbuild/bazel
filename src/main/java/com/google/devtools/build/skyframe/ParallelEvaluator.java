@@ -40,6 +40,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Predicate;
 import javax.annotation.Nullable;
 
 /**
@@ -64,12 +65,12 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
       EmittedEventState emittedEventState,
       EventFilter storedEventFilter,
       ErrorInfoManager errorInfoManager,
-      boolean keepGoing,
       InflightTrackingProgressReceiver progressReceiver,
       GraphInconsistencyReceiver graphInconsistencyReceiver,
       QuiescingExecutor executor,
       CycleDetector cycleDetector,
-      UnnecessaryTemporaryStateDropperReceiver unnecessaryTemporaryStateDropperReceiver) {
+      UnnecessaryTemporaryStateDropperReceiver unnecessaryTemporaryStateDropperReceiver,
+      Predicate<SkyKey> keepGoing) {
     super(
         graph,
         graphVersion,
@@ -79,11 +80,11 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
         emittedEventState,
         storedEventFilter,
         errorInfoManager,
-        keepGoing,
         progressReceiver,
         graphInconsistencyReceiver,
         executor,
-        cycleDetector);
+        cycleDetector,
+        keepGoing);
     this.unnecessaryTemporaryStateDropperReceiver = unnecessaryTemporaryStateDropperReceiver;
   }
 
@@ -201,7 +202,7 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
       // that should have been propagated.
       ErrorInfo errorInfo = Preconditions.checkNotNull(e.getErrorInfo(), errorKey);
       bubbleErrorInfo = bubbleErrorUp(errorInfo, errorKey, skyKeys, e.getRdepsToBubbleUpTo());
-      if (evaluatorContext.keepGoing()) {
+      if (evaluatorContext.keepGoing(errorKey)) {
         Preconditions.checkState(
             errorInfo.isCatastrophic(),
             "Scheduler exception only thrown for catastrophe in keep_going evaluation: %s",
@@ -403,11 +404,12 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
               ImmutableSet.of(),
               evaluatorContext);
       externalInterrupt = externalInterrupt || Thread.currentThread().isInterrupted();
+      SkyValue resultForDebugging = null;
       boolean completedRun = false;
       try {
         // This build is only to check if the parent node can give us a better error. We don't
-        // care about a return value.
-        skyFunction.compute(parent, env);
+        // care about a return value except for debugging information.
+        resultForDebugging = skyFunction.compute(parent, env);
         completedRun = true;
       } catch (InterruptedException interruptedException) {
         logger.atInfo().withCause(interruptedException).log("Interrupted during %s eval", parent);
@@ -461,14 +463,26 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
             "Skyfunction did not encounter error: %s via %s, %s (%s)",
             errorKey, childErrorKey, error, bubbleErrorInfo);
       }
-      // Builder didn't throw its own exception, so just propagate this one up.
-      NestedSet<Reportable> events =
-          env.reportEventsAndGetEventsToStore(parentEntry, /*expectDoneDeps=*/ false);
-      ValueWithMetadata valueWithMetadata =
-          ValueWithMetadata.error(
-              ErrorInfo.fromChildErrors(errorKey, ImmutableSet.of(error)), events);
-      replay(events);
-      bubbleErrorInfo.put(errorKey, valueWithMetadata);
+      try {
+        // Builder didn't throw its own exception, so just propagate this one up.
+        NestedSet<Reportable> events =
+            env.reportEventsAndGetEventsToStore(parentEntry, /* expectDoneDeps= */ false);
+        ValueWithMetadata valueWithMetadata =
+            ValueWithMetadata.error(
+                ErrorInfo.fromChildErrors(errorKey, ImmutableSet.of(error)), events);
+        replay(events);
+        bubbleErrorInfo.put(errorKey, valueWithMetadata);
+      } catch (RuntimeException e) {
+        logger.atSevere().log(
+            """
+            Exception thrown while reporting events during error bubbling:
+            errorKey=%s
+            completedRun=%s
+            resultForDebugging=%s\
+            """,
+            errorKey, completedRun, resultForDebugging);
+        throw e;
+      }
     }
 
     // Reset the interrupt bit if there was an interrupt from outside this evaluator interrupt.
@@ -493,16 +507,16 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
       @Nullable Map<SkyKey, ValueWithMetadata> bubbleErrorInfo,
       boolean catastrophe)
       throws InterruptedException {
-    Preconditions.checkState(
-        !catastrophe || evaluatorContext.keepGoing(),
-        "Catastrophe not consistent with keepGoing mode: %s %s %s",
-        skyKeys,
-        catastrophe,
-        bubbleErrorInfo);
     EvaluationResult.Builder<T> result = EvaluationResult.builder();
     List<SkyKey> cycleRoots = new ArrayList<>();
     boolean haveKeys = false;
     for (SkyKey skyKey : skyKeys) {
+      Preconditions.checkState(
+          !catastrophe || evaluatorContext.keepGoing(skyKey),
+          "Catastrophe not consistent with keepGoing mode: %s %s %s",
+          skyKey,
+          catastrophe,
+          bubbleErrorInfo);
       haveKeys = true;
       SkyValue unwrappedValue =
           maybeGetValueFromError(
@@ -521,7 +535,7 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
       SkyValue value = valueWithMetadata.getValue();
       ErrorInfo errorInfo = valueWithMetadata.getErrorInfo();
       Preconditions.checkState(value != null || errorInfo != null, skyKey);
-      if (!evaluatorContext.keepGoing() && errorInfo != null) {
+      if (errorInfo != null && !evaluatorContext.keepGoing(skyKey)) {
         // value will be null here unless the value was already built on a prior keepGoing build.
         result.addError(skyKey, errorInfo);
         continue;
@@ -636,9 +650,10 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
       return constructResult(skyKeySet, null, /*catastrophe=*/ false);
     }
 
-    if (!evaluatorContext.keepGoing()) {
-      Set<SkyKey> cachedErrorKeys = new HashSet<>();
+    Set<SkyKey> cachedErrorKeys = new HashSet<>();
       for (SkyKey skyKey : skyKeySet) {
+      if (!evaluatorContext.keepGoing(skyKey)) {
+
         NodeEntry entry = graph.get(null, Reason.PRE_OR_POST_EVALUATION, skyKey);
         if (entry == null) {
           continue;
@@ -648,6 +663,7 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
           cachedErrorKeys.add(skyKey);
         }
       }
+    }
 
       // Errors, even cached ones, should halt evaluations not in keepGoing mode.
       if (!cachedErrorKeys.isEmpty()) {
@@ -655,7 +671,6 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
         // checking).
         return constructResult(cachedErrorKeys, null, /*catastrophe=*/ false);
       }
-    }
 
     unnecessaryTemporaryStateDropperReceiver.onEvaluationStarted(
         () -> evaluatorContext.stateCache().invalidateAll());

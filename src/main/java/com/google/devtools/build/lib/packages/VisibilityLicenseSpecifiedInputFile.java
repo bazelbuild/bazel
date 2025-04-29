@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.devtools.build.lib.cmdline.Label;
+import java.util.List;
 import javax.annotation.Nullable;
 import net.starlark.java.syntax.Location;
 
@@ -24,14 +25,14 @@ import net.starlark.java.syntax.Location;
 public final class VisibilityLicenseSpecifiedInputFile extends InputFile {
 
   @Nullable private final RuleVisibility visibility;
-  @Nullable private final License license;
+  @Nullable private final List<String> license;
 
   VisibilityLicenseSpecifiedInputFile(
-      Package pkg,
+      Packageoid pkg,
       Label label,
       Location location,
       @Nullable RuleVisibility visibility,
-      @Nullable License license) {
+      @Nullable List<String> license) {
     super(pkg, label, location);
     this.visibility = visibility;
     this.license = license;
@@ -43,25 +44,24 @@ public final class VisibilityLicenseSpecifiedInputFile extends InputFile {
   }
 
   @Override
-  public RuleVisibility getVisibility() {
-    if (visibility != null) {
-      return visibility;
-    } else {
-      return getPackage().getPackageArgs().defaultVisibility();
-    }
+  @Nullable
+  public RuleVisibility getRawVisibility() {
+    return visibility;
   }
 
   @Override
   public boolean isLicenseSpecified() {
-    return license != null && license.isSpecified();
+    return license != null && !license.isEmpty();
   }
 
   @Override
-  public License getLicense() {
-    if (license != null) {
+  @Nullable
+  public List<String> getLicense() {
+    // XXXif (license != null) {
+    if (this.isLicenseSpecified()) {
       return license;
     } else {
-      return getPackage().getPackageArgs().license();
+      return getPackageDeclarations().getPackageArgs().license();
     }
   }
 }

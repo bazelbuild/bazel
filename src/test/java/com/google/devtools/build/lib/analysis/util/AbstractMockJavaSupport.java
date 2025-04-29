@@ -26,7 +26,6 @@ public abstract class AbstractMockJavaSupport {
         @Override
         public void setupRulesJava(
             MockToolsConfig config, Function<String, String> runfilesResolver) throws IOException {
-          config.create("rules_java_workspace/WORKSPACE", "workspace(name = 'rules_java')");
           config.create("rules_java_workspace/MODULE.bazel", "module(name = 'rules_java')");
           PathFragment rulesJavaRoot =
               PathFragment.create(runfilesResolver.apply("rules_java/java/defs.bzl"))
@@ -40,6 +39,85 @@ public abstract class AbstractMockJavaSupport {
           config.copyTool(
               rulesJavaRoot.getRelative("toolchains/java_toolchain_alias.bzl"),
               "rules_java_workspace/toolchains/java_toolchain_alias.bzl");
+          // Overwrite redirects to not have to use bazel_features / compatibility layer
+          config.overwrite(
+              "rules_java_workspace/java/java_binary.bzl",
+              """
+load("@rules_java//java/bazel/rules:bazel_java_binary_wrapper.bzl", _java_binary = "java_binary")
+java_binary = _java_binary
+""");
+          config.overwrite(
+              "rules_java_workspace/java/java_import.bzl",
+              """
+load("@rules_java//java/bazel/rules:bazel_java_import.bzl", _java_import = "java_import")
+java_import = _java_import
+""");
+          config.overwrite(
+              "rules_java_workspace/java/java_library.bzl",
+              """
+load("@rules_java//java/bazel/rules:bazel_java_library.bzl", _java_library = "java_library")
+java_library = _java_library
+""");
+          config.overwrite(
+              "rules_java_workspace/java/java_plugin.bzl",
+              """
+load("@rules_java//java/bazel/rules:bazel_java_plugin.bzl", _java_plugin = "java_plugin")
+java_plugin = _java_plugin
+""");
+          config.overwrite(
+              "rules_java_workspace/java/java_test.bzl",
+              """
+              load("@rules_java//java/bazel/rules:bazel_java_test.bzl", _java_test = "java_test")
+              java_test = _java_test
+              """);
+          config.overwrite(
+              "rules_java_workspace/java/toolchains/java_package_configuration.bzl",
+              """
+              load("@rules_java//java/common/rules:java_package_configuration.bzl",
+                _java_package_configuration = "java_package_configuration")
+              java_package_configuration = _java_package_configuration
+              """);
+          config.overwrite(
+              "rules_java_workspace/java/toolchains/java_runtime.bzl",
+              """
+              load("@rules_java//java/common/rules:java_runtime.bzl",
+                _java_runtime = "java_runtime")
+              java_runtime = _java_runtime
+              """);
+          config.overwrite(
+              "rules_java_workspace/java/toolchains/java_toolchain.bzl",
+              """
+              load("@rules_java//java/common/rules:java_toolchain.bzl",
+                _java_toolchain = "java_toolchain")
+              java_toolchain = _java_toolchain
+              """);
+          config.overwrite(
+              "rules_java_workspace/java/common/java_common.bzl",
+              """
+              load("@rules_java//java/private:java_common.bzl", _java_common = "java_common")
+              java_common = _java_common
+              """);
+          config.overwrite(
+              "rules_java_workspace/java/common/java_info.bzl",
+              """
+              load("@rules_java//java/private:java_info.bzl", _JavaInfo = "JavaInfo")
+              JavaInfo = _JavaInfo
+              """);
+          config.overwrite(
+              "rules_java_workspace/java/common/java_plugin_info.bzl",
+              """
+              load("@rules_java//java/private:java_info.bzl", _JavaPluginInfo = "JavaPluginInfo")
+              JavaPluginInfo = _JavaPluginInfo
+              """);
+          config.overwrite(
+              "rules_java_workspace/java/private/proto_support.bzl",
+              """
+load("@rules_java//java/private:java_common.bzl", "java_common")
+def compile(*, injecting_rule_kind, enable_jspecify, include_compilation_info, **kwargs):
+    return java_common.compile(**kwargs)
+def merge(providers, *, merge_java_outputs = True, merge_source_jars = True):
+    return java_common.merge(providers)
+""");
           // mocks
           config.create("rules_java_workspace/toolchains/BUILD");
           config.create(

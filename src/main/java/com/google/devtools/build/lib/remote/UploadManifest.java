@@ -21,7 +21,7 @@ import static com.google.devtools.build.lib.remote.util.RxFutures.toCompletable;
 import static com.google.devtools.build.lib.remote.util.RxFutures.toSingle;
 import static com.google.devtools.build.lib.remote.util.RxUtils.mergeBulkTransfer;
 import static com.google.devtools.build.lib.remote.util.RxUtils.toTransferResult;
-import static com.google.devtools.build.lib.util.StringUtil.reencodeInternalToExternal;
+import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
 import static java.util.Comparator.comparing;
 import static java.util.Comparator.naturalOrder;
 import static java.util.Comparator.reverseOrder;
@@ -42,7 +42,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.SortedSetMultimap;
 import com.google.common.collect.TreeMultimap;
@@ -62,7 +61,6 @@ import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver;
-import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.RxUtils;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -80,7 +78,6 @@ import com.google.protobuf.Timestamp;
 import io.reactivex.rxjava3.core.Completable;
 import io.reactivex.rxjava3.core.Flowable;
 import io.reactivex.rxjava3.core.Single;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -112,7 +109,6 @@ public class UploadManifest {
   private Digest stdoutDigest;
 
   public static UploadManifest create(
-      RemoteOptions remoteOptions,
       CacheCapabilities cacheCapabilities,
       DigestUtil digestUtil,
       RemotePathResolver remotePathResolver,
@@ -300,17 +296,9 @@ public class UploadManifest {
   }
 
   /** Map of digests to file paths to upload. */
+  @VisibleForTesting
   public Map<Digest, Path> getDigestToFile() {
     return digestToFile;
-  }
-
-  /**
-   * Map of digests to chunkers to upload. When the file is a regular, non-directory file it is
-   * transmitted through {@link #getDigestToFile()}. When it is a directory, it is transmitted as a
-   * {@link Tree} protobuf message through {@link #getDigestToBlobs()}.
-   */
-  public Map<Digest, ByteString> getDigestToBlobs() {
-    return digestToBlobs;
   }
 
   @Nullable
@@ -326,8 +314,8 @@ public class UploadManifest {
   private void addFileSymbolicLink(Path file, PathFragment target) {
     OutputSymlink outputSymlink =
         OutputSymlink.newBuilder()
-            .setPath(reencodeInternalToExternal(remotePathResolver.localPathToOutputPath(file)))
-            .setTarget(reencodeInternalToExternal(target.toString()))
+            .setPath(internalToUnicode(remotePathResolver.localPathToOutputPath(file)))
+            .setTarget(internalToUnicode(target.toString()))
             .build();
     result.addOutputFileSymlinks(outputSymlink);
     result.addOutputSymlinks(outputSymlink);
@@ -336,8 +324,8 @@ public class UploadManifest {
   private void addDirectorySymbolicLink(Path file, PathFragment target) {
     OutputSymlink outputSymlink =
         OutputSymlink.newBuilder()
-            .setPath(reencodeInternalToExternal(remotePathResolver.localPathToOutputPath(file)))
-            .setTarget(reencodeInternalToExternal(target.toString()))
+            .setPath(internalToUnicode(remotePathResolver.localPathToOutputPath(file)))
+            .setTarget(internalToUnicode(target.toString()))
             .build();
     result.addOutputDirectorySymlinks(outputSymlink);
     result.addOutputSymlinks(outputSymlink);
@@ -346,7 +334,7 @@ public class UploadManifest {
   private void addFile(Digest digest, Path file) {
     result
         .addOutputFilesBuilder()
-        .setPath(reencodeInternalToExternal(remotePathResolver.localPathToOutputPath(file)))
+        .setPath(internalToUnicode(remotePathResolver.localPathToOutputPath(file)))
         .setDigest(digest)
         .setIsExecutable(true);
 
@@ -428,8 +416,8 @@ public class UploadManifest {
       // order (children before parents). In addition, the contents of each Directory message must
       // be sorted, which is already ensured by the use of sorted maps.
 
-      HashMap<Path, Digest> dirToDigest = new HashMap<>();
-      LinkedHashSet<ByteString> dirBlobs = new LinkedHashSet<>();
+      HashMap<Path, Digest> dirToDigest = HashMap.newHashMap(dirs.size());
+      LinkedHashSet<ByteString> dirBlobs = LinkedHashSet.newLinkedHashSet(dirs.size());
 
       for (Path dir : dirs) {
         Directory.Builder builder = Directory.newBuilder();
@@ -453,16 +441,16 @@ public class UploadManifest {
       // insertion order. We construct the message through direct byte manipulation to ensure that
       // the strict requirements on the encoding are observed.
 
-      ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-      CodedOutputStream codedOutputStream = CodedOutputStream.newInstance(byteArrayOutputStream);
+      ByteString.Output out = ByteString.newOutput();
+      CodedOutputStream codedOutputStream = CodedOutputStream.newInstance(out);
       int fieldNumber = TREE_ROOT_FIELD_NUMBER;
-      for (ByteString directory : Lists.reverse(new ArrayList<>(dirBlobs))) {
+      for (ByteString directory : dirBlobs.reversed()) {
         codedOutputStream.writeBytes(fieldNumber, directory);
         fieldNumber = TREE_CHILDREN_FIELD_NUMBER;
       }
       codedOutputStream.flush();
 
-      return ByteString.copyFrom(byteArrayOutputStream.toByteArray());
+      return out.toByteString();
     }
 
     private void visit(Path path, Dirent.Type type) {
@@ -549,7 +537,7 @@ public class UploadManifest {
 
     result
         .addOutputDirectoriesBuilder()
-        .setPath(reencodeInternalToExternal(remotePathResolver.localPathToOutputPath(dir)))
+        .setPath(internalToUnicode(remotePathResolver.localPathToOutputPath(dir)))
         .setTreeDigest(treeDigest)
         .setIsTopologicallySorted(true);
 

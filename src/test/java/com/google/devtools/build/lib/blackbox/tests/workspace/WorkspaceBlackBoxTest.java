@@ -138,19 +138,18 @@ public class WorkspaceBlackBoxTest extends AbstractBlackBoxTest {
 
     BuilderRunner bazel = WorkspaceTestUtils.bazel(context());
     bazel.build("@relative//:debug_me");
-    Path outFile = context().resolveBinPath(bazel, "external/+_repo_rules+relative/out");
+    Path outFile = context().resolveBinPath(bazel, "external/+check_wd+relative/out");
     assertThat(outFile.toFile().exists()).isTrue();
     List<String> lines = PathUtils.readFile(outFile);
     assertThat(lines.size()).isEqualTo(1);
-    assertThat(
-            Paths.get(lines.get(0)).endsWith(Paths.get("external/+_repo_rules+relative/relative")))
+    assertThat(Paths.get(lines.get(0)).endsWith(Paths.get("external/+check_wd+relative/relative")))
         .isTrue();
 
     bazel.build("@relative2//:debug_me");
     bazel.build("@absolute//:debug_me");
 
     bazel.build("@absolute2//:debug_me");
-    Path outFile2 = context().resolveBinPath(bazel, "external/+_repo_rules+absolute2/out");
+    Path outFile2 = context().resolveBinPath(bazel, "external/+check_wd+absolute2/out");
     assertThat(outFile2.toFile().exists()).isTrue();
     List<String> lines2 = PathUtils.readFile(outFile2);
     assertThat(lines2.size()).isEqualTo(1);
@@ -177,7 +176,7 @@ public class WorkspaceBlackBoxTest extends AbstractBlackBoxTest {
     BuilderRunner bazel = WorkspaceTestUtils.bazel(context());
     bazel.build("@x//:" + RepoWithRuleWritingTextGenerator.TARGET);
 
-    Path xPath = context().resolveBinPath(bazel, "external/+_repo_rules+x/out");
+    Path xPath = context().resolveBinPath(bazel, "external/+local_repository+x/out");
     WorkspaceTestUtils.assertLinesExactly(xPath, "hi");
 
     context()
@@ -213,7 +212,8 @@ public class WorkspaceBlackBoxTest extends AbstractBlackBoxTest {
             // and Bazel recognizes that there is a terminal, so progress events will be displayed
             .withFlags("--experimental_ui_debug_all_events", "--curses=yes");
 
-    final String progressMessage = "PROGRESS <no location>: Loading package: @@+_repo_rules+ext//";
+    final String progressMessage =
+        "PROGRESS <no location>: Loading package: @@+local_repository+ext//";
 
     ProcessResult result = bazel.query("@ext//:all");
     assertThat(result.outString()).contains(progressMessage);
@@ -236,35 +236,6 @@ public class WorkspaceBlackBoxTest extends AbstractBlackBoxTest {
     bazel.info();
     bazel.help();
   }
-
-  @Test
-  public void testWorkspaceFileIsSymlink() throws Exception {
-    if (isWindows()) {
-      // Do not test file symlinks on Windows.
-      return;
-    }
-    disableBzlmod();
-    Path repo = context().getTmpDir().resolve(testName.getMethodName());
-    new RepoWithRuleWritingTextGenerator(repo).withOutputText("hi").setupRepository();
-
-    Path workspaceFile = context().getWorkDir().resolve("WORKSPACE");
-    assertThat(workspaceFile.toFile().delete()).isTrue();
-
-    Path tempWorkspace = Files.createTempFile(context().getTmpDir(), "WORKSPACE", "");
-    PathUtils.writeFile(
-        tempWorkspace,
-        "workspace(name = 'abc')",
-        String.format(
-            "local_repository(name = 'ext', path = '%s',)", PathUtils.pathForStarlarkFile(repo)));
-    Files.createSymbolicLink(workspaceFile, tempWorkspace);
-
-    BuilderRunner bazel = WorkspaceTestUtils.bazel(context());
-    bazel.build("@ext//:all");
-    PathUtils.append(workspaceFile, "# comment");
-    // At this point, there is already some cache workspace file/file state value.
-    bazel.build("@ext//:all");
-  }
-  // TODO(ichern) move other tests from workspace_test.sh here.
 
   @Test
   public void testBadRepoName() throws Exception {

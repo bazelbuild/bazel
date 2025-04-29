@@ -78,12 +78,9 @@ public abstract class DirectoryTreeTest {
     assertThat(directoriesAtDepth(1, tree)).containsExactly("fizz");
     assertThat(directoriesAtDepth(2, tree)).isEmpty();
 
-    FileNode expectedFooNode =
-        FileNode.createExecutable("foo.cc", foo, digestUtil.computeAsUtf8("foo"));
-    FileNode expectedBarNode =
-        FileNode.createExecutable("bar.cc", bar, digestUtil.computeAsUtf8("bar"));
-    FileNode expectedBuzzNode =
-        FileNode.createExecutable("buzz.cc", buzz, digestUtil.computeAsUtf8("buzz"));
+    FileNode expectedFooNode = FileNode.create("foo.cc", foo, digestUtil.computeAsUtf8("foo"));
+    FileNode expectedBarNode = FileNode.create("bar.cc", bar, digestUtil.computeAsUtf8("bar"));
+    FileNode expectedBuzzNode = FileNode.create("buzz.cc", buzz, digestUtil.computeAsUtf8("buzz"));
     assertThat(fileNodesAtDepth(tree, 0)).isEmpty();
     assertThat(fileNodesAtDepth(tree, 1)).containsExactly(expectedFooNode, expectedBarNode);
     assertThat(fileNodesAtDepth(tree, 2)).containsExactly(expectedBuzzNode);

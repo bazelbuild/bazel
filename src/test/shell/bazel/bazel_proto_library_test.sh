@@ -24,6 +24,7 @@ source "${CURRENT_DIR}/../integration_test_setup.sh" \
 
 function set_up() {
   add_protobuf "MODULE.bazel"
+  add_rules_java "MODULE.bazel"
   # Enable disk cache to avoid compiling protobuf for each test.
   enable_disk_cache
 }
@@ -55,12 +56,12 @@ function write_setup() {
   extra_attribute=$2
   include_macro=$3
   if [ "${include_macro}" -eq "" ]; then
-    include_macro="load('@protobuf//bazel:proto_library.bzl', 'proto_library')"
+    include_macro="load('@com_google_protobuf//bazel:proto_library.bzl', 'proto_library')"
   fi
 
   cat > x/person/BUILD << EOF
-package(default_visibility = ["//visibility:public"])
 $include_macro
+package(default_visibility = ["//visibility:public"])
 $proto_library_name(
   name = "person_proto",
   srcs = ["person.proto"],
@@ -136,7 +137,7 @@ function write_regression_setup() {
   touch proto_library/BUILD
 
   cat > proto_library/src/BUILD << EOF
-load("@protobuf//bazel:proto_library.bzl", "proto_library")
+load("@com_google_protobuf//bazel:proto_library.bzl", "proto_library")
 proto_library(
     name = "all",
     srcs = glob(["*.proto"]),
@@ -205,7 +206,7 @@ function write_workspaces_setup() {
   touch a/b/BUILD
   cat > a/b/src/BUILD <<EOF
 package(default_visibility = ["//visibility:public"])
-load("@protobuf//bazel:proto_library.bzl", "proto_library")
+load("@com_google_protobuf//bazel:proto_library.bzl", "proto_library")
 proto_library(
   name = "all_protos",
   srcs = glob(["*.proto"]),
@@ -245,7 +246,7 @@ EOF
 
   cat > c/d/src/BUILD <<EOF
 package(default_visibility = ["//visibility:public"])
-load("@protobuf//bazel:proto_library.bzl", "proto_library")
+load("@com_google_protobuf//bazel:proto_library.bzl", "proto_library")
 proto_library(
   name = "all_protos",
   srcs = glob(["*.proto"]),
@@ -284,7 +285,7 @@ export_files(["proto_library_macro.bzl])
 EOF
 
   cat > macros/proto_library_macro.bzl << EOF
-load("@protobuf//bazel:proto_library.bzl", "proto_library")
+load("@com_google_protobuf//bazel:proto_library.bzl", "proto_library")
 def proto_library_macro(name, srcs, deps = []):
   proto_library(
       name = name,
@@ -303,6 +304,9 @@ function write_java_library() {
   # should depend on x/foo:foo
   mkdir -p java/com/google/src
   cat > java/com/google/src/BUILD << EOF
+load("@com_google_protobuf//bazel:java_proto_library.bzl", "java_proto_library")
+load("@rules_java//java:java_library.bzl", "java_library")
+
 java_library(
   name = "top",
   srcs = ["A.java"],
@@ -337,6 +341,8 @@ EOF
 function test_legacy_proto_library_include_well_known_protos() {
   mkdir -p a
   cat > a/BUILD <<EOF
+load("@com_google_protobuf//bazel:proto_library.bzl", "proto_library")
+
 proto_library(
   name="a",
   srcs=["a.proto"],
@@ -346,7 +352,7 @@ proto_library(
 proto_library(
   name="b",
   srcs=["b.proto"],
-  deps=["@protobuf//:duration_proto"],
+  deps=["@com_google_protobuf//:duration_proto"],
 )
 EOF
 
@@ -385,6 +391,9 @@ function test_javainfo_proto_aspect() {
   touch java/proto/my.proto
   cat > java/proto/BUILD << EOF
 load(':my_rule_with_aspect.bzl', 'my_rule_with_aspect')
+load("@com_google_protobuf//bazel:proto_library.bzl", "proto_library")
+load("@com_google_protobuf//bazel:java_proto_library.bzl", "java_proto_library")
+
 my_rule_with_aspect(
   name = 'my_rule',
   deps = [':my_java_proto']
@@ -402,10 +411,14 @@ proto_library(
 EOF
 
   cat > java/proto/my_rule_with_aspect.bzl <<EOF
+load("@rules_java//java/common:java_common.bzl", "java_common")
+load("@rules_java//java/common:java_info.bzl", "JavaInfo")
+
+MyInfo = provider()
 def _my_rule_impl(ctx):
   aspect_java_infos = []
   for dep in ctx.attr.deps:
-    aspect_java_infos += dep.my_aspect_providers
+    aspect_java_infos += dep[MyInfo].my_aspect_providers
   merged_java_info = java_common.merge(aspect_java_infos)
   for jar in merged_java_info.transitive_runtime_jars.to_list():
     print('Transitive runtime jar', jar)
@@ -413,11 +426,9 @@ def _my_rule_impl(ctx):
 def _my_aspect_impl(target, ctx):
   aspect_java_infos = []
   for dep in ctx.rule.attr.deps:
-    aspect_java_infos += dep.my_aspect_providers
+    aspect_java_infos += dep[MyInfo].my_aspect_providers
   aspect_java_infos.append(target[JavaInfo])
-  return struct(
-    my_aspect_providers = aspect_java_infos
-  )
+  return MyInfo(my_aspect_providers = aspect_java_infos)
 
 my_aspect = aspect(
   attr_aspects = ['deps'],
@@ -438,13 +449,13 @@ EOF
 }
 
 function test_strip_import_prefix() {
-  write_setup "proto_library" "strip_import_prefix = '/x/person'" ""
+  write_setup "proto_library" "strip_import_prefix = '/x/person'" 'load("@com_google_protobuf//bazel:proto_library.bzl", "proto_library")'
   bazel build --verbose_failures //x/person:person_proto > "$TEST_log" || fail "Expected success"
 }
 
 function test_strip_import_prefix_fails() {
   # Don't specify the "strip_import_prefix" attribute and expect failure.
-  write_setup "proto_library" "" ""
+  write_setup "proto_library" "" 'load("@com_google_protobuf//bazel:proto_library.bzl", "proto_library")'
   bazel build //x/person:person_proto >& "$TEST_log"  && fail "Expected failure"
   expect_log "phonenumber/phonenumber.proto: File not found."
 }
@@ -458,7 +469,7 @@ function test_strip_import_prefix_macro() {
 # Fails with "IllegalArgumentException: external/lcocal_jdk in
 # DumpPlatformClassPath.dumpJDK9AndNewerBootClassPath.java:67
 function DISABLED_test_strip_import_prefix_with_java_library() {
-  write_setup "proto_library" "strip_import_prefix = '/x/person'" ""
+  write_setup "proto_library" "strip_import_prefix = '/x/person'" 'load("@com_google_protobuf//bazel:proto_library.bzl", "proto_library")'
   write_java_library
   bazel build //java/com/google/src:top \
       --strict_java_deps=off > "$TEST_log"  || fail "Expected success"
@@ -490,9 +501,13 @@ EOF
 }
 
 function test_cc_proto_library() {
+  add_rules_cc "MODULE.bazel"
   mkdir -p a
   cat > a/BUILD <<EOF
-load("@protobuf//bazel:proto_library.bzl", "proto_library")
+load("@com_google_protobuf//bazel:proto_library.bzl", "proto_library")
+load("@com_google_protobuf//bazel:cc_proto_library.bzl", "cc_proto_library")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
 proto_library(name='p', srcs=['p.proto'])
 cc_proto_library(name='cp', deps=[':p'])
 cc_library(name='c', srcs=['c.cc'], deps=[':cp'])
@@ -518,9 +533,14 @@ EOF
 }
 
 function test_cc_proto_library_with_toolchain_resolution() {
+  add_rules_cc MODULE.bazel
+
   mkdir -p a
   cat > a/BUILD <<EOF
-load("@protobuf//bazel:proto_library.bzl", "proto_library")
+load("@com_google_protobuf//bazel:proto_library.bzl", "proto_library")
+load("@com_google_protobuf//bazel:cc_proto_library.bzl", "cc_proto_library")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
 proto_library(name='p', srcs=['p.proto'])
 cc_proto_library(name='cp', deps=[':p'])
 cc_library(name='c', srcs=['c.cc'], deps=[':cp'])
@@ -546,9 +566,13 @@ EOF
 }
 
 function test_cc_proto_library_import_prefix_stripping() {
+  add_rules_cc MODULE.bazel
   mkdir -p a/dir
   cat > a/BUILD <<EOF
-load("@protobuf//bazel:proto_library.bzl", "proto_library")
+load("@com_google_protobuf//bazel:proto_library.bzl", "proto_library")
+load("@com_google_protobuf//bazel:cc_proto_library.bzl", "cc_proto_library")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
 proto_library(name='p', srcs=['dir/p.proto'], strip_import_prefix='/a')
 cc_proto_library(name='cp', deps=[':p'])
 cc_library(name='c', srcs=['c.cc'], deps=[':cp'])
@@ -587,7 +611,7 @@ EOF
 
   mkdir -p e/f/bad
   cat > e/f/BUILD <<EOF
-load("@protobuf//bazel:proto_library.bzl", "proto_library")
+load("@com_google_protobuf//bazel:proto_library.bzl", "proto_library")
 proto_library(
   name = "f",
   strip_import_prefix = "bad",
@@ -608,7 +632,7 @@ EOF
 
   mkdir -p g/bad
   cat > g/BUILD << EOF
-load("@protobuf//bazel:proto_library.bzl", "proto_library")
+load("@com_google_protobuf//bazel:proto_library.bzl", "proto_library")
 proto_library(
   name = 'g',
   strip_import_prefix = "/g/bad",
@@ -629,7 +653,10 @@ EOF
 
   mkdir -p h
   cat > h/BUILD <<EOF
-load("@protobuf//bazel:proto_library.bzl", "proto_library")
+load("@com_google_protobuf//bazel:proto_library.bzl", "proto_library")
+load("@com_google_protobuf//bazel:cc_proto_library.bzl", "cc_proto_library")
+load("@com_google_protobuf//bazel:java_proto_library.bzl", "java_proto_library")
+
 proto_library(
   name = "h",
   srcs = ["h.proto"],
@@ -686,7 +713,7 @@ EOF
 
   mkdir -p e/f/good
   cat > e/f/BUILD <<EOF
-load("@protobuf//bazel:proto_library.bzl", "proto_library")
+load("@com_google_protobuf//bazel:proto_library.bzl", "proto_library")
 proto_library(
   name = "f",
   srcs = ["good/f.proto"],
@@ -723,7 +750,7 @@ EOF
 
   mkdir -p g/good
   cat > g/BUILD << EOF
-load("@protobuf//bazel:proto_library.bzl", "proto_library")
+load("@com_google_protobuf//bazel:proto_library.bzl", "proto_library")
 proto_library(
   name = 'g',
   srcs = ['good/g.proto'],
@@ -742,7 +769,10 @@ EOF
 
   mkdir -p h
   cat > h/BUILD <<EOF
-load("@protobuf//bazel:proto_library.bzl", "proto_library")
+load("@com_google_protobuf//bazel:proto_library.bzl", "proto_library")
+load("@com_google_protobuf//bazel:cc_proto_library.bzl", "cc_proto_library")
+load("@com_google_protobuf//bazel:java_proto_library.bzl", "java_proto_library")
+
 proto_library(
   name = "h",
   srcs = ["h.proto"],

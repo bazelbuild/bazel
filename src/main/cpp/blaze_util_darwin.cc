@@ -96,7 +96,23 @@ static string DescriptionFromCFError(CFErrorRef cf_err) {
   return UTF8StringFromCFStringRef(cf_err_string);
 }
 
-string GetOutputRoot() {
+string GetCacheDir() {
+  // On macOS, the standard location for application caches is
+  // $HOME/Library/Caches. Bazel historically has not used this location, and
+  // instead has used /var/tmp, due to Unix domain socket path length
+  // limitations. These limitations are no longer relevant as we no longer
+  // create Unix domain sockets under the output base.
+  //
+  // However, respecting $XDG_CACHE_HOME is still useful as it allows users to
+  // easily override the cache directory, and is respected by many Linux derived
+  // tools.
+  //
+  // See also:
+  // https://stackoverflow.com/questions/3373948/equivalents-of-xdg-config-home-and-xdg-data-home-on-mac-os-x
+  string xdg_cache_home = GetPathEnv("XDG_CACHE_HOME");
+  if (!xdg_cache_home.empty()) {
+    return blaze_util::JoinPath(xdg_cache_home, "bazel");
+  }
   return "/var/tmp";
 }
 

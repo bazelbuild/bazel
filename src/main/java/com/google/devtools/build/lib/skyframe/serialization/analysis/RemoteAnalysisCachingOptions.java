@@ -46,18 +46,21 @@ public class RemoteAnalysisCachingOptions extends OptionsBase {
     /** Serializes and uploads Skyframe analysis nodes after the build command finishes. */
     UPLOAD,
 
+    /**
+     * Dumps the manifest of SkyKeys computed in the frontier and the active set. This mode does not
+     * serialize and upload the keys.
+     */
+    DUMP_UPLOAD_MANIFEST_ONLY,
+
     /** Fetches and deserializes the Skyframe analysis nodes during the build. */
     DOWNLOAD,
-
-    /** Combination of DOWNLOAD and UPLOAD. */
-    FULL,
 
     /** Disabled. */
     OFF;
 
-    /** Returns true if the selected mode should fetch remote SkyValues for the analysis phase. */
-    public boolean downloadForAnalysis() {
-      return this == DOWNLOAD || this == FULL;
+    /** Returns true if the selected mode needs to connect to a backend. */
+    public boolean requiresBackendConnectivity() {
+      return this == DOWNLOAD || this == UPLOAD;
     }
   }
 
@@ -78,6 +81,14 @@ public class RemoteAnalysisCachingOptions extends OptionsBase {
   public String remoteAnalysisCache;
 
   @Option(
+      name = "experimental_remote_analysis_cache_max_batch_size",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      defaultValue = "4095",
+      help = "Batch size limit for remote analysis caching RPCs.")
+  public int maxBatchSize;
+
+  @Option(
       name = "experimental_remote_analysis_cache_concurrency",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
@@ -93,4 +104,12 @@ public class RemoteAnalysisCachingOptions extends OptionsBase {
       converter = DurationConverter.class,
       help = "Deadline to use for remote analysis cache operations.")
   public Duration deadline;
+
+  @Option(
+      name = "experimental_analysis_cache_service",
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      help = "Locator for the AnalysisCacheService instance.")
+  public String analysisCacheService;
 }

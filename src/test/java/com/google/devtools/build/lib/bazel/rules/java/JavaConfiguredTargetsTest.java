@@ -47,7 +47,7 @@ public final class JavaConfiguredTargetsTest extends BuildViewTestCase {
   @Parameter(2)
   public String targetCpu;
 
-  @Parameters
+  @Parameters(name = "{0}")
   public static List<Object[]> platformParameters() {
     return Arrays.asList(
         new Object[][] {
@@ -69,7 +69,12 @@ public final class JavaConfiguredTargetsTest extends BuildViewTestCase {
         targetCpu);
     super.useConfiguration(
         ObjectArrays.concat(
-            args, "--platforms=//" + PLATFORMS_PACKAGE_PATH + ":" + targetPlatform));
+            args,
+            new String[] {
+              "--platforms=//" + PLATFORMS_PACKAGE_PATH + ":" + targetPlatform,
+              "--extra_execution_platforms=//" + PLATFORMS_PACKAGE_PATH + ":" + targetPlatform
+            },
+            String.class));
   }
 
   @Test
@@ -138,5 +143,45 @@ public final class JavaConfiguredTargetsTest extends BuildViewTestCase {
         assertThrows(AssertionError.class, () -> getConfiguredTarget("//:some_test"));
 
     assertThat(error).hasMessageThat().contains("cannot determine test class");
+  }
+
+  @Test
+  public void nativeJavaRuleReportsMissingLoad() throws Exception {
+    scratch.file(
+        "foo/BUILD",
+        """
+        java_library(name = 'foo')
+        """);
+
+    AssertionError error = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo"));
+
+    assertThat(error)
+        .hasMessageThat()
+        .contains(
+            """
+            The java_library rule has been removed, add the following to your BUILD/bzl file:
+
+            load("@rules_java//java:java_library.bzl", "java_library")
+            """);
+  }
+
+  @Test
+  public void nativeJavaToolchainRuleReportsMissingLoad() throws Exception {
+    scratch.file(
+        "foo/BUILD",
+        """
+        java_toolchain(name = 'foo')
+        """);
+
+    AssertionError error = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo"));
+
+    assertThat(error)
+        .hasMessageThat()
+        .contains(
+            """
+            The java_toolchain rule has been removed, add the following to your BUILD/bzl file:
+
+            load("@rules_java//java/toolchains:java_toolchain.bzl", "java_toolchain")
+            """);
   }
 }

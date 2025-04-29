@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages;
 
-import static com.google.devtools.build.lib.packages.Types.STRING_LIST;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
@@ -26,15 +25,12 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
-import com.google.devtools.build.lib.packages.License.DistributionType;
-import com.google.devtools.build.lib.packages.License.LicenseParsingException;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.packages.Type.DictType;
 import com.google.devtools.build.lib.packages.Type.LabelClass;
 import com.google.devtools.build.lib.packages.Type.ListType;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -70,6 +66,12 @@ public final class BuildType {
       LabelKeyedDictType.create(Type.STRING);
   /** The type of a list of {@linkplain #LABEL labels}. */
   @SerializationConstant public static final ListType<Label> LABEL_LIST = ListType.create(LABEL);
+
+  /** The type of a dictionary of {@linkplain #LABEL_LIST label lists}. */
+  @SerializationConstant
+  public static final DictType<String, List<Label>> LABEL_LIST_DICT =
+      DictType.create(Type.STRING, LABEL_LIST);
+
   /**
    * This is a label type that does not cause dependencies. It is needed because certain rules want
    * to verify the type of a target referenced by one of their attributes, but if there was a
@@ -109,52 +111,11 @@ public final class BuildType {
   public static final ListType<Label> GENQUERY_SCOPE_TYPE_LIST =
       ListType.create(GENQUERY_SCOPE_TYPE);
 
-  /**
-   * The type of a license. Like Label, licenses aren't first-class, but they're important enough to
-   * justify early syntax error detection.
-   */
-  @SerializationConstant public static final Type<License> LICENSE = new LicenseType();
-  /** The type of a single distribution. Only used internally, as a type symbol, not a converter. */
-  @SerializationConstant
-  static final Type<DistributionType> DISTRIBUTION =
-      new Type<DistributionType>() {
-        @Override
-        public DistributionType cast(Object value) {
-          return (DistributionType) value;
-        }
-
-        @Override
-        public DistributionType convert(Object x, Object what, LabelConverter labelConverter) {
-          throw new UnsupportedOperationException();
-        }
-
-        @Nullable
-        @Override
-        public DistributionType getDefaultValue() {
-          return null;
-        }
-
-        @Override
-        public void visitLabels(
-            LabelVisitor visitor, DistributionType value, @Nullable Attribute context) {}
-
-        @Override
-        public String toString() {
-          return "distribution";
-        }
-      };
-  /**
-   * The type of a set of distributions. Distributions are not a first-class type, but they do
-   * warrant early syntax checking.
-   */
-  @SerializationConstant
-  public static final Type<Set<DistributionType>> DISTRIBUTIONS = new Distributions();
   /** The type of an output file, treated as a {@link #LABEL}. */
   @SerializationConstant public static final Type<Label> OUTPUT = new OutputType();
 
   private static final ImmutableMap<Type<?>, String> whyNotConfigurable =
       ImmutableMap.<Type<?>, String>builder()
-          .put(LICENSE, "loading phase license checking logic assumes non-configurable values")
           .put(OUTPUT, "output paths are part of the static graph structure")
           .buildOrThrow();
 
@@ -520,90 +481,6 @@ public final class BuildType {
     }
   }
 
-  /**
-   * Like Label, LicenseType is a derived type, which is declared specially in order to allow syntax
-   * validation. It represents the licenses, as described in {@link License}.
-   */
-  public static final class LicenseType extends Type<License> {
-    @Override
-    public License cast(Object value) {
-      return (License) value;
-    }
-
-    @Override
-    public License convert(Object x, Object what, LabelConverter labelConverter)
-        throws ConversionException {
-      try {
-        List<String> licenseStrings = STRING_LIST.convert(x, what);
-        return License.parseLicense(licenseStrings);
-      } catch (LicenseParsingException e) {
-        throw new ConversionException(e.getMessage());
-      }
-    }
-
-    @Override
-    public Object copyAndLiftStarlarkValue(
-        Object x, Object what, @Nullable LabelConverter labelConverter) throws ConversionException {
-      return STRING_LIST.copyAndLiftStarlarkValue(x, what, labelConverter);
-    }
-
-    @Override
-    public License getDefaultValue() {
-      return License.NO_LICENSE;
-    }
-
-    @Override
-    public void visitLabels(LabelVisitor visitor, License value, @Nullable Attribute context) {}
-
-    @Override
-    public String toString() {
-      return "license";
-    }
-  }
-
-  /**
-   * Like Label, Distributions is a derived type, which is declared specially in order to allow
-   * syntax validation. It represents the declared distributions of a target, as described in {@link
-   * License}.
-   */
-  private static final class Distributions extends Type<Set<DistributionType>> {
-    @SuppressWarnings("unchecked")
-    @Override
-    public Set<DistributionType> cast(Object value) {
-      return (Set<DistributionType>) value;
-    }
-
-    @Override
-    public Set<DistributionType> convert(Object x, Object what, LabelConverter labelConverter)
-        throws ConversionException {
-      try {
-        List<String> distribStrings = STRING_LIST.convert(x, what);
-        return License.parseDistributions(distribStrings);
-      } catch (LicenseParsingException e) {
-        throw new ConversionException(e.getMessage());
-      }
-    }
-
-    @Override
-    public Set<DistributionType> getDefaultValue() {
-      return Collections.emptySet();
-    }
-
-    @Override
-    public void visitLabels(
-        LabelVisitor visitor, Set<DistributionType> value, @Nullable Attribute context) {}
-
-    @Override
-    public String toString() {
-      return "distributions";
-    }
-
-    @Override
-    public Type<DistributionType> getListElementType() {
-      return DISTRIBUTION;
-    }
-  }
-
   private static final class OutputType extends Type<Label> {
     @Override
     public Label cast(Object value) {
@@ -720,15 +597,7 @@ public final class BuildType {
     public void repr(Printer printer) {
       // Convert to a lib.packages.SelectorList to guarantee consistency with callers that serialize
       // directly on that type.
-      List<SelectorValue> selectorValueList = new ArrayList<>();
-      for (Selector<T> element : elements) {
-        selectorValueList.add(new SelectorValue(element.mapCopy(), element.getNoMatchError()));
-      }
-      try {
-        printer.repr(com.google.devtools.build.lib.packages.SelectorList.of(selectorValueList));
-      } catch (EvalException e) {
-        throw new IllegalStateException("this list should have been validated on creation", e);
-      }
+      printer.repr(Attribute.valueToStarlark(this));
     }
   }
 

@@ -56,6 +56,7 @@ import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkCallable;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.Tuple;
+import net.starlark.java.syntax.Location;
 
 /**
  * The Starlark module containing the definition of {@code repository_rule} function to define a
@@ -81,6 +82,7 @@ public class StarlarkRepositoryModule implements RepositoryModuleApi {
     builder.setCallStack(
         callstack.subList(0, callstack.size() - 1)); // pop 'repository_rule' itself
 
+    builder.addAttribute(attr("$original_name", STRING).defaultValue("").build());
     builder.addAttribute(attr("$local", BOOLEAN).defaultValue(local).build());
     builder.addAttribute(attr("$configure", BOOLEAN).defaultValue(configure).build());
     if (thread.getSemantics().getBool(BuildLanguageOptions.EXPERIMENTAL_REPO_REMOTE_EXEC)) {
@@ -137,7 +139,7 @@ public class StarlarkRepositoryModule implements RepositoryModuleApi {
       name = "repository_rule",
       category = DocCategory.BUILTIN,
       doc =
-          """
+"""
 A callable value that may be invoked during evaluation of the WORKSPACE file or within \
 the implementation function of a module extension to instantiate and return a repository \
 rule. Created by \
@@ -150,6 +152,9 @@ rule. Created by \
     private final Optional<String> documentation;
     @Nullable private Label extensionLabel;
     @Nullable private String exportedName;
+    // Populated on first use after export to avoid recreating the rule class on
+    // each usage.
+    @Nullable private volatile RuleClass ruleClass;
 
     private RepositoryRuleFunction(
         RuleClass.Builder builder,
@@ -187,8 +192,13 @@ rule. Created by \
       return true;
     }
 
+    // TODO(bazel-team): use exportedLocation as the callable symbol's location.
     @Override
-    public void export(EventHandler handler, Label extensionLabel, String exportedName) {
+    public void export(
+        EventHandler handler,
+        Label extensionLabel,
+        String exportedName,
+        Location exportedLocation) {
       this.extensionLabel = extensionLabel;
       this.exportedName = exportedName;
     }
@@ -278,8 +288,22 @@ rule. Created by \
 
     @Override
     public RuleClass getRuleClass() {
-      String name = getRuleClassName();
-      return builder.buildStarlark(name, extensionLabel);
+      if (ruleClass != null) {
+        return ruleClass;
+      }
+      synchronized (this) {
+        if (ruleClass != null) {
+          return ruleClass;
+        }
+        String name = getRuleClassName();
+        var builtRuleClass = builder.buildStarlark(name, extensionLabel);
+        // Before having been exported, the name is subject to change and must
+        // not be cached. This is a rare, discouraged case, see getRuleClassName().
+        if (isExported()) {
+          ruleClass = builtRuleClass;
+        }
+        return builtRuleClass;
+      }
     }
   }
 

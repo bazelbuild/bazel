@@ -145,13 +145,14 @@ files in the source tree.
 </p>
 """),
     "defines": attr.string_list(doc = """
-List of defines to add to the compile line.
+List of defines to add to the compile line of this and all dependent targets.
 Subject to <a href="${link make-variables}">"Make" variable</a> substitution and
 <a href="${link common-definitions#sh-tokenization}">Bourne shell tokenization</a>.
 Each string, which must consist of a single Bourne shell token,
 is prepended with <code>-D</code> and added to the compile command line to this target,
 as well as to every rule that depends on it. Be very careful, since this may have
-far-reaching effects.  When in doubt, add define values to
+far-reaching effects -- the defines are added to every target that depends on
+this target.  When in doubt, add define values to
 <a href="#cc_binary.local_defines"><code>local_defines</code></a> instead.
 """),
     "local_defines": attr.string_list(doc = """
@@ -160,7 +161,8 @@ Subject to <a href="${link make-variables}">"Make" variable</a> substitution and
 <a href="${link common-definitions#sh-tokenization}">Bourne shell tokenization</a>.
 Each string, which must consist of a single Bourne shell token,
 is prepended with <code>-D</code> and added to the compile command line for this target,
-but not to its dependents.
+but not to its dependents. Unlike <code>defines</code>, the defines are only added to the
+compile command line for this target.
 """),
     "copts": attr.string_list(doc = """
 Add these options to the C/C++ compilation command.
@@ -196,7 +198,13 @@ Subject to <a href="${link make-variables}">"Make variable"</a> substitution and
         allow_files = True,
         flags = ["ORDER_INDEPENDENT", "DIRECT_COMPILE_TIME_INPUT"],
         doc = """
-Pass these files to the C++ linker command.
+Dependencies that are only made available to the C++ linker command.
+<p>
+  Unlike <code>deps</code>, which is conceptually made for both compilation and
+  linking dependencies, <code>additional_linker_inputs</code> is specifically
+  made for only the latter, and signals a dependency that is required only for
+  linking (for example, files that are referenced in <code>linkopts</code>).
+</p>
 <p>
   For example, compiled Windows .res files can be provided here to be embedded in
   the binary target.
@@ -297,7 +305,10 @@ targets.</p>
 
 It is also allowed to
 put linker scripts (.lds) into deps, and reference them in
-<a href="#cc_binary.linkopts">linkopts</a>.
+<a href="#cc_binary.linkopts"><code>linkopts</code></a>,
+but please consider
+<a href="#cc_binary.additional_linker_inputs"><code>additional_linker_inputs</code></a>
+for that use case.
 """,
     ),
     "reexport_deps": attr.label_list(
@@ -394,16 +405,12 @@ this option is off.
 """,
     ),
     "env": attr.string_dict(),
-    "distribs": attr.string_list(),
     "licenses": attr.license() if hasattr(attr, "license") else attr.string_list(),
     "_cc_binary": attr.bool(),
     "_is_test": attr.bool(default = False),
     "_stl": semantics.get_stl(),
-    # TODO(b/288421584): necessary because IDE aspect can't see toolchains
-    "_cc_toolchain": attr.label(default = "@" + semantics.get_repo() + "//tools/cpp:current_cc_toolchain"),
     "_def_parser": semantics.get_def_parser(),
     "_use_auto_exec_groups": attr.bool(default = True),
 }
 
 cc_binary_attrs.update(dynamic_deps_attrs)
-cc_binary_attrs.update(semantics.get_distribs_attr())

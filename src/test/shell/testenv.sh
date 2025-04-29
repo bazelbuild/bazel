@@ -97,7 +97,7 @@ BAZEL_RUNFILES="$TEST_SRCDIR/_main"
 workspace_file="${BAZEL_RUNFILES}/WORKSPACE"
 
 # Where to register toolchains
-TOOLCHAIN_REGISTRAION_FILE="MODULE.bazel"
+TOOLCHAIN_REGISTRATION_FILE="MODULE.bazel"
 
 # Tools directory location
 tools_dir="$(dirname $(rlocation io_bazel/tools/BUILD))"
@@ -321,9 +321,6 @@ common --nolegacy_external_runfiles
 build --java_runtime_version=21
 build --tool_java_runtime_version=21
 
-# for rules_java
-common --experimental_rule_extension_api
-
 ${EXTRA_BAZELRC:-}
 EOF
 
@@ -479,6 +476,8 @@ function setup_javatest_support() {
   setup_javatest_common
   grep -q 'name = "junit4"' third_party/BUILD \
     || cat <<EOF >>third_party/BUILD
+load("@rules_java//java:java_import.bzl", "java_import")
+
 java_import(
     name = "junit4",
     jars = [
@@ -582,6 +581,10 @@ function add_rules_cc() {
   add_bazel_dep "rules_cc" "$1"
 }
 
+function add_rules_shell() {
+  add_bazel_dep "rules_shell" "$1"
+}
+
 function add_rules_java() {
   add_bazel_dep "rules_java" "$1"
 }
@@ -594,8 +597,15 @@ function add_rules_license() {
   add_bazel_dep "rules_license" "$1"
 }
 
+function add_zlib() {
+  add_bazel_dep "zlib" "$1"
+}
+
 function add_protobuf() {
-  add_bazel_dep "protobuf" "$1"
+  version=$(get_version_from_default_lock_file "protobuf")
+  cat >> "$1" <<EOF
+bazel_dep(name = "protobuf", version = "$version", repo_name = "com_google_protobuf")
+EOF
 }
 
 function add_rules_testing() {
@@ -774,11 +784,6 @@ create_and_cd_client
 
 # Optional environment changes.
 
-function disable_bzlmod() {
-  add_to_bazelrc "common --noenable_bzlmod"
-  add_to_bazelrc "common --enable_workspace"
-}
-
 # Creates a fake Python default runtime that just outputs a marker string
 # indicating which version was used, without executing any Python code.
 function use_fake_python_runtimes_for_testsuite() {
@@ -797,6 +802,7 @@ function use_fake_python_runtimes_for_testsuite() {
   cat > tools/python/BUILD << EOF
 load("@rules_python//python:py_runtime.bzl", "py_runtime")
 load("@rules_python//python:py_runtime_pair.bzl", "py_runtime_pair")
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 
 package(default_visibility=["//visibility:public"])
 
@@ -851,9 +857,11 @@ EOF
 JDK_BUILD_TEMPLATE = ''
 EOF
   touch "${rules_java_workspace}/java/BUILD"
-  cat > "${rules_java_workspace}/java/repositories.bzl" <<EOF
+  cat > "${rules_java_workspace}/java/rules_java_deps.bzl" <<EOF
 def rules_java_dependencies():
     pass
+EOF
+  cat > "${rules_java_workspace}/java/repositories.bzl" <<EOF
 def rules_java_toolchains():
     pass
 EOF
@@ -867,6 +875,8 @@ def java_import(**attrs):
 def java_test(**attrs):
     native.java_test(**attrs)
 EOF
+  # Disable autoloads, because the Java mock isn't complete enough to support it
+  add_to_bazelrc "common --incompatible_autoload_externally="
   add_to_bazelrc "common --override_repository=rules_java=${rules_java_workspace}"
   add_to_bazelrc "common --override_repository=rules_java_builtin=${rules_java_workspace}"
 }

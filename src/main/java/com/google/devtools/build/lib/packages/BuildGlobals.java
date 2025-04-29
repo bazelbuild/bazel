@@ -18,8 +18,6 @@ import com.google.devtools.build.docgen.annot.GlobalMethods.Environment;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.packages.TargetRecorder.NameConflictException;
-import com.google.devtools.build.lib.packages.Type.ConversionException;
-import com.google.devtools.build.lib.server.FailureDetails.PackageLoading.Code;
 import java.util.List;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
@@ -74,8 +72,8 @@ public class BuildGlobals {
       Sequence<?> defaultsList, // <Label>
       StarlarkThread thread)
       throws EvalException {
-    Package.Builder pkgBuilder =
-        Package.Builder.fromOrFailAllowBuildOnly(thread, "environment_group()");
+    Package.AbstractBuilder pkgBuilder =
+        Package.AbstractBuilder.fromOrFailAllowBuildOnly(thread, "environment_group()");
     List<Label> environments =
         BuildType.LABEL_LIST.convert(
             environmentsList, "'environment_group argument'", pkgBuilder.getLabelConverter());
@@ -115,18 +113,10 @@ public class BuildGlobals {
       Sequence<?> licensesList, // list of license strings
       StarlarkThread thread)
       throws EvalException {
-    Package.Builder pkgBuilder = Package.Builder.fromOrFailAllowBuildOnly(thread, "licenses()");
-    try {
-      License license = BuildType.LICENSE.convert(licensesList, "'licenses' operand");
-      pkgBuilder.mergePackageArgsFrom(PackageArgs.builder().setLicense(license));
-    } catch (ConversionException e) {
-      pkgBuilder
-          .getLocalEventHandler()
-          .handle(
-              Package.error(
-                  thread.getCallerLocation(), e.getMessage(), Code.LICENSE_PARSE_FAILURE));
-      pkgBuilder.setContainsErrors();
-    }
+    Package.AbstractBuilder pkgBuilder =
+        Package.AbstractBuilder.fromOrFailAllowBuildOnly(thread, "licenses()");
+    List<String> license = Types.STRING_LIST.convert(licensesList, "'licenses' operand");
+    pkgBuilder.mergePackageArgsFrom(PackageArgs.builder().setLicense(license));
     return Starlark.NONE;
   }
 }

@@ -31,19 +31,19 @@ import javax.annotation.Nullable;
  * data before exposing it to consumers.
  */
 public abstract class AbstractAttributeMapper implements AttributeMap {
-  final RuleClass ruleClass;
-  final Rule rule;
+  final AttributeProvider ruleClass;
+  final RuleOrMacroInstance rule;
   private final Label ruleLabel;
 
-  protected AbstractAttributeMapper(Rule rule) {
-    this.ruleClass = rule.getRuleClassObject();
+  protected AbstractAttributeMapper(RuleOrMacroInstance rule) {
+    this.ruleClass = rule.getAttributeProvider();
     this.ruleLabel = rule.getLabel();
     this.rule = rule;
   }
 
   @Override
   public String describeRule() {
-    return String.format("%s %s", this.rule.getRuleClass(), getLabel());
+    return String.format("%s %s", this.rule.getAttributeProvider(), getLabel());
   }
 
   @Override
@@ -88,8 +88,8 @@ public abstract class AbstractAttributeMapper implements AttributeMap {
   @Nullable
   public <T> Attribute.ComputedDefault getComputedDefault(String attributeName, Type<T> type) {
     Object value = rule.getAttr(attributeName, type);
-    if (value instanceof Attribute.ComputedDefault) {
-      return (Attribute.ComputedDefault) value;
+    if (value instanceof Attribute.ComputedDefault computedDefault) {
+      return computedDefault;
     } else {
       return null;
     }
@@ -149,7 +149,7 @@ public abstract class AbstractAttributeMapper implements AttributeMap {
 
   @Override
   public PackageArgs getPackageArgs() {
-    return rule.getPackage().getPackageArgs();
+    return rule.getPackageArgs();
   }
 
   @Override
@@ -209,17 +209,29 @@ public abstract class AbstractAttributeMapper implements AttributeMap {
    * Check if an attribute is configurable (uses select) or, if it's a computed default, if any of
    * its inputs are configurable.
    */
-  public static boolean isConfigurable(Rule rule, String attributeName) {
+  public static boolean isConfigurable(RuleOrMacroInstance rule, String attributeName) {
+    return isConfigurable(rule, attributeName, /* includeComputedDefaults= */ true);
+  }
+
+  /**
+   * Checks if an attribute is uses select. If {@code includeComputedDefaults} is true, also returns
+   * true on computed defaults that have any configurable inputs.
+   */
+  public static boolean isConfigurable(
+      RuleOrMacroInstance rule, String attributeName, boolean includeComputedDefaults) {
     Object attr = rule.getAttr(attributeName);
-    if (attr instanceof Attribute.ComputedDefault) {
-      for (String dep : ((Attribute.ComputedDefault) attr).dependencies()) {
+    if (attr instanceof Attribute.ComputedDefault computedDefault) {
+      if (!includeComputedDefaults) {
+        return false;
+      }
+      for (String dep : computedDefault.dependencies()) {
         if (isConfigurable(rule, dep)) {
           return true;
         }
       }
       return false;
     }
-    Attribute attrDef = rule.getRuleClassObject().getAttributeByNameMaybe(attributeName);
+    Attribute attrDef = rule.getAttributeProvider().getAttributeByNameMaybe(attributeName);
     return attrDef != null && rule.getSelectorList(attributeName, attrDef.getType()) != null;
   }
 

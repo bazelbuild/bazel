@@ -20,6 +20,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -27,9 +28,9 @@ import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.CommandLines;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.ResourceSetOrBuilder;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
@@ -40,6 +41,8 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.LtoAction;
 import com.google.devtools.build.lib.server.FailureDetails.LtoAction.Code;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -67,6 +70,7 @@ import javax.annotation.Nullable;
  * <p>For more information on ThinLTO see
  * http://blog.llvm.org/2016/06/thinlto-scalable-and-incremental-lto.html.
  */
+@AutoCodec
 public final class LtoBackendAction extends SpawnAction {
   private static final String GUID = "72ce1eca-4625-4e24-a0d8-bb91bb8b0e0e";
 
@@ -88,7 +92,7 @@ public final class LtoBackendAction extends SpawnAction {
       String mnemonic) {
     super(
         owner,
-        NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+        /* tools= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
         inputs,
         outputs,
         AbstractAction.DEFAULT_RESOURCE_SET,
@@ -104,6 +108,37 @@ public final class LtoBackendAction extends SpawnAction {
         "Either both or neither bitcodeFiles and imports files should be null");
     bitcodeFiles = allBitcodeFiles;
     imports = importsFile;
+  }
+
+  /** Constructor for serialization. */
+  @VisibleForSerialization
+  @AutoCodec.Instantiator
+  LtoBackendAction(
+      ActionOwner owner,
+      NestedSet<Artifact> mandatoryInputs,
+      Object rawOutputs,
+      CommandLines commandLines,
+      ActionEnvironment environment,
+      ImmutableSortedMap<String, String> sortedExecutionInfo,
+      CharSequence progressMessage,
+      String mnemonic,
+      @Nullable BitcodeFiles bitcodeFiles,
+      Artifact imports) {
+    super(
+        owner,
+        /* tools= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+        mandatoryInputs,
+        rawOutputs,
+        AbstractAction.DEFAULT_RESOURCE_SET,
+        commandLines,
+        environment,
+        sortedExecutionInfo,
+        progressMessage,
+        mnemonic,
+        OutputPathsMode.OFF);
+    this.mandatoryInputs = mandatoryInputs;
+    this.bitcodeFiles = bitcodeFiles;
+    this.imports = imports;
   }
 
   @Override
@@ -149,8 +184,7 @@ public final class LtoBackendAction extends SpawnAction {
       HashSet<PathFragment> inputPaths, ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException {
     NestedSetBuilder<Artifact> bitcodeInputs = NestedSetBuilder.stableOrder();
-    ImmutableMap<PathFragment, Artifact> execPathToArtifact =
-        bitcodeFiles.getFilesArtifactPathMap();
+    Map<PathFragment, Artifact> execPathToArtifact = bitcodeFiles.getFilesArtifactPathMap();
     Set<PathFragment> missingInputs = new HashSet<>();
     for (PathFragment inputPath : inputPaths) {
       Optional<Artifact> maybeArtifact = getArtifactOrTreeArtifact(inputPath, execPathToArtifact);
@@ -248,7 +282,7 @@ public final class LtoBackendAction extends SpawnAction {
   @Override
   protected void computeKey(
       ActionKeyContext actionKeyContext,
-      @Nullable ArtifactExpander artifactExpander,
+      @Nullable InputMetadataProvider inputMetadataProvider,
       Fingerprint fp)
       throws InterruptedException {
     fp.addString(GUID);

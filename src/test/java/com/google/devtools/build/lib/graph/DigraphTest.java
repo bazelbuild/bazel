@@ -20,16 +20,15 @@ import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.packages.License;
-import com.google.devtools.build.lib.packages.License.DistributionType;
 import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.packages.Packageoid;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetData;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Set;
+import javax.annotation.Nullable;
 import net.starlark.java.syntax.Location;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -55,7 +54,17 @@ public class DigraphTest {
     }
 
     @Override
-    public Package getPackage() {
+    public Packageoid getPackageoid() {
+      return null;
+    }
+
+    @Override
+    public Package.Metadata getPackageMetadata() {
+      return null;
+    }
+
+    @Override
+    public Package.Declarations getPackageDeclarations() {
       return null;
     }
 
@@ -70,7 +79,8 @@ public class DigraphTest {
     }
 
     @Override
-    public License getLicense() {
+    @Nullable
+    public List<String> getLicense() {
       return null;
     }
 
@@ -80,12 +90,7 @@ public class DigraphTest {
     }
 
     @Override
-    public Set<DistributionType> getDistributions() {
-      return null;
-    }
-
-    @Override
-    public RuleVisibility getVisibility() {
+    public RuleVisibility getRawVisibility() {
       return null;
     }
 

@@ -67,23 +67,25 @@ public class BuildRequestOptions extends OptionsBase {
   public int jobs;
 
   @Option(
-      name = "experimental_use_semaphore_for_jobs",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
-      effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS, OptionEffectTag.EXECUTION},
-      help = "If set to true, additionally use semaphore to limit number of concurrent jobs.")
-  public boolean useSemaphoreForJobs;
-
-  @Option(
       name = "experimental_async_execution",
       defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
       metadataTags = OptionMetadataTag.INCOMPATIBLE_CHANGE,
-      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS, OptionEffectTag.EXECUTION},
       help =
           "If set to true, Bazel is allowed to run action in a virtual thread. The number of"
               + " actions in flight is still capped with --jobs.")
   public boolean useAsyncExecution;
+
+  @Option(
+      name = "experimental_async_execution_max_concurrent_actions",
+      defaultValue = "5000",
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS, OptionEffectTag.EXECUTION},
+      help =
+          "The number of maximum concurrent actions to run with async execution. If the value is"
+              + " less than --jobs, it is clamped to --jobs.")
+  public int asyncExecutionMaxConcurrentActions;
 
   @Option(
       name = "progress_report_interval",
@@ -108,16 +110,6 @@ public class BuildRequestOptions extends OptionsBase {
           "Causes the build system to explain each executed step of the "
               + "build. The explanation is written to the specified log file.")
   public PathFragment explanationPath;
-
-  @Option(
-      name = "verbose_explanations",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.LOGGING,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-      help =
-          "Increases the verbosity of the explanations issued if --explain is enabled. "
-              + "Has no effect if --explain is not enabled.")
-  public boolean verboseExplanations;
 
   @Option(
       name = "output_filter",
@@ -447,6 +439,17 @@ public class BuildRequestOptions extends OptionsBase {
               + " configuration. Supported configurations are defined in the target's PROJECT.scl,"
               + " which can be found by walking up the target's packagge path. See b/324126745.")
   public boolean enforceProjectConfigs;
+
+  @Option(
+      name = "experimental_skyframe_error_handling_refactor",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      metadataTags = OptionMetadataTag.EXPERIMENTAL,
+      effectTags = {OptionEffectTag.NO_OP},
+      help =
+          "Used solely for the safe rollout of simplifying Skyframe error handling. This will be"
+              + "removed once the rollout is complete (expected timeframe: 1 release)")
+  public boolean skyframeErrorHandlingRefactor;
 
   @Option(
       name = "experimental_aquery_dump_after_build_format",

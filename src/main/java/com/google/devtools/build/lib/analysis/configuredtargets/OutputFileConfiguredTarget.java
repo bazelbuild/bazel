@@ -18,9 +18,8 @@ import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.LicensesProvider;
-import com.google.devtools.build.lib.analysis.LicensesProviderImpl;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.RequiredConfigFragmentsProvider;
 import com.google.devtools.build.lib.analysis.TargetContext;
@@ -28,25 +27,42 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.OutputFile;
+import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
 import com.google.devtools.build.lib.packages.Provider;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.Printer;
 
 /** A ConfiguredTarget for an OutputFile. */
 @Immutable
+@AutoCodec
 public final class OutputFileConfiguredTarget extends FileConfiguredTarget {
 
   private final RuleConfiguredTarget generatingRule;
 
   public OutputFileConfiguredTarget(
       TargetContext targetContext, Artifact outputArtifact, RuleConfiguredTarget generatingRule) {
-    super(targetContext, outputArtifact);
-    this.generatingRule = checkNotNull(generatingRule);
+    this(
+        targetContext.getAnalysisEnvironment().getOwner(),
+        targetContext.getVisibility(),
+        outputArtifact,
+        checkNotNull(generatingRule));
     checkArgument(targetContext.getTarget() instanceof OutputFile, targetContext.getTarget());
+  }
+
+  @AutoCodec.Instantiator
+  @VisibleForSerialization
+  OutputFileConfiguredTarget(
+      ActionLookupKey lookupKey,
+      NestedSet<PackageGroupContents> visibility,
+      Artifact artifact,
+      RuleConfiguredTarget generatingRule) {
+    super(lookupKey, visibility, artifact);
+    this.generatingRule = checkNotNull(generatingRule);
   }
 
   public RuleConfiguredTarget getGeneratingRule() {
@@ -56,11 +72,6 @@ public final class OutputFileConfiguredTarget extends FileConfiguredTarget {
   @Override
   public boolean isCreatedInSymbolicMacro() {
     return generatingRule.isCreatedInSymbolicMacro();
-  }
-
-  @Override
-  public BuiltinProvider<LicensesProvider> getProvider() {
-    return LicensesProvider.PROVIDER;
   }
 
   @Override
@@ -81,10 +92,6 @@ public final class OutputFileConfiguredTarget extends FileConfiguredTarget {
   protected Info rawGetStarlarkProvider(Provider.Key providerKey) {
     // The following Starlark providers do not implement TransitiveInfoProvider and thus may only be
     // requested via this method using a Provider.Key, not via getProvider(Class) above.
-
-    if (providerKey.equals(LicensesProvider.PROVIDER.getKey())) {
-      return generatingRule.get(LicensesProvider.PROVIDER);
-    }
 
     if (providerKey.equals(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR.getKey())) {
       return firstNonNull(
@@ -129,25 +136,6 @@ public final class OutputFileConfiguredTarget extends FileConfiguredTarget {
     if (provider != null) {
       tryAddProviderForQuery(dict, providerClass, provider);
     }
-  }
-
-  @Override
-  public NestedSet<TargetLicense> getTransitiveLicenses() {
-    return getLicencesProviderFromGeneratingRule().getTransitiveLicenses();
-  }
-
-  @Override
-  public TargetLicense getOutputLicenses() {
-    return getLicencesProviderFromGeneratingRule().getOutputLicenses();
-  }
-
-  @Override
-  public boolean hasOutputLicenses() {
-    return getLicencesProviderFromGeneratingRule().hasOutputLicenses();
-  }
-
-  private LicensesProvider getLicencesProviderFromGeneratingRule() {
-    return firstNonNull(generatingRule.get(LicensesProvider.PROVIDER), LicensesProviderImpl.EMPTY);
   }
 
   @Override
