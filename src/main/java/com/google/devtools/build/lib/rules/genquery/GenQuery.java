@@ -233,11 +233,7 @@ public class GenQuery implements RuleConfiguredTargetFactory {
 
     GenQueryPackageProvider packageProvider;
     try {
-      GenQueryPackageProviderFactory packageProviderFactory =
-          ruleContext.getConfiguration().getFragment(GenQueryConfiguration.class).skipTtvs()
-              ? new GenQueryDirectPackageProviderFactory()
-              : new GenQueryTtvPackageProviderFactory();
-      packageProvider = packageProviderFactory.constructPackageMap(env, scope);
+      packageProvider = GenQueryPackageProviderFactory.constructPackageMap(env, scope);
       if (packageProvider == null) {
         return null;
       }

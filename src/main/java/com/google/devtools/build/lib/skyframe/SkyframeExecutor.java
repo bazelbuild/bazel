@@ -178,8 +178,7 @@ import com.google.devtools.build.lib.query2.common.UniverseScope;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
 import com.google.devtools.build.lib.repository.ExternalPackageHelper;
-import com.google.devtools.build.lib.rules.genquery.GenQueryConfiguration.GenQueryOptions;
-import com.google.devtools.build.lib.rules.genquery.GenQueryDirectPackageProviderFactory;
+import com.google.devtools.build.lib.rules.genquery.GenQueryPackageProviderFactory;
 import com.google.devtools.build.lib.rules.repository.ResolvedFileFunction;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.runtime.MemoryPressureOptions;
@@ -783,9 +782,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             shouldStoreTransitivePackagesInLoadingAndAnalysis(),
             this::getExistingPackage));
     map.put(SkyFunctions.BUILD_TOP_LEVEL_ASPECTS_DETAILS, new LoadTopLevelAspectsFunction());
-    map.put(
-        GenQueryDirectPackageProviderFactory.GENQUERY_SCOPE,
-        GenQueryDirectPackageProviderFactory.FUNCTION);
+    map.put(GenQueryPackageProviderFactory.GENQUERY_SCOPE, GenQueryPackageProviderFactory.FUNCTION);
     map.put(SkyFunctions.ACTION_LOOKUP_CONFLICT_FINDING, new ActionLookupConflictFindingFunction());
     map.put(
         SkyFunctions.TOP_LEVEL_ACTION_LOOKUP_CONFLICT_FINDING,
@@ -3329,13 +3326,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       if (!t.getRuleClassString().equals("genquery")) {
         return;
       }
-      BuildOptions options = t.getConfigurationKey().getOptions();
-      var genQueryOptions = options.get(GenQueryOptions.class);
-      if (genQueryOptions == null || !genQueryOptions.skipTtvs) {
-        return;
-      }
       for (SkyKey key : directDeps.getAllElementsAsIterable()) {
-        if (key instanceof GenQueryDirectPackageProviderFactory.Key) {
+        if (key instanceof GenQueryPackageProviderFactory.Key) {
           // The following call can occur several times for the same GENQUERY_SCOPE key in a single
           // Skyframe evaluation, because multiple genquery configured targets may have deps on the
           // same GENQUERY_SCOPE node. It is #removeIfDone and not merely #remove because not-done

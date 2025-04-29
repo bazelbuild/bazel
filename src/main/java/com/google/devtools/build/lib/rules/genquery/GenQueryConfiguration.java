@@ -29,15 +29,16 @@ public class GenQueryConfiguration extends Fragment {
 
   /** GenQuery-specific options. */
   public static class GenQueryOptions extends FragmentOptions {
+    // TODO(b/410585542): Remove this once there are no more internal users trying to set it.
     @Option(
         name = "experimental_skip_ttvs_for_genquery",
         defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+        effectTags = {OptionEffectTag.NO_OP},
+        // Should be OptionMetadataTag.DEPRECATED but test case experimentalOptionsPreservedInExec
+        // explicitly asserts that all "experimental_" options use EXPERIMENTAL.
         metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-        help =
-            "If true, genquery loads its scope's transitive closure directly instead of by using "
-                + "'TransitiveTargetValue' Skyframe work.")
+        help = "No-op. Will be removed soon.")
     public boolean skipTtvs;
   }
 

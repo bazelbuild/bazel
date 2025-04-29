@@ -72,22 +72,15 @@ java_library(
 java_library(
     name = "genquery_package_providers",
     srcs = [
-        "GenQueryDirectPackageProviderFactory.java",
         "GenQueryPackageProvider.java",
         "GenQueryPackageProviderFactory.java",
-        "GenQueryTtvPackageProviderFactory.java",
     ],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/pkgcache",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:package_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:target_loading_util",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:transitive_target_key",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:transitive_target_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:visible-for-serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/vfs",
