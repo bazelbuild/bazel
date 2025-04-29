@@ -23,6 +23,8 @@ import com.google.common.collect.ImmutableMultiset;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.BuildFailedException;
+import com.google.devtools.build.lib.actions.SpawnResult;
+import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialModule;
 import com.google.devtools.build.lib.buildeventservice.BazelBuildEventServiceModule;
@@ -32,11 +34,17 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Tar
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.TestStatus;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.TestSummary;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
+import com.google.devtools.build.lib.exec.SpawnExecException;
 import com.google.devtools.build.lib.runtime.BlazeCommandDispatcher;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.NoSpawnCacheModule;
+import com.google.devtools.build.lib.server.FailureDetails;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
+import com.google.devtools.build.lib.server.FailureDetails.TestAction;
 import com.google.devtools.build.lib.skyframe.rewinding.RewindingTestsHelper;
 import com.google.devtools.build.lib.testutil.ActionEventRecorder;
+import com.google.devtools.build.lib.testutil.SpawnController.ExecResult;
 import com.google.devtools.build.lib.testutil.SpawnInputUtils;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -47,6 +55,7 @@ import java.io.InputStream;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import javax.annotation.Nullable;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -61,6 +70,17 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public final class TargetSummaryEventTest extends BuildIntegrationTestCase {
 
+  private static final SpawnResult FAILED_RESULT =
+      new SpawnResult.Builder()
+          .setStatus(SpawnResult.Status.NON_ZERO_EXIT)
+          .setExitCode(1)
+          .setFailureDetail(
+              FailureDetail.newBuilder()
+                  .setSpawn(FailureDetails.Spawn.newBuilder().setCode(Code.NON_ZERO_EXIT))
+                  .build())
+          .setRunnerName("remote")
+          .build();
+
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   @Rule public final TemporaryFolder tmpFolder = new TemporaryFolder();
@@ -71,6 +91,11 @@ public final class TargetSummaryEventTest extends BuildIntegrationTestCase {
   @Before
   public void stageEmbeddedTools() throws Exception {
     AnalysisMock.get().setupMockToolsRepository(mockToolsConfig);
+  }
+
+  @After
+  public void verifyAllSpawnShimsConsumed() {
+    helper.verifyAllSpawnShimsConsumed();
   }
 
   @Override
@@ -187,6 +212,38 @@ public final class TargetSummaryEventTest extends BuildIntegrationTestCase {
   }
 
   @Test
+  public void test_testActionThrowsExecException() throws Exception {
+    addOptions("--rewind_lost_inputs");
+    write(
+        "foo/BUILD",
+        """
+        load("//test_defs:foo_test.bzl", "foo_test")
+        foo_test(name = "test", srcs = ["test.sh"], tags = ["cpu:invalid"])
+        """);
+    write("foo/test.sh", "#!/bin/bash", "true").setExecutable(true);
+    helper.addSpawnShim(
+        "Testing //foo:test",
+        (spawn, context) ->
+            ExecResult.ofException(
+                new UserExecException(
+                    FailureDetail.newBuilder()
+                        .setMessage("Invalid cpu tag: 'cpu:invalid'")
+                        .setTestAction(
+                            TestAction.newBuilder().setCode(TestAction.Code.INVALID_CPU_TAG))
+                        .build())));
+
+    File bep = testTargetAndCaptureBuildEventProtocol("//foo:test");
+
+    TargetSummary targetSummary = findTargetSummaryEventInBuildEventStream(bep);
+    assertThat(targetSummary.getOverallBuildSuccess()).isTrue();
+    assertThat(targetSummary.getOverallTestStatus()).isEqualTo(TestStatus.FAILED_TO_BUILD);
+
+    // TODO: b/186996003 - TestSummary is a child of TargetComplete and should be posted.
+    TestSummary testSummary = findTestSummaryEventInBuildEventStream(bep);
+    assertThat(testSummary).isNull();
+  }
+
+  @Test
   public void test_testActionLosesInput_rewindingSucceeds() throws Exception {
     addOptions("--rewind_lost_inputs");
     write(
@@ -213,9 +270,50 @@ public final class TargetSummaryEventTest extends BuildIntegrationTestCase {
     TestSummary testSummary = findTestSummaryEventInBuildEventStream(bep);
     assertThat(testSummary.getOverallStatus()).isEqualTo(TestStatus.PASSED);
 
-    helper.verifyAllSpawnShimsConsumed();
     assertThat(ImmutableMultiset.copyOf(helper.getExecutedSpawnDescriptions()))
         .hasCount("Executing genrule //foo:lost", 2);
+  }
+
+  @Test
+  public void test_testActionLosesInput_flakyActionFailsAfterRewind() throws Exception {
+    addOptions("--rewind_lost_inputs");
+    write(
+        "foo/BUILD",
+        """
+        load("//test_defs:foo_test.bzl", "foo_test")
+        foo_test(name = "test", srcs = ["test.sh"], data = [":flaky_lost"])
+        genrule(name = "flaky_lost", outs = ["flaky_lost.out"], cmd = "echo flaky_lost > $@")
+        """);
+    write("foo/test.sh", "#!/bin/bash", "true").setExecutable(true);
+    helper.addSpawnShim(
+        "Testing //foo:test",
+        (spawn, context) -> {
+          helper.addSpawnShim(
+              "Executing genrule //foo:flaky_lost",
+              (spawn2, context2) ->
+                  ExecResult.ofException(
+                      new SpawnExecException(
+                          "Flaky action failure",
+                          FAILED_RESULT,
+                          /* forciblyRunRemotely= */ false,
+                          /* catastrophe= */ false)));
+          Artifact flakyLost =
+              SpawnInputUtils.getRunfilesArtifactWithName(spawn, context, "flaky_lost.out");
+          return helper.createLostInputsExecException(context, flakyLost);
+        });
+
+    File bep = testTargetAndCaptureBuildEventProtocol("//foo:test");
+
+    TargetSummary targetSummary = findTargetSummaryEventInBuildEventStream(bep);
+    assertThat(targetSummary.getOverallBuildSuccess()).isTrue();
+    assertThat(targetSummary.getOverallTestStatus()).isEqualTo(TestStatus.FAILED_TO_BUILD);
+
+    // TODO: b/186996003 - TestSummary is a child of TargetComplete and should be posted.
+    TestSummary testSummary = findTestSummaryEventInBuildEventStream(bep);
+    assertThat(testSummary).isNull();
+
+    assertThat(ImmutableMultiset.copyOf(helper.getExecutedSpawnDescriptions()))
+        .hasCount("Executing genrule //foo:flaky_lost", 2);
   }
 
   private File buildTargetAndCaptureBuildEventProtocol(String target) throws Exception {
