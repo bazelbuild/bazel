@@ -107,7 +107,7 @@ def _impl(ctx):
 my_rule = rule(
     implementation = _impl,
     attrs = {
-        "foo": attr.string(),
+        "bar": attr.string(),
     },
     parent = _my_parent_rule,
     deleted_attrs = ["package_metadata"],
@@ -120,6 +120,41 @@ my_rule(name = "foo")
 EOF
   bazel build --nobuild //deleted_attrs_testing:foo &> $TEST_log || true
   expect_log 'Rules with parents must not have deleted attributes'
+}
+
+function test_deleted_attr_with_subrule_fails() {
+  cat > "deleted_attrs_testing/rule.bzl" <<EOF
+load(":utils.bzl", "print_attr_names")
+
+def _subrule_impl(ctx, foo):
+    pass
+
+_my_subrule = subrule(
+    implementation = _subrule_impl,
+    attrs = {
+        "_foo": attr.label(default = "//some:label"),
+    },
+)
+
+def _impl(ctx):
+    print_attr_names(ctx)
+
+my_rule = rule(
+    implementation = _impl,
+    attrs = {
+        "bar": attr.string(),
+    },
+    subrules = [_my_subrule],
+    deleted_attrs = ["package_metadata"],
+)
+EOF
+  cat > "deleted_attrs_testing/BUILD" <<EOF
+load(":rule.bzl", "my_rule")
+
+my_rule(name = "foo")
+EOF
+  bazel build --nobuild //deleted_attrs_testing:foo &> $TEST_log || true
+  expect_log 'Rules with subrules must not have deleted attributes'
 }
 
 run_suite "Tests for rule.deleted_attrs"
