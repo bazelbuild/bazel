@@ -453,7 +453,6 @@ java_test(
     name = "TrackSourceDirectoriesIntegrationTest",
     timeout = "short",
     srcs = ["TrackSourceDirectoriesIntegrationTest.java"],
-    jvm_flags = ["-DBAZEL_TRACK_SOURCE_DIRECTORIES=1"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/skyframe:track_source_directories_flag",
