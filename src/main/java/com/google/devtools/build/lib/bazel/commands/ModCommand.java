@@ -69,6 +69,8 @@ import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.ModCommand.Code;
 import com.google.devtools.build.lib.shell.AbnormalTerminationException;
 import com.google.devtools.build.lib.shell.CommandException;
+import com.google.devtools.build.lib.skyframe.BzlLoadCycleReporter;
+import com.google.devtools.build.lib.skyframe.BzlmodRepoCycleReporter;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.util.AbruptExitException;
@@ -77,6 +79,7 @@ import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.InterruptedFailureDetails;
 import com.google.devtools.build.lib.util.MaybeCompleteSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.skyframe.CyclesReporter;
 import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -101,11 +104,7 @@ import javax.annotation.Nullable;
 @Command(
     name = ModCommand.NAME,
     buildPhase = LOADS,
-    options = {
-      ModOptions.class,
-      PackageOptions.class,
-      LoadingPhaseThreadsOption.class
-    },
+    options = {ModOptions.class, PackageOptions.class, LoadingPhaseThreadsOption.class},
     help = "resource:mod.txt",
     shortDescription = "Queries the Bzlmod external dependency graph",
     allowResidue = true)
@@ -203,12 +202,19 @@ public final class ModCommand implements BlazeCommand {
           skyframeExecutor.prepareAndGet(keys.build(), evaluationContext);
 
       if (evaluationResult.hasError()) {
+        var cycleInfo = evaluationResult.getError().getCycleInfo();
+        if (!cycleInfo.isEmpty()) {
+          // We don't expect target-level cycles here, so restrict to the subset of reporters that
+          // are relevant for the (conceptual) loading phase.
+          new CyclesReporter(new BzlmodRepoCycleReporter(), new BzlLoadCycleReporter())
+              .reportCycles(cycleInfo, cycleInfo.getFirst().getTopKey(), env.getReporter());
+        }
         Exception e = evaluationResult.getError().getException();
         String message = "Unexpected error during module graph evaluation.";
         if (e != null) {
           message = e.getMessage();
         }
-        return reportAndCreateFailureResult(env, message, Code.INVALID_ARGUMENTS);
+        return reportAndCreateFailureResult(env, message, Code.MOD_COMMAND_UNKNOWN);
       }
 
       depGraphValue = (BazelDepGraphValue) evaluationResult.get(BazelDepGraphValue.KEY);
