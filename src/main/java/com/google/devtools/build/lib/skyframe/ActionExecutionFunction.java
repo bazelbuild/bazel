@@ -818,6 +818,7 @@ public final class ActionExecutionFunction implements SkyFunction {
         env,
         action,
         inputMetadataProvider,
+        state.skyframeInputMetadataProvider,
         outputMetadataStore,
         actionStartTime,
         actionLookupData,

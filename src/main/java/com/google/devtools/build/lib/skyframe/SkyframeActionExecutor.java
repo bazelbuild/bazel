@@ -541,7 +541,8 @@ public final class SkyframeActionExecutor {
   ActionExecutionValue executeAction(
       Environment env,
       Action action,
-      InputMetadataProvider inputMetadataProvider,
+      InputMetadataProvider directInputMetadataProvider,
+      InputMetadataProvider skyframeLookupInputMetadataProvider,
       ActionOutputMetadataStore outputMetadataStore,
       long actionStartTime,
       ActionLookupData actionLookupData,
@@ -551,12 +552,21 @@ public final class SkyframeActionExecutor {
       throws ActionExecutionException, InterruptedException {
     if (actionFileSystem != null) {
       updateActionFileSystemContext(
-          action, actionFileSystem, env, outputMetadataStore, inputMetadataProvider.getFilesets());
+          action,
+          actionFileSystem,
+          env,
+          outputMetadataStore,
+          directInputMetadataProvider.getFilesets());
     }
 
     ActionExecutionContext actionExecutionContext =
         getContext(
-            action, inputMetadataProvider, outputMetadataStore, actionFileSystem, actionLookupData);
+            action,
+            directInputMetadataProvider,
+            skyframeLookupInputMetadataProvider,
+            outputMetadataStore,
+            actionFileSystem,
+            actionLookupData);
 
     if (actionCacheChecker.isActionExecutionProhibited(action)) {
       // We can't execute an action (e.g. because --check_???_up_to_date option was used). Fail the
@@ -580,7 +590,8 @@ public final class SkyframeActionExecutor {
                     actionLookupData,
                     new ActionRunner(
                         action,
-                        inputMetadataProvider,
+                        // TODO(lberki): Maybe this should be the graph/Skyframe pair?
+                        directInputMetadataProvider,
                         outputMetadataStore,
                         actionStartTime,
                         actionExecutionContext,
@@ -625,7 +636,8 @@ public final class SkyframeActionExecutor {
 
   private ActionExecutionContext getContext(
       Action action,
-      InputMetadataProvider inputMetadataProvider,
+      InputMetadataProvider directInputMetadataProvider,
+      InputMetadataProvider skyframeLookupInputMetadataProvider,
       OutputMetadataStore outputMetadataStore,
       @Nullable FileSystem actionFileSystem,
       ActionLookupData actionLookupData) {
@@ -635,7 +647,8 @@ public final class SkyframeActionExecutor {
     FileOutErr fileOutErr = actionLogBufferPathGenerator.generate(artifactPathResolver);
     return new ActionExecutionContext(
         executorEngine,
-        createFileCache(inputMetadataProvider, actionFileSystem),
+        createFileCache(
+            directInputMetadataProvider, skyframeLookupInputMetadataProvider, actionFileSystem),
         actionInputPrefetcher,
         actionKeyContext,
         outputMetadataStore,
@@ -854,8 +867,8 @@ public final class SkyframeActionExecutor {
   NestedSet<Artifact> discoverInputs(
       Action action,
       ActionLookupData actionLookupData,
-      InputMetadataProvider graphInputMetadataProvider,
-      InputMetadataProvider skyframeInputMetadataProvider,
+      InputMetadataProvider directInputMetadataProvider,
+      InputMetadataProvider skyframeLookupInputMetadataProvider,
       Environment env,
       @Nullable FileSystem actionFileSystem)
       throws ActionExecutionException, InterruptedException {
@@ -866,7 +879,7 @@ public final class SkyframeActionExecutor {
     ExtendedEventHandler eventHandler = selectEventHandler(action);
     InputMetadataProvider compositeInputMetadataProvider =
         new DelegatingPairInputMetadataProvider(
-            graphInputMetadataProvider, skyframeInputMetadataProvider, actionFileSystem);
+            directInputMetadataProvider, skyframeLookupInputMetadataProvider, actionFileSystem);
     ActionExecutionContext actionExecutionContext =
         ActionExecutionContext.forInputDiscovery(
             executorEngine,
@@ -944,11 +957,11 @@ public final class SkyframeActionExecutor {
   }
 
   private InputMetadataProvider createFileCache(
-      InputMetadataProvider graphFileCache, @Nullable FileSystem actionFileSystem) {
-    if (actionFileSystem instanceof InputMetadataProvider inputMetadataProvider) {
-      return inputMetadataProvider;
-    }
-    return new DelegatingPairInputMetadataProvider(graphFileCache, perBuildFileCache);
+      InputMetadataProvider directInputMetadataProvider,
+      InputMetadataProvider skyframeLookupInputMetadataProvider,
+      @Nullable FileSystem actionFileSystem) {
+    return new DelegatingPairInputMetadataProvider(
+        directInputMetadataProvider, skyframeLookupInputMetadataProvider, actionFileSystem);
   }
 
   /**
