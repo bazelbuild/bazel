@@ -1,3 +1,22 @@
+## Release 9.0.0-pre.20250421.1 (2025-04-29)
+
+```
+Baseline: e8c6e40d53b90ac71cf634561e69d4dec3a2934a
+```
+
+Incompatible changes:
+
+  - struct providers are not supported in aspects
+
+Important changes:
+
+  - The (deprecated) `output_licenses` attribute is now a string
+    list rather than an internal data type. The only visible change
+    may be that some query output may change from printing capitalized
+    values of inputs will now show lower case.
+
+This release contains contributions from many people at Google, as well as Ankush Chudiwal, Benji Vos, Fabian Meumertzheim.
+
 ## Release 9.0.0-pre.20250414.1 (2025-04-22)
 
 ```
