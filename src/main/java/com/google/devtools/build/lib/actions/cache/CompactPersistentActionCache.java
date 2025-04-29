@@ -18,6 +18,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Interner;
 import com.google.common.collect.Maps;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
@@ -25,6 +26,7 @@ import com.google.devtools.build.lib.actions.cache.ActionCache.Entry.Serializabl
 import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics;
 import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics.MissReason;
 import com.google.devtools.build.lib.clock.Clock;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ConditionallyThreadSafe;
 import com.google.devtools.build.lib.events.Event;
@@ -50,7 +52,6 @@ import java.util.EnumMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Predicate;
 import javax.annotation.Nullable;
@@ -62,6 +63,7 @@ import javax.annotation.Nullable;
 @ConditionallyThreadSafe // condition: each instance must be instantiated with different cache root
 public class CompactPersistentActionCache implements ActionCache {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
+
   private static final Duration SAVE_INTERVAL = Duration.ofSeconds(3);
 
   // Key of the action cache record that holds information used to verify referential integrity
@@ -69,9 +71,128 @@ public class CompactPersistentActionCache implements ActionCache {
   // cache records.
   private static final int VALIDATION_KEY = -10;
 
-  private static final int VERSION = 20;
+  private static final int VERSION = 21;
 
-  private static final MapCodec<Integer, byte[]> CODEC =
+  /**
+   * A timestamp, represented as the number of minutes since the Unix epoch.
+   *
+   * <p>This provides adequate accuracy for garbage collection purposes while reducing storage
+   * requirements.
+   */
+  private static final class Timestamp {
+    // Expect many recurring values and deduplicate them.
+    private static final Interner<Timestamp> INTERNER = BlazeInterners.newWeakInterner();
+
+    private static final long MINUTE_IN_MILLIS = Duration.ofMinutes(1).toMillis();
+
+    private final int epochMinutes;
+
+    private Timestamp(int epochMinutes) {
+      this.epochMinutes = epochMinutes;
+    }
+
+    static Timestamp fromEpochMinutes(int epochMinutes) {
+      return INTERNER.intern(new Timestamp(epochMinutes));
+    }
+
+    static Timestamp fromInstant(Instant instant) {
+      return fromEpochMinutes((int) (instant.toEpochMilli() / MINUTE_IN_MILLIS));
+    }
+
+    int toEpochMinutes() {
+      return epochMinutes;
+    }
+
+    Instant toInstant() {
+      return Instant.ofEpochMilli(epochMinutes * MINUTE_IN_MILLIS);
+    }
+
+    @Override
+    public boolean equals(Object other) {
+      if (!(other instanceof Timestamp that)) {
+        return false;
+      }
+      return epochMinutes == that.epochMinutes;
+    }
+
+    @Override
+    public int hashCode() {
+      return Integer.hashCode(epochMinutes);
+    }
+
+    @Override
+    public String toString() {
+      return toInstant().toString();
+    }
+  }
+
+  private static final MapCodec<Integer, Timestamp> TIMESTAMP_CODEC =
+      new MapCodec<Integer, Timestamp>() {
+        @Override
+        protected Integer readKey(DataInput in) throws IOException {
+          return in.readInt();
+        }
+
+        @Override
+        protected Timestamp readValue(DataInput in) throws IOException {
+          return Timestamp.fromEpochMinutes(in.readInt());
+        }
+
+        @Override
+        protected void writeKey(Integer key, DataOutput out) throws IOException {
+          out.writeInt(key);
+        }
+
+        @Override
+        protected void writeValue(Timestamp value, DataOutput out) throws IOException {
+          out.writeInt(value.toEpochMinutes());
+        }
+      };
+
+  /**
+   * A {@link PersistentMap} mapping the string index of the action's primary output path to that
+   * entry's last access time.
+   */
+  private static final class TimestampMap extends PersistentMap<Integer, Timestamp> {
+    private final Clock clock;
+    private long nextUpdateNanos;
+
+    TimestampMap(Clock clock, Path timestampFile, Path timestampJournalFile) throws IOException {
+      super(
+          VERSION, TIMESTAMP_CODEC, new ConcurrentHashMap<>(), timestampFile, timestampJournalFile);
+      this.clock = clock;
+      this.nextUpdateNanos = clock.nanoTime() + SAVE_INTERVAL.toNanos();
+      load();
+    }
+
+    @Override
+    protected boolean shouldFlushJournal() {
+      // Use nanoTime() instead of currentTimeMillis() to get monotonic time, not wall time.
+      long currentTimeNanos = clock.nanoTime();
+      if (currentTimeNanos > nextUpdateNanos) {
+        nextUpdateNanos = currentTimeNanos + SAVE_INTERVAL.toNanos();
+        return true;
+      }
+      return false;
+    }
+
+    @Override
+    protected boolean shouldKeepJournal() {
+      // We must first flush the journal to get an accurate measure of its size.
+      flushJournal();
+      try {
+        return journalSize() * 100 < cacheSize();
+      } catch (IOException e) {
+        return false;
+      }
+    }
+
+    public void flush() {
+      flushJournal();
+    }
+  }
+
+  private static final MapCodec<Integer, byte[]> ACTION_CODEC =
       new MapCodec<Integer, byte[]>() {
         @Override
         protected Integer readKey(DataInput in) throws IOException {
@@ -101,20 +222,26 @@ public class CompactPersistentActionCache implements ActionCache {
         }
       };
 
+  /**
+   * A {@link PersistentMap} mapping the string index of the action's primary output path to the
+   * serialized {@link ActionCache.Entry}.
+   */
   private static final class ActionMap extends PersistentMap<Integer, byte[]> {
     private final Clock clock;
     private final PersistentStringIndexer indexer;
+    private final TimestampMap timestampMap;
     private long nextUpdateNanos;
 
     ActionMap(
-        ConcurrentMap<Integer, byte[]> map,
         PersistentStringIndexer indexer,
+        TimestampMap timestampMap,
         Clock clock,
         Path mapFile,
         Path journalFile)
         throws IOException {
-      super(VERSION, CODEC, map, mapFile, journalFile);
+      super(VERSION, ACTION_CODEC, new ConcurrentHashMap<>(), mapFile, journalFile);
       this.indexer = indexer;
+      this.timestampMap = timestampMap;
       this.clock = clock;
       // Use nanoTime() instead of currentTimeMillis() to get monotonic time, not wall time.
       nextUpdateNanos = clock.nanoTime() + SAVE_INTERVAL.toNanos();
@@ -127,10 +254,10 @@ public class CompactPersistentActionCache implements ActionCache {
       long currentTimeNanos = clock.nanoTime();
       if (currentTimeNanos > nextUpdateNanos) {
         nextUpdateNanos = currentTimeNanos + SAVE_INTERVAL.toNanos();
-        // Force flushing of the PersistentStringIndexer instance. This is needed to ensure
-        // that filename index data on disk is always up-to-date when we save action cache
-        // data.
+        // Flush the PersistentStringIndexer and TimestampMap.
+        // This ensures an action isn't saved to disk before its timestamp or referenced strings.
         indexer.flush();
+        timestampMap.flush();
         return true;
       }
       return false;
@@ -148,18 +275,24 @@ public class CompactPersistentActionCache implements ActionCache {
     }
   }
 
+  private final Clock clock;
   private final PersistentStringIndexer indexer;
-  private final PersistentMap<Integer, byte[]> map;
+  private final ActionMap actionMap;
+  private final TimestampMap timestampMap;
   private final ImmutableMap<MissReason, AtomicInteger> misses;
   private final AtomicInteger hits = new AtomicInteger();
   private Duration loadTime;
 
   private CompactPersistentActionCache(
+      Clock clock,
       PersistentStringIndexer indexer,
-      PersistentMap<Integer, byte[]> map,
+      ActionMap actionMap,
+      TimestampMap timestampMap,
       ImmutableMap<MissReason, AtomicInteger> misses) {
+    this.clock = clock;
     this.indexer = indexer;
-    this.map = map;
+    this.actionMap = actionMap;
+    this.timestampMap = timestampMap;
     this.misses = misses;
   }
 
@@ -192,12 +325,12 @@ public class CompactPersistentActionCache implements ActionCache {
       throws IOException {
     cacheRoot.createDirectoryAndParents();
 
-    PersistentMap<Integer, byte[]> map;
     Path cacheFile = cacheFile(cacheRoot);
     Path journalFile = journalFile(cacheRoot);
     Path indexFile = indexFile(cacheRoot);
     Path indexJournalFile = indexJournalFile(cacheRoot);
-    ConcurrentMap<Integer, byte[]> backingMap = new ConcurrentHashMap<>();
+    Path timestampFile = timestampFile(cacheRoot);
+    Path timestampJournalFile = timestampJournalFile(cacheRoot);
 
     PersistentStringIndexer indexer;
     try {
@@ -213,8 +346,23 @@ public class CompactPersistentActionCache implements ActionCache {
           retrying);
     }
 
+    TimestampMap timestampMap;
     try {
-      map = new ActionMap(backingMap, indexer, clock, cacheFile, journalFile);
+      timestampMap = new TimestampMap(clock, timestampFile, timestampJournalFile);
+    } catch (IOException e) {
+      return logAndThrowOrRecurse(
+          cacheRoot,
+          corruptedCacheRoot,
+          clock,
+          "Failed to load action cache timestamp data",
+          e,
+          reporterForInitializationErrors,
+          retrying);
+    }
+
+    ActionMap actionMap;
+    try {
+      actionMap = new ActionMap(indexer, timestampMap, clock, cacheFile, journalFile);
     } catch (IOException e) {
       return logAndThrowOrRecurse(
           cacheRoot,
@@ -226,10 +374,10 @@ public class CompactPersistentActionCache implements ActionCache {
           retrying);
     }
 
-    // Validate referential integrity between two collections.
-    if (!map.isEmpty()) {
+    // Validate referential integrity between action map and indexer.
+    if (!actionMap.isEmpty()) {
       try {
-        validateIntegrity(indexer.size(), map.get(VALIDATION_KEY));
+        validateIntegrity(indexer.size(), actionMap.get(VALIDATION_KEY));
       } catch (IOException e) {
         return logAndThrowOrRecurse(
             cacheRoot,
@@ -252,7 +400,8 @@ public class CompactPersistentActionCache implements ActionCache {
       }
       misses.put(reason, new AtomicInteger(0));
     }
-    return new CompactPersistentActionCache(indexer, map, Maps.immutableEnumMap(misses));
+    return new CompactPersistentActionCache(
+        clock, indexer, actionMap, timestampMap, Maps.immutableEnumMap(misses));
   }
 
   private static CompactPersistentActionCache logAndThrowOrRecurse(
@@ -338,6 +487,14 @@ public class CompactPersistentActionCache implements ActionCache {
     return cacheRoot.getChild("filename_index_journal.blaze");
   }
 
+  public static Path timestampFile(Path cacheRoot) {
+    return cacheRoot.getChild("timestamp.blaze");
+  }
+
+  public static Path timestampJournalFile(Path cacheRoot) {
+    return cacheRoot.getChild("timestamp_journal.blaze");
+  }
+
   @Override
   @Nullable
   public ActionCache.Entry get(String key) {
@@ -345,11 +502,15 @@ public class CompactPersistentActionCache implements ActionCache {
     if (index == null) {
       return null;
     }
-    byte[] data = map.get(index);
+    byte[] data = actionMap.get(index);
     if (data == null) {
       return null;
     }
-    return decode(data);
+    ActionCache.Entry entry = decode(data);
+    if (entry != null && !entry.isCorrupted()) {
+      timestampMap.put(index, Timestamp.fromInstant(clock.now()));
+    }
+    return entry;
   }
 
   @Override
@@ -365,30 +526,35 @@ public class CompactPersistentActionCache implements ActionCache {
     }
 
     // Update validation record.
+    // Note the benign race condition in which two threads might race on updating the validation
+    // record: if the most recent update loses the race, a value lower than the indexer size will
+    // remain in the validation record, which will still pass the integrity check.
     ByteBuffer buffer = ByteBuffer.allocate(4); // size of int in bytes
     int indexSize = indexer.size();
     buffer.asIntBuffer().put(indexSize);
+    actionMap.put(VALIDATION_KEY, buffer.array());
 
-    // Note the benign race condition here in which two threads might race on
-    // updating the VALIDATION_KEY. If the most recent update loses the race,
-    // a value lower than the indexer size will remain in the validation record.
-    // This will still pass the integrity check.
-    map.put(VALIDATION_KEY, buffer.array());
-    // Now update record itself.
-    map.put(index, content);
+    // Update the timestamp map.
+    timestampMap.put(index, Timestamp.fromInstant(clock.now()));
+
+    // Update the action map.
+    // This is last so that, if a flush occurs, the index and timestamp also make it to disk.
+    actionMap.put(index, content);
   }
 
   @Override
   public void remove(String key) {
     Integer index = indexer.getIndex(key);
     if (index != null) {
-      map.remove(index);
+      actionMap.remove(index);
+      timestampMap.remove(index);
     }
   }
 
   @Override
   public void removeIf(Predicate<Entry> predicate) {
-    for (Map.Entry<Integer, byte[]> entry : map.entrySet()) {
+    // Be careful not to cause the timestamp to be updated on kept entries (i.e., don't use get()).
+    for (Map.Entry<Integer, byte[]> entry : actionMap.entrySet()) {
       if (entry.getKey() == VALIDATION_KEY) {
         // Skip the validation record.
         continue;
@@ -401,7 +567,8 @@ public class CompactPersistentActionCache implements ActionCache {
       if (predicate.test(decodedEntry)) {
         // Although this is racy (the key might be concurrently set to a different value), we don't
         // care because it's a very small window and it only impacts performance, not correctness.
-        map.remove(entry.getKey());
+        actionMap.remove(entry.getKey());
+        timestampMap.remove(entry.getKey());
       }
     }
   }
@@ -411,36 +578,55 @@ public class CompactPersistentActionCache implements ActionCache {
   public long save() throws IOException {
     // TODO(b/314086729): Remove after we understand the bug.
     try {
-      validateIntegrity(indexer.size(), map.get(VALIDATION_KEY));
+      validateIntegrity(indexer.size(), actionMap.get(VALIDATION_KEY));
     } catch (IOException e) {
       logger.atInfo().withCause(e).log(
           "Integrity check failed on the inmemory objects right before save");
     }
 
     long indexSize = indexer.save();
-    long mapSize = map.save();
-    return indexSize + mapSize;
+    long actionMapSize = actionMap.save();
+    long timestampMapSize = timestampMap.save();
+    return indexSize + actionMapSize + timestampMapSize;
   }
 
   @ThreadSafety.ThreadHostile
   @Override
   public void clear() {
     indexer.clear();
-    map.clear();
+    actionMap.clear();
+    timestampMap.clear();
+  }
+
+  /** Returns a map from action key to last access time. */
+  ImmutableMap<String, Instant> getActionTimestampMap() throws IOException {
+    // Iterate the timestamp map, not the action map, so that the result may be used for testing
+    // that an entry is removed from the timestamp map when removed from the action map. Note that
+    // the indexer does not support removing entries.
+    ImmutableMap.Builder<String, Instant> builder =
+        ImmutableMap.builderWithExpectedSize(timestampMap.size());
+    for (Map.Entry<Integer, Timestamp> entry : timestampMap.entrySet()) {
+      String actionKey = indexer.getStringForIndex(entry.getKey());
+      if (actionKey != null) {
+        builder.put(actionKey, entry.getValue().toInstant());
+      }
+    }
+    return builder.buildKeepingLast();
   }
 
   @Override
   public String toString() {
     StringBuilder builder = new StringBuilder();
-    // map.size() - 1 to avoid counting the validation key.
-    builder.append("Action cache (" + (map.size() - 1) + " records):\n");
-    int size = map.size() > 1000 ? 10 : map.size();
+    // size - 1 to avoid counting the validation record.
+    builder.append("Action cache (" + (actionMap.size() - 1) + " records):\n");
+    int size = actionMap.size() > 1000 ? 10 : actionMap.size();
     int ct = 0;
-    for (Map.Entry<Integer, byte[]> entry : map.entrySet()) {
+    for (Map.Entry<Integer, byte[]> entry : actionMap.entrySet()) {
       if (entry.getKey() == VALIDATION_KEY) {
         continue;
       }
       String content = decode(entry.getValue()).toString();
+      Timestamp timestamp = timestampMap.get(entry.getKey());
       builder
           .append("-> ")
           .append(indexer.getStringForIndex(entry.getKey()))
@@ -448,6 +634,9 @@ public class CompactPersistentActionCache implements ActionCache {
           .append(content)
           .append("  packed_len = ")
           .append(entry.getValue().length)
+          .append("\n")
+          .append("  timestamp = ")
+          .append(timestamp != null ? timestamp : "unknown")
           .append("\n");
       if (++ct > size) {
         builder.append("...");
@@ -462,12 +651,13 @@ public class CompactPersistentActionCache implements ActionCache {
   public void dump(PrintStream out) {
     out.println("String indexer content:\n");
     out.println(indexer);
-    out.println("Action cache (" + map.size() + " records):\n");
-    for (Map.Entry<Integer, byte[]> entry : map.entrySet()) {
+    out.println("Action cache (" + actionMap.size() + " records):\n");
+    for (Map.Entry<Integer, byte[]> entry : actionMap.entrySet()) {
       if (entry.getKey() == VALIDATION_KEY) {
         continue;
       }
       String content = decode(entry.getValue()).toString();
+      Timestamp timestamp = timestampMap.get(entry.getKey());
       out.println(
           entry.getKey()
               + ", "
@@ -476,17 +666,19 @@ public class CompactPersistentActionCache implements ActionCache {
               + content
               + "\n      packed_len = "
               + entry.getValue().length
+              + "\n      timestamp = "
+              + (timestamp != null ? timestamp : "unknown")
               + "\n");
     }
   }
 
   /**
-   * Returns the number of entries in the backing map. If non-zero, it means that the map has been
+   * Returns the number of entries in the action map. If non-zero, it means that the map has been
    * initialized and contains the validation record.
    */
   @Override
   public int size() {
-    return map.size();
+    return actionMap.size();
   }
 
   private void encodeRemoteMetadata(FileArtifactValue value, ByteArrayOutputStream sink)

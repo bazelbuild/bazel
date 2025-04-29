@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.actions.cache;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
+import static java.time.Instant.EPOCH;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
@@ -42,6 +43,7 @@ import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
@@ -64,6 +66,8 @@ public class CompactPersistentActionCacheTest {
   private Path journalFile;
   private Path indexFile;
   private Path indexJournalFile;
+  private Path timestampFile;
+  private Path timestampJournalFile;
   private final ManualClock clock = new ManualClock();
   private CompactPersistentActionCache cache;
   private ArtifactRoot artifactRoot;
@@ -82,6 +86,8 @@ public class CompactPersistentActionCacheTest {
     journalFile = CompactPersistentActionCache.journalFile(cacheRoot);
     indexFile = CompactPersistentActionCache.indexFile(cacheRoot);
     indexJournalFile = CompactPersistentActionCache.indexJournalFile(cacheRoot);
+    timestampFile = CompactPersistentActionCache.timestampFile(cacheRoot);
+    timestampJournalFile = CompactPersistentActionCache.timestampJournalFile(cacheRoot);
     artifactRoot = ArtifactRoot.asDerivedRoot(execRoot, ArtifactRoot.RootType.Output, "bin");
   }
 
@@ -267,6 +273,60 @@ public class CompactPersistentActionCacheTest {
   }
 
   @Test
+  public void testTimestamps() throws IOException {
+    clock.advance(Duration.ofDays(100));
+    putKey("abc");
+    clock.advance(Duration.ofDays(100));
+    putKey("def");
+    clock.advance(Duration.ofDays(100));
+    putKey("ghi");
+    clock.advance(Duration.ofDays(100));
+    putKey("jkl");
+    clock.advance(Duration.ofDays(100));
+    putKey("mno", /* discoversInputs= */ true);
+
+    // Getting an entry should update its timestamp.
+    clock.advance(Duration.ofDays(100));
+    var unused = cache.get("abc");
+
+    // Overwriting an entry should update its timestamp.
+    clock.advance(Duration.ofDays(100));
+    putKey("def");
+
+    // Remove an entry should remove its timestamp.
+    clock.advance(Duration.ofDays(100));
+    cache.remove("ghi");
+
+    // Removing entries matching a predicate should not affect the timestamp of other entries.
+    clock.advance(Duration.ofDays(100));
+    cache.removeIf(e -> e.discoversInputs());
+
+    assertFullSave();
+
+    assertThat(cache.getActionTimestampMap())
+        .containsExactly(
+            "abc",
+            EPOCH.plus(Duration.ofDays(600)),
+            "def",
+            EPOCH.plus(Duration.ofDays(700)),
+            "jkl",
+            EPOCH.plus(Duration.ofDays(400)));
+
+    // Make sure we get the same result after deserializing into a new cache.
+    CompactPersistentActionCache newerCache =
+        CompactPersistentActionCache.create(cacheRoot, corruptedCacheRoot, clock, eventHandler);
+    verify(eventHandler, never()).handle(any());
+    assertThat(newerCache.getActionTimestampMap())
+        .containsExactly(
+            "abc",
+            EPOCH.plus(Duration.ofDays(600)),
+            "def",
+            EPOCH.plus(Duration.ofDays(700)),
+            "jkl",
+            EPOCH.plus(Duration.ofDays(400)));
+  }
+
+  @Test
   public void testToStringIsntTooBig() {
     assertToStringIsntTooBig(3);
     assertToStringIsntTooBig(3000);
@@ -276,7 +336,9 @@ public class CompactPersistentActionCacheTest {
     MAP_FILE,
     JOURNAL_FILE,
     INDEX_FILE,
-    INDEX_JOURNAL_FILE
+    INDEX_JOURNAL_FILE,
+    TIMESTAMP_FILE,
+    TIMESTAMP_JOURNAL_FILE
   }
 
   @Test
@@ -287,6 +349,8 @@ public class CompactPersistentActionCacheTest {
           case JOURNAL_FILE -> journalFile;
           case INDEX_FILE -> indexFile;
           case INDEX_JOURNAL_FILE -> indexJournalFile;
+          case TIMESTAMP_FILE -> timestampFile;
+          case TIMESTAMP_JOURNAL_FILE -> timestampJournalFile;
         };
 
     FileSystemUtils.writeContent(incompatibleFile, "incompatible".getBytes(ISO_8859_1));
