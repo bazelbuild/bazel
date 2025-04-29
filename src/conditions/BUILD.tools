@@ -126,6 +126,7 @@ config_setting(
         "@platforms//os:windows",
         "@platforms//cpu:x86_64",
     ],
+    visibility = ["//visibility:public"],
 )
 config_setting(
     name = "windows_arm64",
@@ -133,6 +134,7 @@ config_setting(
         "@platforms//os:windows",
         "@platforms//cpu:arm64",
     ],
+    visibility = ["//visibility:public"],
 )
 
 # TODO: figure out how to base this selection on constraints
