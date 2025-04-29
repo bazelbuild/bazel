@@ -117,7 +117,6 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.XattrProvider;
-import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.common.options.OptionsProvider;
@@ -414,6 +413,10 @@ public final class SkyframeActionExecutor {
 
   public boolean invocationRetriesEnabled() {
     return invocationRetriesEnabled;
+  }
+
+  InputMetadataProvider getPerBuildFileCache() {
+    return perBuildFileCache;
   }
 
   OutputPermissions getOutputPermissions() {
@@ -851,9 +854,9 @@ public final class SkyframeActionExecutor {
   NestedSet<Artifact> discoverInputs(
       Action action,
       ActionLookupData actionLookupData,
-      InputMetadataProvider inputMetadataProvider,
+      InputMetadataProvider graphInputMetadataProvider,
+      InputMetadataProvider skyframeInputMetadataProvider,
       Environment env,
-      MemoizingEvaluator evaluator,
       @Nullable FileSystem actionFileSystem)
       throws ActionExecutionException, InterruptedException {
     FileOutErr fileOutErr =
@@ -861,15 +864,9 @@ public final class SkyframeActionExecutor {
             ArtifactPathResolver.createPathResolver(
                 actionFileSystem, executorEngine.getExecRoot()));
     ExtendedEventHandler eventHandler = selectEventHandler(action);
-    InputMetadataProvider compositeInputMetadataProvider;
-    if (actionFileSystem instanceof InputMetadataProvider imp) {
-      compositeInputMetadataProvider = imp;
-    } else {
-      InputMetadataProvider skyframeProvider =
-          new SkyframeInputMetadataProvider(evaluator, perBuildFileCache);
-      compositeInputMetadataProvider =
-          new DelegatingPairInputMetadataProvider(inputMetadataProvider, skyframeProvider);
-    }
+    InputMetadataProvider compositeInputMetadataProvider =
+        new DelegatingPairInputMetadataProvider(
+            graphInputMetadataProvider, skyframeInputMetadataProvider, actionFileSystem);
     ActionExecutionContext actionExecutionContext =
         ActionExecutionContext.forInputDiscovery(
             executorEngine,

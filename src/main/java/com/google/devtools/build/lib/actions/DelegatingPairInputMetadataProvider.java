@@ -29,11 +29,22 @@ public final class DelegatingPairInputMetadataProvider implements InputMetadataP
 
   private final InputMetadataProvider primary;
   private final InputMetadataProvider secondary;
+  private final FileSystem fileSystemForInputResolution;
 
   public DelegatingPairInputMetadataProvider(
       InputMetadataProvider primary, InputMetadataProvider secondary) {
     this.primary = primary;
     this.secondary = secondary;
+    this.fileSystemForInputResolution = null;
+  }
+
+  public DelegatingPairInputMetadataProvider(
+      InputMetadataProvider primary,
+      InputMetadataProvider secondary,
+      FileSystem fileSystemForInputResolution) {
+    this.primary = primary;
+    this.secondary = secondary;
+    this.fileSystemForInputResolution = fileSystemForInputResolution;
   }
 
   @Override
@@ -107,6 +118,9 @@ public final class DelegatingPairInputMetadataProvider implements InputMetadataP
 
   @Override
   public FileSystem getFileSystemForInputResolution() {
+    if (fileSystemForInputResolution != null) {
+      return fileSystemForInputResolution;
+    }
     FileSystem result = primary.getFileSystemForInputResolution();
     return result != null ? result : secondary.getFileSystemForInputResolution();
   }

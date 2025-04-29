@@ -44,6 +44,7 @@ import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.AlreadyReportedActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
+import com.google.devtools.build.lib.actions.DelegatingPairInputMetadataProvider;
 import com.google.devtools.build.lib.actions.DiscoveredInputsEvent;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
@@ -323,11 +324,20 @@ public final class ActionExecutionFunction implements SkyFunction {
     if (checkedInputs != null) {
       checkState(!state.hasArtifactData(), "%s %s", state, action);
       state.inputArtifactData = checkedInputs.actionInputMap;
+      state.skyframeInputMetadataProvider =
+          new SkyframeInputMetadataProvider(
+              evaluator.get(),
+              env,
+              skyframeActionExecutor.getPerBuildFileCache(),
+              directories.getRelativeOutputPath());
+      state.pairInputMetadataProvider =
+          new DelegatingPairInputMetadataProvider(
+              state.inputArtifactData, state.skyframeInputMetadataProvider);
       if (skyframeActionExecutor.actionFileSystemType().isEnabled()) {
         state.actionFileSystem =
             skyframeActionExecutor.createActionFileSystem(
                 directories.getRelativeOutputPath(),
-                checkedInputs.actionInputMap,
+                state.pairInputMetadataProvider,
                 action.getOutputs());
       }
     }
@@ -761,14 +771,16 @@ public final class ActionExecutionFunction implements SkyFunction {
 
         try (SilentCloseable c =
             Profiler.instance().profile(ProfilerTask.DISCOVER_INPUTS, "discoverInputs")) {
-          state.discoveredInputs =
-              skyframeActionExecutor.discoverInputs(
-                  action,
-                  actionLookupData,
-                  inputMetadataProvider,
-                  env,
-                  evaluator.get(),
-                  state.actionFileSystem);
+          try (var unused = state.skyframeInputMetadataProvider.withSkyframeAllowed()) {
+            state.discoveredInputs =
+                skyframeActionExecutor.discoverInputs(
+                    action,
+                    actionLookupData,
+                    inputMetadataProvider,
+                    state.skyframeInputMetadataProvider,
+                    env,
+                    state.actionFileSystem);
+          }
         }
 
         discoveredInputsDuration = Duration.ofNanos(BlazeClock.nanoTime() - actionStartTime);
@@ -1223,6 +1235,15 @@ public final class ActionExecutionFunction implements SkyFunction {
 
     /** Mutable map containing metadata for known artifacts. */
     ActionInputMap inputArtifactData = null;
+
+    /** An input metadata provider that does Skyframe lookups. */
+    SkyframeInputMetadataProvider skyframeInputMetadataProvider = null;
+
+    /**
+     * An input metadata provider combining {@code inputArtifactData} and {@code
+     * skyframeInputMetadataProvider}.
+     */
+    DelegatingPairInputMetadataProvider pairInputMetadataProvider = null;
 
     Token token = null;
     NestedSet<Artifact> discoveredInputs = null;
