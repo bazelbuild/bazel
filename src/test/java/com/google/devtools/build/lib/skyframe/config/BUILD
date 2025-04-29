@@ -14,8 +14,8 @@ filegroup(
 )
 
 java_test(
-    name = "FlagSetsFunctionTest",
-    srcs = ["FlagSetsFunctionTest.java"],
+    name = "FlagSetFunctionTest",
+    srcs = ["FlagSetFunctionTest.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib:runtime/config_flag_definitions",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",

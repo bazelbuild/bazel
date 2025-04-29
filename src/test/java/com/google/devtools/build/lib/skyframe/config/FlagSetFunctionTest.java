@@ -44,7 +44,7 @@ import org.junit.runner.RunWith;
 
 /** Tests for {@link FlagSetFunction}. */
 @RunWith(TestParameterInjector.class)
-public final class FlagSetsFunctionTest extends BuildViewTestCase {
+public final class FlagSetFunctionTest extends BuildViewTestCase {
   // TODO: b/409377907 - Most of this enforcement has been moved to ProjectFunction. Move the
   // corresponding tests to ProjectFunctionTest.
 
