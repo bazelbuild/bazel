@@ -150,7 +150,7 @@ public class RewindingTestsHelper {
   private final SpawnController spawnController = new SpawnController();
   final LostImportantOutputHandlerModule lostOutputsModule;
 
-  RewindingTestsHelper(BuildIntegrationTestCase testCase, ActionEventRecorder recorder) {
+  public RewindingTestsHelper(BuildIntegrationTestCase testCase, ActionEventRecorder recorder) {
     this.testCase = checkNotNull(testCase);
     this.recorder = checkNotNull(recorder);
     this.lostOutputsModule = createLostOutputsModule();

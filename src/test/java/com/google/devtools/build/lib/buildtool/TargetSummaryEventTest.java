@@ -13,10 +13,15 @@
 // limitations under the License.
 package com.google.devtools.build.lib.buildtool;
 
+import static com.google.common.collect.MoreCollectors.toOptional;
 import static com.google.common.truth.Truth.assertThat;
+import static java.util.stream.Collectors.joining;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMultiset;
+import com.google.common.flogger.GoogleLogger;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialModule;
@@ -30,12 +35,17 @@ import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.runtime.BlazeCommandDispatcher;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.NoSpawnCacheModule;
+import com.google.devtools.build.lib.skyframe.rewinding.RewindingTestsHelper;
+import com.google.devtools.build.lib.testutil.ActionEventRecorder;
+import com.google.devtools.build.lib.testutil.SpawnInputUtils;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.NoSuchElementException;
+import java.util.Optional;
 import javax.annotation.Nullable;
 import org.junit.Before;
 import org.junit.Rule;
@@ -49,9 +59,14 @@ import org.junit.runners.JUnit4;
  * com.google.devtools.build.lib.runtime.TargetSummaryEvent} event.
  */
 @RunWith(JUnit4.class)
-public class TargetSummaryEventTest extends BuildIntegrationTestCase {
+public final class TargetSummaryEventTest extends BuildIntegrationTestCase {
+
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   @Rule public final TemporaryFolder tmpFolder = new TemporaryFolder();
+
+  private final ActionEventRecorder actionEventRecorder = new ActionEventRecorder();
+  private final RewindingTestsHelper helper = new RewindingTestsHelper(this, actionEventRecorder);
 
   @Before
   public void stageEmbeddedTools() throws Exception {
@@ -63,7 +78,15 @@ public class TargetSummaryEventTest extends BuildIntegrationTestCase {
     return super.getRuntimeBuilder()
         .addBlazeModule(new NoSpawnCacheModule())
         .addBlazeModule(new CredentialModule())
-        .addBlazeModule(new BazelBuildEventServiceModule());
+        .addBlazeModule(new BazelBuildEventServiceModule())
+        .addBlazeModule(helper.makeControllableActionStrategyModule("standalone"));
+  }
+
+  @Override
+  protected void setupOptions() throws Exception {
+    super.setupOptions();
+    addOptions("--spawn_strategy=standalone", "--test_strategy=standalone");
+    runtimeWrapper.registerSubscriber(actionEventRecorder);
   }
 
   private void afterBuildCommand() throws Exception {
@@ -163,6 +186,38 @@ public class TargetSummaryEventTest extends BuildIntegrationTestCase {
     assertThat(testSummary).isNull();
   }
 
+  @Test
+  public void test_testActionLosesInput_rewindingSucceeds() throws Exception {
+    addOptions("--rewind_lost_inputs");
+    write(
+        "foo/BUILD",
+        """
+        load("//test_defs:foo_test.bzl", "foo_test")
+        foo_test(name = "test", srcs = ["test.sh"], data = [":lost"])
+        genrule(name = "lost", outs = ["lost.out"], cmd = "echo lost > $@")
+        """);
+    write("foo/test.sh", "#!/bin/bash", "true").setExecutable(true);
+    helper.addSpawnShim(
+        "Testing //foo:test",
+        (spawn, context) -> {
+          Artifact lost = SpawnInputUtils.getRunfilesArtifactWithName(spawn, context, "lost.out");
+          return helper.createLostInputsExecException(context, lost);
+        });
+
+    File bep = testTargetAndCaptureBuildEventProtocol("//foo:test");
+
+    TargetSummary targetSummary = findTargetSummaryEventInBuildEventStream(bep);
+    assertThat(targetSummary.getOverallBuildSuccess()).isTrue();
+    assertThat(targetSummary.getOverallTestStatus()).isEqualTo(TestStatus.PASSED);
+
+    TestSummary testSummary = findTestSummaryEventInBuildEventStream(bep);
+    assertThat(testSummary.getOverallStatus()).isEqualTo(TestStatus.PASSED);
+
+    helper.verifyAllSpawnShimsConsumed();
+    assertThat(ImmutableMultiset.copyOf(helper.getExecutedSpawnDescriptions()))
+        .hasCount("Executing genrule //foo:lost", 2);
+  }
+
   private File buildTargetAndCaptureBuildEventProtocol(String target) throws Exception {
     File bep = tmpFolder.newFile();
     // We use WAIT_FOR_UPLOAD_COMPLETE because it's the easiest way to force the BES module to
@@ -227,24 +282,29 @@ public class TargetSummaryEventTest extends BuildIntegrationTestCase {
     return buildEvents.build();
   }
 
-  @Nullable
   private static TargetSummary findTargetSummaryEventInBuildEventStream(File bep)
       throws IOException {
-    for (BuildEvent buildEvent : parseBuildEventsFromBuildEventStream(bep)) {
-      if (buildEvent.getId().getIdCase() == IdCase.TARGET_SUMMARY) {
-        return buildEvent.getTargetSummary();
-      }
+    ImmutableList<BuildEvent> events = parseBuildEventsFromBuildEventStream(bep);
+    Optional<TargetSummary> targetSummary =
+        events.stream()
+            .filter(e -> e.getId().getIdCase() == IdCase.TARGET_SUMMARY)
+            .map(BuildEvent::getTargetSummary)
+            .collect(toOptional());
+    if (targetSummary.isEmpty()) {
+      logger.atSevere().log(
+          "No TargetSummary event found, dumping BEP:\n%s",
+          events.stream().map(BuildEvent::toString).collect(joining("\n")));
+      throw new NoSuchElementException("No TargetSummary event found, see test log for full BEP");
     }
-    return null;
+    return targetSummary.get();
   }
 
   @Nullable
   private static TestSummary findTestSummaryEventInBuildEventStream(File bep) throws IOException {
-    for (BuildEvent buildEvent : parseBuildEventsFromBuildEventStream(bep)) {
-      if (buildEvent.getId().getIdCase() == IdCase.TEST_SUMMARY) {
-        return buildEvent.getTestSummary();
-      }
-    }
-    return null;
+    return parseBuildEventsFromBuildEventStream(bep).stream()
+        .filter(e -> e.getId().getIdCase() == IdCase.TEST_SUMMARY)
+        .map(BuildEvent::getTestSummary)
+        .collect(toOptional())
+        .orElse(null);
   }
 }
