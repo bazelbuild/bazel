@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.actions.OutputChecker;
 import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.util.AbruptExitException;
-import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import java.io.IOException;
 import java.util.Map;
 import java.util.UUID;
@@ -231,7 +230,6 @@ public interface OutputService {
   default void updateActionFileSystemContext(
       ActionExecutionMetadata action,
       FileSystem actionFileSystem,
-      Environment env,
       OutputMetadataStore outputMetadataStore,
       Map<Artifact, FilesetOutputTree> filesets) {}
 
