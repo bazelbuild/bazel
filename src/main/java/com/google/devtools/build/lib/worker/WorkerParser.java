@@ -154,8 +154,7 @@ public class WorkerParser {
   static boolean isMultiplexed(Spawn spawn, WorkerOptions options, boolean dynamic) {
     return options.workerMultiplex
         && Spawns.supportsMultiplexWorkers(spawn)
-        && !(dynamic
-            && !(Spawns.supportsMultiplexSandboxing(spawn) && options.multiplexSandboxing));
+        && (!dynamic || (Spawns.supportsMultiplexSandboxing(spawn) && options.multiplexSandboxing));
   }
 
   static boolean isSandboxed(Spawn spawn, WorkerOptions options, boolean dynamic) {
