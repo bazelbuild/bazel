@@ -62,6 +62,7 @@ public class CompactPersistentActionCacheTest {
   private Path execRoot;
   private Path cacheRoot;
   private Path corruptedCacheRoot;
+  private Path tmpDir;
   private Path mapFile;
   private Path journalFile;
   private Path indexFile;
@@ -79,9 +80,10 @@ public class CompactPersistentActionCacheTest {
     execRoot = scratch.resolve("/output");
     cacheRoot = scratch.resolve("/cache_root");
     corruptedCacheRoot = scratch.resolve("/corrupted_cache_root");
+    tmpDir = scratch.resolve("/cache_tmp_dir");
     cache =
         CompactPersistentActionCache.create(
-            cacheRoot, corruptedCacheRoot, clock, NullEventHandler.INSTANCE);
+            cacheRoot, corruptedCacheRoot, tmpDir, clock, NullEventHandler.INSTANCE);
     mapFile = CompactPersistentActionCache.cacheFile(cacheRoot);
     journalFile = CompactPersistentActionCache.journalFile(cacheRoot);
     indexFile = CompactPersistentActionCache.indexFile(cacheRoot);
@@ -151,7 +153,8 @@ public class CompactPersistentActionCacheTest {
     assertThat(journalFile.exists()).isFalse();
 
     CompactPersistentActionCache newCache =
-        CompactPersistentActionCache.create(cacheRoot, corruptedCacheRoot, clock, eventHandler);
+        CompactPersistentActionCache.create(
+            cacheRoot, corruptedCacheRoot, tmpDir, clock, eventHandler);
     verify(eventHandler, never()).handle(any());
     ActionCache.Entry readentry = newCache.get(key);
     assertThat(readentry).isNotNull();
@@ -173,7 +176,8 @@ public class CompactPersistentActionCacheTest {
     // Make sure we have all the entries, including those in the journal,
     // after deserializing into a new cache.
     CompactPersistentActionCache newcache =
-        CompactPersistentActionCache.create(cacheRoot, corruptedCacheRoot, clock, eventHandler);
+        CompactPersistentActionCache.create(
+            cacheRoot, corruptedCacheRoot, tmpDir, clock, eventHandler);
     verify(eventHandler, never()).handle(any());
     for (int i = 0; i < 100; i++) {
       assertKeyEquals(cache, newcache, Integer.toString(i));
@@ -185,7 +189,8 @@ public class CompactPersistentActionCacheTest {
 
     // Make sure we can see previous journal values after a second incremental save.
     CompactPersistentActionCache newerCache =
-        CompactPersistentActionCache.create(cacheRoot, corruptedCacheRoot, clock, eventHandler);
+        CompactPersistentActionCache.create(
+            cacheRoot, corruptedCacheRoot, tmpDir, clock, eventHandler);
     verify(eventHandler, never()).handle(any());
     for (int i = 0; i < 100; i++) {
       assertKeyEquals(cache, newerCache, Integer.toString(i));
@@ -226,7 +231,8 @@ public class CompactPersistentActionCacheTest {
 
     // Make sure we get the same result after deserializing into a new cache.
     CompactPersistentActionCache newerCache =
-        CompactPersistentActionCache.create(cacheRoot, corruptedCacheRoot, clock, eventHandler);
+        CompactPersistentActionCache.create(
+            cacheRoot, corruptedCacheRoot, tmpDir, clock, eventHandler);
     verify(eventHandler, never()).handle(any());
     for (int i = 0; i < 100; i++) {
       ActionCache.Entry entry = newerCache.get(Integer.toString(i));
@@ -254,7 +260,8 @@ public class CompactPersistentActionCacheTest {
 
     // Make sure we get the same result after deserializing into a new cache.
     CompactPersistentActionCache newerCache =
-        CompactPersistentActionCache.create(cacheRoot, corruptedCacheRoot, clock, eventHandler);
+        CompactPersistentActionCache.create(
+            cacheRoot, corruptedCacheRoot, tmpDir, clock, eventHandler);
     verify(eventHandler, never()).handle(any());
     assertThat(newerCache.size()).isEqualTo(0);
   }
@@ -314,7 +321,8 @@ public class CompactPersistentActionCacheTest {
 
     // Make sure we get the same result after deserializing into a new cache.
     CompactPersistentActionCache newerCache =
-        CompactPersistentActionCache.create(cacheRoot, corruptedCacheRoot, clock, eventHandler);
+        CompactPersistentActionCache.create(
+            cacheRoot, corruptedCacheRoot, tmpDir, clock, eventHandler);
     verify(eventHandler, never()).handle(any());
     assertThat(newerCache.getActionTimestampMap())
         .containsExactly(
@@ -324,6 +332,82 @@ public class CompactPersistentActionCacheTest {
             EPOCH.plus(Duration.ofDays(700)),
             "jkl",
             EPOCH.plus(Duration.ofDays(400)));
+  }
+
+  @Test
+  public void testTrimNoThreshold() throws Exception {
+    clock.advance(Duration.ofDays(100));
+    putKey("abc");
+    clock.advance(Duration.ofDays(100));
+    putKey("def");
+    clock.advance(Duration.ofDays(100));
+    putKey("ghi");
+    clock.advance(Duration.ofDays(100));
+    putKey("jkl");
+    clock.advance(Duration.ofDays(100));
+    assertFullSave();
+
+    cache = cache.trim(0, Duration.ofDays(250));
+
+    // Check that the cache was trimmed correctly.
+    assertThat(cache.get("abc")).isNull();
+    assertThat(cache.get("def")).isNull();
+    assertThat(cache.get("ghi")).isNotNull();
+    assertThat(cache.get("jkl")).isNotNull();
+
+    // Make sure we get the same result after deserializing into a new cache.
+    CompactPersistentActionCache newerCache =
+        CompactPersistentActionCache.create(
+            cacheRoot, corruptedCacheRoot, tmpDir, clock, eventHandler);
+    verify(eventHandler, never()).handle(any());
+    assertThat(newerCache.get("abc")).isNull();
+    assertThat(newerCache.get("def")).isNull();
+    assertThat(newerCache.get("ghi")).isNotNull();
+    assertThat(newerCache.get("jkl")).isNotNull();
+  }
+
+  @Test
+  public void testTrimBelowThreshold() throws Exception {
+    clock.advance(Duration.ofDays(100));
+    putKey("abc");
+    clock.advance(Duration.ofDays(100));
+    putKey("def");
+    clock.advance(Duration.ofDays(100));
+    putKey("ghi");
+    clock.advance(Duration.ofDays(100));
+    putKey("jkl");
+    clock.advance(Duration.ofDays(100));
+    assertFullSave();
+
+    // 1 of 4 entries is stale, below 30% threshold.
+    cache = cache.trim(0.3f, Duration.ofDays(350));
+
+    assertThat(cache.get("abc")).isNotNull();
+    assertThat(cache.get("def")).isNotNull();
+    assertThat(cache.get("ghi")).isNotNull();
+    assertThat(cache.get("jkl")).isNotNull();
+  }
+
+  @Test
+  public void testTrimAboveThreshold() throws Exception {
+    clock.advance(Duration.ofDays(100));
+    putKey("abc");
+    clock.advance(Duration.ofDays(100));
+    putKey("def");
+    clock.advance(Duration.ofDays(100));
+    putKey("ghi");
+    clock.advance(Duration.ofDays(100));
+    putKey("jkl");
+    clock.advance(Duration.ofDays(100));
+    assertFullSave();
+
+    // 1 of 4 entries is stale, above 20% threshold.
+    cache = cache.trim(0.2f, Duration.ofDays(350));
+
+    assertThat(cache.get("abc")).isNull();
+    assertThat(cache.get("def")).isNotNull();
+    assertThat(cache.get("ghi")).isNotNull();
+    assertThat(cache.get("jkl")).isNotNull();
   }
 
   @Test
@@ -355,7 +439,9 @@ public class CompactPersistentActionCacheTest {
 
     FileSystemUtils.writeContent(incompatibleFile, "incompatible".getBytes(ISO_8859_1));
 
-    cache = CompactPersistentActionCache.create(cacheRoot, corruptedCacheRoot, clock, eventHandler);
+    cache =
+        CompactPersistentActionCache.create(
+            cacheRoot, corruptedCacheRoot, tmpDir, clock, eventHandler);
 
     verify(eventHandler, never()).handle(any());
     assertThat(corruptedCacheRoot.exists()).isFalse();
@@ -372,7 +458,9 @@ public class CompactPersistentActionCacheTest {
     byte[] contents = FileSystemUtils.readContent(mapFile);
     FileSystemUtils.writeContent(mapFile, Arrays.copyOf(contents, contents.length - 1));
 
-    cache = CompactPersistentActionCache.create(cacheRoot, corruptedCacheRoot, clock, eventHandler);
+    cache =
+        CompactPersistentActionCache.create(
+            cacheRoot, corruptedCacheRoot, tmpDir, clock, eventHandler);
 
     verify(eventHandler).handle(any());
     assertThat(corruptedCacheRoot.exists()).isTrue();
@@ -394,7 +482,9 @@ public class CompactPersistentActionCacheTest {
     byte[] contents = FileSystemUtils.readContent(journalFile);
     FileSystemUtils.writeContent(journalFile, Arrays.copyOf(contents, contents.length - 1));
 
-    cache = CompactPersistentActionCache.create(cacheRoot, corruptedCacheRoot, clock, eventHandler);
+    cache =
+        CompactPersistentActionCache.create(
+            cacheRoot, corruptedCacheRoot, tmpDir, clock, eventHandler);
 
     verify(eventHandler, never()).handle(any());
     assertThat(corruptedCacheRoot.exists()).isFalse();

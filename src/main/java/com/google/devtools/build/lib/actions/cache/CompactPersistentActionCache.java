@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.actions.cache;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -31,6 +32,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ConditionallyThreadSafe;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.util.MapCodec;
 import com.google.devtools.build.lib.util.MapCodec.IncompatibleFormatException;
 import com.google.devtools.build.lib.util.PersistentMap;
@@ -275,6 +277,9 @@ public class CompactPersistentActionCache implements ActionCache {
     }
   }
 
+  private final Path cacheRoot;
+  private final Path corruptedCacheRoot;
+  private final Path tmpDir;
   private final Clock clock;
   private final PersistentStringIndexer indexer;
   private final ActionMap actionMap;
@@ -284,11 +289,17 @@ public class CompactPersistentActionCache implements ActionCache {
   private Duration loadTime;
 
   private CompactPersistentActionCache(
+      Path cacheRoot,
+      Path corruptedCacheRoot,
+      Path tmpDir,
       Clock clock,
       PersistentStringIndexer indexer,
       ActionMap actionMap,
       TimestampMap timestampMap,
       ImmutableMap<MissReason, AtomicInteger> misses) {
+    this.cacheRoot = cacheRoot;
+    this.corruptedCacheRoot = corruptedCacheRoot;
+    this.tmpDir = tmpDir;
     this.clock = clock;
     this.indexer = indexer;
     this.actionMap = actionMap;
@@ -299,6 +310,7 @@ public class CompactPersistentActionCache implements ActionCache {
   public static CompactPersistentActionCache create(
       Path cacheRoot,
       Path corruptedCacheRoot,
+      Path tmpDir,
       Clock clock,
       EventHandler reporterForInitializationErrors)
       throws IOException {
@@ -307,6 +319,7 @@ public class CompactPersistentActionCache implements ActionCache {
         create(
             cacheRoot,
             corruptedCacheRoot,
+            tmpDir,
             clock,
             reporterForInitializationErrors,
             /* retrying= */ false);
@@ -319,6 +332,7 @@ public class CompactPersistentActionCache implements ActionCache {
   private static CompactPersistentActionCache create(
       Path cacheRoot,
       Path corruptedCacheRoot,
+      Path tmpDir,
       Clock clock,
       EventHandler reporterForInitializationErrors,
       boolean retrying)
@@ -339,6 +353,7 @@ public class CompactPersistentActionCache implements ActionCache {
       return logAndThrowOrRecurse(
           cacheRoot,
           corruptedCacheRoot,
+          tmpDir,
           clock,
           "Failed to load action cache index data",
           e,
@@ -353,6 +368,7 @@ public class CompactPersistentActionCache implements ActionCache {
       return logAndThrowOrRecurse(
           cacheRoot,
           corruptedCacheRoot,
+          tmpDir,
           clock,
           "Failed to load action cache timestamp data",
           e,
@@ -367,6 +383,7 @@ public class CompactPersistentActionCache implements ActionCache {
       return logAndThrowOrRecurse(
           cacheRoot,
           corruptedCacheRoot,
+          tmpDir,
           clock,
           "Failed to load action cache data",
           e,
@@ -382,6 +399,7 @@ public class CompactPersistentActionCache implements ActionCache {
         return logAndThrowOrRecurse(
             cacheRoot,
             corruptedCacheRoot,
+            tmpDir,
             clock,
             "Failed action cache referential integrity check",
             e,
@@ -401,12 +419,20 @@ public class CompactPersistentActionCache implements ActionCache {
       misses.put(reason, new AtomicInteger(0));
     }
     return new CompactPersistentActionCache(
-        clock, indexer, actionMap, timestampMap, Maps.immutableEnumMap(misses));
+        cacheRoot,
+        corruptedCacheRoot,
+        tmpDir,
+        clock,
+        indexer,
+        actionMap,
+        timestampMap,
+        Maps.immutableEnumMap(misses));
   }
 
   private static CompactPersistentActionCache logAndThrowOrRecurse(
       Path cacheRoot,
       Path corruptedCacheRoot,
+      Path tmpDir,
       Clock clock,
       String message,
       IOException e,
@@ -444,6 +470,7 @@ public class CompactPersistentActionCache implements ActionCache {
     return create(
         cacheRoot,
         corruptedCacheRoot,
+        tmpDir,
         clock,
         reporterForInitializationErrors,
         /* retrying= */ true);
@@ -515,6 +542,10 @@ public class CompactPersistentActionCache implements ActionCache {
 
   @Override
   public void put(String key, ActionCache.Entry entry) {
+    put(key, entry, clock.now());
+  }
+
+  private void put(String key, ActionCache.Entry entry, Instant timestamp) {
     // Encode record. Note that both methods may create new mappings in the indexer.
     Integer index = indexer.getOrCreateIndex(key);
     byte[] content;
@@ -535,7 +566,7 @@ public class CompactPersistentActionCache implements ActionCache {
     actionMap.put(VALIDATION_KEY, buffer.array());
 
     // Update the timestamp map.
-    timestampMap.put(index, Timestamp.fromInstant(clock.now()));
+    timestampMap.put(index, Timestamp.fromInstant(timestamp));
 
     // Update the action map.
     // This is last so that, if a flush occurs, the index and timestamp also make it to disk.
@@ -612,6 +643,79 @@ public class CompactPersistentActionCache implements ActionCache {
       }
     }
     return builder.buildKeepingLast();
+  }
+
+  @ThreadSafety.ThreadHostile
+  @Override
+  public CompactPersistentActionCache trim(float threshold, Duration maxAge)
+      throws IOException, InterruptedException {
+    Instant cutoffTime = clock.now().minus(maxAge);
+
+    ImmutableMap<String, Instant> accessTimeMap = getActionTimestampMap();
+
+    // Count the number of stale entries.
+    int numStale = 0;
+    for (Map.Entry<String, Instant> entry : accessTimeMap.entrySet()) {
+      if (Thread.interrupted()) {
+        // If interrupted, return promptly.
+        throw new InterruptedException();
+      }
+      if (entry.getValue().isBefore(cutoffTime)) {
+        numStale++;
+      }
+    }
+
+    // Skip garbage collection if below the threshold.
+    if (numStale == 0 || numStale < threshold * actionMap.size()) {
+      return this;
+    }
+
+    // Clear preexisting temporary directory contents.
+    tmpDir.deleteTree();
+
+    Path newRoot = tmpDir.getChild("new");
+    Path oldRoot = tmpDir.getChild("old");
+
+    // Create a new cache backed by a temporary directory.
+    var newCache =
+        CompactPersistentActionCache.create(
+            newRoot, corruptedCacheRoot, tmpDir, clock, NullEventHandler.INSTANCE);
+
+    // Copy sufficiently recent entries into the new cache.
+    for (Map.Entry<Integer, byte[]> entry : actionMap.entrySet()) {
+      if (Thread.interrupted()) {
+        // If interrupted, return promptly but avoid leaving the temporary directory behind.
+        tmpDir.deleteTree();
+        throw new InterruptedException();
+      }
+      if (entry.getKey() == VALIDATION_KEY) {
+        // Skip the validation record.
+        continue;
+      }
+      String actionKey = checkNotNull(indexer.getStringForIndex(entry.getKey()), entry.getKey());
+      // If the timestamp is missing, assume the entry was recently added but its timestamp update
+      // was lost.
+      Instant timestamp = accessTimeMap.getOrDefault(actionKey, clock.now());
+      if (timestamp.isBefore(cutoffTime)) {
+        continue;
+      }
+      // The entry must be reencoded so that strings it references are inserted into the indexer.
+      newCache.put(actionKey, decode(entry.getValue()), timestamp);
+    }
+
+    // Save the new cache to disk.
+    newCache.save();
+
+    // Replace the on-disk representation.
+    cacheRoot.renameTo(oldRoot);
+    newRoot.renameTo(cacheRoot);
+
+    // Delete the temporary directory.
+    tmpDir.deleteTree();
+
+    // Reload the cache from disk and return it.
+    return CompactPersistentActionCache.create(
+        cacheRoot, corruptedCacheRoot, tmpDir, clock, NullEventHandler.INSTANCE);
   }
 
   @Override

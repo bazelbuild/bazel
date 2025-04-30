@@ -200,9 +200,24 @@ public final class BlazeWorkspace {
     return getOutputBase().getChild("action_cache");
   }
 
-  /** Returns the path where an action cache previously determined to be corrupted is stored. */
+  /**
+   * Returns the path where an action cache previously determined to be corrupted is stored. *
+   *
+   * <p>This path must be a descendant of the output base, as the action cache cannot be safely
+   * shared between different workspaces.
+   */
   private Path getCorruptedActionCacheDirectory() {
     return getOutputBase().getChild("action_cache.bad");
+  }
+
+  /**
+   * Returns the path where the action cache may temporarily store data during garbage collection.
+   *
+   * <p>This path must be a descendant of the output base, as the action cache cannot be safely
+   * shared between different workspaces.
+   */
+  private Path getActionCacheTmpDirectory() {
+    return getOutputBase().getChild("action_cache.tmp");
   }
 
   void recordLastExecutionTime(long commandStartTime) {
@@ -298,6 +313,7 @@ public final class BlazeWorkspace {
     actionCache = null;
     getActionCacheDirectory().deleteTree();
     getCorruptedActionCacheDirectory().deleteTree();
+    getActionCacheTmpDirectory().deleteTree();
   }
 
   /**
@@ -313,6 +329,7 @@ public final class BlazeWorkspace {
             CompactPersistentActionCache.create(
                 getActionCacheDirectory(),
                 getCorruptedActionCacheDirectory(),
+                getActionCacheTmpDirectory(),
                 runtime.getClock(),
                 reporter);
       }

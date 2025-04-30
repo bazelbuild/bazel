@@ -420,6 +420,24 @@ public interface ActionCache {
   /** Clear the action cache, closing all opened file handle. */
   void clear();
 
+  /**
+   * Returns an {@link ActionCache} with the same backing directory, but whose contents may have
+   * been garbage collected.
+   *
+   * <p>May be safely interrupted. Upon interruption, this instance, including its backing
+   * directory, remains valid. Otherwise, the return value may be the current instance or a
+   * different one, depending on whether garbage collection was deemed necessary. If a different
+   * instance is returned, the current instance must not be used further. Thus, safe usage of this
+   * method looks like {@code actionCache = actionCache.trim(threshold, maxAge)}.
+   *
+   * @param threshold the fraction of stale entries required to trigger garbage collection
+   * @param maxAge the age at which entries are considered stale
+   * @return either the current instance, or a fresh instance that replaces it
+   * @throws IOException if an I/O error occurs
+   * @throws InterruptedException in case of interruption
+   */
+  ActionCache trim(float threshold, Duration maxAge) throws IOException, InterruptedException;
+
   /** Dumps action cache content into the given PrintStream. */
   void dump(PrintStream out);
 

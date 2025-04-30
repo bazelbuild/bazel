@@ -43,6 +43,7 @@ public class TimestampBuilderWithCompactPersistentActionCacheTest extends Timest
   private final StoredEventHandler storedEventHandler = new StoredEventHandler();
   private Path cacheRoot;
   private Path corruptedCacheRoot;
+  private Path tmpDir;
   private CompactPersistentActionCache cache;
 
   @Before
@@ -51,12 +52,13 @@ public class TimestampBuilderWithCompactPersistentActionCacheTest extends Timest
 
     cacheRoot = scratch.dir("cacheRoot");
     corruptedCacheRoot = scratch.dir("corruptedCacheRoot");
+    tmpDir = scratch.dir("cacheTmp");
     cache = createCache();
   }
 
   private CompactPersistentActionCache createCache() throws IOException {
     return CompactPersistentActionCache.create(
-        cacheRoot, corruptedCacheRoot, clock, storedEventHandler);
+        cacheRoot, corruptedCacheRoot, tmpDir, clock, storedEventHandler);
   }
 
   private static NestedSet<Artifact> asNestedSet(Artifact... artifacts) {
