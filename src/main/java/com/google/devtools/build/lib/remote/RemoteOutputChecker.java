@@ -18,7 +18,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.devtools.build.lib.packages.TargetUtils.isTestRuleName;
 import static com.google.devtools.build.lib.skyframe.CoverageReportValue.COVERAGE_REPORT_KEY;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionInput;
@@ -288,11 +287,6 @@ public class RemoteOutputChecker implements OutputChecker {
             output instanceof Artifact artifact && artifact.hasParent()
                 ? artifact.getParent().getExecPath()
                 : null);
-  }
-
-  @VisibleForTesting
-  boolean shouldDownloadOutput(PathFragment execPath) {
-    return shouldDownloadOutput(execPath, /* parentExecPath= */ null);
   }
 
   /** Returns whether a remote {@link ActionInput} with the given path should be downloaded. */
