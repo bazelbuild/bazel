@@ -320,7 +320,7 @@ public class RemoteActionFileSystem extends AbstractFileSystem
     remoteOutputTree.injectFile(path, metadata);
   }
 
-  void createRemoteDirectoryAndParents(PathFragment path) throws IOException {
+  void injectEmptyRemoteDirectory(PathFragment path) throws IOException {
     remoteOutputTree.createDirectoryAndParents(path);
   }
 

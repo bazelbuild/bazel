@@ -1391,23 +1391,25 @@ public class RemoteExecutionService {
         if (shouldDownload(result, parentExecPath, null)) {
           emptyDir.createDirectoryAndParents();
         } else if (!hasBazelOutputService) {
-          checkNotNull(remoteActionFileSystem)
-              .createRemoteDirectoryAndParents(emptyDir.asFragment());
+          checkNotNull(remoteActionFileSystem).injectEmptyRemoteDirectory(emptyDir.asFragment());
         }
-      }
-      for (FileMetadata file : entry.getValue().files()) {
-        if (realToTmpPath.containsKey(file.path)) {
-          continue;
-        }
+      } else {
+        for (FileMetadata file : entry.getValue().files()) {
+          if (realToTmpPath.containsKey(file.path)) {
+            continue;
+          }
 
-        if (shouldDownload(result, file.path.relativeTo(execRoot), parentExecPath)) {
-          Path tmpPath = tempPathGenerator.generateTempPath();
-          realToTmpPath.put(file.path, tmpPath);
-          downloadsBuilder.add(
-              downloadFile(
-                  context, progressStatusListener, file, tmpPath, action.getRemotePathResolver()));
-        } else {
-          if (hasBazelOutputService) {
+          if (shouldDownload(result, file.path.relativeTo(execRoot), parentExecPath)) {
+            Path tmpPath = tempPathGenerator.generateTempPath();
+            realToTmpPath.put(file.path, tmpPath);
+            downloadsBuilder.add(
+                downloadFile(
+                    context,
+                    progressStatusListener,
+                    file,
+                    tmpPath,
+                    action.getRemotePathResolver()));
+          } else if (hasBazelOutputService) {
             downloadsBuilder.add(immediateFuture(file));
           } else {
             checkNotNull(remoteActionFileSystem)
