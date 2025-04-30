@@ -35,6 +35,12 @@ import com.google.devtools.build.lib.starlarkbuildapi.config.ConfigurationTransi
  * configs A and B. This is completely wasteful if {@code //:noconfig} does the same thing
  * regardless of configuration. Instead, apply this transition to {@code //:noconfig}.
  *
+ * <p>The empty configuration produced by this transition has no native fragments other than {@link
+ * CoreOptions}, and even this has only the default values for its options. This can have surprising
+ * effects; for instance, {@code --check_visibility} gets reset to {@code true}, making it
+ * impossible to disable visibility checking within a {@code constraint_value}'s {@code
+ * constraint_setting} attribute.
+ *
  * <p>This is safest for rules that don't produce actions and don't have dependencies. Remember that
  * even if a rule doesn't read configuration, if any of its transitive dependencies read
  * configuration or if the rule has a {@code select()}, its output may still be
