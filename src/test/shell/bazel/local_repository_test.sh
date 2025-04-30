@@ -924,6 +924,36 @@ EOF
   expect_log "valid names may contain only A-Z, a-z, 0-9, '-', '_', '.', and must start with a letter"
 }
 
+function test_starting_with_number_in_repo_name() {
+  local r=$TEST_TMPDIR/r
+  rm -fr $r
+  mkdir -p $r/a
+
+  touch $r/a/REPO.bazel
+  cat > $r/a/BUILD <<EOF
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+
+cc_binary(
+    name = "bin",
+    srcs = ["bin.cc"],
+)
+EOF
+  cat > $r/a/bin.cc <<EOF
+int main() { return 0; };
+EOF
+
+  cat >> MODULE.bazel <<EOF
+local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
+local_repository(
+    name = "1name",
+    path = "$r/a",
+)
+EOF
+  add_rules_cc "MODULE.bazel"
+
+  bazel build @1name//:bin &> $TEST_log || fail "Build failed unexpectedly"
+}
+
 function test_remote_includes() {
   local remote=$TEST_TMPDIR/r
   rm -fr $remote
