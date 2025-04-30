@@ -2065,7 +2065,10 @@ public abstract class CcModule
 
     SourceCategory sourceCategory =
         (language == Language.CPP) ? SourceCategory.CC : SourceCategory.CC_AND_OBJC;
-    CcCommon common = new CcCommon(actions.getRuleContext());
+    String defaultPurpose =
+        getSemantics(language).getClass().getSimpleName()
+            + "_build_arch_"
+            + actions.getRuleContext().getConfiguration().getMnemonic();
     BuildConfigurationValue configuration = actions.getRuleContext().getConfiguration();
     List<String> includes =
         starlarkIncludes instanceof Depset
@@ -2121,7 +2124,7 @@ public abstract class CcModule
             Sequence.cast(additionalInputs, Artifact.class, "additional_inputs"))
         .addAdditionalInputs(nonCompilationAdditionalInputs)
         .addAdditionalIncludeScanningRoots(includeScanningRoots)
-        .setPurpose(common.getPurpose(getSemantics(language)))
+        .setPurpose(defaultPurpose)
         .addAdditionalExportedHeaders(
             additionalExportedHeaders.stream().map(PathFragment::create).collect(toImmutableList()))
         .setPropagateModuleMapToCompileAction(propagateModuleMapToCompileAction)
@@ -2308,7 +2311,10 @@ public abstract class CcModule
         (language == Language.CPP)
             ? CcStaticCompilationHelper.SourceCategory.CC
             : CcStaticCompilationHelper.SourceCategory.CC_AND_OBJC;
-    CcCommon common = new CcCommon(actions.getRuleContext());
+    String defaultPurpose =
+        getSemantics(language).getClass().getSimpleName()
+            + "_build_arch_"
+            + actions.getRuleContext().getConfiguration().getMnemonic();
     BuildConfigurationValue configuration = actions.getRuleContext().getConfiguration();
     List<String> includes =
         starlarkIncludes instanceof Depset
@@ -2364,7 +2370,7 @@ public abstract class CcModule
             Sequence.cast(additionalInputs, Artifact.class, "additional_inputs"))
         .addAdditionalInputs(nonCompilationAdditionalInputs)
         .addAdditionalIncludeScanningRoots(includeScanningRoots)
-        .setPurpose(common.getPurpose(getSemantics(language)))
+        .setPurpose(defaultPurpose)
         .addAdditionalExportedHeaders(
             additionalExportedHeaders.stream().map(PathFragment::create).collect(toImmutableList()))
         .setPropagateModuleMapToCompileAction(propagateModuleMapToCompileAction)
