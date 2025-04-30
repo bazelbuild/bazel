@@ -81,13 +81,7 @@ public final class ActionOutputDirectoryHelper {
       throws CreateOutputDirectoryException {
     Set<Path> done = new HashSet<>(); // avoid redundant calls for the same directory.
     for (Artifact outputFile : actionOutputs) {
-      Path outputDir;
-      if (outputFile.isTreeArtifact()) {
-        outputDir = artifactPathResolver.toPath(outputFile);
-      } else {
-        outputDir = artifactPathResolver.toPath(outputFile).getParentDirectory();
-      }
-
+      Path outputDir = artifactPathResolver.toPath(outputFile).getParentDirectory();
       if (done.add(outputDir)) {
         try {
           outputDir.createDirectoryAndParents();

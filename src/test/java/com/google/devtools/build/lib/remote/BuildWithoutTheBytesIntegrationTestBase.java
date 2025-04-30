@@ -94,6 +94,23 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
   }
 
   @Test
+  public void outputsAreNotDownloaded_tree() throws Exception {
+    writeOutputDirRule();
+    write(
+        "BUILD",
+        "load(':output_dir.bzl', 'output_dir')",
+        "output_dir(",
+        "  name = 'foo',",
+        "  content_map = {'file-1': '1', 'file-2': '2', 'file-3': '3'},",
+        ")");
+
+    buildTarget("//:foo");
+    waitDownloads();
+
+    assertOutputsDoNotExist("//:foo");
+  }
+
+  @Test
   public void disableRunfiles_buildSuccessfully() throws Exception {
     // Disable on Windows since it fails for unknown reasons.
     // TODO(chiwang): Enable it on windows.
