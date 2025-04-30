@@ -279,7 +279,7 @@ public final class CoverageReportActionBuilder {
     RunfilesSupport runfilesSupport = args.reportGenerator().getRunfilesSupport();
     Artifact runfilesTree =
         runfilesSupport != null ? runfilesSupport.getRunfilesTreeArtifact() : null;
-    args = CoverageArgs.createCopyWithCoverageDirAndLcovOutput(args, coverageDir, lcovOutput);
+    args = CoverageArgs.createCopyWithLcovOutput(args, lcovOutput);
     ImmutableList<String> actionArgs = argsFunc.apply(args);
 
     NestedSetBuilder<Artifact> inputsBuilder =
