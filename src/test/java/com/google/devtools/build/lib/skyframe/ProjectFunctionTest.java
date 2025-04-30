@@ -297,6 +297,76 @@ public class ProjectFunctionTest extends BuildViewTestCase {
   }
 
   @Test
+  public void duplicateBuildableUnitNames() throws Exception {
+    scratch.file(
+        "test/PROJECT.scl",
+        """
+        load(
+            "//test:project_proto.scl",
+            "buildable_unit_pb2",
+            "project_pb2",
+        )
+        project = project_pb2.Project.create(
+          name = "test",
+          buildable_units = [
+              buildable_unit_pb2.BuildableUnit.create(name = "foo"),
+              buildable_unit_pb2.BuildableUnit.create(name = "foo"),
+          ],
+        )
+        """);
+
+    scratch.file("test/BUILD");
+    ProjectValue.Key key = new ProjectValue.Key(Label.parseCanonical("//test:PROJECT.scl"));
+    EvaluationResult<ProjectValue> result =
+        SkyframeExecutorTestUtils.evaluate(skyframeExecutor, key, false, reporter);
+
+    assertThat(result.hasError()).isTrue();
+    assertThat(result.getError().getException())
+        .hasMessageThat()
+        .isEqualTo(
+            "buildable_unit name='foo' is repeated. Buildable units must have unique names.");
+  }
+
+  @Test
+  public void buildableUnitSchemaDefaults() throws Exception {
+    scratch.file(
+        "test/PROJECT.scl",
+        """
+        load(
+            "//test:project_proto.scl",
+            "buildable_unit_pb2",
+            "project_pb2",
+        )
+        project = project_pb2.Project.create(
+          name = "test",
+          buildable_units = [
+              buildable_unit_pb2.BuildableUnit.create(name = "foo"),
+          ],
+        )
+        """);
+
+    scratch.file("test/BUILD");
+    ProjectValue.Key key = new ProjectValue.Key(Label.parseCanonical("//test:PROJECT.scl"));
+    EvaluationResult<ProjectValue> result =
+        SkyframeExecutorTestUtils.evaluate(skyframeExecutor, key, false, reporter);
+
+    assertThat(result.hasError()).isFalse();
+
+    // Project-wide defaults:
+    assertThat(result.get(key).getEnforcementPolicy())
+        .isEqualTo(ProjectValue.EnforcementPolicy.WARN);
+    assertThat(result.get(key).getAlwaysAllowedConfigs()).isNull();
+    assertThat(result.get(key).getProjectDirectories()).hasSize(1);
+    assertThat(result.get(key).getProjectDirectories().get("default")).isEmpty();
+
+    // Buildable unit defaults:
+    assertThat(result.get(key).getBuildableUnits().get("foo").targetPatterns()).isEmpty();
+    assertThat(result.get(key).getBuildableUnits().get("foo").flags()).isEmpty();
+    assertThat(result.get(key).getBuildableUnits().get("foo").description()).isEqualTo("foo");
+    assertThat(result.get(key).getBuildableUnits().get("foo").isDefault()).isFalse();
+  }
+
+  @Test
   public void projectFunction_catchSyntaxError() throws Exception {
     scratch.file(
         "test/PROJECT.scl",

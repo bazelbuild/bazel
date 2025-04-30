@@ -27,11 +27,14 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Collection;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Map.Entry;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
+import net.starlark.java.eval.StarlarkList;
 
 /** A {@link SkyFunction} that loads metadata from a PROJECT.scl file. */
 public class ProjectFunction implements SkyFunction {
@@ -113,11 +116,12 @@ public class ProjectFunction implements SkyFunction {
    */
   private static ProjectValue parseProtoProjectSchema(
       StarlarkInfoNoSchema starlarkInfo, Label projectFile) throws ProjectFunctionException {
-    ImmutableMap.Builder<String, BuildableUnit> buildableUnitsBuilder = ImmutableMap.builder();
+    Map<String, BuildableUnit> buildableUnitsBuilder = new LinkedHashMap<>();
     Collection<?> buildableUnits =
         checkAndCast(
             starlarkInfo.getValue("buildable_units"),
             Collection.class,
+            /* defaultValue= */ null,
             "buildable_units must be a list of buildable unit definitions");
     for (Object buildableUnit : buildableUnits) {
       ImmutableList.Builder<String> targetPatternsBuilder = ImmutableList.builder();
@@ -126,52 +130,71 @@ public class ProjectFunction implements SkyFunction {
           checkAndCast(
               buildableUnit,
               StarlarkInfoNoSchema.class,
+              /* defaultValue= */ null,
               "buildable_units entries must be structured objects");
       String buildableUnitName =
           checkAndCast(
               buildableUnitStruct.getValue("name"),
               String.class,
+              /* defaultValue= */ null,
               "buildable_unit names must be strings");
       String buildableUnitDescription =
           checkAndCast(
               buildableUnitStruct.getValue("description"),
               String.class,
+              /* defaultValue= */ buildableUnitName,
               "buildable_unit descriptions must be strings");
       boolean isDefault =
           checkAndCast(
               buildableUnitStruct.getValue("is_default"),
               Boolean.class,
-              "is_default must a boolean");
+              /* defaultValue= */ false,
+              "is_default must be a boolean");
       Collection<?> targetPatterns =
           checkAndCast(
               buildableUnitStruct.getValue("target_patterns"),
               Collection.class,
+              /* defaultValue= */ ImmutableList.of(),
               "target_patterns must be a list of strings");
       for (Object targetPattern : targetPatterns) {
         targetPatternsBuilder.add(
-            checkAndCast(targetPattern, String.class, "target_patterns entries must be strings"));
+            checkAndCast(
+                targetPattern,
+                String.class,
+                /* defaultValue= */ null,
+                "target_patterns entries must be strings"));
       }
       Collection<?> flags =
           checkAndCast(
               buildableUnitStruct.getValue("flags"),
               Collection.class,
+              /* defaultValue= */ ImmutableList.of(),
               "flags must be a list of strings");
       for (Object flag : flags) {
-        flagsBuilder.add(checkAndCast(flag, String.class, "flags entries must be strings"));
+        flagsBuilder.add(
+            checkAndCast(
+                flag, String.class, /* defaultValue= */ null, "flags entries must be strings"));
       }
       // TODO: b/413130912: cleanly fail when multiple buildable units have the same name.
-      buildableUnitsBuilder.put(
-          buildableUnitName,
-          BuildableUnit.create(
-              targetPatternsBuilder.build(),
-              buildableUnitDescription,
-              flagsBuilder.build(),
-              isDefault));
+      if (buildableUnitsBuilder.put(
+              buildableUnitName,
+              BuildableUnit.create(
+                  targetPatternsBuilder.build(),
+                  buildableUnitDescription,
+                  flagsBuilder.build(),
+                  isDefault))
+          != null) {
+        throw new ProjectFunctionException(
+            new BadProjectFileException(
+                String.format(
+                    "buildable_unit name='%s' is repeated. Buildable units must have unique names.",
+                    buildableUnitName)));
+      }
     }
     return new ProjectValue(
         parseEnforcementPolicy(starlarkInfo.getValue(ENFORCEMENT_POLICY), projectFile),
         parseProjectDirectories(starlarkInfo.getValue("project_directories")),
-        buildableUnitsBuilder.buildOrThrow(),
+        ImmutableMap.copyOf(buildableUnitsBuilder),
         // TODO: b/411173830 - supported always_allowed_configs in the new schema.
         /* alwaysAllowedConfigs= */ null,
         projectFile);
@@ -202,6 +225,7 @@ public class ProjectFunction implements SkyFunction {
           checkAndCast(
               defaultConfigRaw,
               String.class,
+              /* defaultValue= */ null,
               "default_config must be a string matching a configs variable definition");
       defaultConfig = defaultConfigString;
     }
@@ -329,7 +353,10 @@ public class ProjectFunction implements SkyFunction {
             for (Object activeDirectory : list) {
               builder.add(
                   checkAndCast(
-                      activeDirectory, String.class, "project_directories is a list of strings"));
+                      activeDirectory,
+                      String.class,
+                      /* defaultValue= */ null,
+                      "project_directories is a list of strings"));
             }
             yield ImmutableMap.of("default", builder.build());
           }
@@ -350,17 +377,17 @@ public class ProjectFunction implements SkyFunction {
 
   private static EnforcementPolicy parseEnforcementPolicy(
       Object enforcementPolicyRaw, Label projectFile) throws ProjectFunctionException {
-    EnforcementPolicy enforcementPolicy = EnforcementPolicy.WARN;
-    if (enforcementPolicyRaw != null) {
+    if (enforcementPolicyRaw == null
+        || ((enforcementPolicyRaw instanceof StarlarkList<?> asList) && asList.isEmpty())) {
+      // Default if unspecified.
+      return EnforcementPolicy.WARN;
+    }
       try {
-        enforcementPolicy =
-            EnforcementPolicy.fromString(enforcementPolicyRaw.toString().toLowerCase(Locale.ROOT));
+      return EnforcementPolicy.fromString(enforcementPolicyRaw.toString().toLowerCase(Locale.ROOT));
       } catch (IllegalArgumentException e) {
         throw new ProjectFunctionException(
             new TypecheckFailureException(e.getMessage() + " in " + projectFile));
-      }
     }
-    return enforcementPolicy;
   }
 
   /**
@@ -445,12 +472,21 @@ public class ProjectFunction implements SkyFunction {
 
   /**
    * Checks that {@code rawValue} is an instance of {@code clazz}. If so, returns it cast to that
-   * type. Else throws a {@link ProjectFunctionException}.
+   * type. Else if its an empty {@link StarlarkList} and {@code defaultValue} is not null, returns
+   * {@code defaultValue}. Else throws a {@link ProjectFunctionException}.
+   *
+   * <p>Note that all unspecified protolark settings default to an empty {@code StarlarkList}.
    */
-  private static <T> T checkAndCast(Object rawValue, Class<T> clazz, String errorMessage)
+  private static <T> T checkAndCast(
+      Object rawValue, Class<T> clazz, @Nullable Object defaultValue, String errorMessage)
       throws ProjectFunctionException {
     if (clazz.isInstance(rawValue)) {
       return clazz.cast(rawValue);
+    }
+    if (defaultValue != null
+        && (rawValue instanceof StarlarkList<?> listValue)
+        && listValue.isEmpty()) {
+      return clazz.cast(defaultValue);
     }
     throw new ProjectFunctionException(
         new TypecheckFailureException(
