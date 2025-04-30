@@ -291,9 +291,27 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     waitDownloads();
 
     assertThat(getOutputPath("foo").exists()).isTrue();
-    assertOutputDoesNotExist("foo/file-1");
-    assertOutputDoesNotExist("foo/file-2");
-    assertOutputDoesNotExist("foo/file-3");
+    assertOutputContains("foo/file-1", "1");
+    assertOutputContains("foo/file-2", "2");
+    assertOutputContains("foo/file-3", "3");
+  }
+
+  @Test
+  public void downloadOutputsWithRegex_treeOutput_regexMatchesEmptyTreeRoot() throws Exception {
+    writeOutputDirRule();
+    write(
+        "BUILD",
+        "load(':output_dir.bzl', 'output_dir')",
+        "output_dir(",
+        "  name = 'foo',",
+        "  content_map = {},",
+        ")");
+    addOptions("--remote_download_regex=.*foo$");
+
+    buildTarget("//:foo");
+    waitDownloads();
+
+    assertThat(getOutputPath("foo").exists()).isTrue();
   }
 
   @Test
@@ -1768,7 +1786,7 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
 
     // Populate remote cache
     buildTarget("//a:bar");
-    assertThat(getOutputPath("a/foo.out").getDirectoryEntries()).isEmpty();
+    assertOutputDoesNotExist("a/foo.out");
     assertOutputDoesNotExist("a/bar.out");
     getOutputBase().getRelative("action_cache").deleteTreesBelow();
     restartServer();
@@ -1824,7 +1842,7 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
 
     // Populate remote cache
     buildTarget("//a:bar");
-    assertThat(getOutputPath("a/foo.out").getDirectoryEntries()).isEmpty();
+    assertOutputDoesNotExist("a/foo.out");
     assertOutputDoesNotExist("a/bar.out");
     getOutputBase().getRelative("action_cache").deleteTreesBelow();
     restartServer();
