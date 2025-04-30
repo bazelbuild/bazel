@@ -191,12 +191,13 @@ public class ProjectFunction implements SkyFunction {
                     buildableUnitName)));
       }
     }
+    ImmutableList<String> alwaysAllowedConfigs =
+        parseAlwaysAllowedConfigs(starlarkInfo.getValue("always_allowed_configs"));
     return new ProjectValue(
         parseEnforcementPolicy(starlarkInfo.getValue(ENFORCEMENT_POLICY), projectFile),
         parseProjectDirectories(starlarkInfo.getValue("project_directories")),
         ImmutableMap.copyOf(buildableUnitsBuilder),
-        // TODO: b/411173830 - supported always_allowed_configs in the new schema.
-        /* alwaysAllowedConfigs= */ null,
+        alwaysAllowedConfigs.isEmpty() ? null : alwaysAllowedConfigs,
         projectFile);
   }
 
@@ -252,23 +253,11 @@ public class ProjectFunction implements SkyFunction {
           new BadProjectFileException(
               "default_config must be a string matching a configs variable definition"));
     }
-    ImmutableList.Builder<String> alwaysAllowedConfigsBuilder = ImmutableList.builder();
-    if (dict.containsKey("always_allowed_configs")
-        && dict.get("always_allowed_configs") instanceof List<?> alwaysAllowedConfigs) {
-      for (Object config : alwaysAllowedConfigs) {
-        if (!(config instanceof String string)) {
-          throw new ProjectFunctionException(
-              new TypecheckFailureException(
-                  "always_allowed_configs must be a list of strings, got " + config.getClass()));
-        }
-        alwaysAllowedConfigsBuilder.add(string);
-      }
-    }
     return new ProjectValue(
         parseEnforcementPolicy(dict.get(ENFORCEMENT_POLICY), projectFile),
         parseProjectDirectories(dict.get("active_directories")),
         dict.containsKey("configs") ? buildableUnitsBuilder.buildOrThrow() : null,
-        alwaysAllowedConfigsBuilder.build(),
+        parseAlwaysAllowedConfigs(dict.get("always_allowed_configs")),
         projectFile);
   }
 
@@ -306,6 +295,29 @@ public class ProjectFunction implements SkyFunction {
                   "%s variable must be a map of strings to lists of strings", variableName)));
     }
     return configs.buildOrThrow();
+  }
+
+  private static ImmutableList<String> parseAlwaysAllowedConfigs(Object alwaysAllowedConfigsRaw)
+      throws ProjectFunctionException {
+    if (alwaysAllowedConfigsRaw == null) {
+      return ImmutableList.of();
+    }
+    Collection<?> alwaysAllowedConfigs =
+        checkAndCast(
+            alwaysAllowedConfigsRaw,
+            Collection.class,
+            /* defaultValue= */ ImmutableList.of(),
+            "always_allowed_configs must be a list of strings");
+    ImmutableList.Builder<String> alwaysAllowedConfigsBuilder = ImmutableList.builder();
+    for (Object config : alwaysAllowedConfigs) {
+      alwaysAllowedConfigsBuilder.add(
+          checkAndCast(
+              config,
+              String.class,
+              /* defaultValue= */ null,
+              "always_allowed_configs entires must be strings"));
+    }
+    return alwaysAllowedConfigsBuilder.build();
   }
 
   private static ImmutableMap<String, Collection<String>> parseProjectDirectories(

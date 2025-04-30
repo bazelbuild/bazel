@@ -238,6 +238,7 @@ public class ProjectFunctionTest extends BuildViewTestCase {
           name = "test",
           enforcement_policy = "warn",
           project_directories = [ "//test/..."],
+          always_allowed_configs = ["--config=foo"],
           buildable_units = [
               buildable_unit_pb2.BuildableUnit.create(
                   name = "default",
@@ -269,7 +270,7 @@ public class ProjectFunctionTest extends BuildViewTestCase {
     assertThat(result.hasError()).isFalse();
     ProjectValue value = result.get(key);
     assertThat(value.getEnforcementPolicy()).isEqualTo(ProjectValue.EnforcementPolicy.WARN);
-    assertThat(value.getAlwaysAllowedConfigs()).isNull();
+    assertThat(value.getAlwaysAllowedConfigs()).isEqualTo(ImmutableList.of("--config=foo"));
     assertThat(value.getActualProjectFile()).isEqualTo(Label.parseCanonical("//test:PROJECT.scl"));
     assertThat(value.getBuildableUnits().get("default").isDefault()).isTrue();
     assertThat(value.getBuildableUnits().get("non_default").isDefault()).isFalse();
