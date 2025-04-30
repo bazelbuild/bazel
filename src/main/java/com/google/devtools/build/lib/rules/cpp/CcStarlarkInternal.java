@@ -269,16 +269,6 @@ public class CcStarlarkInternal implements StarlarkValue {
         .getDefaultHdrsCheck();
   }
 
-  @StarlarkMethod(
-      name = "create_common",
-      documented = false,
-      parameters = {
-        @Param(name = "ctx", positional = false, named = true),
-      })
-  public CcCommon createCommon(StarlarkRuleContext starlarkRuleContext) {
-    return new CcCommon(starlarkRuleContext.getRuleContext());
-  }
-
   @StarlarkMethod(name = "launcher_provider", documented = false, structField = true)
   public ProviderApi getCcLauncherInfoProvider() throws EvalException {
     return CcLauncherInfo.PROVIDER;
