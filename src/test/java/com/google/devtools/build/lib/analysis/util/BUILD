@@ -27,6 +27,7 @@ java_library(
 java_library(
     name = "util_internal",
     srcs = glob(["*.java"]),
+    data = ["//src/main/protobuf/project:project_proto_scl"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib:build-request-options",
         "//src/main/java/com/google/devtools/build/lib:keep-going-option",
@@ -151,5 +152,6 @@ java_library(
         "//third_party:jsr305",
         "//third_party:junit4",
         "//third_party:truth",
+        "@rules_java//java/runfiles",
     ],
 )

@@ -174,9 +174,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.SyscallCache;
-import com.google.devtools.build.skyframe.ErrorInfo;
 import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
-import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -189,6 +187,7 @@ import com.google.errorprone.annotations.ForOverride;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -229,7 +228,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   // Note that these configurations are virtual (they use only VFS)
   protected BuildConfigurationValue targetConfig; // "target" or "build" config
   protected BuildConfigurationValue execConfig;
-  private List<String> configurationArgs;
+  private ImmutableList<String> configurationArgs;
 
   private PackageOptions packageOptions;
   private BuildLanguageOptions buildLanguageOptions;
@@ -2095,6 +2094,26 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     scratch.file(packageName + "/BUILD", lines);
     return getPackageManager()
         .getPackage(reporter, PackageIdentifier.createInMainRepo(packageName));
+  }
+
+  /**
+   * Copies the protolark-provided {@code project} scl definition into the given scratch file path.
+   *
+   * <p>{@code PROJECT.scl} files load this file to define their configuration. This method loads
+   * the actual (non-mocked) file, so tests can effectively match production code.
+   */
+  protected void writeProjectSclDefinition(String dest) throws Exception {
+
+    scratch.file(
+        dest,
+        Files.readString(
+            java.nio.file.Path.of(
+                com.google.devtools.build.runfiles.Runfiles.preload()
+                    .withSourceRepository("")
+                    .rlocation(
+                        TestConstants.WORKSPACE_NAME
+                            + "/"
+                            + TestConstants.PROJECT_SCL_DEFINITION_PATH))));
   }
 
   /** A stub analysis environment. */

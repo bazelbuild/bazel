@@ -35,6 +35,7 @@ public class ProjectFunctionTest extends BuildViewTestCase {
   @Before
   public void setUp() throws Exception {
     setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
+    writeProjectSclDefinition("test/project_proto.scl");
   }
 
   @Test
@@ -225,31 +226,6 @@ public class ProjectFunctionTest extends BuildViewTestCase {
 
   @Test
   public void projectFunction_buildableUnitsFormat() throws Exception {
-    scratch.file(
-        "test/project_proto.scl",
-        """
-        project_pb2 = struct(
-         Project = struct(
-            create = lambda name, enforcement_policy, project_directories, buildable_units: struct(
-               name = name,
-               enforcement_policy = enforcement_policy,
-               project_directories = project_directories,
-               buildable_units = buildable_units,
-            )
-          )
-        )
-        buildable_unit_pb2 = struct(
-          BuildableUnit = struct(
-            create = lambda name, target_patterns, flags, description, is_default: struct(
-              name = name,
-              target_patterns = target_patterns,
-              flags = flags,
-              description = description,
-              is_default = is_default,
-            )
-          )
-        )
-        """);
     scratch.file(
         "test/PROJECT.scl",
         """
