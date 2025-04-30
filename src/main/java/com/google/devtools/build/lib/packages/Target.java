@@ -119,9 +119,10 @@ public interface Target extends TargetData {
   @Nullable
   Rule getAssociatedRule();
 
-  /** Returns the license associated with this target. */
-  @Nullable
-  List<String> getLicense();
+  /**
+   * Returns the license associated with this target.
+   */
+  License getLicense();
 
   /**
    * Returns the visibility that was supplied at the point of this target's declaration -- e.g. the

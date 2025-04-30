@@ -63,6 +63,7 @@ public class RuleDocumentationAttribute
           .put(
               BuildType.LABEL_DICT_UNARY,
               "Dictionary mapping strings to <a href=\"${link build-ref#labels}\">labels</a>")
+          .put(BuildType.LICENSE, "Licence type")
           .put(BuildType.NODEP_LABEL, "<a href=\"${link build-ref#name}\">Name</a>")
           .put(BuildType.NODEP_LABEL_LIST, "List of <a href=\"${link build-ref#name}\">names</a>")
           .put(BuildType.OUTPUT, "<a href=\"${link build-ref#filename}\">Filename</a>")

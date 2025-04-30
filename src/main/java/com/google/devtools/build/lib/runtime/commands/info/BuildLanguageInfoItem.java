@@ -167,6 +167,9 @@ public final class BuildLanguageInfoItem extends InfoItem {
       for (Object elem : (List<?>) v) {
         b.addList(convertAttrValue(t.getListElementType(), elem));
       }
+    } else if (t == BuildType.LICENSE) {
+      // TODO(adonovan): need dual function of parseLicense.
+      // Treat as empty list for now.
     } else if (t == Type.STRING) {
       b.setString(StringEncoding.internalToUnicode((String) v));
     } else if (t == Type.INTEGER) {

@@ -42,7 +42,7 @@ public abstract class PackageArgs {
           .setDefaultVisibility(RuleVisibility.PRIVATE)
           .setDefaultTestOnly(false)
           .setFeatures(FeatureSet.EMPTY)
-          .setLicense(null)
+          .setLicense(License.NO_LICENSE)
           .setDefaultCompatibleWith(ImmutableSet.of())
           .setDefaultRestrictedTo(ImmutableSet.of())
           .setDefaultPackageMetadata(ImmutableList.of())
@@ -70,7 +70,7 @@ public abstract class PackageArgs {
 
   /** The default license value for the package. */
   @Nullable
-  public abstract ImmutableList<String> license();
+  public abstract License license();
 
   /** The default {@link RuleClass#COMPATIBLE_ENVIRONMENT_ATTR} value for the package. */
   @Nullable
@@ -124,7 +124,7 @@ public abstract class PackageArgs {
       return setFeatures(FeatureSet.merge(features(), x));
     }
 
-    public abstract Builder setLicense(List<String> x);
+    public abstract Builder setLicense(License x);
 
     /** Note that we don't check dupes in this method. Check beforehand! */
     public abstract Builder setDefaultCompatibleWith(Iterable<Label> x);
@@ -170,7 +170,7 @@ public abstract class PackageArgs {
           builder.mergeFeatures(
               FeatureSet.parse(Types.STRING_LIST.convert(rawValue, what, labelConverter)));
       case "licenses" ->
-          builder.setLicense(Types.STRING_LIST.convert(rawValue, what, labelConverter));
+          builder.setLicense(BuildType.LICENSE.convert(rawValue, what, labelConverter));
       case "default_compatible_with" ->
           builder.setDefaultCompatibleWith(
               throwIfHasDupes(BuildType.LABEL_LIST.convert(rawValue, what, labelConverter), name));

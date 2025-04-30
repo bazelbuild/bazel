@@ -685,7 +685,10 @@ public final class ModuleInfoExtractorTest {
   @Test
   public void ruleAttributes() throws Exception {
     Module module =
-        exec(
+        execWithOptions(
+            // TODO(https://github.com/bazelbuild/bazel/issues/6420): attr.license() is deprecated,
+            // and will eventually be removed from Bazel.
+            ImmutableList.of("--noincompatible_no_attr_license"),
             """
             MyInfo1 = provider()
             MyInfo2 = provider()
@@ -702,6 +705,7 @@ public final class ModuleInfoExtractorTest {
                     "c": attr.label(providers = [MyInfo1, MyInfo2]),
                     "d": attr.label(providers = [[MyInfo1, MyInfo2], [MyInfo3]]),
                     "_e": attr.string(doc = "Hidden attribute"),
+                    "deprecated_license": attr.license(),
                 },
             )
             """);
@@ -762,6 +766,12 @@ public final class ModuleInfoExtractorTest {
                                     OriginKey.newBuilder()
                                         .setName("MyInfo3")
                                         .setFile(fakeLabelString)))
+                        .build(),
+                    AttributeInfo.newBuilder()
+                        .setName("deprecated_license")
+                        .setType(AttributeType.STRING_LIST)
+                        .setDefaultValue("[\"none\"]")
+                        .setNonconfigurable(true)
                         .build())
                 .build());
   }

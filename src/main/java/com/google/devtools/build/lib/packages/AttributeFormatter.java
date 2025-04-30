@@ -22,6 +22,7 @@ import static com.google.devtools.build.lib.packages.BuildType.LABEL_DICT_UNARY;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_KEYED_STRING_DICT;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST_DICT;
+import static com.google.devtools.build.lib.packages.BuildType.LICENSE;
 import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL_LIST;
 import static com.google.devtools.build.lib.packages.BuildType.OUTPUT;
@@ -237,6 +238,16 @@ public class AttributeFormatter {
       builder.setBooleanValue((Boolean) value);
     } else if (type == TRISTATE) {
       builder.setTristateValue(triStateToProto((TriState) value));
+    } else if (type == LICENSE) {
+      License license = (License) value;
+      Build.License.Builder licensePb = Build.License.newBuilder();
+      for (License.LicenseType licenseType : license.getLicenseTypes()) {
+        licensePb.addLicenseType(internalToUnicode(licenseType.toString()));
+      }
+      for (Label exception : license.getExceptions()) {
+        licensePb.addException(internalToUnicode(exception.toString()));
+      }
+      builder.setLicense(licensePb);
     } else if (type == STRING_DICT) {
       Map<String, String> dict = (Map<String, String>) value;
       for (Map.Entry<String, String> keyValueList : dict.entrySet()) {
@@ -308,6 +319,8 @@ public class AttributeFormatter {
     void setBooleanValue(boolean b);
 
     void setIntValue(int i);
+
+    void setLicense(Build.License.Builder builder);
 
     void setStringValue(String s);
 
@@ -382,6 +395,11 @@ public class AttributeFormatter {
     @Override
     public void setIntValue(int i) {
       attributeBuilder.setIntValue(i);
+    }
+
+    @Override
+    public void setLicense(Build.License.Builder builder) {
+      attributeBuilder.setLicense(builder);
     }
 
     @Override
@@ -472,6 +490,11 @@ public class AttributeFormatter {
     @Override
     public void setIntValue(int i) {
       selectorEntryBuilder.setIntValue(i);
+    }
+
+    @Override
+    public void setLicense(Build.License.Builder builder) {
+      selectorEntryBuilder.setLicense(builder);
     }
 
     @Override

@@ -111,9 +111,8 @@ public class PackageGroup implements Target {
   }
 
   @Override
-  @Nullable
-  public List<String> getLicense() {
-    return null;
+  public License getLicense() {
+    return License.NO_LICENSE;
   }
 
   @Override

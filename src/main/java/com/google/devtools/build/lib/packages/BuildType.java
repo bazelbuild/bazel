@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages;
 
+import static com.google.devtools.build.lib.packages.Types.STRING_LIST;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
@@ -25,6 +26,7 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.packages.License.LicenseParsingException;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.packages.Type.DictType;
 import com.google.devtools.build.lib.packages.Type.LabelClass;
@@ -111,11 +113,18 @@ public final class BuildType {
   public static final ListType<Label> GENQUERY_SCOPE_TYPE_LIST =
       ListType.create(GENQUERY_SCOPE_TYPE);
 
+  /**
+   * The type of a license. Like Label, licenses aren't first-class, but they're important enough to
+   * justify early syntax error detection.
+   */
+  @SerializationConstant public static final Type<License> LICENSE = new LicenseType();
+
   /** The type of an output file, treated as a {@link #LABEL}. */
   @SerializationConstant public static final Type<Label> OUTPUT = new OutputType();
 
   private static final ImmutableMap<Type<?>, String> whyNotConfigurable =
       ImmutableMap.<Type<?>, String>builder()
+          .put(LICENSE, "loading phase license checking logic assumes non-configurable values")
           .put(OUTPUT, "output paths are part of the static graph structure")
           .buildOrThrow();
 
@@ -478,6 +487,47 @@ public final class BuildType {
         errorMessage.append(')');
       }
       throw new ConversionException(errorMessage.toString());
+    }
+  }
+
+  /**
+   * Like Label, LicenseType is a derived type, which is declared specially in order to allow syntax
+   * validation. It represents the licenses, as described in {@link License}.
+   */
+  public static final class LicenseType extends Type<License> {
+    @Override
+    public License cast(Object value) {
+      return (License) value;
+    }
+
+    @Override
+    public License convert(Object x, Object what, LabelConverter labelConverter)
+        throws ConversionException {
+      try {
+        List<String> licenseStrings = STRING_LIST.convert(x, what);
+        return License.parseLicense(licenseStrings);
+      } catch (LicenseParsingException e) {
+        throw new ConversionException(e.getMessage());
+      }
+    }
+
+    @Override
+    public Object copyAndLiftStarlarkValue(
+        Object x, Object what, @Nullable LabelConverter labelConverter) throws ConversionException {
+      return STRING_LIST.copyAndLiftStarlarkValue(x, what, labelConverter);
+    }
+
+    @Override
+    public License getDefaultValue() {
+      return License.NO_LICENSE;
+    }
+
+    @Override
+    public void visitLabels(LabelVisitor visitor, License value, @Nullable Attribute context) {}
+
+    @Override
+    public String toString() {
+      return "license";
     }
   }
 

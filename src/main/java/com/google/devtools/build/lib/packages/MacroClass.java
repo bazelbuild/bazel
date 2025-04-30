@@ -345,7 +345,10 @@ public final class MacroClass {
    * default as expected.
    */
   private static boolean shouldForceDefaultToNone(Attribute attr) {
-    return attr.hasComputedDefault() || attr.isLateBound() || attr.isMaterializing();
+    return attr.hasComputedDefault()
+        || attr.isLateBound()
+        || attr.isMaterializing()
+        || attr.getType() == BuildType.LICENSE;
   }
 
   /**

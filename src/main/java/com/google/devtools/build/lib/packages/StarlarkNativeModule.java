@@ -580,7 +580,7 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
     }
 
     // TODO(bazel-team): is licenses plural or singular?
-    List<String> license = Types.STRING_LIST.convertOptional(licensesO, "'exports_files' operand");
+    License license = BuildType.LICENSE.convertOptional(licensesO, "'exports_files' operand");
 
     Location loc = thread.getCallerLocation();
     for (String file : files) {
@@ -714,6 +714,12 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
       // Computed defaults. They will be represented as
       // "deprecation": com.google.devtools.build.lib.analysis.BaseRuleClasses$2@6960884a,
       // Filter them until we invent something more clever.
+      return false;
+    }
+
+    if (val instanceof License) {
+      // License is deprecated as a Starlark type, so omit this type from Starlark values
+      // to avoid exposing these objects, even though they are technically StarlarkValue.
       return false;
     }
 

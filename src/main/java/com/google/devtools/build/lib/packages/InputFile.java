@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.util.List;
 import javax.annotation.Nullable;
 import net.starlark.java.syntax.Location;
 
@@ -90,9 +89,8 @@ public class InputFile extends FileTarget {
   }
 
   @Override
-  @Nullable
-  public List<String> getLicense() {
-    return null;
+  public License getLicense() {
+    return License.NO_LICENSE;
   }
 
   /**

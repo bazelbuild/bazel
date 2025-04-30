@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.analysis;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
+import static com.google.devtools.build.lib.packages.BuildType.LICENSE;
 import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL_LIST;
 import static com.google.devtools.build.lib.packages.RuleClass.DEFAULT_TEST_RUNNER_EXEC_GROUP;
 import static com.google.devtools.build.lib.packages.RuleClass.DEFAULT_TEST_RUNNER_EXEC_GROUP_NAME;
@@ -454,15 +455,11 @@ public class BaseRuleClasses {
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
       return commonCoreAndStarlarkAttributes(builder)
           .add(
-              // TODO: b/148549967 - Remove for Bazel 9.0
-              attr("licenses", STRING_LIST)
-                  .undocumented("deprecated")
-                  .nonconfigurable("historically not configurable"))
+              attr("licenses", LICENSE)
+                  .nonconfigurable("Used in core loading phase logic with no access to configs"))
           .add(
               // TODO: b/148549967 - Remove for Bazel 9.0
-              attr("distribs", STRING_LIST)
-                  .undocumented("deprecated")
-                  .nonconfigurable("deprecated - no op"))
+              attr("distribs", STRING_LIST).nonconfigurable("deprecated - no op"))
           // Any rule that provides its own meaning for the "target_compatible_with" attribute
           // has to be excluded in `IncompatibleTargetChecker`.
           .add(

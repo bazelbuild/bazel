@@ -634,8 +634,7 @@ public abstract class TargetDefinitionContext extends StarlarkThreadContext {
   // TODO: #19922 - Don't allow exports_files() to modify visibility of targets that the current
   // symbolic macro did not create. Fun pathological example: exports_files() modifying the
   // visibility of :BUILD inside a symbolic macro.
-  void setVisibilityAndLicense(
-      InputFile inputFile, RuleVisibility visibility, List<String> license) {
+  void setVisibilityAndLicense(InputFile inputFile, RuleVisibility visibility, License license) {
     String filename = inputFile.getName();
     Target cacheInstance = recorder.getTargetMap().get(filename);
     if (!(cacheInstance instanceof InputFile)) {
