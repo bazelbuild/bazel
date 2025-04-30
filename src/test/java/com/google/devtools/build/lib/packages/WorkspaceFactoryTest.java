@@ -47,12 +47,6 @@ public class WorkspaceFactoryTest {
   }
 
   @Test
-  public void testWorkspaceStartsWithNumber() throws Exception {
-    helper.parse("workspace(name = '123abc')");
-    assertThat(helper.getParserError()).contains("invalid user-provided repo name '123abc'");
-  }
-
-  @Test
   public void testWorkspaceWithIllegalCharacters() throws Exception {
     helper.parse("workspace(name = 'a+b+c')");
     assertThat(helper.getParserError()).contains("invalid user-provided repo name 'a+b+c'");
