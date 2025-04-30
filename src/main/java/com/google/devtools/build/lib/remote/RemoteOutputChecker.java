@@ -18,6 +18,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.devtools.build.lib.packages.TargetUtils.isTestRuleName;
 import static com.google.devtools.build.lib.skyframe.CoverageReportValue.COVERAGE_REPORT_KEY;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionInput;
@@ -281,14 +282,26 @@ public class RemoteOutputChecker implements OutputChecker {
     checkState(
         !(output instanceof Artifact && ((Artifact) output).isTreeArtifact()),
         "shouldDownloadOutput should not be called on a tree artifact");
-    return metadata.isRemote() && shouldDownloadOutput(output.getExecPath());
+    return metadata.isRemote()
+        && shouldDownloadOutput(
+            output.getExecPath(),
+            output instanceof Artifact artifact && artifact.hasParent()
+                ? artifact.getParent().getExecPath()
+                : null);
+  }
+
+  @VisibleForTesting
+  boolean shouldDownloadOutput(PathFragment execPath) {
+    return shouldDownloadOutput(execPath, /* parentExecPath= */ null);
   }
 
   /** Returns whether a remote {@link ActionInput} with the given path should be downloaded. */
-  public boolean shouldDownloadOutput(PathFragment execPath) {
+  public boolean shouldDownloadOutput(
+      PathFragment execPath, @Nullable PathFragment parentExecPath) {
     return outputsMode == RemoteOutputsMode.ALL
         || pathsToDownload.contains(execPath)
-        || matchesPattern(execPath);
+        || matchesPattern(execPath)
+        || (parentExecPath != null && matchesPattern(parentExecPath));
   }
 
   @Override

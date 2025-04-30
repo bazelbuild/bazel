@@ -1337,7 +1337,7 @@ public class RemoteExecutionService {
 
       var execPath = file.path.relativeTo(execRoot);
       var isInMemoryOutputFile = inMemoryOutput != null && execPath.equals(inMemoryOutputPath);
-      if (!isInMemoryOutputFile && shouldDownload(result, execPath)) {
+      if (!isInMemoryOutputFile && shouldDownload(result, execPath, /* parentExecPath= */ null)) {
         Path tmpPath = tempPathGenerator.generateTempPath();
         realToTmpPath.put(file.path, tmpPath);
         downloadsBuilder.add(
@@ -1383,12 +1383,24 @@ public class RemoteExecutionService {
     }
 
     for (Map.Entry<Path, DirectoryMetadata> entry : metadata.directories()) {
+      PathFragment parentExecPath = entry.getKey().relativeTo(execRoot);
+      // An empty directory would not be created or injected implicitly as the parent of one of its
+      // entries.
+      if (entry.getValue().files().isEmpty() && entry.getValue().symlinks().isEmpty()) {
+        Path emptyDir = entry.getKey();
+        if (shouldDownload(result, parentExecPath, null)) {
+          emptyDir.createDirectoryAndParents();
+        } else if (!hasBazelOutputService) {
+          checkNotNull(remoteActionFileSystem)
+              .createRemoteDirectoryAndParents(emptyDir.asFragment());
+        }
+      }
       for (FileMetadata file : entry.getValue().files()) {
         if (realToTmpPath.containsKey(file.path)) {
           continue;
         }
 
-        if (shouldDownload(result, file.path.relativeTo(execRoot))) {
+        if (shouldDownload(result, file.path.relativeTo(execRoot), parentExecPath)) {
           Path tmpPath = tempPathGenerator.generateTempPath();
           realToTmpPath.put(file.path, tmpPath);
           downloadsBuilder.add(
@@ -1762,7 +1774,8 @@ public class RemoteExecutionService {
     return previousSpawnResult;
   }
 
-  private boolean shouldDownload(RemoteActionResult result, PathFragment execPath) {
+  private boolean shouldDownload(
+      RemoteActionResult result, PathFragment execPath, @Nullable PathFragment parentExecPath) {
     if (outputService instanceof BazelOutputService) {
       return false;
     }
@@ -1772,7 +1785,7 @@ public class RemoteExecutionService {
     if (result.getExitCode() != 0) {
       return true;
     }
-    return remoteOutputChecker.shouldDownloadOutput(execPath);
+    return remoteOutputChecker.shouldDownloadOutput(execPath, parentExecPath);
   }
 
   private static String prettyPrint(ActionInput actionInput) {
