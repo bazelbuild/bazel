@@ -430,7 +430,7 @@ public final class CompletionFunction<
     }
 
     Label label = key.actionLookupKey().getLabel();
-    InputMetadataProvider metadataProvider = new ActionInputMetadataProvider(inputMap);
+    InputMetadataProvider fullMetadataProvider = new ActionInputMetadataProvider(inputMap);
     try {
       LostArtifacts lostOutputs;
       try (var ignored =
@@ -442,7 +442,8 @@ public final class CompletionFunction<
                 key.topLevelArtifactContext().expandFilesets()
                     ? importantArtifacts
                     : Iterables.filter(importantArtifacts, artifact -> !artifact.isFileset()),
-                metadataProvider);
+                new ActionInputMetadataProvider(ctx.getImportantInputMap()),
+                fullMetadataProvider);
       }
       if (lostOutputs.isEmpty()) {
         return null;
@@ -454,7 +455,7 @@ public final class CompletionFunction<
               .orElseGet(
                   () ->
                       ActionRewindStrategy.calculateLostInputOwners(
-                          lostOutputs.byDigest().values(), metadataProvider));
+                          lostOutputs.byDigest().values(), fullMetadataProvider));
       // Filter out lost outputs from the set of built artifacts so that they are not reported. If
       // rewinding is successful, we'll report them later on.
       for (ActionInput lostOutput : lostOutputs.byDigest().values()) {
