@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import java.io.IOException;
 import java.util.Map;
 import java.util.UUID;
@@ -113,6 +114,7 @@ public class RemoteOutputService implements OutputService {
   public void updateActionFileSystemContext(
       ActionExecutionMetadata action,
       FileSystem actionFileSystem,
+      Environment env,
       OutputMetadataStore outputMetadataStore,
       Map<Artifact, FilesetOutputTree> filesets) {
     ((RemoteActionFileSystem) actionFileSystem).updateContext(action);
