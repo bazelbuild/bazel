@@ -1082,7 +1082,10 @@ public final class SkyframeActionExecutor {
             // There's nothing to delete when the action file system is used, but we must ensure
             // that the output directories for stdout and stderr exist.
             setupActionFsFileOutErr(actionExecutionContext.getFileOutErr(), action);
-            createActionFsOutputDirectories(action, actionExecutionContext.getPathResolver());
+            createActionFsOutputDirectories(
+                action,
+                actionExecutionContext.getPathResolver(),
+                actionFileSystemType().shouldCreateTreeArtifactDirectories());
           } else {
             createOutputDirectories(action);
           }
@@ -1369,10 +1372,13 @@ public final class SkyframeActionExecutor {
    * left behind by prior builds or other actions intra-build.
    */
   private void createActionFsOutputDirectories(
-      Action action, ArtifactPathResolver artifactPathResolver) throws ActionExecutionException {
+      Action action,
+      ArtifactPathResolver artifactPathResolver,
+      boolean createTreeArtifactDirectories)
+      throws ActionExecutionException {
     try {
       outputDirectoryHelper.createActionFsOutputDirectories(
-          action.getOutputs(), artifactPathResolver);
+          action.getOutputs(), artifactPathResolver, createTreeArtifactDirectories);
     } catch (CreateOutputDirectoryException e) {
       throw toActionExecutionException(
           String.format(

@@ -102,6 +102,13 @@ public interface OutputService {
       return this != IN_MEMORY_ONLY_FILE_SYSTEM;
     }
 
+    /**
+     * Returns true if this service needs tree artifact directories to be created unconditionally.
+     */
+    public boolean shouldCreateTreeArtifactDirectories() {
+      return this != REMOTE_FILE_SYSTEM;
+    }
+
     public boolean supportsInputDiscovery() {
       return this != REMOTE_FILE_SYSTEM;
     }
