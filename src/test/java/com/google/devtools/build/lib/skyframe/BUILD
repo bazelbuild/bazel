@@ -450,23 +450,6 @@ java_test(
 )
 
 java_test(
-    name = "TrackSourceDirectoriesIntegrationTest",
-    timeout = "short",
-    srcs = ["TrackSourceDirectoriesIntegrationTest.java"],
-    jvm_flags = ["-DBAZEL_TRACK_SOURCE_DIRECTORIES=1"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/events",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:track_source_directories_flag",
-        "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//src/test/java/com/google/devtools/build/lib/buildtool/util",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
-        "@maven//:com_google_testparameterinjector_test_parameter_injector",
-    ],
-)
-
-java_test(
     name = "SkyframeFilesystemIntegrationTest",
     timeout = "short",
     srcs = ["SkyframeFilesystemIntegrationTest.java"],
