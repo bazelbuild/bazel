@@ -185,7 +185,7 @@ public class ActionOutputDirectoryHelperTest {
         ArtifactPathResolver.createPathResolver(actionFileSystem, execRoot);
 
     outputDirectoryHelper.createActionFsOutputDirectories(
-        outputSet.actionOutputs(this), resolver, /* createTreeArtifactDirectories= */ false);
+        outputSet.actionOutputs(this), resolver, /* createTreeArtifactDirectories= */ true);
 
     Path outputRootPath = outputRoot.getRoot().asPath();
     assertThat(outputRootPath.exists()).isFalse();
