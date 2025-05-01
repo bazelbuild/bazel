@@ -96,7 +96,6 @@ import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.NodeEntry;
 import com.google.devtools.build.skyframe.SkyFunction;
-import com.google.devtools.build.skyframe.SkyFunction.Environment.SkyKeyComputeState;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -180,10 +179,7 @@ public final class ActionExecutionFunction implements SkyFunction {
         cachingDependenciesSupplier.get();
     if (remoteCachingDependencies.isRemoteFetchEnabled()) {
       switch (fetchRemoteSkyValue(
-          actionLookupData,
-          env,
-          remoteCachingDependencies,
-          StateWithSerializationStateProvider::new)) {
+          actionLookupData, env, remoteCachingDependencies, InputDiscoveryState::new)) {
         case SkyValueRetriever.Restart unused:
           return null;
         case SkyValueRetriever.RetrievedValue v:
@@ -1200,21 +1196,6 @@ public final class ActionExecutionFunction implements SkyFunction {
         MoreObjects.firstNonNull(input.getOwner(), actionLabel), detailedExitCode);
   }
 
-  private static class StateWithSerializationStateProvider extends InputDiscoveryState
-      implements SerializableSkyKeyComputeState {
-    private SerializationState serializationState = INITIAL_STATE;
-
-    @Override
-    public SerializationState getSerializationState() {
-      return serializationState;
-    }
-
-    @Override
-    public void setSerializationState(SerializationState state) {
-      this.serializationState = state;
-    }
-  }
-
   /**
    * State to save work across restarts of ActionExecutionFunction due to missing values in the
    * graph for actions that discover inputs. There are three places where we save work, all for
@@ -1231,7 +1212,7 @@ public final class ActionExecutionFunction implements SkyFunction {
    *       execution.
    * </ol>
    */
-  static class InputDiscoveryState implements SkyKeyComputeState {
+  static class InputDiscoveryState implements SerializableSkyKeyComputeState {
     AllInputs allInputs;
 
     /** Mutable map containing metadata for known artifacts. */
@@ -1254,6 +1235,8 @@ public final class ActionExecutionFunction implements SkyFunction {
 
     boolean checkedForConsumedArtifactRegistration = false;
 
+    private SerializationState serializationState = INITIAL_STATE;
+
     boolean hasCollectedInputs() {
       return allInputs != null;
     }
@@ -1266,6 +1249,16 @@ public final class ActionExecutionFunction implements SkyFunction {
       // If token is null because there was an action cache hit, this method is never called again
       // because we return immediately.
       return token != null;
+    }
+
+    @Override
+    public SerializationState getSerializationState() {
+      return serializationState;
+    }
+
+    @Override
+    public void setSerializationState(SerializationState state) {
+      this.serializationState = state;
     }
 
     @Override
