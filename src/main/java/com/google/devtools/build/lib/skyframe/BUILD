@@ -342,7 +342,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/rules:repository/repository_function",
         "//src/main/java/com/google/devtools/build/lib/rules:repository/resolved_file_value",
         "//src/main/java/com/google/devtools/build/lib/rules:repository/workspace_file_helper",
-        "//src/main/java/com/google/devtools/build/lib/rules/genquery:genquery_configuration",
         "//src/main/java/com/google/devtools/build/lib/rules/genquery:genquery_package_providers",
         "//src/main/java/com/google/devtools/build/lib/skyframe/actiongraph/v2:actiongraph_v2",
         "//src/main/java/com/google/devtools/build/lib/skyframe/config",
