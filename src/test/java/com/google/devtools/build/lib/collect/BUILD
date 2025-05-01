@@ -85,6 +85,19 @@ java_test(
     ],
 )
 
+java_test(
+    name = "SimpleTargetPatternMatcherTest",
+    srcs = ["SimpleTargetPatternMatcherTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/collect:simple_target_pattern_matcher",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+        "@maven//:com_google_testparameterinjector_test_parameter_injector",
+    ],
+)
+
 test_suite(name = "all_tests")
 
 test_suite(

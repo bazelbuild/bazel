@@ -88,3 +88,13 @@ java_library(
         "//third_party:guava",
     ],
 )
+
+java_library(
+    name = "simple_target_pattern_matcher",
+    srcs = ["SimpleTargetPatternMatcher.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//third_party:guava",
+    ],
+)
