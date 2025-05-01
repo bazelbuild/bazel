@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.config;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.common.options.OptionsParser.STARLARK_SKIPPED_PREFIXES;
 
@@ -40,7 +41,6 @@ import com.google.devtools.common.options.GlobalRcUtils;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.Collection;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
 
@@ -177,20 +177,21 @@ public final class FlagSetFunction implements SkyFunction {
    * Returns all {@link BuildableUnit buildable units} that contain {@code specificTarget} in the
    * {@code targetPatterns} field.
    */
-  // TODO: b/409378610 - Actually implement this: currently it returns **all** BuildableUnits.
   @SuppressWarnings("unused")
-  private static ImmutableList<BuildableUnit> filterProjects(
+  static ImmutableList<BuildableUnit> filterProjects(
       ImmutableList<BuildableUnit> buildableUnits, Label targetToBuild) {
-    return buildableUnits;
+    return buildableUnits.stream()
+        .filter(buildableUnit -> doesBuildableUnitMatchTarget(buildableUnit, targetToBuild))
+        .collect(toImmutableList());
   }
 
   /**
-   * Returns {@code true} iff the {@code specificTarget} matches any of the given patterns. Patterns
-   * are processed in order: if a later negative pattern removes the target it will not be matched.
+   * Returns {@code true} iff the {@code specificTarget} matches the target patterns in the {@link
+   * BuildableUnit}.
    */
   @VisibleForTesting
-  static boolean isTargetInPattern(List<String> targetPatterns, Label specificTarget) {
-    return false;
+  static boolean doesBuildableUnitMatchTarget(BuildableUnit buildableUnit, Label specificTarget) {
+    return buildableUnit.targetPatternMatcher().contains(specificTarget);
   }
 
   private static ImmutableList<String> getBuildOptionsAsStrings(BuildOptions targetOptions) {

@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.runtime.ConfigFlagDefinitions;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
+import com.google.devtools.build.lib.skyframe.ProjectValue.BuildableUnit;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
@@ -36,9 +37,7 @@ import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import com.google.testing.junit.testparameterinjector.TestParameters;
 import com.google.testing.junit.testparameterinjector.TestParameters.TestParametersValues;
 import com.google.testing.junit.testparameterinjector.TestParametersValuesProvider;
-import java.util.List;
 import java.util.Optional;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -1207,30 +1206,35 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
 
   @Test
   @TestParameters(valuesProvider = TargetPatternProvider.class)
-  @Ignore("b/409378610 - Need to actually implement isTargetInPattern")
-  public void testIsTargetInPattern(boolean included, List<String> patterns, Label label) {
-    assertThat(FlagSetFunction.isTargetInPattern(patterns, label)).isEqualTo(included);
+  public void doesBuildableUnitMatchTarget(
+      boolean included, BuildableUnit buildableUnit, Label label) {
+    assertThat(FlagSetFunction.doesBuildableUnitMatchTarget(buildableUnit, label))
+        .isEqualTo(included);
   }
 
   static final class TargetPatternProvider extends TestParametersValuesProvider {
 
-    private static TestParametersValues create(boolean included, String pattern, String label) {
+    private static TestParametersValues create(boolean included, String pattern, String label)
+        throws Exception {
       return create(included, ImmutableList.of(pattern), label);
     }
 
     private static TestParametersValues create(
-        boolean included, List<String> patterns, String label) {
+        boolean included, ImmutableList<String> patterns, String label) throws Exception {
       String name = String.format("%s-%s-%s", included ? "included" : "excluded", patterns, label);
+      BuildableUnit buildableUnit =
+          BuildableUnit.create(
+              patterns, "Test Unit", ImmutableList.of("--flag"), /* isDefault= */ true);
       return TestParametersValues.builder()
           .name(name)
           .addParameter("included", included)
-          .addParameter("patterns", patterns)
+          .addParameter("buildableUnit", buildableUnit)
           .addParameter("label", Label.parseCanonicalUnchecked(label))
           .build();
     }
 
     @Override
-    protected ImmutableList<TestParametersValues> provideValues(Context context) {
+    protected ImmutableList<TestParametersValues> provideValues(Context context) throws Exception {
       return ImmutableList.of(
           // Single pattern
           create(true, "//foo:foo", "//foo:foo"),
@@ -1249,7 +1253,19 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
           create(false, "-//foo:foo", "//foo:foo"),
           create(false, "-//foo/...", "//foo:foo"),
           create(false, ImmutableList.of("//foo/...", "-//foo/bar/..."), "//foo/bar:bar"),
-          create(true, ImmutableList.of("//foo/...", "-//foo/bar/..."), "//foo:foo"));
+          create(true, ImmutableList.of("//foo/...", "-//foo/bar/..."), "//foo:foo"),
+          create(
+              true,
+              ImmutableList.of("//foo/...", "-//foo/bar/...", "//foo/bar/baz/..."),
+              "//foo/bar/baz"),
+          create(
+              true,
+              ImmutableList.of("//foo/...", "-//foo/bar/...", "//foo/bar/baz/..."),
+              "//foo:foo"),
+          create(
+              false,
+              ImmutableList.of("//foo/...", "-//foo/bar/...", "//foo/bar/baz/..."),
+              "//foo/bar/quux"));
     }
   }
 }
