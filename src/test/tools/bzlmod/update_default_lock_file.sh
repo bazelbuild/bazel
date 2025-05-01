@@ -36,10 +36,11 @@ function generate_lock_file() {
 
   cd "${tmpdir}"
   touch MODULE.bazel
+  echo 'common --incompatible_use_plus_in_repo_names' > .bazelrc
   bazel=$(rlocation io_bazel/src/bazel)
 
-  echo "Running: $bazel --batch --ignore_all_rc_files mod deps $@"
-  $bazel --batch --ignore_all_rc_files mod deps "$@"
+  echo "Running: $bazel mod deps $@"
+  $bazel mod deps "$@"
   cp ./MODULE.bazel.lock $BUILD_WORKSPACE_DIRECTORY/src/test/tools/bzlmod/MODULE.bazel.lock
 }
 
