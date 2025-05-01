@@ -72,6 +72,10 @@ public class SimpleTargetPatternMatcher {
     this.singlePatternMatchers = singlePatternMatchers;
   }
 
+  public boolean isEmpty() {
+    return this.singlePatternMatchers.isEmpty();
+  }
+
   /** Returns {@code true} if the label matches all patterns in this matcher. */
   public boolean contains(Label label) {
     if (this.singlePatternMatchers.isEmpty()) {

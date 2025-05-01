@@ -123,12 +123,12 @@ public class ProjectFunction implements SkyFunction {
             Collection.class,
             /* defaultValue= */ null,
             "buildable_units must be a list of buildable unit definitions");
-    for (Object buildableUnit : buildableUnits) {
+    for (Object rawBuildableUnit : buildableUnits) {
       ImmutableList.Builder<String> targetPatternsBuilder = ImmutableList.builder();
       ImmutableList.Builder<String> flagsBuilder = ImmutableList.builder();
       StarlarkInfoNoSchema buildableUnitStruct =
           checkAndCast(
-              buildableUnit,
+              rawBuildableUnit,
               StarlarkInfoNoSchema.class,
               /* defaultValue= */ null,
               "buildable_units entries must be structured objects");
@@ -176,14 +176,18 @@ public class ProjectFunction implements SkyFunction {
                 flag, String.class, /* defaultValue= */ null, "flags entries must be strings"));
       }
       // TODO: b/413130912: cleanly fail when multiple buildable units have the same name.
-      if (buildableUnitsBuilder.put(
-              buildableUnitName,
-              BuildableUnit.create(
-                  targetPatternsBuilder.build(),
-                  buildableUnitDescription,
-                  flagsBuilder.build(),
-                  isDefault))
-          != null) {
+      BuildableUnit buildableUnit = null;
+      try {
+        buildableUnit =
+            BuildableUnit.create(
+                targetPatternsBuilder.build(),
+                buildableUnitDescription,
+                flagsBuilder.build(),
+                isDefault);
+      } catch (LabelSyntaxException e) {
+        throw new ProjectFunctionException(e);
+      }
+      if (buildableUnitsBuilder.put(buildableUnitName, buildableUnit) != null) {
         throw new ProjectFunctionException(
             new BadProjectFileException(
                 String.format(
@@ -239,13 +243,18 @@ public class ProjectFunction implements SkyFunction {
         if (isDefault) {
           foundDefaultConfig = true;
         }
-        buildableUnitsBuilder.put(
-            config,
-            BuildableUnit.create(
-                /* targetPatterns= */ ImmutableList.of(),
-                /* description= */ "",
-                ImmutableList.copyOf(configs.get(config)),
-                isDefault));
+        BuildableUnit buildableUnit = null;
+        try {
+          buildableUnit =
+              BuildableUnit.create(
+                  /* targetPatterns= */ ImmutableList.of(),
+                  /* description= */ "",
+                  ImmutableList.copyOf(configs.get(config)),
+                  isDefault);
+        } catch (LabelSyntaxException e) {
+          throw new ProjectFunctionException(e);
+        }
+        buildableUnitsBuilder.put(config, buildableUnit);
       }
     }
     if (defaultConfig != null && !foundDefaultConfig) {

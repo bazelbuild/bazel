@@ -361,7 +361,8 @@ public class ProjectFunctionTest extends BuildViewTestCase {
     assertThat(result.get(key).getProjectDirectories().get("default")).isEmpty();
 
     // Buildable unit defaults:
-    assertThat(result.get(key).getBuildableUnits().get("foo").targetPatterns()).isEmpty();
+    assertThat(result.get(key).getBuildableUnits().get("foo").targetPatternMatcher().isEmpty())
+        .isTrue();
     assertThat(result.get(key).getBuildableUnits().get("foo").flags()).isEmpty();
     assertThat(result.get(key).getBuildableUnits().get("foo").description()).isEqualTo("foo");
     assertThat(result.get(key).getBuildableUnits().get("foo").isDefault()).isFalse();
