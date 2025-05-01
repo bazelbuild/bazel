@@ -447,11 +447,10 @@ public final class SkyframeActionExecutor {
   private void updateActionFileSystemContext(
       Action action,
       FileSystem actionFileSystem,
-      Environment env,
       OutputMetadataStore outputMetadataStore,
       Map<Artifact, FilesetOutputTree> filesets) {
     outputService.updateActionFileSystemContext(
-        action, actionFileSystem, env, outputMetadataStore, filesets);
+        action, actionFileSystem, outputMetadataStore, filesets);
   }
 
   void executionOver() {
@@ -552,11 +551,7 @@ public final class SkyframeActionExecutor {
       throws ActionExecutionException, InterruptedException {
     if (actionFileSystem != null) {
       updateActionFileSystemContext(
-          action,
-          actionFileSystem,
-          env,
-          outputMetadataStore,
-          directInputMetadataProvider.getFilesets());
+          action, actionFileSystem, outputMetadataStore, directInputMetadataProvider.getFilesets());
     }
 
     ActionExecutionContext actionExecutionContext =
@@ -900,7 +895,6 @@ public final class SkyframeActionExecutor {
       updateActionFileSystemContext(
           action,
           actionFileSystem,
-          env,
           THROWING_OUTPUT_METADATA_STORE_FOR_ACTIONFS,
           /* filesets= */ ImmutableMap.of());
       // Note that when not using ActionFS, a global setup of the parent directories of the OutErr
