@@ -1425,6 +1425,7 @@ public final class ActionExecutionFunction implements SkyFunction {
             action.prettyPrint(), key);
         if (firstActionExecutionException == null) {
           firstActionExecutionException = e;
+          transitiveCauses.add(e.getRootCauses());
         }
       } else {
         for (Artifact input : associatedInputs) {

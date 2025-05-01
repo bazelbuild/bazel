@@ -44,6 +44,7 @@ import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.ArtifactsIn
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.ArtifactsToBuild;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.SuccessfulArtifactFilter;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
+import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.causes.LabelCause;
@@ -246,7 +247,14 @@ public final class CompletionFunction<
           }
         }
       } catch (ActionExecutionException e) {
-        rootCausesBuilder.addTransitive(e.getRootCauses());
+        if (e.getRootCauses().isEmpty()) {
+          BugReport.sendNonFatalBugReport(
+              new IllegalStateException(
+                  "Caught ActionExecutionException from %s with no root causes".formatted(input),
+                  e));
+        } else {
+          rootCausesBuilder.addTransitive(e.getRootCauses());
+        }
         // Prefer a catastrophic exception as the one we propagate.
         if (firstActionExecutionException == null
             || (!firstActionExecutionException.isCatastrophe() && e.isCatastrophe())) {
