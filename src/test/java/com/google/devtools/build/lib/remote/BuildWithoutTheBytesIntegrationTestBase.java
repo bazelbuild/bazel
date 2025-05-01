@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.util.io.RecordingOutErr;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.testing.junit.testparameterinjector.TestParameter;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -1094,12 +1095,13 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
   }
 
   @Test
-  public void treeOutputsFromLocalFileSystem_works() throws Exception {
+  public void treeOutputsFromLocalFileSystem_works(
+      @TestParameter({"no-remote-exec", "local"}) String executionInfo) throws Exception {
     // Test that tree artifact generated locally can be consumed by other actions.
     // See https://github.com/bazelbuild/bazel/issues/16789
 
     // Disable remote execution so tree outputs are generated locally
-    addOptions("--modify_execution_info=OutputDir=+no-remote-exec");
+    addOptions("--modify_execution_info=OutputDir=+" + executionInfo);
     setDownloadToplevel();
     writeOutputDirRule();
     write(
