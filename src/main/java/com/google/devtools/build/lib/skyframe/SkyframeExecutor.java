@@ -27,6 +27,8 @@ import static com.google.devtools.build.lib.skyframe.ConflictCheckingMode.NONE;
 import static com.google.devtools.build.lib.skyframe.ConflictCheckingMode.WITH_TRAVERSAL;
 import static com.google.devtools.build.lib.skyframe.SkyfocusExecutor.toFileStateKey;
 import static com.google.devtools.build.lib.skyframe.SkyfocusState.DISABLED;
+import static java.util.stream.Collectors.counting;
+import static java.util.stream.Collectors.groupingBy;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
@@ -572,24 +574,32 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         remoteAnalysisCachingDependenciesProvider.lookupKeysToInvalidate(
             deserializedKeysFromRemoteAnalysisCache);
 
+    // Log a sample of the invalidated SkyKeys to the INFO log.
     if (keysToInvalidate.isEmpty()) {
       return;
     }
 
-    int maxKeysToLog = 10;
+    int maxKeysToLog = 20;
     if (keysToInvalidate.size() > maxKeysToLog) {
-      eventHandler.handle(
-          Event.info(
-              String.format(
-                  "Invalidating %d keys, but only logging first %d.",
-                  keysToInvalidate.size(), maxKeysToLog)));
+      logger.atInfo().log(
+          "Invalidating %d keys, but only logging first %s.",
+          keysToInvalidate.size(), maxKeysToLog);
     }
     int i = 0;
     for (SkyKey key : keysToInvalidate) {
       if (i++ > maxKeysToLog) {
         break;
       }
-      eventHandler.handle(Event.info("Invalidating key: " + key.getCanonicalName()));
+      logger.atInfo().log("Invalidating key: %s", key.getCanonicalName());
+    }
+
+    // In Bazel UI, report the number of invalidated SkyKeys by SkyFunction.
+    Map<SkyFunctionName, Long> countsByFunctionName =
+        keysToInvalidate.stream().collect(groupingBy(SkyKey::functionName, counting()));
+    if (!countsByFunctionName.isEmpty()) {
+      eventHandler.handle(
+          Event.info(
+              String.format("Invalidation counts by SkyFunction: %s", countsByFunctionName)));
     }
 
     // Remove the keys from the set of deserialized keys so that we don't try to upload them again.
