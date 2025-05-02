@@ -65,6 +65,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
@@ -884,8 +885,9 @@ class IncludeParser {
                 FileSystemUtils.readContent(actionExecutionContext.getInputPath(file)));
       } catch (IOException e) {
         if (remoteIncludeScanner != null && grepIncludes != null) {
-          logger.atWarning().withCause(e).log(
-              "Falling back on remote parsing of %s", actionExecutionContext.getInputPath(file));
+          logger.atWarning().atMostEvery(1, TimeUnit.SECONDS).log(
+              "Falling back on remote parsing of %s (cause %s)",
+              actionExecutionContext.getInputPath(file), e.getMessage());
           inclusions =
               remoteIncludeScanner.extractInclusions(
                   file,
