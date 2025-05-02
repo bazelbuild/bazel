@@ -40,7 +40,12 @@ public final class SkyKeySerializationHelper {
             fingerprintValueService, key, /* profileCollector= */ null);
     ListenableFuture<Void> keyWriteStatus = keyBytesResult.getFutureToBlockWritesOn();
     if (keyWriteStatus != null) {
-      // Nothing depends directly on the status of this write, but report failures.
+      // This write status future represents the storage write success of the
+      // shared bytes contained in the SkyKey (e.g. anything with a value
+      // sharing codec). Since the SkyKey is never deserialized -- they are only
+      // ever serialized into a fingerprint or a cache key -- failure to write
+      // dependent shared bytes to storage is not a serious concern, but let's
+      // report them anyway, in case of real serialization bugs.
       Futures.addCallback(
           keyWriteStatus, FutureHelpers.FAILURE_REPORTING_CALLBACK, directExecutor());
     }
