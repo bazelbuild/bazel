@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.Info;
@@ -697,7 +698,8 @@ public class CcStarlarkInternal implements StarlarkValue {
 
   public static StarlarkList<LibraryInput> convertLibraryToLinkListToLinkerInputList(
       Sequence<LibraryToLink> librariesToLink, boolean preferStaticLibs, boolean preferPicLibs) {
-    ImmutableList.Builder<LibraryInput> libraryInputsBuilder = ImmutableList.builder();
+    NestedSetBuilder<LibraryInput> libraryInputsBuilder =
+        NestedSetBuilder.<LibraryInput>linkOrder();
     for (LibraryToLink libraryToLink : librariesToLink) {
       LibraryInput libraryInputToUse;
       if (preferStaticLibs) {
@@ -714,7 +716,7 @@ public class CcStarlarkInternal implements StarlarkValue {
       Preconditions.checkNotNull(libraryInputToUse);
       libraryInputsBuilder.add(libraryInputToUse);
     }
-    return StarlarkList.copyOf(Mutability.IMMUTABLE, libraryInputsBuilder.build());
+    return StarlarkList.copyOf(Mutability.IMMUTABLE, libraryInputsBuilder.build().toList());
   }
 
   @StarlarkMethod(
