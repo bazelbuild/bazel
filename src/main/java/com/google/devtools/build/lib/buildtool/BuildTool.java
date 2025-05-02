@@ -1117,6 +1117,15 @@ public class BuildTool {
           return dependenciesProvider;
         case RemoteAnalysisCacheMode.UPLOAD:
         case RemoteAnalysisCacheMode.DOWNLOAD:
+          if (dependenciesProvider.getAnalysisCacheClient() != null) {
+            // If analysis cache service is non-null, skip frontier violation checks.
+            // TODO(b/411485521): send SkyKeys to the analysis cache service to
+            // check for invalidation. Note that without doing so, incremental builds are currently
+            // incorrect.
+            //
+            return dependenciesProvider;
+          }
+
           return FrontierViolationChecker.check(
               dependenciesProvider,
               env.getOptions().getOptions(SkyfocusOptions.class).frontierViolationCheck,
@@ -1223,8 +1232,8 @@ public class BuildTool {
     /**
      * Returns a byte array to uniquely version SkyValues for serialization.
      *
-     * <p>This should only be caalled when Bazel has determined values for all version components
-     * for instantiating a {@link FrontierNodeVersion}.
+     * <p>This should only be called when Bazel has determined values for all version components for
+     * instantiating a {@link FrontierNodeVersion}.
      *
      * <p>This could be in the constructor if we know about the {@code topLevelConfig} component at
      * initialization, but it is created much later during the deserialization pass.
