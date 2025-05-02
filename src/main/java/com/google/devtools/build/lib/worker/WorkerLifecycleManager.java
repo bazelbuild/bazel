@@ -37,7 +37,7 @@ final class WorkerLifecycleManager extends Thread {
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
-  private boolean isWorking = false;
+  private volatile boolean isWorking = false;
   private boolean emptyEvictionWasLogged = false;
   private final WorkerPool workerPool;
   private final WorkerOptions options;
