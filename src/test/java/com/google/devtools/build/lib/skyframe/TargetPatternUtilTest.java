@@ -122,14 +122,15 @@ public class TargetPatternUtilTest extends BuildViewTestCase {
           create(
               ImmutableList.of("//wildcard/deep/a/...", "//wildcard/deep/c/..."),
               "//wildcard/deep/a",
-              "//wildcard/deep/c")
+              "//wildcard/deep/c"),
 
           // Negative patterns.
           // TODO: blaze-configurability-team - fix handling of negative patterns and re-enable
-          // create(ImmutableList.of("-//foo/bar:baz", "//foo/bar:quux"), "//foo/bar:quux"),
-          // create(ImmutableList.of("//wildcard/deep/...", "-//wildcard/deep/b/..."),
-          // "//wildcard/deep/a", "//wildcard/deep/c")
-          );
+          create(ImmutableList.of("-//foo/bar:baz", "//foo/bar:quux"), "//foo/bar:quux"),
+          create(
+              ImmutableList.of("//wildcard/deep/...", "-//wildcard/deep/b/..."),
+              "//wildcard/deep/a",
+              "//wildcard/deep/c"));
     }
 
     private static void createBuildFiles(Scratch scratch) throws IOException {
