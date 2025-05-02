@@ -16,6 +16,8 @@ package com.google.devtools.build.lib.buildtool;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.buildtool.AnalysisPhaseRunner.evaluateProjectFile;
 import static com.google.devtools.common.options.OptionsParser.STARLARK_SKIPPED_PREFIXES;
 import static java.util.Objects.requireNonNull;
@@ -34,6 +36,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.hash.HashCode;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactSerializationContext;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
@@ -102,7 +106,9 @@ import com.google.devtools.build.lib.skyframe.actiongraph.v2.InvalidAqueryOutput
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecRegistry;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
+import com.google.devtools.build.lib.skyframe.serialization.PackedFingerprint;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
+import com.google.devtools.build.lib.skyframe.serialization.SkyKeySerializationHelper;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.FrontierNodeVersion;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievalResult;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.ClientId;
@@ -138,6 +144,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintStream;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeoutException;
@@ -921,6 +928,9 @@ public class BuildTool {
         break;
       case DOWNLOAD:
         reportRemoteAnalysisCachingStats();
+        env.getSkyframeExecutor()
+            .getDeserializedKeysFromRemoteAnalysisCache()
+            .addAll(env.getRemoteAnalysisCachingEventListener().getCacheHits());
         break;
       case OFF:
         break;
@@ -1064,7 +1074,8 @@ public class BuildTool {
     }
   }
 
-  private static final class RemoteAnalysisCachingDependenciesProviderImpl
+  // Non-final for mockability
+  private static class RemoteAnalysisCachingDependenciesProviderImpl
       implements RemoteAnalysisCachingDependenciesProvider {
     private static final long CLIENT_LOOKUP_TIMEOUT_SEC = 20;
 
@@ -1090,6 +1101,8 @@ public class BuildTool {
     private String topLevelConfigChecksum;
 
     private final ModifiedFileSet diffFromEvaluatingVersion;
+
+    private final ExtendedEventHandler eventHandler;
 
     public static RemoteAnalysisCachingDependenciesProvider forAnalysis(
         CommandEnvironment env, Optional<PathFragmentPrefixTrie> activeDirectoriesMatcher)
@@ -1120,9 +1133,7 @@ public class BuildTool {
           if (dependenciesProvider.getAnalysisCacheClient() != null) {
             // If analysis cache service is non-null, skip frontier violation checks.
             // TODO(b/411485521): send SkyKeys to the analysis cache service to
-            // check for invalidation. Note that without doing so, incremental builds are currently
-            // incorrect.
-            //
+            // check for invalidation.
             return dependenciesProvider;
           }
 
@@ -1186,6 +1197,7 @@ public class BuildTool {
           this.snapshot.orElse(null));
       this.fingerprintValueServiceFuture = servicesSupplier.getFingerprintValueService();
       this.analysisCacheClient = servicesSupplier.getAnalysisCacheClient();
+      this.eventHandler = env.getReporter();
     }
 
     private static ObjectCodecs initAnalysisObjectCodecs(
@@ -1309,6 +1321,104 @@ public class BuildTool {
           diffFromEvaluatingVersion,
           "expected to be not null when the mode is upload or download: %s",
           mode);
+    }
+
+    @Override
+    public ImmutableSet<SkyKey> lookupKeysToInvalidate(Set<SkyKey> keysToLookup) {
+      var client = getAnalysisCacheClient();
+      if (client == null) {
+        logger.atInfo().log(
+            "Skycache: Analysis cache client is null, skipping invalidation check.");
+        return ImmutableSet.of();
+      }
+
+      if (keysToLookup.isEmpty()) {
+        logger.atInfo().log("Skycache: No keys to lookup for invalidation check.");
+        return ImmutableSet.of();
+      }
+
+      ObjectCodecs codecs = getObjectCodecs();
+      FingerprintValueService fingerprintService = getFingerprintValueService();
+      FrontierNodeVersion version = getSkyValueVersion();
+
+      Stopwatch stopwatch = Stopwatch.createStarted();
+
+      ImmutableList<ListenableFuture<Optional<SkyKey>>> futures;
+      try (SilentCloseable unused = Profiler.instance().profile("submitInvalidationLookups")) {
+        futures =
+            keysToLookup.parallelStream()
+                .map(
+                    key ->
+                        submitInvalidationLookup(key, codecs, fingerprintService, version, client))
+                .collect(toImmutableList());
+      }
+
+      try (SilentCloseable unused = Profiler.instance().profile("waitInvalidationLookups")) {
+        ImmutableSet<SkyKey> keysToInvalidate;
+        try {
+          keysToInvalidate =
+              Futures.allAsList(futures).get().stream()
+                  // Flatten Optionals, keeping only non-empty ones (keys to invalidate)
+                  .flatMap(Optional::stream)
+                  .collect(toImmutableSet());
+        } catch (ExecutionException e) {
+          throw new IllegalStateException(
+              "Skycache: Error waiting for analysis cache responses during invalidation check.", e);
+        } catch (InterruptedException e) {
+          Thread.currentThread().interrupt();
+          logger.atWarning().log(
+              "Skycache: Interrupted while waiting for analysis cache responses.");
+          throw new IllegalStateException(
+              "Skycache: Interrupted while waiting for analysis cache responses", e);
+        }
+        stopwatch.stop();
+        eventHandler.handle(
+            Event.info(
+                String.format(
+                    "Remote analysis caching service lookup took %s. %s/%s keys will be"
+                        + " invalidated.",
+                    stopwatch, keysToInvalidate.size(), futures.size())));
+        return keysToInvalidate;
+      }
+    }
+
+    /**
+     * Checks if the given node should be invalidated by submitting the node's fingerprint to the
+     * analysis cache.
+     *
+     * <p>Returns the node's SkyKey if the node should be invalidated (i.e. cache miss), otherwise
+     * returns an empty Optional.
+     *
+     * <p>Note: only lookup SkyKeys that were deserialized! Sending a key that was never serialized
+     * will result in a cache miss for every build.
+     */
+    private static ListenableFuture<Optional<SkyKey>> submitInvalidationLookup(
+        SkyKey key,
+        ObjectCodecs codecs,
+        FingerprintValueService fingerprintService,
+        FrontierNodeVersion version,
+        RequestBatcher<ByteString, ByteString> analysisCacheClient) {
+      try {
+        // 1. Compute the fingerprint for the versioned key
+        PackedFingerprint cacheKey =
+            SkyKeySerializationHelper.computeFingerprint(codecs, fingerprintService, key, version);
+
+        // 2. Submit the fingerprint to the analysis cache service
+        ListenableFuture<ByteString> responseFuture =
+            analysisCacheClient.submit(ByteString.copyFrom(cacheKey.toBytes()));
+
+        // 3. Transform result to return keys that should be invalidated (i.e.
+        // empty response, cache miss)
+        return Futures.transform(
+            responseFuture,
+            response -> response.isEmpty() ? Optional.of(key) : Optional.empty(),
+            directExecutor());
+      } catch (SerializationException e) {
+        // Wrap serialization errors in a failed future
+        logger.atWarning().withCause(e).log("Skycache: Failed to serialize key: %s", key);
+        return immediateFailedFuture(
+            new IllegalStateException("Skycache: Failed to serialize key: " + key, e));
+      }
     }
   }
 

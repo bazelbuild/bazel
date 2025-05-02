@@ -522,15 +522,12 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   private RemoteAnalysisCachingDependenciesProvider remoteAnalysisCachingDependenciesProvider =
       DisabledDependenciesProvider.INSTANCE;
 
+  private final Set<SkyKey> deserializedKeysFromRemoteAnalysisCache = new HashSet<>();
+
   /** Non-null only when analysis caching mode is upload/download. */
   @Nullable private ModifiedFileSet diffFromEvaluatingVersion;
 
   private final AtomicInteger analysisCount = new AtomicInteger();
-
-  public void setRemoteAnalysisCachingDependenciesProvider(
-      RemoteAnalysisCachingDependenciesProvider remoteAnalysisCachingDependenciesProvider) {
-    this.remoteAnalysisCachingDependenciesProvider = remoteAnalysisCachingDependenciesProvider;
-  }
 
   /** Returns how many times analysis has been run during the life of this bazel server instance. */
   public int getAndIncrementAnalysisCount() {
@@ -551,6 +548,55 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   @VisibleForTesting // productionVisibility = Visibility.PRIVATE
   public RemoteAnalysisCachingDependenciesProvider getRemoteAnalysisCachingDependenciesProvider() {
     return remoteAnalysisCachingDependenciesProvider;
+  }
+
+  public void setRemoteAnalysisCachingDependenciesProvider(
+      RemoteAnalysisCachingDependenciesProvider remoteAnalysisCachingDependenciesProvider) {
+    this.remoteAnalysisCachingDependenciesProvider = remoteAnalysisCachingDependenciesProvider;
+  }
+
+  public Set<SkyKey> getDeserializedKeysFromRemoteAnalysisCache() {
+    return deserializedKeysFromRemoteAnalysisCache;
+  }
+
+  /**
+   * Invalidates the given keys with an external remote analysis service.
+   *
+   * <p>This is a no-op if remote analysis caching is disabled.
+   */
+  public void invalidateWithExternalService(ExtendedEventHandler eventHandler) {
+    if (!isRemoteAnalysisCachingEnabled()) {
+      return;
+    }
+    ImmutableSet<SkyKey> keysToInvalidate =
+        remoteAnalysisCachingDependenciesProvider.lookupKeysToInvalidate(
+            deserializedKeysFromRemoteAnalysisCache);
+
+    if (keysToInvalidate.isEmpty()) {
+      return;
+    }
+
+    int maxKeysToLog = 10;
+    if (keysToInvalidate.size() > maxKeysToLog) {
+      eventHandler.handle(
+          Event.info(
+              String.format(
+                  "Invalidating %d keys, but only logging first %d.",
+                  keysToInvalidate.size(), maxKeysToLog)));
+    }
+    int i = 0;
+    for (SkyKey key : keysToInvalidate) {
+      if (i++ > maxKeysToLog) {
+        break;
+      }
+      eventHandler.handle(Event.info("Invalidating key: " + key.getCanonicalName()));
+    }
+
+    // Remove the keys from the set of deserialized keys so that we don't try to upload them again.
+    deserializedKeysFromRemoteAnalysisCache.removeAll(keysToInvalidate);
+    // `delete` is used instead of `invalidate` because the latter marks the nodes as `changed`,
+    // which is not allowed for hermetic SkyFunctions
+    getEvaluator().delete(keysToInvalidate::contains);
   }
 
   @VisibleForTesting
@@ -3481,7 +3527,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
           workspaceInfo = modifiedFileSet.getWorkspaceInfo();
           workspaceInfoFromDiffReceiver.syncWorkspaceInfoFromDiff(
               pathEntry.asPath().asFragment(), workspaceInfo);
-
+          // TODO(b/355127312): no longer needed when analysis cache service is the only choice.
           var remoteAnalysisCachingOptions = options.getOptions(RemoteAnalysisCachingOptions.class);
           if (remoteAnalysisCachingOptions != null
               && remoteAnalysisCachingOptions.mode.requiresBackendConnectivity()) {
