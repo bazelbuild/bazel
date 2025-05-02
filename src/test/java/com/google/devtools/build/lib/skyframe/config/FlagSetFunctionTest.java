@@ -1214,8 +1214,8 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
             This project's builds must set --scl_config because no default config is defined.
 
             This project supports:
-              --scl_config=debug: ["--//test:myflag=debug_value"]
-              --scl_config=release: ["--//test:myflag=debug_value"]
+              --scl_config=debug   -> [--//test:myflag=debug_value]
+              --scl_config=release -> [--//test:myflag=debug_value]
 
             This policy is defined in test/PROJECT.scl.
             """);
