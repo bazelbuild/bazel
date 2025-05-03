@@ -479,7 +479,7 @@ public final class InstrumentedFilesCollector {
 
   private static List<? extends TransitiveInfoCollection> attributeDependencyPrerequisites(
       Attribute attribute, RuleContext ruleContext) {
-    if (attribute.getType().getLabelClass() == LabelClass.DEPENDENCY) {
+    if (attribute.getType().getLabelClass() == LabelClass.DEPENDENCY && !attribute.isToolDependency()) {
       return ruleContext.getPrerequisites(attribute.getName());
     }
     return ImmutableList.of();
