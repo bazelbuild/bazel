@@ -247,31 +247,37 @@ public class BaseRuleClasses {
           // Input files for every test action
           .add(
               attr("$test_wrapper", LABEL)
-                  .cfg(ExecutionTransitionFactory.createFactory())
+                  .cfg(
+                      ExecutionTransitionFactory.createFactory(DEFAULT_TEST_RUNNER_EXEC_GROUP_NAME))
                   .singleArtifact()
                   .value(env.getToolsLabel("//tools/test:test_wrapper")))
           .add(
               attr("$xml_writer", LABEL)
-                  .cfg(ExecutionTransitionFactory.createFactory())
+                  .cfg(
+                      ExecutionTransitionFactory.createFactory(DEFAULT_TEST_RUNNER_EXEC_GROUP_NAME))
                   .singleArtifact()
                   .value(env.getToolsLabel("//tools/test:xml_writer")))
           .add(
               attr("$test_runtime", LABEL_LIST)
-                  .cfg(ExecutionTransitionFactory.createFactory())
+                  .cfg(
+                      ExecutionTransitionFactory.createFactory(DEFAULT_TEST_RUNNER_EXEC_GROUP_NAME))
                   .value(getTestRuntimeLabelList(env)))
           .add(
               attr("$test_setup_script", LABEL)
-                  .cfg(ExecutionTransitionFactory.createFactory())
+                  .cfg(
+                      ExecutionTransitionFactory.createFactory(DEFAULT_TEST_RUNNER_EXEC_GROUP_NAME))
                   .singleArtifact()
                   .value(env.getToolsLabel("//tools/test:test_setup")))
           .add(
               attr("$xml_generator_script", LABEL)
-                  .cfg(ExecutionTransitionFactory.createFactory())
+                  .cfg(
+                      ExecutionTransitionFactory.createFactory(DEFAULT_TEST_RUNNER_EXEC_GROUP_NAME))
                   .singleArtifact()
                   .value(env.getToolsLabel("//tools/test:test_xml_generator")))
           .add(
               attr("$collect_coverage_script", LABEL)
-                  .cfg(ExecutionTransitionFactory.createFactory())
+                  .cfg(
+                      ExecutionTransitionFactory.createFactory(DEFAULT_TEST_RUNNER_EXEC_GROUP_NAME))
                   .singleArtifact()
                   .value(env.getToolsLabel("//tools/test:collect_coverage")))
           // Input files for test actions collecting code coverage
@@ -282,7 +288,8 @@ public class BaseRuleClasses {
           // Used in the one-per-build coverage report generation action.
           .add(
               attr(":coverage_report_generator", LABEL)
-                  .cfg(ExecutionTransitionFactory.createFactory())
+                  .cfg(
+                      ExecutionTransitionFactory.createFactory(DEFAULT_TEST_RUNNER_EXEC_GROUP_NAME))
                   .value(
                       coverageReportGeneratorAttribute(
                           env.getToolsLabel(DEFAULT_COVERAGE_REPORT_GENERATOR_VALUE))))
@@ -301,7 +308,8 @@ public class BaseRuleClasses {
           // RunCommand.java to self-transition --run_under to the exec configuration.
           .add(
               attr(":run_under_exec_config", LABEL)
-                  .cfg(ExecutionTransitionFactory.createFactory("test"))
+                  .cfg(
+                      ExecutionTransitionFactory.createFactory(DEFAULT_TEST_RUNNER_EXEC_GROUP_NAME))
                   .value(RUN_UNDER_EXEC_CONFIG)
                   .skipPrereqValidatorCheck())
           .add(
