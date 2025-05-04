@@ -968,6 +968,42 @@ like `srcs` in `dependency_attributes` instead of `source_attributes`, but it
 avoids the need for explicit coverage configuration for all rules in the
 dependency chain.)
 
+#### Test rules
+
+Test rules require additional setup to generate coverage reports. The rule
+itself has to add the following implicit attributes:
+
+```python
+my_test = rule(
+    ...,
+    attrs = {
+        ...,
+        # Implicit dependencies used by Bazel to generate coverage reports.
+        "_lcov_merger": attr.label(
+            default = configuration_field(fragment = "coverage", name = "output_generator"),
+            executable = True,
+            cfg = config.exec(exec_group = "test"),
+        ),
+        "_collect_cc_coverage": attr.label(
+            default = "@bazel_tools//tools/test:collect_cc_coverage",
+            executable = True,
+            cfg = config.exec(exec_group = "test"),
+        )
+    },
+    test = True,
+)
+```
+
+By using `configuration_field`, the dependency on the Java LCOV merger tool can
+be avoided as long as coverage is not requested.
+
+When the test is run, it should emit coverage information in the form of one or
+more [LCOV files](https://manpages.debian.org/unstable/lcov/geninfo.1.en.html#TRACEFILE_FORMAT)
+with unique names into the directory specified by the `COVERAGE_DIR` environment
+variable. Bazel will then merge these files into a single LCOV file using the
+`_lcov_merger` tool. If present, it will also collect C/C++ coverage using the
+`_collect_cc_coverage` tool.
+
 ### Validation Actions
 
 Sometimes you need to validate something about the build, and the
