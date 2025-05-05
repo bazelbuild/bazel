@@ -47,6 +47,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.exec.util.FakeActionInputFileCache;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.RoundTripping;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Path;
@@ -112,6 +113,14 @@ public final class StarlarkCustomCommandLineTest {
             .add("three")
             .build(/* flagPerLine= */ false, RepositoryMapping.ALWAYS_FALLBACK);
     verifyCommandLine(commandLine, "one", "two", "three");
+  }
+
+  @Test
+  public void serializationWithFormattedArgumentsWorks() throws Exception {
+    CommandLine original =
+        builder.addFormatted("value", "key=%s").build(false, RepositoryMapping.ALWAYS_FALLBACK);
+    CommandLine deserialized = RoundTripping.roundTrip(original);
+    verifyCommandLine(deserialized, "key=value");
   }
 
   @Test
