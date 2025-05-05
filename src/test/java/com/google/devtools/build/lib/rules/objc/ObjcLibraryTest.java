@@ -1443,8 +1443,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     CommandAction compileAction = compileAction("//package:objc_lib", "b.o");
     // We remove spaces, since the crosstool rules do not use spaces for include paths.
     String compileActionArgs = Joiner.on("").join(compileAction.getArguments()).replace(" ", "");
-    assertThat(compileActionArgs)
-        .matches(".*-iquote.*/third_party/cc_lib/_virtual_includes/cc_lib.*");
+    assertThat(compileActionArgs).matches(".*-iquote.*/_virtual_includes/848637ee.*");
   }
 
   @Test

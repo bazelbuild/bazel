@@ -19,11 +19,13 @@ import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.getFirs
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.prettyArtifactNames;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
 import com.google.devtools.build.lib.packages.util.MockProtoSupport;
@@ -247,6 +249,44 @@ public class CcProtoLibraryTest extends BuildViewTestCase {
   }
 
   @Test
+  public void outputDirectoryForProtoCompileAction_externalRepos() throws Exception {
+    setBuildLanguageOptions("--experimental_builtins_injection_override=+cc_proto_library");
+    scratch.file(
+        "x/BUILD",
+        "load('@com_google_protobuf//bazel:cc_proto_library.bzl', 'cc_proto_library')",
+        "cc_proto_library(name = 'foo_cc_proto', deps = ['@bla//foo:bar_proto'])");
+
+    scratch.file("/bla/REPO.bazel");
+    // Create the rule '@bla//foo:bar_proto'.
+    scratch.file(
+        "/bla/foo/BUILD",
+        "load('@com_google_protobuf//bazel:proto_library.bzl', 'proto_library')",
+        "package(default_visibility=['//visibility:public'])",
+        "proto_library(name = 'bar_proto', srcs = ['bar.proto'])");
+    scratch.appendFile(
+        "MODULE.bazel",
+        "local_repository = use_repo_rule(\"@bazel_tools//tools/build_defs/repo:local.bzl\","
+            + " \"local_repository\")",
+        "local_repository(name = 'bla', path = '/bla/')");
+    invalidatePackages(); // A dash of magic to re-evaluate the MODULE.bazel file.
+
+    ConfiguredTarget target = getConfiguredTarget("//x:foo_cc_proto");
+    Artifact hFile = getFirstArtifactEndingWith(getFilesToBuild(target), "bar.pb.h");
+    SpawnAction protoCompileAction = getGeneratingSpawnAction(hFile);
+
+    assertThat(protoCompileAction.getArguments())
+        .contains(
+            String.format(
+                "--cpp_out=%s/external/+local_repository+bla",
+                getTargetConfiguration().getBinFragment(RepositoryName.MAIN)));
+
+    CcCompilationContext ccCompilationContext =
+        target.get(CcInfo.PROVIDER).getCcCompilationContext();
+    assertThat(prettyArtifactNames(ccCompilationContext.getDeclaredIncludeSrcs()))
+        .containsExactly("external/+local_repository+bla/foo/bar.pb.h");
+  }
+
+  @Test
   public void commandLineControlsOutputFileSuffixes() throws Exception {
     getAnalysisMock()
         .ccSupport()
@@ -290,6 +330,106 @@ public class CcProtoLibraryTest extends BuildViewTestCase {
     List<String> options = compilationSteps.get(0).getCompilerOptions();
     assertThat(options).doesNotContain("-fprofile-arcs");
     assertThat(options).doesNotContain("-ftest-coverage");
+  }
+
+  @Test
+  public void importPrefixWorksWithRepositories() throws Exception {
+    scratch.appendFile(
+        "MODULE.bazel",
+        "local_repository = use_repo_rule(\"@bazel_tools//tools/build_defs/repo:local.bzl\","
+            + " \"local_repository\")",
+        "local_repository(name = 'yolo_repo', path = '/yolo_repo/')");
+    invalidatePackages();
+
+    scratch.file("/yolo_repo/REPO.bazel");
+    scratch.file("/yolo_repo/yolo_pkg/yolo.proto");
+    scratch.file(
+        "/yolo_repo/yolo_pkg/BUILD",
+        "load('@com_google_protobuf//bazel:proto_library.bzl', 'proto_library')",
+        "load('@com_google_protobuf//bazel:cc_proto_library.bzl', 'cc_proto_library')",
+        "proto_library(",
+        "  name = 'yolo_proto',",
+        "  srcs = ['yolo.proto'],",
+        "  import_prefix = 'bazel.build/yolo',",
+        ")",
+        "cc_proto_library(",
+        "  name = 'yolo_cc_proto',",
+        "  deps = [':yolo_proto'],",
+        ")");
+    assertThat(getTarget("@@+local_repository+yolo_repo//yolo_pkg:yolo_cc_proto")).isNotNull();
+    assertThat(getProtoHeaderExecPath())
+        .endsWith("_virtual_includes/f25ac60e/bazel.build/yolo/yolo_pkg/yolo.pb.h");
+  }
+
+  @Test
+  public void stripImportPrefixWorksWithRepositories() throws Exception {
+    scratch.appendFile(
+        "MODULE.bazel",
+        "local_repository = use_repo_rule(\"@bazel_tools//tools/build_defs/repo:local.bzl\","
+            + " \"local_repository\")",
+        "local_repository(name = 'yolo_repo', path = '/yolo_repo/')");
+    invalidatePackages();
+
+    scratch.file("/yolo_repo/REPO.bazel");
+    scratch.file("/yolo_repo/yolo_pkg/yolo.proto");
+    scratch.file(
+        "/yolo_repo/yolo_pkg/BUILD",
+        "load('@com_google_protobuf//bazel:proto_library.bzl', 'proto_library')",
+        "load('@com_google_protobuf//bazel:cc_proto_library.bzl', 'cc_proto_library')",
+        "proto_library(",
+        "  name = 'yolo_proto',",
+        "  srcs = ['yolo.proto'],",
+        "  strip_import_prefix = '/yolo_pkg',",
+        ")",
+        "cc_proto_library(",
+        "  name = 'yolo_cc_proto',",
+        "  deps = [':yolo_proto'],",
+        ")");
+    assertThat(getTarget("@@+local_repository+yolo_repo//yolo_pkg:yolo_cc_proto")).isNotNull();
+    assertThat(getProtoHeaderExecPath()).endsWith("_virtual_includes/f25ac60e/yolo.pb.h");
+  }
+
+  @Test
+  public void importPrefixAndStripImportPrefixWorksWithRepositories() throws Exception {
+    scratch.appendFile(
+        "MODULE.bazel",
+        "local_repository = use_repo_rule(\"@bazel_tools//tools/build_defs/repo:local.bzl\","
+            + " \"local_repository\")",
+        "local_repository(name = 'yolo_repo', path = '/yolo_repo/')");
+    invalidatePackages();
+
+    scratch.file("/yolo_repo/REPO.bazel");
+    scratch.file("/yolo_repo/yolo_pkg/yolo.proto");
+    scratch.file(
+        "/yolo_repo/yolo_pkg/BUILD",
+        "load('@com_google_protobuf//bazel:proto_library.bzl', 'proto_library')",
+        "load('@com_google_protobuf//bazel:cc_proto_library.bzl', 'cc_proto_library')",
+        "proto_library(",
+        "  name = 'yolo_proto',",
+        "  srcs = ['yolo.proto'],",
+        "  import_prefix = 'bazel.build/yolo',",
+        "  strip_import_prefix = '/yolo_pkg'",
+        ")",
+        "cc_proto_library(",
+        "  name = 'yolo_cc_proto',",
+        "  deps = [':yolo_proto'],",
+        ")");
+    getTarget("@@+local_repository+yolo_repo//yolo_pkg:yolo_cc_proto");
+
+    assertThat(getTarget("@@+local_repository+yolo_repo//yolo_pkg:yolo_cc_proto")).isNotNull();
+    assertThat(getProtoHeaderExecPath())
+        .endsWith("_virtual_includes/f25ac60e/bazel.build/yolo/yolo.pb.h");
+  }
+
+  private String getProtoHeaderExecPath() throws LabelSyntaxException {
+    ConfiguredTarget configuredTarget =
+        getConfiguredTarget("@@+local_repository+yolo_repo//yolo_pkg:yolo_cc_proto");
+    CcInfo ccInfo = configuredTarget.get(CcInfo.PROVIDER);
+    ImmutableList<Artifact> headers =
+        ccInfo.getCcCompilationContext().getDeclaredIncludeSrcs().toList();
+    // TODO(b/364873432): cc_proto_library returns headers in both _virtual_includes and
+    // _virtual_imports
+    return Iterables.getFirst(headers, null).getExecPathString();
   }
 
   @Test

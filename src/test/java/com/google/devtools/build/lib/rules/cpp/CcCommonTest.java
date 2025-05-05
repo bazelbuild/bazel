@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.baseArtifactNames;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.baseNamesOf;
 
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.truth.IterableSubject;
 import com.google.devtools.build.lib.actions.Action;
@@ -1071,12 +1072,12 @@ public class CcCommonTest extends BuildViewTestCase {
     ConfiguredTarget lib = getConfiguredTarget("//third_party/a");
     CcCompilationContext ccCompilationContext = lib.get(CcInfo.PROVIDER).getCcCompilationContext();
     assertThat(ActionsTestUtil.prettyArtifactNames(ccCompilationContext.getDeclaredIncludeSrcs()))
-        .containsExactly("third_party/a/_virtual_includes/a/lib/b/c.h", "third_party/a/v1/b/c.h");
+        .containsExactly("_virtual_includes/207132b2/lib/b/c.h", "third_party/a/v1/b/c.h");
     assertThat(ccCompilationContext.getIncludeDirs())
         .containsExactly(
             getTargetConfiguration()
                 .getBinFragment(RepositoryName.MAIN)
-                .getRelative("third_party/a/_virtual_includes/a"));
+                .getRelative("_virtual_includes/207132b2"));
   }
 
   @Test
@@ -1148,10 +1149,9 @@ public class CcCommonTest extends BuildViewTestCase {
             .getCcCompilationContext();
 
     assertThat(ActionsTestUtil.prettyArtifactNames(relative.getDeclaredIncludeSrcs()))
-        .containsExactly("third_party/a/_virtual_includes/relative/b.h", "third_party/a/v1/b.h");
+        .containsExactly("_virtual_includes/6665bb5b/b.h", "third_party/a/v1/b.h");
     assertThat(ActionsTestUtil.prettyArtifactNames(absolute.getDeclaredIncludeSrcs()))
-        .containsExactly(
-            "third_party/a/_virtual_includes/absolute/a/v1/b.h", "third_party/a/v1/b.h");
+        .containsExactly("_virtual_includes/ee72ce06/a/v1/b.h", "third_party/a/v1/b.h");
   }
 
   @Test
@@ -1205,8 +1205,12 @@ public class CcCommonTest extends BuildViewTestCase {
 
     CcCompilationContext ccCompilationContext =
         getConfiguredTarget("//third_party:a").get(CcInfo.PROVIDER).getCcCompilationContext();
-    assertThat(ActionsTestUtil.prettyArtifactNames(ccCompilationContext.getDeclaredIncludeSrcs()))
-        .doesNotContain("third_party/_virtual_includes/a/third_party/a.h");
+    assertThat(
+            Joiner.on(" ")
+                .join(
+                    ActionsTestUtil.prettyArtifactNames(
+                        ccCompilationContext.getDeclaredIncludeSrcs())))
+        .doesNotContainMatch("_virtual_includes/[a-z0-9]{8}/third_party/a.h");
   }
 
   @Test
