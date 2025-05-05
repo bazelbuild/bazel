@@ -1,7 +1,7 @@
 Project: /_project.yaml
 Book: /_book.yaml
 
-#Using Bazel on Windows
+# Using Bazel on Windows
 
 {% include "_buttons.html" %}
 
@@ -15,8 +15,7 @@ Windows-related Bazel issues are marked with the "area-Windows" label on GitHub.
 
 [GitHub-Windows]: https://github.com/bazelbuild/bazel/issues?q=is%3Aopen+is%3Aissue+label%3Aarea-Windows
 
-## Best practices {:#best-practices
-}
+## Best practices {:#best-practices}
 
 ### Avoid long path issues {:#long-path-issues}
 
