@@ -464,7 +464,7 @@ public class LibrariesToLinkCollector {
             expandedLinkerInputsBuilder);
     boolean includeSolibDir = includeSolibsPair.first;
     boolean includeToolchainLibrariesSolibDir = includeSolibsPair.second;
-    Preconditions.checkState(ltoMap.isEmpty(), "Still have LTO objects left: %s", ltoMapping);
+    Preconditions.checkState(ltoMap.isEmpty(), "Still have LTO objects left: %s", ltoMap);
 
     NestedSetBuilder<String> allRuntimeLibrarySearchDirectories = NestedSetBuilder.linkOrder();
     // rpath ordering matters for performance; first add the one where most libraries are found.
