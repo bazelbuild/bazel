@@ -441,9 +441,9 @@ genrule(
 
     var listener = getCommandEnvironment().getRemoteAnalysisCachingEventListener();
     // //bar:C, //bar:H, //bar:E
-    assertThat(listener.getAnalysisNodeCacheHits()).isEqualTo(3);
+    assertThat(listener.getCacheHits()).hasSize(3);
     // //bar:F is not in the project boundary, but it's in the active set, so it wasn't cached.
-    assertThat(listener.getAnalysisNodeCacheMisses()).isAtLeast(1);
+    assertThat(listener.getCacheMisses()).isNotEmpty();
   }
 
   @Test
@@ -689,20 +689,6 @@ filegroup(name = "F", srcs = ["//foo:G"])
 filegroup(name = "H")
 filegroup(name = "I")
 """);
-  }
-
-  protected static <T> ImmutableSet<T> filterKeys(Set<SkyKey> from, Class<? extends T> klass) {
-    return from.stream().filter(klass::isInstance).map(klass::cast).collect(toImmutableSet());
-  }
-
-  protected static ImmutableSet<Label> getLabels(Set<ActionLookupKey> from) {
-    return from.stream().map(ActionLookupKey::getLabel).collect(toImmutableSet());
-  }
-
-  protected static ImmutableSet<Label> getOwningLabels(Set<ActionLookupData> from) {
-    return from.stream()
-        .map(data -> data.getActionLookupKey().getLabel())
-        .collect(toImmutableSet());
   }
 
   @Test
@@ -1253,5 +1239,19 @@ consumer_rule(
         BlazeRuntime runtime, BlazeDirectories directories, WorkspaceBuilder builder) {
       builder.setSyscallCache(syscallCache);
     }
+  }
+
+  protected static <T> ImmutableSet<T> filterKeys(Set<SkyKey> from, Class<? extends T> klass) {
+    return from.stream().filter(klass::isInstance).map(klass::cast).collect(toImmutableSet());
+  }
+
+  protected static ImmutableSet<Label> getLabels(Set<ActionLookupKey> from) {
+    return from.stream().map(ActionLookupKey::getLabel).collect(toImmutableSet());
+  }
+
+  protected static ImmutableSet<Label> getOwningLabels(Set<ActionLookupData> from) {
+    return from.stream()
+        .map(data -> data.getActionLookupKey().getLabel())
+        .collect(toImmutableSet());
   }
 }

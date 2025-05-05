@@ -196,8 +196,7 @@ public final class FrontierViolationChecker {
 
   public static void accumulateCacheHitsAcrossInvocations(
       RemoteAnalysisCachingEventListener listener) {
-    accumulatedCacheHits.getAndAdd(listener.getAnalysisNodeCacheHits());
-    accumulatedCacheHits.getAndAdd(listener.getExecutionNodeCacheHits());
+    accumulatedCacheHits.getAndAdd(listener.getCacheHits().size());
   }
 
   /**
