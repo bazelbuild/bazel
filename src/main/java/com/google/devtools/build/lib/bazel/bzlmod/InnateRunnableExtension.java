@@ -229,7 +229,7 @@ final class InnateRunnableExtension implements RunnableExtension {
         AttributeValues.validateAttrs(
             attributesValue,
             String.format("to the %s", moduleKey.toDisplayString()),
-            String.format("of %s '%s'", ruleInstance.getRuleClass(), name));
+            String.format("%s '%s'", ruleInstance.getRuleClass(), name));
       } catch (InvalidRuleException | NoSuchPackageException | EvalException e) {
         throw ExternalDepsException.withCauseAndMessage(
             Code.BAD_MODULE, e, "error creating repo %s requested at %s", name, tag.getLocation());

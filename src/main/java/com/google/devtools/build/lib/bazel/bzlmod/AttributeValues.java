@@ -63,7 +63,13 @@ public abstract class AttributeValues {
     throw Starlark.errorf(
         "no repository visible as '@%s' %s, but referenced by label '@%s//%s:%s' in"
             + " attribute '%s'%s.",
-        repoName, where, repoName, label.getPackageName(), label.getName(), attrName, what);
+        repoName,
+        where,
+        repoName,
+        label.getPackageName(),
+        label.getName(),
+        attrName,
+        what.isEmpty() ? "" : " of " + what);
   }
 
   private static Optional<Label> getFirstNonVisibleLabel(Object nativeAttrValue) {
