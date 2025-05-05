@@ -88,7 +88,7 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
   // Each pair maps the Bazel generated paths of virtual include headers back to their original path
   // relative to the workspace directory.
   // For example it can map
-  // "bazel-out/k8-fastbuild/bin/include/common/_virtual_includes/strategy/strategy.h"
+  // "bazel-out/k8-fastbuild/_v_inc/XXXXXXXX/strategy.h"
   // back to the path of the header in the workspace directory "include/common/strategy.h".
   // This is needed only when code coverage collection is enabled, to report the actual source file
   // name in the coverage output file.

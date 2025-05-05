@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.baseArtifactNames;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.baseNamesOf;
 
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.truth.IterableSubject;
 import com.google.devtools.build.lib.actions.Action;
@@ -1204,8 +1205,8 @@ public class CcCommonTest extends BuildViewTestCase {
 
     CcCompilationContext ccCompilationContext =
         getConfiguredTarget("//third_party:a").get(CcInfo.PROVIDER).getCcCompilationContext();
-    assertThat(ActionsTestUtil.prettyArtifactNames(ccCompilationContext.getDeclaredIncludeSrcs()))
-        .doesNotContain("third_party/_virtual_includes/a/third_party/a.h");
+    assertThat(Joiner.on(" ").join(ActionsTestUtil.prettyArtifactNames(ccCompilationContext.getDeclaredIncludeSrcs())))
+        .doesNotContainMatch("_v_inc/[a-z0-9]{8}/third_party/a.h");
   }
 
   @Test
