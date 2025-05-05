@@ -26,8 +26,10 @@ source "${CURRENT_DIR}/remote_helpers.sh" \
 
 set_up() {
   bazel clean --expunge >& $TEST_log
+  add_rules_java "MODULE.bazel"
   mkdir -p zoo
   cat > zoo/BUILD <<EOF
+load("@rules_java//java:java_binary.bzl", "java_binary")
 java_binary(
     name = "ball-pit",
     srcs = ["BallPit.java"],
@@ -287,8 +289,10 @@ http_archive(
     sha256 = '2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9826',
 )
 EOF
+  add_rules_shell "MODULE.bazel"
 
   cat > zoo/BUILD <<EOF
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 sh_binary(
     name = "breeding-program",
     srcs = ["female.sh"],
@@ -349,9 +353,11 @@ http_jar = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_j
 http_jar(name = 'endangered', url = 'http://127.0.0.1:$nc_port/lib.jar',
          sha256='$sha256', downloaded_file_name="foo.jar")
 EOF
+  add_rules_java "MODULE.bazel"
 
   mkdir -p zoo
   cat > zoo/BUILD <<EOF
+load("@rules_java//java:java_binary.bzl", "java_binary")
 java_binary(
     name = "ball-pit",
     srcs = ["BallPit.java"],
@@ -796,9 +802,10 @@ http_archive(
     ${workspace_file_attr}
 )
 EOF
-
+  add_rules_shell "MODULE.bazel"
   mkdir -p zoo
   cat > zoo/BUILD <<EOF
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 sh_binary(
     name = "breeding-program",
     srcs = ["female.sh"],
@@ -825,6 +832,7 @@ function test_fetch() {
 ext = use_extension("//:ext.bzl", "ext")
 use_repo(ext, "endangered")
 EOF
+  add_rules_java "MODULE.bazel"
 
   touch BUILD
   cat > ext.bzl <<EOF

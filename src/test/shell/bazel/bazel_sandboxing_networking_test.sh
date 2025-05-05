@@ -263,6 +263,7 @@ public class HostNameTest {
 }
 EOF
   cat > src/test/java/com/example/BUILD <<'EOF'
+load("@rules_java//java:java_test.bzl", "java_test")
 java_test(
   name = "HostNameTest",
   srcs = ["HostNameTest.java"],
@@ -301,6 +302,7 @@ public class HostNameIsLocalhostTest {
 }
 EOF
   cat > src/test/java/com/example/BUILD <<'EOF'
+load("@rules_java//java:java_test.bzl", "java_test")
 java_test(
   name = "HostNameIsLocalhostTest",
   srcs = ["HostNameIsLocalhostTest.java"],

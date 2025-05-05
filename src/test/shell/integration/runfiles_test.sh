@@ -618,6 +618,7 @@ EOF
 }
 
 function test_special_chars_in_runfiles_target_paths() {
+  add_rules_shell "MODULE.bazel"
   mkdir -p pkg
   if "$is_windows"; then
     cat > pkg/constants.bzl <<'EOF'
@@ -646,6 +647,8 @@ spaces = rule(
 EOF
   cat > pkg/BUILD <<'EOF'
 load(":defs.bzl", "spaces")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
 spaces(name = "spaces")
 sh_test(
     name = "foo",
@@ -690,7 +693,9 @@ spaces = rule(
 )
 EOF
   cat > pkg/BUILD <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 load(":defs.bzl", "spaces")
+
 spaces(name = "spaces")
 sh_test(
     name = "foo",
