@@ -1,6 +1,20 @@
 ---
 
 tasks:
+  rockylinux8:
+      build_targets:
+        - "//src:bazel"
+        - "//src:bazel_nojdk"
+      build_flags:
+        - "-c"
+        - "opt"
+  rockylinux8_arm64:
+      build_targets:
+        - "//src:bazel"
+        - "//src:bazel_nojdk"
+      build_flags:
+        - "-c"
+        - "opt"
   centos7:
     shards: 4
     shell_commands:
