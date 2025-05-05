@@ -121,7 +121,7 @@ public class TypeCheckedTag implements Structure {
             attr.getPublicName(),
             attrValues[i],
             String.format("to the %s", moduleDisplayString),
-            String.format("tag '%s'", tag.getTagName()));
+            /* what= */ "");
       } catch (EvalException e) {
         throw ExternalDepsException.withMessage(
             Code.BAD_MODULE,
