@@ -1358,6 +1358,13 @@ message BuildMetrics {
   }
 
   DynamicExecutionMetrics dynamic_execution_metrics = 12;
+
+  // Statistics about remote analysis caching
+  message RemoteAnalysisCacheStatistics {
+    int64 cache_hits = 1;
+    int64 cache_misses = 2;
+  }
+  RemoteAnalysisCacheStatistics remote_analysis_cache_statistics = 13;
 }
 
 // Event providing additional statistics/logs after completion of the build.
