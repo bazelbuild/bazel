@@ -320,22 +320,24 @@ public final class ActionExecutionFunction implements SkyFunction {
     if (checkedInputs != null) {
       checkState(!state.hasArtifactData(), "%s %s", state, action);
       state.inputArtifactData = checkedInputs.actionInputMap;
+      state.actionInputMetadataProvider = new ActionInputMetadataProvider(state.inputArtifactData);
       state.skyframeInputMetadataProvider =
           new SkyframeInputMetadataProvider(
               evaluator.get(),
               env,
               skyframeActionExecutor.getPerBuildFileCache(),
               directories.getRelativeOutputPath());
-      state.pairInputMetadataProvider =
+      state.compositeInputMetadataProvider =
           new DelegatingPairInputMetadataProvider(
-              state.inputArtifactData, state.skyframeInputMetadataProvider);
+              state.actionInputMetadataProvider, state.skyframeInputMetadataProvider);
       if (skyframeActionExecutor.actionFileSystemType().isEnabled()) {
         state.actionFileSystem =
             skyframeActionExecutor.createActionFileSystem(
                 directories.getRelativeOutputPath(),
-                state.pairInputMetadataProvider,
+                state.compositeInputMetadataProvider,
                 action.getOutputs());
       }
+      state.compositeInputMetadataProvider.setFileSystemForInputResolution(state.actionFileSystem);
     }
 
     skyframeActionExecutor.acquireActionExecutionSemaphore();
@@ -720,9 +722,6 @@ public final class ActionExecutionFunction implements SkyFunction {
         ArtifactPathResolver.createPathResolver(
             state.actionFileSystem, skyframeActionExecutor.getExecRoot());
 
-    ActionInputMetadataProvider inputMetadataProvider =
-        new ActionInputMetadataProvider(state.inputArtifactData);
-
     ActionOutputMetadataStore outputMetadataStore =
         ActionOutputMetadataStore.create(
             skyframeActionExecutor.useArchivedTreeArtifacts(action),
@@ -738,7 +737,7 @@ public final class ActionExecutionFunction implements SkyFunction {
           skyframeActionExecutor.checkActionCache(
               env.getListener(),
               action,
-              inputMetadataProvider,
+              state.actionInputMetadataProvider,
               outputMetadataStore,
               pathResolver,
               actionStartTime,
@@ -749,7 +748,7 @@ public final class ActionExecutionFunction implements SkyFunction {
     if (state.token == null) {
       RichArtifactData reconstructedRichArtifactData =
           action instanceof RichDataProducingAction rdpa
-              ? rdpa.reconstructRichDataOnActionCacheHit(inputMetadataProvider)
+              ? rdpa.reconstructRichDataOnActionCacheHit(state.actionInputMetadataProvider)
               : null;
       return ActionExecutionValue.create(
           outputMetadataStore, reconstructedRichArtifactData, action);
@@ -772,8 +771,7 @@ public final class ActionExecutionFunction implements SkyFunction {
                 skyframeActionExecutor.discoverInputs(
                     action,
                     actionLookupData,
-                    inputMetadataProvider,
-                    state.skyframeInputMetadataProvider,
+                    state.compositeInputMetadataProvider,
                     env,
                     state.actionFileSystem);
           }
@@ -813,8 +811,7 @@ public final class ActionExecutionFunction implements SkyFunction {
     return skyframeActionExecutor.executeAction(
         env,
         action,
-        inputMetadataProvider,
-        state.skyframeInputMetadataProvider,
+        state.compositeInputMetadataProvider,
         outputMetadataStore,
         actionStartTime,
         actionLookupData,
@@ -1218,14 +1215,30 @@ public final class ActionExecutionFunction implements SkyFunction {
     /** Mutable map containing metadata for known artifacts. */
     ActionInputMap inputArtifactData = null;
 
+    /** A thin wrapper around ActionInputMap for Fileset-related caching. */
+    ActionInputMetadataProvider actionInputMetadataProvider = null;
+
     /** An input metadata provider that does Skyframe lookups. */
     SkyframeInputMetadataProvider skyframeInputMetadataProvider = null;
 
     /**
-     * An input metadata provider combining {@code inputArtifactData} and {@code
-     * skyframeInputMetadataProvider}.
+     * The input metadata provider that knows everything required to look up action inputs. It
+     * consists of these parts:
+     *
+     * <ul>
+     *   <li>The set of direct action inputs ({@link #inputArtifactData})
+     *   <li>Skyframe lookups for generated artifacts that are not direct inputs
+     *   <li>File system lookups for source artifacts that are not direct inputs
+     * </ul>
+     *
+     * The latter two exist to support input discovery, when an action may well read files that are
+     * not direct inputs. The metadata is actually in Skyframe so we could conceivably create the
+     * equivalent of an {@link ActionInputMap} with scheduling dependencies and then these two would
+     * not be needed. However, it would incur a huge performance hit because the most significant
+     * use of input discovery is C++ include scanning, where the vast majority of scheduling
+     * dependencies are not actually accessed.
      */
-    DelegatingPairInputMetadataProvider pairInputMetadataProvider = null;
+    DelegatingPairInputMetadataProvider compositeInputMetadataProvider = null;
 
     Token token = null;
     NestedSet<Artifact> discoveredInputs = null;

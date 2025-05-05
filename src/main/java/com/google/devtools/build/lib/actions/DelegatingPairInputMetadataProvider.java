@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.actions;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
@@ -29,21 +30,20 @@ public final class DelegatingPairInputMetadataProvider implements InputMetadataP
 
   private final InputMetadataProvider primary;
   private final InputMetadataProvider secondary;
-  private final FileSystem fileSystemForInputResolution;
+  private FileSystem fileSystemForInputResolution;
+  private boolean fileSystemForInputResolutionSet;
 
   public DelegatingPairInputMetadataProvider(
       InputMetadataProvider primary, InputMetadataProvider secondary) {
     this.primary = primary;
     this.secondary = secondary;
     this.fileSystemForInputResolution = null;
+    this.fileSystemForInputResolutionSet = false;
   }
 
-  public DelegatingPairInputMetadataProvider(
-      InputMetadataProvider primary,
-      InputMetadataProvider secondary,
-      FileSystem fileSystemForInputResolution) {
-    this.primary = primary;
-    this.secondary = secondary;
+  public void setFileSystemForInputResolution(FileSystem fileSystemForInputResolution) {
+    Preconditions.checkState(!fileSystemForInputResolutionSet);
+    fileSystemForInputResolutionSet = true;
     this.fileSystemForInputResolution = fileSystemForInputResolution;
   }
 

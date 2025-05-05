@@ -60,7 +60,6 @@ import com.google.devtools.build.lib.actions.Artifact.OwnerlessArtifactWrapper;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.CachedActionEvent;
-import com.google.devtools.build.lib.actions.DelegatingPairInputMetadataProvider;
 import com.google.devtools.build.lib.actions.DiscoveredModulesPruner;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.Executor;
@@ -540,8 +539,7 @@ public final class SkyframeActionExecutor {
   ActionExecutionValue executeAction(
       Environment env,
       Action action,
-      InputMetadataProvider directInputMetadataProvider,
-      InputMetadataProvider skyframeLookupInputMetadataProvider,
+      InputMetadataProvider compositeInputMetadataProvider,
       ActionOutputMetadataStore outputMetadataStore,
       long actionStartTime,
       ActionLookupData actionLookupData,
@@ -551,14 +549,16 @@ public final class SkyframeActionExecutor {
       throws ActionExecutionException, InterruptedException {
     if (actionFileSystem != null) {
       updateActionFileSystemContext(
-          action, actionFileSystem, outputMetadataStore, directInputMetadataProvider.getFilesets());
+          action,
+          actionFileSystem,
+          outputMetadataStore,
+          compositeInputMetadataProvider.getFilesets());
     }
 
     ActionExecutionContext actionExecutionContext =
         getContext(
             action,
-            directInputMetadataProvider,
-            skyframeLookupInputMetadataProvider,
+            compositeInputMetadataProvider,
             outputMetadataStore,
             actionFileSystem,
             actionLookupData);
@@ -585,8 +585,7 @@ public final class SkyframeActionExecutor {
                     actionLookupData,
                     new ActionRunner(
                         action,
-                        // TODO(lberki): Maybe this should be the graph/Skyframe pair?
-                        directInputMetadataProvider,
+                        compositeInputMetadataProvider,
                         outputMetadataStore,
                         actionStartTime,
                         actionExecutionContext,
@@ -631,8 +630,7 @@ public final class SkyframeActionExecutor {
 
   private ActionExecutionContext getContext(
       Action action,
-      InputMetadataProvider directInputMetadataProvider,
-      InputMetadataProvider skyframeLookupInputMetadataProvider,
+      InputMetadataProvider compositeInputMetadataProvider,
       OutputMetadataStore outputMetadataStore,
       @Nullable FileSystem actionFileSystem,
       ActionLookupData actionLookupData) {
@@ -642,8 +640,7 @@ public final class SkyframeActionExecutor {
     FileOutErr fileOutErr = actionLogBufferPathGenerator.generate(artifactPathResolver);
     return new ActionExecutionContext(
         executorEngine,
-        createFileCache(
-            directInputMetadataProvider, skyframeLookupInputMetadataProvider, actionFileSystem),
+        compositeInputMetadataProvider,
         actionInputPrefetcher,
         actionKeyContext,
         outputMetadataStore,
@@ -862,8 +859,7 @@ public final class SkyframeActionExecutor {
   NestedSet<Artifact> discoverInputs(
       Action action,
       ActionLookupData actionLookupData,
-      InputMetadataProvider directInputMetadataProvider,
-      InputMetadataProvider skyframeLookupInputMetadataProvider,
+      InputMetadataProvider compositeInputMetadataProvider,
       Environment env,
       @Nullable FileSystem actionFileSystem)
       throws ActionExecutionException, InterruptedException {
@@ -872,9 +868,6 @@ public final class SkyframeActionExecutor {
             ArtifactPathResolver.createPathResolver(
                 actionFileSystem, executorEngine.getExecRoot()));
     ExtendedEventHandler eventHandler = selectEventHandler(action);
-    InputMetadataProvider compositeInputMetadataProvider =
-        new DelegatingPairInputMetadataProvider(
-            directInputMetadataProvider, skyframeLookupInputMetadataProvider, actionFileSystem);
     ActionExecutionContext actionExecutionContext =
         ActionExecutionContext.forInputDiscovery(
             executorEngine,
@@ -948,14 +941,6 @@ public final class SkyframeActionExecutor {
       eventHandler.post(new StoppedScanningActionEvent(action));
       closeContext(actionExecutionContext, action, finalException);
     }
-  }
-
-  private InputMetadataProvider createFileCache(
-      InputMetadataProvider directInputMetadataProvider,
-      InputMetadataProvider skyframeLookupInputMetadataProvider,
-      @Nullable FileSystem actionFileSystem) {
-    return new DelegatingPairInputMetadataProvider(
-        directInputMetadataProvider, skyframeLookupInputMetadataProvider, actionFileSystem);
   }
 
   /**
