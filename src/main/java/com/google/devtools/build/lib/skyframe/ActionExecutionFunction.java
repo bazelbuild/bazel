@@ -337,7 +337,6 @@ public final class ActionExecutionFunction implements SkyFunction {
                 state.compositeInputMetadataProvider,
                 action.getOutputs());
       }
-      state.compositeInputMetadataProvider.setFileSystemForInputResolution(state.actionFileSystem);
     }
 
     skyframeActionExecutor.acquireActionExecutionSemaphore();
