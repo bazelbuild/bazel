@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe.serialization.analysis;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.collect.HashMultiset;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multiset;
 import com.google.common.eventbus.AllowConcurrentEvents;
@@ -58,6 +59,10 @@ public class RemoteAnalysisCachingEventListener {
   private final AtomicInteger executionCacheHits = new AtomicInteger();
   private final AtomicInteger executionCacheMisses = new AtomicInteger();
   private final Set<SerializationException> serializationExceptions = ConcurrentHashMap.newKeySet();
+  private final ConcurrentHashMap<SkyFunctionName, AtomicInteger> hitsBySkyFunctionName =
+      new ConcurrentHashMap<>();
+  private final ConcurrentHashMap<SkyFunctionName, AtomicInteger> missesBySkyFunctionName =
+      new ConcurrentHashMap<>();
 
   private final AtomicReference<FrontierNodeVersion> skyValueVersion = new AtomicReference<>();
 
@@ -98,11 +103,16 @@ public class RemoteAnalysisCachingEventListener {
       return;
     }
 
+    SkyFunctionName functionName = key.functionName(); // Get the function name
+
     switch (result) {
       case RetrievedValue unusedValue -> {
         if (!cacheHits.add(key)) {
           return;
         }
+        hitsBySkyFunctionName
+            .computeIfAbsent(functionName, k -> new AtomicInteger())
+            .incrementAndGet();
         if (isExecutionNode(key)) {
           executionCacheHits.incrementAndGet();
         } else {
@@ -113,6 +123,9 @@ public class RemoteAnalysisCachingEventListener {
         if (!cacheMisses.add(key)) {
           return;
         }
+        missesBySkyFunctionName
+            .computeIfAbsent(functionName, k -> new AtomicInteger())
+            .incrementAndGet();
         if (isExecutionNode(key)) {
           executionCacheMisses.incrementAndGet();
         } else {
@@ -159,6 +172,16 @@ public class RemoteAnalysisCachingEventListener {
    */
   public int getExecutionNodeCacheMisses() {
     return executionCacheMisses.get();
+  }
+
+  /** Returns the number of cache hits grouped by SkyFunction name. */
+  public ImmutableMap<SkyFunctionName, AtomicInteger> getHitsBySkyFunctionName() {
+    return ImmutableMap.copyOf(hitsBySkyFunctionName);
+  }
+
+  /** Returns the number of cache misses grouped by SkyFunction name. */
+  public ImmutableMap<SkyFunctionName, AtomicInteger> getMissesBySkyFunctionName() {
+    return ImmutableMap.copyOf(missesBySkyFunctionName);
   }
 
   /** Records a {@link SerializationException} encountered during SkyValue retrievals. */

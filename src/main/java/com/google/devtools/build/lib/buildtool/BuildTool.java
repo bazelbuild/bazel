@@ -20,8 +20,10 @@ import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.buildtool.AnalysisPhaseRunner.evaluateProjectFile;
 import static com.google.devtools.common.options.OptionsParser.STARLARK_SKIPPED_PREFIXES;
+import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static java.util.stream.Collectors.joining;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ascii;
@@ -34,6 +36,7 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.hash.HashCode;
 import com.google.common.util.concurrent.Futures;
@@ -131,6 +134,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.IntVersion;
+import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.common.options.OptionPriority.PriorityCategory;
@@ -148,6 +152,7 @@ import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nullable;
 
 /**
@@ -1440,19 +1445,44 @@ public class BuildTool {
 
   private void reportRemoteAnalysisCachingStats() {
     var listener = env.getRemoteAnalysisCachingEventListener();
-    env.getReporter()
-        .handle(
-            Event.info(
-                String.format(
-                    "Remote analysis caching stats: %s cache hits (%s analysis, %s execution),"
-                        + " %s cache misses (%s analysis, %s execution).",
-                    listener.getAnalysisNodeCacheHits() + listener.getExecutionNodeCacheHits(),
-                    listener.getAnalysisNodeCacheHits(),
-                    listener.getExecutionNodeCacheHits(),
-                    listener.getAnalysisNodeCacheMisses() + listener.getExecutionNodeCacheMisses(),
-                    listener.getAnalysisNodeCacheMisses(),
-                    listener.getExecutionNodeCacheMisses())));
 
+    var hitsByFunction = listener.getHitsBySkyFunctionName();
+    var missesByFunction = listener.getMissesBySkyFunctionName();
+    long totalHits = hitsByFunction.values().stream().mapToLong(AtomicInteger::get).sum();
+    long totalMisses = missesByFunction.values().stream().mapToLong(AtomicInteger::get).sum();
+    long totalRequests = totalHits + totalMisses;
+
+    if (totalRequests > 0) {
+      // Combine keys from both maps
+      Set<SkyFunctionName> allFunctionNames =
+          Sets.union(hitsByFunction.keySet(), missesByFunction.keySet());
+      // Format the stats per function, sorted alphabetically by function name
+      String statsByFunction =
+          allFunctionNames.stream()
+              .sorted(comparing(SkyFunctionName::getName))
+              .map(
+                  functionName -> {
+                    long hits =
+                        hitsByFunction.getOrDefault(functionName, new AtomicInteger(0)).get();
+                    long misses =
+                        missesByFunction.getOrDefault(functionName, new AtomicInteger(0)).get();
+                    long functionTotal = hits + misses;
+                    double functionHitRate =
+                        functionTotal == 0 ? 0.0 : (double) hits / functionTotal * 100;
+                    return String.format(
+                        "%s: %d/%d (%.2f%%)",
+                        functionName.getName(), hits, functionTotal, functionHitRate);
+                  })
+              .collect(joining(", "));
+
+      double overallHitRate = totalRequests == 0 ? 0.0 : (double) totalHits / totalRequests * 100;
+      env.getReporter()
+          .handle(
+              Event.info(
+                  String.format(
+                      "Remote analysis caching stats: %s/%s cache hits (%.2f%%) [Breakdown: %s]",
+                      totalHits, totalRequests, overallHitRate, statsByFunction)));
+    }
     FrontierViolationChecker.accumulateCacheHitsAcrossInvocations(listener);
   }
 }
