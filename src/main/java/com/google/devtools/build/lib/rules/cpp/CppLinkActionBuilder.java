@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -196,8 +197,15 @@ public class CppLinkActionBuilder {
       boolean preferPicLibs)
       throws EvalException {
     Set<Artifact> compiled = new LinkedHashSet<>();
+    Set<Artifact> staticLibraryArtifacts = new HashSet<>();
     for (LibraryToLink lib : staticLibrariesToLink) {
       boolean pic = lib.getEffectivePic(preferPicLibs);
+      Artifact libArtifact = pic ? lib.getPicStaticLibrary() : lib.getStaticLibrary();
+      if (!staticLibraryArtifacts.add(libArtifact)) {
+        // Duplicated static libraries are linked just once and don't error out.
+        // TODO(b/413333884): Clean up violations and error out
+        continue;
+      }
       LtoCompilationContext context =
           (pic ? lib.getPicLtoCompilationContext() : lib.getLtoCompilationContext());
       if (context != null) {
