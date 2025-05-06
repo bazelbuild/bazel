@@ -1,6 +1,6 @@
 # Description:
 #   Tool for measuring how configuration transitions affect build graph size.
-load("@rules_python//python:defs.bzl", "py_binary", "py_library")
+load("@rules_python//python:defs.bzl", "py_binary", "py_library", "py_test")
 
 package(default_visibility = ["//visibility:public"])
 
