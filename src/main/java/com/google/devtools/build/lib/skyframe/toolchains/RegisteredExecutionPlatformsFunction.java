@@ -14,10 +14,11 @@
 
 package com.google.devtools.build.lib.skyframe.toolchains;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.PlatformConfiguration;
@@ -215,7 +216,7 @@ public class RegisteredExecutionPlatformsFunction implements SkyFunction {
   private static ImmutableList<ConfiguredTargetKey> configureRegisteredExecutionPlatforms(
       Environment env, List<Label> labels)
       throws InterruptedException, RegisteredExecutionPlatformsFunctionException {
-    ImmutableList<ConfiguredTargetKey> keys =
+    ImmutableSet<ConfiguredTargetKey> keys =
         labels.stream()
             .map(
                 label ->
@@ -224,7 +225,7 @@ public class RegisteredExecutionPlatformsFunction implements SkyFunction {
                         .setConfigurationKey(
                             BuildConfigurationKey.create(CommonOptions.EMPTY_OPTIONS))
                         .build())
-            .collect(toImmutableList());
+            .collect(toImmutableSet());
 
     SkyframeLookupResult values = env.getValuesAndExceptions(keys);
     ImmutableList.Builder<ConfiguredTargetKey> validPlatformKeys = new ImmutableList.Builder<>();
