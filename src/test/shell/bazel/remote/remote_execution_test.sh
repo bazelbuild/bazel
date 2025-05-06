@@ -3772,7 +3772,29 @@ EOF
 function test_source_directory() {
   mkdir -p a
   cat > a/BUILD <<'EOF'
-GENRULE_COMMAND = """
+filegroup(
+    name = "source_directory",
+    srcs = ["dir"],
+)
+
+filegroup(
+    name = "glob",
+    srcs = glob(["dir/**"]),
+)
+
+sh_binary(
+    name = "tool_with_source_directory",
+    srcs = ["tool.sh"],
+    data = [":source_directory"],
+)
+
+sh_binary(
+    name = "tool_with_glob",
+    srcs = ["tool.sh"],
+    data = [":glob"],
+)
+
+GENRULE_COMMAND_TEMPLATE = """
 [[ -f a/dir/file.txt ]] || { echo "a/dir/file.txt is not a file"; exit 1; }
 [[ ! -L a/dir/file.txt ]] || { echo "a/dir/file.txt is a symlink"; exit 1; }
 [[ -f a/dir/subdir/file.txt ]] || { echo "a/dir/subdir/file.txt is not a file"; exit 1; }
@@ -3783,24 +3805,41 @@ GENRULE_COMMAND = """
 [[ ! -L a/dir/symlink_dir ]] || { echo "a/dir/symlink_dir is a symlink"; exit 1; }
 [[ ! -e a/dir/empty_dir ]] || { echo "a/dir/empty_dir exists"; exit 1; }
 [[ ! -e a/dir/symlink_empty_dir ]] || { echo "a/dir/symlink_empty_dir exists"; exit 1; }
+
+runfiles_prefix=$(execpath %s).runfiles/_main
+[[ -f $$runfiles_prefix/a/dir/file.txt ]] || { echo "$$runfiles_prefix/a/dir/file.txt is not a file"; exit 1; }
+[[ ! -L $$runfiles_prefix/a/dir/file.txt ]] || { echo "$$runfiles_prefix/a/dir/file.txt is a symlink"; exit 1; }
+[[ -f $$runfiles_prefix/a/dir/subdir/file.txt ]] || { echo "$$runfiles_prefix/a/dir/subdir/file.txt is not a file"; exit 1; }
+[[ ! -L $$runfiles_prefix/a/dir/subdir/file.txt ]] || { echo "$$runfiles_prefix/a/dir/subdir/file.txt is a symlink"; exit 1; }
+[[ -f $$runfiles_prefix/a/dir/symlink.txt ]] || { echo "$$runfiles_prefix/a/dir/symlink.txt is not a file"; exit 1; }
+[[ ! -L $$runfiles_prefix/a/dir/symlink.txt ]] || { echo "$$runfiles_prefix/a/dir/symlink.txt is a symlink"; exit 1; }
+[[ -f $$runfiles_prefix/a/dir/symlink_dir/file.txt ]] || { echo "$$runfiles_prefix/a/dir/subdir/file.txt is not a file"; exit 1; }
+[[ ! -L $$runfiles_prefix/a/dir/symlink_dir ]] || { echo "$$runfiles_prefix/a/dir/symlink_dir is a symlink"; exit 1; }
+[[ ! -e $$runfiles_prefix/a/dir/empty_dir ]] || { echo "$$runfiles_prefix/a/dir/empty_dir exists"; exit 1; }
+[[ ! -e $$runfiles_prefix/a/dir/symlink_empty_dir ]] || { echo "$$runfiles_prefix/a/dir/symlink_empty_dir exists"; exit 1; }
+
 touch $@
 """
 
 genrule(
     name = "gen_source_directory",
-    srcs = ["dir"],
+    srcs = [":source_directory"],
+    tools = [":tool_with_source_directory"],
     outs = ["out1"],
-    cmd = GENRULE_COMMAND,
+    cmd = GENRULE_COMMAND_TEMPLATE % ":tool_with_source_directory",
 )
 
 genrule(
     name = "gen_glob",
-    srcs = glob(["dir/**"]),
+    srcs = [":glob"],
+    tools = [":tool_with_glob"],
     outs = ["out2"],
-    cmd = GENRULE_COMMAND,
+    cmd = GENRULE_COMMAND_TEMPLATE % ":tool_with_glob",
 )
 EOF
   mkdir -p a/dir
+  touch a/tool.sh
+  chmod +x a/tool.sh
   touch a/dir/file.txt
   ln -s file.txt a/dir/symlink.txt
   mkdir -p a/dir/subdir
@@ -3811,11 +3850,11 @@ EOF
 
   bazel build \
     --remote_executor=grpc://localhost:${worker_port} \
-    //a:gen_source_directory >& $TEST_log || fail "Failed to build //a:gen_source_directory"
+    //a:gen_glob >& $TEST_log || fail "Failed to build //a:gen_glob"
 
   bazel build \
     --remote_executor=grpc://localhost:${worker_port} \
-    //a:gen_glob >& $TEST_log || fail "Failed to build //a:gen_glob"
+    //a:gen_source_directory >& $TEST_log || fail "Failed to build //a:gen_source_directory"
 }
 
 # TODO: Turn this into a more targeted test after enabling proper source
