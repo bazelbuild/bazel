@@ -376,9 +376,9 @@ public final class ActionExecutionFunction implements SkyFunction {
       return null;
     }
 
-    // We're done with the action. Clear the memo fields of the NestedSets to save some memory.
-    action.getInputs().clearMemo();
-    allInputs.clearMemo();
+    // We're done with the action. Clear the cached NestedSet list representations to save memory.
+    action.getInputs().clearCachedListRepresentation();
+    allInputs.clearCachedListRepresentation();
 
     // After the action execution is finalized, unregister the outputs from the consumed set to save
     // memory.
