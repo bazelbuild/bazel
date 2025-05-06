@@ -204,6 +204,7 @@ def _runfiles_test_impl(env, target):
     # Match e.g. bazel-out/k8-fastbuild/bin/src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test/libdirect_so_file.so
     path_suffix = "/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test"
     env.expect.that_collection(runfiles).contains_exactly_predicates([
+        matching.str_endswith(path_suffix + "/some_file.txt"),
         matching.str_endswith(path_suffix + "/libfoo_so.so"),
         matching.str_endswith(path_suffix + "/libbar_so.so"),
         matching.str_endswith(path_suffix + "/libprivate_lib_so.so"),

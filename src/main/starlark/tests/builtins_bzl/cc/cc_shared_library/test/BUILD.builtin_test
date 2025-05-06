@@ -1,4 +1,8 @@
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+load("@rules_cc//cc:cc_import.bzl", "cc_import")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("@rules_python//python:py_test.bzl", "py_test")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 load("@rules_testing//lib:analysis_test.bzl", "analysis_test")
 load(
     ":starlark_tests.bzl",
@@ -15,10 +19,6 @@ load(
     "runfiles_test",
     "wrapped_cc_lib",
 )
-load("@rules_cc//cc:cc_library.bzl", "cc_library")
-load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
-load("@rules_cc//cc:cc_import.bzl", "cc_import")
-load("@rules_shell//shell:sh_test.bzl", "sh_test")
 
 LINKABLE_MORE_THAN_ONCE = "LINKABLE_MORE_THAN_ONCE"
 
@@ -180,7 +180,7 @@ cc_library(
         # Not exported.
         "qux",
         "prebuilt",
-        "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test3:diff_pkg"
+        "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test3:diff_pkg",
     ],
 )
 
@@ -247,6 +247,7 @@ cc_library(
     name = "baz",
     srcs = ["baz.cc"],
     hdrs = ["baz.h"],
+    data = ["some_file.txt"],
     deps = ["bar3"],
 )
 
@@ -552,13 +553,13 @@ exports_test(
     name = "exports_foo_test",
     target = ":foo_so",
     targets_that_should_be_claimed_to_be_exported = [
-       "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test:indirect_dep2",
-       "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test:baz",
-       "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test:foo",
-       "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test:cc_lib_with_no_srcs",
-       "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test:nocode_cc_lib",
-       "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test:should_not_be_linked_cc_lib",
-       "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test:a_suffix",
+        "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test:indirect_dep2",
+        "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test:baz",
+        "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test:foo",
+        "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test:cc_lib_with_no_srcs",
+        "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test:nocode_cc_lib",
+        "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test:should_not_be_linked_cc_lib",
+        "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test:a_suffix",
     ],
 )
 

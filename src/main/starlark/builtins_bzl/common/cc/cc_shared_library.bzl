@@ -749,6 +749,8 @@ def _cc_shared_library_impl(ctx):
     )
     for dep in ctx.attr.dynamic_deps:
         runfiles = runfiles.merge(dep[DefaultInfo].data_runfiles)
+    for dep in ctx.attr.deps:
+        runfiles = runfiles.merge(dep[DefaultInfo].data_runfiles)
 
     precompiled_only_dynamic_libraries_runfiles = []
     for precompiled_dynamic_library in precompiled_only_dynamic_libraries:
