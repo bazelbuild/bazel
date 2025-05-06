@@ -81,6 +81,8 @@ public class ResourceManager implements ResourceEstimator {
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
+  private boolean allowOneActionOnResourceUnavailable;
+
   /**
    * A handle returned by {@link #acquireResources(ActionExecutionMetadata, ResourceSet,
    * ResourcePriority)} that must be closed in order to free the resources again.
@@ -163,6 +165,14 @@ public class ResourceManager implements ResourceEstimator {
     LOCAL(), // Local execution not under dynamic execution
     DYNAMIC_WORKER(),
     DYNAMIC_STANDALONE();
+  }
+
+  public ResourceManager() {
+    this.allowOneActionOnResourceUnavailable = false;
+  }
+
+  public void setAllowOneActionOnResourceUnavailable(boolean allowOneActionOnResourceUnavailable) {
+    this.allowOneActionOnResourceUnavailable = allowOneActionOnResourceUnavailable;
   }
 
   /** Returns prediction of RAM in Mb used by registered actions. */
@@ -597,7 +607,7 @@ public class ResourceManager implements ResourceEstimator {
     }
   }
 
-  private static <T extends Number> boolean isAvailable(T available, T used, T requested) {
+  private <T extends Number> boolean isAvailable(T available, T used, T requested) {
     // Resources are considered available if any one of the conditions below is true:
     // 1) If resource is not requested at all, it is available.
     // 2) If resource is not used at the moment, it is considered to be
@@ -606,7 +616,7 @@ public class ResourceManager implements ResourceEstimator {
     // resources even if it requests more than available.
     // 3) If used resource amount is less than total available resource amount.
     return requested.doubleValue() == 0
-        || used.doubleValue() == 0
+        || (allowOneActionOnResourceUnavailable && used.doubleValue() == 0)
         || used.doubleValue() + requested.doubleValue() <= available.doubleValue();
   }
 
@@ -622,7 +632,10 @@ public class ResourceManager implements ResourceEstimator {
       return false;
     }
 
-    if (usedResources.isEmpty() && usedLocalTestCount == 0) {
+    if (allowOneActionOnResourceUnavailable
+        && usedResources.isEmpty()
+        && usedLocalTestCount == 0
+        && resources.getLocalTestCount() > 0) {
       return true;
     }
 

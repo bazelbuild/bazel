@@ -1012,6 +1012,8 @@ public class ExecutionTool {
         options.experimentalCpuLoadScheduling,
         options.experimentalCpuLoadSchedulingWindowSize);
     resourceMgr.scheduleCpuLoadWindowUpdate();
+
+    resourceMgr.setAllowOneActionOnResourceUnavailable(options.allowOneActionOnResourceUnavailable);
   }
 
   /**

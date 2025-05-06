@@ -161,8 +161,11 @@ public final class ResourceManagerTest {
   }
 
   @Test
-  public void testOverBudgetRequests() throws Exception {
+  public void allowOneActionOnResourceUnavailable_success() throws Exception {
     assertThat(manager.inUse()).isFalse();
+
+    // TODO: b/405364605 - Add a test for false case after we start throwing an exception.
+    manager.setAllowOneActionOnResourceUnavailable(true);
 
     // When nothing is consuming RAM,
     // Then Resource Manager will successfully acquire an over-budget request for RAM:
@@ -336,10 +339,14 @@ public final class ResourceManagerTest {
   @SuppressWarnings("ThreadPriorityCheck")
   public void testConcurrentLargeRequests() throws Exception {
     assertThat(manager.inUse()).isFalse();
+
+    double requestedRam = 700;
+    double requestedCpu = 0.7;
+
     TestThread thread1 =
         new TestThread(
             () -> {
-              ResourceHandle handle1 = acquire(2000, 2, 0);
+              ResourceHandle handle1 = acquire(requestedRam, requestedCpu, 0);
               sync.await();
               validate(1);
               sync.await();
@@ -349,7 +356,8 @@ public final class ResourceManagerTest {
               }
               release(handle1);
               assertThat(manager.getWaitCount()).isEqualTo(0);
-              ResourceHandle handle2 = acquire(2000, 2, 0); // Will be blocked by the thread2.
+              ResourceHandle handle2 =
+                  acquire(requestedRam, requestedCpu, 0); // Will be blocked by the thread2.
               validate(3);
               release(handle2);
             });
@@ -357,8 +365,9 @@ public final class ResourceManagerTest {
         new TestThread(
             () -> {
               sync2.await();
-              assertThat(isAvailable(manager, 2000, 2, 0)).isFalse();
-              ResourceHandle handle = acquire(2000, 2, 0); // Will be blocked by the thread1.
+              assertThat(isAvailable(manager, requestedRam, requestedCpu, 0)).isFalse();
+              ResourceHandle handle =
+                  acquire(requestedRam, requestedCpu, 0); // Will be blocked by the thread1.
               validate(2);
               sync2.await();
               // Wait till other thread will be locked.
