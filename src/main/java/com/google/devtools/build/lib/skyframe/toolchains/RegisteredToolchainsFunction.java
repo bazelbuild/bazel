@@ -14,12 +14,13 @@
 
 package com.google.devtools.build.lib.skyframe.toolchains;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.stream.Collectors.joining;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.HashBasedTable;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableTable;
 import com.google.common.collect.Table;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
@@ -238,7 +239,7 @@ public class RegisteredToolchainsFunction implements SkyFunction {
   private static ImmutableList<DeclaredToolchainInfo> configureRegisteredToolchains(
       Environment env, BuildConfigurationValue configuration, List<Label> labels)
       throws InterruptedException, RegisteredToolchainsFunctionException {
-    ImmutableList<ActionLookupKey> keys =
+    ImmutableSet<ActionLookupKey> keys =
         labels.stream()
             .map(
                 label ->
@@ -246,7 +247,7 @@ public class RegisteredToolchainsFunction implements SkyFunction {
                         .setLabel(label)
                         .setConfiguration(configuration)
                         .build())
-            .collect(toImmutableList());
+            .collect(toImmutableSet());
 
     SkyframeLookupResult values = env.getValuesAndExceptions(keys);
     ImmutableList.Builder<DeclaredToolchainInfo> toolchains = new ImmutableList.Builder<>();
