@@ -1,4 +1,5 @@
 load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+load("//src:release_archive.bzl", "release_archive")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -88,4 +89,35 @@ filegroup(
 sh_binary(
     name = "upload_bazel_mirror",
     srcs = ["upload_bazel_mirror.sh"],
+)
+
+release_archive(
+    name = "remote_bazel_tools_prebuilt_unix_build_file",
+    src_map = {
+        "BUILD.remote_bazel_tools_prebuilt_unix": "BUILD",
+    },
+)
+
+release_archive(
+    name = "remote_bazel_tools_prebuilt_windows_build_file",
+    src_map = {
+        "BUILD.remote_bazel_tools_prebuilt_windows": "BUILD",
+    },
+)
+
+release_archive(
+    name = "remote_bazel_tools_prebuilt",
+    deps = [
+        "//tools/launcher:launcher_prebuilt_all",
+        "//tools/zip:zip_prebuilt_all",
+    ] + select({
+        "@bazel_tools//src/conditions:windows": [
+            "//tools/launcher:launcher_prebuilt_windows",
+            "//tools/test:test_prebuilt_windows",
+            ":remote_bazel_tools_prebuilt_windows_build_file",
+        ],
+        "//conditions:default": [
+            ":remote_bazel_tools_prebuilt_unix_build_file",
+        ],
+    }),
 )

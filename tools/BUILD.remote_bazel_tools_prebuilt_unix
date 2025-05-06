@@ -1,0 +1,13 @@
+package(default_visibility = ["//visibility:public"])
+
+licenses(["notice"])  # Apache 2.0
+
+filegroup(
+    name = "launcher_maker",
+    srcs = ["launcher/launcher_maker"]
+)
+
+filegroup(
+    name = "zipper",
+    srcs = ["zip/zip"],
+)

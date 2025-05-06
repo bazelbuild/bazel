@@ -1,3 +1,5 @@
+load("//src:release_archive.bzl", "release_archive")
+
 package(default_visibility = ["//visibility:public"])
 
 # Members of this filegroup shouldn't have duplicate basenames, otherwise
@@ -135,4 +137,15 @@ filegroup(
         "default_test_toolchain.bzl",
         "extensions.bzl",
     ],
+)
+
+release_archive(
+    name = "test_prebuilt_windows",
+    srcs = [
+        ":tw",
+        ":xml",
+    ],
+    package_dir = "test",
+    visibility = ["//tools:__pkg__"],
+    target_compatible_with = ["@platforms//os:windows"],
 )

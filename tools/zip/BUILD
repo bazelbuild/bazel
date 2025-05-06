@@ -1,3 +1,5 @@
+load("//src:release_archive.bzl", "release_archive")
+
 package(default_visibility = ["//visibility:public"])
 
 filegroup(
@@ -13,4 +15,11 @@ alias(
 alias(
     name = "unzip_fdo",
     actual = "//third_party/ijar:zipper",
+)
+
+release_archive(
+    name = "zip_prebuilt_all",
+    srcs = [":zipper"],
+    package_dir = "zip",
+    visibility = ["//tools:__pkg__"],
 )
