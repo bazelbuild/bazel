@@ -146,6 +146,11 @@ public class Package extends Packageoid {
 
   private final Declarations declarations;
 
+  // Can be changed during BUILD file evaluation due to exports_files() modifying its visibility.
+  // Cannot be in Declarations because, since it's a Target, it holds a back reference to this
+  // Package object.
+  private InputFile buildFile;
+
   // ==== Fields specific to external package / WORKSPACE logic ====
 
   /**
@@ -293,16 +298,9 @@ public class Package extends Packageoid {
     return getDeclarations().getWorkspaceName();
   }
 
-  /** Convenience wrapper for {@link Declarations#getBuildFile} */
+  @Override
   public InputFile getBuildFile() {
-    // To support declarations mocking, use getDeclarations() instead of directly using the field.
-    return getDeclarations().getBuildFile();
-  }
-
-  /** Convenience wrapper for {@link Declarations#getBuildFileLabel} */
-  public Label getBuildFileLabel() {
-    // To support declarations mocking, use getDeclarations() instead of directly using the field.
-    return getDeclarations().getBuildFileLabel();
+    return buildFile;
   }
 
   /** Convenience wrapper for {@link Declarations#getPackageArgs} */
@@ -1024,12 +1022,12 @@ public class Package extends Packageoid {
       // We create an InputFile corresponding to the BUILD file in Builder's constructor. However,
       // the visibility of this target may be overridden with an exports_files directive, so we wait
       // until now to obtain the current instance from the targets map.
-      pkg.getDeclarations().buildFile =
-          Preconditions.checkNotNull(
-              (InputFile) recorder.getTargetMap().get(metadata.buildFileLabel().getName()));
+      setBuildFile((InputFile) recorder.getTargetMap().get(metadata.buildFileLabel().getName()));
 
       super.beforeBuild();
     }
+
+    protected abstract void setBuildFile(InputFile buildFile);
 
     @CanIgnoreReturnValue
     @Override
@@ -1587,6 +1585,11 @@ public class Package extends Packageoid {
     }
 
     @Override
+    protected void setBuildFile(InputFile buildFile) {
+      ((Package) pkg).buildFile = checkNotNull(buildFile);
+    }
+
+    @Override
     public Package finishBuild() {
       return (Package) super.finishBuild();
     }
@@ -1810,9 +1813,10 @@ public class Package extends Packageoid {
   }
 
   /**
-   * A collection of data about a package that is known after BUILD file evaluation has completed
-   * and which doesn't require expanding any symbolic macros. Treated as immutable after BUILD file
-   * evaluation has completed.
+   * A collection of data about a package that is known after BUILD file evaluation has completed,
+   * which doesn't require expanding any symbolic macros, and which transitively doesn't hold
+   * references to {@link Package} or {@link PackagePiece} objects. Treated as immutable after BUILD
+   * file evaluation has completed.
    *
    * <p>This class should not be extended - it's only non-final for mocking!
    */
@@ -1821,9 +1825,6 @@ public class Package extends Packageoid {
     // Starlark evaluation of the WORKSPACE file has finished.
     // TODO(bazel-team): move to Metadata when WORKSPACE file logic is deleted.
     private String workspaceName;
-
-    // Can be changed during BUILD file evaluation due to exports_files() modifying its visibility.
-    private InputFile buildFile;
 
     // Mutated during BUILD file evaluation (but not by symbolic macro evaluation).
     private PackageArgs packageArgs = PackageArgs.DEFAULT;
@@ -1842,22 +1843,6 @@ public class Package extends Packageoid {
      */
     public String getWorkspaceName() {
       return workspaceName;
-    }
-
-    /** Returns the InputFile target for this package's BUILD file. */
-    public InputFile getBuildFile() {
-      return buildFile;
-    }
-
-    /**
-     * Returns the label of this package's BUILD file.
-     *
-     * <p>Typically <code>getBuildFileLabel().getName().equals("BUILD")</code> -- though not
-     * necessarily: data in a subdirectory of a test package may use a different filename to avoid
-     * inadvertently creating a new package.
-     */
-    public Label getBuildFileLabel() {
-      return buildFile.getLabel();
     }
 
     /**
@@ -1895,9 +1880,14 @@ public class Package extends Packageoid {
      * <p>If only the count of transitively loaded files is needed, use {@link
      * #countTransitivelyLoadedStarlarkFiles}. For a customized online visitation, use {@link
      * #visitLoadGraph}.
+     *
+     * <p>This method can only be used after the Package or PackagePiece has been fully initialized
+     * (i.e. after {@link TargetDefinitionContext#finishBuild} has been called).
      */
     public ImmutableList<Label> getOrComputeTransitivelyLoadedStarlarkFiles() {
-      return transitiveLoads != null ? transitiveLoads : computeTransitiveLoads(directLoads);
+      return transitiveLoads != null
+          ? transitiveLoads
+          : computeTransitiveLoads(checkNotNull(directLoads));
     }
 
     /**
@@ -1905,6 +1895,9 @@ public class Package extends Packageoid {
      *
      * <p>If transitive loads are not {@linkplain PackageSettings#precomputeTransitiveLoads
      * precomputed}, performs a traversal over the load graph to count them.
+     *
+     * <p>This method can only be used after the Package or PackagePiece has been fully initialized
+     * (i.e. after {@link TargetDefinitionContext#finishBuild} has been called).
      */
     public int countTransitivelyLoadedStarlarkFiles() {
       if (transitiveLoads != null) {
@@ -1921,6 +1914,9 @@ public class Package extends Packageoid {
      * <p>If transitive loads were {@linkplain PackageSettings#precomputeTransitiveLoads
      * precomputed}, each file is passed to {@link LoadGraphVisitor#visit} once regardless of its
      * return value.
+     *
+     * <p>This method can only be used after the Package or PackagePiece has been fully initialized
+     * (i.e. after {@link TargetDefinitionContext#finishBuild} has been called).
      */
     public <E1 extends Exception, E2 extends Exception> void visitLoadGraph(
         LoadGraphVisitor<E1, E2> visitor) throws E1, E2 {

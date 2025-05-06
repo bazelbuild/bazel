@@ -152,6 +152,10 @@ public abstract sealed class PackagePiece extends Packageoid
     private final PackagePieceIdentifier.ForBuildFile identifier;
     private final Metadata metadata;
     private final Declarations declarations;
+    // Can be changed during BUILD file evaluation due to exports_files() modifying its visibility.
+    // Cannot be in declarations because, since it's a Target, it holds a back reference to this
+    // PackagePiece.ForBuildFile object.
+    private InputFile buildFile;
 
     @Override
     public PackagePieceIdentifier.ForBuildFile getIdentifier() {
@@ -171,6 +175,11 @@ public abstract sealed class PackagePiece extends Packageoid
     @Override
     public Package.Declarations getDeclarations() {
       return declarations;
+    }
+
+    @Override
+    public InputFile getBuildFile() {
+      return buildFile;
     }
 
     @Override
@@ -272,6 +281,11 @@ public abstract sealed class PackagePiece extends Packageoid
       }
 
       @Override
+      protected void setBuildFile(InputFile buildFile) {
+        ((ForBuildFile) pkg).buildFile = checkNotNull(buildFile);
+      }
+
+      @Override
       public ForBuildFile finishBuild() {
         return (ForBuildFile) super.finishBuild();
       }
@@ -335,6 +349,11 @@ public abstract sealed class PackagePiece extends Packageoid
     @Override
     public Declarations getDeclarations() {
       return pieceForBuildFile.getDeclarations();
+    }
+
+    @Override
+    public InputFile getBuildFile() {
+      return pieceForBuildFile.getBuildFile();
     }
 
     public MacroInstance getEvaluatedMacro() {

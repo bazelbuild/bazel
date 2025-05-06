@@ -112,7 +112,6 @@ public final class MacroInstance extends RuleOrMacroInstance {
    * Returns the location in the BUILD file at which this macro was created or its outermost
    * enclosing symbolic or legacy macro was called.
    */
-  @VisibleForTesting
   public Location getBuildFileLocation() {
     return buildFileLocation;
   }

@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.packages;
 import static com.google.common.base.Preconditions.checkState;
 
 import com.google.common.collect.ImmutableSortedMap;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.TargetRecorder.MacroNamespaceViolationException;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -105,6 +106,26 @@ public abstract class Packageoid {
    * symbolic macros.
    */
   public abstract Package.Declarations getDeclarations();
+
+  /**
+   * Returns the InputFile target for this package's BUILD file.
+   *
+   * <p>Note that if this packageoid a {@link PackagePiece.ForMacro}, then {@code
+   * this.getBuildFile().getPackageoid()} would be a different packageoid -- the corresponding
+   * {@link PackagePiece.ForBuildFile}.
+   */
+  public abstract InputFile getBuildFile();
+
+  /**
+   * Returns the label for this package's BUILD file.
+   *
+   * <p>Typically, <code>getBuildFileLabel().getName().equals("BUILD")</code> -- though not
+   * necessarily: data in a subdirectory of a test package may use a different filename to avoid
+   * inadvertently creating a new package.
+   */
+  public Label getBuildFileLabel() {
+    return getBuildFile().getLabel();
+  }
 
   /**
    * Returns a short, lower-case description of this packageoid, e.g. for use in logging and error

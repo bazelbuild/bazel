@@ -154,7 +154,7 @@ def fail_impl(name, visibility, **kwargs):
         .isEqualTo(PackageIdentifier.createInMainRepo("test_pkg"));
     assertThat(buildFilePiece.getMetadata().buildFileLabel())
         .isEqualTo(Label.parseCanonical("//test_pkg:BUILD"));
-    assertThat(buildFilePiece.getDeclarations().getBuildFile().getLabel())
+    assertThat(buildFilePiece.getBuildFile().getLabel())
         .isEqualTo(Label.parseCanonical("//test_pkg:BUILD"));
     assertThat(buildFilePiece.getPackagePieceForBuildFile()).isSameInstanceAs(buildFilePiece);
     assertThat(buildFilePiece.getTargets()).hasSize(2); // BUILD file + foo
