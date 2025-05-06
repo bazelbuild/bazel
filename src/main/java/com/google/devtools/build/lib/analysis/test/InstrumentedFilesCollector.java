@@ -472,14 +472,16 @@ public final class InstrumentedFilesCollector {
       RuleContext ruleContext) {
     List<TransitiveInfoCollection> prerequisites = new ArrayList<>();
     for (Attribute attribute : ruleContext.getRule().getAttributes()) {
-      prerequisites.addAll(attributeDependencyPrerequisites(attribute, ruleContext));
+      if (!attribute.isToolDependency()) {
+        prerequisites.addAll(attributeDependencyPrerequisites(attribute, ruleContext));
+      }
     }
     return prerequisites;
   }
 
   private static List<? extends TransitiveInfoCollection> attributeDependencyPrerequisites(
       Attribute attribute, RuleContext ruleContext) {
-    if (attribute.getType().getLabelClass() == LabelClass.DEPENDENCY && !attribute.isToolDependency()) {
+    if (attribute.getType().getLabelClass() == LabelClass.DEPENDENCY) {
       return ruleContext.getPrerequisites(attribute.getName());
     }
     return ImmutableList.of();
