@@ -265,39 +265,53 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
             // Input files for every test action
             .add(
                 attr("$test_wrapper", LABEL)
-                    .cfg(ExecutionTransitionFactory.createFactory())
+                    .cfg(
+                        ExecutionTransitionFactory.createFactory(
+                            DEFAULT_TEST_RUNNER_EXEC_GROUP_NAME))
                     .singleArtifact()
                     .value(labelCache.get(toolsRepository + "//tools/test:test_wrapper")))
             .add(
                 attr("$xml_writer", LABEL)
-                    .cfg(ExecutionTransitionFactory.createFactory())
+                    .cfg(
+                        ExecutionTransitionFactory.createFactory(
+                            DEFAULT_TEST_RUNNER_EXEC_GROUP_NAME))
                     .singleArtifact()
                     .value(labelCache.get(toolsRepository + "//tools/test:xml_writer")))
             .add(
                 attr("$test_runtime", LABEL_LIST)
-                    .cfg(ExecutionTransitionFactory.createFactory())
+                    .cfg(
+                        ExecutionTransitionFactory.createFactory(
+                            DEFAULT_TEST_RUNNER_EXEC_GROUP_NAME))
                     // Getting this default value through the getTestRuntimeLabelList helper ensures
                     // we reuse the same ImmutableList<Label> instance for each $test_runtime attr.
                     .value(getTestRuntimeLabelList(env)))
             .add(
                 attr("$test_setup_script", LABEL)
-                    .cfg(ExecutionTransitionFactory.createFactory())
+                    .cfg(
+                        ExecutionTransitionFactory.createFactory(
+                            DEFAULT_TEST_RUNNER_EXEC_GROUP_NAME))
                     .singleArtifact()
                     .value(labelCache.get(toolsRepository + "//tools/test:test_setup")))
             .add(
                 attr("$xml_generator_script", LABEL)
-                    .cfg(ExecutionTransitionFactory.createFactory())
+                    .cfg(
+                        ExecutionTransitionFactory.createFactory(
+                            DEFAULT_TEST_RUNNER_EXEC_GROUP_NAME))
                     .singleArtifact()
                     .value(labelCache.get(toolsRepository + "//tools/test:test_xml_generator")))
             .add(
                 attr("$collect_coverage_script", LABEL)
-                    .cfg(ExecutionTransitionFactory.createFactory())
+                    .cfg(
+                        ExecutionTransitionFactory.createFactory(
+                            DEFAULT_TEST_RUNNER_EXEC_GROUP_NAME))
                     .singleArtifact()
                     .value(labelCache.get(toolsRepository + "//tools/test:collect_coverage")))
             // Input files for test actions collecting code coverage
             .add(
                 attr(":coverage_support", LABEL)
-                    .cfg(ExecutionTransitionFactory.createFactory())
+                    .cfg(
+                        ExecutionTransitionFactory.createFactory(
+                            DEFAULT_TEST_RUNNER_EXEC_GROUP_NAME))
                     .value(
                         BaseRuleClasses.coverageSupportAttribute(
                             labelCache.get(
@@ -305,7 +319,9 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
             // Used in the one-per-build coverage report generation action.
             .add(
                 attr(":coverage_report_generator", LABEL)
-                    .cfg(ExecutionTransitionFactory.createFactory())
+                    .cfg(
+                        ExecutionTransitionFactory.createFactory(
+                            DEFAULT_TEST_RUNNER_EXEC_GROUP_NAME))
                     .value(
                         BaseRuleClasses.coverageReportGeneratorAttribute(
                             labelCache.get(
@@ -314,7 +330,9 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
             // See similar definitions in BaseRuleClasses for context.
             .add(
                 attr(":run_under_exec_config", LABEL)
-                    .cfg(ExecutionTransitionFactory.createFactory("test"))
+                    .cfg(
+                        ExecutionTransitionFactory.createFactory(
+                            DEFAULT_TEST_RUNNER_EXEC_GROUP_NAME))
                     .value(RUN_UNDER_EXEC_CONFIG)
                     .skipPrereqValidatorCheck())
             .add(
