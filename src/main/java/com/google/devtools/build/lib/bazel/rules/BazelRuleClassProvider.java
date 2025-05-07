@@ -170,6 +170,8 @@ public class BazelRuleClassProvider {
           env.put("PATH", null);
         }
 
+        env.put("LC_CTYPE", "C.UTF-8");
+
         // Shell environment variables specified via options take precedence over the
         // ones inherited from the fragments. In the long run, these fragments will
         // be replaced by appropriate default rc files anyway.
