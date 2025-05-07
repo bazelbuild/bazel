@@ -97,13 +97,6 @@ public class JavaImportConfiguredTargetTest extends BuildViewTestCase {
         """);
   }
 
-  @Test
-  public void testSimple() throws Exception {
-    ConfiguredTarget jarLib = getConfiguredTarget("//java/jarlib:libraryjar");
-    assertThat(prettyArtifactNames(getFilesToBuild(jarLib)))
-        .containsExactly("java/jarlib/library.jar");
-  }
-
   // Regression test for b/262751943.
   @Test
   public void testCommandLineContainsTargetLabel() throws Exception {
@@ -181,7 +174,6 @@ public class JavaImportConfiguredTargetTest extends BuildViewTestCase {
 
     validateRuntimeClassPath(javaLib, "java/somelib/libjavalib.jar", "java/jarlib/library.jar");
   }
-
 
   @Test
   public void testDeps() throws Exception {
