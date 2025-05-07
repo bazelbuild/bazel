@@ -49,6 +49,7 @@ single_binary_toolchain(
 
 single_binary_toolchain(
     name = "3_no_launcher_toolchain",
+    binary = "empty.sh",
     toolchain_type = ":launcher_toolchain_type",
 )
 
@@ -69,5 +70,6 @@ single_binary_toolchain(
 
 single_binary_toolchain(
     name = "3_no_launcher_maker_toolchain",
+    binary = "empty.sh",
     toolchain_type = ":launcher_maker_toolchain_type",
 )
