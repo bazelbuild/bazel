@@ -778,6 +778,7 @@ message LocalExecution {
     LOCAL_EXECUTION_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
     LOCKFREE_OUTPUT_PREREQ_UNMET = 1 [(metadata) = { exit_code: 2 }];
     UNTRACKED_RESOURCE = 2 [(metadata) = { exit_code: 1 }];
+    NOT_ENOUGH_LOCAL_RESOURCE = 3 [(metadata) = { exit_code: 1 }];
   }
 
   Code code = 1;
