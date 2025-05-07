@@ -515,8 +515,7 @@ public final class JavaHeaderCompileAction extends SpawnAction {
           ruleContext
               .getConfiguration()
               .modifiedExecutionInfo(
-                  ImmutableMap.of(ExecutionRequirements.SUPPORTS_PATH_MAPPING, "1"),
-                  JavaCompileActionBuilder.MNEMONIC));
+                  ImmutableMap.of(ExecutionRequirements.SUPPORTS_PATH_MAPPING, "1"), "Javac"));
       executionInfo.putAll(
           TargetUtils.getExecutionInfo(
               ruleContext.getRule(), ruleContext.isAllowTagsPropagation()));
