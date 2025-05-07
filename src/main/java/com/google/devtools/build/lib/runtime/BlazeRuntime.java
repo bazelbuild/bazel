@@ -622,10 +622,17 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
             .handle(Event.error("Error while creating memory profile file: " + e.getMessage()));
       }
     }
-    if (!options.installBaseGcMaxAge.isZero()) {
+    if (options.installBaseGcMaxAge != null && !options.installBaseGcMaxAge.isZero()) {
       env.addIdleTask(
           InstallBaseGarbageCollectorIdleTask.create(
               workspace.getDirectories().getInstallBase(), options.installBaseGcMaxAge));
+    }
+    if (options.actionCacheGcMaxAge != null && !options.actionCacheGcMaxAge.isZero()) {
+      env.addIdleTask(
+          workspace.getActionCacheGcIdleTask(
+              options.actionCacheGcIdleDelay,
+              options.actionCacheGcThreshold / 100.0f,
+              options.actionCacheGcMaxAge));
     }
   }
 

@@ -720,9 +720,12 @@ public class CompactPersistentActionCache implements ActionCache {
 
   @Override
   public String toString() {
+    int numRecords = actionMap.size();
+    if (actionMap.containsKey(VALIDATION_KEY)) {
+      numRecords--;
+    }
     StringBuilder builder = new StringBuilder();
-    // size - 1 to avoid counting the validation record.
-    builder.append("Action cache (" + (actionMap.size() - 1) + " records):\n");
+    builder.append("Action cache (" + numRecords + " records):\n");
     int size = actionMap.size() > 1000 ? 10 : actionMap.size();
     int ct = 0;
     for (Map.Entry<Integer, byte[]> entry : actionMap.entrySet()) {
@@ -753,9 +756,13 @@ public class CompactPersistentActionCache implements ActionCache {
   /** Dumps action cache content. */
   @Override
   public void dump(PrintStream out) {
+    int numRecords = actionMap.size();
+    if (actionMap.containsKey(VALIDATION_KEY)) {
+      numRecords--;
+    }
     out.println("String indexer content:\n");
     out.println(indexer);
-    out.println("Action cache (" + actionMap.size() + " records):\n");
+    out.println("Action cache (" + numRecords + " records):\n");
     for (Map.Entry<Integer, byte[]> entry : actionMap.entrySet()) {
       if (entry.getKey() == VALIDATION_KEY) {
         continue;
