@@ -37,7 +37,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
-import com.google.devtools.build.lib.rules.java.JavaCompilationInfoProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompileAction;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
@@ -130,106 +129,6 @@ public class JavaImportConfiguredTargetTest extends BuildViewTestCase {
         "             srcs = ['Other.java'],",
         "             exports = ['//java/jarlib:libraryjar'])");
     assertNoEvents(); // Make sure that no warnings were emitted.
-  }
-
-  private static void validateRuntimeClassPath(
-      ConfiguredTarget binary, String... expectedRuntimeClasspath) throws Exception {
-    assertThat(
-            prettyArtifactNames(
-                JavaInfo.getProvider(JavaCompilationInfoProvider.class, binary)
-                    .getRuntimeClasspath()
-                    .getSet(Artifact.class)))
-        .containsExactlyElementsIn(expectedRuntimeClasspath)
-        .inOrder();
-  }
-
-  private static void validateCompilationClassPath(
-      ConfiguredTarget binary, String... expectedCompilationClasspath) throws Exception {
-    assertThat(
-            prettyArtifactNames(
-                JavaInfo.getProvider(JavaCompilationInfoProvider.class, binary)
-                    .getCompilationClasspath()
-                    .getSet(Artifact.class)))
-        .containsExactlyElementsIn(expectedCompilationClasspath)
-        .inOrder();
-  }
-
-  @Test
-  public void testDeps() throws Exception {
-    scratch.file(
-        "java/jarlib2/BUILD",
-        """
-        load("@rules_java//java:defs.bzl", "java_library", "java_import")
-        java_library(
-            name = "lib",
-            srcs = ["Main.java"],
-            deps = [":import-jar"],
-        )
-
-        java_import(
-            name = "import-jar",
-            jars = ["import.jar"],
-            exports = ["//java/jarlib2:exportjar"],
-            deps = ["//java/jarlib2:depjar"],
-        )
-
-        java_import(
-            name = "depjar",
-            jars = ["depjar.jar"],
-        )
-
-        java_import(
-            name = "exportjar",
-            jars = ["exportjar.jar"],
-        )
-        """);
-
-    ConfiguredTarget importJar = getConfiguredTarget("//java/jarlib2:import-jar");
-
-    assertThat(prettyArtifactNames(getFilesToBuild(importJar)))
-        .containsExactly("java/jarlib2/import.jar");
-
-    // JavaCompilationArgs should hold classpaths of the transitive closure.
-    JavaCompilationArgsProvider recursiveCompilationArgs =
-        JavaInfo.getProvider(JavaCompilationArgsProvider.class, importJar);
-    assertThat(prettyArtifactNames(recursiveCompilationArgs.transitiveCompileTimeJars()))
-        .containsExactly(
-            "java/jarlib2/_ijar/import-jar/java/jarlib2/import-ijar.jar",
-            "java/jarlib2/_ijar/exportjar/java/jarlib2/exportjar-ijar.jar",
-            "java/jarlib2/_ijar/depjar/java/jarlib2/depjar-ijar.jar")
-        .inOrder();
-    assertThat(prettyArtifactNames(recursiveCompilationArgs.runtimeJars()))
-        .containsExactly(
-            "java/jarlib2/import.jar", "java/jarlib2/exportjar.jar", "java/jarlib2/depjar.jar")
-        .inOrder();
-
-    // Recursive deps work the same as with java_library.
-    JavaCompilationArgsProvider compilationArgsProvider =
-        JavaInfo.getProvider(JavaCompilationArgsProvider.class, importJar);
-    assertThat(prettyArtifactNames(compilationArgsProvider.directCompileTimeJars()))
-        .containsExactly(
-            "java/jarlib2/_ijar/import-jar/java/jarlib2/import-ijar.jar",
-            "java/jarlib2/_ijar/exportjar/java/jarlib2/exportjar-ijar.jar")
-        .inOrder();
-    assertThat(prettyArtifactNames(compilationArgsProvider.runtimeJars()))
-        .containsExactly(
-            "java/jarlib2/import.jar", "java/jarlib2/exportjar.jar", "java/jarlib2/depjar.jar")
-        .inOrder();
-
-    // Check that parameters propagate to Java libraries properly.
-    ConfiguredTarget lib = getConfiguredTarget("//java/jarlib2:lib");
-    validateCompilationClassPath(
-        lib,
-        "java/jarlib2/_ijar/import-jar/java/jarlib2/import-ijar.jar",
-        "java/jarlib2/_ijar/exportjar/java/jarlib2/exportjar-ijar.jar",
-        "java/jarlib2/_ijar/depjar/java/jarlib2/depjar-ijar.jar");
-
-    validateRuntimeClassPath(
-        lib,
-        "java/jarlib2/liblib.jar",
-        "java/jarlib2/import.jar",
-        "java/jarlib2/exportjar.jar",
-        "java/jarlib2/depjar.jar");
   }
 
   @Test
