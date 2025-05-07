@@ -20,6 +20,7 @@ import static com.google.devtools.build.lib.buildtool.AnalysisPhaseRunner.evalua
 import static com.google.devtools.common.options.OptionsParser.STARLARK_SKIPPED_PREFIXES;
 import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.ForkJoinPool.commonPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.joining;
 
@@ -28,8 +29,6 @@ import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.base.Stopwatch;
-import com.google.common.base.Supplier;
-import com.google.common.base.Suppliers;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.ImmutableList;
@@ -37,6 +36,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.hash.HashCode;
+import com.google.common.util.concurrent.Futures;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactSerializationContext;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
@@ -1081,11 +1081,9 @@ public class BuildTool {
 
     private final RemoteAnalysisCacheMode mode;
     private final String serializedFrontierProfile;
-    private final Supplier<ObjectCodecs> analysisObjectCodecsSupplier;
     private final PathFragmentPrefixTrie activeDirectoriesMatcher;
     private final RemoteAnalysisCachingEventListener listener;
     private final HashCode blazeInstallMD5;
-    private final Future<FingerprintValueService> fingerprintValueServiceFuture;
 
     /** Cache lookup parameter requiring integration with external version control. */
     private final IntVersion evaluatingVersion;
@@ -1093,6 +1091,8 @@ public class BuildTool {
     /** Cache lookup parameter requiring integration with external version control. */
     private final Optional<ClientId> snapshot;
 
+    private final Future<ObjectCodecs> objectCodecsFuture;
+    private final Future<FingerprintValueService> fingerprintValueServiceFuture;
     @Nullable private final Future<RequestBatcher<ByteString, ByteString>> analysisCacheClient;
     @Nullable private volatile AnalysisCacheInvalidator analysisCacheInvalidator;
 
@@ -1159,8 +1159,8 @@ public class BuildTool {
         throws InterruptedException {
       this.mode = mode;
       this.serializedFrontierProfile = serializedFrontierProfile;
-      this.analysisObjectCodecsSupplier =
-          Suppliers.memoize(
+      this.objectCodecsFuture =
+          Futures.submit(
               () ->
                   initAnalysisObjectCodecs(
                       requireNonNull(
@@ -1168,7 +1168,8 @@ public class BuildTool {
                           .get(),
                       env.getRuntime().getRuleClassProvider(),
                       env.getBlazeWorkspace().getSkyframeExecutor(),
-                      env.getDirectories()));
+                      env.getDirectories()),
+              commonPool());
 
       this.activeDirectoriesMatcher = activeDirectoriesMatcher;
       this.listener = env.getRemoteAnalysisCachingEventListener();
@@ -1276,7 +1277,11 @@ public class BuildTool {
 
     @Override
     public ObjectCodecs getObjectCodecs() {
-      return analysisObjectCodecsSupplier.get();
+      try {
+        return objectCodecsFuture.get();
+      } catch (InterruptedException | ExecutionException e) {
+        throw new IllegalStateException("Failed to initialize ObjectCodecs", e);
+      }
     }
 
     @Override
@@ -1340,16 +1345,21 @@ public class BuildTool {
         synchronized (this) {
           localRef = analysisCacheInvalidator;
           if (localRef == null) {
-            RequestBatcher<ByteString, ByteString> client = getAnalysisCacheClient();
-            if (client == null) {
-              return null;
+            ObjectCodecs codecs;
+            FingerprintValueService fingerprintService;
+            RequestBatcher<ByteString, ByteString> client;
+            try (SilentCloseable unused =
+                Profiler.instance().profile("initializeInvalidationLookupDeps")) {
+              client = getAnalysisCacheClient();
+              if (client == null) {
+                return null;
+              }
+              codecs = getObjectCodecs();
+              fingerprintService = getFingerprintValueService();
             }
-            ObjectCodecs codecs = getObjectCodecs();
-            FingerprintValueService fingerprintService = getFingerprintValueService();
-            FrontierNodeVersion version = getSkyValueVersion();
             localRef =
                 new AnalysisCacheInvalidator(
-                    client, codecs, fingerprintService, version, eventHandler);
+                    client, codecs, fingerprintService, getSkyValueVersion(), eventHandler);
           }
         }
       }
