@@ -96,7 +96,12 @@ def single_binary_toolchain(
     )
 
 def _current_toolchain_base_impl(ctx, *, toolchain_type):
-    return DefaultInfo(executable = ctx.toolchains[toolchain_type].binary)
+    executable = ctx.actions.declare_file(ctx.label.name)
+    ctx.actions.symlink(
+        output = executable,
+        target_file = ctx.toolchains[toolchain_type].binary,
+    )
+    return DefaultInfo(executable = executable)
 
 def _make_current_toolchain_rule(toolchain_type):
     return rule(
