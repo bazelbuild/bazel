@@ -1,4 +1,3 @@
-load("@platforms//host:constraints.bzl", "HOST_CONSTRAINTS")
 load(":build_defs.bzl", "BZLMOD_ENABLED")
 
 package(default_visibility = ["//visibility:public"])
@@ -12,12 +11,6 @@ alias(
 platform(
     name = "internal_platform",
     visibility = ["//visibility:private"],
-)
-
-config_setting(
-    name = "matches_host_constraints",
-    constraint_values = HOST_CONSTRAINTS,
-    visibility = ["//tools:__subpackages__"],
 )
 
 # All bzl files in the built in repo '@bazel_tools'.
