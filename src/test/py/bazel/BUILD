@@ -1,4 +1,5 @@
 load("@bazel_pip_dev_deps//:requirements.bzl", "requirement")
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 load("@rules_python//python:defs.bzl", "py_library", "py_test")
 load("@rules_shell//shell:sh_library.bzl", "sh_library")
 load("//:workspace_deps.bzl", "gen_workspace_stanza")

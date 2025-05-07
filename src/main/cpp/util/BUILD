@@ -1,3 +1,5 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
 # Description:
 #   C++ utility source for Bazel
 package_group(

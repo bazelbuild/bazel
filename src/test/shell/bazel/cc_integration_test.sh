@@ -266,6 +266,7 @@ function setup_cc_starlark_api_test() {
   local pkg="$1"
 
   touch "$pkg"/MODULE.bazel
+  add_rules_cc "MODULE.bazel"
 
   mkdir "$pkg"/include_dir
   touch "$pkg"/include_dir/include.h

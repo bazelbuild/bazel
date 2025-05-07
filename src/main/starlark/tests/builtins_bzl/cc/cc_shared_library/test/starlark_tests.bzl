@@ -16,6 +16,11 @@
 
 load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@com_google_protobuf//bazel/common:proto_info.bzl", "ProtoInfo")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc/common:cc_common.bzl", "cc_common")
+load("@rules_cc//cc/common:cc_info.bzl", "CcInfo")
+load("@rules_cc//cc/common:cc_shared_library_hint_info.bzl", "CcSharedLibraryHintInfo")
+load("@rules_cc//cc/common:cc_shared_library_info.bzl", "CcSharedLibraryInfo")
 load("@rules_testing//lib:analysis_test.bzl", "analysis_test")
 load("@rules_testing//lib:truth.bzl", "matching")
 load(":semantics.bzl", "semantics")
@@ -179,7 +184,7 @@ def _paths_test_impl(env, _):
     env.expect.that_bool(_check_if_target_under_path(Label("//foo/bar:baz"), Label("//:__subpackages__"))).equals(True)
 
 def _paths_test_macro(name):
-    native.cc_library(
+    cc_library(
         name = "dummy",
     )
     analysis_test(

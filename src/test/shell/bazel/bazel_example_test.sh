@@ -57,6 +57,7 @@ EOF
   add_rules_java "MODULE.bazel"
   add_rules_python "MODULE.bazel"
   add_rules_shell "MODULE.bazel"
+  add_rules_cc "MODULE.bazel"
 }
 
 #

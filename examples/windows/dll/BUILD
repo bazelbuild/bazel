@@ -1,3 +1,4 @@
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 load("//examples/windows/dll:windows_dll_library.bzl", "windows_dll_library")
 
 filegroup(
