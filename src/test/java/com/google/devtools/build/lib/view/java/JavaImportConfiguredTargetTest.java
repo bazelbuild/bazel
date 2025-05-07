@@ -94,19 +94,6 @@ public class JavaImportConfiguredTargetTest extends BuildViewTestCase {
         """);
   }
 
-  // Regression test for b/5868388.
-  @Test
-  public void testJavaLibraryAllowsImportInDeps() throws Exception {
-    scratchConfiguredTarget(
-        "java",
-        "javalib",
-        "load('@rules_java//java:defs.bzl', 'java_library')",
-        "java_library(name = 'javalib',",
-        "             srcs = ['Other.java'],",
-        "             exports = ['//java/jarlib:libraryjar'])");
-    assertNoEvents(); // Make sure that no warnings were emitted.
-  }
-
   @Test
   public void testModuleFlags() throws Exception {
     scratch.file(
