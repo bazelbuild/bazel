@@ -61,14 +61,8 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
    * javatests directory may also depend on its corresponding java package without a warning.
    */
   // TODO: #19922 - Rename this method to not imply that it is symmetric across its arguments.
-  public abstract boolean isSameLogicalPackage(
+  protected abstract boolean isSameLogicalPackage(
       PackageIdentifier thisPackage, PackageIdentifier prerequisitePackage);
-
-  /**
-   * Returns whether a package is considered experimental. Packages outside of experimental may not
-   * depend on packages that are experimental.
-   */
-  protected abstract boolean packageUnderExperimental(PackageIdentifier packageIdentifier);
 
   protected abstract boolean checkVisibilityForExperimental(RuleContext.Builder context);
 

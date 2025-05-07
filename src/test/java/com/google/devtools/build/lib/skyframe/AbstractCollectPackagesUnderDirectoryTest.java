@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestPackageFactoryBuilderFactory;
+import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -297,6 +298,7 @@ public abstract class AbstractCollectPackagesUnderDirectoryTest {
             .setRunfilesPrefix("workspace")
             .setPrelude("//tools:empty_prelude.bzl")
             .useDummyBuiltinsBzl()
+            .setPrerequisiteValidator(new TestRuleClassProvider.MinimalPrerequisiteValidator())
             .build();
     SkyframeExecutor skyframeExecutor =
         makeSkyframeExecutorFactory()
