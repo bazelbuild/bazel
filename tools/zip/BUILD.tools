@@ -5,7 +5,7 @@ package(default_visibility = ["//visibility:public"])
 filegroup(
     name = "zipper",
     srcs = select({
-        "//tools:matches_host_constraints": glob(["zipper/*"]),
+        ":matches_host_constraints": glob(["zipper/*"]),
         "//conditions:default": ["//third_party/ijar:zipper"],
     }),
 )
