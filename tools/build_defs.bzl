@@ -96,12 +96,13 @@ def single_binary_toolchain(
     )
 
 def _current_toolchain_base_impl(ctx, *, toolchain_type):
-    return DefaultInfo(files = depset([ctx.toolchains[toolchain_type].binary]))
+    return DefaultInfo(executable = ctx.toolchains[toolchain_type].binary)
 
 def _make_current_toolchain_rule(toolchain_type):
     return rule(
         implementation = lambda ctx: _current_toolchain_base_impl(ctx, toolchain_type = toolchain_type),
         toolchains = [toolchain_type],
+        executable = True,
     )
 
 current_launcher_binary = _make_current_toolchain_rule("//tools/launcher:launcher_toolchain_type")
