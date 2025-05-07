@@ -63,7 +63,10 @@ def _single_binary_toolchain_rule_impl(ctx):
 _single_binary_toolchain_rule = rule(
     implementation = _single_binary_toolchain_rule_impl,
     attrs = {
-        "binary": attr.label(allow_single_file = True),
+        "binary": attr.label(
+            allow_single_file = True,
+            mandatory = True,
+        ),
     },
 )
 
