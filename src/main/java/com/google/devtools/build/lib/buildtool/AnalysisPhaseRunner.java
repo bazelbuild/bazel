@@ -261,8 +261,7 @@ public final class AnalysisPhaseRunner {
     PathFragmentPrefixTrie projectMatcher = null;
 
     if (featureFlags.contains(ANALYSIS_CACHING) || featureFlags.contains(SKYFOCUS)) {
-      if (activeProjects.projectFilesToTargetLabels().size() > 1
-          || activeProjects.partialProjectBuild()) {
+      if (activeProjects.projectFiles().size() > 1 || activeProjects.partialProjectBuild()) {
         String message =
             "Skycache only works on single-project builds. This is a %s. %s"
                 .formatted(activeProjects.buildType(), activeProjects.differentProjectsDetails());
@@ -279,7 +278,7 @@ public final class AnalysisPhaseRunner {
           activeProjects.isEmpty()
               ? null // Skyfocus can work without a project directory matcher.
               : BuildTool.getWorkingSetMatcherForSkyfocus(
-                  activeProjects.projectFilesToTargetLabels().keySet().iterator().next(),
+                  activeProjects.projectFiles().iterator().next(),
                   env.getSkyframeExecutor(),
                   env.getReporter());
     }
@@ -300,18 +299,14 @@ public final class AnalysisPhaseRunner {
           options,
           Optional.ofNullable(projectMatcher),
           Optional.ofNullable(
-              activeProjects.isEmpty()
-                  ? null
-                  : activeProjects.projectFilesToTargetLabels().keySet().iterator().next()));
+              activeProjects.isEmpty() ? null : activeProjects.projectFiles().iterator().next()));
     }
 
     return new ProjectEvaluationResult(
         ImmutableSet.of(),
         Optional.ofNullable(projectMatcher),
         Optional.ofNullable(
-            activeProjects.isEmpty()
-                ? null
-                : activeProjects.projectFilesToTargetLabels().keySet().iterator().next()));
+            activeProjects.isEmpty() ? null : activeProjects.projectFiles().iterator().next()));
   }
 
   static void postAbortedEventsForSkippedTargets(

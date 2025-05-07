@@ -47,7 +47,6 @@ public class FlagSetValue implements SkyValue {
   @AutoCodec
   public static final class Key implements SkyKey {
     private static final SkyKeyInterner<Key> interner = SkyKey.newInterner();
-    private final ImmutableSet<Label> targets;
     private final Label projectFile;
     private final String sclConfig;
     private final BuildOptions targetOptions;
@@ -56,14 +55,12 @@ public class FlagSetValue implements SkyValue {
     private final boolean enforceCanonical;
 
     public Key(
-        ImmutableSet<Label> targets,
         Label projectFile,
         @Nullable String sclConfig,
         BuildOptions targetOptions,
         ImmutableMap<String, String> userOptions,
         ConfigFlagDefinitions configFlagDefinitions,
         boolean enforceCanonical) {
-      this.targets = targets;
       this.projectFile = Verify.verifyNotNull(projectFile);
       this.sclConfig = nullToEmpty(sclConfig);
       this.targetOptions = Verify.verifyNotNull(targetOptions);
@@ -72,13 +69,7 @@ public class FlagSetValue implements SkyValue {
       this.enforceCanonical = enforceCanonical;
     }
 
-    /**
-     * Creating @link FlagSetValue.Key. b/409382048 requires to pass the targets to the Key so it
-     * can be used in FlagSetFunction. But this is bad for Skyframe caching. For the sake of fast
-     * iteration, this is the simplest approach. We should consider to optimize this in the future.
-     */
     public static Key create(
-        ImmutableSet<Label> targets,
         Label projectFile,
         String sclConfig,
         BuildOptions targetOptions,
@@ -87,17 +78,12 @@ public class FlagSetValue implements SkyValue {
         boolean enforceCanonical) {
       return interner.intern(
           new Key(
-              targets,
               projectFile,
               sclConfig,
               targetOptions,
               userOptions,
               configFlagDefinitions,
               enforceCanonical));
-    }
-
-    public ImmutableSet<Label> getTargets() {
-      return targets;
     }
 
     public Label getProjectFile() {
