@@ -14,6 +14,10 @@
 
 """Utility for compiling at Java 8."""
 
+load("@platforms//host:constraints.bzl", "HOST_CONSTRAINTS")
+
+visibility("//tools/...")
+
 _java_language_version_8_transition = transition(
     implementation = lambda settings, attr: {
         "//command_line_option:java_language_version": "8",
@@ -48,3 +52,57 @@ def transition_java_language_8_filegroup(name, files, visibility):
     )
 
 BZLMOD_ENABLED = str(Label("@bazel_tools//:foo")).startswith("@@")
+
+IS_HOST_WINDOWS = Label("@platforms//os:windows") in [Label(l) for l in HOST_CONSTRAINTS]
+
+def _single_binary_toolchain_rule_impl(ctx):
+    return platform_common.ToolchainInfo(
+        binary = ctx.attr.binary,
+    )
+
+_single_binary_toolchain_rule = rule(
+    implementation = _single_binary_toolchain_rule_impl,
+    attrs = {
+        "binary": attr.label(allow_single_file = True),
+    },
+)
+
+def single_binary_toolchain(
+        *,
+        name,
+        toolchain_type,
+        binary = None,
+        target_compatible_with = [],
+        exec_compatible_with = []):
+    """Declares a toolchain together with its implementation for an optional single binary."""
+    impl_name = name + "_impl"
+
+    _single_binary_toolchain_rule(
+        name = impl_name,
+        binary = binary,
+        # Avoid eager loading of the binary, which may come from a remote
+        # repository, in wildcard builds.
+        tags = ["manual"],
+        visibility = ["//visibility:private"],
+    )
+
+    native.toolchain(
+        name = name,
+        toolchain_type = toolchain_type,
+        toolchain = ":" + impl_name,
+        target_compatible_with = target_compatible_with,
+        exec_compatible_with = exec_compatible_with,
+        visibility = ["//visibility:private"],
+    )
+
+def _current_toolchain_base_impl(ctx, *, toolchain_type):
+    return DefaultInfo(files = depset([ctx.toolchains[toolchain_type].binary]))
+
+def _make_current_toolchain_rule(toolchain_type):
+    return rule(
+        implementation = lambda ctx: _current_toolchain_base_impl(ctx, toolchain_type = toolchain_type),
+        toolchains = [toolchain_type],
+    )
+
+current_launcher_binary = _make_current_toolchain_rule("//tools/launcher:launcher_toolchain_type")
+current_launcher_maker_binary = _make_current_toolchain_rule("//tools/launcher:launcher_maker_toolchain_type")

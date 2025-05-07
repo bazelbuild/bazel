@@ -164,6 +164,7 @@ alias(
 
 config_setting(
     name = "remote",
+    deprecation = "No longer used by Bazel and may be removed in the future. Migrate to toolchains or define your own version of this setting.",
     values = {"define": "EXECUTOR=remote"},
     visibility = ["//visibility:public"],
 )

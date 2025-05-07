@@ -3,8 +3,8 @@ package(default_visibility = ["//visibility:public"])
 filegroup(
     name = "zipper",
     srcs = select({
-        "//src/conditions:remote": ["//third_party/ijar:zipper"],
-        "//conditions:default": glob(["zipper/*"]),
+        "//tools:matches_host_constraints": glob(["zipper/*"]),
+        "//conditions:default": ["//third_party/ijar:zipper"],
     }),
 )
 
