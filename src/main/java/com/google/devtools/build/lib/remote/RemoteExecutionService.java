@@ -1777,7 +1777,7 @@ public class RemoteExecutionService {
   }
 
   private boolean shouldDownload(
-      RemoteActionResult result, PathFragment execPath, @Nullable PathFragment parentExecPath) {
+      RemoteActionResult result, PathFragment execPath, @Nullable PathFragment treeRootExecPath) {
     if (outputService instanceof BazelOutputService) {
       return false;
     }
@@ -1787,7 +1787,7 @@ public class RemoteExecutionService {
     if (result.getExitCode() != 0) {
       return true;
     }
-    return remoteOutputChecker.shouldDownloadOutput(execPath, parentExecPath);
+    return remoteOutputChecker.shouldDownloadOutput(execPath, treeRootExecPath);
   }
 
   private static String prettyPrint(ActionInput actionInput) {

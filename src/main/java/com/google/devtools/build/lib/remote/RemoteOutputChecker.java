@@ -284,18 +284,23 @@ public class RemoteOutputChecker implements OutputChecker {
     return metadata.isRemote()
         && shouldDownloadOutput(
             output.getExecPath(),
-            output instanceof Artifact artifact && artifact.hasParent()
+            output instanceof Artifact artifact && artifact.isTreeArtifact()
                 ? artifact.getParent().getExecPath()
                 : null);
   }
 
-  /** Returns whether a remote {@link ActionInput} with the given path should be downloaded. */
+  /**
+   * Returns whether a remote {@link ActionInput} with the given path should be downloaded.
+   *
+   * @param treeRootExecPath the path of the tree artifact if the given {@link ActionInput} is
+   *     contained in one
+   */
   public boolean shouldDownloadOutput(
-      PathFragment execPath, @Nullable PathFragment parentExecPath) {
+      PathFragment execPath, @Nullable PathFragment treeRootExecPath) {
     return outputsMode == RemoteOutputsMode.ALL
         || pathsToDownload.contains(execPath)
         || matchesPattern(execPath)
-        || (parentExecPath != null && matchesPattern(parentExecPath));
+        || (treeRootExecPath != null && matchesPattern(treeRootExecPath));
   }
 
   @Override
