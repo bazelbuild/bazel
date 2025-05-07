@@ -20,7 +20,6 @@ import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.prettyA
 import static com.google.devtools.build.lib.rules.java.JavaCompileActionTestHelper.getDirectJars;
 import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -42,7 +41,6 @@ import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaModuleFlagsProviderApi;
-import com.google.devtools.build.lib.testutil.MoreAsserts;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
@@ -94,28 +92,6 @@ public class JavaImportConfiguredTargetTest extends BuildViewTestCase {
             packages = [],
         )
         """);
-  }
-
-  // Regression test for b/262751943.
-  @Test
-  public void testCommandLineContainsTargetLabel() throws Exception {
-    scratch.file(
-        "java/BUILD",
-        """
-        load("@rules_java//java:defs.bzl", "java_import")
-        java_import(name = 'java_imp', jars = ['import.jar'])
-        """);
-
-    ConfiguredTarget configuredTarget = getConfiguredTarget("//java:java_imp");
-    Artifact compiledArtifact =
-        JavaInfo.getProvider(JavaCompilationArgsProvider.class, configuredTarget)
-            .directCompileTimeJars()
-            .toList()
-            .get(0);
-    SpawnAction action = (SpawnAction) getGeneratingAction(compiledArtifact);
-    ImmutableList<String> args = action.getCommandLines().allArguments();
-
-    MoreAsserts.assertContainsSublist(args, "--target_label", "//java:java_imp");
   }
 
   // Regression test for b/5868388.
