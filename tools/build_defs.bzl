@@ -57,7 +57,7 @@ IS_HOST_WINDOWS = Label("@platforms//os:windows") in [Label(l) for l in HOST_CON
 
 def _single_binary_toolchain_rule_impl(ctx):
     return platform_common.ToolchainInfo(
-        binary = ctx.attr.binary,
+        binary = ctx.file.binary,
     )
 
 _single_binary_toolchain_rule = rule(
