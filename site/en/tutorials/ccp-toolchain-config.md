@@ -17,7 +17,7 @@ In this tutorial you learn how to:
 *   Configure the C++ toolchain
 *   Create a Starlark rule that provides additional configuration for the
     `cc_toolchain` so that Bazel can build the application with `clang`
-*   Build the C++ binary for by running `bazel build //main:hello-world` on a
+*   Build the C++ binary by running `bazel build //main:hello-world` on a
     Linux machine
 *   Cross-compile the binary for android by running `bazel build
     //main:hello-world --platforms=//:android_x86_64`
