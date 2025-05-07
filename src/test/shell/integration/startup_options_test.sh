@@ -54,7 +54,9 @@ function test_different_startup_options() {
   pid=$(bazel --nobatch info server_pid 2> $TEST_log)
   [[ -n $pid ]] || fail "Couldn't run ${PRODUCT_NAME}"
   newpid=$(bazel --batch info server_pid 2> $TEST_log)
-  expect_log "WARNING: Running B\\(azel\\|laze\\) server needs to be killed, because the startup options are different."
+  expect_log "WARNING: Running B\\(azel\\|laze\\) server needs to be killed, because the following startup options are different:
+  - Only in running server: --noshutdown_on_low_sys_mem
+  - Only in new server: --batch"
   [[ "$newpid" != "$pid" ]] || fail "pid $pid was the same!"
   if ! "$is_windows"; then
     # On Windows: the kill command of MSYS doesn't work for Windows PIDs.

@@ -984,10 +984,12 @@ static bool IsVolatileArg(const string &arg) {
 }
 
 // Returns true if the server needs to be restarted to accommodate changes
-// between the two argument lists.
+// between the two argument lists. Populates different_options with the options that differ.
 static bool AreStartupOptionsDifferent(
     const vector<string> &running_server_args,
-    const vector<string> &requested_args) {
+    const vector<string> &requested_args,
+    vector<string> *running_server_options,
+    vector<string> *new_server_options) {
   // We need not worry about one side missing an argument and the other side
   // having the default value, since this command line is the canonical one for
   // this version of Bazel: either the default value is listed explicitly or it
@@ -1035,6 +1037,7 @@ static bool AreStartupOptionsDifferent(
                        "included in the current request:";
     for (const string &a : old_args) {
       BAZEL_LOG(INFO) << "  " << a;
+      running_server_options->push_back(a);
     }
   }
   if (!new_args.empty()) {
@@ -1042,6 +1045,7 @@ static bool AreStartupOptionsDifferent(
                        "included when creating the server:";
     for (const string &a : new_args) {
       BAZEL_LOG(INFO) << "  " << a;
+      new_server_options->push_back(a);
     }
   }
 
@@ -1072,11 +1076,26 @@ static bool KillRunningServerIfDifferentStartupOptions(
   // These strings contain null-separated command line arguments. If they are
   // the same, the server can stay alive, otherwise, it needs shuffle off this
   // mortal coil.
-  if (AreStartupOptionsDifferent(old_arguments, server_exe_args)) {
+  vector<string> running_server_options;
+  vector<string> new_server_options;
+  if (AreStartupOptionsDifferent(old_arguments, server_exe_args, &running_server_options, &new_server_options)) {
     logging_info->restart_reason = NEW_OPTIONS;
-    BAZEL_LOG(WARNING) << "Running " << startup_options.product_name
-                       << " server needs to be killed, because the startup "
-                          "options are different.";
+
+      string different_startup_options_message;
+
+      string running_options_str;
+      blaze_util::JoinStrings(running_server_options, ' ', &running_options_str);
+      different_startup_options_message += "\n  - Only in running server: " + running_options_str;
+
+      string new_options_str;
+      blaze_util::JoinStrings(new_server_options, ' ', &new_options_str);
+      different_startup_options_message += "\n  - Only in new server: " + new_options_str;
+
+      BAZEL_LOG(WARNING) << "Running " << startup_options.product_name
+                         << " server needs to be killed, because the following startup "
+                            "options are different:"
+                         << different_startup_options_message;
+
     server->KillRunningServer();
     return true;
   }
