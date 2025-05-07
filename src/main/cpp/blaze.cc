@@ -984,7 +984,7 @@ static bool IsVolatileArg(const string &arg) {
 }
 
 // Returns true if the server needs to be restarted to accommodate changes
-// between the two argument lists. Populates different_options with the options that differ.
+// between the two argument lists. Populates running_server_options and new_server_options..
 static bool AreStartupOptionsDifferent(
     const vector<string> &running_server_args,
     const vector<string> &requested_args,
