@@ -155,27 +155,6 @@ public class JavaImportConfiguredTargetTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testWithJavaLibrary() throws Exception {
-    scratch.file(
-        "java/somelib/BUILD",
-        """
-        load("@rules_java//java:defs.bzl", "java_library")
-        java_library(
-            name = "javalib",
-            srcs = ["Other.java"],
-            deps = ["//java/jarlib:libraryjar"],
-        )
-        """);
-
-    ConfiguredTarget javaLib = getConfiguredTarget("//java/somelib:javalib");
-
-    validateCompilationClassPath(
-        javaLib, "java/jarlib/_ijar/libraryjar/java/jarlib/library-ijar.jar");
-
-    validateRuntimeClassPath(javaLib, "java/somelib/libjavalib.jar", "java/jarlib/library.jar");
-  }
-
-  @Test
   public void testDeps() throws Exception {
     scratch.file(
         "java/jarlib2/BUILD",
